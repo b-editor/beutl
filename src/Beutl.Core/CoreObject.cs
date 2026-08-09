@@ -189,6 +189,26 @@ public abstract class CoreObject : ICoreObject
 
     public void SetValue<TValue>(CoreProperty<TValue> property, TValue? value)
     {
+        SetValueCore(property, value, forceReferenceReplacement: false);
+    }
+
+    internal void ReplaceValue<TValue>(CoreProperty<TValue> property, TValue? value)
+    {
+        SetValueCore(property, value, forceReferenceReplacement: true);
+    }
+
+    internal void ReplaceValue(CoreProperty property, object? value)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+
+        property.RouteReplaceValue(this, value);
+    }
+
+    private void SetValueCore<TValue>(
+        CoreProperty<TValue> property,
+        TValue? value,
+        bool forceReferenceReplacement)
+    {
         if (value != null && !value.GetType().IsAssignableTo(property.PropertyType))
         {
             throw new InvalidOperationException(
@@ -215,7 +235,7 @@ public abstract class CoreObject : ICoreObject
             oldEntry is Entry<TValue> entryT)
         {
             TValue? oldValue = entryT.Value;
-            if (!EqualityComparer<TValue>.Default.Equals(oldValue, value))
+            if (HasValueReplacement(oldValue, value, forceReferenceReplacement))
             {
                 entryT.Value = value;
                 RaisePropertyChanged(property, metadata, value, oldValue);
@@ -223,13 +243,23 @@ public abstract class CoreObject : ICoreObject
         }
         else
         {
-            if (!EqualityComparer<TValue>.Default.Equals(metadata.DefaultValue, value))
+            if (HasValueReplacement(metadata.DefaultValue, value, forceReferenceReplacement))
             {
                 entryT = new Entry<TValue> { Value = value, };
                 Values[property.Id] = entryT;
                 RaisePropertyChanged(property, metadata, value, metadata.DefaultValue);
             }
         }
+    }
+
+    private static bool HasValueReplacement<TValue>(
+        TValue? current,
+        TValue? replacement,
+        bool forceReferenceReplacement)
+    {
+        return forceReferenceReplacement && !typeof(TValue).IsValueType
+            ? !ReferenceEquals(current, replacement)
+            : !EqualityComparer<TValue>.Default.Equals(current, replacement);
     }
 
     public void SetValue(CoreProperty property, object? value)
@@ -275,10 +305,21 @@ public abstract class CoreObject : ICoreObject
 
     protected bool SetAndRaise<T>(CoreProperty<T> property, ref T field, T value)
     {
+        return SetAndRaise(property, ref field, value, forceReferenceReplacement: false);
+    }
+
+    protected bool SetAndRaise<T>(
+        CoreProperty<T> property,
+        ref T field,
+        T value,
+        bool forceReferenceReplacement)
+    {
         CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
         ValidateProperty(metadata, property, ref value!);
 
-        bool result = !EqualityComparer<T>.Default.Equals(field, value);
+        bool result = forceReferenceReplacement && !typeof(T).IsValueType
+            ? !ReferenceEquals(field, value)
+            : !EqualityComparer<T>.Default.Equals(field, value);
         if (result)
         {
             T old = field;

@@ -873,22 +873,12 @@ public class Scene : ProjectItem, INotifyEdited
                 bool ambiguousPositionalIdentity = false;
                 if (!hasPersistedIdentity && graphPath.Positional != graphPath.Stable)
                 {
-                    string positionalIdentityKey = CreateRecoveredDescendantIdentityKey(
+                    hasPersistedIdentity = TryGetRecoveredDescendantPositionalIdentity(
+                        persistedDescendantIdentities,
                         relativePath,
-                        graphPath.Positional);
-                    hasPersistedIdentity = persistedDescendantIdentities.TryGetValue(
-                        positionalIdentityKey,
-                        out persistedIdentityId);
-                    if (hasPersistedIdentity
-                        && !IsRecoveredDescendantPositionalIdentityUnambiguous(
-                            persistedDescendantIdentities,
-                            relativePath,
-                            graphPath.Positional,
-                            persistedIdentityId))
-                    {
-                        hasPersistedIdentity = false;
-                        ambiguousPositionalIdentity = true;
-                    }
+                        graphPath.Positional,
+                        out persistedIdentityId,
+                        out ambiguousPositionalIdentity);
                 }
 
                 if (!hasPersistedIdentity
@@ -1298,17 +1288,14 @@ public class Scene : ProjectItem, INotifyEdited
             FilePathBoundary.ResolveDeepestExistingTarget(sourceRoot));
         string elementPath = Path.GetFullPath(elementUri.LocalPath);
         string resolvedElementPath = FilePathBoundary.ResolveDeepestExistingTarget(elementPath);
-        StringComparison comparison = OperatingSystem.IsLinux()
-            ? StringComparison.Ordinal
-            : StringComparison.OrdinalIgnoreCase;
-        if (!IsPathInsideRoot(resolvedSourceRoot, resolvedElementPath, comparison))
+        if (!FilePathBoundary.IsPathInsideRoot(resolvedSourceRoot, resolvedElementPath))
         {
             return null;
         }
 
         string elementDirectory = Path.GetDirectoryName(elementPath)
                                   ?? throw new JsonException("Recovered element has no source directory.");
-        var seenPaths = new HashSet<string>(StringComparer.FromComparison(comparison));
+        var seenPaths = new HashSet<string>(FilePathBoundary.Comparer);
         var result = new List<SuppressedReferencedStorageSource>();
         foreach (string sourcePath in EnumerateSerializedGraphObjects(element)
             .OfType<CoreObject>()
@@ -1316,8 +1303,11 @@ public class Scene : ProjectItem, INotifyEdited
             .Select(static coreObject => Path.GetFullPath(coreObject.Uri!.LocalPath)))
         {
             string resolvedSourcePath = FilePathBoundary.ResolveDeepestExistingTarget(sourcePath);
-            if (string.Equals(resolvedSourcePath, resolvedElementPath, comparison)
-                || !IsPathInsideRoot(resolvedSourceRoot, resolvedSourcePath, comparison)
+            if (string.Equals(
+                    resolvedSourcePath,
+                    resolvedElementPath,
+                    FilePathBoundary.Comparison)
+                || !FilePathBoundary.IsPathInsideRoot(resolvedSourceRoot, resolvedSourcePath)
                 || !File.Exists(sourcePath)
                 || !seenPaths.Add(resolvedSourcePath))
             {
@@ -1331,18 +1321,6 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         return result.Count > 0 ? result.ToArray() : null;
-    }
-
-    private static bool IsPathInsideRoot(
-        string root,
-        string candidate,
-        StringComparison comparison)
-    {
-        string prefix = Path.EndsInDirectorySeparator(root)
-            ? root
-            : root + Path.DirectorySeparatorChar;
-        return string.Equals(candidate, root, comparison)
-               || candidate.StartsWith(prefix, comparison);
     }
 
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
@@ -1411,58 +1389,68 @@ public class Scene : ProjectItem, INotifyEdited
             return;
         }
 
-        IEnumerable<CoreObject> ownerRoots = Children.Cast<CoreObject>()
-            .Concat(Layers)
-            .Concat(Markers);
-        foreach (CoreObject ownerRoot in ownerRoots)
+        var rewriteState = new RecoveredReferenceRewriteState();
+        foreach (CoreObject coreObject in EnumerateSerializedGraphObjects(this).OfType<CoreObject>())
         {
-            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-            foreach (CoreObject coreObject in EnumerateSerializedGraphObjects(ownerRoot).OfType<CoreObject>())
+            foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
             {
-                foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
-                {
-                    if (!property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
-                    {
-                        continue;
-                    }
-
-                    object? currentValue = coreObject.GetValue(property);
-                    object? migratedValue = MigrateRecoveredReferenceValue(currentValue, visited);
-                    if (!Equals(currentValue, migratedValue)
-                        && property is not IStaticProperty { CanWrite: false })
-                    {
-                        coreObject.SetValue(property, migratedValue);
-                    }
-                }
-
-                if (coreObject is not EngineObject engineObject)
+                if (!property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
                 {
                     continue;
                 }
 
-                foreach (IProperty property in engineObject.Properties)
+                object? currentValue = coreObject.GetValue(property);
+                object? migratedValue = MigrateRecoveredReferenceValue(currentValue, rewriteState);
+                if (HasReferenceRewrite(currentValue, migratedValue)
+                    && property is not IStaticProperty { CanWrite: false })
                 {
-                    object? currentValue = property.CurrentValue;
-                    object? migratedValue = MigrateRecoveredReferenceValue(currentValue, visited);
-                    if (!Equals(currentValue, migratedValue))
+                    coreObject.ReplaceValue(property, migratedValue);
+                }
+            }
+
+            if (coreObject is not EngineObject engineObject)
+            {
+                continue;
+            }
+
+            foreach (IProperty property in engineObject.Properties)
+            {
+                object? currentValue = property.CurrentValue;
+                object? migratedValue = MigrateRecoveredReferenceValue(currentValue, rewriteState);
+                if (HasReferenceRewrite(currentValue, migratedValue))
+                {
+                    if (property is IPropertyValueReplacer replacer)
+                    {
+                        replacer.ReplaceCurrentValue(migratedValue);
+                    }
+                    else
                     {
                         property.CurrentValue = migratedValue;
                     }
+                }
 
-                    if (property.Expression is IReferenceExpression referenceExpression
-                        && TryGetMigratedId(referenceExpression.ObjectId, out Guid migratedExpressionId)
-                        && referenceExpression.Rebind(migratedExpressionId) is { } reboundExpression)
-                    {
-                        property.Expression = (IExpression)reboundExpression;
-                    }
+                if (property.Expression is IReferenceExpression referenceExpression
+                    && TryGetMigratedId(referenceExpression.ObjectId, out Guid migratedExpressionId)
+                    && referenceExpression.Rebind(migratedExpressionId) is { } reboundExpression)
+                {
+                    property.Expression = (IExpression)reboundExpression;
+                }
 
-                    if (property.Animation is IKeyFrameAnimation animation)
+                if (property.Animation is IKeyFrameAnimation animation)
+                {
+                    foreach (IKeyFrame keyFrame in animation.KeyFrames)
                     {
-                        foreach (IKeyFrame keyFrame in animation.KeyFrames)
+                        object? keyFrameValue = keyFrame.Value;
+                        object? migratedKeyFrameValue = MigrateRecoveredReferenceValue(
+                            keyFrameValue,
+                            rewriteState);
+                        if (HasReferenceRewrite(keyFrameValue, migratedKeyFrameValue))
                         {
-                            object? keyFrameValue = keyFrame.Value;
-                            object? migratedKeyFrameValue = MigrateRecoveredReferenceValue(keyFrameValue, visited);
-                            if (!Equals(keyFrameValue, migratedKeyFrameValue))
+                            if (keyFrame is IKeyFrameValueReplacer replacer)
+                            {
+                                replacer.ReplaceValue(migratedKeyFrameValue);
+                            }
+                            else
                             {
                                 keyFrame.Value = migratedKeyFrameValue;
                             }
@@ -1489,30 +1477,31 @@ public class Scene : ProjectItem, INotifyEdited
             return reference.Resolved(target);
         }
 
-        try
-        {
-            return Activator.CreateInstance(reference.GetType(), migratedId) ?? reference;
-        }
-        catch (MissingMethodException)
-        {
-            return reference;
-        }
+        return reference;
     }
 
-    private object? MigrateRecoveredReferenceValue(object? value, ISet<object> visited)
+    private object? MigrateRecoveredReferenceValue(
+        object? value,
+        RecoveredReferenceRewriteState state)
     {
         if (value is IReference reference)
         {
-            return TryGetMigratedId(reference.Id, out Guid migratedId)
+            object rewritten = TryGetMigratedId(reference.Id, out Guid migratedId)
                 ? ResolveMigratedReference(reference, migratedId)
                 : value;
+            if (HasReferenceRewrite(value, rewritten))
+            {
+                state.RewriteCount++;
+            }
+
+            return rewritten;
         }
 
         if (value is IOptional { HasValue: true } optional)
         {
             object? item = optional.ToObject().Value;
-            object? migratedItem = MigrateRecoveredReferenceValue(item, visited);
-            if (!Equals(item, migratedItem))
+            object? migratedItem = MigrateRecoveredReferenceValue(item, state);
+            if (HasReferenceRewrite(item, migratedItem))
             {
                 try
                 {
@@ -1530,38 +1519,116 @@ public class Scene : ProjectItem, INotifyEdited
             return value;
         }
 
-        if (value is null or string
-            || (!value.GetType().IsValueType && !visited.Add(value)))
+        if (value is null or string)
         {
             return value;
         }
 
-        if (value is IDictionary dictionary)
+        bool trackReference = !value.GetType().IsValueType;
+        if (trackReference)
         {
-            foreach (object key in dictionary.Keys.Cast<object>().ToArray())
+            if (state.Memo.TryGetValue(value, out object? cached))
             {
-                object? item = dictionary[key];
-                object? migratedItem = MigrateRecoveredReferenceValue(item, visited);
-                if (!Equals(item, migratedItem))
-                {
-                    dictionary[key] = migratedItem;
-                }
+                return cached;
             }
-        }
-        else if (value is IList list)
-        {
-            for (int i = 0; i < list.Count; i++)
+
+            if (!state.Active.Add(value))
             {
-                object? item = list[i];
-                object? migratedItem = MigrateRecoveredReferenceValue(item, visited);
-                if (!Equals(item, migratedItem))
-                {
-                    list[i] = migratedItem;
-                }
+                return value;
             }
         }
 
-        return value;
+        try
+        {
+            object? rewrittenValue = value;
+            if (value is IReferenceRewritable rewritable)
+            {
+                int rewriteCount = state.RewriteCount;
+                object rewritten = rewritable.RewriteReferences(
+                    new RecoveredReferenceRewriteContext(this, state));
+                if (state.RewriteCount != rewriteCount
+                    && rewritten is not null
+                    && rewritten.GetType() == value.GetType())
+                {
+                    rewrittenValue = rewritten;
+                }
+            }
+            else if (value is IDictionary dictionary)
+            {
+                foreach (object key in dictionary.Keys.Cast<object>().ToArray())
+                {
+                    object? item = dictionary[key];
+                    object? migratedItem = MigrateRecoveredReferenceValue(item, state);
+                    if (HasReferenceRewrite(item, migratedItem))
+                    {
+                        dictionary[key] = migratedItem;
+                    }
+                }
+            }
+            else if (value is IList list)
+            {
+                for (int i = 0; i < list.Count; i++)
+                {
+                    object? item = list[i];
+                    object? migratedItem = MigrateRecoveredReferenceValue(item, state);
+                    if (HasReferenceRewrite(item, migratedItem))
+                    {
+                        list[i] = migratedItem;
+                    }
+                }
+            }
+
+            if (trackReference)
+            {
+                state.Memo[value] = rewrittenValue;
+            }
+
+            return rewrittenValue;
+        }
+        finally
+        {
+            if (trackReference)
+            {
+                state.Active.Remove(value);
+            }
+        }
+    }
+
+    private static bool HasReferenceRewrite(object? current, object? rewritten)
+    {
+        if (ReferenceEquals(current, rewritten))
+        {
+            return false;
+        }
+
+        if (current is null || rewritten is null)
+        {
+            return true;
+        }
+
+        return current.GetType().IsValueType
+            ? !Equals(current, rewritten)
+            : true;
+    }
+
+    private sealed class RecoveredReferenceRewriteContext(
+        Scene scene,
+        RecoveredReferenceRewriteState state) : IReferenceRewriteContext
+    {
+        public T Rewrite<T>(T value)
+        {
+            object? rewritten = scene.MigrateRecoveredReferenceValue(value, state);
+            return rewritten is T typed ? typed : value;
+        }
+    }
+
+    private sealed class RecoveredReferenceRewriteState
+    {
+        public HashSet<object> Active { get; } = new(ReferenceEqualityComparer.Instance);
+
+        public Dictionary<object, object?> Memo { get; } = new(ReferenceEqualityComparer.Instance);
+
+        public int RewriteCount { get; set; }
     }
 
     private static IEnumerable<object> EnumerateSerializedGraphObjects(object root)
@@ -1819,25 +1886,34 @@ public class Scene : ProjectItem, INotifyEdited
             AppendSerializedGraphPath(path.Positional, kind, value));
     }
 
-    private static bool IsRecoveredDescendantPositionalIdentityUnambiguous(
+    private static bool TryGetRecoveredDescendantPositionalIdentity(
         IReadOnlyDictionary<string, Guid> identities,
         string relativePath,
         string positionalPath,
-        Guid expectedId)
+        out Guid identityId,
+        out bool ambiguous)
     {
         string keyPrefix = $"{relativePath}!path:";
         string normalizedPath = NormalizeSerializedGraphPositionalPath(positionalPath);
+        var candidates = new HashSet<Guid>();
         foreach ((string key, Guid id) in identities)
         {
-            if (id != expectedId
-                && key.StartsWith(keyPrefix, StringComparison.Ordinal)
+            if (key.StartsWith(keyPrefix, StringComparison.Ordinal)
                 && NormalizeSerializedGraphPositionalPath(key[keyPrefix.Length..]) == normalizedPath)
             {
-                return false;
+                candidates.Add(id);
             }
         }
 
-        return true;
+        ambiguous = candidates.Count > 1;
+        if (candidates.Count == 1)
+        {
+            identityId = candidates.Single();
+            return true;
+        }
+
+        identityId = Guid.Empty;
+        return false;
     }
 
     private static string NormalizeSerializedGraphPositionalPath(string path)

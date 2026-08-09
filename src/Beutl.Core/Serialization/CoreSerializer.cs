@@ -453,9 +453,6 @@ public static class CoreSerializer
                 authorizedRootPath
                 ?? Path.GetDirectoryName(rehomedUri.LocalPath)
                 ?? throw new JsonException("Rehomed element has no destination directory.")));
-        StringComparison comparison = OperatingSystem.IsLinux()
-            ? StringComparison.Ordinal
-            : StringComparison.OrdinalIgnoreCase;
         var copies = new List<(SuppressedReferencedStorageSource Source, string Destination)>();
         foreach (SuppressedReferencedStorageSource source in referencedSources)
         {
@@ -469,7 +466,7 @@ public static class CoreSerializer
 
             string destination = Path.GetFullPath(Path.Combine(destinationRoot, relativePath));
             string resolvedDestination = FilePathBoundary.ResolveDeepestExistingTarget(destination);
-            if (!IsPathInsideRoot(destinationRoot, resolvedDestination, comparison))
+            if (!FilePathBoundary.IsPathInsideRoot(destinationRoot, resolvedDestination))
             {
                 throw new JsonException($"Retained sidecar escapes the Save As root: {relativePath}");
             }
@@ -481,18 +478,6 @@ public static class CoreSerializer
         {
             WriteBytesAtomicallyIfMissing(destination, source.RawBytes);
         }
-    }
-
-    private static bool IsPathInsideRoot(
-        string root,
-        string candidate,
-        StringComparison comparison)
-    {
-        string prefix = Path.EndsInDirectorySeparator(root)
-            ? root
-            : root + Path.DirectorySeparatorChar;
-        return string.Equals(candidate, root, comparison)
-               || candidate.StartsWith(prefix, comparison);
     }
 
     private static void WriteBytesAtomicallyIfMissing(string path, byte[] bytes)

@@ -21,3 +21,8 @@ public interface IKeyFrame : ICoreObject, INotifyEdited, IHierarchical
 
     //void SetDuration(TimeSpan timeSpan);
 }
+
+internal interface IKeyFrameValueReplacer
+{
+    void ReplaceValue(object? value);
+}

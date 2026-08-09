@@ -70,6 +70,8 @@ public abstract class CoreProperty : ICoreProperty
 
     internal abstract void RouteSetValue(ICoreObject o, object? value);
 
+    internal abstract void RouteReplaceValue(CoreObject o, object? value);
+
     internal abstract object? RouteGetValue(ICoreObject o);
 
     internal abstract void NotifyChanged(CorePropertyChangedEventArgs e);
@@ -249,6 +251,18 @@ public class CoreProperty<T>(
         else
         {
             o.SetValue<T>(this, default);
+        }
+    }
+
+    internal override void RouteReplaceValue(CoreObject o, object? value)
+    {
+        if (value is T typed)
+        {
+            o.ReplaceValue(this, typed);
+        }
+        else
+        {
+            o.ReplaceValue<T>(this, default);
         }
     }
 

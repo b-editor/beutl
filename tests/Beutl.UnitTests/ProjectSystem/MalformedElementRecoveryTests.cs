@@ -10,6 +10,7 @@ using Beutl.Composition;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
+using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
@@ -73,6 +74,99 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [SuppressResourceClassGeneration]
+    public sealed class WrappedReferenceHolder : EngineObject
+    {
+        public WrappedReferenceHolder()
+        {
+            ScanProperties<WrappedReferenceHolder>();
+        }
+
+        public IProperty<ReferenceEnvelope?> Target { get; }
+            = Property.Create<ReferenceEnvelope?>();
+
+        public IProperty<ReferenceEnvelope?> AliasTarget { get; }
+            = Property.Create<ReferenceEnvelope?>();
+
+        public IProperty<EqualityIgnoringReferenceEnvelope?> EqualityTarget { get; }
+            = Property.Create<EqualityIgnoringReferenceEnvelope?>();
+
+        public IProperty<EqualityIgnoringReferenceEnvelope?> AnimatedTarget { get; }
+            = Property.CreateAnimatable<EqualityIgnoringReferenceEnvelope?>();
+
+        public IProperty<PassiveReferenceEnvelope?> PassiveTarget { get; }
+            = Property.Create<PassiveReferenceEnvelope?>();
+
+        public IProperty<InvalidReferenceEnvelope?> InvalidTarget { get; }
+            = Property.Create<InvalidReferenceEnvelope?>();
+
+        public IProperty<CyclicReferenceEnvelope?> CyclicTarget { get; }
+            = Property.Create<CyclicReferenceEnvelope?>();
+    }
+
+    public sealed record ReferenceEnvelope(
+        Reference<Element> Target,
+        Optional<Reference<Element>> OptionalTarget,
+        string State) : IReferenceRewritable
+    {
+        public object RewriteReferences(IReferenceRewriteContext context)
+        {
+            return this with
+            {
+                Target = context.Rewrite(Target),
+                OptionalTarget = context.Rewrite(OptionalTarget),
+            };
+        }
+    }
+
+    public sealed record PassiveReferenceEnvelope(Reference<Element> Target, string State);
+
+    public sealed class EqualityIgnoringReferenceEnvelope(
+        Reference<Element> target,
+        string state) : IReferenceRewritable
+    {
+        public Reference<Element> Target { get; } = target;
+
+        public string State { get; } = state;
+
+        public object RewriteReferences(IReferenceRewriteContext context)
+        {
+            return new EqualityIgnoringReferenceEnvelope(context.Rewrite(Target), State);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is EqualityIgnoringReferenceEnvelope other && State == other.State;
+        }
+
+        public override int GetHashCode()
+        {
+            return State.GetHashCode(StringComparison.Ordinal);
+        }
+    }
+
+    public sealed record InvalidReferenceEnvelope(Reference<Element> Target) : IReferenceRewritable
+    {
+        public object RewriteReferences(IReferenceRewriteContext context)
+        {
+            return "invalid replacement";
+        }
+    }
+
+    public sealed class CyclicReferenceEnvelope(Reference<Element> target) : IReferenceRewritable
+    {
+        public Reference<Element> Target { get; private set; } = target;
+
+        public CyclicReferenceEnvelope? Self { get; set; }
+
+        public object RewriteReferences(IReferenceRewriteContext context)
+        {
+            Target = context.Rewrite(Target);
+            Self = context.Rewrite(Self);
+            return this;
+        }
+    }
+
+    [SuppressResourceClassGeneration]
     public sealed class DictionaryTransformHolder : EngineObject
     {
         public DictionaryTransformHolder()
@@ -113,10 +207,22 @@ public sealed class MalformedElementRecoveryTests
         public IProperty<Reference<Transform>> Target { get; } = Property.Create<Reference<Transform>>();
     }
 
+    [SuppressResourceClassGeneration]
+    public sealed class DrawableReferenceHolder : EngineObject
+    {
+        public DrawableReferenceHolder()
+        {
+            ScanProperties<DrawableReferenceHolder>();
+        }
+
+        public IProperty<Reference<Drawable>> Target { get; } = Property.Create<Reference<Drawable>>();
+    }
+
     public sealed class RegisteredRecoveryElement : Element
     {
         public static readonly CoreProperty<Transform?> PluginTransformProperty;
         public static readonly CoreProperty<Reference<Element>> PluginTargetProperty;
+        public static readonly CoreProperty<EqualityIgnoringReferenceEnvelope?> PluginWrapperProperty;
 
         static RegisteredRecoveryElement()
         {
@@ -125,6 +231,10 @@ public sealed class MalformedElementRecoveryTests
                 .Register();
             PluginTargetProperty = ConfigureProperty<Reference<Element>, RegisteredRecoveryElement>(
                     nameof(PluginTarget))
+                .Register();
+            PluginWrapperProperty = ConfigureProperty<
+                    EqualityIgnoringReferenceEnvelope?,
+                    RegisteredRecoveryElement>(nameof(PluginWrapper))
                 .Register();
         }
 
@@ -138,6 +248,12 @@ public sealed class MalformedElementRecoveryTests
         {
             get => GetValue(PluginTargetProperty);
             set => SetValue(PluginTargetProperty, value);
+        }
+
+        public EqualityIgnoringReferenceEnvelope? PluginWrapper
+        {
+            get => GetValue(PluginWrapperProperty);
+            set => SetValue(PluginWrapperProperty, value);
         }
     }
 
@@ -159,6 +275,24 @@ public sealed class MalformedElementRecoveryTests
         }
     }
 
+    public sealed class RegisteredRecoveryScene : Scene
+    {
+        public static readonly CoreProperty<Reference<Element>> PluginTargetProperty;
+
+        static RegisteredRecoveryScene()
+        {
+            PluginTargetProperty = ConfigureProperty<Reference<Element>, RegisteredRecoveryScene>(
+                    nameof(PluginTarget))
+                .Register();
+        }
+
+        public Reference<Element> PluginTarget
+        {
+            get => GetValue(PluginTargetProperty);
+            set => SetValue(PluginTargetProperty, value);
+        }
+    }
+
     private sealed class CustomReferenceExpression : IReferenceExpression
     {
         public CustomReferenceExpression(Guid objectId)
@@ -175,6 +309,27 @@ public sealed class MalformedElementRecoveryTests
         public string ExpressionString => ObjectId.ToString();
 
         public Type ResultType => typeof(Element);
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
+    }
+
+    private sealed class StatefulReferenceExpression(Guid objectId, string propertyPath) : IReferenceExpression
+    {
+        public Guid ObjectId { get; } = objectId;
+
+        public string PropertyPath { get; } = propertyPath;
+
+        public bool HasPropertyPath => !string.IsNullOrEmpty(PropertyPath);
+
+        public string ExpressionString => $"{ObjectId}.{PropertyPath}";
+
+        public Type ResultType => typeof(Element);
+
+        public string State { get; init; } = string.Empty;
 
         public bool Validate(out string? error)
         {
@@ -694,6 +849,17 @@ public sealed class MalformedElementRecoveryTests
     public void ReferenceExpression_Rebind_ReturnsNullForUnsupportedCustomImplementation()
     {
         var expression = new CustomReferenceExpression(Guid.NewGuid());
+
+        Assert.That(((IReferenceExpression)expression).Rebind(Guid.NewGuid()), Is.Null);
+    }
+
+    [Test]
+    public void ReferenceExpression_Rebind_DoesNotGuessHowToPreserveCustomState()
+    {
+        var expression = new StatefulReferenceExpression(Guid.NewGuid(), "Value")
+        {
+            State = "plugin-state",
+        };
 
         Assert.That(((IReferenceExpression)expression).Rebind(Guid.NewGuid()), Is.Null);
     }
@@ -1389,6 +1555,63 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_UniqueDirectFallbackSurvivesEarlierObjectRemovalAndNewId()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("repaired.belm", "holder.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element repairedSource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        repairedSource.AddObject(new RectShape());
+        CoreSerializer.StoreToUri(repairedSource, repairedSource.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
+        JsonObject fallbackJson = json[nameof(Element.Objects)]!.AsArray()[1]!.AsObject();
+        fallbackJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Shapes:MissingShape";
+        File.WriteAllText(elementPaths[0], json.ToJsonString());
+
+        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recoveredElement = recoveredScene.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[0]);
+        Guid placeholderId = ((CoreObject)recoveredElement.Objects[1]).Id;
+        Element holder = recoveredScene.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        var referenceHolder = new DrawableReferenceHolder();
+        referenceHolder.Target.CurrentValue = new Reference<Drawable>(placeholderId);
+        holder.AddObject(referenceHolder);
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        Guid repairedId = Guid.NewGuid();
+        var repaired = new Element
+        {
+            Id = repairedSource.Id,
+            Name = "Repaired",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPaths[0]),
+        };
+        repaired.AddObject(new RectShape { Id = repairedId });
+        CoreSerializer.StoreToUri(repaired, repaired.Uri!);
+
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var application = new BeutlApplication();
+        var project = new Project();
+        application.Project = project;
+        project.Items.Add(reloaded);
+        var reloadedShape = (RectShape)reloaded.Children.Single(
+                child => child.Uri!.LocalPath == elementPaths[0]).Objects.Single();
+        Reference<Drawable> migratedReference = reloaded.Children.Single(
+                child => child.Uri!.LocalPath == elementPaths[1]).Objects
+            .OfType<DrawableReferenceHolder>()
+            .Single()
+            .Target.CurrentValue;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reloadedShape.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedReference.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedReference.Value, Is.SameAs(reloadedShape));
+        });
+    }
+
+    [Test]
     public void Restore_AmbiguousRepairedDescendantAfterEarlierRemovalDoesNotMigratePlaceholders()
     {
         (Uri sceneUri, string[] elementPaths) =
@@ -1560,6 +1783,112 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void MigrateRecoveredElementReferences_RewritesOptInWrappersWithoutTouchingOtherPocos()
+    {
+        Guid originalId = Guid.NewGuid();
+        var migrated = new Element
+        {
+            Id = Guid.NewGuid(),
+            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
+        };
+        var serializedWrapper = new ReferenceEnvelope(
+            new Reference<Element>(originalId),
+            new Optional<Reference<Element>>(new Reference<Element>(originalId)),
+            "plugin-state");
+        string json = JsonSerializer.Serialize(serializedWrapper, JsonHelper.SerializerOptions);
+        ReferenceEnvelope wrapper = JsonSerializer.Deserialize<ReferenceEnvelope>(
+            json,
+            JsonHelper.SerializerOptions)!;
+        var passiveWrapper = new PassiveReferenceEnvelope(
+            new Reference<Element>(originalId),
+            "passive-state");
+        var equalityWrapper = new EqualityIgnoringReferenceEnvelope(
+            new Reference<Element>(originalId),
+            "equality-state");
+        var coreWrapper = new EqualityIgnoringReferenceEnvelope(
+            new Reference<Element>(originalId),
+            "core-state");
+        var keyFrameWrapper = new EqualityIgnoringReferenceEnvelope(
+            new Reference<Element>(originalId),
+            "keyframe-state");
+        var invalidWrapper = new InvalidReferenceEnvelope(new Reference<Element>(originalId));
+        var cyclicWrapper = new CyclicReferenceEnvelope(new Reference<Element>(originalId));
+        cyclicWrapper.Self = cyclicWrapper;
+        var holder = new WrappedReferenceHolder();
+        holder.Target.CurrentValue = wrapper;
+        holder.AliasTarget.CurrentValue = wrapper;
+        holder.EqualityTarget.CurrentValue = equalityWrapper;
+        var animation = new KeyFrameAnimation<EqualityIgnoringReferenceEnvelope?>();
+        var keyFrame = new KeyFrame<EqualityIgnoringReferenceEnvelope?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = keyFrameWrapper,
+        };
+        animation.KeyFrames.Add(keyFrame);
+        holder.AnimatedTarget.Animation = animation;
+        holder.PassiveTarget.CurrentValue = passiveWrapper;
+        holder.InvalidTarget.CurrentValue = invalidWrapper;
+        holder.CyclicTarget.CurrentValue = cyclicWrapper;
+        var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
+        owner.AddObject(holder);
+        var registeredOwner = new RegisteredRecoveryElement
+        {
+            Uri = new Uri(Path.Combine(_root, "registered-owner.belm")),
+            PluginWrapper = coreWrapper,
+        };
+        int corePropertyChanges = 0;
+        int keyFrameChanges = 0;
+        registeredOwner.PropertyChanged += (_, e) =>
+            corePropertyChanges += e.PropertyName == nameof(RegisteredRecoveryElement.PluginWrapper) ? 1 : 0;
+        keyFrame.PropertyChanged += (_, e) =>
+            keyFrameChanges += e.PropertyName == nameof(IKeyFrame.Value) ? 1 : 0;
+        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
+        scene.Children.Add(migrated);
+        scene.Children.Add(owner);
+        scene.Children.Add(registeredOwner);
+        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(scene)!;
+        migrations[originalId] = migrated.Id;
+        MethodInfo method = typeof(Scene).GetMethod(
+            "MigrateRecoveredElementReferences",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(scene, null);
+
+        ReferenceEnvelope rewritten = holder.Target.CurrentValue!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(rewritten, Is.Not.SameAs(wrapper));
+            Assert.That(rewritten.State, Is.EqualTo("plugin-state"));
+            Assert.That(rewritten.Target.Id, Is.EqualTo(migrated.Id));
+            Assert.That(rewritten.Target.Value, Is.SameAs(migrated));
+            Assert.That(rewritten.OptionalTarget.Value.Id, Is.EqualTo(migrated.Id));
+            Assert.That(rewritten.OptionalTarget.Value.Value, Is.SameAs(migrated));
+            Assert.That(holder.AliasTarget.CurrentValue, Is.SameAs(rewritten));
+            Assert.That(holder.AliasTarget.CurrentValue!.Target.Id, Is.EqualTo(migrated.Id));
+            Assert.That(holder.EqualityTarget.CurrentValue, Is.Not.SameAs(equalityWrapper));
+            Assert.That(holder.EqualityTarget.CurrentValue!.State, Is.EqualTo("equality-state"));
+            Assert.That(holder.EqualityTarget.CurrentValue.Target.Id, Is.EqualTo(migrated.Id));
+            Assert.That(registeredOwner.PluginWrapper, Is.Not.SameAs(coreWrapper));
+            Assert.That(registeredOwner.PluginWrapper!.State, Is.EqualTo("core-state"));
+            Assert.That(registeredOwner.PluginWrapper.Target.Id, Is.EqualTo(migrated.Id));
+            Assert.That(corePropertyChanges, Is.EqualTo(1));
+            Assert.That(keyFrame.Value, Is.Not.SameAs(keyFrameWrapper));
+            Assert.That(keyFrame.Value!.State, Is.EqualTo("keyframe-state"));
+            Assert.That(keyFrame.Value.Target.Id, Is.EqualTo(migrated.Id));
+            Assert.That(keyFrameChanges, Is.EqualTo(1));
+            Assert.That(holder.PassiveTarget.CurrentValue, Is.SameAs(passiveWrapper));
+            Assert.That(holder.PassiveTarget.CurrentValue!.Target.Id, Is.EqualTo(originalId));
+            Assert.That(holder.InvalidTarget.CurrentValue, Is.SameAs(invalidWrapper));
+            Assert.That(holder.InvalidTarget.CurrentValue!.Target.Id, Is.EqualTo(originalId));
+            Assert.That(holder.CyclicTarget.CurrentValue, Is.SameAs(cyclicWrapper));
+            Assert.That(holder.CyclicTarget.CurrentValue!.Target.Id, Is.EqualTo(migrated.Id));
+            Assert.That(holder.CyclicTarget.CurrentValue.Self, Is.SameAs(cyclicWrapper));
+        });
+    }
+
+    [Test]
     public void MigrateRecoveredElementReferences_TraversesLayerAndMarkerGraphs()
     {
         Guid originalId = Guid.NewGuid();
@@ -1630,6 +1959,38 @@ public sealed class MalformedElementRecoveryTests
         {
             Assert.That(holder.PluginTarget.Id, Is.EqualTo(migrated.Id));
             Assert.That(holder.PluginTarget.Value, Is.SameAs(migrated));
+        });
+    }
+
+    [Test]
+    public void MigrateRecoveredElementReferences_TraversesRegisteredSceneProperties()
+    {
+        Guid originalId = Guid.NewGuid();
+        var migrated = new Element
+        {
+            Id = Guid.NewGuid(),
+            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
+        };
+        var scene = new RegisteredRecoveryScene
+        {
+            Uri = new Uri(Path.Combine(_root, "migration.scene")),
+            PluginTarget = new Reference<Element>(originalId),
+        };
+        scene.Children.Add(migrated);
+        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(scene)!;
+        migrations[originalId] = migrated.Id;
+        MethodInfo method = typeof(Scene).GetMethod(
+            "MigrateRecoveredElementReferences",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(scene, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.PluginTarget.Id, Is.EqualTo(migrated.Id));
+            Assert.That(scene.PluginTarget.Value, Is.SameAs(migrated));
         });
     }
 

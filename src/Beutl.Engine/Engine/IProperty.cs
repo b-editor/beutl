@@ -61,6 +61,18 @@ public interface IProperty : INotifyEdited
     JsonNode? SerializeExpression();
 }
 
+/// <summary>
+/// Replaces a property's current value when a distinct reference compares equal to the current one.
+/// </summary>
+public interface IPropertyValueReplacer
+{
+    /// <summary>
+    /// Validates and installs <paramref name="value"/> using reference identity for reference types
+    /// and normal equality for value types, while preserving the property's notification semantics.
+    /// </summary>
+    void ReplaceCurrentValue(object? value);
+}
+
 public interface IProperty<T> : IProperty
 {
     new T DefaultValue { get; }

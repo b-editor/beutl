@@ -2,9 +2,24 @@
 
 internal static class FilePathBoundary
 {
-    private static readonly StringComparison s_comparison = OperatingSystem.IsLinux()
-        ? StringComparison.Ordinal
-        : StringComparison.OrdinalIgnoreCase;
+    private static readonly StringComparison s_comparison = OperatingSystem.IsWindows()
+        ? StringComparison.OrdinalIgnoreCase
+        : StringComparison.Ordinal;
+
+    public static StringComparison Comparison => s_comparison;
+
+    public static StringComparer Comparer { get; } = OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase
+        : StringComparer.Ordinal;
+
+    public static bool IsPathInsideRoot(string root, string candidate)
+    {
+        string prefix = Path.EndsInDirectorySeparator(root)
+            ? root
+            : root + Path.DirectorySeparatorChar;
+        return string.Equals(candidate, root, s_comparison)
+               || candidate.StartsWith(prefix, s_comparison);
+    }
 
     public static string ResolveDeepestExistingTarget(string path)
     {

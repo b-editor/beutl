@@ -4,12 +4,46 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.ProjectSystem;
+using Beutl.Validation;
 
 namespace Beutl.UnitTests.Engine;
 
 [TestFixture]
 public class AnimatablePropertyTests
 {
+    private sealed class EqualityValue(string key, string state)
+    {
+        public string Key { get; } = key;
+
+        public string State { get; } = state;
+
+        public override bool Equals(object? obj)
+        {
+            return obj is EqualityValue other && Key == other.Key;
+        }
+
+        public override int GetHashCode()
+        {
+            return Key.GetHashCode(StringComparison.Ordinal);
+        }
+    }
+
+    private sealed class CountingValidator : IValidator<EqualityValue>
+    {
+        public int CoerceCount { get; private set; }
+
+        public bool TryCoerce(ValidationContext context, ref EqualityValue? value)
+        {
+            CoerceCount++;
+            return true;
+        }
+
+        public string? Validate(ValidationContext context, EqualityValue? value)
+        {
+            return null;
+        }
+    }
+
     // A non-EngineObject root: an EngineObject root would hijack the owner's time-anchor subscription.
     private sealed class TestHierarchicalRoot : Hierarchical, IHierarchicalRoot
     {
@@ -79,6 +113,33 @@ public class AnimatablePropertyTests
         Assert.That(args.OldValue, Is.EqualTo(0));
         Assert.That(edited, Is.EqualTo(1));
         Assert.That(property.HasLocalValue, Is.True);
+    }
+
+    [Test]
+    public void ReplaceCurrentValue_EquivalentInstance_ReplacesAndNotifiesOnce()
+    {
+        var current = new EqualityValue("same", "old");
+        var replacement = new EqualityValue("same", "new");
+        var validator = new CountingValidator();
+        var property = new AnimatableProperty<EqualityValue>(current, validator);
+        property.SetAttributes("Value", []);
+        PropertyValueChangedEventArgs<EqualityValue>? args = null;
+        int edited = 0;
+        property.ValueChanged += (_, e) => args = e;
+        property.Edited += (_, _) => edited++;
+
+        ((IPropertyValueReplacer)property).ReplaceCurrentValue(replacement);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(property.CurrentValue, Is.SameAs(replacement));
+            Assert.That(property.CurrentValue.State, Is.EqualTo("new"));
+            Assert.That(validator.CoerceCount, Is.EqualTo(1));
+            Assert.That(args!.OldValue, Is.SameAs(current));
+            Assert.That(args.NewValue, Is.SameAs(replacement));
+            Assert.That(edited, Is.EqualTo(1));
+            Assert.That(property.HasLocalValue, Is.True);
+        });
     }
 
     [Test]
