@@ -487,6 +487,51 @@ public class EngineObject
             TResource replacement)
             where TResource : Resource;
 
+        protected void AddOwnedResource<TResource>(
+            List<TResource> resources,
+            TResource item)
+            where TResource : Resource;
+
+        protected bool RemoveOwnedResource<TResource>(
+            List<TResource> resources,
+            TResource item)
+            where TResource : Resource;
+
+        protected void ClearOwnedResources<TResource>(List<TResource> resources)
+            where TResource : Resource;
+
+        protected void ReplaceOwnedResources<TResource>(
+            List<TResource> resources,
+            IReadOnlyList<TResource> replacements)
+            where TResource : Resource;
+
+        protected TResource DetachOwnedResourceAt<TResource>(
+            List<TResource> resources,
+            int index)
+            where TResource : Resource;
+
+        protected TResource ReplaceOwnedResourceAt<TResource>(
+            List<TResource> resources,
+            int index,
+            TResource replacement)
+            where TResource : Resource;
+
+        protected void MoveOwnedResource<TResource>(
+            List<TResource> resources,
+            int oldIndex,
+            int newIndex)
+            where TResource : Resource;
+
+        protected virtual void DisposeGeneratedResources();
+
+        protected void DisposeGeneratedResource<TResource>(
+            ref TResource? location)
+            where TResource : Resource;
+
+        protected void DisposeGeneratedResourceList<TResource>(
+            List<TResource> resources)
+            where TResource : Resource;
+
         protected virtual void Dispose(bool disposing);
         public void Dispose();
     }
@@ -530,15 +575,39 @@ The attached `ToResource` path uses a separate internal construction path. It in
 
 The hand-written resources for `ParticleEmitter`, `ShakeEffect`, `DelayAnimationEffect`, `NodeGraphDrawable`, `NodeGraphFilterEffect`, and `RenderNodeDrawable` are attached-only: their parameterless constructors are internal, and their owners expose them through `ToResource(CompositionContext)` after a successful `Update`. They do not promise detached authoring of their read-only evaluated fields.
 
-A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot rather than a borrowed reference. A non-null declared object default is materialized through `ToResource(CompositionContext.Default)`. Assigning a different resource first disposes the previous value and transfers ownership to the containing resource only after that cleanup succeeds; assigning the same instance is a no-op. Disposing the containing resource disposes the currently held value.
+A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot rather than a borrowed reference. A non-null declared object default is materialized through `ToResource(CompositionContext.Default)`. Assigning a different resource first disposes the previous value and transfers ownership to the containing resource only after that cleanup succeeds; assigning the same instance is a no-op. Disposing the containing resource disposes the currently held value through the generator-reserved retry hook.
 
 For a nullable owning property `Child`, generation also exposes `public Child.Resource? DetachChild()`. It atomically clears that slot without disposing its previous value and returns the detached resource, or null when the slot is empty. The caller owns a non-null return until it assigns the value into another owning slot or disposes it. `destination.Child = source.DetachChild()` is the canonical nullable-slot transfer.
 
 For a non-null owning property `Child`, generation instead exposes `public Child.Resource ReplaceChild(Child.Resource replacement)`. The required non-null replacement and old value are atomically exchanged, the slot never becomes empty, and ownership of the returned old value transfers to the caller. Passing null to either the property setter or `ReplaceChild` is rejected. `ReplaceChild` also rejects the currently held instance, because returning that still-owned instance would create a second apparent owner, and rejects an unexpectedly empty non-null slot before taking ownership of the replacement. Every rejected call leaves both ownership locations unchanged. A transfer replaces the source with an independently owned placeholder, then passes the returned resource into the destination; sharing the same instance between two live owning slots remains invalid. The generated setter, `Update` reconciliation, nullable detach, non-null replace, and containing-resource disposal all use one serialized atomic ownership seam. Concurrent update/detach/replace/dispose cannot return one nested resource to two callers, dispose a resource after a successful transfer, or install a new child after owner disposal. Copying always requires an independently created resource rather than aliasing one owner.
 
-`ExchangeOwnedResource`, `SetOwnedResource`, and `ReplaceOwnedResource` are the protected extension surface behind that seam for generated and hand-written resource owners. All three linearize with generated `Update` and `Dispose` on the containing resource and throw `ObjectDisposedException` after disposal. `ExchangeOwnedResource` commits the supplied nullable value and returns the previous value without disposal; nullable detach uses it to transfer ownership. `SetOwnedResource` treats the supplied value as a normal assignment: assigning the same instance is a no-op, while a different previous value remains in the slot until its disposal succeeds and only then is the new value committed. A nested disposal failure therefore leaves both ownership locations unchanged and retryable. `ReplaceOwnedResource` requires an existing non-null current value and a different non-null replacement; null replacement, empty current slot, and same-instance replacement fail before mutation. Generated object-property `Update` holds the same gate while comparing, recursively updating, replacing, and disposing its child; if disposing the old child fails, the old child stays owned and the internally created rejected replacement is cleaned up. `Dispose` holds that gate while invoking the virtual disposal chain, marks the resource disposed only after successful cleanup, and therefore retries the same still-owned failing child without re-owning slots already cleared by successful cleanup.
+For a generated fully owning list property `Items`, generation no longer exposes the mutable backing `List<TResource>`. Its public surface is:
 
-This concurrency guarantee is deliberately limited to an object property's ownership transition versus that same resource's generated object reconciliation and disposal. It does not make generated value properties, generated list properties, getters, arbitrary child mutation, or the complete multi-property `Update` transaction thread-safe. Callers continue to serialize ordinary resource reads/mutation and whole updates; the ownership gate only prevents an object child from being double-transferred, disposed after transfer, or installed after owner disposal when the documented ownership operations race.
+```csharp
+public IReadOnlyList<TResource> Items { get; set; }
+public void AddToItems(TResource item);
+public bool RemoveFromItems(TResource item);
+public void ClearItems();
+public TResource DetachItemsAt(int index);
+public TResource ReplaceItemsAt(int index, TResource replacement);
+public void MoveItems(int oldIndex, int newIndex);
+```
+
+The getter returns a cached read-only view, so a retained reference cannot call a working `Add`, `Remove`, `Clear`, or index setter behind the owner's gate. The setter snapshots and validates its complete replacement before cleanup, rejects null entries, duplicate reference identities, any resource already present in another current slot of this owner, and aliasing the current view. It disposes every old item; successful items are removed, failed items remain owned in stable order, and the validated replacement stays caller-owned unless all old cleanup succeeds and the new list commits atomically. `AddToItems` transfers one non-null resource after rejecting duplicate/current ownership in this owner. `RemoveFromItems` disposes a matching owned item before removing it and returns false when absent. `ClearItems` attempts every item and retains only failures. `DetachItemsAt` removes without disposal and transfers the returned item to the caller. `ReplaceItemsAt` rejects null, the same instance, or an instance present in another current slot of this owner, atomically installs the replacement, and transfers the old item to the caller. `MoveItems` reorders one existing item under the same gate without disposing or changing ownership; callers use it instead of passing current entries back through the whole-list setter. Every mutation/transfer linearizes with generated update and disposal and throws `ObjectDisposedException` after the first disposal attempt. The read-only view may reflect cleanup of already-owned items, but cannot introduce a new retry candidate; later disposal retries exactly the items whose earlier cleanup failed. As with singular owning slots, the caller must not retain/share an item after a successful transfer into a list; cross-owner aliasing is a contract violation rather than something reference-local validation can discover.
+
+Five hand-written/generation-suppressed public list properties use the same read-only/gated naming convention: `DrawableGroup.Resource.Children`, `DrawableDecorator.Resource.Children`, `SoundGroup.Resource.Children`, and `Scene3D.Resource.Lights`/`Objects`. Each property keeps a public `IReadOnlyList<TResource>` setter and exposes `AddTo<Property>`, `RemoveFrom<Property>`, `Clear<Property>`, `Detach<Property>At`, `Replace<Property>At`, and `Move<Property>`. These flow-backed lists have mixed lifetime: the reconciler-maintained prefix is borrowed from `CompositionContext.Flow`, while entries added/materialized after that prefix are owned. Add and whole-list replacement create owned entries. Remove, detach-at, and replace-at reject an index/reference in the borrowed prefix. Move accepts only two indices in the owned tail and rejects a borrowed-prefix or cross-boundary move. Clear or whole replacement detaches the borrowed prefix without disposal, attempts cleanup only for the owned tail, retains only failed owned entries, and resets prefix tracking; terminal cleanup follows the same rule. Their cached read-only views prevent a retained alias from changing either lifetime partition outside the owner gate.
+
+`DelayAnimationEffect.Resource.DelayedResources` is not an authoring list at all: it is an internal request/effect cache owned by that resource. Its public mutable member is removed, and only an internal/private read-only cache view remains for the built-in delay execution path.
+
+`ExchangeOwnedResource`, `SetOwnedResource`, and `ReplaceOwnedResource` are the protected extension surface behind that seam for generated and hand-written resource owners. All three linearize with generated `Update` and the first disposal attempt on the containing resource and throw `ObjectDisposedException` once disposal starts. `ExchangeOwnedResource` commits the supplied nullable value and returns the previous value without disposal; nullable detach uses it to transfer ownership. `SetOwnedResource` treats the supplied value as a normal assignment: assigning the same instance is a no-op, while a different previous value remains in the slot until its disposal succeeds and only then is the new value committed. A nested disposal failure therefore leaves both ownership locations unchanged and retryable. `ReplaceOwnedResource` requires an existing non-null current value and a different non-null replacement; null replacement, empty current slot, and same-instance replacement fail before mutation. Generated object-property `Update` holds the same gate while comparing, recursively updating, replacing, and disposing its child; if disposing the old child fails, the old child stays owned and the internally created rejected replacement is cleaned up.
+
+`AddOwnedResource`, `RemoveOwnedResource`, `ClearOwnedResources`, `ReplaceOwnedResources`, `DetachOwnedResourceAt`, `ReplaceOwnedResourceAt`, and `MoveOwnedResource` are the matching protected fully-owned-list extension surface. They require one non-null backing list owned by the resource, validate non-null/duplicate/current-slot aliasing before ownership changes, and execute under the same terminal/ownership gate. Remove and clear are dispose-before-remove operations; detach and replace-at transfer the old item without disposal; move changes order without changing ownership. Whole-list replacement snapshots the supplied `IReadOnlyList` before touching current ownership and installs it only after every old item disposes successfully. Hand-written fully-owning resource implementations use these helpers rather than exposing or mutating their backing list directly; the five flow-backed mixed-lifetime lists use their explicit prefix-aware implementations while preserving the same public mutation names and terminal gate.
+
+The first public `Dispose()` attempt atomically transitions the resource to its terminal state before invoking author code. `IsDisposed` is therefore true during `Dispose(bool)`, and every update, setter, detach, replace, or ownership helper rejects immediately even when cleanup later throws. The most-derived author-facing virtual `Dispose(bool)` entry is invoked at most once. Generated implementations record each `PreDispose`/`PostDispose` failure, attempt their remaining one-shot phases, and invoke the base chain before rethrowing or aggregating. A hand-written override is a conforming part of that chain only when it likewise records its own failure, invokes `base.Dispose(disposing)` through finally-equivalent control flow, and rethrows or aggregates after the base attempt. The base orchestrator cannot resume a base phase that an arbitrary override skipped. A failure cannot cause a later `Dispose()` call to re-enter any author phase that was reached on the first attempt.
+
+Generated owning object and list cleanup lives in the separate protected `DisposeGeneratedResources()` retry hook. Generated overrides process their own slots in declaration order and then call the base override, giving deterministic derived-to-base ordering. `DisposeGeneratedResource` clears an object slot only after the child disposes successfully. `DisposeGeneratedResourceList` removes null or successfully disposed entries in place and retains only failed entries in stable order. The helpers append failures only to a base-owned collector active during this hook; the override cannot enumerate, remove, reorder, or replace already recorded author/generated failures, and calling a helper outside the active generated-cleanup phase throws. The first attempt invokes this hook even when author cleanup failed; later `Dispose()` calls invoke only this hook while pending generated children remain. One cleanup failure is rethrown with its original type and stack. Multiple failures are aggregated in reached author-phase order, then generated derived-to-base/declaration order. Recursive or concurrent disposal observes the terminal state and cannot repeat author cleanup or transfer a child. Finalization never invokes author or generated retry hooks, and no finalizer exception escapes.
+
+This concurrency guarantee is deliberately limited to generated object/list ownership transitions versus that same resource's generated reconciliation and terminal disposal transition. It does not make generated value properties, getters, arbitrary child mutation, or the complete multi-property `Update` transaction thread-safe. Callers continue to serialize ordinary resource reads/mutation and whole updates; the ownership gate prevents an owned child from being double-transferred, disposed after transfer, installed after disposal starts, or appended through a retained list alias when the documented ownership operations race.
 
 `EngineResourceIdentity.Of` is the only safe way to key on an `EngineObject.Resource`, and is renderer-wide for the same reason: nodes, brushes, filter effects, and 3D all key on the same resources, and a node needs the identity outside `Borrow` whenever it feeds a hit-test or structural key rather than a declared-resource registration. It returns the backing `EngineObject.Id`, or a synthesized `Guid` for a resource with no backing object, stable per `Resource` instance and held weakly — a caller that reallocates the resource every frame gets a new identity every frame. Returning `Guid` rather than `object` is what lets a caller hold the identity in a `Guid`-typed cache-key field without boxing on every `Process`, which is why the engine's own hit-test and structural keys can route through it; a synthesized identity is therefore the same shape as a backing object id, and a collision between the two is treated as a non-scenario rather than prevented by construction. The public `Borrow((Resource, Version))` overload derives its key the same way, but registers a borrow as well, so it is not a substitute when the identity is only wanted for comparison.
 
@@ -711,14 +780,18 @@ public sealed class OpaqueRenderBoundsContract
     public static OpaqueRenderBoundsContract Source(Rect outputBounds);
     public static OpaqueRenderBoundsContract Map(RenderBoundsContract bounds);
 
-    public static OpaqueRenderBoundsContract Combine(
-        Func<IReadOnlyList<Rect>, Rect> transformBounds,
-        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>> getRequiredInputBounds,
-        object? structuralKey = null);
+    public static OpaqueRenderBoundsContract Combine<TState>(
+        TState state,
+        Func<TState, IReadOnlyList<Rect>, Rect> transformBounds,
+        Func<TState, Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>> getRequiredInputBounds,
+        object? structuralKey = null)
+        where TState : notnull;
 
-    public static OpaqueRenderBoundsContract FullInputs(
-        Func<IReadOnlyList<Rect>, Rect> transformBounds,
-        object? structuralKey = null);
+    public static OpaqueRenderBoundsContract FullInputs<TState>(
+        TState state,
+        Func<TState, IReadOnlyList<Rect>, Rect> transformBounds,
+        object? structuralKey = null)
+        where TState : notnull;
 }
 
 public readonly struct RenderHitTestContract
@@ -727,9 +800,11 @@ public readonly struct RenderHitTestContract
     public static RenderHitTestContract OutputBounds { get; }
     public static RenderHitTestContract AnyInput { get; }
 
-    public static RenderHitTestContract Custom(
-        Func<RenderHitTestContext, Point, bool> hitTest,
-        object? structuralKey = null);
+    public static RenderHitTestContract Custom<TState>(
+        TState state,
+        Func<TState, RenderHitTestContext, Point, bool> hitTest,
+        object? structuralKey = null)
+        where TState : notnull;
 }
 
 public sealed class RenderHitTestContext
@@ -750,13 +825,17 @@ public readonly struct RenderScaleContract
     public static RenderScaleContract PreserveInputSupply { get; }
     public static RenderScaleContract MaterializeAtWorkingScale { get; }
 
-    public static RenderScaleContract MapInputSupply(
-        Func<EffectiveScale, EffectiveScale> map,
-        object? structuralKey = null);
+    public static RenderScaleContract MapInputSupply<TState>(
+        TState state,
+        Func<TState, EffectiveScale, EffectiveScale> map,
+        object? structuralKey = null)
+        where TState : notnull;
 
-    public static RenderScaleContract Custom(
-        Func<RenderScaleContext, float> resolve,
-        object? structuralKey = null);
+    public static RenderScaleContract Custom<TState>(
+        TState state,
+        Func<TState, RenderScaleContext, float> resolve,
+        object? structuralKey = null)
+        where TState : notnull;
 }
 
 public readonly record struct RenderScaleContext(
@@ -901,21 +980,21 @@ Each materialized input exposes immutable composition-device `DeviceBounds`, `De
 
 `UseSnapshot` is one-shot per input. It invokes the action synchronously with a request-owned `Bitmap` after the declared readback synchronization, then disposes the bitmap before returning. The author must not dispose or retain it; retained use observes an already-disposed object. Callback failure still releases it and preserves the callback exception as primary.
 
-`RenderScaleContract.MaterializeAtWorkingScale` uses feature 003's supply-driven formula, applying the `OutputScale` floor before the authoritative `MaxWorkingScale` ceiling; a lower positive ceiling therefore overrides that floor. `Vector` remains unbounded until a later materialization. `PreserveInputSupply` is a topology contract, not a request to choose one density from an arbitrary list: it is valid only for an element-wise one-input map (`OpaqueMap`, including zero-or-one discard) or a per-fragment replay scope such as `TargetScope`/`RawTargetScope`, where every surviving output has exactly one corresponding input whose supply is copied. `MapInputSupply` has the same one-corresponding-input restriction but applies a pure `EffectiveScale -> EffectiveScale` mapping after that input supply is known. It is the required contract for transform-like density changes that must be recomputed after an `OwningTargetDomain` dependency resolves; returning `Unbounded` preserves deferred rasterization, while a concrete result is capped by `MaxWorkingScale` and the per-buffer dimension limit. Both one-input contracts are rejected for zero-input sources/captures, multi-input combine, and arbitrary expansion; those shapes use `Vector`, `MaterializeAtWorkingScale`, or a `Custom` contract as allowed by their description. `TargetLayerScope` has no author-supplied scale contract and publishes `EffectiveScale.Unbounded`. Validation happens when a description is used by a context method, so one reusable description cannot acquire a different topology meaning accidentally.
+`RenderScaleContract.MaterializeAtWorkingScale` uses feature 003's supply-driven formula, applying the `OutputScale` floor before the authoritative `MaxWorkingScale` ceiling; a lower positive ceiling therefore overrides that floor. `Vector` remains unbounded until a later materialization. `PreserveInputSupply` is a topology contract, not a request to choose one density from an arbitrary list: it is valid only for an element-wise one-input map (`OpaqueMap`, including zero-or-one discard) or a per-fragment replay scope such as `TargetScope`/`RawTargetScope`, where every surviving output has exactly one corresponding input whose supply is copied. `MapInputSupply<TState>` has the same one-corresponding-input restriction but applies a pure state-first `EffectiveScale -> EffectiveScale` mapping after that input supply is known. It is the required contract for transform-like density changes that must be recomputed after an `OwningTargetDomain` dependency resolves; returning `Unbounded` preserves deferred rasterization, while a concrete result is capped by `MaxWorkingScale` and the per-buffer dimension limit. Both one-input contracts are rejected for zero-input sources/captures, multi-input combine, and arbitrary expansion; those shapes use `Vector`, `MaterializeAtWorkingScale`, or a state-first `Custom<TState>` contract as allowed by their description. `TargetLayerScope` has no author-supplied scale contract and publishes `EffectiveScale.Unbounded`. Validation happens when a description is used by a context method, so one reusable description cannot acquire a different topology meaning accidentally.
 
-`Custom` is the public replacement for a custom render node's former eager working-scale decision. Its pure CPU resolver uses the available input supplies and complete conservative `OutputBounds`; it cannot observe the later `RequiredRegion`. A fragment whose recording metadata is already concrete resolves once while recording. A fragment with an `OwningTargetDomain` dependency does not expose the provisional result through `RenderFragmentHandle` and may re-evaluate the pure resolver during graph-wide metadata resolution after its final input supplies and output bounds are known. The resolver must return a finite value greater than zero. A throw, NaN, infinity, zero, or negative result fails the current recording or graph-finalization transaction and leaves no published output/cache entry; it is never sanitized to `OutputScale` or another fallback. A valid result is capped by `MaxWorkingScale` and clamped against the complete output bounds by the per-buffer 16,384-axis rule before becoming concrete fragment metadata. Later ROI analysis crops the allocation region but never raises or changes that density. The resolver method/key is structural; its returned density is runtime data.
+`Custom<TState>` is the public replacement for a custom render node's former eager working-scale decision. Its pure CPU resolver uses the stored immutable state, available input supplies, and complete conservative `OutputBounds`; it cannot observe the later `RequiredRegion`. A fragment whose recording metadata is already concrete resolves once while recording. A fragment with an `OwningTargetDomain` dependency does not expose the provisional result through `RenderFragmentHandle` and may re-evaluate the pure resolver during graph-wide metadata resolution after its final input supplies and output bounds are known. Every reevaluation receives the same stored state snapshot. The resolver must return a finite value greater than zero. A throw, NaN, infinity, zero, or negative result fails the current recording or graph-finalization transaction and leaves no published output/cache entry; it is never sanitized to `OutputScale` or another fallback. A valid result is capped by `MaxWorkingScale` and clamped against the complete output bounds by the per-buffer 16,384-axis rule before becoming concrete fragment metadata. Later ROI analysis crops the allocation region but never raises or changes that density. The resolver method/key is structural; its state and returned density are runtime metadata.
 
 `default(RenderScaleContract)` and `default(RenderHitTestContract)` are uninitialized and rejected. Authors select an explicit named or custom contract.
 
 For `OpaqueMap`, `RenderValueCardinality.Single` means one output per invocation/input and `ZeroOrOne` permits per-input discard; other cardinalities are rejected. `OpaqueCombine` is limited to at most one total output. `OpaqueSource` and `OpaqueExpand` interpret the description cardinality as the total single-invocation result, and only `OpaqueExpand` may declare an arbitrary N-to-M range. Every case preserves authored output order.
 
-Every public description factory takes its pixel-affecting values as one `state` argument and a non-capturing `Action<TSession, TState>`. A capturing callback is rejected synchronously. `state` is copied into the description and must be deeply immutable: primitive/string/type values, immutable value tuples/record structs, or sealed immutable records whose instance fields are readonly and recursively immutable. Mutable reference holders, mutable collections, delegates, `object`/interface-typed escape hatches, disposable/native/request/session/resource objects, and recursive/cyclic state type graphs are rejected. Output-cache identity walks this accepted field graph with engine-owned equality and hashing and never invokes author-defined `Equals`/`GetHashCode`, so an override cannot omit a callback-read field. A caller snapshots mutable authoring state into an immutable value/version record before `Create`; when no complete immutable snapshot exists it uses `CreateRequestLocal`, which deliberately prevents cross-request output-cache reuse. `RenderCacheVerification` remains an evidence/debugging check, never the production safeguard for an invalid identity.
+Every reusable execution-description factory takes its pixel-affecting values as one `state` argument and a non-capturing `Action<TSession, TState>`. Every custom bounds, scale, and hit-test factory follows the same state-first rule with its matching static `Func<TState, ...>`. A capturing callback is rejected synchronously. `state` is copied into the description or metadata contract and must be deeply immutable: primitive/string/type values, immutable value tuples/record structs, or sealed immutable records whose instance fields are readonly and recursively immutable. Mutable reference holders, mutable collections, delegates, `object`/interface-typed escape hatches, disposable/native/request/session/resource objects, and recursive/cyclic state type graphs are rejected. Output-cache and runtime-metadata identity walk this accepted field graph with engine-owned equality and hashing and never invoke author-defined `Equals`/`GetHashCode`, so an override cannot omit a callback-read field. A caller snapshots mutable authoring state into an immutable value/version record before creating a reusable execution description or metadata contract; execution descriptions alone provide a request-local capturing form because mutable metadata would make forward/backward analysis internally inconsistent. `RenderCacheVerification` remains an evidence/debugging check, never the production safeguard for an invalid identity.
 
 Declared callback resources use `RenderResourceBinding`, created only with `resource.Bind("stable-name")`; the binding constructor is internal so an author cannot pair a name with a fabricated or separately supplied token. Every description copies its bindings and rejects null, empty/duplicate names, released tokens, and a name/type mismatch. `UseDeclaredResource<T>(name, use)` resolves by ordinal string name, so prepending or reordering resources — including two resources of the same `T` — cannot silently change which object the callback leases. Binding names and resource types are structural identity; names plus resource identities/versions are output-cache identity. `OpaqueRenderSession`, `GeometrySession`, `TargetScopeSession`, `TargetCommandSession`, and `PaintedRenderSession` expose this named form. Request-local/engine-declared callbacks may additionally use `UseResource(token, use)` after declaring the same token. Raw sessions retain token-only access because their callbacks are intentionally request-local. `DeclaredResourceAddressingContractTests` must prove reorder stability, duplicate/missing/name-type failures, every session surface, constructor inaccessibility, and output-cache invalidation.
 
-When `structuralKey` is null, the description uses the execution callback's method identity plus operation kind. `RenderScaleContract.Custom`, custom bounds, and custom hit-test contracts likewise default to their delegate method identities. A captured choice that changes operation/binding/topology shape belongs in an explicit equality-stable structural key.
+When `structuralKey` is null, the description uses the execution callback's method identity plus operation kind. State-first custom scale, bounds, and hit-test contracts likewise default to their callback method identities. A state value that changes operation, binding, or topology shape belongs in an explicit equality-stable structural key as well as in the immutable runtime state; state used only to compute metadata remains outside structural plan identity.
 
-An explicit key is never mandatory on a public factory, and whether the default beats `typeof(TheNode)` depends on where the callback is written. When the callback is a lambda or method declared in the node itself, the method identity names both the node and which callback within it, so `typeof(TheNode)` replaces a finer default with a coarser one and merges every callback that node records. When the callback is built inside a shared helper — a `_ => bounds` closure the helper itself creates, or a delegate the helper receives and forwards — every caller of that helper shares one method identity, so the default is coarser than the node label and carries none of the values the closure captured. That is why the factories whose `structuralKey` parameter is non-optional are exactly the ones that build or forward such a callback: `OpaqueRenderDescription.CreateEngineSource`/`CreateBackendBoundary`, `TargetScopeDescription.CreateValueReplayMap`, `RenderHitTestContract.FromResource`, `BrushRecorder.CreateSourceBounds`, `BrushRecorder.CreatePaintedSource`/`CreatePrimaryPaintedSource`, and the public `RenderNodeContext.PaintedSource` overloads built on them. On those, the key must state whatever the shared callback closes over — for `CreateSourceBounds` the captured source rectangle and dependency count, not only the recording node's type.
+An explicit key is never mandatory on a public state-first factory, and whether the default beats `typeof(TheNode)` depends on where the static callback is declared. When the callback method belongs to the node itself, its method identity names both the node and which callback within it, so `typeof(TheNode)` replaces a finer default with a coarser one and may merge distinct callback shapes from that node. When a shared helper supplies or forwards one static callback method, every caller shares that method identity. The helper must therefore require an explicit structural key for caller choices that change operation, binding, or topology shape; complete pixel/metadata parameter values remain in the validated immutable state/runtime identity rather than being smuggled into the structural key. That is why the factories whose `structuralKey` parameter is non-optional are exactly the ones that provide such a shared wrapper: `OpaqueRenderDescription.CreateEngineSource`/`CreateBackendBoundary`, `TargetScopeDescription.CreateValueReplayMap`, `RenderHitTestContract.FromResource`, `BrushRecorder.CreateSourceBounds`, `BrushRecorder.CreatePaintedSource`/`CreatePrimaryPaintedSource`, and the public `RenderNodeContext.PaintedSource` overloads built on them. Their key names the shared helper's authored structural role; their state and declared resource identities cover the complete runtime values.
 
 The context methods are deliberately named `Opaque*`: an arbitrary callback is never treated as a semantic/fusible map based on author assertion.
 
@@ -942,7 +1021,7 @@ public sealed class MaterializedInputDescription
 }
 ```
 
-A materialized input is already a fusion/cache island boundary. Its `RenderTarget` must be represented by an explicit token: `Borrow` for a repeatable externally owned target or `Own` for a one-shot transfer. Authors cannot wrap a raw target with ambiguous lifetime. `effectiveScale` must be finite, positive, and concrete; `deviceBounds` and `deviceGridOffset` carry the source target's original physical footprint and composition-device phase rather than deriving a new grid from semantic bounds. `RasterBounds == deviceBounds.ToRect(effectiveScale.Value).Translate(-deviceGridOffset)` must contain `bounds`, and the target's device size must equal `deviceBounds.Size`; its format/backend/device/context must be compatible with the request's linear premultiplied RGBA16F pipeline. Backing pixel `(0, 0)` represents `deviceBounds.Position`, so translated, fractional-grid, and apron-bearing targets retain their physical placement across execution and cache reuse. Mismatched targets are rejected rather than silently stretched, cropped, or sampled out of phase. Hit testing uses the same mandatory CPU-only `RenderHitTestContract` as other descriptions. For a source with no logical inputs, authors normally choose `OutputBounds`, `None`, or a pure `Custom`; `AnyInput` is rejected. A custom predicate cannot capture/read the target, a resource token, native state, or an execution/context facade. Internal overloads may represent render-cache, 3D, and decoder sources without widening this public contract.
+A materialized input is already a fusion/cache island boundary. Its `RenderTarget` must be represented by an explicit token: `Borrow` for a repeatable externally owned target or `Own` for a one-shot transfer. Authors cannot wrap a raw target with ambiguous lifetime. `effectiveScale` must be finite, positive, and concrete; `deviceBounds` and `deviceGridOffset` carry the source target's original physical footprint and composition-device phase rather than deriving a new grid from semantic bounds. `RasterBounds == deviceBounds.ToRect(effectiveScale.Value).Translate(-deviceGridOffset)` must contain `bounds`, and the target's device size must equal `deviceBounds.Size`; its format/backend/device/context must be compatible with the request's linear premultiplied RGBA16F pipeline. Backing pixel `(0, 0)` represents `deviceBounds.Position`, so translated, fractional-grid, and apron-bearing targets retain their physical placement across execution and cache reuse. Mismatched targets are rejected rather than silently stretched, cropped, or sampled out of phase. Hit testing uses the same mandatory CPU-only `RenderHitTestContract` as other descriptions. For a source with no logical inputs, authors normally choose `OutputBounds`, `None`, or a pure `Custom<TState>`; `AnyInput` is rejected. A custom predicate uses a deeply immutable state and non-capturing callback and cannot read the target, a resource token, native state, or an execution/context facade. Internal overloads may represent render-cache, 3D, and decoder sources without widening this public contract.
 
 ## Target capture description
 
@@ -954,9 +1033,11 @@ public readonly struct TargetCaptureScaleContract
     public static TargetCaptureScaleContract MaterializeAtWorkingScale { get; }
     public static TargetCaptureScaleContract PreserveTargetSupply { get; }
 
-    public static TargetCaptureScaleContract Custom(
-        Func<RenderScaleContext, float> resolve,
-        object? structuralKey = null);
+    public static TargetCaptureScaleContract Custom<TState>(
+        TState state,
+        Func<TState, RenderScaleContext, float> resolve,
+        object? structuralKey = null)
+        where TState : notnull;
 }
 
 public sealed class TargetCaptureDescription
@@ -1245,14 +1326,18 @@ public readonly struct RenderBoundsContract
     public static RenderBoundsContract Identity { get; }
     public static RenderBoundsContract FullInput { get; }
 
-    public static RenderBoundsContract Create(
-        Func<Rect, Rect> transformBounds,
-        Func<Rect, Rect> getRequiredInputBounds,
-        object? structuralKey = null);
+    public static RenderBoundsContract Create<TState>(
+        TState state,
+        Func<TState, Rect, Rect> transformBounds,
+        Func<TState, Rect, Rect> getRequiredInputBounds,
+        object? structuralKey = null)
+        where TState : notnull;
 
-    public static RenderBoundsContract CreateFullInput(
-        Func<Rect, Rect> transformBounds,
-        object? structuralKey = null);
+    public static RenderBoundsContract CreateFullInput<TState>(
+        TState state,
+        Func<TState, Rect, Rect> transformBounds,
+        object? structuralKey = null)
+        where TState : notnull;
 
     public Rect TransformBounds(Rect inputBounds);
     public Rect GetRequiredInputBounds(Rect requestedOutputBounds);
@@ -1260,9 +1345,9 @@ public readonly struct RenderBoundsContract
 }
 ```
 
-`default(RenderBoundsContract)` is invalid. `FullInput` has identity forward bounds and requests the complete input for every non-empty downstream requirement. `CreateFullInput` combines an author-supplied forward map with that same conservative backward behavior, covering operations that expand or transform output bounds but cannot prove a tight inverse ROI. A custom structural key defaults to the relevant delegate method identity or identities; captured parameter values affect runtime bounds but not structural identity.
+`default(RenderBoundsContract)` is invalid. `FullInput` has identity forward bounds and requests the complete input for every non-empty downstream requirement. `CreateFullInput` combines an author-supplied forward map with that same conservative backward behavior, covering operations that expand or transform output bounds but cannot prove a tight inverse ROI. A custom structural key defaults to the relevant static callback method identity or identities; the immutable state affects runtime metadata and output-cache identity but not structural plan identity.
 
-Every custom forward, backward, multi-input bounds, scale, and hit-test delegate is deterministic, side-effect-free CPU work. Its captured state must be an immutable request-lifetime snapshot because forward metadata may run during recording while backward ROI and query evaluation run after the complete graph exists. Such delegates cannot capture or consult a recording/execution context, session/handle/facade, `RenderResource` or raw resource, native/media state, clock, random source, or mutable service. Identical inputs and the same captured snapshot must produce the same result; invalid rectangles or non-finite scale results fail validation rather than falling back silently.
+Every custom forward, backward, multi-input bounds, scale, and hit-test factory uses the same state-first generic form: one copied `TState` plus non-capturing callbacks whose first argument is that state. `TState` is validated with the same recursive deeply immutable rules as reusable execution descriptions. A capturing callback, mutable holder, collection, delegate field, resource/session/context/facade, native handle, recursive graph, or other mutable escape is rejected synchronously. Paired forward/backward callbacks retain and receive the exact same stored state snapshot; later forward metadata, backward ROI, scale reevaluation, and hit testing therefore cannot observe different values. The engine owns deep state equality/hashing for runtime metadata and output-cache identity and never invokes author-defined equality. Callback methods and an optional explicit `structuralKey` describe only structural identity. Identical inputs and the same state must produce the same deterministic, side-effect-free CPU result; invalid rectangles or non-finite scale results fail validation rather than falling back silently.
 
 ## Shader contract
 
