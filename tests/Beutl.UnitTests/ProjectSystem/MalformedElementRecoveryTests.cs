@@ -978,6 +978,63 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_RepairedElementIdCollisionPreservesPlaceholderIdentity()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("claimant.belm", "repaired.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element claimant = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        File.WriteAllText(elementPaths[1], "{ this is not valid JSON");
+
+        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element placeholder = recoveredScene.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[1]);
+        Element recoveredClaimant = recoveredScene.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[0]);
+        Guid placeholderId = placeholder.Id;
+        recoveredScene.Groups.Add(ImmutableHashSet.Create(claimant.Id, placeholderId));
+        var referenceHolder = new ElementReferenceHolder();
+        referenceHolder.Target.CurrentValue = new Reference<Element>(placeholderId);
+        recoveredClaimant.AddObject(referenceHolder);
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        var repaired = new Element
+        {
+            Id = claimant.Id,
+            Name = "Repaired",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPaths[1]),
+        };
+        repaired.AddObject(new RectShape());
+        CoreSerializer.StoreToUri(repaired, repaired.Uri!);
+
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var application = new BeutlApplication();
+        var project = new Project();
+        application.Project = project;
+        project.Items.Add(reloaded);
+        Element reloadedClaimant = reloaded.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[0]);
+        Element reloadedRepaired = reloaded.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[1]);
+        Reference<Element> reloadedReference = reloadedClaimant.Objects
+            .OfType<ElementReferenceHolder>()
+            .Single()
+            .Target.CurrentValue;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reloaded.Children.Select(static child => child.Id), Is.Unique);
+            Assert.That(reloadedClaimant.Id, Is.EqualTo(claimant.Id));
+            Assert.That(reloadedRepaired.Id, Is.EqualTo(placeholderId));
+            Assert.That(reloaded.Groups.Single(),
+                Is.EqualTo(ImmutableHashSet.Create(claimant.Id, placeholderId)));
+            Assert.That(reloadedReference.Id, Is.EqualTo(placeholderId));
+            Assert.That(reloadedReference.Value, Is.SameAs(reloadedRepaired));
+        });
+    }
+
+    [Test]
     public void MigrateRecoveredElementReferences_TraversesContainersAndKeyFrames()
     {
         Guid originalId = Guid.NewGuid();
@@ -1027,6 +1084,46 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(migratedDictionaryReference.Value, Is.SameAs(migrated));
             Assert.That(migratedReference.Id, Is.EqualTo(migrated.Id));
             Assert.That(migratedReference.Value, Is.SameAs(migrated));
+        });
+    }
+
+    [Test]
+    public void MigrateRecoveredElementReferences_TraversesLayerAndMarkerGraphs()
+    {
+        Guid originalId = Guid.NewGuid();
+        var migrated = new Element
+        {
+            Id = Guid.NewGuid(),
+            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
+        };
+        var layerHolder = new ElementReferenceHolder();
+        layerHolder.Target.CurrentValue = new Reference<Element>(originalId);
+        var markerHolder = new ElementReferenceHolder();
+        markerHolder.Target.CurrentValue = new Reference<Element>(originalId);
+        var layer = new TimelineLayer();
+        var marker = new SceneMarker();
+        ((IModifiableHierarchical)layer).AddChild(layerHolder);
+        ((IModifiableHierarchical)marker).AddChild(markerHolder);
+        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
+        scene.Children.Add(migrated);
+        scene.Layers.Add(layer);
+        scene.Markers.Add(marker);
+        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(scene)!;
+        migrations[originalId] = migrated.Id;
+        MethodInfo method = typeof(Scene).GetMethod(
+            "MigrateRecoveredElementReferences",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(scene, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(layerHolder.Target.CurrentValue.Id, Is.EqualTo(migrated.Id));
+            Assert.That(layerHolder.Target.CurrentValue.Value, Is.SameAs(migrated));
+            Assert.That(markerHolder.Target.CurrentValue.Id, Is.EqualTo(migrated.Id));
+            Assert.That(markerHolder.Target.CurrentValue.Value, Is.SameAs(migrated));
         });
     }
 

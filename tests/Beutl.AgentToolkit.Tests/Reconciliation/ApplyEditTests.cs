@@ -188,6 +188,30 @@ public sealed class ApplyEditTests
     }
 
     [Test]
+    public void Validate_no_new_fallback_objects_rejects_element_hierarchy_children_outside_objects()
+    {
+        Scene current = CreateSceneWithElement(out _);
+        using var session = new AgentToolkitTestSession(current);
+        Scene sandbox = CreateSceneWithElement(out Element sandboxElement);
+        ((IModifiableHierarchical)sandboxElement).AddChild(new FallbackTransform());
+        MethodInfo method = typeof(Reconciler).GetMethod(
+            "ValidateNoNewFallbackObjects",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+            method.Invoke(null, new object[] { session, sandbox }))!;
+        var error = (ReconcileException)exception.InnerException!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sandboxElement.Objects, Is.Empty);
+            Assert.That(error.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(error.Error.Message, Does.Contain("fallback object"));
+            Assert.That(error.Error.Target, Does.Contain("HierarchicalChildren"));
+        });
+    }
+
+    [Test]
     public void Apply_edit_returns_compact_response_and_optional_document()
     {
         Scene compactScene = CreateScene();

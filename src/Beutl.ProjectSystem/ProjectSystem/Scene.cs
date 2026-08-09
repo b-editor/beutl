@@ -795,9 +795,9 @@ public class Scene : ProjectItem, INotifyEdited
                     Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath))))
             .OrderBy(static item => item.RelativePath, StringComparer.Ordinal)
             .ToArray();
-        foreach ((Element child, string _) in healthyChildren)
+
+        void ClaimHealthyDescendants(Element child)
         {
-            claimedIds.Add(child.Id);
             foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
             {
                 seenDescendants.Add(descendant);
@@ -805,10 +805,30 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
 
+        foreach ((Element child, string relativePath) in healthyChildren
+                     .Where(item => !_recoveredElementIds.ContainsKey(item.RelativePath)))
+        {
+            claimedIds.Add(child.Id);
+            ClaimHealthyDescendants(child);
+        }
+
+        foreach ((Element child, string relativePath) in healthyChildren
+                     .Where(item => _recoveredElementIds.ContainsKey(item.RelativePath)))
+        {
+            if (!claimedIds.Add(child.Id))
+            {
+                Guid placeholderId = _recoveredElementIds[relativePath];
+                child.Id = claimedIds.Add(placeholderId)
+                    ? placeholderId
+                    : ClaimRecoveredElementId(relativePath, claimedIds);
+            }
+
+            ClaimHealthyDescendants(child);
+        }
+
         foreach ((Element child, string relativePath) in healthyChildren)
         {
-            if (_recoveredElementIds.Remove(relativePath, out Guid placeholderId)
-                && placeholderId != child.Id)
+            if (_recoveredElementIds.Remove(relativePath, out Guid placeholderId))
             {
                 _pendingRecoveredElementIdMigrations.TryAdd(placeholderId, child.Id);
             }
@@ -853,26 +873,7 @@ public class Scene : ProjectItem, INotifyEdited
                 continue;
             }
 
-            bool assigned = false;
-            for (int attempt = 0; attempt < MaxRecoveredIdCollisionAttempts; attempt++)
-            {
-                string candidateName = attempt == 0
-                    ? relativePath
-                    : $"{relativePath}#{attempt}";
-                Guid candidate = CreateVersion5Guid(s_recoveredElementNamespace, candidateName);
-                if (claimedIds.Add(candidate))
-                {
-                    child.Id = candidate;
-                    assigned = true;
-                    break;
-                }
-            }
-
-            if (!assigned)
-            {
-                throw new InvalidOperationException(
-                    $"Could not assign a unique recovered element Id for '{relativePath}'.");
-            }
+            child.Id = ClaimRecoveredElementId(relativePath, claimedIds);
         }
 
         foreach ((Element child, string relativePath) in recoveredChildren)
@@ -995,6 +996,15 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
 
+        foreach (Guid originalId in _pendingRecoveredElementIdMigrations.Keys.ToArray())
+        {
+            if (_pendingRecoveredElementIdMigrations[originalId] != originalId
+                && retainedIds.Contains(originalId))
+            {
+                _pendingRecoveredElementIdMigrations.Remove(originalId);
+            }
+        }
+
         foreach (Guid originalId in _pendingRecoveredDescendantIdMigrations.Keys.ToArray())
         {
             if (retainedIds.Contains(originalId))
@@ -1002,6 +1012,24 @@ public class Scene : ProjectItem, INotifyEdited
                 _pendingRecoveredDescendantIdMigrations.Remove(originalId);
             }
         }
+    }
+
+    private static Guid ClaimRecoveredElementId(string relativePath, ISet<Guid> claimedIds)
+    {
+        for (int attempt = 0; attempt < MaxRecoveredIdCollisionAttempts; attempt++)
+        {
+            string candidateName = attempt == 0
+                ? relativePath
+                : $"{relativePath}#{attempt}";
+            Guid candidate = CreateVersion5Guid(s_recoveredElementNamespace, candidateName);
+            if (claimedIds.Add(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Could not assign a unique recovered element Id for '{relativePath}'.");
     }
 
     private void RecordRecoveredDescendantRemap(
@@ -1156,10 +1184,13 @@ public class Scene : ProjectItem, INotifyEdited
             return;
         }
 
-        foreach (Element element in Children)
+        IEnumerable<CoreObject> ownerRoots = Children.Cast<CoreObject>()
+            .Concat(Layers)
+            .Concat(Markers);
+        foreach (CoreObject ownerRoot in ownerRoots)
         {
             var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-            foreach (EngineObject engineObject in EnumerateSerializedGraphObjects(element).OfType<EngineObject>())
+            foreach (EngineObject engineObject in EnumerateSerializedGraphObjects(ownerRoot).OfType<EngineObject>())
             {
                 foreach (IProperty property in engineObject.Properties)
                 {

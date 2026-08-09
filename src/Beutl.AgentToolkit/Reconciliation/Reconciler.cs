@@ -847,6 +847,24 @@ public sealed class Reconciler
                     break;
             }
 
+            if (coreObject is IHierarchical hierarchical)
+            {
+                int index = 0;
+                foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+                {
+                    if (TraverseSerializedGraph(
+                            child,
+                            $"{path}/HierarchicalChildren[{index}]",
+                            visited,
+                            visitCoreObject))
+                    {
+                        return true;
+                    }
+
+                    index++;
+                }
+            }
+
             return false;
         }
 
