@@ -292,11 +292,15 @@ public class GitCliRunnerTests : RealGitTestRepository
 
     [Test]
     [NonParallelizable]
-    public async Task CreateStartInfo_removes_ambient_repository_routing_environment_before_overrides()
+    public async Task CreateStartInfo_removes_ambient_repository_and_identity_environment_before_overrides()
     {
         string[] localEnvironmentVariables =
         [
             "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_AUTHOR_EMAIL",
+            "GIT_AUTHOR_NAME",
+            "GIT_COMMITTER_EMAIL",
+            "GIT_COMMITTER_NAME",
             "GIT_CONFIG",
             "GIT_CONFIG_PARAMETERS",
             "GIT_CONFIG_COUNT",
@@ -328,6 +332,7 @@ public class GitCliRunnerTests : RealGitTestRepository
                     static pair => pair.Key,
                     static pair => (string?)pair.Value);
             constructorEnvironment["GIT_INDEX_FILE"] = "/beutl/constructor-index";
+            constructorEnvironment["GIT_AUTHOR_NAME"] = "Constructor Author";
             var runner = new GitCliRunner(
                 GitPath,
                 TimeSpan.FromSeconds(10),
@@ -336,6 +341,7 @@ public class GitCliRunnerTests : RealGitTestRepository
                 GitCommandExecutionKind.Local,
                 new Dictionary<string, string?>
                 {
+                    ["GIT_COMMITTER_EMAIL"] = "command@example.invalid",
                     ["GIT_WORK_TREE"] = "/beutl/command-worktree",
                 });
 
@@ -361,8 +367,19 @@ public class GitCliRunnerTests : RealGitTestRepository
                 startInfo.Environment["GIT_WORK_TREE"],
                 Is.EqualTo("/beutl/command-worktree"));
             Assert.That(
+                startInfo.Environment["GIT_AUTHOR_NAME"],
+                Is.EqualTo("Constructor Author"));
+            Assert.That(
+                startInfo.Environment["GIT_COMMITTER_EMAIL"],
+                Is.EqualTo("command@example.invalid"));
+            Assert.That(
                 localEnvironmentVariables
-                    .Except(["GIT_INDEX_FILE", "GIT_WORK_TREE"])
+                    .Except([
+                        "GIT_AUTHOR_NAME",
+                        "GIT_COMMITTER_EMAIL",
+                        "GIT_INDEX_FILE",
+                        "GIT_WORK_TREE",
+                    ])
                     .Where(startInfo.Environment.ContainsKey),
                 Is.Empty);
         });

@@ -69,7 +69,11 @@ internal sealed class GitCliRunner : IGitCliRunner
     private static readonly string[] s_repositoryLocalEnvironmentVariables =
     [
         "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_AUTHOR_EMAIL",
+        "GIT_AUTHOR_NAME",
         "GIT_CEILING_DIRECTORIES",
+        "GIT_COMMITTER_EMAIL",
+        "GIT_COMMITTER_NAME",
         "GIT_CONFIG",
         "GIT_CONFIG_PARAMETERS",
         "GIT_CONFIG_COUNT",
