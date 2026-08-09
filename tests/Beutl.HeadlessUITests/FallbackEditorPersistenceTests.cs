@@ -3,12 +3,14 @@ using Avalonia.Headless.NUnit;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Api.Services;
+using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D.Textures;
 using Beutl.Media;
@@ -431,6 +433,73 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
+    [AvaloniaTest]
+    public void ListRemoveItem_LastFallbackResumesPersistenceInReplacementTransaction()
+    {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
+        string root = CreateRoot();
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
+            string elementPath = Path.Combine(root, "element.belm");
+            var group = new FilterEffectGroup();
+            group.Children.Add(new Blur());
+            var shape = new RectShape
+            {
+                FilterEffect = { CurrentValue = group },
+            };
+            var element = new Element
+            {
+                Length = TimeSpan.FromSeconds(1),
+                Uri = new Uri(elementPath),
+            };
+            element.AddObject(shape);
+            var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            JsonObject groupJson = FindObjectWithNonEmptyArrayProperty(
+                elementJson,
+                nameof(FilterEffectGroup.Children))!;
+            groupJson[nameof(FilterEffectGroup.Children)]!.AsArray()[0]!.AsObject()["$type"]
+                = "[Beutl.Engine]Beutl.Graphics.Effects:MissingFilterEffect";
+            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+            Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+            Element recoveredElement = recoveredScene.Children.Single();
+            var recoveredShape = (RectShape)recoveredElement.Objects.Single();
+            var recoveredGroup = (FilterEffectGroup)recoveredShape.FilterEffect.CurrentValue!;
+            Assert.That(recoveredGroup.Children.Single(), Is.InstanceOf<FallbackFilterEffect>());
+            using var context = new EditorTestContext(recoveredElement);
+            var adapter = new EnginePropertyAdapter<ICoreList<FilterEffect>>(
+                recoveredGroup.Children,
+                recoveredGroup);
+            using var viewModel = new ListEditorViewModel<FilterEffect>(adapter);
+            viewModel.Accept(new Visitor(recoveredElement, context.History));
+
+            viewModel.RemoveItem(0);
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+            byte[] repairedBytes = File.ReadAllBytes(elementPath);
+            bool undone = context.History.Undo();
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
+                Assert.That(undone, Is.True);
+                Assert.That(recoveredGroup.Children.Single(), Is.InstanceOf<FallbackFilterEffect>());
+                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static KeyFrameAnimation<T> CreateAnimation<T>(KeyFrame<T> keyFrame)
     {
         var animation = new KeyFrameAnimation<T>();
@@ -493,6 +562,39 @@ public sealed class FallbackEditorPersistenceTests
             foreach (JsonNode? child in array)
             {
                 if (child is not null && FindObjectWithProperty(child, propertyName) is { } result)
+                {
+                    return result;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static JsonObject? FindObjectWithNonEmptyArrayProperty(JsonNode node, string propertyName)
+    {
+        if (node is JsonObject obj)
+        {
+            if (obj[propertyName] is JsonArray { Count: > 0 })
+            {
+                return obj;
+            }
+
+            foreach ((string _, JsonNode? child) in obj)
+            {
+                if (child is not null
+                    && FindObjectWithNonEmptyArrayProperty(child, propertyName) is { } result)
+                {
+                    return result;
+                }
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array)
+            {
+                if (child is not null
+                    && FindObjectWithNonEmptyArrayProperty(child, propertyName) is { } result)
                 {
                     return result;
                 }

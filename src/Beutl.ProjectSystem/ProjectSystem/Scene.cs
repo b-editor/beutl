@@ -680,6 +680,13 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
 
+        Markers.Clear();
+        if (context.Contains(nameof(Markers))
+            && context.GetValue<SceneMarker[]>(nameof(Markers)) is { } markers)
+        {
+            Markers.AddRange(markers);
+        }
+
         if (context.GetValue<JsonNode>(nameof(Elements)) is { } elementsJson)
         {
             if (elementsJson is JsonObject elementsObject)
@@ -731,12 +738,6 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
 
-        Markers.Clear();
-        if (context.Contains(nameof(Markers))
-            && context.GetValue<SceneMarker[]>(nameof(Markers)) is { } markers)
-        {
-            Markers.AddRange(markers);
-        }
     }
 
     private void SyncronizeFiles(IEnumerable<string> pathToElement)
@@ -1033,10 +1034,16 @@ public class Scene : ProjectItem, INotifyEdited
             {
                 foreach (IFallback fallback in fallbacks)
                 {
-                    if (fallback is CoreObject fallbackObject
-                        && !HasSerializedId(fallback.Json))
+                    if (fallback is CoreObject fallbackObject)
                     {
-                        _idlessRecoveredDescendants.TryAdd(fallbackObject, 0);
+                        if (TryGetSerializedId(fallback.Json, out Guid serializedId))
+                        {
+                            fallbackObject.Id = serializedId;
+                        }
+                        else
+                        {
+                            _idlessRecoveredDescendants.TryAdd(fallbackObject, 0);
+                        }
                     }
 
                     EnsureFallbackProjection(fallback);
@@ -1089,14 +1096,15 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    private static bool HasSerializedId(JsonObject? json)
+    private static bool TryGetSerializedId(JsonObject? json, out Guid id)
     {
+        id = Guid.Empty;
         return json is not null
-            && json.TryGetPropertyValue(nameof(CoreObject.Id), out JsonNode? idNode)
-            && idNode is JsonValue idValue
-            && idValue.TryGetValue(out string? idText)
-            && Guid.TryParse(idText, out Guid id)
-            && id != Guid.Empty;
+               && json.TryGetPropertyValue(nameof(CoreObject.Id), out JsonNode? idNode)
+               && idNode is JsonValue idValue
+               && idValue.TryGetValue(out string? idText)
+               && Guid.TryParse(idText, out id)
+               && id != Guid.Empty;
     }
 
     private static void MarkRecoveredElement(
@@ -1146,14 +1154,16 @@ public class Scene : ProjectItem, INotifyEdited
 
         foreach (Element element in Children)
         {
+            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
             foreach (EngineObject engineObject in EnumerateSerializedGraphObjects(element).OfType<EngineObject>())
             {
                 foreach (IProperty property in engineObject.Properties)
                 {
-                    if (property.CurrentValue is IReference reference
-                        && (TryGetMigratedId(reference.Id, out Guid migratedId)))
+                    object? currentValue = property.CurrentValue;
+                    object? migratedValue = MigrateRecoveredReferenceValue(currentValue, visited);
+                    if (!Equals(currentValue, migratedValue))
                     {
-                        property.CurrentValue = ResolveMigratedReference(reference, migratedId);
+                        property.CurrentValue = migratedValue;
                     }
 
                     if (property.Expression is IReferenceExpression referenceExpression
@@ -1161,6 +1171,19 @@ public class Scene : ProjectItem, INotifyEdited
                         && referenceExpression.Rebind(migratedExpressionId) is { } reboundExpression)
                     {
                         property.Expression = (IExpression)reboundExpression;
+                    }
+
+                    if (property.Animation is IKeyFrameAnimation animation)
+                    {
+                        foreach (IKeyFrame keyFrame in animation.KeyFrames)
+                        {
+                            object? keyFrameValue = keyFrame.Value;
+                            object? migratedKeyFrameValue = MigrateRecoveredReferenceValue(keyFrameValue, visited);
+                            if (!Equals(keyFrameValue, migratedKeyFrameValue))
+                            {
+                                keyFrame.Value = migratedKeyFrameValue;
+                            }
+                        }
                     }
                 }
             }
@@ -1181,6 +1204,49 @@ public class Scene : ProjectItem, INotifyEdited
         return target is not null && reference.ObjectType.IsInstanceOfType(target)
             ? reference.Resolved(target)
             : Activator.CreateInstance(reference.GetType(), migratedId)!;
+    }
+
+    private object? MigrateRecoveredReferenceValue(object? value, ISet<object> visited)
+    {
+        if (value is IReference reference)
+        {
+            return TryGetMigratedId(reference.Id, out Guid migratedId)
+                ? ResolveMigratedReference(reference, migratedId)
+                : value;
+        }
+
+        if (value is null or string
+            || (!value.GetType().IsValueType && !visited.Add(value)))
+        {
+            return value;
+        }
+
+        if (value is IDictionary dictionary)
+        {
+            foreach (object key in dictionary.Keys.Cast<object>().ToArray())
+            {
+                object? item = dictionary[key];
+                object? migratedItem = MigrateRecoveredReferenceValue(item, visited);
+                if (!Equals(item, migratedItem))
+                {
+                    dictionary[key] = migratedItem;
+                }
+            }
+        }
+        else if (value is IList list)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                object? item = list[i];
+                object? migratedItem = MigrateRecoveredReferenceValue(item, visited);
+                if (!Equals(item, migratedItem))
+                {
+                    list[i] = migratedItem;
+                }
+            }
+        }
+
+        return value;
     }
 
     private static IEnumerable<object> EnumerateSerializedGraphObjects(object root)

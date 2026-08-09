@@ -170,8 +170,7 @@ public sealed class SessionToolsTests
                 Has.One.Matches<RecoveryIncident>(incident =>
                     incident.Reason == nameof(FallbackReason.DeserializationFailed)
                     && incident.TypeName is null
-                    && incident.Message != null
-                    && incident.Message.Contains("value was replaced during load", StringComparison.Ordinal)));
+                    && incident.Message is null));
         });
     }
 
@@ -235,8 +234,7 @@ public sealed class SessionToolsTests
             Assert.That(opened.Value.RecoveryIncidents[0].Reason,
                 Is.EqualTo(nameof(FallbackReason.DeserializationFailed)));
             Assert.That(opened.Value.RecoveryIncidents[0].TypeName, Is.Null);
-            Assert.That(opened.Value.RecoveryIncidents[0].Message,
-                Does.Contain("value was replaced during load").And.Contain("original element file is preserved"));
+            Assert.That(opened.Value.RecoveryIncidents[0].Message, Is.Null);
         });
     }
 

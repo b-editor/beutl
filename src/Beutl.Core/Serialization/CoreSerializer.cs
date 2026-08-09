@@ -390,9 +390,15 @@ public static class CoreSerializer
             return;
         }
 
-        if (File.Exists(path)
-            && !File.ReadAllBytes(path).AsSpan().SequenceEqual(suppressed.RawBytes))
+        if (!File.Exists(path)
+            || !File.ReadAllBytes(path).AsSpan().SequenceEqual(suppressed.RawBytes))
         {
+            string? directory = Path.GetDirectoryName(path);
+            if (directory != null)
+            {
+                Directory.CreateDirectory(directory);
+            }
+
             WriteBytesAtomically(path, suppressed.RawBytes);
         }
 

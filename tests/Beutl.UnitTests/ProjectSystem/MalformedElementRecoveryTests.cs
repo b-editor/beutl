@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Immutable;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
@@ -38,6 +39,24 @@ public sealed class MalformedElementRecoveryTests
         public IProperty<Reference<Element>> Target { get; } = Property.Create<Reference<Element>>();
 
         public IProperty<Element?> ExpressionTarget { get; } = Property.Create<Element?>();
+    }
+
+    [SuppressResourceClassGeneration]
+    public sealed class NestedReferenceHolder : EngineObject
+    {
+        public NestedReferenceHolder()
+        {
+            ScanProperties<NestedReferenceHolder>();
+        }
+
+        public IProperty<List<Reference<Element>>> ListTargets { get; }
+            = Property.Create<List<Reference<Element>>>();
+
+        public IProperty<Dictionary<string, Reference<Element>>> DictionaryTargets { get; }
+            = Property.Create<Dictionary<string, Reference<Element>>>();
+
+        public IProperty<Reference<Element>> AnimatedTarget { get; }
+            = Property.CreateAnimatable<Reference<Element>>();
     }
 
     [SuppressResourceClassGeneration]
@@ -941,6 +960,106 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(
                 reloadedHolder.ExpressionTarget.GetValue(CompositionContext.Default),
                 Is.SameAs(reloadedRepaired));
+        });
+    }
+
+    [Test]
+    public void MigrateRecoveredElementReferences_TraversesContainersAndKeyFrames()
+    {
+        Guid originalId = Guid.NewGuid();
+        var migrated = new Element
+        {
+            Id = Guid.NewGuid(),
+            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
+        };
+        var holder = new NestedReferenceHolder();
+        holder.ListTargets.CurrentValue = [new Reference<Element>(originalId)];
+        holder.DictionaryTargets.CurrentValue = new Dictionary<string, Reference<Element>>
+        {
+            ["migrated"] = new Reference<Element>(originalId),
+        };
+        var animation = new KeyFrameAnimation<Reference<Element>>();
+        animation.KeyFrames.Add(new KeyFrame<Reference<Element>>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = new Reference<Element>(originalId),
+        });
+        holder.AnimatedTarget.Animation = animation;
+        var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
+        owner.AddObject(holder);
+        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
+        scene.Children.Add(migrated);
+        scene.Children.Add(owner);
+        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(scene)!;
+        migrations[originalId] = migrated.Id;
+        MethodInfo method = typeof(Scene).GetMethod(
+            "MigrateRecoveredElementReferences",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(scene, null);
+
+        Reference<Element> migratedReference
+            = ((KeyFrame<Reference<Element>>)animation.KeyFrames.Single()).Value;
+        Reference<Element> migratedListReference = holder.ListTargets.CurrentValue!.Single();
+        Reference<Element> migratedDictionaryReference
+            = holder.DictionaryTargets.CurrentValue!["migrated"];
+        Assert.Multiple(() =>
+        {
+            Assert.That(migratedListReference.Id, Is.EqualTo(migrated.Id));
+            Assert.That(migratedListReference.Value, Is.SameAs(migrated));
+            Assert.That(migratedDictionaryReference.Id, Is.EqualTo(migrated.Id));
+            Assert.That(migratedDictionaryReference.Value, Is.SameAs(migrated));
+            Assert.That(migratedReference.Id, Is.EqualTo(migrated.Id));
+            Assert.That(migratedReference.Value, Is.SameAs(migrated));
+        });
+    }
+
+    [Test]
+    public void Restore_MalformedElementIdAvoidsSerializedMarkerCollision()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var marker = new SceneMarker(TimeSpan.Zero, "Marker") { Id = Guid.NewGuid() };
+        source.Markers.Add(marker);
+        CoreSerializer.StoreToUri(source, sceneUri);
+        File.WriteAllText(elementPath, $$"""{"Id":"{{marker.Id}}","Objects":[""");
+
+        Scene first = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Guid recoveredId = first.Children.Single().Id;
+        CoreSerializer.StoreToUri(first, sceneUri);
+        Scene second = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Markers.Single().Id, Is.EqualTo(marker.Id));
+            Assert.That(recoveredId, Is.Not.EqualTo(marker.Id));
+            Assert.That(second.Markers.Single().Id, Is.EqualTo(marker.Id));
+            Assert.That(second.Children.Single().Id, Is.EqualTo(recoveredId));
+        });
+    }
+
+    [Test]
+    public void Restore_KnownTypeDeserializationFallbackAdoptsSerializedId()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject objectJson = json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
+        Guid serializedId = Guid.Parse(objectJson[nameof(CoreObject.Id)]!.GetValue<string>());
+        objectJson[nameof(RectShape.Width)] = "invalid-width";
+        File.WriteAllText(elementPath, json.ToJsonString());
+
+        Scene first = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Scene second = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var firstFallback = (CoreObject)first.Children.Single().Objects.Single();
+        var secondFallback = (CoreObject)second.Children.Single().Objects.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstFallback, Is.InstanceOf<IFallback>());
+            Assert.That(firstFallback.Id, Is.EqualTo(serializedId));
+            Assert.That(secondFallback.Id, Is.EqualTo(serializedId));
         });
     }
 

@@ -154,7 +154,7 @@ public sealed class SessionTools(
                         elementFile,
                         nameof(FallbackReason.DeserializationFailed),
                         null,
-                        message));
+                        null));
                     warnings.Add($"Element file '{elementFile}' could not be loaded without replacement: {message}");
                 }
             }
