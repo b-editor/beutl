@@ -7847,8 +7847,20 @@ internal sealed class GitCliVersionControlService :
 
     private static void ValidateRemoteUrl(string url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri)
-            || string.IsNullOrEmpty(uri.UserInfo))
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(uri.Query)
+            || !string.IsNullOrEmpty(uri.Fragment))
+        {
+            throw new ArgumentException(
+                "Remote URLs must not embed credentials. Configure a Git credential helper instead.",
+                nameof(url));
+        }
+
+        if (string.IsNullOrEmpty(uri.UserInfo))
         {
             return;
         }

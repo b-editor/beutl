@@ -3873,6 +3873,25 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [TestCase("https://example.invalid/repository.git?access_token=secret")]
+    [TestCase("https://example.invalid/repository.git#access_token=secret")]
+    [TestCase("ssh://git@example.invalid/repository.git?access_token=secret")]
+    public async Task SetRemoteAsync_rejects_remote_query_or_fragment(string remoteUrl)
+    {
+        using var service = CreateService();
+
+        ArgumentException? exception = Assert.ThrowsAsync<ArgumentException>(
+            async () => await service.SetRemoteAsync(remoteUrl, CancellationToken.None));
+        IReadOnlyList<RemoteInfo> remotes = await service.GetRemotesAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("credential helper"));
+            Assert.That(exception.Message, Does.Not.Contain("secret"));
+            Assert.That(remotes, Is.Empty);
+        });
+    }
+
     [Test]
     public async Task SetRemoteAsync_allows_ssh_usernames()
     {
