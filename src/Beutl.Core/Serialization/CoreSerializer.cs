@@ -187,6 +187,19 @@ public static class CoreSerializer
         Type? actualType = hasDiscriminator
             ? jsonObject.GetDiscriminator()
             : type.IsSealed ? type : jsonObject.GetDiscriminator(type);
+        if (hasDiscriminator
+            && actualType == null
+            && FallbackDeserializationHelper.TryCreateFallback(type, null, jsonObject) is { } unknownTypeFallback)
+        {
+            ((IFallback)unknownTypeFallback).Reason = FallbackReason.TypeNotFound;
+            if (unknownTypeFallback is CoreObject coreObject)
+            {
+                coreObject.Uri = uri;
+            }
+
+            return unknownTypeFallback;
+        }
+
         if (actualType == null)
         {
             throw new InvalidOperationException("Discriminator not found in JSON object.");

@@ -1125,6 +1125,68 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_RepairedDescendantWithNewIdMigratesPlaceholderReference()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("repaired.belm", "holder.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element repairedSource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        var repairedShape = (RectShape)repairedSource.Objects.Single();
+        var originalTransform = new RotationTransform();
+        repairedShape.Transform.CurrentValue = originalTransform;
+        CoreSerializer.StoreToUri(repairedSource, repairedSource.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
+        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        File.WriteAllText(elementPaths[0], json.ToJsonString());
+
+        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Guid placeholderId = ((CoreObject)GetTransformFallback(recoveredScene, elementPaths[0])).Id;
+        Element holder = recoveredScene.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        var referenceHolder = new TransformReferenceHolder();
+        referenceHolder.Target.CurrentValue = new Reference<Transform>(placeholderId);
+        holder.AddObject(referenceHolder);
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        Guid repairedId = Guid.NewGuid();
+        var repaired = new Element
+        {
+            Id = repairedSource.Id,
+            Name = "Repaired",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPaths[0]),
+        };
+        var healthyShape = new RectShape();
+        healthyShape.Transform.CurrentValue = new RotationTransform { Id = repairedId };
+        repaired.AddObject(healthyShape);
+        CoreSerializer.StoreToUri(repaired, repaired.Uri!);
+
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var application = new BeutlApplication();
+        var project = new Project();
+        application.Project = project;
+        project.Items.Add(reloaded);
+        Element reloadedRepaired = reloaded.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[0]);
+        Element reloadedHolder = reloaded.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[1]);
+        Transform reloadedTransform = ((RectShape)reloadedRepaired.Objects.Single())
+            .Transform.CurrentValue!;
+        Reference<Transform> migratedReference = reloadedHolder.Objects
+            .OfType<TransformReferenceHolder>()
+            .Single()
+            .Target.CurrentValue;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reloadedTransform.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedReference.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedReference.Value, Is.SameAs(reloadedTransform));
+        });
+    }
+
+    [Test]
     public void MigrateRecoveredElementReferences_TraversesContainersAndKeyFrames()
     {
         Guid originalId = Guid.NewGuid();
@@ -1261,6 +1323,43 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(firstFallback, Is.InstanceOf<IFallback>());
             Assert.That(firstFallback.Id, Is.EqualTo(serializedId));
             Assert.That(secondFallback.Id, Is.EqualTo(serializedId));
+        });
+    }
+
+    [Test]
+    public void Restore_UnknownExternalObjectTypeUsesPropertyFallback()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        string transformPath = Path.Combine(_root, "external-transform.json");
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var sourceShape = (RectShape)source.Objects.Single();
+        sourceShape.Transform.CurrentValue = new RotationTransform
+        {
+            Uri = new Uri(transformPath),
+        };
+        CoreSerializer.StoreToUri(source, source.Uri!);
+
+        JsonObject transformJson = JsonNode.Parse(File.ReadAllText(transformPath))!.AsObject();
+        transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        File.WriteAllText(transformPath, transformJson.ToJsonString());
+
+        Transform restoredTransform = CoreSerializer.RestoreFromUri<Transform>(new Uri(transformPath));
+        Element restoredElement = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recoveredElement = recovered.Children.Single();
+        RectShape? recoveredShape = recoveredElement.Objects.OfType<RectShape>().SingleOrDefault();
+        string? recoveryError = recoveredElement.Objects.OfType<IFallback>().FirstOrDefault()?.ErrorMessage;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restoredTransform, Is.InstanceOf<FallbackTransform>());
+            Assert.That(restoredTransform.Uri, Is.EqualTo(new Uri(transformPath)));
+            Assert.That(restoredElement.Objects.OfType<RectShape>(), Has.Exactly(1).Items);
+            Assert.That(recoveredElement.IsEnabled, Is.True);
+            Assert.That(recoveredElement.Objects, Has.Count.EqualTo(1));
+            Assert.That(recoveredShape, Is.Not.Null, recoveryError);
+            Assert.That(recoveredShape?.Transform.CurrentValue, Is.InstanceOf<FallbackTransform>());
+            Assert.That(recoveredShape?.Transform.CurrentValue?.Uri, Is.EqualTo(new Uri(transformPath)));
         });
     }
 

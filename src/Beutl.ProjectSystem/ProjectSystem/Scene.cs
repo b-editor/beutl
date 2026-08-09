@@ -53,6 +53,7 @@ public class Scene : ProjectItem, INotifyEdited
 {
     private const int MaxRecoveredIdCollisionAttempts = 1024;
     private const string RecoveredDescendantIdsKey = "RecoveredDescendantIds";
+    private const string RecoveredDescendantIdentitiesKey = "RecoveredDescendantIdentities";
     private const string RecoveredElementIdsKey = "RecoveredElementIds";
     private static readonly Guid s_recoveredElementNamespace = new("dfad2f76-1d04-5593-ae3b-f371fb1f42ee");
     private static readonly Regex s_idPattern = new(
@@ -77,6 +78,7 @@ public class Scene : ProjectItem, INotifyEdited
     private readonly HierarchicalList<TimelineLayer> _layers;
     private readonly HierarchicalList<SceneMarker> _markers;
     private readonly Dictionary<string, Guid> _recoveredDescendantIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Guid> _recoveredDescendantIdentities = new(StringComparer.Ordinal);
     private readonly Dictionary<CoreObject, (Guid OriginalId, Guid AssignedId, int Occurrence)> _recoveredDescendantRemaps
         = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, Guid> _recoveredElementIds = new(StringComparer.Ordinal);
@@ -592,6 +594,19 @@ public class Scene : ProjectItem, INotifyEdited
             context.SetValue(RecoveredDescendantIdsKey, recoveredDescendantIds);
         }
 
+        if (_recoveredDescendantIdentities.Count > 0)
+        {
+            var recoveredDescendantIdentities = new JsonObject();
+            foreach ((string key, Guid id) in _recoveredDescendantIdentities.OrderBy(
+                         static item => item.Key,
+                         StringComparer.Ordinal))
+            {
+                recoveredDescendantIdentities[key] = id.ToString();
+            }
+
+            context.SetValue(RecoveredDescendantIdentitiesKey, recoveredDescendantIdentities);
+        }
+
         if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
             foreach (Element item in Children)
@@ -652,6 +667,7 @@ public class Scene : ProjectItem, INotifyEdited
         _pendingRecoveredDescendantIdMigrations.Clear();
         _idlessRecoveredDescendants.Clear();
         _recoveredDescendantIds.Clear();
+        _recoveredDescendantIdentities.Clear();
         _recoveredDescendantRemaps.Clear();
         _recoveredElementIds.Clear();
         if (context.GetValue<JsonNode>(RecoveredElementIdsKey) is JsonObject recoveredElementIds)
@@ -676,6 +692,19 @@ public class Scene : ProjectItem, INotifyEdited
                     && Guid.TryParse(idText, out Guid id))
                 {
                     _recoveredDescendantIds[NormalizeRelativePath(key)] = id;
+                }
+            }
+        }
+
+        if (context.GetValue<JsonNode>(RecoveredDescendantIdentitiesKey) is JsonObject recoveredDescendantIdentities)
+        {
+            foreach ((string key, JsonNode? idNode) in recoveredDescendantIdentities)
+            {
+                if (idNode is JsonValue idValue
+                    && idValue.TryGetValue(out string? idText)
+                    && Guid.TryParse(idText, out Guid id))
+                {
+                    _recoveredDescendantIdentities[NormalizeRelativePath(key)] = id;
                 }
             }
         }
@@ -790,6 +819,9 @@ public class Scene : ProjectItem, INotifyEdited
         var persistedDescendantIds = new Dictionary<string, Guid>(
             _recoveredDescendantIds,
             StringComparer.Ordinal);
+        var persistedDescendantIdentities = new Dictionary<string, Guid>(
+            _recoveredDescendantIdentities,
+            StringComparer.Ordinal);
         var healthyChildren = Children
             .Where(static child => child.SuppressedStorageSource is null)
             .Select(child => (
@@ -811,8 +843,10 @@ public class Scene : ProjectItem, INotifyEdited
         void ClaimPreviouslyRecoveredHealthyDescendants(Element child, string relativePath)
         {
             var occurrences = new Dictionary<Guid, int>();
+            int descendantIndex = 0;
             foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
             {
+                string identityKey = CreateRecoveredDescendantIdentityKey(relativePath, descendantIndex++);
                 if (!seenDescendants.Add(descendant))
                 {
                     continue;
@@ -823,23 +857,28 @@ public class Scene : ProjectItem, INotifyEdited
                 occurrences[originalId] = occurrence + 1;
                 string remapKey = CreateRecoveredDescendantKey(relativePath, originalId, occurrence);
                 bool hasPersistedId = persistedDescendantIds.TryGetValue(remapKey, out Guid persistedId);
+                bool hasPersistedIdentity = persistedDescendantIdentities.TryGetValue(
+                    identityKey,
+                    out Guid persistedIdentityId);
+                bool hasPreviousAssignedId = hasPersistedId || hasPersistedIdentity;
+                Guid previousAssignedId = hasPersistedId ? persistedId : persistedIdentityId;
 
                 if (claimedIds.Add(originalId))
                 {
-                    if (hasPersistedId)
+                    if (hasPreviousAssignedId)
                     {
-                        _pendingRecoveredDescendantIdMigrations.TryAdd(persistedId, originalId);
+                        _pendingRecoveredDescendantIdMigrations.TryAdd(previousAssignedId, originalId);
                     }
 
                     continue;
                 }
 
-                Guid assignedId = hasPersistedId && claimedIds.Add(persistedId)
-                    ? persistedId
+                Guid assignedId = hasPreviousAssignedId && claimedIds.Add(previousAssignedId)
+                    ? previousAssignedId
                     : ClaimRecoveredDescendantId(relativePath, remapKey, claimedIds);
                 descendant.Id = assignedId;
                 _pendingRecoveredDescendantIdMigrations.TryAdd(
-                    hasPersistedId ? persistedId : assignedId,
+                    hasPreviousAssignedId ? previousAssignedId : assignedId,
                     assignedId);
             }
         }
@@ -1539,6 +1578,7 @@ public class Scene : ProjectItem, INotifyEdited
         if (recoveredChildren.Length == 0
             && _recoveredElementIds.Count == 0
             && _recoveredDescendantIds.Count == 0
+            && _recoveredDescendantIdentities.Count == 0
             && _recoveredDescendantRemaps.Count == 0)
         {
             return;
@@ -1549,6 +1589,7 @@ public class Scene : ProjectItem, INotifyEdited
             _recoveredDescendantRemaps,
             ReferenceEqualityComparer.Instance);
         _recoveredDescendantIds.Clear();
+        _recoveredDescendantIdentities.Clear();
         _recoveredDescendantRemaps.Clear();
         _recoveredElementIds.Clear();
         foreach (Element child in recoveredChildren)
@@ -1556,8 +1597,16 @@ public class Scene : ProjectItem, INotifyEdited
             string relativePath = NormalizeRelativePath(
                 Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath));
             _recoveredElementIds[relativePath] = child.Id;
+            int descendantIndex = 0;
             foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
             {
+                if (descendant is IFallback)
+                {
+                    string identityKey = CreateRecoveredDescendantIdentityKey(relativePath, descendantIndex);
+                    _recoveredDescendantIdentities[identityKey] = descendant.Id;
+                }
+
+                descendantIndex++;
                 if (descendantRemaps.TryGetValue(
                         descendant,
                         out (Guid OriginalId, Guid AssignedId, int Occurrence) remap)
@@ -1577,6 +1626,11 @@ public class Scene : ProjectItem, INotifyEdited
     private static string CreateRecoveredDescendantKey(string relativePath, Guid originalId, int occurrence)
     {
         return $"{relativePath}!{originalId:D}#{occurrence}";
+    }
+
+    private static string CreateRecoveredDescendantIdentityKey(string relativePath, int index)
+    {
+        return $"{relativePath}!@{index}";
     }
 
     private static string NormalizeRelativePath(string path)

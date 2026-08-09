@@ -39,6 +39,8 @@ public sealed class FallbackEditorPersistenceTests
 
         public IProperty<Brush?> BrushValue { get; } = Property.CreateAnimatable<Brush?>();
 
+        public IProperty<Pen?> PenValue { get; } = Property.Create<Pen?>();
+
         public IProperty<TextureSource?> TextureValue { get; } = Property.Create<TextureSource?>();
     }
 
@@ -113,6 +115,69 @@ public sealed class FallbackEditorPersistenceTests
             {
                 Directory.Delete(root, true);
             }
+        }
+    }
+
+    [AvaloniaTest]
+    public void PenWholeValueReplacements_ResumePersistenceInReplacementTransaction()
+    {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
+        string root = CreateRoot();
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
+            string elementPath = Path.Combine(root, "element.belm");
+            var holder = new EditorValueHolder();
+            var pen = new Pen();
+            pen.Brush.CurrentValue = new SolidColorBrush(Colors.Red);
+            holder.PenValue.CurrentValue = pen;
+            var element = new Element
+            {
+                Length = TimeSpan.FromSeconds(1),
+                Uri = new Uri(elementPath),
+            };
+            element.AddObject(holder);
+            var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            JsonObject brushJson = FindObjectWithProperty(elementJson, nameof(Pen.Brush))!
+                [nameof(Pen.Brush)]!.AsObject();
+            brushJson["$type"] = "[Beutl.Engine]Beutl.Media:MissingBrush";
+            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+            Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+            Element recoveredElement = recoveredScene.Children.Single();
+            var recoveredHolder = (EditorValueHolder)recoveredElement.Objects.Single();
+            var recoveredPen = recoveredHolder.PenValue.CurrentValue!;
+            Assert.That(recoveredPen.Brush.CurrentValue, Is.InstanceOf<FallbackBrush>());
+            using var context = new EditorTestContext(recoveredElement);
+            var adapter = new SimplePropertyAdapter<Pen?>(
+                (SimpleProperty<Pen?>)recoveredHolder.PenValue,
+                recoveredHolder);
+            using var viewModel = new PenEditorViewModel(adapter);
+            viewModel.Accept(new Visitor(recoveredElement, context.History));
+
+            var directPen = new Pen();
+            directPen.Brush.CurrentValue = new SolidColorBrush(Colors.Blue);
+            viewModel.SetValue(recoveredPen, directPen);
+            AssertPenRepairAndUndo(recoveredElement, recoveredHolder, context.History, elementPath, originalBytes);
+
+            bool applied = viewModel.ApplyTemplate(
+                ObjectTemplateItem.CreateFromInstance(new Pen(), "Template"));
+            Assert.That(applied, Is.True);
+            AssertPenRepairAndUndo(recoveredElement, recoveredHolder, context.History, elementPath, originalBytes);
+
+            bool pasted = viewModel.TryPasteJson(CoreSerializer.SerializeToJsonString(new Pen()));
+            Assert.That(pasted, Is.True);
+            AssertPenRepairAndUndo(recoveredElement, recoveredHolder, context.History, elementPath, originalBytes);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
         }
     }
 
@@ -505,6 +570,27 @@ public sealed class FallbackEditorPersistenceTests
         var animation = new KeyFrameAnimation<T>();
         animation.KeyFrames.Add(keyFrame);
         return animation;
+    }
+
+    private static void AssertPenRepairAndUndo(
+        Element recoveredElement,
+        EditorValueHolder recoveredHolder,
+        HistoryManager history,
+        string elementPath,
+        byte[] originalBytes)
+    {
+        CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+        byte[] repairedBytes = File.ReadAllBytes(elementPath);
+        bool undone = history.Undo();
+        CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
+            Assert.That(undone, Is.True);
+            Assert.That(recoveredHolder.PenValue.CurrentValue!.Brush.CurrentValue, Is.InstanceOf<FallbackBrush>());
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
     }
 
     private static string CreateRoot()
