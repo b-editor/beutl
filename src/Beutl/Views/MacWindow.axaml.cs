@@ -136,6 +136,7 @@ public sealed partial class MacWindow : Window
         NativeMenu? editorTabMenu = null;
         NativeMenu? toolTabMenu = null;
         NativeMenu? toolWindowMenu = null;
+        NativeMenu? dockLayoutPresetMenu = null;
         try
         {
             var rootMenu = NativeMenu.GetMenu(this)!;
@@ -143,12 +144,19 @@ public sealed partial class MacWindow : Window
             editorTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[0]).Menu;
             toolTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[1]).Menu;
             toolWindowMenu = ((NativeMenuItem)rootMenu.Items[4]).Menu;
+            // View > ... > "Apply dock layout" (see MacWindow.axaml).
+            dockLayoutPresetMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[^2]).Menu;
         }
         catch
         {
         }
 
         if (viewMenuItem == null || editorTabMenu == null || toolTabMenu == null || toolWindowMenu == null) return;
+
+        if (dockLayoutPresetMenu != null)
+        {
+            InitDockLayoutPresetMenu(viewModel, dockLayoutPresetMenu);
+        }
 
         // ToolTabExtensionをメニューに表示する
         NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
@@ -287,6 +295,54 @@ public sealed partial class MacWindow : Window
             toolWindowMenu.Items.Insert,
             (i, _) => toolWindowMenu.Items.RemoveAt(i),
             toolWindowMenu.Items.Clear);
+    }
+
+    private static void InitDockLayoutPresetMenu(MainViewModel viewModel, NativeMenu menu)
+    {
+        // Renaming mutates Name.Value in place without a collection change, so each item's header
+        // follows its name observable. The subscriptions are keyed by menu item so removal and
+        // clear can dispose them.
+        var nameSubscriptions = new Dictionary<NativeMenuItem, IDisposable>();
+
+        void AddItem(int index, DockLayoutPresetItem item)
+        {
+            var menuItem = new NativeMenuItem
+            {
+                Header = item.Name.Value,
+                Command = viewModel.MenuBar.ApplyDockLayout,
+                CommandParameter = item
+            };
+
+            nameSubscriptions[menuItem] = item.Name.Subscribe(name => menuItem.Header = name);
+            menu.Items.Insert(index, menuItem);
+        }
+
+        void RemoveAt(int index)
+        {
+            if (menu.Items[index] is NativeMenuItem menuItem
+                && nameSubscriptions.Remove(menuItem, out IDisposable? subscription))
+            {
+                subscription.Dispose();
+            }
+
+            menu.Items.RemoveAt(index);
+        }
+
+        void Clear()
+        {
+            foreach (IDisposable subscription in nameSubscriptions.Values)
+            {
+                subscription.Dispose();
+            }
+
+            nameSubscriptions.Clear();
+            menu.Items.Clear();
+        }
+
+        viewModel.MenuBar.DockLayoutPresets.ForEachItem(
+            AddItem,
+            (i, _) => RemoveAt(i),
+            Clear);
     }
 
     private async Task OpenToolWindowAsync(ToolWindowExtension extension)

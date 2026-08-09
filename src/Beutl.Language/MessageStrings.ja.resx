@@ -24,6 +24,12 @@
   <data name="OperationCompletedSuccessfully" xml:space="preserve">
     <value>操作が正常に完了しました。</value>
   </data>
+  <data name="NoDockLayoutPresets" xml:space="preserve">
+    <value>保存されたドックレイアウトはありません。</value>
+  </data>
+  <data name="DockLayoutSaved" xml:space="preserve">
+    <value>ドックレイアウト「{0}」を保存しました。</value>
+  </data>
   <data name="ExportProjectPartialFailure" xml:space="preserve">
     <value>エクスポートは完了しましたが、{0}件のリソースのコピーに失敗しました。書き出されたパッケージが不完全な可能性があります。</value>
   </data>

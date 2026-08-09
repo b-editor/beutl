@@ -278,6 +278,21 @@
   <data name="ResetDockLayout" xml:space="preserve">
     <value>Reset dock layout</value>
   </data>
+  <data name="DockLayout" xml:space="preserve">
+    <value>Dock layout</value>
+  </data>
+  <data name="ApplyDockLayout" xml:space="preserve">
+    <value>Apply dock layout</value>
+  </data>
+  <data name="ManageDockLayouts" xml:space="preserve">
+    <value>Manage dock layouts</value>
+  </data>
+  <data name="SaveCurrentDockLayout" xml:space="preserve">
+    <value>Save the current layout</value>
+  </data>
+  <data name="SavedDockLayouts" xml:space="preserve">
+    <value>Saved layouts</value>
+  </data>
   <data name="EditAnimation" xml:space="preserve">
     <value>Edit animation</value>
   </data>

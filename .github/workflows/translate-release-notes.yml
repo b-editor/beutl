@@ -68,7 +68,7 @@ jobs:
                  - `**Improvements & Refactoring**` → `**改善・リファクタリング**`
                  - `**Bug Fixes**` → `**バグ修正**`
                  - `**Other**` → `**その他**`
-                 - Download link labels: `Installer` → `インストーラー`, `Installer (.NET Runtime required)` → `インストーラー (.NET Runtime 必須)`, `Zip (arm64)` / `Zip (x64)` はそのまま、`Debian package` → `Debian パッケージ`, `Zip (.NET Runtime required)` → `Zip (.NET Runtime 必須)`.
+                 - Download link labels: `Installer` → `インストーラー`, `Installer (.NET Runtime required)` → `インストーラー (.NET Runtime 必須)`, `Zip (arm64)` / `Zip (x64)` はそのまま、`Debian package` → `Debian パッケージ`, `Flatpak` はそのまま、`Zip (.NET Runtime required)` → `Zip (.NET Runtime 必須)`.
                - Inside the `<details><summary>Changelog</summary>` block, keep the auto-generated `* <prefix>: ... by @user in <PR-URL>` lines untranslated (they are PR titles).
                - Translate the `**Full Changelog**` line label to `**フルチェンジログ**` but keep the URL.
                - Do not add or remove sections.
@@ -84,6 +84,20 @@ jobs:
                ```
                Find the first comment whose body contains the marker line `<!-- japanese-release-notes -->`. Define `COMMENT_URL`:
                  - If such a comment exists, set `COMMENT_URL` to its `url`. Skip step 4 — do NOT post another comment.
+                   Then keep the comment's Flatpak link in step with the release. Repair the comment the release body actually links to — the url inside its `日本語のリリースノートは[こちら](<url>)です。` paragraph — and fall back to this first marked comment only when the release body carries no such link; a discussion can hold more than one marked comment, and the one users reach is the linked one. Take the EXACT href of the `[Flatpak](<url>)` bullet in the release body's Linux download list. If the release body has no such bullet, leave the comment untouched. Otherwise the comment must contain that exact url:
+                     - The comment has no Flatpak bullet → insert the translated bullet, copying that exact href, directly after the `[Debian パッケージ](...)` bullet.
+                     - The comment has a Flatpak bullet with a different href → replace just that href with the exact one. A stale link must neither suppress the repair nor produce a second bullet.
+                     - The comment already contains the exact url → leave it untouched.
+                   In every case leave every other byte of the comment unchanged — do NOT re-translate the rest, which would clobber any manual edit. Write the result with the `Write` tool to `comment-body.md` (keep the `<!-- japanese-release-notes -->` marker line) and update the comment in place with its `id` from the query above:
+                   ```
+                   gh api graphql -F commentId='<comment id>' -F body=@comment-body.md -f query='
+                     mutation($commentId: ID!, $body: String!) {
+                       updateDiscussionComment(input: { commentId: $commentId, body: $body }) {
+                         comment { id url }
+                       }
+                     }'
+                   ```
+                   The verification step below fails the job if the release links a Flatpak bundle that this comment does not, so a skipped or failed update cannot pass as success.
                  - Otherwise, leave `COMMENT_URL` unset and proceed to step 4 to create the comment.
 
                In either case, ALWAYS continue to step 5 — a previous run may have posted the comment but failed to update the release body, and step 5 must be allowed to repair that.
@@ -112,7 +126,7 @@ jobs:
 
             ## Constraints
 
-            - Do not edit the discussion body, title, or category — only ADD a comment.
+            - Do not edit the discussion body, title, or category. The only comment you may edit is the one carrying the `<!-- japanese-release-notes -->` marker, and only to bring its Flatpak bullet in line with the release as described in step 3; never edit anyone else's comment.
             - Do not publish the release, edit the tag, or touch assets.
             - Do not modify any other discussion or release.
             - If anything is ambiguous (release missing, translation refused, API error), exit without partial writes.
@@ -122,6 +136,9 @@ jobs:
           GH_TOKEN: ${{ secrets.DISCUSSION_TOKEN }}
           TAG: ${{ inputs.discussion_title }}
           REPO: ${{ github.repository }}
+          DISCUSSION_NUMBER: ${{ inputs.discussion_number }}
+          OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
         run: |
           set -euo pipefail
           if ! err=$(gh release view "$TAG" -R "$REPO" --json url 2>&1 >/dev/null); then
@@ -138,4 +155,29 @@ jobs:
           else
             echo "::error::Release $TAG exists but its notes do not link to the Japanese translation. The Claude step finished without updating the release body."
             exit 1
+          fi
+          # The check above is already satisfied on a repair rerun, so it cannot tell whether the
+          # translation comment kept up with the release body. Use the release's own Flatpak href
+          # rather than reconstructing one from the tag, which would assume tag == "v" + semVer.
+          flatpak_url=$(printf '%s' "$body" | grep -oE '\[Flatpak\]\(https://[^)]+\.flatpak\)' | head -n1 | sed -E 's/^\[Flatpak\]\((.*)\)$/\1/') || flatpak_url=""
+          if [ -n "$flatpak_url" ]; then
+            # Check the comment the release actually links to; a discussion can hold more than one
+            # marked comment, and only the linked one is the one users reach.
+            linked_url=$(printf '%s' "$body" | grep -oE 'https://github\.com/[^)]*#discussioncomment-[0-9]+' | head -n1) || linked_url=""
+            comments=$(gh api graphql -F number="$DISCUSSION_NUMBER" -F owner="$OWNER" -F repo="$REPO_NAME" -f query='
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  discussion(number: $number) { comments(first: 50) { nodes { url body } } }
+                }
+              }')
+            comment=$(printf '%s' "$comments" | jq -r --arg url "$linked_url" '
+              [.data.repository.discussion.comments.nodes[] | select($url != "" and .url == $url) | .body]
+              + [.data.repository.discussion.comments.nodes[] | select(.body | contains("<!-- japanese-release-notes -->")) | .body]
+              | first // ""')
+            if printf '%s' "$comment" | grep -qF "$flatpak_url"; then
+              echo "The Japanese translation comment links the same Flatpak bundle as the release."
+            else
+              echo "::error::Release $TAG links $flatpak_url but the Japanese translation comment does not. The Claude step did not bring the comment up to date."
+              exit 1
+            fi
           fi

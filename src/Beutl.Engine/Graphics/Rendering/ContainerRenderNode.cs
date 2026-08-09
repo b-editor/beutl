@@ -8,6 +8,14 @@ public class ContainerRenderNode : RenderNode
 
     public IReadOnlyList<RenderNode> Children => _children;
 
+    public override void PrepareForProcess(ImmediateCanvas canvas)
+    {
+        foreach (RenderNode child in _children)
+        {
+            child.PrepareForProcess(canvas);
+        }
+    }
+
     public void AddChild(RenderNode item)
     {
         ArgumentNullException.ThrowIfNull(item);

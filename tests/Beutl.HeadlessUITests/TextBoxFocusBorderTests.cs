@@ -17,7 +17,7 @@ public class TextBoxFocusBorderTests
     [AvaloniaTest]
     public void Focused_textbox_border_is_uniform_one_pixel()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
 
         Assert.That(Application.Current!.TryGetResource("TextControlBorderThemeThicknessFocused", ThemeVariant.Dark, out object? focused), Is.True,
             "the focused border-thickness token should resolve");
