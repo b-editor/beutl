@@ -5388,7 +5388,8 @@ internal sealed class GitCliVersionControlService :
             WorkspaceStatus status = await GetStatusCoreAsync(
                     repository,
                     runner,
-                    cancellationToken)
+                    cancellationToken,
+                    CreateSnapshotExcludePathspecs(repository))
                 .ConfigureAwait(false);
             if (!status.IsClean)
             {
@@ -5447,31 +5448,46 @@ internal sealed class GitCliVersionControlService :
                     .ConfigureAwait(false);
                 reflogAction = $"beutl-initialize/{Guid.NewGuid():N}";
                 indexMayHaveChanged = true;
+                IReadOnlyList<string> snapshotExcludes = CreateSnapshotExcludePathspecs(repository);
+                var addArguments = new List<string>
+                {
+                    "add",
+                    "-A",
+                    "--",
+                    CreateSnapshotBasePathspec(repository),
+                };
+                addArguments.AddRange(snapshotExcludes);
                 await runner.RunAsync(
                     repository,
-                    ["add", "-A", "--", repository.Pathspec],
-                    GitCommandOptions.Local,
+                    addArguments,
+                    GitCommandOptions.Local with { UseLiteralPathspecs = false },
                     cancellationToken).ConfigureAwait(false);
                 commitAttempted = true;
+                var commitArguments = new List<string>
+                {
+                    "-c",
+                    "core.logAllRefUpdates=true",
+                    "commit",
+                    "-m",
+                    "beutl: initialize version control",
+                    "-m",
+                    "Beutl-Snapshot: init",
+                    "--",
+                    CreateSnapshotCommitPathspec(repository),
+                };
+                commitArguments.AddRange(snapshotExcludes);
                 await runner.RunAsync(
                     repository,
-                    [
-                        "-c",
-                            "core.logAllRefUpdates=true",
-                            "commit",
-                            "-m",
-                            "beutl: initialize version control",
-                            "-m",
-                            "Beutl-Snapshot: init",
-                            "--",
-                            repository.Pathspec,
-                    ],
+                    commitArguments,
                     new GitCommandOptions(
                         GitCommandExecutionKind.Local,
                         new Dictionary<string, string?>
                         {
                             ["GIT_REFLOG_ACTION"] = reflogAction,
-                        }),
+                        })
+                    {
+                        UseLiteralPathspecs = false,
+                    },
                     cancellationToken).ConfigureAwait(false);
             }
         }

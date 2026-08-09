@@ -85,6 +85,47 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         Assert.That(status.Stdout, Is.EqualTo(" M .beutl/output-profile.json\n M render-cache.tmp\n"));
     }
 
+    [Test]
+    public async Task Initial_snapshot_excludes_tracked_Beutl_state_and_tmp_files()
+    {
+        await WriteProjectFileAsync("project.bep", "baseline\n");
+        await WriteProjectFileAsync(".beutl/output-profile.json", "old\n");
+        await WriteProjectFileAsync("render-cache.tmp", "old\n");
+        await RunGitAsync("add", "-A", "--", ".");
+        await RunGitAsync("commit", "-m", "baseline");
+
+        await WriteProjectFileAsync("project.bep", "changed\n");
+        await WriteProjectFileAsync(".beutl/output-profile.json", "machine-local\n");
+        await WriteProjectFileAsync("render-cache.tmp", "machine-local\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunner(TimeSpan.FromSeconds(30)));
+
+        await service.InitializeAsync(
+            new InitOptions(Repository, UseLfsWhenAvailable: false)
+            {
+                Identity = new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
+            },
+            CancellationToken.None);
+
+        GitCommandResult changedFiles = await RunGitAsync(
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            "HEAD");
+        GitCommandResult status = await RunGitAsync("status", "--porcelain=v1");
+        Assert.Multiple(() =>
+        {
+            Assert.That(changedFiles.Stdout, Does.Contain("project.bep\n"));
+            Assert.That(changedFiles.Stdout, Does.Not.Contain(".beutl/output-profile.json"));
+            Assert.That(changedFiles.Stdout, Does.Not.Contain("render-cache.tmp"));
+            Assert.That(status.Stdout, Is.EqualTo(" M .beutl/output-profile.json\n M render-cache.tmp\n"));
+        });
+    }
+
     private GitCliVersionControlService CreateService()
     {
         return new GitCliVersionControlService(
