@@ -320,6 +320,20 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_MalformedElementAdoptsEscapedTopLevelId()
+    {
+        var expectedId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(
+            elementPath,
+            """{"\u0049d":"\u0061aaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","Objects":[""");
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+
+        Assert.That(recovered.Id, Is.EqualTo(expectedId));
+    }
+
+    [Test]
     public void Restore_MalformedElementWithEmptyTopLevelId_UsesStableNonEmptyId()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -533,7 +547,7 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void StoreToUri_AfterRehome_KeepsTheOriginalSkipProtected()
+    public void StoreToUri_AfterRehome_RecreatesMissingProtectedSource()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
         byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
@@ -550,7 +564,8 @@ public sealed class MalformedElementRecoveryTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(File.Exists(elementPath), Is.False);
+            Assert.That(File.Exists(elementPath), Is.True);
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
             Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(corruptBytes));
         });
     }
@@ -1182,6 +1197,79 @@ public sealed class MalformedElementRecoveryTests
         {
             Assert.That(reloadedTransform.Id, Is.EqualTo(repairedId));
             Assert.That(migratedReference.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedReference.Value, Is.SameAs(reloadedTransform));
+        });
+    }
+
+    [Test]
+    public void Restore_RepairedDescendantPathSurvivesEarlierObjectRemoval()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("repaired.belm", "holder.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element repairedSource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        var firstShape = (RectShape)repairedSource.Objects.Single();
+        firstShape.Transform.CurrentValue = new RotationTransform();
+        var secondShape = new RectShape();
+        secondShape.Transform.CurrentValue = new RotationTransform();
+        repairedSource.AddObject(secondShape);
+        Guid secondShapeId = secondShape.Id;
+        CoreSerializer.StoreToUri(repairedSource, repairedSource.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
+        foreach (JsonNode? shapeNode in json[nameof(Element.Objects)]!.AsArray())
+        {
+            JsonObject transformJson = FindObjectByDiscriminator(shapeNode!, "RotationTransform")!;
+            transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        }
+
+        File.WriteAllText(elementPaths[0], json.ToJsonString());
+
+        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recoveredElement = recoveredScene.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[0]);
+        Guid[] placeholderIds = recoveredElement.Objects
+            .OfType<RectShape>()
+            .Select(shape => ((CoreObject)shape.Transform.CurrentValue!).Id)
+            .ToArray();
+        Element holder = recoveredScene.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        var referenceHolder = new TransformReferenceHolder();
+        referenceHolder.Target.CurrentValue = new Reference<Transform>(placeholderIds[1]);
+        holder.AddObject(referenceHolder);
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        Guid repairedId = Guid.NewGuid();
+        var repaired = new Element
+        {
+            Id = repairedSource.Id,
+            Name = "Repaired",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPaths[0]),
+        };
+        var repairedSecondShape = new RectShape { Id = secondShapeId };
+        repairedSecondShape.Transform.CurrentValue = new RotationTransform { Id = repairedId };
+        repaired.AddObject(repairedSecondShape);
+        CoreSerializer.StoreToUri(repaired, repaired.Uri!);
+
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var application = new BeutlApplication();
+        var project = new Project();
+        application.Project = project;
+        project.Items.Add(reloaded);
+        Transform reloadedTransform = ((RectShape)reloaded.Children.Single(
+                child => child.Uri!.LocalPath == elementPaths[0]).Objects.Single())
+            .Transform.CurrentValue!;
+        Reference<Transform> migratedReference = reloaded.Children.Single(
+                child => child.Uri!.LocalPath == elementPaths[1]).Objects
+            .OfType<TransformReferenceHolder>()
+            .Single()
+            .Target.CurrentValue;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reloadedTransform.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedReference.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedReference.Id, Is.Not.EqualTo(placeholderIds[0]));
             Assert.That(migratedReference.Value, Is.SameAs(reloadedTransform));
         });
     }

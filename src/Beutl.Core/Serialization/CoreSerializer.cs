@@ -398,7 +398,7 @@ public static class CoreSerializer
 
     private static void RestoreReinstatedBytes(SuppressedStorageSource suppressed, string path)
     {
-        if (!suppressed.WasReinstated)
+        if (!suppressed.WasReinstated && File.Exists(path))
         {
             return;
         }

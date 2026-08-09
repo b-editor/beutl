@@ -1,5 +1,9 @@
-﻿using Beutl.AgentToolkit.Sessions;
+﻿using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Sessions;
+using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Tests.Sessions;
 
@@ -222,6 +226,63 @@ public sealed class FileEditingSessionTests
                 session.Project.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath),
                 Is.EqualTo(originalSceneUris));
         });
+    }
+
+    [Test]
+    public void Failed_save_as_restores_reinstated_suppression_state()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string projectPath = Path.Combine(root, "demo.bep");
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            projectPath, 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+        Scene scene = session.Project.Items.OfType<Scene>().Single();
+        string elementPath = Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm");
+        scene.Children.Add(new Element
+        {
+            Name = "clip",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPath),
+            Objects = { new RectShape() },
+        });
+        session.Save(skipConflictCheck: true);
+
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject()["$type"]
+            = "[Beutl.Engine]Beutl.Graphics.Shapes:MissingShape";
+        File.WriteAllText(elementPath, elementJson.ToJsonString());
+        byte[] malformedBytes = File.ReadAllBytes(elementPath);
+        FileEditingSession recovered = source.OpenProject(projectPath);
+        Element recoveredElement = recovered.Scene.Children.Single();
+        JsonObject desired = recovered.Documents.Read(recovered.Scene);
+        JsonObject repairedJson = CoreSerializer.SerializeToJsonObject(new RectShape
+        {
+            Name = "Repaired shape",
+        });
+        repairedJson.Remove(nameof(CoreObject.Id));
+        desired["Elements"]!.AsArray()[0]!.AsObject()[nameof(Element.Objects)]
+            = new JsonArray(repairedJson);
+        new Reconciler().Apply(recovered, desired);
+        CoreSerializer.StoreToUri(recovered.Scene, recovered.Scene.Uri!);
+        byte[] repairedBytes = File.ReadAllBytes(elementPath);
+        bool undone = recovered.History.Undo();
+
+        string failedTarget = Path.Combine(root, "copy.bep");
+        Directory.CreateDirectory(failedTarget);
+        Assert.Catch(() => recovered.SaveAs(failedTarget, skipConflictCheck: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Project.Uri!.LocalPath, Is.EqualTo(projectPath));
+            Assert.That(recoveredElement.Uri!.LocalPath, Is.EqualTo(elementPath));
+            Assert.That(undone, Is.True);
+            Assert.That(repairedBytes, Is.Not.EqualTo(malformedBytes));
+        });
+
+        recovered.Save(skipConflictCheck: true);
+
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(malformedBytes));
     }
 
     [Test]

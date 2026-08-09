@@ -238,16 +238,38 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
 
     private UriState CaptureUriState()
     {
-        return new UriState(ProjectOperations.CaptureUriState(Project), _projectLastWriteUtc);
+        var suppressions = Project.Items.OfType<Scene>()
+            .SelectMany(static scene => scene.Children)
+            .Where(static element => element.SuppressedStorageSource is not null)
+            .Select(static element => (
+                Element: element,
+                Source: element.SuppressedStorageSource!,
+                element.SuppressedStorageSource!.WasReinstated))
+            .ToArray();
+        return new UriState(
+            ProjectOperations.CaptureUriState(Project),
+            suppressions,
+            _projectLastWriteUtc);
     }
 
     private void RestoreUriState(UriState state)
     {
         ProjectOperations.RestoreUriState(Project, state.Uris);
+        foreach ((Element element, SuppressedStorageSource source, bool wasReinstated) in state.Suppressions)
+        {
+            if (ReferenceEquals(element.SuppressedStorageSource, source))
+            {
+                source.WasReinstated = wasReinstated;
+            }
+        }
+
         _projectLastWriteUtc = state.Stamp;
     }
 
-    private sealed record UriState(ProjectUriState Uris, DateTime Stamp);
+    private sealed record UriState(
+        ProjectUriState Uris,
+        IReadOnlyList<(Element Element, SuppressedStorageSource Source, bool WasReinstated)> Suppressions,
+        DateTime Stamp);
 
     public void MarkDirty()
     {

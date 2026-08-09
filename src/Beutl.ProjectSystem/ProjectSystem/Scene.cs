@@ -843,15 +843,22 @@ public class Scene : ProjectItem, INotifyEdited
         void ClaimPreviouslyRecoveredHealthyDescendants(Element child, string relativePath)
         {
             var occurrences = new Dictionary<Guid, int>();
-            int descendantIndex = 0;
+            var legacyIndices = new Dictionary<CoreObject, int>(ReferenceEqualityComparer.Instance);
+            int legacyIndex = 0;
             foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
             {
-                string identityKey = CreateRecoveredDescendantIdentityKey(relativePath, descendantIndex++);
+                legacyIndices.TryAdd(descendant, legacyIndex++);
+            }
+
+            foreach ((CoreObject descendant, SerializedGraphPath graphPath) in
+                     EnumerateSerializedGraphDescendantPaths(child))
+            {
                 if (!seenDescendants.Add(descendant))
                 {
                     continue;
                 }
 
+                string identityKey = CreateRecoveredDescendantIdentityKey(relativePath, graphPath.Stable);
                 Guid originalId = descendant.Id;
                 int occurrence = occurrences.GetValueOrDefault(originalId);
                 occurrences[originalId] = occurrence + 1;
@@ -860,6 +867,27 @@ public class Scene : ProjectItem, INotifyEdited
                 bool hasPersistedIdentity = persistedDescendantIdentities.TryGetValue(
                     identityKey,
                     out Guid persistedIdentityId);
+                if (!hasPersistedIdentity && graphPath.Positional != graphPath.Stable)
+                {
+                    string positionalIdentityKey = CreateRecoveredDescendantIdentityKey(
+                        relativePath,
+                        graphPath.Positional);
+                    hasPersistedIdentity = persistedDescendantIdentities.TryGetValue(
+                        positionalIdentityKey,
+                        out persistedIdentityId);
+                }
+
+                if (!hasPersistedIdentity
+                    && legacyIndices.TryGetValue(descendant, out int persistedIndex))
+                {
+                    string legacyIdentityKey = CreateLegacyRecoveredDescendantIdentityKey(
+                        relativePath,
+                        persistedIndex);
+                    hasPersistedIdentity = persistedDescendantIdentities.TryGetValue(
+                        legacyIdentityKey,
+                        out persistedIdentityId);
+                }
+
                 bool hasPreviousAssignedId = hasPersistedId || hasPersistedIdentity;
                 Guid previousAssignedId = hasPersistedId ? persistedId : persistedIdentityId;
 
@@ -1189,12 +1217,12 @@ public class Scene : ProjectItem, INotifyEdited
             JsonObject? root = TryParseTopLevelObject(rawText);
             var element = new Element
             {
-                Id = ResolveRecoveredElementId(rawText, root, uri),
+                Id = ResolveRecoveredElementId(rawBytes, rawText, root, uri),
                 Name = Path.GetFileNameWithoutExtension(uri.LocalPath),
                 Uri = uri,
                 IsEnabled = false,
             };
-            string? topLevelTypeName = TryGetTopLevelTypeName(rawText, root);
+            string? topLevelTypeName = TryGetTopLevelTypeName(rawBytes, rawText, root);
             FallbackReason fallbackReason = topLevelTypeName is not null
                                             && TypeFormat.ToType(topLevelTypeName) is null
                 ? FallbackReason.TypeNotFound
@@ -1470,6 +1498,157 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
+    private static IEnumerable<(CoreObject Object, SerializedGraphPath Path)> EnumerateSerializedGraphDescendantPaths(
+        Element element)
+    {
+        var objects = new List<(CoreObject Object, SerializedGraphPath Path)>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        CollectSerializedGraphObjectPaths(element, new SerializedGraphPath("$", "$"), visited, objects);
+        return objects.Where(item => !ReferenceEquals(item.Object, element));
+    }
+
+    private static void CollectSerializedGraphObjectPaths(
+        object? value,
+        SerializedGraphPath path,
+        ISet<object> visited,
+        ICollection<(CoreObject Object, SerializedGraphPath Path)> objects)
+    {
+        if (value is null or string
+            || (!value.GetType().IsValueType && !visited.Add(value)))
+        {
+            return;
+        }
+
+        if (value is CoreObject coreObject)
+        {
+            objects.Add((coreObject, path));
+        }
+
+        if (value is Element element)
+        {
+            CollectSerializedGraphPathItems(
+                element.Objects,
+                AppendSerializedGraphPath(path, "property", nameof(Element.Objects)),
+                visited,
+                objects);
+        }
+
+        if (value is EngineObject engineObject)
+        {
+            foreach (IProperty property in engineObject.Properties)
+            {
+                SerializedGraphPath propertyPath = AppendSerializedGraphPath(path, "property", property.Name);
+                CollectSerializedGraphObjectPaths(property.CurrentValue, propertyPath, visited, objects);
+                if (property.Animation is IKeyFrameAnimation animation)
+                {
+                    SerializedGraphPath keyFramesPath = AppendSerializedGraphPath(
+                        path,
+                        "animation",
+                        property.Name);
+                    var occurrences = new Dictionary<Guid, int>();
+                    int index = 0;
+                    foreach (IKeyFrame keyFrame in animation.KeyFrames)
+                    {
+                        SerializedGraphPath keyFramePath = CreateSerializedGraphCollectionItemPath(
+                            keyFramesPath,
+                            keyFrame,
+                            index++,
+                            occurrences);
+                        CollectSerializedGraphObjectPaths(keyFrame, keyFramePath, visited, objects);
+                        CollectSerializedGraphObjectPaths(
+                            keyFrame.Value,
+                            AppendSerializedGraphPath(keyFramePath, "property", nameof(IKeyFrame.Value)),
+                            visited,
+                            objects);
+                    }
+                }
+            }
+        }
+
+        if (value is IHierarchical hierarchical)
+        {
+            CollectSerializedGraphPathItems(
+                hierarchical.HierarchicalChildren,
+                AppendSerializedGraphPath(path, "collection", "HierarchicalChildren"),
+                visited,
+                objects);
+        }
+
+        if (value is System.Collections.IDictionary dictionary)
+        {
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                CollectSerializedGraphObjectPaths(
+                    entry.Value,
+                    AppendSerializedGraphPath(path, "key", entry.Key?.ToString() ?? "null"),
+                    visited,
+                    objects);
+            }
+        }
+        else if (value is IEnumerable enumerable)
+        {
+            CollectSerializedGraphPathItems(enumerable, path, visited, objects);
+        }
+    }
+
+    private static void CollectSerializedGraphPathItems(
+        IEnumerable items,
+        SerializedGraphPath path,
+        ISet<object> visited,
+        ICollection<(CoreObject Object, SerializedGraphPath Path)> objects)
+    {
+        var occurrences = new Dictionary<Guid, int>();
+        int index = 0;
+        foreach (object? item in items)
+        {
+            SerializedGraphPath itemPath = CreateSerializedGraphCollectionItemPath(
+                path,
+                item,
+                index++,
+                occurrences);
+            CollectSerializedGraphObjectPaths(item, itemPath, visited, objects);
+        }
+    }
+
+    private static SerializedGraphPath CreateSerializedGraphCollectionItemPath(
+        SerializedGraphPath path,
+        object? item,
+        int index,
+        IDictionary<Guid, int> occurrences)
+    {
+        string indexText = index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string positional = AppendSerializedGraphPath(path.Positional, "index", indexText);
+        if (item is CoreObject { Id: var id } && id != Guid.Empty)
+        {
+            int occurrence = occurrences.TryGetValue(id, out int value) ? value : 0;
+            occurrences[id] = occurrence + 1;
+            string stable = AppendSerializedGraphPath(path.Stable, "id", $"{id:D}#{occurrence}");
+            return new SerializedGraphPath(stable, positional);
+        }
+
+        return new SerializedGraphPath(
+            AppendSerializedGraphPath(path.Stable, "index", indexText),
+            positional);
+    }
+
+    private static SerializedGraphPath AppendSerializedGraphPath(
+        SerializedGraphPath path,
+        string kind,
+        string value)
+    {
+        return new SerializedGraphPath(
+            AppendSerializedGraphPath(path.Stable, kind, value),
+            AppendSerializedGraphPath(path.Positional, kind, value));
+    }
+
+    private static string AppendSerializedGraphPath(string path, string kind, string value)
+    {
+        string escaped = value.Replace("~", "~0").Replace("/", "~1");
+        return $"{path}/{kind}:{escaped}";
+    }
+
+    private readonly record struct SerializedGraphPath(string Stable, string Positional);
+
     private static void EnsureFallbackProjection(IFallback fallback)
     {
         if (fallback is not CoreObject coreObject)
@@ -1518,11 +1697,24 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    private static string? TryGetTopLevelTypeName(string rawText, JsonObject? root)
+    private static string? TryGetTopLevelTypeName(
+        ReadOnlySpan<byte> rawBytes,
+        string rawText,
+        JsonObject? root)
     {
         if (root?.TryGetDiscriminator(out string? parsedTypeName) == true)
         {
             return parsedTypeName;
+        }
+
+        if (TryGetTopLevelStringProperty(rawBytes, "$type", out string? scannedTypeName))
+        {
+            return scannedTypeName;
+        }
+
+        if (TryGetTopLevelStringProperty(rawBytes, "@type", out string? scannedLegacyTypeName))
+        {
+            return scannedLegacyTypeName;
         }
 
         Match? match = FindTopLevelMatch(rawText, s_typePattern.Matches(rawText))
@@ -1542,11 +1734,22 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    private Guid ResolveRecoveredElementId(string rawText, JsonObject? root, Uri uri)
+    private Guid ResolveRecoveredElementId(
+        ReadOnlySpan<byte> rawBytes,
+        string rawText,
+        JsonObject? root,
+        Uri uri)
     {
         if (TryGetSerializedId(root, out Guid parsedId))
         {
             return parsedId;
+        }
+
+        if (TryGetTopLevelStringProperty(rawBytes, nameof(CoreObject.Id), out string? scannedId)
+            && Guid.TryParse(scannedId, out Guid scannedGuid)
+            && scannedGuid != Guid.Empty)
+        {
+            return scannedGuid;
         }
 
         // Only a top-level Id may name the element: a nested object's or quoted Id would collide
@@ -1563,6 +1766,52 @@ public class Scene : ProjectItem, INotifyEdited
         string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
         string relativePath = NormalizeRelativePath(Path.GetRelativePath(sceneDirectory, uri.LocalPath));
         return CreateVersion5Guid(s_recoveredElementNamespace, relativePath);
+    }
+
+    private static bool TryGetTopLevelStringProperty(
+        ReadOnlySpan<byte> rawBytes,
+        string propertyName,
+        out string? value)
+    {
+        value = null;
+        if (rawBytes.Length >= 3
+            && rawBytes[0] == 0xef
+            && rawBytes[1] == 0xbb
+            && rawBytes[2] == 0xbf)
+        {
+            rawBytes = rawBytes[3..];
+        }
+
+        var reader = new Utf8JsonReader(rawBytes, isFinalBlock: false, state: default);
+        try
+        {
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
+            {
+                return false;
+            }
+
+            int propertyDepth = reader.CurrentDepth + 1;
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.PropertyName
+                    && reader.CurrentDepth == propertyDepth
+                    && reader.ValueTextEquals(propertyName))
+                {
+                    if (reader.Read() && reader.TokenType == JsonTokenType.String)
+                    {
+                        value = reader.GetString();
+                        return value is not null;
+                    }
+
+                    return false;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return false;
     }
 
     private void RebuildRecoveredElementIds()
@@ -1597,16 +1846,22 @@ public class Scene : ProjectItem, INotifyEdited
             string relativePath = NormalizeRelativePath(
                 Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath));
             _recoveredElementIds[relativePath] = child.Id;
-            int descendantIndex = 0;
-            foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
+            foreach ((CoreObject descendant, SerializedGraphPath graphPath) in
+                     EnumerateSerializedGraphDescendantPaths(child))
             {
                 if (descendant is IFallback)
                 {
-                    string identityKey = CreateRecoveredDescendantIdentityKey(relativePath, descendantIndex);
+                    string identityKey = CreateRecoveredDescendantIdentityKey(relativePath, graphPath.Stable);
                     _recoveredDescendantIdentities[identityKey] = descendant.Id;
+                    if (graphPath.Positional != graphPath.Stable)
+                    {
+                        string positionalIdentityKey = CreateRecoveredDescendantIdentityKey(
+                            relativePath,
+                            graphPath.Positional);
+                        _recoveredDescendantIdentities[positionalIdentityKey] = descendant.Id;
+                    }
                 }
 
-                descendantIndex++;
                 if (descendantRemaps.TryGetValue(
                         descendant,
                         out (Guid OriginalId, Guid AssignedId, int Occurrence) remap)
@@ -1628,7 +1883,12 @@ public class Scene : ProjectItem, INotifyEdited
         return $"{relativePath}!{originalId:D}#{occurrence}";
     }
 
-    private static string CreateRecoveredDescendantIdentityKey(string relativePath, int index)
+    private static string CreateRecoveredDescendantIdentityKey(string relativePath, string graphPath)
+    {
+        return $"{relativePath}!path:{graphPath}";
+    }
+
+    private static string CreateLegacyRecoveredDescendantIdentityKey(string relativePath, int index)
     {
         return $"{relativePath}!@{index}";
     }
