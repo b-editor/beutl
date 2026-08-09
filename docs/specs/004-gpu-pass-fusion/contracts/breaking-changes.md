@@ -27,7 +27,7 @@ BREAKING CHANGE: Resource-generating `EngineObject` subclasses without an explic
 
 BREAKING CHANGE: Generated abstract `Resource` types no longer expose a protected parameterless constructor. A hand-written or generation-suppressed attached resource must explicitly chain to `base(skipDefaultInitialization: true)` before its first `Update`; a hand-written detached resource that promises declared-default parity must chain to `base(defaultValues)` with a correctly constructed owner. This replaces the old implicit `base()` path that silently left abstract-base properties at `default(T)`. The attached-only `ParticleEmitter.Resource`, `ShakeEffect.Resource`, `DelayAnimationEffect.Resource`, `NodeGraphDrawable.Resource`, `NodeGraphFilterEffect.Resource`, and `RenderNodeDrawable.Resource` parameterless constructors are now internal; callers construct the corresponding owner and call `ToResource(CompositionContext)` instead of exposing a pre-`Update` resource.
 
-BREAKING CHANGE: A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot. Assigning a different nested resource now immediately disposes the previous value, assigning the same instance is a no-op, and disposing the containing resource disposes its current value. Callers must not retain the replaced resource for later use or share one owned nested resource between independently disposed owners.
+BREAKING CHANGE: A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot. Assigning a different nested resource now immediately disposes the previous value, assigning the same instance is a no-op, and disposing the containing resource disposes its current value. Callers must not retain the replaced resource for later use or share one owned nested resource between independently disposed owners. To transfer ownership, call the generated `Detach<Property>()` method and assign its non-null return to the destination slot; the source is cleared without disposing the detached value, and the caller owns that value until transfer or disposal.
 
 BREAKING CHANGE: `FilterEffectActivator` has one public constructor that requires explicit `RenderIntent` and `RenderRequestPurpose` arguments before its optional scale arguments. Direct hosts must classify preview/delivery behavior and frame/cache-warmup/auxiliary purpose explicitly; the former scale-only constructor and implicit auxiliary purpose are removed.
 
@@ -35,7 +35,7 @@ BREAKING CHANGE: Opaque, Geometry, target-scope, target-command, and painted cal
 
 BREAKING CHANGE: State-passing callback factories reject mutable reference holders and other states that are not deeply immutable snapshots. Copy every pixel-affecting value and version into an immutable value tuple/record before `Create`, or migrate to `CreateRequestLocal` when no complete reusable snapshot exists. The latter intentionally disables cross-request output-cache reuse.
 
-BREAKING CHANGE: `RenderNodeRenderRequest` now carries a non-null `AllocationBudget`, and `IRenderTargetFactory` reports `MaximumDimension`. Custom factories must report their backend/device texture-axis ceiling; requests share their live byte/target ledger with nested requests and fail/degrade through `RenderIntent` when the budget is exceeded.
+BREAKING CHANGE: `RenderNodeRenderRequest` now carries a non-null `AllocationBudget`, and `IRenderTargetFactory.GetMaximumDimension(RenderTargetAllocationDescriptor)` reports the active backend/device texture-axis ceiling for each exact allocation descriptor. Custom factories must answer that side-effect-free query consistently with `Create`; requests share their live byte/target ledger with nested requests and fail/degrade through `RenderIntent` when the budget is exceeded.
 ```
 
 No `[Obsolete]` shim, returning overload, `V2` type, or executable compatibility wrapper remains after the same change.
@@ -365,7 +365,7 @@ public override void Process(RenderNodeContext context)
     {
         context.Publish(context.RawTargetScope(
             input,
-            RawTargetScopeDescription.Create(
+            RawTargetScopeDescription.CreateRequestLocal(
                 execute: session =>
                 {
                     DrawLegacyPrefix(session.Canvas);
@@ -382,7 +382,7 @@ public override void Process(RenderNodeContext context)
 
 ```csharp
 context.Publish(context.RawTargetCommand(
-    RawTargetCommandDescription.Create(
+    RawTargetCommandDescription.CreateRequestLocal(
         execute: session => DrawLegacy(session.Canvas),
         queryBounds: _bounds,
         hitTest: RenderHitTestContract.OutputBounds,
