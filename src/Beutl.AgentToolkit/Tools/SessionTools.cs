@@ -196,7 +196,14 @@ public sealed class SessionTools(
             }
         }
 
-        if (value is IEnumerable enumerable)
+        if (value is System.Collections.IDictionary dictionary)
+        {
+            foreach (object? item in dictionary.Values)
+            {
+                CollectFallbacks(item, visited, fallbacks);
+            }
+        }
+        else if (value is IEnumerable enumerable)
         {
             foreach (object? item in enumerable)
             {

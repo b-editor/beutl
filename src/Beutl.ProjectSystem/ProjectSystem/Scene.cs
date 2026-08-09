@@ -976,6 +976,28 @@ public class Scene : ProjectItem, INotifyEdited
                 }
             }
         }
+
+        // A global OriginalId -> AssignedId migration would redirect every reference that still
+        // targets a surviving object. Only migrate when the original ID was abandoned entirely;
+        // otherwise the references keep pointing at the object that retained it.
+        var retainedIds = new HashSet<Guid> { Guid.Empty, Id };
+        foreach (CoreObject graphObject in EnumerateSerializedGraphObjects(Children).OfType<CoreObject>())
+        {
+            retainedIds.Add(graphObject.Id);
+        }
+
+        foreach (CoreObject sceneObject in Layers.Cast<CoreObject>().Concat(Markers))
+        {
+            retainedIds.Add(sceneObject.Id);
+        }
+
+        foreach (Guid originalId in _pendingRecoveredDescendantIdMigrations.Keys.ToArray())
+        {
+            if (retainedIds.Contains(originalId))
+            {
+                _pendingRecoveredDescendantIdMigrations.Remove(originalId);
+            }
+        }
     }
 
     private void RecordRecoveredDescendantRemap(
@@ -1135,12 +1157,10 @@ public class Scene : ProjectItem, INotifyEdited
                     }
 
                     if (property.Expression is IReferenceExpression referenceExpression
-                        && TryGetMigratedId(referenceExpression.ObjectId, out Guid migratedExpressionId))
+                        && TryGetMigratedId(referenceExpression.ObjectId, out Guid migratedExpressionId)
+                        && referenceExpression.Rebind(migratedExpressionId) is { } reboundExpression)
                     {
-                        property.Expression = (IExpression)Activator.CreateInstance(
-                            referenceExpression.GetType(),
-                            migratedExpressionId,
-                            referenceExpression.PropertyPath)!;
+                        property.Expression = (IExpression)reboundExpression;
                     }
                 }
             }

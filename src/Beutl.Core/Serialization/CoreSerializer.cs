@@ -254,17 +254,23 @@ public static class CoreSerializer
             if (uri == suppressed.SourceUri)
             {
                 // The source location is skip-protected only while the on-disk bytes still match
-                // the retained recovery bytes. A repair that was undone (or any other mutation
-                // that rewrote the sidecar) must not leave repaired bytes on disk for a still-
-                // suppressed object: restore the retained bytes verbatim so the next open sees the
-                // same recovery state the undo recorded.
+                // the retained recovery bytes. A repair that was undone re-establishes the
+                // suppression record through history with WasReinstated set, and the retained
+                // bytes must be restored verbatim so the next open sees the same recovery state
+                // the undo recorded. A continuously held record treats a mismatch as an external
+                // repair of the sidecar and leaves the changed file alone — clobbering it would
+                // destroy the user's repair.
                 string sourcePath = uri.LocalPath;
                 if (File.Exists(sourcePath)
-                    && !File.ReadAllBytes(sourcePath).AsSpan().SequenceEqual(suppressed.RawBytes))
+                    && !File.ReadAllBytes(sourcePath).AsSpan().SequenceEqual(suppressed.RawBytes)
+                    && suppressed.WasReinstated)
                 {
                     WriteBytesAtomically(sourcePath, suppressed.RawBytes);
                 }
 
+                // A reinstated record is consumed on first observation: once the disk state has
+                // been reconciled (restored or already matching), a later mismatch is external.
+                suppressed.WasReinstated = false;
                 return;
             }
 

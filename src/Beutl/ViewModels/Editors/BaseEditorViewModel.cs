@@ -193,7 +193,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             Element element = _element;
             this.GetRequiredService<HistoryManager>().Record(
                 () => element.SuppressedStorageSource = null,
-                () => element.SuppressedStorageSource = suppression);
+                () =>
+                {
+                    suppression.WasReinstated = true;
+                    element.SuppressedStorageSource = suppression;
+                });
         }
     }
 

@@ -44,6 +44,17 @@ public class ElementObjectServiceTests
     [SuppressResourceClassGeneration]
     private sealed class TestEngineObject : EngineObject;
 
+    [SuppressResourceClassGeneration]
+    private sealed class FallbackContainer : EngineObject
+    {
+        public FallbackContainer()
+        {
+            ScanProperties<FallbackContainer>();
+        }
+
+        public IProperty<EngineObject?> Child { get; } = Property.Create<EngineObject?>();
+    }
+
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
@@ -155,6 +166,26 @@ public class ElementObjectServiceTests
             Assert.That(_element.Objects.Single(), Is.SameAs(fallback));
             Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
             Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void Remove_ContainerWithLastNestedFallback_ClearsPersistenceSuppression()
+    {
+        var container = new FallbackContainer
+        {
+            Child = { CurrentValue = new FallbackEngineObject() },
+        };
+        _service.Add(_element, container);
+        var suppression = new SuppressedStorageSource([], _element.Uri!);
+        _element.SuppressedStorageSource = suppression;
+
+        bool removed = _service.Remove(_element, container);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(_element.SuppressedStorageSource, Is.Null);
         });
     }
 
@@ -301,6 +332,27 @@ public class ElementObjectServiceTests
             Assert.That(_element.Objects.Single(), Is.SameAs(fallback));
             Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
             Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void PasteOver_ContainerWithLastNestedFallback_ClearsPersistenceSuppression()
+    {
+        var container = new FallbackContainer
+        {
+            Child = { CurrentValue = new FallbackEngineObject() },
+        };
+        _service.Add(_element, container);
+        var suppression = new SuppressedStorageSource([], _element.Uri!);
+        _element.SuppressedStorageSource = suppression;
+        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
+
+        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(_element.SuppressedStorageSource, Is.Null);
         });
     }
 

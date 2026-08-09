@@ -346,7 +346,11 @@ public sealed class Reconciler
                     {
                         session.History.Record(
                             () => element.SuppressedStorageSource = null,
-                            () => element.SuppressedStorageSource = suppression);
+                            () =>
+                            {
+                                suppression.WasReinstated = true;
+                                element.SuppressedStorageSource = suppression;
+                            });
                     }
                 }
             },

@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Reflection;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
@@ -13,6 +14,7 @@ using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -329,6 +331,27 @@ public sealed class SessionToolsTests
             Assert.That(rendered.IsError, Is.Not.True);
             Assert.That(File.Exists(outputPath), Is.True);
         });
+    }
+
+    [Test]
+    public void CollectFallbacks_TraversesDictionaryValues()
+    {
+        var fallback = new FallbackTransform();
+        var fallbacks = new List<IFallback>();
+        MethodInfo method = typeof(SessionTools).GetMethod(
+            "CollectFallbacks",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        method.Invoke(
+            null,
+            new object?[]
+            {
+                new Dictionary<string, Transform> { ["broken"] = fallback },
+                new HashSet<object>(),
+                fallbacks,
+            });
+
+        Assert.That(fallbacks, Has.One.SameAs(fallback));
     }
 
     [Test]

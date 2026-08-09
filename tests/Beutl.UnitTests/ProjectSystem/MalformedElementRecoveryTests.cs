@@ -63,6 +63,30 @@ public sealed class MalformedElementRecoveryTests
         public IProperty<Reference<Transform>> Target { get; } = Property.Create<Reference<Transform>>();
     }
 
+    private sealed class CustomReferenceExpression : IReferenceExpression
+    {
+        public CustomReferenceExpression(Guid objectId)
+        {
+            ObjectId = objectId;
+        }
+
+        public Guid ObjectId { get; }
+
+        public string PropertyPath => string.Empty;
+
+        public bool HasPropertyPath => false;
+
+        public string ExpressionString => ObjectId.ToString();
+
+        public Type ResultType => typeof(Element);
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
+    }
+
     [SetUp]
     public void SetUp()
     {
@@ -478,6 +502,30 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(File.Exists(elementPath), Is.False);
             Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(corruptBytes));
         });
+    }
+
+    [Test]
+    public void StoreToUri_LeavesExternallyRepairedSourceSidecarUntouched()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        byte[] corruptBytes = "{\"Objects\":["u8.ToArray();
+        File.WriteAllBytes(elementPath, corruptBytes);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        byte[] repairedBytes = "{\"Objects\":[]}"u8.ToArray();
+        File.WriteAllBytes(elementPath, repairedBytes);
+
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(repairedBytes));
+    }
+
+    [Test]
+    public void ReferenceExpression_Rebind_ReturnsNullForUnsupportedCustomImplementation()
+    {
+        var expression = new CustomReferenceExpression(Guid.NewGuid());
+
+        Assert.That(((IReferenceExpression)expression).Rebind(Guid.NewGuid()), Is.Null);
     }
 
     [Test]
@@ -1179,7 +1227,7 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void Restore_RemappedRecoveredDescendant_MigratesDirectReference()
+    public void Restore_CollisionRemappedRecoveredDescendant_KeepsReferenceOnSurvivingClaimant()
     {
         (Uri sceneUri, string[] elementPaths) =
             CreatePersistedSceneWithElements("healthy.belm", "recovered.belm");
@@ -1205,9 +1253,8 @@ public sealed class MalformedElementRecoveryTests
 
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element recoveredHealthy = recovered.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
-        Element recoveredElement = recovered.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
         Guid remappedId = ((CoreObject)GetTransformFallback(recovered, elementPaths[1])).Id;
-        var migratedReference = (Reference<Transform>)recoveredHealthy.Objects
+        var reference = (Reference<Transform>)recoveredHealthy.Objects
             .OfType<TransformReferenceHolder>()
             .Single()
             .Target.CurrentValue;
@@ -1215,10 +1262,12 @@ public sealed class MalformedElementRecoveryTests
         Assert.Multiple(() =>
         {
             Assert.That(remappedId, Is.Not.EqualTo(claimantId));
-            Assert.That(migratedReference.Id, Is.EqualTo(remappedId));
+            // The healthy claimant still owns the original ID, so the reference must keep
+            // targeting it instead of being redirected to the remapped recovered fallback.
+            Assert.That(reference.Id, Is.EqualTo(claimantId));
             Assert.That(
-                migratedReference.Value,
-                Is.SameAs(((RectShape)recoveredElement.Objects.Single()).Transform.CurrentValue));
+                recoveredHealthy.Objects.OfType<RectShape>().Single().Transform.CurrentValue!.Id,
+                Is.EqualTo(claimantId));
         });
     }
 

@@ -8,4 +8,13 @@
 internal sealed record SuppressedStorageSource(
     byte[] RawBytes,
     Uri SourceUri,
-    bool HasNonFallbackIncidents = false);
+    bool HasNonFallbackIncidents = false)
+{
+    /// <summary>
+    /// True when this suppression record was put back by undoing an in-process repair. Only a
+    /// reinstated record may restore the retained bytes over a mismatched sidecar; a continuously
+    /// held record treats a mismatch as an external repair and leaves the changed file alone.
+    /// Cleared once the retained bytes have been restored.
+    /// </summary>
+    public bool WasReinstated { get; set; }
+}
