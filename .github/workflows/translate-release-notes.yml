@@ -84,7 +84,7 @@ jobs:
                ```
                Find the first comment whose body contains the marker line `<!-- japanese-release-notes -->`. Define `COMMENT_URL`:
                  - If such a comment exists, set `COMMENT_URL` to its `url`. Skip step 4 — do NOT post another comment.
-                   Then keep the comment's Flatpak link in step with the release. Take the EXACT href of the `[Flatpak](<url>)` bullet in the release body's Linux download list. If the release body has no such bullet, leave the comment untouched. Otherwise the comment must contain that exact url:
+                   Then keep the comment's Flatpak link in step with the release. Repair the comment the release body actually links to — the url inside its `日本語のリリースノートは[こちら](<url>)です。` paragraph — and fall back to this first marked comment only when the release body carries no such link; a discussion can hold more than one marked comment, and the one users reach is the linked one. Take the EXACT href of the `[Flatpak](<url>)` bullet in the release body's Linux download list. If the release body has no such bullet, leave the comment untouched. Otherwise the comment must contain that exact url:
                      - The comment has no Flatpak bullet → insert the translated bullet, copying that exact href, directly after the `[Debian パッケージ](...)` bullet.
                      - The comment has a Flatpak bullet with a different href → replace just that href with the exact one. A stale link must neither suppress the repair nor produce a second bullet.
                      - The comment already contains the exact url → leave it untouched.
@@ -157,16 +157,23 @@ jobs:
             exit 1
           fi
           # The check above is already satisfied on a repair rerun, so it cannot tell whether the
-          # translation comment kept up with the release body. Releases are tagged "v" + semVer,
-          # so ${TAG#v} reconstructs the semVer that names the Flatpak bundle.
-          flatpak_url="https://github.com/$REPO/releases/download/$TAG/Beutl-${TAG#v}.flatpak"
-          if printf '%s' "$body" | grep -qF "$flatpak_url"; then
-            comment=$(gh api graphql -F number="$DISCUSSION_NUMBER" -F owner="$OWNER" -F repo="$REPO_NAME" -f query='
+          # translation comment kept up with the release body. Use the release's own Flatpak href
+          # rather than reconstructing one from the tag, which would assume tag == "v" + semVer.
+          flatpak_url=$(printf '%s' "$body" | grep -oE '\[Flatpak\]\(https://[^)]+\.flatpak\)' | head -n1 | sed -E 's/^\[Flatpak\]\((.*)\)$/\1/') || flatpak_url=""
+          if [ -n "$flatpak_url" ]; then
+            # Check the comment the release actually links to; a discussion can hold more than one
+            # marked comment, and only the linked one is the one users reach.
+            linked_url=$(printf '%s' "$body" | grep -oE 'https://github\.com/[^)]*#discussioncomment-[0-9]+' | head -n1) || linked_url=""
+            comments=$(gh api graphql -F number="$DISCUSSION_NUMBER" -F owner="$OWNER" -F repo="$REPO_NAME" -f query='
               query($owner: String!, $repo: String!, $number: Int!) {
                 repository(owner: $owner, name: $repo) {
-                  discussion(number: $number) { comments(first: 50) { nodes { body } } }
+                  discussion(number: $number) { comments(first: 50) { nodes { url body } } }
                 }
-              }' --jq '[.data.repository.discussion.comments.nodes[].body | select(contains("<!-- japanese-release-notes -->"))] | first // ""')
+              }')
+            comment=$(printf '%s' "$comments" | jq -r --arg url "$linked_url" '
+              [.data.repository.discussion.comments.nodes[] | select($url != "" and .url == $url) | .body]
+              + [.data.repository.discussion.comments.nodes[] | select(.body | contains("<!-- japanese-release-notes -->")) | .body]
+              | first // ""')
             if printf '%s' "$comment" | grep -qF "$flatpak_url"; then
               echo "The Japanese translation comment links the same Flatpak bundle as the release."
             else
