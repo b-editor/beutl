@@ -15,7 +15,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         var startInfo = runner.CreateStartInfo(
             Repository,
             ["show", "--format=value with spaces", "HEAD"],
-            GitExecutionPolicy.Local);
+            GitExecutionPolicy.LocalTimeout);
 
         Assert.Multiple(() =>
         {
@@ -52,7 +52,7 @@ public class GitCliRunnerTests : RealGitTestRepository
             ProcessStartInfo startInfo = runner.CreateStartInfo(
                 Repository,
                 ["rev-parse", "--show-toplevel"],
-                GitExecutionPolicy.Local);
+                GitExecutionPolicy.LocalTimeout);
 
             Assert.That(startInfo.Environment.ContainsKey("GIT_CEILING_DIRECTORIES"), Is.False);
         }
@@ -78,15 +78,20 @@ public class GitCliRunnerTests : RealGitTestRepository
             cancellation.Token));
     }
 
-    [Test]
-    public async Task CreateStartInfo_adds_batch_mode_for_default_open_ssh()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CreateStartInfo_adds_batch_mode_for_default_open_ssh(
+        bool localWithLfs)
     {
         GitCliRunner runner = CreateSshIsolatedRunner();
+        GitCommandOptions options = localWithLfs
+            ? new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs)
+            : GitCommandOptions.Network;
 
         var startInfo = await runner.CreateStartInfoAsync(
             Repository,
             ["push", "origin", "HEAD"],
-            GitCommandOptions.Network);
+            options);
 
         Assert.That(
             startInfo.Environment["GIT_SSH_COMMAND"],

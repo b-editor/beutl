@@ -16,12 +16,12 @@ internal enum GitCommandExecutionKind
     Network,
 }
 
+[Flags]
 internal enum GitExecutionPolicy
 {
-    Local,
-    LocalWithLfs,
-    NetworkWithConfiguredSsh,
-    NetworkWithDefaultOpenSsh,
+    Unbounded = 0,
+    LocalTimeout = 1 << 0,
+    DefaultOpenSshBatchMode = 1 << 1,
 }
 
 internal sealed record GitCommandOptions(
@@ -222,7 +222,7 @@ internal sealed class GitCliRunner : IGitCliRunner
             Task<string> stderrTask = stderrProgress is null
                 ? process.StandardError.ReadToEndAsync()
                 : ReadStandardErrorAsync(process.StandardError, stderrProgress);
-            using var timeoutCts = executionPolicy == GitExecutionPolicy.Local
+            using var timeoutCts = executionPolicy.HasFlag(GitExecutionPolicy.LocalTimeout)
                 ? new CancellationTokenSource(_localTimeout)
                 : null;
             using var linkedCts = timeoutCts is null
@@ -417,7 +417,7 @@ internal sealed class GitCliRunner : IGitCliRunner
         startInfo.Environment["GIT_OPTIONAL_LOCKS"] = "0";
         startInfo.Environment["GIT_LITERAL_PATHSPECS"] = useLiteralPathspecs ? "1" : "0";
         startInfo.Environment["LC_ALL"] = "C";
-        if (executionPolicy == GitExecutionPolicy.NetworkWithDefaultOpenSsh
+        if (executionPolicy.HasFlag(GitExecutionPolicy.DefaultOpenSshBatchMode)
             && !HasConfiguredSshCommandEnvironment(startInfo)
             && IsDefaultOpenSshVariant(GetSshVariantEnvironment(startInfo)))
         {
@@ -434,15 +434,11 @@ internal sealed class GitCliRunner : IGitCliRunner
     {
         if (options.ExecutionKind == GitCommandExecutionKind.Local)
         {
-            return GitExecutionPolicy.Local;
+            return GitExecutionPolicy.LocalTimeout;
         }
 
-        if (options.ExecutionKind == GitCommandExecutionKind.LocalWithLfs)
-        {
-            return GitExecutionPolicy.LocalWithLfs;
-        }
-
-        if (options.ExecutionKind != GitCommandExecutionKind.Network)
+        bool localWithLfs = options.ExecutionKind == GitCommandExecutionKind.LocalWithLfs;
+        if (!localWithLfs && options.ExecutionKind != GitCommandExecutionKind.Network)
         {
             throw new ArgumentOutOfRangeException(nameof(options));
         }
@@ -450,24 +446,24 @@ internal sealed class GitCliRunner : IGitCliRunner
         ProcessStartInfo environmentProbe = CreateStartInfo(
             repository,
             [],
-            GitExecutionPolicy.NetworkWithConfiguredSsh,
+            GitExecutionPolicy.Unbounded,
             options.EnvironmentOverrides,
             options.UseLiteralPathspecs);
         if (HasConfiguredSshCommandEnvironment(environmentProbe))
         {
-            return GitExecutionPolicy.NetworkWithConfiguredSsh;
+            return GitExecutionPolicy.Unbounded;
         }
 
         ProcessStartInfo configProbe = CreateStartInfo(
             repository,
             ["config", "--null", "--get-regexp", "^(core\\.sshcommand|ssh\\.variant)$"],
-            GitExecutionPolicy.Local,
+            GitExecutionPolicy.LocalTimeout,
             options.EnvironmentOverrides,
             options.UseLiteralPathspecs);
         GitCommandResult configResult = await RunProcessAsync(
             repository,
             configProbe,
-            GitExecutionPolicy.Local,
+            GitExecutionPolicy.LocalTimeout,
             cancellationToken,
             stderrProgress: null,
             maxStdoutBytes: null,
@@ -477,13 +473,13 @@ internal sealed class GitCliRunner : IGitCliRunner
         if (configResult.ExitCode == 1)
         {
             return IsDefaultOpenSshVariant(GetSshVariantEnvironment(environmentProbe))
-                ? GitExecutionPolicy.NetworkWithDefaultOpenSsh
-                : GitExecutionPolicy.NetworkWithConfiguredSsh;
+                ? GitExecutionPolicy.DefaultOpenSshBatchMode
+                : GitExecutionPolicy.Unbounded;
         }
 
         if (configResult.ExitCode != 0)
         {
-            return GitExecutionPolicy.NetworkWithConfiguredSsh;
+            return GitExecutionPolicy.Unbounded;
         }
 
         bool foundConfiguration = false;
@@ -513,13 +509,13 @@ internal sealed class GitCliRunner : IGitCliRunner
 
         if (!foundConfiguration || hasConfiguredSshCommand)
         {
-            return GitExecutionPolicy.NetworkWithConfiguredSsh;
+            return GitExecutionPolicy.Unbounded;
         }
 
         string? effectiveVariant = GetSshVariantEnvironment(environmentProbe) ?? configuredVariant;
         return IsDefaultOpenSshVariant(effectiveVariant)
-            ? GitExecutionPolicy.NetworkWithDefaultOpenSsh
-            : GitExecutionPolicy.NetworkWithConfiguredSsh;
+            ? GitExecutionPolicy.DefaultOpenSshBatchMode
+            : GitExecutionPolicy.Unbounded;
     }
 
     private static void ApplyEnvironmentOverrides(

@@ -2348,7 +2348,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string targetSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await CommitFileAsync("project.bep", "current\n", "current");
         string mainSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        using var service = CreateService();
+        var runner = new RecordingArgumentsRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
 
         await service.CreateBranchAsync(
             "restored-state",
@@ -2375,6 +2380,15 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(
                 File.ReadAllText(Path.Combine(Root, "project.bep")),
                 Is.EqualTo("current\n"));
+            Assert.That(
+                runner.Invocations
+                    .Where(static invocation => invocation.Arguments.FirstOrDefault() == "switch")
+                    .Select(static invocation => invocation.Options.ExecutionKind),
+                Is.EqualTo(
+                [
+                    GitCommandExecutionKind.LocalWithLfs,
+                    GitCommandExecutionKind.LocalWithLfs,
+                ]));
         });
     }
 
@@ -4690,6 +4704,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         public List<IReadOnlyList<string>> Commands { get; } = [];
 
+        public List<(IReadOnlyList<string> Arguments, GitCommandOptions Options)> Invocations { get; } = [];
+
         public bool HasActiveProcess => inner.HasActiveProcess;
 
         public Task<GitCommandResult> RunAsync(
@@ -4699,7 +4715,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            Commands.Add(arguments.ToArray());
+            string[] capturedArguments = arguments.ToArray();
+            Commands.Add(capturedArguments);
+            Invocations.Add((capturedArguments, options));
             return inner.RunAsync(
                 repository,
                 arguments,

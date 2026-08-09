@@ -4353,7 +4353,7 @@ internal sealed class GitCliVersionControlService :
         await runner.RunAsync(
             repository,
             ["switch", "-c", name, startPoint],
-            GitCommandOptions.Local,
+            new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
             cancellationToken).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
@@ -4379,7 +4379,7 @@ internal sealed class GitCliVersionControlService :
         await runner.RunAsync(
             repository,
             ["switch", name],
-            GitCommandOptions.Local,
+            new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
             cancellationToken).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
