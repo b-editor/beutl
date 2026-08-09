@@ -610,9 +610,11 @@ public class Scene : ProjectItem, INotifyEdited
 
         if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
+            string sidecarRoot = Path.GetDirectoryName(Uri!.LocalPath)
+                                 ?? throw new JsonException("Scene has no sidecar directory.");
             foreach (Element item in Children)
             {
-                CoreSerializer.StoreToUri(item, item.Uri!);
+                CoreSerializer.StoreToUri(item, item.Uri!, sidecarRoot);
             }
         }
 
@@ -1268,115 +1270,75 @@ public class Scene : ProjectItem, INotifyEdited
                && id != Guid.Empty;
     }
 
-    private static void MarkRecoveredElement(
+    private void MarkRecoveredElement(
         Element element,
         byte[] rawBytes,
         Uri uri,
         bool hasNonFallbackIncidents = false,
         JsonObject[]? untraversedFallbacks = null)
     {
+        string sourceRootPath = Path.GetDirectoryName(Uri?.LocalPath ?? uri.LocalPath)
+                                ?? throw new JsonException("Recovered element has no source directory.");
         element.SuppressedStorageSource = new SuppressedStorageSource(
             rawBytes,
             uri,
             hasNonFallbackIncidents,
             untraversedFallbacks,
-            CollectReferencedFallbackStorageSources(element, rawBytes, uri));
+            CollectReferencedStorageSources(element, uri, sourceRootPath),
+            sourceRootPath);
     }
 
-    private static SuppressedReferencedStorageSource[]? CollectReferencedFallbackStorageSources(
+    private static SuppressedReferencedStorageSource[]? CollectReferencedStorageSources(
         Element element,
-        byte[] rawBytes,
-        Uri elementUri)
+        Uri elementUri,
+        string sourceRootPath)
     {
-        var fallbackFiles = EnumerateSerializedGraphFallbacks(element)
-            .OfType<CoreObject>()
-            .Where(static fallback => fallback.Uri is { IsFile: true })
-            .Select(static fallback => fallback.Uri!)
-            .Where(uri => uri != elementUri && File.Exists(uri.LocalPath))
-            .Distinct()
-            .ToArray();
-        if (fallbackFiles.Length == 0)
+        string sourceRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourceRootPath));
+        string elementPath = Path.GetFullPath(elementUri.LocalPath);
+        StringComparison comparison = OperatingSystem.IsLinux()
+            ? StringComparison.Ordinal
+            : StringComparison.OrdinalIgnoreCase;
+        if (!IsPathInsideRoot(sourceRoot, elementPath, comparison))
         {
             return null;
         }
 
-        JsonNode? root;
-        try
-        {
-            root = JsonNode.Parse(rawBytes);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-
+        string elementDirectory = Path.GetDirectoryName(elementPath)
+                                  ?? throw new JsonException("Recovered element has no source directory.");
+        var seenPaths = new HashSet<string>(StringComparer.FromComparison(comparison));
         var result = new List<SuppressedReferencedStorageSource>();
-        var seenRelativeUris = new HashSet<string>(StringComparer.Ordinal);
-        foreach (string serializedValue in EnumerateJsonStringValues(root))
+        foreach (string sourcePath in EnumerateSerializedGraphObjects(element)
+            .OfType<CoreObject>()
+            .Where(static coreObject => coreObject.Uri is { IsFile: true })
+            .Select(static coreObject => Path.GetFullPath(coreObject.Uri!.LocalPath)))
         {
-            string relativeUri;
-            try
-            {
-                relativeUri = Uri.UnescapeDataString(serializedValue);
-            }
-            catch (UriFormatException)
+            if (string.Equals(sourcePath, elementPath, comparison)
+                || !IsPathInsideRoot(sourceRoot, sourcePath, comparison)
+                || !File.Exists(sourcePath)
+                || !seenPaths.Add(sourcePath))
             {
                 continue;
             }
 
-            if (!Uri.TryCreate(relativeUri, UriKind.RelativeOrAbsolute, out Uri? parsed)
-                || parsed.IsAbsoluteUri
-                || !Uri.TryCreate(elementUri, relativeUri, out Uri? resolved)
-                || !resolved.IsFile
-                || !seenRelativeUris.Add(relativeUri))
-            {
-                continue;
-            }
-
-            Uri? source = fallbackFiles.FirstOrDefault(candidate =>
-                string.Equals(
-                    Path.GetFullPath(candidate.LocalPath),
-                    Path.GetFullPath(resolved.LocalPath),
-                    OperatingSystem.IsLinux()
-                        ? StringComparison.Ordinal
-                        : StringComparison.OrdinalIgnoreCase));
-            if (source is not null)
-            {
-                result.Add(new SuppressedReferencedStorageSource(
-                    File.ReadAllBytes(source.LocalPath),
-                    relativeUri));
-            }
+            result.Add(new SuppressedReferencedStorageSource(
+                File.ReadAllBytes(sourcePath),
+                Path.GetRelativePath(sourceRoot, sourcePath),
+                Path.GetRelativePath(elementDirectory, sourcePath)));
         }
 
         return result.Count > 0 ? result.ToArray() : null;
     }
 
-    private static IEnumerable<string> EnumerateJsonStringValues(JsonNode? node)
+    private static bool IsPathInsideRoot(
+        string root,
+        string candidate,
+        StringComparison comparison)
     {
-        switch (node)
-        {
-            case JsonValue value when value.TryGetValue(out string? text):
-                yield return text;
-                break;
-            case JsonObject obj:
-                foreach (JsonNode? child in obj.Select(static item => item.Value))
-                {
-                    foreach (string text in EnumerateJsonStringValues(child))
-                    {
-                        yield return text;
-                    }
-                }
-                break;
-            case JsonArray array:
-                foreach (JsonNode? child in array)
-                {
-                    foreach (string text in EnumerateJsonStringValues(child))
-                    {
-                        yield return text;
-                    }
-                }
-                break;
-        }
+        string prefix = Path.EndsInDirectorySeparator(root)
+            ? root
+            : root + Path.DirectorySeparatorChar;
+        return string.Equals(candidate, root, comparison)
+               || candidate.StartsWith(prefix, comparison);
     }
 
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
@@ -1451,8 +1413,29 @@ public class Scene : ProjectItem, INotifyEdited
         foreach (CoreObject ownerRoot in ownerRoots)
         {
             var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-            foreach (EngineObject engineObject in EnumerateSerializedGraphObjects(ownerRoot).OfType<EngineObject>())
+            foreach (CoreObject coreObject in EnumerateSerializedGraphObjects(ownerRoot).OfType<CoreObject>())
             {
+                foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
+                {
+                    if (!property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
+                    {
+                        continue;
+                    }
+
+                    object? currentValue = coreObject.GetValue(property);
+                    object? migratedValue = MigrateRecoveredReferenceValue(currentValue, visited);
+                    if (!Equals(currentValue, migratedValue)
+                        && property is not IStaticProperty { CanWrite: false })
+                    {
+                        coreObject.SetValue(property, migratedValue);
+                    }
+                }
+
+                if (coreObject is not EngineObject engineObject)
+                {
+                    continue;
+                }
+
                 foreach (IProperty property in engineObject.Properties)
                 {
                     object? currentValue = property.CurrentValue;
@@ -1625,6 +1608,17 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
 
+        if (value is CoreObject coreObject)
+        {
+            foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
+            {
+                if (property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
+                {
+                    CollectSerializedGraphObjects(coreObject.GetValue(property), visited, objects);
+                }
+            }
+        }
+
         if (value is System.Collections.IDictionary dictionary)
         {
             foreach (object? item in dictionary.Values)
@@ -1715,6 +1709,23 @@ public class Scene : ProjectItem, INotifyEdited
                 AppendSerializedGraphPath(path, "collection", "HierarchicalChildren"),
                 visited,
                 objects);
+        }
+
+        if (value is CoreObject registeredObject)
+        {
+            foreach (CoreProperty property in PropertyRegistry.GetRegistered(registeredObject.GetType()))
+            {
+                if (!property.GetMetadata<CorePropertyMetadata>(registeredObject.GetType()).ShouldSerialize)
+                {
+                    continue;
+                }
+
+                CollectSerializedGraphObjectPaths(
+                    registeredObject.GetValue(property),
+                    AppendSerializedGraphPath(path, "property", property.Name),
+                    visited,
+                    objects);
+            }
         }
 
         if (value is System.Collections.IDictionary dictionary)

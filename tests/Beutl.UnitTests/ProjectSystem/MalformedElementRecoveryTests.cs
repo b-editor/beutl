@@ -113,6 +113,34 @@ public sealed class MalformedElementRecoveryTests
         public IProperty<Reference<Transform>> Target { get; } = Property.Create<Reference<Transform>>();
     }
 
+    public sealed class RegisteredRecoveryElement : Element
+    {
+        public static readonly CoreProperty<Transform?> PluginTransformProperty;
+        public static readonly CoreProperty<Reference<Element>> PluginTargetProperty;
+
+        static RegisteredRecoveryElement()
+        {
+            PluginTransformProperty = ConfigureProperty<Transform?, RegisteredRecoveryElement>(
+                    nameof(PluginTransform))
+                .Register();
+            PluginTargetProperty = ConfigureProperty<Reference<Element>, RegisteredRecoveryElement>(
+                    nameof(PluginTarget))
+                .Register();
+        }
+
+        public Transform? PluginTransform
+        {
+            get => GetValue(PluginTransformProperty);
+            set => SetValue(PluginTransformProperty, value);
+        }
+
+        public Reference<Element> PluginTarget
+        {
+            get => GetValue(PluginTargetProperty);
+            set => SetValue(PluginTargetProperty, value);
+        }
+    }
+
     private sealed class CustomReferenceExpression : IReferenceExpression
     {
         public CustomReferenceExpression(Guid objectId)
@@ -1554,6 +1582,40 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void MigrateRecoveredElementReferences_TraversesRegisteredCoreProperties()
+    {
+        Guid originalId = Guid.NewGuid();
+        var migrated = new Element
+        {
+            Id = Guid.NewGuid(),
+            Uri = new Uri(Path.Combine(_root, "migrated.belm")),
+        };
+        var holder = new RegisteredRecoveryElement
+        {
+            Uri = new Uri(Path.Combine(_root, "holder.belm")),
+            PluginTarget = new Reference<Element>(originalId),
+        };
+        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
+        scene.Children.Add(migrated);
+        scene.Children.Add(holder);
+        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(scene)!;
+        migrations[originalId] = migrated.Id;
+        MethodInfo method = typeof(Scene).GetMethod(
+            "MigrateRecoveredElementReferences",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(scene, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(holder.PluginTarget.Id, Is.EqualTo(migrated.Id));
+            Assert.That(holder.PluginTarget.Value, Is.SameAs(migrated));
+        });
+    }
+
+    [Test]
     public void Restore_MalformedElementIdAvoidsSerializedMarkerCollision()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -1597,6 +1659,88 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(firstFallback, Is.InstanceOf<IFallback>());
             Assert.That(firstFallback.Id, Is.EqualTo(serializedId));
             Assert.That(secondFallback.Id, Is.EqualTo(serializedId));
+        });
+    }
+
+    [Test]
+    public void Restore_RegisteredCorePropertyFallbackAdoptsSerializedId()
+    {
+        string scenePath = Path.Combine(_root, "registered.scene");
+        string elementPath = Path.Combine(_root, "registered.belm");
+        var element = new RegisteredRecoveryElement
+        {
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPath),
+            PluginTransform = new RotationTransform(),
+        };
+        var scene = new Scene(64, 64, "Scene") { Uri = new Uri(scenePath) };
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
+        Guid serializedId = Guid.Parse(transformJson[nameof(CoreObject.Id)]!.GetValue<string>());
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        File.WriteAllText(elementPath, json.ToJsonString());
+
+        Scene first = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        Scene second = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        var firstElement = (RegisteredRecoveryElement)first.Children.Single();
+        var secondElement = (RegisteredRecoveryElement)second.Children.Single();
+        var firstFallback = (CoreObject)firstElement.PluginTransform!;
+        var secondFallback = (CoreObject)secondElement.PluginTransform!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstFallback, Is.InstanceOf<IFallback>());
+            Assert.That(firstFallback.Id, Is.EqualTo(serializedId));
+            Assert.That(secondFallback.Id, Is.EqualTo(serializedId));
+        });
+    }
+
+    [Test]
+    public void Restore_RegisteredCorePropertyFallbackCollisionIsRemappedStably()
+    {
+        string scenePath = Path.Combine(_root, "registered-collision.scene");
+        string healthyPath = Path.Combine(_root, "healthy.belm");
+        string recoveredPath = Path.Combine(_root, "registered.belm");
+        Guid claimantId = Guid.NewGuid();
+        var healthy = new Element
+        {
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(healthyPath),
+        };
+        healthy.AddObject(new RectShape { Id = claimantId });
+        var recovered = new RegisteredRecoveryElement
+        {
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(recoveredPath),
+            PluginTransform = new RotationTransform { Id = claimantId },
+        };
+        var scene = new Scene(64, 64, "Scene") { Uri = new Uri(scenePath) };
+        scene.Children.Add(healthy);
+        scene.Children.Add(recovered);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(recoveredPath))!.AsObject();
+        JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        File.WriteAllText(recoveredPath, json.ToJsonString());
+
+        Scene first = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        var firstRecovered = (RegisteredRecoveryElement)first.Children.Single(
+            element => element.Uri!.LocalPath == recoveredPath);
+        Guid reassignedId = firstRecovered.PluginTransform!.Id;
+        CoreSerializer.StoreToUri(first, scene.Uri);
+        Scene second = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        var secondRecovered = (RegisteredRecoveryElement)second.Children.Single(
+            element => element.Uri!.LocalPath == recoveredPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reassignedId, Is.Not.EqualTo(claimantId));
+            Assert.That(secondRecovered.PluginTransform!.Id, Is.EqualTo(reassignedId));
         });
     }
 
@@ -2105,6 +2249,86 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(reopenedShape.Transform.CurrentValue, Is.InstanceOf<FallbackTransform>());
             Assert.That(reopenedShape.Transform.CurrentValue?.Uri,
                 Is.EqualTo(new Uri(rehomedReferencedPath)));
+        });
+    }
+
+    [Test]
+    public void SaveAs_CopiesTransitiveFallbackSidecarBytesToTheNewLocation()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        string outerPath = Path.Combine(_root, "nested", "group.json");
+        string innerPath = Path.Combine(_root, "nested", "transform.json");
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var shape = (RectShape)source.Objects.Single();
+        var group = new TransformGroup { Uri = new Uri(outerPath) };
+        group.Children.Add(new RotationTransform { Uri = new Uri(innerPath) });
+        shape.Transform.CurrentValue = group;
+        CoreSerializer.StoreToUri(source, source.Uri!);
+
+        JsonObject transformJson = JsonNode.Parse(File.ReadAllText(innerPath))!.AsObject();
+        transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        File.WriteAllText(innerPath, transformJson.ToJsonString());
+        byte[] elementBytes = File.ReadAllBytes(elementPath);
+        byte[] outerBytes = File.ReadAllBytes(outerPath);
+        byte[] innerBytes = File.ReadAllBytes(innerPath);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        string rehomedPath = Path.Combine(_root, "copy", Path.GetFileName(elementPath));
+        string rehomedOuterPath = Path.Combine(_root, "copy", "nested", "group.json");
+        string rehomedInnerPath = Path.Combine(_root, "copy", "nested", "transform.json");
+        CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath));
+        Element reopened = CoreSerializer.RestoreFromUri<Element>(new Uri(rehomedPath));
+        var reopenedShape = (RectShape)reopened.Objects.Single();
+        var reopenedGroup = (TransformGroup)reopenedShape.Transform.CurrentValue!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(elementBytes));
+            Assert.That(File.ReadAllBytes(rehomedOuterPath), Is.EqualTo(outerBytes));
+            Assert.That(File.ReadAllBytes(rehomedInnerPath), Is.EqualTo(innerBytes));
+            Assert.That(reopenedGroup.Children.Single(), Is.InstanceOf<FallbackTransform>());
+        });
+    }
+
+    [Test]
+    public void SaveAs_DoesNotCopyRetainedSidecarsOutsideTheDestinationRoot()
+    {
+        string sourceDirectory = Path.Combine(_root, "source");
+        string outsideDirectory = Path.Combine(_root, "outside");
+        string destinationRoot = Path.Combine(_root, "destination", "project");
+        Directory.CreateDirectory(sourceDirectory);
+        string scenePath = Path.Combine(sourceDirectory, "scene.scene");
+        string elementPath = Path.Combine(sourceDirectory, "element.belm");
+        string outsideTransformPath = Path.Combine(outsideDirectory, "transform.json");
+        var element = new Element
+        {
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPath),
+        };
+        element.AddObject(new RectShape
+        {
+            Transform =
+            {
+                CurrentValue = new RotationTransform { Uri = new Uri(outsideTransformPath) },
+            },
+        });
+        var scene = new Scene(64, 64, "Scene") { Uri = new Uri(scenePath) };
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+
+        JsonObject transformJson = JsonNode.Parse(File.ReadAllText(outsideTransformPath))!.AsObject();
+        transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        File.WriteAllText(outsideTransformPath, transformJson.ToJsonString());
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Single();
+        string rehomedPath = Path.Combine(destinationRoot, "element.belm");
+        string escapedDestination = Path.Combine(_root, "destination", "outside", "transform.json");
+
+        CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(rehomedPath), Is.True);
+            Assert.That(File.Exists(escapedDestination), Is.False);
         });
     }
 

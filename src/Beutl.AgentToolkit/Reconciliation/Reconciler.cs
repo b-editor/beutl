@@ -788,6 +788,16 @@ public sealed class Reconciler
             return false;
         }
 
+        if (value is IOptional optional)
+        {
+            return optional.HasValue
+                   && TraverseSerializedGraph(
+                       optional.ToObject().Value,
+                       path,
+                       visited,
+                       visitObject);
+        }
+
         if (!value.GetType().IsValueType && !visited.Add(value))
         {
             return false;

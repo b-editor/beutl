@@ -265,6 +265,26 @@ public static class CoreSerializer
     public static void StoreToUri<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
         where T : ICoreSerializable
     {
+        StoreToUriCore(obj, uri, mode, authorizedRootPath: null);
+    }
+
+    internal static void StoreToUri<T>(
+        T obj,
+        Uri uri,
+        string authorizedRootPath,
+        CoreSerializationMode? mode = null)
+        where T : ICoreSerializable
+    {
+        StoreToUriCore(obj, uri, mode, authorizedRootPath);
+    }
+
+    private static void StoreToUriCore<T>(
+        T obj,
+        Uri uri,
+        CoreSerializationMode? mode,
+        string? authorizedRootPath)
+        where T : ICoreSerializable
+    {
         if (obj is CoreObject { SuppressedStorageSource: { } suppressed } suppressedObj)
         {
             if (uri == suppressed.SourceUri)
@@ -286,7 +306,7 @@ public static class CoreSerializer
                 throw new JsonException();
             }
 
-            CopyReferencedStorageSources(suppressed, uri);
+            CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
 
             // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the
             // element. SourceUri stays unchanged so the source location remains skip-protected if a
@@ -400,23 +420,62 @@ public static class CoreSerializer
 
     private static void CopyReferencedStorageSources(
         SuppressedStorageSource suppressed,
-        Uri rehomedUri)
+        Uri rehomedUri,
+        string? authorizedRootPath)
     {
         if (suppressed.ReferencedStorageSources is not { Length: > 0 } referencedSources)
         {
             return;
         }
 
+        if (suppressed.SourceRootPath is null)
+        {
+            throw new JsonException("Retained sidecars have no authorized source root.");
+        }
+
+        string destinationRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(
+            authorizedRootPath
+            ?? Path.GetDirectoryName(rehomedUri.LocalPath)
+            ?? throw new JsonException("Rehomed element has no destination directory.")));
+        StringComparison comparison = OperatingSystem.IsLinux()
+            ? StringComparison.Ordinal
+            : StringComparison.OrdinalIgnoreCase;
+        var copies = new List<(SuppressedReferencedStorageSource Source, string Destination)>();
         foreach (SuppressedReferencedStorageSource source in referencedSources)
         {
-            if (!Uri.TryCreate(rehomedUri, source.RelativeUri, out Uri? destination)
-                || !destination.IsFile)
+            string relativePath = authorizedRootPath is null
+                ? source.ElementRelativePath
+                : source.RelativePath;
+            if (Path.IsPathRooted(relativePath))
             {
-                throw new JsonException($"Invalid retained sidecar URI: {source.RelativeUri}");
+                throw new JsonException($"Invalid retained sidecar path: {relativePath}");
             }
 
-            WriteBytesAtomicallyIfMissing(destination.LocalPath, source.RawBytes);
+            string destination = Path.GetFullPath(Path.Combine(destinationRoot, relativePath));
+            if (!IsPathInsideRoot(destinationRoot, destination, comparison))
+            {
+                throw new JsonException($"Retained sidecar escapes the Save As root: {relativePath}");
+            }
+
+            copies.Add((source, destination));
         }
+
+        foreach ((SuppressedReferencedStorageSource source, string destination) in copies)
+        {
+            WriteBytesAtomicallyIfMissing(destination, source.RawBytes);
+        }
+    }
+
+    private static bool IsPathInsideRoot(
+        string root,
+        string candidate,
+        StringComparison comparison)
+    {
+        string prefix = Path.EndsInDirectorySeparator(root)
+            ? root
+            : root + Path.DirectorySeparatorChar;
+        return string.Equals(candidate, root, comparison)
+               || candidate.StartsWith(prefix, comparison);
     }
 
     private static void WriteBytesAtomicallyIfMissing(string path, byte[] bytes)

@@ -60,6 +60,18 @@ public sealed class ApplyEditTests
         public IProperty<object?> Value { get; } = Property.Create<object?>();
     }
 
+    [SuppressResourceClassGeneration]
+    public sealed class OptionalTransformHolder : EngineObject
+    {
+        public OptionalTransformHolder()
+        {
+            ScanProperties<OptionalTransformHolder>();
+        }
+
+        public IProperty<Optional<Transform>> Transform { get; }
+            = Property.Create<Optional<Transform>>();
+    }
+
     private sealed class PlainFallback : IFallback
     {
         public JsonObject? Json { get; set; } = new()
@@ -241,6 +253,34 @@ public sealed class ApplyEditTests
             Assert.That(error.Error.Message, Does.Contain("fallback object"));
             Assert.That(error.Error.Target, Does.Contain(nameof(DictionaryTransformHolder.Transforms)));
             Assert.That(currentHolder.Transforms.CurrentValue!["move"], Is.SameAs(currentTransform));
+        });
+    }
+
+    [Test]
+    public void Validate_no_new_fallback_objects_rejects_optional_values()
+    {
+        Scene current = CreateSceneWithElement(out Element currentElement);
+        var currentHolder = new OptionalTransformHolder();
+        currentHolder.Transform.CurrentValue = new Optional<Transform>(new RotationTransform());
+        currentElement.AddObject(currentHolder);
+        using var session = new AgentToolkitTestSession(current);
+
+        Scene sandbox = CreateSceneWithElement(out Element sandboxElement);
+        var sandboxHolder = new OptionalTransformHolder();
+        sandboxHolder.Transform.CurrentValue = new Optional<Transform>(new FallbackTransform());
+        sandboxElement.AddObject(sandboxHolder);
+        MethodInfo method = typeof(Reconciler).GetMethod(
+            "ValidateNoNewFallbackObjects",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+            method.Invoke(null, new object[] { session, sandbox }))!;
+        var error = (ReconcileException)exception.InnerException!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(error.Error.Target, Does.Contain(nameof(OptionalTransformHolder.Transform)));
         });
     }
 
