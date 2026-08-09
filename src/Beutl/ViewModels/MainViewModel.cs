@@ -51,6 +51,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
         _extensionProvider = new ExtensionProvider();
         _projectService = new ProjectService();
         _editorService = new EditorService(_extensionProvider);
+        ProxyMediaServices.Current?.BindWorkspaceOperations(_editorService);
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         _agentHostEndpoint = agentHostFactory(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);

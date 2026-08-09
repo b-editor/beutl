@@ -22,6 +22,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private readonly Task _drainTask;
     private readonly TimeSpan _minUnavailableBackoff;
     private readonly TimeSpan _maxUnavailableBackoff;
+    private readonly Func<IDisposable?>? _tryBeginOutputOperation;
     private TaskCompletionSource? _resumeAfterGeneratorUnavailable;
     private int _consecutiveUnavailable;
     private bool _disposed;
@@ -40,8 +41,14 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         IProxyGenerator generator,
         IProxyStore? store,
         TimeSpan minUnavailableBackoff,
-        TimeSpan maxUnavailableBackoff)
-        : this(EagerProvider(generator), store, minUnavailableBackoff, maxUnavailableBackoff)
+        TimeSpan maxUnavailableBackoff,
+        Func<IDisposable?>? tryBeginOutputOperation = null)
+        : this(
+            EagerProvider(generator),
+            store,
+            minUnavailableBackoff,
+            maxUnavailableBackoff,
+            tryBeginOutputOperation)
     {
     }
 
@@ -61,8 +68,22 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     internal ProxyJobQueue(
         Func<IProxyGenerator?> generatorProvider,
         IProxyStore? store,
+        Func<IDisposable?> tryBeginOutputOperation)
+        : this(
+            generatorProvider,
+            store,
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(30),
+            tryBeginOutputOperation)
+    {
+    }
+
+    internal ProxyJobQueue(
+        Func<IProxyGenerator?> generatorProvider,
+        IProxyStore? store,
         TimeSpan minUnavailableBackoff,
-        TimeSpan maxUnavailableBackoff)
+        TimeSpan maxUnavailableBackoff,
+        Func<IDisposable?>? tryBeginOutputOperation = null)
     {
         ArgumentNullException.ThrowIfNull(generatorProvider);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(minUnavailableBackoff, TimeSpan.Zero);
@@ -72,6 +93,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         _store = store;
         _minUnavailableBackoff = minUnavailableBackoff;
         _maxUnavailableBackoff = maxUnavailableBackoff;
+        _tryBeginOutputOperation = tryBeginOutputOperation;
         // Unbounded: each queued item needs exactly one wake permit, and the drain (single reader,
         // MaxConcurrency 1) consumes one per dispatch. Items already live in _items — deduplicated by
         // (source, preset) — so the channel is a pure wake signal, not the memory bound. A bounded
@@ -411,6 +433,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             OnJobChanged(item.Job, ProxyJobChangeKind.Started);
 
             bool requeued = false;
+            bool workspaceBlocked = false;
             try
             {
                 // ResolveGenerator runs inside the guarded region: the provider is plugin-supplied
@@ -427,11 +450,26 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 }
                 else
                 {
-                    item.Job.StatusMessage = null;
-                    await generator.GenerateAsync(item.Job).ConfigureAwait(false);
-                    item.Job.Status = ProxyJobStatus.Succeeded;
-                    Interlocked.Exchange(ref _consecutiveUnavailable, 0);
-                    OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
+                    IDisposable? outputOperation = _tryBeginOutputOperation?.Invoke();
+                    if (_tryBeginOutputOperation is not null && outputOperation is null)
+                    {
+                        item.Job.StatusMessage = "Waiting for the workspace transition to complete.";
+                        workspaceBlocked = true;
+                        requeued = RequeueForRetry(item);
+                        if (!requeued)
+                            CompleteCanceled(item);
+                    }
+                    else
+                    {
+                        using (outputOperation)
+                        {
+                            item.Job.StatusMessage = null;
+                            await generator.GenerateAsync(item.Job).ConfigureAwait(false);
+                            item.Job.Status = ProxyJobStatus.Succeeded;
+                            Interlocked.Exchange(ref _consecutiveUnavailable, 0);
+                            OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
+                        }
+                    }
                 }
             }
             catch (ProxyGenerationSkippedException ex)
@@ -498,9 +536,29 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 return;
             }
 
-            await WaitForGeneratorResumeOrDisposeAsync(item.Token).ConfigureAwait(false);
+            if (workspaceBlocked)
+            {
+                await WaitForWorkspaceTransitionAsync(item.Token).ConfigureAwait(false);
+            }
+            else
+            {
+                await WaitForGeneratorResumeOrDisposeAsync(item.Token).ConfigureAwait(false);
+            }
+
             if (_disposeCts.IsCancellationRequested)
                 return;
+        }
+    }
+
+    private async Task WaitForWorkspaceTransitionAsync(CancellationToken jobCancellation)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token, jobCancellation);
+        try
+        {
+            await Task.Delay(_minUnavailableBackoff, linked.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
         }
     }
 

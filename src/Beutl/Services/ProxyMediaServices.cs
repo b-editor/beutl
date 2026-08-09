@@ -34,6 +34,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     // Tracks the disposal of queues replaced by a store-root change so shutdown can await them; each new
     // change chains onto the previous so DisposeAsync awaiting the latest awaits them all.
     private Task _replacedQueueDisposal = Task.CompletedTask;
+    private readonly ProxyOutputOperationGate _outputOperationGate;
     // The live config, so a rejected store-root rebuild can revert the persisted path to the last-good one.
     private ProxyStoreConfig? _config;
     // Monotonically increasing base for each rebuilt resolver's source versions, so a store-root swap
@@ -44,12 +45,14 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         ProxyStore store,
         ProxyResolver resolver,
         ProxyJobQueue queue,
-        ProxyEvictionService evictionService)
+        ProxyEvictionService evictionService,
+        ProxyOutputOperationGate outputOperationGate)
     {
         Store = store;
         Resolver = resolver;
         Queue = queue;
         EvictionService = evictionService;
+        _outputOperationGate = outputOperationGate;
         StoreFacade = new StableProxyStoreFacade(store);
         ResolverFacade = new StableProxyResolverFacade(resolver);
         QueueFacade = new StableProxyQueueFacade(queue);
@@ -91,8 +94,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             return existing;
 
         ProxyStoreConfig config = configuration.ProxyStoreConfig;
-        var (store, resolver, queue, eviction) = BuildServicesWithFallback(config);
-        var services = new ProxyMediaServices(store, resolver, queue, eviction) { _config = config };
+        var outputOperationGate = new ProxyOutputOperationGate();
+        var (store, resolver, queue, eviction) = BuildServicesWithFallback(config, outputOperationGate);
+        var services = new ProxyMediaServices(store, resolver, queue, eviction, outputOperationGate) { _config = config };
         s_disposing = false;
         Current = services;
         DecoderRegistry.ProxyResolver = resolver;
@@ -113,8 +117,18 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         return services;
     }
 
+    internal void BindWorkspaceOperations(EditorService editorService)
+    {
+        ArgumentNullException.ThrowIfNull(editorService);
+        _outputOperationGate.Bind(editorService.TryBeginOutputOperation);
+    }
+
     private static (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
-        BuildServices(string storeRootPath, long maxTotalBytes, long resolverVersionOffset)
+        BuildServices(
+            string storeRootPath,
+            long maxTotalBytes,
+            long resolverVersionOffset,
+            ProxyOutputOperationGate outputOperationGate)
     {
         var store = new ProxyStore(storeRootPath);
         var resolver = new ProxyResolver(store, resolverVersionOffset);
@@ -129,7 +143,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             minFreeDiskBytes: DefaultMinFreeDiskBytes,
             openProjectSourceProvider: CollectOpenProjectSources,
             isGenerationActive: (source, preset) => queue.IsGenerating(source, preset));
-        queue = new ProxyJobQueue(ResolveGeneratorFactory(store, eviction), store);
+        queue = new ProxyJobQueue(
+            ResolveGeneratorFactory(store, eviction),
+            store,
+            outputOperationGate.TryBeginOutputOperation);
         return (store, resolver, queue, eviction);
     }
 
@@ -140,7 +157,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             : StringComparison.Ordinal;
 
     private static (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
-        BuildServicesWithFallback(ProxyStoreConfig config)
+        BuildServicesWithFallback(ProxyStoreConfig config, ProxyOutputOperationGate outputOperationGate)
     {
         // Capture the resolved path once, before the try: the recovery path below must not re-read the
         // accessor (its normalization already degrades a malformed value to the default, but reading it
@@ -148,7 +165,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         string storeRootPath = config.StoreRootPath;
         try
         {
-            return BuildServices(storeRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
+            return BuildServices(storeRootPath, config.MaxTotalBytes, resolverVersionOffset: 0, outputOperationGate);
         }
         catch (Exception ex)
         {
@@ -164,7 +181,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
                 "Proxy media",
                 "The proxy store location could not be opened. Using the default location instead.");
             config.StoreRootPath = ProxyStoreConfig.DefaultStoreRootPath;
-            return BuildServices(config.StoreRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
+            return BuildServices(config.StoreRootPath, config.MaxTotalBytes, resolverVersionOffset: 0, outputOperationGate);
         }
     }
 
@@ -229,7 +246,11 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         ProxyEvictionService newEviction;
         try
         {
-            (newStore, newResolver, newQueue, newEviction) = BuildServices(storeRootPath, maxTotalBytes, versionOffset);
+            (newStore, newResolver, newQueue, newEviction) = BuildServices(
+                storeRootPath,
+                maxTotalBytes,
+                versionOffset,
+                _outputOperationGate);
         }
         catch (Exception ex)
         {
@@ -458,6 +479,29 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private static readonly object s_openProjectSourcesLock = new();
     private static Project? s_openProjectSourcesProject;
     private static IReadOnlySet<string>? s_openProjectSources;
+
+    private sealed class ProxyOutputOperationGate
+    {
+        private Func<IDisposable?>? _tryBeginOutputOperation;
+
+        public void Bind(Func<IDisposable?> tryBeginOutputOperation)
+        {
+            ArgumentNullException.ThrowIfNull(tryBeginOutputOperation);
+            Volatile.Write(ref _tryBeginOutputOperation, tryBeginOutputOperation);
+        }
+
+        public IDisposable? TryBeginOutputOperation()
+            => Volatile.Read(ref _tryBeginOutputOperation)?.Invoke() ?? UnrestrictedLease.Instance;
+    }
+
+    private sealed class UnrestrictedLease : IDisposable
+    {
+        public static UnrestrictedLease Instance { get; } = new();
+
+        public void Dispose()
+        {
+        }
+    }
 
     private static string FormatBytes(long bytes)
     {
