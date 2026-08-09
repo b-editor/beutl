@@ -339,6 +339,133 @@ public class VersionControlSaveTests
             Is.EqualTo(new GitIdentity(Environment.UserName, "local@example.invalid")));
     }
 
+    [AvaloniaTest]
+    public async Task Save_all_reserves_the_workspace_while_an_extension_writes_files()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            (Project project, BlockingSaveCommands blocking) =
+                await CreateProjectWithBlockingEditorAsync("save-all-workspace-lease");
+
+            Task saveAll = TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+            await WaitUntilSaveEnteredAsync(blocking);
+
+            IDisposable? blockedMutation = TestShell.Editor.TryBeginWorktreeMutation();
+            try
+            {
+                Assert.That(
+                    blockedMutation,
+                    Is.Null,
+                    "A worktree mutation must not start while an extension is still writing files.");
+            }
+            finally
+            {
+                blockedMutation?.Dispose();
+            }
+
+            blocking.Release();
+            await CompleteAsync(saveAll);
+
+            using IDisposable? mutationAfterSave = TestShell.Editor.TryBeginWorktreeMutation();
+            Assert.That(
+                mutationAfterSave,
+                Is.Not.Null,
+                "The write lease must be released once every save completed.");
+            Assert.That(project.Uri, Is.Not.Null);
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Explicit_save_reserves_the_workspace_while_an_extension_writes_files()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            (_, BlockingSaveCommands blocking) =
+                await CreateProjectWithBlockingEditorAsync("save-workspace-lease");
+
+            Task save = TestShell.MainViewModel.MenuBar.Save.ExecuteAsync();
+            await WaitUntilSaveEnteredAsync(blocking);
+
+            IDisposable? blockedMutation = TestShell.Editor.TryBeginWorktreeMutation();
+            try
+            {
+                Assert.That(
+                    blockedMutation,
+                    Is.Null,
+                    "A worktree mutation must not start while an extension is still writing files.");
+            }
+            finally
+            {
+                blockedMutation?.Dispose();
+            }
+
+            blocking.Release();
+            await CompleteAsync(save);
+
+            using IDisposable? mutationAfterSave = TestShell.Editor.TryBeginWorktreeMutation();
+            Assert.That(mutationAfterSave, Is.Not.Null);
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    private static async Task<(Project Project, BlockingSaveCommands Commands)>
+        CreateProjectWithBlockingEditorAsync(string directoryName)
+    {
+        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, directoryName);
+        Directory.CreateDirectory(location);
+        Project project = (await TestShell.Project.CreateProject(
+            640,
+            480,
+            30,
+            44100,
+            directoryName,
+            location))!;
+        HeadlessTestHelpers.Settle();
+
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        var blocking = new BlockingSaveCommands();
+        var blockingItem = new Scene
+        {
+            Uri = new Uri(Path.Combine(projectRoot, "blocking.scene")),
+        };
+        var tabItem = new EditorTabItem(new FailedSaveEditorContext(blockingItem, blocking));
+        TestShell.Editor.TabItems.Add(tabItem);
+        TestShell.Editor.SelectedTabItem.Value = tabItem;
+        HeadlessTestHelpers.Settle();
+        return (project, blocking);
+    }
+
+    private static async Task WaitUntilSaveEnteredAsync(BlockingSaveCommands blocking)
+    {
+        for (int attempt = 0; attempt < 200 && !blocking.SaveEntered; attempt++)
+        {
+            HeadlessTestHelpers.Settle();
+            await Task.Delay(10);
+        }
+
+        Assert.That(blocking.SaveEntered, Is.True, "The extension save never started.");
+    }
+
+    private static async Task CompleteAsync(Task pending)
+    {
+        for (int attempt = 0; attempt < 200 && !pending.IsCompleted; attempt++)
+        {
+            HeadlessTestHelpers.Settle();
+            await Task.Delay(10);
+        }
+
+        await pending;
+    }
+
     private static int CountSaveSnapshots(string log)
     {
         const string trailer = "Beutl-Snapshot: save";
@@ -492,7 +619,7 @@ public class VersionControlSaveTests
 
     private sealed class FailedSaveEditorContext(
         CoreObject obj,
-        FailedSaveCommands commands) : IEditorContext
+        IKnownEditorCommands commands) : IEditorContext
     {
         public CoreObject Object { get; } = obj;
 
@@ -532,6 +659,22 @@ public class VersionControlSaveTests
             SaveCalls++;
             return ValueTask.FromResult(false);
         }
+    }
+
+    private sealed class BlockingSaveCommands : IKnownEditorCommands
+    {
+        private readonly TaskCompletionSource<bool> _release = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool SaveEntered { get; private set; }
+
+        public async ValueTask<bool> OnSave()
+        {
+            SaveEntered = true;
+            return await _release.Task;
+        }
+
+        public void Release() => _release.TrySetResult(true);
     }
 
     private sealed class IsolatedGitEnvironment : IDisposable

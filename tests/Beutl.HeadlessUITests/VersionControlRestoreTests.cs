@@ -4461,6 +4461,79 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Restore_saves_in_memory_project_edits_into_the_safety_snapshot()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        bool oldAutoSave = editorConfig.IsAutoSaveEnabled;
+        var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = true;
+            config.AutoCommitOnClose = false;
+            config.UseLfsWhenAvailable = false;
+            editorConfig.IsAutoSaveEnabled = false;
+
+            (Project project, _) = await CreateTrackedProjectAsync(
+                "version-control-restore-in-memory-save");
+            IProjectVersionControlService service = TestShell.VersionControl.CurrentService!;
+            project.Variables[RestoreStateKey] = "version-one";
+            await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+            HeadlessTestHelpers.Settle();
+            CommitInfo target = (await service.GetHistoryAsync(0, 10, CancellationToken.None))
+                .First(commit => commit.Kind == SnapshotKind.Save);
+
+            // Only mutate the in-memory project — nothing reaches the worktree until a save runs.
+            project.Variables[RestoreStateKey] = "unsaved-state";
+            WorkspaceStatus beforeRestore = await service.GetStatusAsync(CancellationToken.None);
+            Assert.That(
+                beforeRestore.IsClean,
+                Is.True,
+                string.Join(
+                    ", ",
+                    beforeRestore.Changes.Select(change => $"{change.Status}:{change.Path}")));
+
+            TestShell.VersionControl.ConfirmRestoreAsync = _ => Task.FromResult(true);
+            Assert.That(await TestShell.VersionControl.RestoreAsync(target.Sha), Is.True);
+            HeadlessTestHelpers.Settle();
+
+            service = TestShell.VersionControl.CurrentService!;
+            IReadOnlyList<CommitInfo> history =
+                await service.GetHistoryAsync(0, 20, CancellationToken.None);
+            CommitInfo safety = history.Single(commit =>
+                commit.Kind == SnapshotKind.Safety
+                && commit.Subject == "beutl: safety snapshot before restore");
+
+            Assert.That(await TestShell.VersionControl.RestoreAsync(safety.Sha), Is.True);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(
+                TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                Is.EqualTo("unsaved-state"),
+                "The safety snapshot must contain the edit that only existed in memory.");
+        }
+        finally
+        {
+            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+            editorConfig.IsAutoSaveEnabled = oldAutoSave;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Branch_creation_stops_when_an_open_editor_cannot_save()
     {
         await TestReset.ResetShellAsync();

@@ -74,6 +74,39 @@ public class VersionControlModelsTests
         }
     }
 
+    [Test]
+    public void RepositoryInfo_accepts_a_contained_project_that_differs_only_in_path_casing()
+    {
+        string temporaryRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-repository-casing-{Guid.NewGuid():N}");
+        string repositoryRoot = Path.Combine(temporaryRoot, "Repo");
+        string projectRoot = Path.Combine(repositoryRoot, "project");
+        Directory.CreateDirectory(projectRoot);
+        try
+        {
+            string aliasRepositoryRoot = Path.Combine(temporaryRoot, "repo");
+            if (!Directory.Exists(aliasRepositoryRoot))
+            {
+                Assert.Ignore("The temporary volume is case-sensitive.");
+            }
+
+            var repository = new RepositoryInfo(
+                repositoryRoot,
+                Path.Combine(aliasRepositoryRoot, "project"));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(repository.IsNestedInForeignRepo, Is.True);
+                Assert.That(repository.Pathspec, Is.EqualTo("project"));
+            });
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
     [TestCase("fatal: Unable to create '.git/index.lock': File exists.")]
     [TestCase("fatal: Unable to acquire '/repo/.git/HEAD.lock': File exists.")]
     [TestCase("fatal: Unable to acquire '/repo/.git/config.lock': File exists.")]

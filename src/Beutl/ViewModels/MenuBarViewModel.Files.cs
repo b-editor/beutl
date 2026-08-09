@@ -127,28 +127,32 @@ public partial class MenuBarViewModel
 
         try
         {
-            if (project != null)
+            using (IDisposable fileWrite = await _editorService.BeginProjectFileWriteAsync(
+                       CancellationToken.None))
             {
-                CoreSerializer.StoreToUri(project, project.Uri!);
-            }
-
-            itemsCount++;
-
-            foreach (EditorTabItem? item in _editorService.TabItems)
-            {
-                if (item.Commands.Value != null)
+                if (project != null)
                 {
-                    if (await item.Commands.Value.OnSave())
+                    CoreSerializer.StoreToUri(project, project.Uri!);
+                }
+
+                itemsCount++;
+
+                foreach (EditorTabItem? item in _editorService.TabItems)
+                {
+                    if (item.Commands.Value != null)
                     {
-                        itemsCount++;
-                    }
-                    else
-                    {
-                        allRequestedSavesSucceeded = false;
-                        Type type = item.Extension.Value.GetType();
-                        _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
-                            item.FileName.Value);
-                        NotificationService.ShowError(MessageStrings.UnableToSaveFile, item.FileName.Value);
+                        if (await item.Commands.Value.OnSave())
+                        {
+                            itemsCount++;
+                        }
+                        else
+                        {
+                            allRequestedSavesSucceeded = false;
+                            Type type = item.Extension.Value.GetType();
+                            _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
+                                item.FileName.Value);
+                            NotificationService.ShowError(MessageStrings.UnableToSaveFile, item.FileName.Value);
+                        }
                     }
                 }
             }
@@ -186,9 +190,14 @@ public partial class MenuBarViewModel
         {
             try
             {
-                bool result = await (item.Commands.Value == null
-                    ? ValueTask.FromResult(false)
-                    : item.Commands.Value.OnSave());
+                bool result;
+                using (IDisposable fileWrite = await _editorService.BeginProjectFileWriteAsync(
+                           CancellationToken.None))
+                {
+                    result = await (item.Commands.Value == null
+                        ? ValueTask.FromResult(false)
+                        : item.Commands.Value.OnSave());
+                }
 
                 if (result)
                 {
