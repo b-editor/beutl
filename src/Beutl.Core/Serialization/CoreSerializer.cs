@@ -286,6 +286,8 @@ public static class CoreSerializer
                 throw new JsonException();
             }
 
+            CopyReferencedStorageSources(suppressed, uri);
+
             // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the
             // element. SourceUri stays unchanged so the source location remains skip-protected if a
             // failed multi-file save rolls Uri back afterwards.
@@ -393,6 +395,73 @@ public static class CoreSerializer
         else
         {
             throw new JsonException();
+        }
+    }
+
+    private static void CopyReferencedStorageSources(
+        SuppressedStorageSource suppressed,
+        Uri rehomedUri)
+    {
+        if (suppressed.ReferencedStorageSources is not { Length: > 0 } referencedSources)
+        {
+            return;
+        }
+
+        foreach (SuppressedReferencedStorageSource source in referencedSources)
+        {
+            if (!Uri.TryCreate(rehomedUri, source.RelativeUri, out Uri? destination)
+                || !destination.IsFile)
+            {
+                throw new JsonException($"Invalid retained sidecar URI: {source.RelativeUri}");
+            }
+
+            WriteBytesAtomicallyIfMissing(destination.LocalPath, source.RawBytes);
+        }
+    }
+
+    private static void WriteBytesAtomicallyIfMissing(string path, byte[] bytes)
+    {
+        if (File.Exists(path))
+        {
+            return;
+        }
+
+        string? directory = Path.GetDirectoryName(path);
+        if (directory != null)
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        string tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var stream = new FileStream(
+                       tempPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+
+            try
+            {
+                File.Move(tempPath, path, overwrite: false);
+            }
+            catch (IOException) when (File.Exists(path))
+            {
+            }
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(tempPath);
+            }
+            catch
+            {
+            }
         }
     }
 

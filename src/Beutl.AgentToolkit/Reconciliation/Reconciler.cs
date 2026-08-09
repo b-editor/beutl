@@ -683,8 +683,8 @@ public sealed class Reconciler
 
     private static void ValidateNoNewFallbackObjects(IEditingSession session, CoreObject sandboxRoot)
     {
-        HashSet<Guid> existingFallbackIds = CollectFallbackIds(session.Root);
-        if (FindFirstNewFallback(sandboxRoot, "$", existingFallbackIds) is { } occurrence)
+        Dictionary<FallbackIdentity, int> existingFallbacks = CollectFallbackIdentities(session.Root);
+        if (FindFirstNewFallback(sandboxRoot, "$", existingFallbacks) is { } occurrence)
         {
             string typeDetail = string.IsNullOrWhiteSpace(occurrence.FallbackTypeName)
                 ? "unknown serialized type"
@@ -718,41 +718,48 @@ public sealed class Reconciler
         return clone;
     }
 
-    private static HashSet<Guid> CollectFallbackIds(CoreObject root)
+    private static Dictionary<FallbackIdentity, int> CollectFallbackIdentities(CoreObject root)
     {
-        var ids = new HashSet<Guid>();
+        var identities = new Dictionary<FallbackIdentity, int>();
         var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
         TraverseSerializedGraph(root, "$", visited, (node, _) =>
         {
-            if (node is IFallback)
+            if (node is IFallback fallback)
             {
-                ids.Add(node.Id);
+                FallbackIdentity identity = CreateFallbackIdentity(fallback);
+                identities[identity] = identities.GetValueOrDefault(identity) + 1;
             }
 
             return false;
         });
 
-        return ids;
+        return identities;
     }
 
     private static FallbackOccurrence? FindFirstNewFallback(
         CoreObject root,
         string path,
-        HashSet<Guid> existingFallbackIds)
+        Dictionary<FallbackIdentity, int> existingFallbacks)
     {
         FallbackOccurrence? result = null;
         var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
         TraverseSerializedGraph(root, path, visited, (node, nodePath) =>
         {
-            if (node is not IFallback fallback || existingFallbackIds.Contains(node.Id))
+            if (node is not IFallback fallback)
             {
+                return false;
+            }
+
+            FallbackIdentity identity = CreateFallbackIdentity(fallback);
+            if (existingFallbacks.TryGetValue(identity, out int remaining) && remaining > 0)
+            {
+                existingFallbacks[identity] = remaining - 1;
                 return false;
             }
 
             fallback.TryGetTypeName(out string? fallbackTypeName);
             result = new FallbackOccurrence(
                 nodePath,
-                node.Id,
                 fallbackTypeName,
                 fallback.Reason.ToString(),
                 fallback.ErrorMessage);
@@ -761,11 +768,20 @@ public sealed class Reconciler
         return result;
     }
 
+    private static FallbackIdentity CreateFallbackIdentity(IFallback fallback)
+    {
+        return fallback is CoreObject { Id: var id } && id != Guid.Empty
+            ? new FallbackIdentity(id, null)
+            : new FallbackIdentity(
+                null,
+                $"{fallback.GetType().AssemblyQualifiedName}|{fallback.Json?.ToJsonString()}");
+    }
+
     private static bool TraverseSerializedGraph(
         object? value,
         string path,
         HashSet<object> visited,
-        Func<CoreObject, string, bool> visitCoreObject)
+        Func<object, string, bool> visitObject)
     {
         if (value is null or string)
         {
@@ -777,13 +793,16 @@ public sealed class Reconciler
             return false;
         }
 
-        if (value is CoreObject coreObject)
+        if (value is CoreObject or IFallback)
         {
-            if (visitCoreObject(coreObject, path))
+            if (visitObject(value, path))
             {
                 return true;
             }
+        }
 
+        if (value is CoreObject coreObject)
+        {
             switch (coreObject)
             {
                 case Scene scene:
@@ -793,7 +812,7 @@ public sealed class Reconciler
                                 scene.Children[i],
                                 $"{path}/Elements[{i}]",
                                 visited,
-                                visitCoreObject))
+                                visitObject))
                         {
                             return true;
                         }
@@ -807,7 +826,7 @@ public sealed class Reconciler
                                 element.Objects[i],
                                 $"{path}/Objects[{i}]",
                                 visited,
-                                visitCoreObject))
+                                visitObject))
                         {
                             return true;
                         }
@@ -821,7 +840,7 @@ public sealed class Reconciler
                                 property.CurrentValue,
                                 $"{path}/{property.Name}",
                                 visited,
-                                visitCoreObject))
+                                visitObject))
                         {
                             return true;
                         }
@@ -835,7 +854,7 @@ public sealed class Reconciler
                                         keyFrame.Value,
                                         $"{path}/Animations/{property.Name}/KeyFrames[{index}]/Value",
                                         visited,
-                                        visitCoreObject))
+                                        visitObject))
                                 {
                                     return true;
                                 }
@@ -847,6 +866,23 @@ public sealed class Reconciler
                     break;
             }
 
+            foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
+            {
+                if (!property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
+                {
+                    continue;
+                }
+
+                if (TraverseSerializedGraph(
+                        coreObject.GetValue(property),
+                        $"{path}/{property.Name}",
+                        visited,
+                        visitObject))
+                {
+                    return true;
+                }
+            }
+
             if (coreObject is IHierarchical hierarchical)
             {
                 int index = 0;
@@ -856,7 +892,7 @@ public sealed class Reconciler
                             child,
                             $"{path}/HierarchicalChildren[{index}]",
                             visited,
-                            visitCoreObject))
+                            visitObject))
                     {
                         return true;
                     }
@@ -877,7 +913,7 @@ public sealed class Reconciler
                         item,
                         $"{path}[{index}]",
                         visited,
-                        visitCoreObject))
+                        visitObject))
                 {
                     return true;
                 }
@@ -894,7 +930,7 @@ public sealed class Reconciler
                         item,
                         $"{path}[{index}]",
                         visited,
-                        visitCoreObject))
+                        visitObject))
                 {
                     return true;
                 }
@@ -1335,9 +1371,10 @@ public sealed class Reconciler
         return left.ToJsonString() == right.ToJsonString();
     }
 
+    private readonly record struct FallbackIdentity(Guid? Id, string? Signature);
+
     private sealed record FallbackOccurrence(
         string Path,
-        Guid Id,
         string? FallbackTypeName,
         string Reason,
         string? Message);

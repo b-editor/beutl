@@ -11,7 +11,8 @@ internal sealed record SuppressedStorageSource(
     byte[] RawBytes,
     Uri SourceUri,
     bool HasNonFallbackIncidents = false,
-    JsonObject[]? UntraversedFallbacks = null)
+    JsonObject[]? UntraversedFallbacks = null,
+    SuppressedReferencedStorageSource[]? ReferencedStorageSources = null)
 {
     /// <summary>
     /// True when this suppression record was put back by undoing an in-process repair. Only a
@@ -21,3 +22,7 @@ internal sealed record SuppressedStorageSource(
     /// </summary>
     public bool WasReinstated { get; set; }
 }
+
+internal sealed record SuppressedReferencedStorageSource(
+    byte[] RawBytes,
+    string RelativeUri);

@@ -43,6 +43,18 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [SuppressResourceClassGeneration]
+    public sealed class OptionalReferenceHolder : EngineObject
+    {
+        public OptionalReferenceHolder()
+        {
+            ScanProperties<OptionalReferenceHolder>();
+        }
+
+        public IProperty<Optional<Reference<Element>>> Target { get; }
+            = Property.Create<Optional<Reference<Element>>>();
+    }
+
+    [SuppressResourceClassGeneration]
     public sealed class NestedReferenceHolder : EngineObject
     {
         public NestedReferenceHolder()
@@ -1008,8 +1020,12 @@ public sealed class MalformedElementRecoveryTests
         recoveredScene.Groups.Add(ImmutableHashSet.Create(placeholder.Id, healthy.Id));
         var referenceHolder = new ElementReferenceHolder();
         referenceHolder.Target.CurrentValue = new Reference<Element>(placeholder.Id);
+        var optionalReferenceHolder = new OptionalReferenceHolder();
+        optionalReferenceHolder.Target.CurrentValue = new Optional<Reference<Element>>(
+            new Reference<Element>(placeholder.Id));
         referenceHolder.ExpressionTarget.Expression = new ReferenceExpression<Element?>(placeholder.Id);
         healthy.AddObject(referenceHolder);
+        healthy.AddObject(optionalReferenceHolder);
         CoreSerializer.StoreToUri(recoveredScene, sceneUri);
 
         Guid repairedId = Guid.NewGuid();
@@ -1039,6 +1055,10 @@ public sealed class MalformedElementRecoveryTests
             .OfType<ElementReferenceHolder>()
             .Single();
         Reference<Element> migratedReference = reloadedHolder.Target.CurrentValue;
+        Reference<Element> migratedOptionalReference = reloadedHealthy.Objects
+            .OfType<OptionalReferenceHolder>()
+            .Single()
+            .Target.CurrentValue.Value;
         var migratedExpression = (IReferenceExpression)reloadedHolder.ExpressionTarget.Expression!;
 
         Assert.Multiple(() =>
@@ -1049,6 +1069,8 @@ public sealed class MalformedElementRecoveryTests
                 Is.EqualTo(ImmutableHashSet.Create(repairedId, healthy.Id)));
             Assert.That(migratedReference.Id, Is.EqualTo(repairedId));
             Assert.That(migratedReference.Value, Is.SameAs(reloadedRepaired));
+            Assert.That(migratedOptionalReference.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedOptionalReference.Value, Is.SameAs(reloadedRepaired));
             Assert.That(migratedExpression.ObjectId, Is.EqualTo(repairedId));
             Assert.That(
                 reloadedHolder.ExpressionTarget.GetValue(CompositionContext.Default),
@@ -1390,6 +1412,31 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(references.Select(static item => item.Value), Is.All.Null);
             Assert.That(references.Select(static item => item.Id), Does.Not.Contain(repairedId));
         });
+    }
+
+    [Test]
+    public void Deserialize_PreservesBackslashesInRecoveredDescendantIdentityGraphPath()
+    {
+        const string IdentityKey = "element.belm!path:$/property:Objects/key:folder\\turn";
+        Guid identityId = Guid.NewGuid();
+        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "scene.scene")) };
+        JsonObject json = CoreSerializer.SerializeToJsonObject(scene);
+        json["RecoveredDescendantIdentities"] = new JsonObject
+        {
+            [IdentityKey] = identityId.ToString(),
+        };
+        var restored = new Scene { Uri = scene.Uri };
+
+        CoreSerializer.PopulateFromJsonObject(
+            restored,
+            typeof(Scene),
+            json,
+            new CoreSerializerOptions { BaseUri = scene.Uri, Mode = CoreSerializationMode.Read });
+
+        var identities = (Dictionary<string, Guid>)typeof(Scene)
+            .GetField("_recoveredDescendantIdentities", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(restored)!;
+        Assert.That(identities, Contains.Key(IdentityKey).WithValue(identityId));
     }
 
     [Test]
@@ -2025,6 +2072,39 @@ public sealed class MalformedElementRecoveryTests
                     Path.GetDirectoryName(rehomedPath)!,
                     $"{Path.GetFileName(rehomedPath)}.*.tmp"),
                 Is.Empty);
+        });
+    }
+
+    [Test]
+    public void SaveAs_CopiesRelativeFallbackSidecarBytesToTheNewLocation()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        string referencedPath = Path.Combine(_root, "nested", "transform.json");
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var shape = (RectShape)source.Objects.Single();
+        shape.Transform.CurrentValue = new RotationTransform { Uri = new Uri(referencedPath) };
+        CoreSerializer.StoreToUri(source, source.Uri!);
+
+        JsonObject transformJson = JsonNode.Parse(File.ReadAllText(referencedPath))!.AsObject();
+        transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        File.WriteAllText(referencedPath, transformJson.ToJsonString());
+        byte[] elementBytes = File.ReadAllBytes(elementPath);
+        byte[] referencedBytes = File.ReadAllBytes(referencedPath);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        string rehomedPath = Path.Combine(_root, "copy", Path.GetFileName(elementPath));
+        string rehomedReferencedPath = Path.Combine(_root, "copy", "nested", "transform.json");
+        CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath));
+        Element reopened = CoreSerializer.RestoreFromUri<Element>(new Uri(rehomedPath));
+        var reopenedShape = (RectShape)reopened.Objects.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(elementBytes));
+            Assert.That(File.ReadAllBytes(rehomedReferencedPath), Is.EqualTo(referencedBytes));
+            Assert.That(reopenedShape.Transform.CurrentValue, Is.InstanceOf<FallbackTransform>());
+            Assert.That(reopenedShape.Transform.CurrentValue?.Uri,
+                Is.EqualTo(new Uri(rehomedReferencedPath)));
         });
     }
 

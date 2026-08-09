@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -704,7 +705,7 @@ public class Scene : ProjectItem, INotifyEdited
                     && idValue.TryGetValue(out string? idText)
                     && Guid.TryParse(idText, out Guid id))
                 {
-                    _recoveredDescendantIdentities[NormalizeRelativePath(key)] = id;
+                    _recoveredDescendantIdentities[key] = id;
                 }
             }
         }
@@ -1278,7 +1279,104 @@ public class Scene : ProjectItem, INotifyEdited
             rawBytes,
             uri,
             hasNonFallbackIncidents,
-            untraversedFallbacks);
+            untraversedFallbacks,
+            CollectReferencedFallbackStorageSources(element, rawBytes, uri));
+    }
+
+    private static SuppressedReferencedStorageSource[]? CollectReferencedFallbackStorageSources(
+        Element element,
+        byte[] rawBytes,
+        Uri elementUri)
+    {
+        var fallbackFiles = EnumerateSerializedGraphFallbacks(element)
+            .OfType<CoreObject>()
+            .Where(static fallback => fallback.Uri is { IsFile: true })
+            .Select(static fallback => fallback.Uri!)
+            .Where(uri => uri != elementUri && File.Exists(uri.LocalPath))
+            .Distinct()
+            .ToArray();
+        if (fallbackFiles.Length == 0)
+        {
+            return null;
+        }
+
+        JsonNode? root;
+        try
+        {
+            root = JsonNode.Parse(rawBytes);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        var result = new List<SuppressedReferencedStorageSource>();
+        var seenRelativeUris = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string serializedValue in EnumerateJsonStringValues(root))
+        {
+            string relativeUri;
+            try
+            {
+                relativeUri = Uri.UnescapeDataString(serializedValue);
+            }
+            catch (UriFormatException)
+            {
+                continue;
+            }
+
+            if (!Uri.TryCreate(relativeUri, UriKind.RelativeOrAbsolute, out Uri? parsed)
+                || parsed.IsAbsoluteUri
+                || !Uri.TryCreate(elementUri, relativeUri, out Uri? resolved)
+                || !resolved.IsFile
+                || !seenRelativeUris.Add(relativeUri))
+            {
+                continue;
+            }
+
+            Uri? source = fallbackFiles.FirstOrDefault(candidate =>
+                string.Equals(
+                    Path.GetFullPath(candidate.LocalPath),
+                    Path.GetFullPath(resolved.LocalPath),
+                    OperatingSystem.IsLinux()
+                        ? StringComparison.Ordinal
+                        : StringComparison.OrdinalIgnoreCase));
+            if (source is not null)
+            {
+                result.Add(new SuppressedReferencedStorageSource(
+                    File.ReadAllBytes(source.LocalPath),
+                    relativeUri));
+            }
+        }
+
+        return result.Count > 0 ? result.ToArray() : null;
+    }
+
+    private static IEnumerable<string> EnumerateJsonStringValues(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonValue value when value.TryGetValue(out string? text):
+                yield return text;
+                break;
+            case JsonObject obj:
+                foreach (JsonNode? child in obj.Select(static item => item.Value))
+                {
+                    foreach (string text in EnumerateJsonStringValues(child))
+                    {
+                        yield return text;
+                    }
+                }
+                break;
+            case JsonArray array:
+                foreach (JsonNode? child in array)
+                {
+                    foreach (string text in EnumerateJsonStringValues(child))
+                    {
+                        yield return text;
+                    }
+                }
+                break;
+        }
     }
 
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
@@ -1421,6 +1519,28 @@ public class Scene : ProjectItem, INotifyEdited
             return TryGetMigratedId(reference.Id, out Guid migratedId)
                 ? ResolveMigratedReference(reference, migratedId)
                 : value;
+        }
+
+        if (value is IOptional { HasValue: true } optional)
+        {
+            object? item = optional.ToObject().Value;
+            object? migratedItem = MigrateRecoveredReferenceValue(item, visited);
+            if (!Equals(item, migratedItem))
+            {
+                try
+                {
+                    ConstructorInfo? constructor = value.GetType().GetConstructor([optional.GetValueType()]);
+                    return constructor?.Invoke([migratedItem]) ?? value;
+                }
+                catch (Exception ex) when (ex is TargetInvocationException
+                                                   or ArgumentException
+                                                   or MemberAccessException)
+                {
+                    return value;
+                }
+            }
+
+            return value;
         }
 
         if (value is null or string

@@ -220,7 +220,11 @@ internal sealed class DeclarativeDocumentApplier
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame.Easing), out JsonNode? easingNode) && easingNode is not null)
         {
-            keyFrame.Easing = DeserializeEasing(easingNode);
+            Easing desiredEasing = DeserializeEasing(easingNode);
+            if (!AreEquivalentEasings(keyFrame.Easing, desiredEasing))
+            {
+                keyFrame.Easing = desiredEasing;
+            }
         }
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame.KeyTime), out JsonNode? keyTimeNode) && keyTimeNode is not null)
@@ -821,6 +825,21 @@ internal sealed class DeclarativeDocumentApplier
         throw new ReconcileException(new ToolError(
             ErrorCode.ValidationRejected,
             "Easing must be a type string or spline object."));
+    }
+
+    private static bool AreEquivalentEasings(Easing current, Easing desired)
+    {
+        if (current.GetType() != desired.GetType())
+        {
+            return false;
+        }
+
+        return current is not SplineEasing currentSpline
+               || desired is SplineEasing desiredSpline
+               && currentSpline.X1 == desiredSpline.X1
+               && currentSpline.Y1 == desiredSpline.Y1
+               && currentSpline.X2 == desiredSpline.X2
+               && currentSpline.Y2 == desiredSpline.Y2;
     }
 
     internal static string? ValidateEasingNode(JsonNode? node)
