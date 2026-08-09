@@ -213,6 +213,37 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Initialize_rejects_required_content_beneath_a_symbolic_link_directory()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
+        }
+
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        string externalRoot = CreateTemporaryDirectory();
+        await File.WriteAllTextAsync(Path.Combine(externalRoot, "linked.scene"), "{}\n");
+        string linkedDirectory = Path.Combine(projectRoot, "linked");
+        CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, externalRoot);
+        var selectedRepository = new RepositoryInfo(Root, projectRoot);
+        using GitCliVersionControlService service = CreateUnassociatedService();
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
+                CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("symbolic-link directory 'linked'"));
+            Assert.That(service.Repository, Is.Null);
+            Assert.That(File.Exists(Path.Combine(projectRoot, ".gitignore")), Is.False);
+            Assert.That(File.Exists(Path.Combine(projectRoot, ".gitattributes")), Is.False);
+        });
+    }
+
     [TestCase(".gitignore")]
     [TestCase(".gitattributes")]
     public async Task Initialize_detects_an_ignored_future_hygiene_file(string fileName)

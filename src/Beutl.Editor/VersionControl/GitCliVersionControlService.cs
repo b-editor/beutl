@@ -4238,6 +4238,7 @@ internal sealed class GitCliVersionControlService :
             [
                 "show",
                 "--no-show-signature",
+                "--no-color",
                 "--format=",
                 "--no-ext-diff",
                 "--unified=3",
@@ -4634,7 +4635,7 @@ internal sealed class GitCliVersionControlService :
         {
             await runner.RunAsync(
                 repository,
-                hasOrigin ? ["fetch", "origin"] : ["fetch"],
+                CreatePullFetchArguments(hasOrigin, expectedCurrent.RefName),
                 GitCommandOptions.Network,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -4782,7 +4783,7 @@ internal sealed class GitCliVersionControlService :
         {
             await runner.RunAsync(
                 repository,
-                hasOrigin ? ["fetch", "origin"] : ["fetch"],
+                CreatePullFetchArguments(hasOrigin, expectedCurrent.RefName),
                 GitCommandOptions.Network,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -5825,6 +5826,7 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         RepositoryInfo repository = GetRepository();
+        ValidateRequiredProjectFileLayout(repository.ProjectRoot);
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         string branchRef = await GetAttachedBranchRefCoreAsync(
                 repository,
@@ -7733,13 +7735,49 @@ internal sealed class GitCliVersionControlService :
         return [.. paths];
     }
 
+    private static IReadOnlyList<string> CreatePullFetchArguments(
+        bool hasOrigin,
+        string localBranchRef)
+    {
+        if (!hasOrigin)
+        {
+            return ["fetch"];
+        }
+
+        string branchName = GetBranchShortName(localBranchRef);
+        return
+        [
+            "fetch",
+            "origin",
+            $"+refs/heads/{branchName}:refs/remotes/origin/{branchName}",
+        ];
+    }
+
+    private static void ValidateRequiredProjectFileLayout(string projectRoot)
+    {
+        foreach (string _ in EnumerateRequiredProjectFiles(projectRoot))
+        {
+        }
+    }
+
     private static IEnumerable<string> EnumerateRequiredProjectFiles(string projectRoot)
     {
-        var pending = new Stack<(string Directory, bool IsResourceDirectory)>();
-        pending.Push((projectRoot, IsResourceDirectory: false));
+        var pending = new Stack<(
+            string Directory,
+            bool IsResourceDirectory,
+            string? SymbolicLinkDirectory)>();
+        pending.Push((projectRoot, IsResourceDirectory: false, SymbolicLinkDirectory: null));
+        var visitedDirectories = new HashSet<string>(
+            OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         var options = new EnumerationOptions { AttributesToSkip = 0 };
-        while (pending.TryPop(out (string Directory, bool IsResourceDirectory) item))
+        while (pending.TryPop(out var item))
         {
+            string canonicalDirectory = RepositoryPathComparer.ResolveCanonicalPath(item.Directory);
+            if (!visitedDirectories.Add(canonicalDirectory))
+            {
+                continue;
+            }
+
             foreach (string file in Directory.EnumerateFiles(item.Directory, "*", options))
             {
                 string extension = Path.GetExtension(file);
@@ -7748,6 +7786,15 @@ internal sealed class GitCliVersionControlService :
                         || s_projectFileExtensions.Contains(extension)
                         || s_mediaExtensions.Contains(extension)))
                 {
+                    if (item.SymbolicLinkDirectory is not null)
+                    {
+                        string relativeLink = NormalizeGitPath(Path.GetRelativePath(
+                            projectRoot,
+                            item.SymbolicLinkDirectory));
+                        throw new InvalidOperationException(
+                            $"The required project content beneath symbolic-link directory '{relativeLink}' cannot be snapshotted safely.");
+                    }
+
                     yield return file;
                 }
             }
@@ -7755,8 +7802,7 @@ internal sealed class GitCliVersionControlService :
             foreach (string child in Directory.EnumerateDirectories(item.Directory, "*", options))
             {
                 string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(child));
-                if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0
-                    && !string.Equals(
+                if (!string.Equals(
                         name,
                         ".beutl",
                         StringComparison.OrdinalIgnoreCase)
@@ -7768,7 +7814,11 @@ internal sealed class GitCliVersionControlService :
                     pending.Push((
                         child,
                         item.IsResourceDirectory
-                        || string.Equals(name, "resources", StringComparison.OrdinalIgnoreCase)));
+                        || string.Equals(name, "resources", StringComparison.OrdinalIgnoreCase),
+                        item.SymbolicLinkDirectory
+                        ?? ((File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0
+                            ? child
+                            : null)));
                 }
             }
         }

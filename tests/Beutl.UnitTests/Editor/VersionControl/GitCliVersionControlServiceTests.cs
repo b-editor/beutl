@@ -2214,6 +2214,55 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task GetDiffAsync_disables_configured_color_output()
+    {
+        await RunGitAsync("config", "color.ui", "always");
+        await CommitFileAsync("project.bep", "old value\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "new value\n");
+        using var service = CreateService();
+        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None)).Revision;
+
+        string diff = await service.GetDiffAsync(
+            commit.Sha,
+            "project.bep",
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diff, Does.Contain("--- a/project.bep"));
+            Assert.That(diff, Does.Contain("+new value"));
+            Assert.That(diff, Does.Not.Contain("\u001b["));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_rejects_required_content_beneath_a_symbolic_link_directory()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
+        }
+
+        await CommitFileAsync("project.bep", "{}\n", "initial");
+        string externalRoot = CreateTemporaryDirectory();
+        await File.WriteAllTextAsync(Path.Combine(externalRoot, "linked.scene"), "{}\n");
+        string linkedDirectory = Path.Combine(Root, "linked");
+        CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, externalRoot);
+        using var service = CreateService();
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.That(exception!.Message, Does.Contain("symbolic-link directory 'linked'"));
+    }
+
+    [Test]
     public async Task GetDiffAsync_treats_pathspec_magic_like_top_as_a_literal_file_name()
     {
         if (OperatingSystem.IsWindows())
@@ -3907,6 +3956,19 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         try
         {
             File.CreateSymbolicLink(linkPath, targetPath);
+        }
+        catch (Exception ex)
+            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
+        }
+    }
+
+    private static void CreateDirectorySymbolicLinkOrIgnore(string linkPath, string targetPath)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(linkPath, targetPath);
         }
         catch (Exception ex)
             when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)

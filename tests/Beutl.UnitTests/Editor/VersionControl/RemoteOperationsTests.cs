@@ -95,6 +95,80 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task PreflightPull_fetches_the_current_origin_branch_outside_the_configured_refspec()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        await RunGitAsync("push", "origin", "main:other");
+        await RunGitAsync(
+            "config",
+            "--replace-all",
+            "remote.origin.fetch",
+            "+refs/heads/other:refs/remotes/origin/other");
+        RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
+        await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
+        string peerHead = (await CreateRunner().RunAsync(
+            peer,
+            ["rev-parse", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+
+        PullPreflightResult preflight = await service.PreflightPullAsync(
+            expected,
+            CancellationToken.None);
+        string originHead = (await RunGitAsync("rev-parse", "refs/remotes/origin/main"))
+            .Stdout.Trim();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(preflight.Result, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(preflight.RequiresTransition, Is.True);
+            Assert.That(originHead, Is.EqualTo(peerHead));
+        });
+    }
+
+    [Test]
+    public async Task PullFastForward_fetches_the_current_origin_branch_outside_the_configured_refspec()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        await RunGitAsync("push", "origin", "main:other");
+        await RunGitAsync(
+            "config",
+            "--replace-all",
+            "remote.origin.fetch",
+            "+refs/heads/other:refs/remotes/origin/other");
+        RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
+        await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+
+        FastForwardPullResult pull = await service.PullFastForwardAsync(
+            expected,
+            checkpoint: null,
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("from peer\n"));
+        });
+    }
+
+    [Test]
     public async Task Clean_pull_rejects_an_incoming_project_symlink_outside_the_root()
     {
         if (OperatingSystem.IsWindows())

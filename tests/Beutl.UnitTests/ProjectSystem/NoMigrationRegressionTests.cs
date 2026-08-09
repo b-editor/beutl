@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -114,6 +115,47 @@ public class NoMigrationRegressionTests
         JsonObject migrated = CoreSerializer.SerializeToJsonObject(restored);
 
         Assert.That((string?)migrated["appVersion"], Is.EqualTo(BeutlApplication.Version));
+    }
+
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public void Project_with_legacy_sidecar_discriminator_advances_app_version(
+        bool removeSceneDiscriminator,
+        bool removeElementDiscriminator)
+    {
+        string projectPath = Path.Combine(_tempDirectory, "project.bep");
+        string scenePath = Path.Combine(_tempDirectory, "scene", "scene.scene");
+        string elementPath = Path.Combine(_tempDirectory, "scene", "element.belm");
+        var source = new Project { Uri = new Uri(projectPath) };
+        var scene = new Scene { Uri = new Uri(scenePath) };
+        var element = new Element { Uri = new Uri(elementPath) };
+        scene.AddChild(element);
+        source.Items.Add(scene);
+        CoreSerializer.StoreToUri(
+            source,
+            source.Uri,
+            CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
+
+        JsonObject projectJson = JsonNode.Parse(File.ReadAllText(projectPath))!.AsObject();
+        projectJson["appVersion"] = "1.0.0";
+        projectJson.JsonSave(projectPath);
+        if (removeSceneDiscriminator)
+        {
+            JsonObject sceneJson = JsonNode.Parse(File.ReadAllText(scenePath))!.AsObject();
+            sceneJson.Remove("$type");
+            sceneJson.JsonSave(scenePath);
+        }
+
+        if (removeElementDiscriminator)
+        {
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            elementJson.Remove("$type");
+            elementJson.JsonSave(elementPath);
+        }
+
+        Project restored = CoreSerializer.RestoreFromUri<Project>(new Uri(projectPath));
+
+        Assert.That(restored.AppVersion, Is.EqualTo(BeutlApplication.Version));
     }
 
     [Test]

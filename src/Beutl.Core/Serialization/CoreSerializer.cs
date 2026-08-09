@@ -158,15 +158,18 @@ public static class CoreSerializer
         // 互換性処理
         // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
         // 期待される型に基づいてディスクリミネータを補完する。
+        bool addedTypeDiscriminator = false;
         if (!node.TryGetDiscriminator(out Type? _))
         {
             if (type == typeof(ProjectItem))
             {
                 node["$type"] = LegacyTypeNames.SceneDiscriminator;
+                addedTypeDiscriminator = true;
             }
             else if (type.FullName == LegacyTypeNames.ElementFullName)
             {
                 node["$type"] = LegacyTypeNames.ElementDiscriminator;
+                addedTypeDiscriminator = true;
             }
         }
 
@@ -184,6 +187,7 @@ public static class CoreSerializer
             if (obj is CoreObject coreObj)
             {
                 coreObj.Uri = uri;
+                coreObj.WasTypeDiscriminatorAddedDuringRestore = addedTypeDiscriminator;
             }
 
             var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };

@@ -60,7 +60,10 @@ public class Scene : ProjectItem, INotifyEdited
     private PixelSize _frameSize;
 
     protected internal override bool HasMigratedPersistedContent
-        => Children.Any(static element => element.WasMigratedFromOperation);
+        => WasTypeDiscriminatorAddedDuringRestore
+           || Children.Any(static element =>
+               element.WasTypeDiscriminatorAddedDuringRestore
+               || element.WasMigratedFromOperation);
 
     public Scene()
         : this(1920, 1080, string.Empty)
