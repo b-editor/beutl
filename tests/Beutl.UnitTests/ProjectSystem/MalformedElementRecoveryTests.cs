@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Immutable;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
@@ -121,6 +122,24 @@ public sealed class MalformedElementRecoveryTests
         {
             error = null;
             return true;
+        }
+    }
+
+    private sealed class ConstructorlessReference(Guid id, Type objectType, string marker) : IReference
+    {
+        public Guid Id { get; } = id;
+
+        public CoreObject? Value => null;
+
+        public bool IsNull => Id == Guid.Empty;
+
+        public Type ObjectType { get; } = objectType;
+
+        public string Marker { get; } = marker;
+
+        public IReference Resolved(CoreObject obj)
+        {
+            return new ConstructorlessReference(obj.Id, ObjectType, Marker);
         }
     }
 
@@ -331,6 +350,33 @@ public sealed class MalformedElementRecoveryTests
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
 
         Assert.That(recovered.Id, Is.EqualTo(expectedId));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Restore_MalformedBomEncodedElementAdoptsTopLevelIdAndPreservesBytes(
+        bool utf32,
+        bool bigEndian)
+    {
+        Guid expectedId = Guid.NewGuid();
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Encoding encoding = utf32
+            ? new UTF32Encoding(bigEndian, byteOrderMark: true, throwOnInvalidCharacters: true)
+            : new UnicodeEncoding(bigEndian, byteOrderMark: true, throwOnInvalidBytes: true);
+        byte[] encodedText = encoding.GetBytes($$"""{"Id":"{{expectedId}}","Objects":[""");
+        byte[] rawBytes = encoding.GetPreamble().Concat(encodedText).ToArray();
+        File.WriteAllBytes(elementPath, rawBytes);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Id, Is.EqualTo(expectedId));
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(rawBytes));
+        });
     }
 
     [Test]
@@ -1272,6 +1318,99 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(migratedReference.Id, Is.Not.EqualTo(placeholderIds[0]));
             Assert.That(migratedReference.Value, Is.SameAs(reloadedTransform));
         });
+    }
+
+    [Test]
+    public void Restore_AmbiguousRepairedDescendantAfterEarlierRemovalDoesNotMigratePlaceholders()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("repaired.belm", "holder.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element repairedSource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        var firstShape = (RectShape)repairedSource.Objects.Single();
+        firstShape.Transform.CurrentValue = new RotationTransform();
+        var secondShape = new RectShape();
+        secondShape.Transform.CurrentValue = new RotationTransform();
+        repairedSource.AddObject(secondShape);
+        CoreSerializer.StoreToUri(repairedSource, repairedSource.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
+        foreach (JsonNode? shapeNode in json[nameof(Element.Objects)]!.AsArray())
+        {
+            JsonObject transformJson = FindObjectByDiscriminator(shapeNode!, "RotationTransform")!;
+            transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        }
+
+        File.WriteAllText(elementPaths[0], json.ToJsonString());
+
+        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recoveredElement = recoveredScene.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[0]);
+        Guid[] placeholderIds = recoveredElement.Objects
+            .OfType<RectShape>()
+            .Select(shape => ((CoreObject)shape.Transform.CurrentValue!).Id)
+            .ToArray();
+        Element holder = recoveredScene.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        foreach (Guid placeholderId in placeholderIds)
+        {
+            var referenceHolder = new TransformReferenceHolder();
+            referenceHolder.Target.CurrentValue = new Reference<Transform>(placeholderId);
+            holder.AddObject(referenceHolder);
+        }
+
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        Guid repairedId = Guid.NewGuid();
+        var repaired = new Element
+        {
+            Id = repairedSource.Id,
+            Name = "Repaired",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPaths[0]),
+        };
+        var repairedShape = new RectShape { Id = Guid.NewGuid() };
+        repairedShape.Transform.CurrentValue = new RotationTransform { Id = repairedId };
+        repaired.AddObject(repairedShape);
+        CoreSerializer.StoreToUri(repaired, repaired.Uri!);
+
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var application = new BeutlApplication();
+        var project = new Project();
+        application.Project = project;
+        project.Items.Add(reloaded);
+        Reference<Transform>[] references = reloaded.Children.Single(
+                child => child.Uri!.LocalPath == elementPaths[1]).Objects
+            .OfType<TransformReferenceHolder>()
+            .Select(static item => item.Target.CurrentValue)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(references.Select(static item => item.Id), Is.EqualTo(placeholderIds));
+            Assert.That(references.Select(static item => item.Value), Is.All.Null);
+            Assert.That(references.Select(static item => item.Id), Does.Not.Contain(repairedId));
+        });
+    }
+
+    [Test]
+    public void ResolveMigratedReference_CustomReferenceWithoutGuidConstructorIsRetained()
+    {
+        Guid migratedId = Guid.NewGuid();
+        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "scene.scene")) };
+        scene.Children.Add(new Element
+        {
+            Id = migratedId,
+            Uri = new Uri(Path.Combine(_root, "target.belm")),
+        });
+        var reference = new ConstructorlessReference(Guid.NewGuid(), typeof(RectShape), "custom");
+        MethodInfo method = typeof(Scene).GetMethod(
+            "ResolveMigratedReference",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object? result = null;
+
+        Assert.DoesNotThrow(() => result = method.Invoke(scene, [reference, migratedId]));
+
+        Assert.That(result, Is.SameAs(reference));
     }
 
     [Test]

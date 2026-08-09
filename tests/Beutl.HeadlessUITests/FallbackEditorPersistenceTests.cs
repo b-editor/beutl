@@ -242,6 +242,24 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
+    public void RemoveKeyFrame_LastLossyEasingResumesPersistenceInReplacementTransaction()
+    {
+        AssertAnimationDiscardResumesPersistence(AnimationDiscardKind.RemoveKeyFrame);
+    }
+
+    [AvaloniaTest]
+    public void RemoveAnimation_LastLossyEasingResumesPersistenceInReplacementTransaction()
+    {
+        AssertAnimationDiscardResumesPersistence(AnimationDiscardKind.RemoveAnimation);
+    }
+
+    [AvaloniaTest]
+    public void SetExpression_LastLossyEasingResumesPersistenceInReplacementTransaction()
+    {
+        AssertAnimationDiscardResumesPersistence(AnimationDiscardKind.SetExpression);
+    }
+
+    [AvaloniaTest]
     public void CoreObjectApplyTemplate_UpdatesEditingKeyFrameOnly()
     {
         TestReset.ResetShellAsync().GetAwaiter().GetResult();
@@ -653,6 +671,67 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
+    private static void AssertAnimationDiscardResumesPersistence(AnimationDiscardKind kind)
+    {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
+        string root = CreateRoot();
+        try
+        {
+            (Uri sceneUri, string elementPath) = CreateAnimatedScene(root);
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            JsonObject keyFrameJson = FindObjectWithProperty(elementJson, nameof(KeyFrame.Easing))!;
+            keyFrameJson[nameof(KeyFrame.Easing)] = "[Missing.Assembly]Missing.Namespace:MissingEasing";
+            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+            Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+            Element recoveredElement = recoveredScene.Children.Single();
+            var shape = (RectShape)recoveredElement.Objects.Single();
+            var animation = (KeyFrameAnimation<float>)shape.Width.Animation!;
+            Assert.That(animation.KeyFrames, Has.Count.EqualTo(1));
+            using var context = new EditorTestContext(recoveredElement);
+            var adapter = new AnimatablePropertyAdapter<float>(
+                (AnimatableProperty<float>)shape.Width,
+                shape);
+            using var viewModel = new ValueEditorViewModel<float>(adapter);
+            viewModel.Accept(new Visitor(recoveredElement, context.History));
+
+            switch (kind)
+            {
+                case AnimationDiscardKind.RemoveKeyFrame:
+                    viewModel.RemoveKeyFrame(TimeSpan.Zero);
+                    break;
+                case AnimationDiscardKind.RemoveAnimation:
+                    viewModel.RemoveAnimation();
+                    break;
+                case AnimationDiscardKind.SetExpression:
+                    Assert.That(viewModel.SetExpression("1 + 2", out string? error), Is.True, error);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind));
+            }
+
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+            byte[] repairedBytes = File.ReadAllBytes(elementPath);
+            bool undone = context.History.Undo();
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+            var restoredAnimation = (KeyFrameAnimation<float>)shape.Width.Animation!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
+                Assert.That(undone, Is.True);
+                Assert.That(restoredAnimation.KeyFrames, Has.Count.EqualTo(1));
+                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static void SetPresenter(RectShape shape, PresenterKind kind)
     {
         switch (kind)
@@ -899,5 +978,12 @@ public sealed class FallbackEditorPersistenceTests
         Brush,
         Transform,
         FilterEffect,
+    }
+
+    private enum AnimationDiscardKind
+    {
+        RemoveKeyFrame,
+        RemoveAnimation,
+        SetExpression,
     }
 }

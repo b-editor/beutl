@@ -867,6 +867,7 @@ public class Scene : ProjectItem, INotifyEdited
                 bool hasPersistedIdentity = persistedDescendantIdentities.TryGetValue(
                     identityKey,
                     out Guid persistedIdentityId);
+                bool ambiguousPositionalIdentity = false;
                 if (!hasPersistedIdentity && graphPath.Positional != graphPath.Stable)
                 {
                     string positionalIdentityKey = CreateRecoveredDescendantIdentityKey(
@@ -875,9 +876,20 @@ public class Scene : ProjectItem, INotifyEdited
                     hasPersistedIdentity = persistedDescendantIdentities.TryGetValue(
                         positionalIdentityKey,
                         out persistedIdentityId);
+                    if (hasPersistedIdentity
+                        && !IsRecoveredDescendantPositionalIdentityUnambiguous(
+                            persistedDescendantIdentities,
+                            relativePath,
+                            graphPath.Positional,
+                            persistedIdentityId))
+                    {
+                        hasPersistedIdentity = false;
+                        ambiguousPositionalIdentity = true;
+                    }
                 }
 
                 if (!hasPersistedIdentity
+                    && !ambiguousPositionalIdentity
                     && legacyIndices.TryGetValue(descendant, out int persistedIndex))
                 {
                     string legacyIdentityKey = CreateLegacyRecoveredDescendantIdentityKey(
@@ -1213,16 +1225,17 @@ public class Scene : ProjectItem, INotifyEdited
             // holds a BOM, another encoding, or undecodable bytes. The lossy decode is only scanned
             // for top-level recovery metadata.
             byte[] rawBytes = File.ReadAllBytes(uri.LocalPath);
-            string rawText = Encoding.UTF8.GetString(rawBytes);
+            string rawText = DecodeRecoveryMetadata(rawBytes);
+            byte[] metadataBytes = Encoding.UTF8.GetBytes(rawText);
             JsonObject? root = TryParseTopLevelObject(rawText);
             var element = new Element
             {
-                Id = ResolveRecoveredElementId(rawBytes, rawText, root, uri),
+                Id = ResolveRecoveredElementId(metadataBytes, rawText, root, uri),
                 Name = Path.GetFileNameWithoutExtension(uri.LocalPath),
                 Uri = uri,
                 IsEnabled = false,
             };
-            string? topLevelTypeName = TryGetTopLevelTypeName(rawBytes, rawText, root);
+            string? topLevelTypeName = TryGetTopLevelTypeName(metadataBytes, rawText, root);
             FallbackReason fallbackReason = topLevelTypeName is not null
                                             && TypeFormat.ToType(topLevelTypeName) is null
                 ? FallbackReason.TypeNotFound
@@ -1386,9 +1399,19 @@ public class Scene : ProjectItem, INotifyEdited
         CoreObject? target = EnumerateSerializedGraphObjects(Children)
             .OfType<CoreObject>()
             .FirstOrDefault(candidate => candidate.Id == migratedId);
-        return target is not null && reference.ObjectType.IsInstanceOfType(target)
-            ? reference.Resolved(target)
-            : Activator.CreateInstance(reference.GetType(), migratedId)!;
+        if (target is not null && reference.ObjectType.IsInstanceOfType(target))
+        {
+            return reference.Resolved(target);
+        }
+
+        try
+        {
+            return Activator.CreateInstance(reference.GetType(), migratedId) ?? reference;
+        }
+        catch (MissingMethodException)
+        {
+            return reference;
+        }
     }
 
     private object? MigrateRecoveredReferenceValue(object? value, ISet<object> visited)
@@ -1641,6 +1664,41 @@ public class Scene : ProjectItem, INotifyEdited
             AppendSerializedGraphPath(path.Positional, kind, value));
     }
 
+    private static bool IsRecoveredDescendantPositionalIdentityUnambiguous(
+        IReadOnlyDictionary<string, Guid> identities,
+        string relativePath,
+        string positionalPath,
+        Guid expectedId)
+    {
+        string keyPrefix = $"{relativePath}!path:";
+        string normalizedPath = NormalizeSerializedGraphPositionalPath(positionalPath);
+        foreach ((string key, Guid id) in identities)
+        {
+            if (id != expectedId
+                && key.StartsWith(keyPrefix, StringComparison.Ordinal)
+                && NormalizeSerializedGraphPositionalPath(key[keyPrefix.Length..]) == normalizedPath)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string NormalizeSerializedGraphPositionalPath(string path)
+    {
+        string[] segments = path.Split('/');
+        for (int i = 0; i < segments.Length; i++)
+        {
+            if (segments[i].StartsWith("index:", StringComparison.Ordinal))
+            {
+                segments[i] = "index:*";
+            }
+        }
+
+        return string.Join('/', segments);
+    }
+
     private static string AppendSerializedGraphPath(string path, string kind, string value)
     {
         string escaped = value.Replace("~", "~0").Replace("/", "~1");
@@ -1695,6 +1753,42 @@ public class Scene : ProjectItem, INotifyEdited
         {
             return null;
         }
+    }
+
+    private static string DecodeRecoveryMetadata(byte[] rawBytes)
+    {
+        ReadOnlySpan<byte> bytes = rawBytes;
+        if (bytes.Length >= 4
+            && bytes[0] == 0xff && bytes[1] == 0xfe
+            && bytes[2] == 0x00 && bytes[3] == 0x00)
+        {
+            return Encoding.UTF32.GetString(bytes[4..]);
+        }
+
+        if (bytes.Length >= 4
+            && bytes[0] == 0x00 && bytes[1] == 0x00
+            && bytes[2] == 0xfe && bytes[3] == 0xff)
+        {
+            return new UTF32Encoding(bigEndian: true, byteOrderMark: true).GetString(bytes[4..]);
+        }
+
+        if (bytes.Length >= 3
+            && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf)
+        {
+            return Encoding.UTF8.GetString(bytes[3..]);
+        }
+
+        if (bytes.Length >= 2 && bytes[0] == 0xff && bytes[1] == 0xfe)
+        {
+            return Encoding.Unicode.GetString(bytes[2..]);
+        }
+
+        if (bytes.Length >= 2 && bytes[0] == 0xfe && bytes[1] == 0xff)
+        {
+            return Encoding.BigEndianUnicode.GetString(bytes[2..]);
+        }
+
+        return Encoding.UTF8.GetString(bytes);
     }
 
     private static string? TryGetTopLevelTypeName(

@@ -645,6 +645,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             animation: kfAnimation,
             keyTime: keyTime,
             logger: Logger);
+        ResumeElementPersistenceAfterFallbackReplacement(kfAnimation);
         Commit();
     }
 
@@ -676,7 +677,9 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
         {
+            IAnimation<T>? previous = animatableProperty.Animation;
             animatableProperty.Animation = null;
+            ResumeElementPersistenceAfterFallbackReplacement(previous);
             Commit();
         }
     }
@@ -693,7 +696,9 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             expressionProperty.Expression = newExpression;
             if (PropertyAdapter is IAnimatablePropertyAdapter<T> ap)
             {
+                IAnimation<T>? previous = ap.Animation;
                 ap.Animation = null;
+                ResumeElementPersistenceAfterFallbackReplacement(previous);
             }
 
             Commit();
