@@ -431,6 +431,60 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Existing_remote_with_active_lfs_shows_the_quota_notice_when_reconfigured()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "resources/**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n");
+        await RunGitAsync("remote", "add", "origin", Path.Combine(Root, "old.git"));
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            new VersionControlConfig { UseLfsWhenAvailable = true },
+            lfsInstalled: true,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        await service.SetRemoteAsync(
+            Path.Combine(Root, "replacement.git"),
+            CancellationToken.None);
+
+        Assert.That(
+            notices,
+            Is.EqualTo(new[] { new VersionControlPolicyNotice.LfsRemoteQuota() }));
+    }
+
+    [Test]
+    public async Task Existing_remote_with_active_lfs_shows_the_quota_notice_during_initialization()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "resources/**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n");
+        await RunGitAsync("remote", "add", "origin", Path.Combine(Root, "existing.git"));
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            new VersionControlConfig { UseLfsWhenAvailable = false },
+            lfsInstalled: true,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        await service.InitializeAsync(
+            new InitOptions(Repository, UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        Assert.That(
+            notices,
+            Is.EqualTo(new[] { new VersionControlPolicyNotice.LfsRemoteQuota() }));
+    }
+
+    [Test]
     public async Task Warning_presentation_failure_never_blocks_the_commit()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");

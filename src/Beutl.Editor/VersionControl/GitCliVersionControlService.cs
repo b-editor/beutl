@@ -1315,7 +1315,11 @@ internal sealed class GitCliVersionControlService :
             await runner.RunAsync(
                 repository,
                 addArguments,
-                indexOptions with { UseLiteralPathspecs = false },
+                indexOptions with
+                {
+                    ExecutionKind = GitCommandExecutionKind.LocalWithLfs,
+                    UseLiteralPathspecs = false,
+                },
                 cancellationToken).ConfigureAwait(false);
             GitCommandResult tree = await runner.RunAsync(
                 repository,
@@ -2999,7 +3003,7 @@ internal sealed class GitCliVersionControlService :
             await runner.RunAsync(
                 repository,
                 ["add", "-A", "--", pathspec],
-                indexOptions,
+                indexOptions with { ExecutionKind = GitCommandExecutionKind.LocalWithLfs },
                 cancellationToken).ConfigureAwait(false);
             GitCommandResult tree = await runner.RunAsync(
                 repository,
@@ -4593,12 +4597,9 @@ internal sealed class GitCliVersionControlService :
                 cancellationToken).ConfigureAwait(false);
         }
 
-        if (isFirstRemote)
-        {
-            await TryRaiseLfsQuotaNoticeIfNeededAsync(
-                repository,
-                runner).ConfigureAwait(false);
-        }
+        await TryRaiseLfsQuotaNoticeIfNeededAsync(
+            repository,
+            runner).ConfigureAwait(false);
 
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
@@ -5484,7 +5485,10 @@ internal sealed class GitCliVersionControlService :
                 await runner.RunAsync(
                     repository,
                     addArguments,
-                    GitCommandOptions.Local with { UseLiteralPathspecs = false },
+                    new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs)
+                    {
+                        UseLiteralPathspecs = false,
+                    },
                     cancellationToken).ConfigureAwait(false);
                 commitAttempted = true;
                 var commitArguments = new List<string>
@@ -5616,6 +5620,9 @@ internal sealed class GitCliVersionControlService :
         }
 
         TryEnsureWatcher();
+        await TryRaiseLfsQuotaNoticeIfNeededAsync(
+            repository,
+            runner).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
 
@@ -5949,7 +5956,10 @@ internal sealed class GitCliVersionControlService :
             await runner.RunAsync(
                 repository,
                 addArguments,
-                GitCommandOptions.Local with { UseLiteralPathspecs = false },
+                new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs)
+                {
+                    UseLiteralPathspecs = false,
+                },
                 cancellationToken).ConfigureAwait(false);
             await runner.RunAsync(
                 repository,
@@ -7814,6 +7824,18 @@ internal sealed class GitCliVersionControlService :
                         || s_projectFileExtensions.Contains(extension)
                         || s_mediaExtensions.Contains(extension)))
                 {
+                    var fileInfo = new FileInfo(file);
+                    fileInfo.Refresh();
+                    if (fileInfo.LinkTarget is not null
+                        || (fileInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                    {
+                        string relativeFile = NormalizeGitPath(Path.GetRelativePath(
+                            projectRoot,
+                            file));
+                        throw new InvalidOperationException(
+                            $"The required project file symbolic link '{relativeFile}' cannot be snapshotted safely.");
+                    }
+
                     if (item.SymbolicLinkDirectory is not null)
                     {
                         string relativeLink = NormalizeGitPath(Path.GetRelativePath(

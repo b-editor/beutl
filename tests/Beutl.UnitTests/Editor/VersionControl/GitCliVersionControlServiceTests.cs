@@ -2263,6 +2263,35 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CommitAllAsync_rejects_a_required_media_file_symbolic_link()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
+        }
+
+        await CommitFileAsync("project.bep", "{}\n", "initial");
+        string externalRoot = CreateTemporaryDirectory();
+        string externalMedia = Path.Combine(externalRoot, "external.mp4");
+        await File.WriteAllTextAsync(externalMedia, "external media\n");
+        string mediaDirectory = Path.Combine(Root, "resources");
+        Directory.CreateDirectory(mediaDirectory);
+        string linkedMedia = Path.Combine(mediaDirectory, "linked.mp4");
+        CreateFileSymbolicLinkOrIgnore(linkedMedia, externalMedia);
+        using var service = CreateService();
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.That(
+            exception!.Message,
+            Does.Contain("file symbolic link 'resources/linked.mp4'"));
+    }
+
+    [Test]
     public async Task GetDiffAsync_treats_pathspec_magic_like_top_as_a_literal_file_name()
     {
         if (OperatingSystem.IsWindows())
@@ -3275,6 +3304,42 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(File.ReadAllText(profilePath), Is.EqualTo("local profile\n"));
             Assert.That(File.ReadAllText(temporaryPath), Is.EqualTo("local temporary\n"));
         });
+    }
+
+    [Test]
+    public async Task Snapshot_and_checkpoint_stage_with_the_lfs_aware_execution_kind()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "checkpoint\n");
+        var runner = new RecordingArgumentsRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        await service.CreateProjectCheckpointAsync(
+            "beutl: lfs-aware checkpoint",
+            CancellationToken.None);
+        await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        GitCommandExecutionKind[] executionKinds = runner.Invocations
+            .Where(static invocation =>
+                invocation.Arguments.Count > 1
+                && invocation.Arguments[0] == "add"
+                && invocation.Arguments[1] == "-A")
+            .Select(static invocation => invocation.Options.ExecutionKind)
+            .ToArray();
+        Assert.That(
+            executionKinds,
+            Is.EqualTo(new[]
+            {
+                GitCommandExecutionKind.LocalWithLfs,
+                GitCommandExecutionKind.LocalWithLfs,
+            }));
     }
 
     [Test]

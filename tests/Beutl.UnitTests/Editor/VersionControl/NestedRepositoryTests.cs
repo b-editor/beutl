@@ -186,7 +186,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Initialize_detects_an_ignored_project_file_symbolic_link()
+    public async Task Initialize_rejects_a_required_project_file_symbolic_link()
     {
         string projectRoot = CreateProjectDirectory();
         string externalRoot = CreateTemporaryDirectory();
@@ -194,9 +194,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await File.WriteAllTextAsync(externalProjectFile, "{}\n");
         string projectFile = Path.Combine(projectRoot, "project.bep");
         CreateFileSymbolicLinkOrIgnore(projectFile, externalProjectFile);
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.bep\n");
-        await RunGitAsync("add", "--", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore project files");
         var selectedRepository = new RepositoryInfo(Root, projectRoot);
         using GitCliVersionControlService service = CreateUnassociatedService();
 
@@ -207,10 +204,36 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
 
         Assert.Multiple(() =>
         {
-            Assert.That(exception!.Message, Does.Contain("ignore rules"));
+            Assert.That(exception!.Message, Does.Contain("file symbolic link 'project.bep'"));
             Assert.That(service.Repository, Is.Null);
             Assert.That(new FileInfo(projectFile).LinkTarget, Is.Not.Null);
         });
+    }
+
+    [Test]
+    public async Task Initialize_stages_with_the_lfs_aware_execution_kind()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        var selectedRepository = new RepositoryInfo(Root, projectRoot);
+        var runner = new RecordingRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        await service.InitializeAsync(
+            new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        RecordedCommand add = runner.Commands.Single(static command =>
+            command.Arguments.Count > 1
+            && command.Arguments[0] == "add"
+            && command.Arguments[1] == "-A");
+        Assert.That(
+            add.Options.ExecutionKind,
+            Is.EqualTo(GitCommandExecutionKind.LocalWithLfs));
     }
 
     [Test]
