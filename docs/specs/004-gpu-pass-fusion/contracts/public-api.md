@@ -434,7 +434,7 @@ public class EngineObject
 
     protected EngineObject(ResourceDefaultValuesConstruction construction);
 
-    public class Resource
+    public class Resource : IDisposable
     {
         public Resource();
         protected Resource(EngineObject defaultValues);
@@ -442,8 +442,22 @@ public class EngineObject
 
         public bool IsEnabled { get; set; }
         public bool IsAttached { get; }
+        public bool IsDisposed { get; }
         public EngineObject? GetOriginal();
         public EngineObject RequireOriginal();
+
+        protected TResource? ExchangeOwnedResource<TResource>(
+            ref TResource? location,
+            TResource? value)
+            where TResource : Resource;
+
+        protected TResource ReplaceOwnedResource<TResource>(
+            ref TResource? location,
+            TResource replacement)
+            where TResource : Resource;
+
+        protected virtual void Dispose(bool disposing);
+        public void Dispose();
     }
 }
 ```
@@ -487,7 +501,11 @@ The hand-written resources for `ParticleEmitter`, `ShakeEffect`, `DelayAnimation
 
 A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot rather than a borrowed reference. A non-null declared object default is materialized through `ToResource(CompositionContext.Default)`. Assigning a different resource transfers ownership to the containing resource and immediately disposes the previous value; assigning the same instance is a no-op. Disposing the containing resource disposes the currently held value.
 
-Every such generated property `Child` also exposes `public Child.Resource? DetachChild()`. It atomically clears that one owning slot without disposing its previous value and returns the detached resource, or null when the slot is empty. The caller owns a non-null return until it assigns the value into another owning slot or disposes it. `destination.Child = source.DetachChild()` is the canonical ownership transfer: the source relinquishes ownership before the destination takes it, and the destination commits the new value before disposing its previous value. Sharing the same instance between two live owning slots remains invalid; copying requires an independently created resource rather than aliasing one owner.
+For a nullable owning property `Child`, generation also exposes `public Child.Resource? DetachChild()`. It atomically clears that slot without disposing its previous value and returns the detached resource, or null when the slot is empty. The caller owns a non-null return until it assigns the value into another owning slot or disposes it. `destination.Child = source.DetachChild()` is the canonical nullable-slot transfer.
+
+For a non-null owning property `Child`, generation instead exposes `public Child.Resource ReplaceChild(Child.Resource replacement)`. The required non-null replacement and old value are atomically exchanged, the slot never becomes empty, and ownership of the returned old value transfers to the caller. Passing null to either the property setter or `ReplaceChild` is rejected. `ReplaceChild` also rejects the currently held instance, because returning that still-owned instance would create a second apparent owner, and rejects an unexpectedly empty non-null slot before taking ownership of the replacement. Every rejected call leaves both ownership locations unchanged. A transfer replaces the source with an independently owned placeholder, then passes the returned resource into the destination; sharing the same instance between two live owning slots remains invalid. The generated setter, nullable detach, non-null replace, and containing-resource disposal all use one serialized atomic ownership seam. Concurrent detach/replace/dispose cannot return one nested resource to two callers or dispose a resource after a successful transfer. Copying always requires an independently created resource rather than aliasing one owner.
+
+`ExchangeOwnedResource` and `ReplaceOwnedResource` are the protected extension surface behind that seam for generated and hand-written resource owners. Both linearize with `Dispose` on the containing resource and throw `ObjectDisposedException` after disposal. `ExchangeOwnedResource` commits the supplied nullable value and returns the previous value; assigning the same instance is permitted so generated setters can implement a no-op without transferring ownership. `ReplaceOwnedResource` requires an existing non-null current value and a different non-null replacement; null replacement, empty current slot, and same-instance replacement fail before mutation. `Dispose` holds the same ownership gate while invoking the virtual disposal chain, marks the resource disposed only after successful cleanup, and therefore permits a failed cleanup to be retried without re-owning slots that were already atomically cleared.
 
 `EngineResourceIdentity.Of` is the only safe way to key on an `EngineObject.Resource`, and is renderer-wide for the same reason: nodes, brushes, filter effects, and 3D all key on the same resources, and a node needs the identity outside `Borrow` whenever it feeds a hit-test or structural key rather than a declared-resource registration. It returns the backing `EngineObject.Id`, or a synthesized `Guid` for a resource with no backing object, stable per `Resource` instance and held weakly — a caller that reallocates the resource every frame gets a new identity every frame. Returning `Guid` rather than `object` is what lets a caller hold the identity in a `Guid`-typed cache-key field without boxing on every `Process`, which is why the engine's own hit-test and structural keys can route through it; a synthesized identity is therefore the same shape as a backing object id, and a collision between the two is treated as a non-scenario rather than prevented by construction. The public `Borrow((Resource, Version))` overload derives its key the same way, but registers a borrow as well, so it is not a substitute when the identity is only wanted for comparison.
 
