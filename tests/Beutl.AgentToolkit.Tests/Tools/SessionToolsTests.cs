@@ -23,6 +23,24 @@ namespace Beutl.AgentToolkit.Tests.Tools;
 
 public sealed class SessionToolsTests
 {
+    private sealed class RegisteredOptionalTransformElement : Element
+    {
+        public static readonly CoreProperty<Optional<Transform>> PluginTransformProperty;
+
+        static RegisteredOptionalTransformElement()
+        {
+            PluginTransformProperty = ConfigureProperty<Optional<Transform>, RegisteredOptionalTransformElement>(
+                    nameof(PluginTransform))
+                .Register();
+        }
+
+        public Optional<Transform> PluginTransform
+        {
+            get => GetValue(PluginTransformProperty);
+            set => SetValue(PluginTransformProperty, value);
+        }
+    }
+
     [Test]
     public async Task Open_project_warns_about_corrupt_element_and_render_still_remains_available()
     {
@@ -377,6 +395,31 @@ public sealed class SessionToolsTests
             Assert.That(element.Objects, Is.Empty);
             Assert.That(fallbacks, Has.One.SameAs(fallback));
         });
+    }
+
+    [Test]
+    public void CollectFallbacks_TraversesRegisteredCorePropertiesAndOptionalValues()
+    {
+        var fallback = new FallbackTransform();
+        var element = new RegisteredOptionalTransformElement
+        {
+            PluginTransform = new Optional<Transform>(fallback),
+        };
+        var fallbacks = new List<IFallback>();
+        MethodInfo method = typeof(SessionTools).GetMethod(
+            "CollectFallbacks",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        method.Invoke(
+            null,
+            new object?[]
+            {
+                element,
+                new HashSet<object>(),
+                fallbacks,
+            });
+
+        Assert.That(fallbacks, Has.One.SameAs(fallback));
     }
 
     [Test]

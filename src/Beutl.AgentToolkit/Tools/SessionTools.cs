@@ -169,7 +169,20 @@ public sealed class SessionTools(
         ISet<object> visited,
         ICollection<IFallback> fallbacks)
     {
-        if (value is null or string || !visited.Add(value))
+        if (value is null or string)
+            return;
+
+        if (value is IOptional optional)
+        {
+            if (optional.HasValue)
+            {
+                CollectFallbacks(optional.ToObject().Value, visited, fallbacks);
+            }
+
+            return;
+        }
+
+        if (!visited.Add(value))
             return;
 
         if (value is IFallback fallback)
@@ -183,6 +196,17 @@ public sealed class SessionTools(
             foreach (IHierarchical child in hierarchical.HierarchicalChildren)
             {
                 CollectFallbacks(child, visited, fallbacks);
+            }
+        }
+
+        if (value is CoreObject coreObject)
+        {
+            foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
+            {
+                if (property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
+                {
+                    CollectFallbacks(coreObject.GetValue(property), visited, fallbacks);
+                }
             }
         }
 

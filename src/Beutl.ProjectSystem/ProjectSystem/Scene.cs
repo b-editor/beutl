@@ -1294,11 +1294,14 @@ public class Scene : ProjectItem, INotifyEdited
         string sourceRootPath)
     {
         string sourceRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourceRootPath));
+        string resolvedSourceRoot = Path.TrimEndingDirectorySeparator(
+            FilePathBoundary.ResolveDeepestExistingTarget(sourceRoot));
         string elementPath = Path.GetFullPath(elementUri.LocalPath);
+        string resolvedElementPath = FilePathBoundary.ResolveDeepestExistingTarget(elementPath);
         StringComparison comparison = OperatingSystem.IsLinux()
             ? StringComparison.Ordinal
             : StringComparison.OrdinalIgnoreCase;
-        if (!IsPathInsideRoot(sourceRoot, elementPath, comparison))
+        if (!IsPathInsideRoot(resolvedSourceRoot, resolvedElementPath, comparison))
         {
             return null;
         }
@@ -1312,10 +1315,11 @@ public class Scene : ProjectItem, INotifyEdited
             .Where(static coreObject => coreObject.Uri is { IsFile: true })
             .Select(static coreObject => Path.GetFullPath(coreObject.Uri!.LocalPath)))
         {
-            if (string.Equals(sourcePath, elementPath, comparison)
-                || !IsPathInsideRoot(sourceRoot, sourcePath, comparison)
+            string resolvedSourcePath = FilePathBoundary.ResolveDeepestExistingTarget(sourcePath);
+            if (string.Equals(resolvedSourcePath, resolvedElementPath, comparison)
+                || !IsPathInsideRoot(resolvedSourceRoot, resolvedSourcePath, comparison)
                 || !File.Exists(sourcePath)
-                || !seenPaths.Add(sourcePath))
+                || !seenPaths.Add(resolvedSourcePath))
             {
                 continue;
             }
@@ -1579,6 +1583,16 @@ public class Scene : ProjectItem, INotifyEdited
             return;
         }
 
+        if (value is IOptional optional)
+        {
+            if (optional.HasValue)
+            {
+                CollectSerializedGraphObjects(optional.ToObject().Value, visited, objects);
+            }
+
+            return;
+        }
+
         if (value is CoreObject or IFallback)
         {
             objects.Add(value);
@@ -1653,6 +1667,16 @@ public class Scene : ProjectItem, INotifyEdited
         if (value is null or string
             || (!value.GetType().IsValueType && !visited.Add(value)))
         {
+            return;
+        }
+
+        if (value is IOptional optional)
+        {
+            if (optional.HasValue)
+            {
+                CollectSerializedGraphObjectPaths(optional.ToObject().Value, path, visited, objects);
+            }
+
             return;
         }
 

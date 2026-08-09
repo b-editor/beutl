@@ -141,6 +141,24 @@ public sealed class MalformedElementRecoveryTests
         }
     }
 
+    public sealed class RegisteredOptionalRecoveryElement : Element
+    {
+        public static readonly CoreProperty<Optional<Transform>> PluginTransformProperty;
+
+        static RegisteredOptionalRecoveryElement()
+        {
+            PluginTransformProperty = ConfigureProperty<Optional<Transform>, RegisteredOptionalRecoveryElement>(
+                    nameof(PluginTransform))
+                .Register();
+        }
+
+        public Optional<Transform> PluginTransform
+        {
+            get => GetValue(PluginTransformProperty);
+            set => SetValue(PluginTransformProperty, value);
+        }
+    }
+
     private sealed class CustomReferenceExpression : IReferenceExpression
     {
         public CustomReferenceExpression(Guid objectId)
@@ -1745,6 +1763,67 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_RegisteredOptionalFallbackRepairMigratesReferences()
+    {
+        string scenePath = Path.Combine(_root, "registered-optional.scene");
+        string recoveredPath = Path.Combine(_root, "registered-optional.belm");
+        string holderPath = Path.Combine(_root, "holder.belm");
+        Guid originalId = Guid.NewGuid();
+        var recovered = new RegisteredOptionalRecoveryElement
+        {
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(recoveredPath),
+            PluginTransform = new Optional<Transform>(
+                new RotationTransform { Id = originalId }),
+        };
+        var referenceHolder = new TransformReferenceHolder();
+        referenceHolder.Target.CurrentValue = new Reference<Transform>(originalId);
+        var holder = new Element
+        {
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(holderPath),
+        };
+        holder.AddObject(referenceHolder);
+        var scene = new Scene(64, 64, "Scene") { Uri = new Uri(scenePath) };
+        scene.Children.Add(recovered);
+        scene.Children.Add(holder);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(recoveredPath))!.AsObject();
+        JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
+        string transformType = transformJson["$type"]!.GetValue<string>();
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        File.WriteAllText(recoveredPath, json.ToJsonString());
+
+        Scene first = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        CoreSerializer.StoreToUri(first, scene.Uri);
+        Guid repairedId = Guid.NewGuid();
+        json = JsonNode.Parse(File.ReadAllText(recoveredPath))!.AsObject();
+        transformJson = FindObjectByDiscriminator(json, "DoesNotExist")!;
+        transformJson["$type"] = transformType;
+        transformJson[nameof(CoreObject.Id)] = repairedId.ToString();
+        File.WriteAllText(recoveredPath, json.ToJsonString());
+
+        Scene second = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        var repairedElement = (RegisteredOptionalRecoveryElement)second.Children.Single(
+            element => element.Uri!.LocalPath == recoveredPath);
+        Transform repairedTransform = repairedElement.PluginTransform.Value;
+        Reference<Transform> migratedReference = second.Children.Single(
+                element => element.Uri!.LocalPath == holderPath)
+            .Objects.OfType<TransformReferenceHolder>()
+            .Single()
+            .Target.CurrentValue;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(repairedTransform.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedReference.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedReference.Value, Is.SameAs(repairedTransform));
+        });
+    }
+
+    [Test]
     public void Restore_UnknownExternalObjectTypeUsesPropertyFallback()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -1776,6 +1855,34 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(recoveredElement.IsEnabled, Is.True);
             Assert.That(recoveredElement.Objects, Has.Count.EqualTo(1));
             Assert.That(recoveredShape, Is.Not.Null, recoveryError);
+            Assert.That(recoveredShape?.Transform.CurrentValue, Is.InstanceOf<FallbackTransform>());
+            Assert.That(recoveredShape?.Transform.CurrentValue?.Uri, Is.EqualTo(new Uri(transformPath)));
+        });
+    }
+
+    [Test]
+    public void Restore_IncompatibleExternalObjectTypeUsesPropertyFallback()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        string transformPath = Path.Combine(_root, "external-transform.json");
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var sourceShape = (RectShape)source.Objects.Single();
+        sourceShape.Transform.CurrentValue = new RotationTransform
+        {
+            Uri = new Uri(transformPath),
+        };
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        var incompatible = new Scene(64, 64, "Incompatible") { Uri = new Uri(transformPath) };
+        CoreSerializer.StoreToUri(incompatible, incompatible.Uri);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recoveredElement = recovered.Children.Single();
+        RectShape? recoveredShape = recoveredElement.Objects.OfType<RectShape>().SingleOrDefault();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recoveredElement.IsEnabled, Is.True);
+            Assert.That(recoveredShape, Is.Not.Null);
             Assert.That(recoveredShape?.Transform.CurrentValue, Is.InstanceOf<FallbackTransform>());
             Assert.That(recoveredShape?.Transform.CurrentValue?.Uri, Is.EqualTo(new Uri(transformPath)));
         });
@@ -2328,6 +2435,43 @@ public sealed class MalformedElementRecoveryTests
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(rehomedPath), Is.True);
+            Assert.That(File.Exists(escapedDestination), Is.False);
+        });
+    }
+
+    [Test]
+    public void SaveAs_DoesNotCopyRetainedSidecarsThroughDestinationSymlinks()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Creating directory symlinks requires additional privileges on Windows.");
+        }
+
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        string referencedPath = Path.Combine(_root, "nested", "transform.json");
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var shape = (RectShape)source.Objects.Single();
+        shape.Transform.CurrentValue = new RotationTransform { Uri = new Uri(referencedPath) };
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        JsonObject transformJson = JsonNode.Parse(File.ReadAllText(referencedPath))!.AsObject();
+        transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        File.WriteAllText(referencedPath, transformJson.ToJsonString());
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+
+        string destinationRoot = Path.Combine(_root, "destination");
+        string outsideRoot = Path.Combine(_root, "outside-symlink-target");
+        Directory.CreateDirectory(destinationRoot);
+        Directory.CreateDirectory(outsideRoot);
+        Directory.CreateSymbolicLink(Path.Combine(destinationRoot, "nested"), outsideRoot);
+        string rehomedPath = Path.Combine(destinationRoot, Path.GetFileName(elementPath));
+        string escapedDestination = Path.Combine(outsideRoot, "transform.json");
+
+        Assert.Throws<JsonException>(() =>
+            CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(rehomedPath), Is.False);
             Assert.That(File.Exists(escapedDestination), Is.False);
         });
     }

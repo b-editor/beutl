@@ -209,8 +209,23 @@ public static class CoreSerializer
         {
             // Reject before instantiating: deserializing the declared type first would run its own
             // load side effects (e.g. a Scene declared in a .belm globs and reopens element files).
-            throw new InvalidCastException(
+            var exception = new InvalidCastException(
                 $"Discriminator type '{actualType}' is not assignable to the expected type '{type}'.");
+            if (FallbackDeserializationHelper.TryCreateFallback(
+                    type,
+                    actualType,
+                    jsonObject,
+                    exception) is { } incompatibleTypeFallback)
+            {
+                if (incompatibleTypeFallback is CoreObject coreObject)
+                {
+                    coreObject.Uri = uri;
+                }
+
+                return incompatibleTypeFallback;
+            }
+
+            throw exception;
         }
 
         try
@@ -433,10 +448,11 @@ public static class CoreSerializer
             throw new JsonException("Retained sidecars have no authorized source root.");
         }
 
-        string destinationRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(
-            authorizedRootPath
-            ?? Path.GetDirectoryName(rehomedUri.LocalPath)
-            ?? throw new JsonException("Rehomed element has no destination directory.")));
+        string destinationRoot = Path.TrimEndingDirectorySeparator(
+            FilePathBoundary.ResolveDeepestExistingTarget(
+                authorizedRootPath
+                ?? Path.GetDirectoryName(rehomedUri.LocalPath)
+                ?? throw new JsonException("Rehomed element has no destination directory.")));
         StringComparison comparison = OperatingSystem.IsLinux()
             ? StringComparison.Ordinal
             : StringComparison.OrdinalIgnoreCase;
@@ -452,7 +468,8 @@ public static class CoreSerializer
             }
 
             string destination = Path.GetFullPath(Path.Combine(destinationRoot, relativePath));
-            if (!IsPathInsideRoot(destinationRoot, destination, comparison))
+            string resolvedDestination = FilePathBoundary.ResolveDeepestExistingTarget(destination);
+            if (!IsPathInsideRoot(destinationRoot, resolvedDestination, comparison))
             {
                 throw new JsonException($"Retained sidecar escapes the Save As root: {relativePath}");
             }
