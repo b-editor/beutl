@@ -66,6 +66,7 @@ jobs:
                     - `[Zip (x64)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl.osx_x64.app.zip)`
                   - Linux
                     - `[Debian package](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl_${{ inputs.simpleVer }}-${{ inputs.revision }}ubuntu22.04_amd64.deb)`
+                    - `[Flatpak](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-${{ inputs.semVer }}.flatpak)`
                     - `[Zip (.NET Runtime required)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-linux-x64-${{ inputs.semVer }}.zip)`
                     - `[Zip](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-linux-x64-standalone-${{ inputs.semVer }}.zip)`
 
@@ -95,16 +96,23 @@ jobs:
 
             ## Constraints
 
-            - The release MUST remain a draft (`--draft=true`).
+            - The release MUST remain a draft (`--draft=true`) on the normal path; on the repair path preserve the release's existing `isDraft` state (see Idempotency below).
             - DO NOT add a "日本語のリリースノートはこちら" line — that is appended later by a separate workflow when the corresponding Discussion is created.
             - DO NOT publish the release, edit the tag, modify assets, or open issues/PRs.
             - DO NOT touch any other release.
-            - If the fetched body already contains the substring `releases/download/${{ inputs.tag }}/` (the platform download links), it is already reformatted — exit without changes.
+            - Idempotency — decide from the fetched body:
+              - It already contains `https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-${{ inputs.semVer }}.flatpak` → already fully reformatted; exit without changes.
+              - It contains `https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/` but NOT that Flatpak link → it was formatted by an older revision of this workflow. Do NOT rebuild the whole body (it is no longer the auto-generated one, so a rebuild would mangle it). Bring only the Flatpak bullet in line, leaving every other byte of the body unchanged:
+                  - The body has no `[Flatpak](...)` bullet → insert one directly after the `[Debian package](...)` bullet.
+                  - The body has a `[Flatpak](...)` bullet with a different href → replace just that href. Never add a second bullet: a stale link must be corrected, not duplicated.
+                Apply the result with the step 3 `gh release edit` command, and preserve the release's current draft state — pass `--draft=true` only when the `isDraft` you fetched in step 1 was true, so repairing an already-published release does not unpublish it.
+              - Neither → the body is the auto-generated one; do the full reformat described above.
 
       - name: Verify the release notes were reformatted
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag }}
+          SEM_VER: ${{ inputs.semVer }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -116,5 +124,12 @@ jobs:
             echo "Release notes contain the platform download links — reformatting succeeded."
           else
             echo "::error::Release notes for $TAG were not reformatted (no download links found). The Claude step finished without editing the body."
+            exit 1
+          fi
+          flatpak_url="https://github.com/$REPO/releases/download/$TAG/Beutl-$SEM_VER.flatpak"
+          if printf '%s' "$body" | grep -qF "$flatpak_url"; then
+            echo "Release notes link the Flatpak bundle."
+          else
+            echo "::error::Release notes for $TAG are missing the Flatpak download link ($flatpak_url)."
             exit 1
           fi
