@@ -161,9 +161,9 @@ A request-scoped token returned when a context accepts an owned disposable or an
 
 `Own<T>` requires `T : class, IDisposable`; `Borrow<T>` and `RenderResource<T>` require only `T : class`. The request-family raw-reference table rejects duplicate Own and any Own/Borrow conflict. Repeated Borrow with an explicit non-null key coalesces only with the same key/version; an explicit mismatch is rejected, while each null-key registration gets a distinct request-local identity and cannot reuse output cache across requests. The raw value is exposed only inside an authorized execution callback. Every consuming description lists its token, causing key/version to enter output-cache identity; undeclared use is rejected. An owned slot is discharged exactly once by rollback/teardown disposal or by an atomic ownership transfer into an accepted persistent cache payload; the request then holds no lease to it. Borrowed teardown invalidates only the token; both owner and callback keep pixel-affecting state read-only throughout the request. Metadata-only requests never access the raw value. Keys retained by caches are lightweight immutable equality-stable CPU IDs, never resource/context/native objects or large payloads.
 
-### RenderRuntimeIdentity
+### Callback state identity
 
-An equality-stable, non-null runtime key for pixel-affecting scalar/value state that is captured by a deferred callback rather than held in a disposable resource. It participates in render-output cache identity but never structural plan/program identity. A null description identity instructs the recorder to generate a fresh request-local identity, safely disabling cross-request pixel-cache reuse. Built-in semantic descriptors include their scalar values automatically, and Shader uniforms contribute their canonical validated values automatically.
+Reusable opaque, Geometry, target-scope, target-command, and painted factories copy and validate complete deeply immutable callback state, then derive its render-output cache identity without exposing a separate author-supplied key. Their request-local forms may capture mutable or otherwise unsnapshotable state and receive a fresh identity for every recording, safely disabling cross-request pixel-cache reuse. There is no overlapping explicit runtime-key channel. Built-in semantic descriptors include their scalar values automatically, and Shader uniforms contribute their canonical validated values automatically. Callback-state identity participates in render-output cache identity but never structural plan/program identity.
 
 ## Shared effect descriptions
 
@@ -219,7 +219,7 @@ Immutable deferred one-input/zero-or-one-output operation.
 | bounds contract | Mandatory forward/backward behavior. |
 | hit-test contract | Mandatory CPU-only conservative metadata behavior. |
 | structural key | Stable geometry-kind identity; excludes animated captured values. |
-| runtime identity | Explicit cache identity for captured scalar/value state, or request-unique when null. |
+| callback state | A complete copied deeply immutable snapshot used to derive output-cache identity, or request-local capture with no cross-request reuse. |
 | `RequiresReadback` | Schedules an explicit input synchronization before callback execution. |
 | resources | Explicit request-owned tokens whose key/version enters output-cache identity. |
 
@@ -329,7 +329,7 @@ A custom resolver uses input supplies and complete conservative output bounds an
 
 ### TargetCommand, TargetCapture, and TargetToken
 
-Scope-token dependency lowering threads a `TargetToken` independently through the external root, every non-empty `TargetLayerScope`, and every finite Layer. An empty `TargetLayerScope` remains an order-only fragment and creates no local target-token chain. A `TargetCommand` consumes/emits the current token. A `TargetCapture` consumes/emits it plus an immutable value. Each carries structural/runtime identity and Full/Empty/finite access; visible query metadata is independent. A Readback command schedules an immutable pre-command bitmap scope and disposes it before return.
+Scope-token dependency lowering threads a `TargetToken` independently through the external root, every non-empty `TargetLayerScope`, and every finite Layer. An empty `TargetLayerScope` remains an order-only fragment and creates no local target-token chain. A `TargetCommand` consumes/emits the current token. A `TargetCapture` consumes/emits it plus an immutable value. Each carries structural identity, state-derived or request-local output-cache identity, and Full/Empty/finite access; visible query metadata is independent. A Readback command schedules an immutable pre-command bitmap scope and disposes it before return.
 
 `TargetLayerScope(TargetRegion.Full)` resolves only in this lowering phase. The lowering composes every enclosing transform and clip before mapping the finite destination scope into the layer's local coordinates. Consequently, for root X-domain `[0, 100)`, `Transform(+10) -> PushLayer(default) -> Full clear` assigns local X-domain `[-10, 90)` rather than freezing the root coordinates as `[0, 100)`. A Full access that reaches the external root requires a real destination or explicit finite `TargetDomain`; `QueryBounds`, `RootOutputExtent`, `RequestedRegion`, and finite value anchors are not target-domain sources.
 

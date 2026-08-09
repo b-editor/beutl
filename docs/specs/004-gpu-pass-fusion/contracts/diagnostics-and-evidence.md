@@ -374,7 +374,7 @@ For the same source/tail, insert each boundary independently and require the exa
 - child-cache hit with ineligible parent and parent-cache hit superseding descendants;
 - command-bearing parent cache bypass with pure child value hit while clear/backdrop/readback command order and inputs remain intact;
 - cache invalidation for parameter/resource version, bounds, region coverage, density, format, purpose policy, and device recreation;
-- opaque/Geometry/target-command captured scalar changes with explicit runtime identity invalidate pixels without recompiling; null runtime identity never hits across requests; direct Shader uniform values are included automatically, custom uniform/resource binders are request-unique by default, and `ReuseFromSnapshot` accepts only non-capturing binders while deriving identity from copied values or versioned resource tokens;
+- opaque/Geometry/target-command/painted immutable state changes invalidate pixels without recompiling; request-local callbacks never hit across requests, while unchanged reusable state may hit; direct Shader uniform values are included automatically, custom uniform/resource binders are request-unique by default, and `ReuseFromSnapshot` accepts only non-capturing binders while deriving identity from copied values or versioned resource tokens;
 - auxiliary/bounds/hit-test request isolation from frame cache, frame render counts, and `LatestFrame`, while bounds/hit-test requests emit independently reconciled metadata snapshots.
 
 ### Pool/resource scenes
