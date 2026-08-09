@@ -98,7 +98,9 @@ internal sealed class RepositoryWatcher : IDisposable
                    or "config"
                    or "config.worktree"
                    or "info/exclude"
+                   or "reftable"
                    or "refs"
+               || relativePath.StartsWith("reftable/", StringComparison.Ordinal)
                || relativePath.StartsWith("refs/", StringComparison.Ordinal);
     }
 
@@ -315,6 +317,7 @@ internal sealed class RepositoryWatcher : IDisposable
         AddGitMetadataWatcher(metadataRoot, metadataRoot, includeSubdirectories: false);
         RefreshGitRefsWatcher(metadataRoot);
         RefreshGitInfoWatcher(metadataRoot);
+        RefreshGitReftableWatcher(metadataRoot);
     }
 
     private void AddGitMetadataWatcher(
@@ -382,6 +385,15 @@ internal sealed class RepositoryWatcher : IDisposable
             metadataRoot,
             "info",
             includeSubdirectories: false,
+            replaceExisting: replaceExisting);
+    }
+
+    private void RefreshGitReftableWatcher(string metadataRoot, bool replaceExisting = false)
+    {
+        RefreshGitMetadataSubdirectoryWatcher(
+            metadataRoot,
+            "reftable",
+            includeSubdirectories: true,
             replaceExisting: replaceExisting);
     }
 
@@ -492,6 +504,15 @@ internal sealed class RepositoryWatcher : IDisposable
             && PathsEqual(infoRename.OldFullPath, infoDirectory))
         {
             RefreshGitInfoWatcher(metadataRoot, replaceExisting: true);
+            metadataSubdirectoryChanged = true;
+        }
+
+        string reftableDirectory = Path.Combine(metadataRoot, "reftable");
+        if (PathsEqual(e.FullPath, reftableDirectory)
+            || e is RenamedEventArgs reftableRename
+            && PathsEqual(reftableRename.OldFullPath, reftableDirectory))
+        {
+            RefreshGitReftableWatcher(metadataRoot, replaceExisting: true);
             metadataSubdirectoryChanged = true;
         }
 

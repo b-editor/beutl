@@ -22,7 +22,6 @@ internal static class ProjectConflictMarkerScanner
             "node_modules",
             "obj",
             "packages",
-            "resources",
         ],
         StringComparer.OrdinalIgnoreCase);
 

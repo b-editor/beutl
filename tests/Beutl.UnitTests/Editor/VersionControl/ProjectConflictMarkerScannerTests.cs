@@ -76,19 +76,14 @@ public class ProjectConflictMarkerScannerTests
         string projectFile = Path.Combine(_root, "project.bep");
         string gitDirectory = Path.Combine(_root, ".git");
         string beutlDirectory = Path.Combine(_root, ".beutl");
-        string resourcesDirectory = Path.Combine(_root, "resources");
         Directory.CreateDirectory(gitDirectory);
         Directory.CreateDirectory(beutlDirectory);
-        Directory.CreateDirectory(resourcesDirectory);
         await File.WriteAllTextAsync(projectFile, "{}\n");
         await File.WriteAllTextAsync(
             Path.Combine(gitDirectory, "conflict.scene"),
             LfConflict);
         await File.WriteAllTextAsync(
             Path.Combine(beutlDirectory, "conflict.belm"),
-            LfConflict);
-        await File.WriteAllTextAsync(
-            Path.Combine(resourcesDirectory, "unrelated.scene"),
             LfConflict);
 
         string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
@@ -100,7 +95,31 @@ public class ProjectConflictMarkerScannerTests
             Assert.That(result, Is.Null);
             Assert.That(ProjectConflictMarkerScanner.ShouldDescendInto(gitDirectory), Is.False);
             Assert.That(ProjectConflictMarkerScanner.ShouldDescendInto(beutlDirectory), Is.False);
-            Assert.That(ProjectConflictMarkerScanner.ShouldDescendInto(resourcesDirectory), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task FindFirstAsync_scans_project_sidecars_under_resources()
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string resourcesDirectory = Path.Combine(_root, "resources", "nested");
+        string conflictFile = Path.Combine(resourcesDirectory, "conflict.BELM");
+        Directory.CreateDirectory(resourcesDirectory);
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await File.WriteAllTextAsync(Path.Combine(resourcesDirectory, "ignored.txt"), LfConflict);
+        await File.WriteAllTextAsync(conflictFile, LfConflict);
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(conflictFile));
+            Assert.That(
+                ProjectConflictMarkerScanner.ShouldDescendInto(
+                    Path.Combine(_root, "resources")),
+                Is.True);
         });
     }
 

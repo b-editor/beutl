@@ -76,6 +76,7 @@ public class VersionControlModelsTests
 
     [TestCase("fatal: Unable to create '.git/index.lock': File exists.")]
     [TestCase("fatal: Unable to acquire '/repo/.git/HEAD.lock': File exists.")]
+    [TestCase("fatal: Unable to acquire '/repo/.git/config.lock': File exists.")]
     public void GitOperationException_preserves_safe_stderr_and_detects_lock_failure(
         string stderr)
     {

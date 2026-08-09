@@ -56,10 +56,13 @@ public class RepositoryWatcherTests
     [TestCase("packed-refs", true)]
     [TestCase("refs/heads/main", true)]
     [TestCase("refs/remotes/origin/main", true)]
+    [TestCase("reftable/tables.list", true)]
+    [TestCase("reftable/0x000000000001-0x000000000002.ref", true)]
     [TestCase("index.lock", false)]
     [TestCase("HEAD.lock", false)]
     [TestCase("packed-refs.lock", false)]
     [TestCase("refs/heads/main.lock", false)]
+    [TestCase("reftable/tables.list.lock", false)]
     [TestCase("objects/ab/cdef", false)]
     [TestCase("logs/HEAD", false)]
     [TestCase("config", true)]
@@ -80,14 +83,16 @@ public class RepositoryWatcherTests
     }
 
     [Test]
-    public void Start_watches_the_stable_git_info_metadata_directory()
+    public void Start_watches_the_stable_git_metadata_subdirectories()
     {
         string projectRoot = Path.Combine(_tempDirectory, "project");
         string metadataRoot = Path.Combine(_tempDirectory, ".git");
         string infoDirectory = Path.Combine(metadataRoot, "info");
+        string reftableDirectory = Path.Combine(metadataRoot, "reftable");
         Directory.CreateDirectory(projectRoot);
         Directory.CreateDirectory(Path.Combine(metadataRoot, "refs"));
         Directory.CreateDirectory(infoDirectory);
+        Directory.CreateDirectory(reftableDirectory);
         var watchedDirectories = new List<string>();
 
         using var watcher = new RepositoryWatcher(
@@ -101,9 +106,15 @@ public class RepositoryWatcherTests
             },
             watcherEnabler: static _ => { });
 
-        Assert.That(
-            watchedDirectories,
-            Does.Contain(Path.GetFullPath(infoDirectory)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                watchedDirectories,
+                Does.Contain(Path.GetFullPath(infoDirectory)));
+            Assert.That(
+                watchedDirectories,
+                Does.Contain(Path.GetFullPath(reftableDirectory)));
+        });
     }
 
     [Test]

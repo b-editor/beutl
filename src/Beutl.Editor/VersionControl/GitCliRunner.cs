@@ -731,6 +731,8 @@ internal sealed class GitCliRunner : IGitCliRunner
         ];
         try
         {
+            string commonDirectory = GetCommonDirectory(gitDirectory);
+            lockPaths.Add(Path.Combine(commonDirectory, "config.lock"));
             string? branchLockPath = GetCurrentBranchLockPath(gitDirectory);
             if (branchLockPath is not null)
             {

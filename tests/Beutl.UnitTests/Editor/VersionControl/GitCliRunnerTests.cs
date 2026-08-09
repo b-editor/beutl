@@ -672,6 +672,49 @@ public class GitCliRunnerTests : RealGitTestRepository
         Assert.That(File.Exists(lockPath), Is.False);
     }
 
+    [Test]
+    public async Task Stale_configuration_lock_is_recoverable_only_after_explicit_removal()
+    {
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        var timeProvider = new FakeTimeProvider(now);
+        string lockPath = Path.Combine(Root, ".git", "config.lock");
+        await File.WriteAllTextAsync(lockPath, "stale");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            timeProvider);
+        GitRepositoryLockEventArgs? eventArgs = null;
+        runner.RepositoryLockFailed += (_, e) => eventArgs = e;
+
+        GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
+            async () => await runner.RunAsync(
+                Repository,
+                ["config", "--local", "test.lock", "blocked"],
+                GitCommandOptions.Local,
+                CancellationToken.None));
+        RepositoryLockInfo? recoverable = runner.GetRecoverableRepositoryLock(Repository);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.IsRepositoryLockFailure, Is.True);
+            Assert.That(eventArgs, Is.Not.Null);
+            Assert.That(recoverable, Is.Not.Null);
+            Assert.That(
+                RepositoryPathComparer.AreEquivalent(recoverable!.LockPath, lockPath),
+                Is.True);
+            Assert.That(File.Exists(lockPath), Is.True);
+        });
+
+        Assert.That(
+            runner.RemoveRecoverableRepositoryLock(Repository, recoverable!),
+            Is.True);
+        Assert.That(File.Exists(lockPath), Is.False);
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task Stale_current_branch_ref_lock_is_recoverable(bool useLinkedWorktree)
