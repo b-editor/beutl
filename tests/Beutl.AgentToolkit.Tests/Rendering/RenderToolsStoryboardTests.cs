@@ -1007,6 +1007,8 @@ public sealed class RenderToolsStoryboardTests
             await tools.RenderStill("busy-still.png", cancellationToken: CancellationToken.None));
         ToolResult<RenderStoryboardResult> storyboard = ReadToolResult<RenderStoryboardResult>(
             await tools.RenderStoryboard(background: true, cancellationToken: CancellationToken.None));
+        ToolResult<MotionVariationResponse> motion = await tools.EvaluateMotionVariation(
+            cancellationToken: CancellationToken.None);
         ToolResult<QualityReviewResponse> quality = await tools.EvaluateEditQuality(
             cancellationToken: CancellationToken.None);
         ToolResult<FinalPreflightResponse> preflight = await tools.FinalPreflight(
@@ -1022,11 +1024,12 @@ public sealed class RenderToolsStoryboardTests
         {
             AssertWorkspaceBusy(still);
             AssertWorkspaceBusy(storyboard);
+            AssertWorkspaceBusy(motion);
             AssertWorkspaceBusy(quality);
             AssertWorkspaceBusy(preflight);
             AssertWorkspaceBusy(compare);
             AssertWorkspaceBusy(export);
-            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(6));
+            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(7));
             Assert.That(Directory.GetFiles(workspace, "*", SearchOption.AllDirectories), Is.Empty);
         });
     }

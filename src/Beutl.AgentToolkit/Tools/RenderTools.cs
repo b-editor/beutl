@@ -274,6 +274,7 @@ public sealed class RenderTools(
     {
         return ExecuteAsync(async () =>
         {
+            using OwnedOutputOperation outputOperation = BeginOutputOperation();
             Scene scene = RequireSceneSnapshot();
             renderScale = ValidateRenderScale(scene, renderScale, "evaluate_motion_variation");
             IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
