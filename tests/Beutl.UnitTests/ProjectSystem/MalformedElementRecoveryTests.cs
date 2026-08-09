@@ -288,6 +288,20 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_SyntacticallyValidElementAdoptsEscapedTopLevelId()
+    {
+        var expectedId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(
+            elementPath,
+            """{"\u0049d":"\u0061aaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","$type":"[Missing.Assembly]Missing.Namespace:Element"}""");
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+
+        Assert.That(recovered.Id, Is.EqualTo(expectedId));
+    }
+
+    [Test]
     public void Restore_MalformedElementWithEmptyTopLevelId_UsesStableNonEmptyId()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();

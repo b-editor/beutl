@@ -1370,6 +1370,18 @@ public class Scene : ProjectItem, INotifyEdited
 
     private Guid ResolveRecoveredElementId(string rawText, Uri uri)
     {
+        try
+        {
+            if (JsonNode.Parse(rawText) is JsonObject root
+                && TryGetSerializedId(root, out Guid parsedId))
+            {
+                return parsedId;
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
         // Only a top-level Id may name the element: a nested object's or quoted Id would collide
         // with live objects, so anything else falls through to the deterministic filename Guid.
         MatchCollection matches = s_idPattern.Matches(rawText);
