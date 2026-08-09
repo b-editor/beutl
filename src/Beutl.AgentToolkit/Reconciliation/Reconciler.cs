@@ -850,7 +850,24 @@ public sealed class Reconciler
             return false;
         }
 
-        if (value is IEnumerable enumerable)
+        if (value is IDictionary dictionary)
+        {
+            int index = 0;
+            foreach (object? item in dictionary.Values)
+            {
+                if (TraverseSerializedGraph(
+                        item,
+                        $"{path}[{index}]",
+                        visited,
+                        visitCoreObject))
+                {
+                    return true;
+                }
+
+                index++;
+            }
+        }
+        else if (value is IEnumerable enumerable)
         {
             int index = 0;
             foreach (object? item in enumerable)

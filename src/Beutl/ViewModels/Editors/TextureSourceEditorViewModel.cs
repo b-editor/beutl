@@ -89,6 +89,7 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
         if (!EqualityComparer<TextureSource?>.Default.Equals(oldValue, newValue))
         {
             PropertyAdapter.SetValue(newValue);
+            ResumeElementPersistenceAfterFallbackReplacement(oldValue);
             Commit();
         }
     }

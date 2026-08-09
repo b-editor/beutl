@@ -1,13 +1,16 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reflection;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -16,6 +19,18 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 
 public sealed class ApplyEditTests
 {
+    [SuppressResourceClassGeneration]
+    public sealed class DictionaryTransformHolder : EngineObject
+    {
+        public DictionaryTransformHolder()
+        {
+            ScanProperties<DictionaryTransformHolder>();
+        }
+
+        public IProperty<Dictionary<string, Transform>> Transforms { get; }
+            = Property.Create<Dictionary<string, Transform>>();
+    }
+
     [Test]
     public void Apply_edit_applies_patch_directly()
     {
@@ -132,6 +147,43 @@ public sealed class ApplyEditTests
             Assert.That(apply.Error.Hint, Does.Contain("get_schema"));
             Assert.That(apply.Error.Hint, Does.Contain("Objects require concrete EngineObject discriminators"));
             Assert.That(scene.Children, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Validate_no_new_fallback_objects_rejects_dictionary_values()
+    {
+        Scene current = CreateSceneWithElement(out Element currentElement);
+        var currentHolder = new DictionaryTransformHolder();
+        var currentTransform = new TranslateTransform(10, 20);
+        currentHolder.Transforms.CurrentValue = new Dictionary<string, Transform>
+        {
+            ["move"] = currentTransform,
+        };
+        currentElement.AddObject(currentHolder);
+        using var session = new AgentToolkitTestSession(current);
+
+        Scene sandbox = CreateSceneWithElement(out Element sandboxElement);
+        var sandboxHolder = new DictionaryTransformHolder();
+        sandboxHolder.Transforms.CurrentValue = new Dictionary<string, Transform>
+        {
+            ["move"] = new FallbackTransform(),
+        };
+        sandboxElement.AddObject(sandboxHolder);
+        MethodInfo method = typeof(Reconciler).GetMethod(
+            "ValidateNoNewFallbackObjects",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+            method.Invoke(null, new object[] { session, sandbox }))!;
+        var error = (ReconcileException)exception.InnerException!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(error.Error.Message, Does.Contain("fallback object"));
+            Assert.That(error.Error.Target, Does.Contain(nameof(DictionaryTransformHolder.Transforms)));
+            Assert.That(currentHolder.Transforms.CurrentValue!["move"], Is.SameAs(currentTransform));
         });
     }
 

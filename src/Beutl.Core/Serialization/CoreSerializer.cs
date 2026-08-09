@@ -183,7 +183,10 @@ public static class CoreSerializer
             }
         }
 
-        Type? actualType = type.IsSealed ? type : jsonObject.GetDiscriminator(type);
+        bool hasDiscriminator = jsonObject.ContainsKey("$type") || jsonObject.ContainsKey("@type");
+        Type? actualType = hasDiscriminator
+            ? jsonObject.GetDiscriminator()
+            : type.IsSealed ? type : jsonObject.GetDiscriminator(type);
         if (actualType == null)
         {
             throw new InvalidOperationException("Discriminator not found in JSON object.");
@@ -261,16 +264,7 @@ public static class CoreSerializer
                 // repair of the sidecar and leaves the changed file alone — clobbering it would
                 // destroy the user's repair.
                 string sourcePath = uri.LocalPath;
-                if (File.Exists(sourcePath)
-                    && !File.ReadAllBytes(sourcePath).AsSpan().SequenceEqual(suppressed.RawBytes)
-                    && suppressed.WasReinstated)
-                {
-                    WriteBytesAtomically(sourcePath, suppressed.RawBytes);
-                }
-
-                // A reinstated record is consumed on first observation: once the disk state has
-                // been reconciled (restored or already matching), a later mismatch is external.
-                suppressed.WasReinstated = false;
+                RestoreReinstatedBytes(suppressed, sourcePath);
                 return;
             }
 
@@ -280,11 +274,12 @@ public static class CoreSerializer
             }
 
             // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the
-            // element. The suppression record is never mutated — the source location stays
-            // skip-protected even if a failed multi-file save rolls Uri back afterwards.
+            // element. SourceUri stays unchanged so the source location remains skip-protected if a
+            // failed multi-file save rolls Uri back afterwards.
             string rehomedPath = uri.LocalPath;
             if (File.Exists(rehomedPath))
             {
+                RestoreReinstatedBytes(suppressed, rehomedPath);
                 suppressedObj.Uri = uri;
                 return;
             }
@@ -314,6 +309,7 @@ public static class CoreSerializer
                 }
                 catch (IOException) when (File.Exists(rehomedPath))
                 {
+                    RestoreReinstatedBytes(suppressed, rehomedPath);
                     suppressedObj.Uri = uri;
                     return;
                 }
@@ -329,6 +325,7 @@ public static class CoreSerializer
                 }
             }
 
+            suppressed.WasReinstated = false;
             suppressedObj.Uri = uri;
             return;
         }
@@ -384,6 +381,22 @@ public static class CoreSerializer
         {
             throw new JsonException();
         }
+    }
+
+    private static void RestoreReinstatedBytes(SuppressedStorageSource suppressed, string path)
+    {
+        if (!suppressed.WasReinstated)
+        {
+            return;
+        }
+
+        if (File.Exists(path)
+            && !File.ReadAllBytes(path).AsSpan().SequenceEqual(suppressed.RawBytes))
+        {
+            WriteBytesAtomically(path, suppressed.RawBytes);
+        }
+
+        suppressed.WasReinstated = false;
     }
 
     private static void WriteBytesAtomically(string path, byte[] bytes)
