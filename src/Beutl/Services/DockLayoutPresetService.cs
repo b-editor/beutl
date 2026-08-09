@@ -206,6 +206,10 @@ public sealed class DockLayoutPresetService
     public void RestoreItems()
     {
         string filePath = FilePath;
+        // A reload that fails must re-arm the guard: otherwise a transient read error would leave
+        // the previous success standing and let a later save overwrite the file from a stale
+        // snapshot — the exact case SaveItems refuses to do on a first-load failure.
+        _isRestored = false;
         try
         {
             if (!File.Exists(filePath))

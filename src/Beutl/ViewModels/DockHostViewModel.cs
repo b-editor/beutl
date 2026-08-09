@@ -21,6 +21,11 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     // built so far. Null at every other time.
     private List<BeutlToolDockable>? _restoredTools;
 
+    // Set while restoring an arrangement-only payload (a saved layout). Such a payload deliberately
+    // omits tool state, so handing it to IToolContext.ReadFromJson would feed every reader a
+    // document missing the fields its writer produces.
+    private bool _restoringArrangementOnly;
+
     public DockHostViewModel(string sceneId, EditViewModel editViewModel)
     {
         _sceneId = sceneId;
@@ -273,6 +278,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         // Collects every tool built during the walk, so a mid-walk failure can dispose them.
         var built = new List<BeutlToolDockable>();
         _restoredTools = built;
+        // A saved layout carries no tool state (see CaptureLayout), so the readers must be skipped.
+        _restoringArrangementOnly = true;
         try
         {
             if (!IsCurrentVersion(layout))
@@ -307,6 +314,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         finally
         {
             _restoredTools = null;
+            _restoringArrangementOnly = false;
         }
 
         // Dispose after the swap, and directly — CloseDockable would walk the old tree.
@@ -680,26 +688,34 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
         if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx)) return null;
 
-        try
+        if (!_restoringArrangementOnly)
         {
-            ctx.ReadFromJson(obj);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(
-                ex,
-                "Failed to restore tool state for '{ToolType}' ({SceneId})",
-                extType.FullName,
-                _sceneId);
+            try
+            {
+                ctx.ReadFromJson(obj);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to restore tool state for '{ToolType}' ({SceneId})",
+                    extType.FullName,
+                    _sceneId);
+            }
         }
 
         var dockable = new BeutlToolDockable(ctx, _editViewModel);
-        if (obj["id"]?.GetValue<string>() is { Length: > 0 } savedId)
-            dockable.Id = savedId;
-
-        // Registered as soon as it exists so a failure deeper in the walk can still dispose it;
-        // waiting for RestoreNode to return would lose everything built before the throw.
+        // Registered before anything that can throw — including the id parse just below — so a
+        // failure anywhere after construction can still dispose it.
         _restoredTools?.Add(dockable);
+
+        if (obj["id"] is JsonValue idValue
+            && idValue.TryGetValue(out string? savedId)
+            && savedId.Length > 0)
+        {
+            dockable.Id = savedId;
+        }
+
         return dockable;
     }
 

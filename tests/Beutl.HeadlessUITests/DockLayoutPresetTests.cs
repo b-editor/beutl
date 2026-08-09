@@ -371,6 +371,33 @@ public class DockLayoutPresetTests
     }
 
     [Test]
+    public void A_failed_reload_blocks_later_writes()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}.json");
+        try
+        {
+            var service = new DockLayoutPresetService(path);
+            var layout = new JsonObject { ["DockLayout"] = new JsonObject { ["$type"] = "root" } };
+            service.Save("Editing", layout);
+
+            // A reload that cannot read the file must re-arm the guard, so a later save does not
+            // overwrite whatever is on disk from the now-stale in-memory snapshot. Holding the
+            // file open for writing makes the read throw, the way a transient sharing error would.
+            using (File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+                service.RestoreItems();
+            }
+
+            Assert.That(service.SaveItems(), Is.False, "a save after a failed reload must be refused");
+        }
+        finally
+        {
+            if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Test]
     public void A_read_only_store_file_still_loads()
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}.json");
