@@ -55,7 +55,7 @@ public class CreateNewProjectDialogTests
         var projectService = new ProjectService();
         var initializer = new TestVersionControlInitializer(
             _ => Task.FromResult(GitAvailability.NotInstalled),
-            (_, _) => Task.FromResult(true));
+            (_, _, _) => Task.FromResult(true));
         Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync =
             _ => Task.FromResult<GitIdentity?>(null);
         Assert.Multiple(() =>
@@ -211,7 +211,7 @@ public class CreateNewProjectDialogTests
             config.EnableForNewProjects = true;
             var initializer = new TestVersionControlInitializer(
                 _ => availabilitySource.Task,
-                (_, _) => Task.FromResult(true));
+                (_, _, _) => Task.FromResult(true));
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
                 initializer,
@@ -256,7 +256,7 @@ public class CreateNewProjectDialogTests
             config.EnableForNewProjects = true;
             var initializer = new TestVersionControlInitializer(
                 _ => availabilitySource.Task,
-                (_, _) =>
+                (_, _, _) =>
                 {
                     Interlocked.Increment(ref initializationRequests);
                     return Task.FromResult(true);
@@ -331,7 +331,7 @@ public class CreateNewProjectDialogTests
             var initializer = new TestVersionControlInitializer(
                 _ => Task.FromException<GitAvailability>(
                     new IOException("simulated Git probe failure")),
-                (_, _) =>
+                (_, _, _) =>
                 {
                     Interlocked.Increment(ref initializationRequests);
                     return Task.FromResult(true);
@@ -365,6 +365,49 @@ public class CreateNewProjectDialogTests
     }
 
     [AvaloniaTest]
+    public async Task Version_control_initialization_receives_the_project_created_by_the_command()
+    {
+        await TestReset.ResetShellAsync();
+        Project? initializationTarget = null;
+        try
+        {
+            var initializer = new TestVersionControlInitializer(
+                _ => Task.FromResult(new GitAvailability(
+                    GitAvailabilityState.Installed,
+                    "git",
+                    new Version(2, 50, 0),
+                    LfsInstalled: false)),
+                (project, _, _) =>
+                {
+                    initializationTarget = project;
+                    return Task.FromResult(true);
+                });
+            var viewModel = new CreateNewProjectViewModel(
+                TestShell.Project,
+                initializer,
+                _ => Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
+            await WaitUntilAsync(() => viewModel.IsGitAvailable.Value);
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "create-explicit-version-control-target");
+            Directory.CreateDirectory(location);
+            viewModel.Location.Value = location;
+            viewModel.Name.Value = "created-project";
+            viewModel.TrackHistory.Value = true;
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+
+            await viewModel.Create.ExecuteAsync();
+
+            Assert.That(initializationTarget, Is.SameAs(TestShell.Project.CurrentProject.Value));
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Version_control_initialization_failure_keeps_created_project_open_and_notifies_user()
     {
         await TestReset.ResetShellAsync();
@@ -380,7 +423,7 @@ public class CreateNewProjectDialogTests
                     "git",
                     new Version(2, 50, 0),
                     LfsInstalled: false)),
-                (_, _) =>
+                (_, _, _) =>
                 {
                     Interlocked.Increment(ref initializationRequests);
                     return Task.FromException<bool>(
@@ -437,13 +480,14 @@ public class CreateNewProjectDialogTests
             projectService,
             new TestVersionControlInitializer(
                 _ => Task.FromResult(GitAvailability.NotInstalled),
-                (_, _) => Task.FromResult(true)),
+                (_, _, _) => Task.FromResult(true)),
             _ => Task.FromResult<GitIdentity?>(null));
     }
 
     private sealed class TestVersionControlInitializer(
         Func<CancellationToken, Task<GitAvailability>> getAvailabilityAsync,
         Func<
+            Project,
             Func<CancellationToken, Task<GitIdentity?>>,
             CancellationToken,
             Task<bool>> initializeCurrentProjectAsync)
@@ -456,10 +500,11 @@ public class CreateNewProjectDialogTests
         }
 
         public Task<bool> InitializeCurrentProjectAsync(
+            Project project,
             Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
             CancellationToken cancellationToken)
         {
-            return initializeCurrentProjectAsync(requestIdentityAsync, cancellationToken);
+            return initializeCurrentProjectAsync(project, requestIdentityAsync, cancellationToken);
         }
     }
 

@@ -145,7 +145,10 @@ public partial class MainView
                 return;
             }
 
+            Project project = viewModel.ProjectService.CurrentProject.Value
+                              ?? throw new InvalidOperationException("No project is open.");
             await viewModel.VersionControlCoordinator.InitializeCurrentProjectAsync(
+                project,
                 RequestGitIdentityAsync);
         }
         catch (Exception ex)

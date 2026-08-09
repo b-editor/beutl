@@ -52,6 +52,7 @@ public class VersionControlSaveTests
                 "partial-save",
                 location))!;
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(new GitIdentity(
                     "Beutl Headless Test",
                     "headless@example.invalid")));
@@ -125,6 +126,7 @@ public class VersionControlSaveTests
             HeadlessTestHelpers.Settle();
 
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(
                     new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
             Assert.That(initialized, Is.True);
@@ -228,6 +230,7 @@ public class VersionControlSaveTests
             });
 
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(new GitIdentity(
                     "Beutl Headless Test",
                     "headless@example.invalid")));
@@ -280,6 +283,7 @@ public class VersionControlSaveTests
                 "auto-hygiene",
                 location))!;
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(
                     new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
             Assert.That(initialized, Is.True);
@@ -307,7 +311,7 @@ public class VersionControlSaveTests
                 Assert.That(File.ReadAllText(Path.Combine(projectRoot, ".gitignore")),
                     Is.EqualTo("**/.beutl/\n*.tmp\n"));
                 Assert.That(File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
-                    Does.Contain("*.bep text eol=lf\n"));
+                    Does.Contain("*.[bB][eE][pP] text eol=lf\n"));
                 Assert.That(finalCommitCount, Is.EqualTo(initialCommitCount));
                 Assert.That(staged, Is.Empty);
             });

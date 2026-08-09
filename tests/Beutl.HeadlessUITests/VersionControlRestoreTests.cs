@@ -590,6 +590,7 @@ public class VersionControlRestoreTests
             int identityRequests = 0;
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 token =>
                 {
                     identityRequests++;
@@ -651,6 +652,7 @@ public class VersionControlRestoreTests
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             bool initialized = await coordinator.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(identity));
 
             Assert.Multiple(() =>
@@ -661,6 +663,57 @@ public class VersionControlRestoreTests
                 Assert.That(backend.InitializationOptions[1].Identity, Is.EqualTo(identity));
                 Assert.That(backend.SetLocalIdentityCalls, Is.Zero);
                 Assert.That(backend.Repository, Is.Not.Null);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task InitializeCurrentProject_rejects_a_project_that_is_no_longer_open()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            Project staleProject = await CreateProjectForFakeVersionControlAsync(
+                "version-control-stale-initialization-target");
+            Project currentProject = await CreateProjectForFakeVersionControlAsync(
+                "version-control-current-initialization-target");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(
+                repository: null,
+                discoveredRepository: null,
+                tip);
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+                async () => await coordinator.InitializeCurrentProjectAsync(
+                    staleProject,
+                    _ => Task.FromResult<GitIdentity?>(null)));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(exception!.Message, Does.Contain("no longer the open project"));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(currentProject));
+                Assert.That(backend.InitializeCalls, Is.Zero);
             });
         }
         finally
@@ -710,6 +763,7 @@ public class VersionControlRestoreTests
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 async cancellationToken =>
                 {
                     identityStarted.TrySetResult();
@@ -2025,6 +2079,7 @@ public class VersionControlRestoreTests
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             initialization = coordinator.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 async cancellationToken =>
                 {
                     identityStarted.TrySetResult();
@@ -2621,6 +2676,7 @@ public class VersionControlRestoreTests
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             initialization = coordinator.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 async cancellationToken =>
                 {
                     using CancellationTokenRegistration registration = cancellationToken.Register(
@@ -3235,6 +3291,7 @@ public class VersionControlRestoreTests
             readinessField!.SetValue(coordinator, synchronousReadiness);
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(null));
             Assert.That(initialization.IsCompleted, Is.False);
 
@@ -3412,6 +3469,7 @@ public class VersionControlRestoreTests
             var initialService = (PullCycleTestBackend)coordinator.CurrentService!;
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(null));
             await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -3511,6 +3569,7 @@ public class VersionControlRestoreTests
             await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(null));
 
             Assert.That(initialization.IsCompleted, Is.False);
@@ -8217,6 +8276,7 @@ public class VersionControlRestoreTests
         HeadlessTestHelpers.Settle();
 
         bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+            TestShell.Project.CurrentProject.Value!,
             _ => Task.FromResult<GitIdentity?>(
                 new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
         Assert.That(initialized, Is.True);

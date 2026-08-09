@@ -67,6 +67,7 @@ public class VersionControlTabViewTests
                 "title-bar-branch-widget",
                 location);
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(new GitIdentity(
                     "Beutl Headless Test",
                     "headless@example.invalid")));
@@ -214,6 +215,7 @@ public class VersionControlTabViewTests
                 "title-bar-branch-handler-errors",
                 location);
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(new GitIdentity(
                     "Beutl Headless Test",
                     "headless@example.invalid")));
@@ -291,6 +293,7 @@ public class VersionControlTabViewTests
                 "tracked-before-tab",
                 location))!;
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(new GitIdentity(
                     "Beutl Headless Test",
                     "headless@example.invalid")));
@@ -410,6 +413,7 @@ public class VersionControlTabViewTests
             Assert.That(handler.LastExecution?.CommandName, Is.EqualTo("EnableVersionControl"));
 
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
                 _ => Task.FromResult<GitIdentity?>(new GitIdentity(
                     "Beutl Headless Test",
                     "headless@example.invalid")));
@@ -864,6 +868,7 @@ public class VersionControlTabViewTests
                 location))!;
             Assert.That(
                 await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                    TestShell.Project.CurrentProject.Value!,
                     _ => Task.FromResult<GitIdentity?>(new GitIdentity(
                         "Beutl Headless Test",
                         "headless@example.invalid"))),

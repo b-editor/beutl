@@ -147,7 +147,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Is.EqualTo("**/.beutl/\n*.tmp\n"));
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
-                Does.Contain("*.bep text eol=lf\n"));
+                Does.Contain("*.[bB][eE][pP] text eol=lf\n"));
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
                 Does.Contain(".gitattributes text eol=lf\n"));
@@ -690,7 +690,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(File.Exists(hookPath), Is.True);
             Assert.That(File.ReadAllText(hookPath), Is.EqualTo(hookContents));
             Assert.That(status.HasConflicts, Is.False);
-            Assert.That(attributes, Does.Contain("*.bep text eol=lf"));
+            Assert.That(attributes, Does.Contain("*.[bB][eE][pP] text eol=lf"));
             Assert.That(attributes, Does.Not.Contain("# BEGIN BEUTL MANAGED LFS"));
             Assert.That(attributes, Does.Not.Contain("filter=lfs"));
             Assert.That(commit, Is.TypeOf<CommitResult.Committed>());
@@ -971,9 +971,30 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Is.EqualTo(new[] { "**/.beutl/", "*.tmp" }));
             Assert.That(
                 File.ReadAllLines(Path.Combine(Root, ".gitattributes"))
-                    .Count(static line => line == "*.bep text eol=lf"),
+                    .Count(static line => line == "*.[bB][eE][pP] text eol=lf"),
                 Is.EqualTo(1));
         });
+    }
+
+    [Test]
+    public async Task EnsureRepositoryHygieneAsync_marks_mixed_case_project_extensions_as_text()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "existing repository");
+        using var service = CreateService();
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+
+        string[] paths = ["Project.BEP", "Scene.ScEnE", "Element.BeLm"];
+        GitCommandResult attributes = await RunGitAsync(
+            ["check-attr", "text", "eol", "--", .. paths]);
+        string[] lines = attributes.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.That(
+            lines,
+            Is.EqualTo(paths.SelectMany(static path => new[]
+            {
+                $"{path}: text: set",
+                $"{path}: eol: lf",
+            }).ToArray()));
     }
 
     [Test]
@@ -999,7 +1020,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(lines, Does.Contain(unmanagedMatchingRule));
             Assert.That(lines, Does.Contain(customRule));
             Assert.That(lines, Does.Contain(customizedResourceRule));
-            Assert.That(lines, Does.Contain("*.bep text eol=lf"));
+            Assert.That(lines, Does.Contain("*.[bB][eE][pP] text eol=lf"));
         });
     }
 
@@ -1053,7 +1074,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(contents, Does.Not.Contain("# BEGIN BEUTL MANAGED LFS"));
             Assert.That(contents, Does.Not.Contain("filter=lfs"));
-            Assert.That(contents, Does.Contain("*.bep text eol=lf"));
+            Assert.That(contents, Does.Contain("*.[bB][eE][pP] text eol=lf"));
         });
     }
 
@@ -1153,7 +1174,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(edits, Is.EqualTo(1));
             Assert.That(contents, Does.Contain("concurrent custom rule\n"));
             Assert.That(contents, Does.Not.Contain("original custom rule\n"));
-            Assert.That(contents, Does.Contain("*.bep text eol=lf\n"));
+            Assert.That(contents, Does.Contain("*.[bB][eE][pP] text eol=lf\n"));
         });
     }
 
@@ -1188,7 +1209,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(edits, Is.EqualTo(1));
             Assert.That(contents, Does.Contain("commit-boundary custom rule\n"));
             Assert.That(contents, Does.Not.Contain("original custom rule\n"));
-            Assert.That(contents, Does.Contain("*.bep text eol=lf\n"));
+            Assert.That(contents, Does.Contain("*.[bB][eE][pP] text eol=lf\n"));
         });
     }
 
@@ -3726,6 +3747,49 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Does.Contain(new FileChange("changed.bep", FileChangeStatus.Added)));
             Assert.That(statuses[1].IsClean, Is.True);
         });
+    }
+
+    [Test]
+    public async Task Watcher_snapshot_is_enqueued_before_the_operation_gate_is_released()
+    {
+        var timeProvider = new FakeTimeProvider();
+        var watcher = new RepositoryWatcher(Repository, timeProvider, startWatching: false);
+        var schedulerEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseScheduler = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Action? drain = null;
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher,
+            _ => CreateRunner(),
+            statusNotificationScheduler: action =>
+            {
+                drain = action;
+                schedulerEntered.TrySetResult();
+                releaseScheduler.Task.GetAwaiter().GetResult();
+            });
+        await File.WriteAllTextAsync(Path.Combine(Root, "changed.bep"), "{}\n");
+
+        watcher.NotifyPathChanged(Path.Combine(Root, "changed.bep"));
+        timeProvider.Advance(RepositoryWatcher.DebounceInterval);
+        await schedulerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task<CommitResult> commit = service.CommitAllAsync(
+            "beutl: preserve watcher snapshot order",
+            SnapshotKind.Save,
+            CancellationToken.None);
+        await Task.Delay(100);
+
+        Assert.That(commit.IsCompleted, Is.False);
+        releaseScheduler.TrySetResult();
+        Assert.That(
+            await commit.WaitAsync(TimeSpan.FromSeconds(5)),
+            Is.TypeOf<CommitResult.Committed>());
+        Action drainNotifications = drain
+                                    ?? throw new InvalidOperationException(
+                                        "The status drain was not scheduled.");
+        drainNotifications();
     }
 
     [Test]

@@ -96,6 +96,36 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Large_media_acknowledgement_failure_does_not_block_commit()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await WriteLargeMediaAsync(Root, "resources/large.mp4");
+        var notices = new List<VersionControlPolicyNotice>();
+        var runner = new LargeMediaAcknowledgementFailingRunner(Runner);
+        using var service = CreateService(
+            CreateLargeMediaConfig(),
+            lfsInstalled: false,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            runner: runner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "large media",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(notices, Has.Count.EqualTo(1));
+            Assert.That(runner.AcknowledgementWriteAttempts, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task Unrelated_lfs_rule_does_not_suppress_large_media_notice()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
@@ -755,6 +785,50 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             IProgress<string>? stderrProgress = null)
         {
             Commands.Add(new RecordedCommand(repository, [.. arguments], options));
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class LargeMediaAcknowledgementFailingRunner(IGitCliRunner inner)
+        : IGitCliRunner
+    {
+        public int AcknowledgementWriteAttempts { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.Count >= 4
+                && arguments[0] == "config"
+                && arguments[1] == "--local"
+                && arguments[2].StartsWith(
+                    "beutl.largeMediaNoticeShown-",
+                    StringComparison.Ordinal)
+                && arguments[3] == "true")
+            {
+                AcknowledgementWriteAttempts++;
+                return Task.FromException<GitCommandResult>(
+                    new IOException("simulated acknowledgement write failure"));
+            }
+
             return inner.RunAsync(
                 repository,
                 arguments,

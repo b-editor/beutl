@@ -116,6 +116,7 @@ public sealed class CreateNewProjectViewModel
                 try
                 {
                     await _versionControlInitializer.InitializeCurrentProjectAsync(
+                        project,
                         _requestIdentityAsync,
                         CancellationToken.None);
                 }

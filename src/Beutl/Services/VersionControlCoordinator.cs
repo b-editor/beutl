@@ -245,20 +245,28 @@ public sealed class VersionControlCoordinator :
     }
 
     public async Task<bool> InitializeCurrentProjectAsync(
+        Project expectedProject,
         Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(expectedProject);
         ArgumentNullException.ThrowIfNull(requestIdentityAsync);
         using NonTransactionalOperationLease operation =
             await BeginNonTransactionalOperationAsync(cancellationToken);
         CancellationToken operationCancellation = operation.CancellationToken;
 
-        Project project = _projectService.CurrentProject.Value
-                          ?? throw new InvalidOperationException("No project is open.");
-        string projectRoot = GetProjectRoot(project);
+        string projectRoot = GetProjectRoot(expectedProject);
         Task activationTask;
         lock (_stateGate)
         {
+            Project currentProject = _projectService.CurrentProject.Value
+                                     ?? throw new InvalidOperationException("No project is open.");
+            if (!ReferenceEquals(currentProject, expectedProject))
+            {
+                throw new InvalidOperationException(
+                    "The requested project is no longer the open project.");
+            }
+
             activationTask = _activation is { ProjectRoot: var activationRoot } activation
                              && string.Equals(activationRoot, projectRoot, PathComparison)
                 ? activation.Completion
@@ -275,7 +283,7 @@ public sealed class VersionControlCoordinator :
                                      ?? throw new InvalidOperationException(
                                          "The project was closed while version control was activating.");
             string currentRoot = GetProjectRoot(currentProject);
-            if (!ReferenceEquals(currentProject, project)
+            if (!ReferenceEquals(currentProject, expectedProject)
                 || !string.Equals(currentRoot, projectRoot, PathComparison)
                 || _state.ProjectRoot is not { } stateRoot
                 || !string.Equals(stateRoot, projectRoot, PathComparison))
@@ -330,7 +338,11 @@ public sealed class VersionControlCoordinator :
         bool schedulePublication;
         lock (_stateGate)
         {
+            Project currentProject = _projectService.CurrentProject.Value
+                                     ?? throw new InvalidOperationException(
+                                         "The project was closed while version control was being initialized.");
             if (_disposed
+                || !ReferenceEquals(currentProject, expectedProject)
                 || !ReferenceEquals(_state.OwnedService, service)
                 || _state.ProjectRoot is not { } stateRoot
                 || !string.Equals(stateRoot, projectRoot, PathComparison))

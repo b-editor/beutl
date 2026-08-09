@@ -168,9 +168,9 @@ internal sealed class GitCliVersionControlService :
 
     private static readonly string[] s_textAttributeLines =
     [
-        "*.bep text eol=lf",
-        "*.scene text eol=lf",
-        "*.belm text eol=lf",
+        "*.[bB][eE][pP] text eol=lf",
+        "*.[sS][cC][eE][nN][eE] text eol=lf",
+        "*.[bB][eE][lL][mM] text eol=lf",
         ".gitignore text eol=lf",
         ".gitattributes text eol=lf",
     ];
@@ -6659,12 +6659,26 @@ internal sealed class GitCliVersionControlService :
                 return;
             }
 
-            await SetLocalConfigValueAsync(
-                repository,
-                runner,
-                acknowledgementKey,
-                "true",
-                cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await SetLocalConfigValueAsync(
+                    repository,
+                    runner,
+                    acknowledgementKey,
+                    "true",
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                LogWarningBestEffort(
+                    ex,
+                    "Failed to persist the large-media notice acknowledgement.");
+            }
+
             return;
         }
     }
@@ -8270,8 +8284,10 @@ internal sealed class GitCliVersionControlService :
     {
         try
         {
-            WorkspaceStatus status = await GetStatusAsync(CancellationToken.None).ConfigureAwait(false);
-            QueueStatusChanged(status);
+            await RunSerializedAsync(
+                    () => QueueStatusChangedCoreAsync(CancellationToken.None),
+                    CancellationToken.None)
+                .ConfigureAwait(false);
         }
         catch (Exception) when (IsDisposed)
         {
