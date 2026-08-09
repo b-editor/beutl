@@ -3683,6 +3683,52 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task StatusChanged_notifications_are_published_in_capture_order()
+    {
+        var timeProvider = new FakeTimeProvider();
+        var watcher = new RepositoryWatcher(Repository, timeProvider, startWatching: false);
+        Action? drain = null;
+        int scheduleCount = 0;
+        var drainScheduled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher,
+            _ => CreateRunner(),
+            statusNotificationScheduler: action =>
+            {
+                scheduleCount++;
+                drain = action;
+                drainScheduled.TrySetResult();
+            });
+        var statuses = new List<WorkspaceStatus>();
+        service.StatusChanged += (_, status) => statuses.Add(status);
+        await File.WriteAllTextAsync(Path.Combine(Root, "changed.bep"), "{}\n");
+
+        watcher.NotifyPathChanged(Path.Combine(Root, "changed.bep"));
+        timeProvider.Advance(RepositoryWatcher.DebounceInterval);
+        await drainScheduled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: ordered status notifications",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(statuses, Is.Empty);
+        drain!();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(scheduleCount, Is.EqualTo(1));
+            Assert.That(statuses, Has.Count.EqualTo(2));
+            Assert.That(
+                statuses[0].Changes,
+                Does.Contain(new FileChange("changed.bep", FileChangeStatus.Added)));
+            Assert.That(statuses[1].IsClean, Is.True);
+        });
+    }
+
+    [Test]
     public async Task Watcher_refresh_logs_unexpected_failures()
     {
         var timeProvider = new FakeTimeProvider();

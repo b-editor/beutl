@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Collections.Concurrent;
+using System.Text;
 using System.Text.Json;
 using Beutl.Language;
 using Beutl.Logging;
@@ -325,11 +326,13 @@ internal sealed class GitCliVersionControlService :
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
     private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileReplace;
     private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileCommit;
+    private readonly Action<Action> _statusNotificationScheduler;
     private readonly ILogger _logger;
     private readonly bool _createWatcherWhenRepositoryAvailable;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly object _lifetimeSync = new();
     private readonly object _runtimeSync = new();
+    private readonly ConcurrentQueue<WorkspaceStatus> _statusNotifications = new();
     private RepositoryWatcher? _watcher;
     private GitAvailability? _cachedAvailability;
     private IGitCliRunner? _runner;
@@ -337,6 +340,7 @@ internal sealed class GitCliVersionControlService :
     private int _configurationRevision;
     private int _lifetimeState;
     private int _resourcesDisposed;
+    private int _statusNotificationDrainScheduled;
 
     public GitCliVersionControlService(
         GitInstallationLocator installationLocator,
@@ -351,6 +355,7 @@ internal sealed class GitCliVersionControlService :
             policyNoticeSink: null,
             beforeHygieneFileReplace: null,
             beforeHygieneFileCommit: null,
+            statusNotificationScheduler: null,
             logger: null)
     {
     }
@@ -370,6 +375,7 @@ internal sealed class GitCliVersionControlService :
             policyNoticeSink: policyNoticeSink,
             beforeHygieneFileReplace: null,
             beforeHygieneFileCommit: null,
+            statusNotificationScheduler: null,
             logger: null)
     {
     }
@@ -382,7 +388,8 @@ internal sealed class GitCliVersionControlService :
         ILogger? logger = null,
         Func<string, CancellationToken, Task>? beforeHygieneFileReplace = null,
         Func<string, CancellationToken, Task>? beforeHygieneFileCommit = null,
-        Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null)
+        Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
+        Action<Action>? statusNotificationScheduler = null)
         : this(
             installationLocator,
             repository,
@@ -393,6 +400,7 @@ internal sealed class GitCliVersionControlService :
             policyNoticeSink,
             beforeHygieneFileReplace: beforeHygieneFileReplace,
             beforeHygieneFileCommit: beforeHygieneFileCommit,
+            statusNotificationScheduler: statusNotificationScheduler,
             logger: logger)
     {
     }
@@ -407,6 +415,7 @@ internal sealed class GitCliVersionControlService :
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
         Func<string, CancellationToken, Task>? beforeHygieneFileReplace,
         Func<string, CancellationToken, Task>? beforeHygieneFileCommit,
+        Action<Action>? statusNotificationScheduler,
         ILogger? logger)
     {
         _installationLocator = installationLocator
@@ -427,6 +436,7 @@ internal sealed class GitCliVersionControlService :
         _policyNoticeSink = policyNoticeSink;
         _beforeHygieneFileReplace = beforeHygieneFileReplace;
         _beforeHygieneFileCommit = beforeHygieneFileCommit;
+        _statusNotificationScheduler = statusNotificationScheduler ?? ScheduleStatusNotificationDrain;
         _logger = logger ?? Log.CreateLogger<GitCliVersionControlService>();
         _createWatcherWhenRepositoryAvailable = createWatcherWhenRepositoryAvailable;
         if (_watcher is not null)
@@ -7985,14 +7995,47 @@ internal sealed class GitCliVersionControlService :
 
     private void QueueStatusChanged(WorkspaceStatus status)
     {
+        _statusNotifications.Enqueue(status);
+        if (Interlocked.CompareExchange(ref _statusNotificationDrainScheduled, 1, 0) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _statusNotificationScheduler(DrainStatusNotifications);
+        }
+        catch
+        {
+            Volatile.Write(ref _statusNotificationDrainScheduled, 0);
+            throw;
+        }
+    }
+
+    private static void ScheduleStatusNotificationDrain(Action drain)
+    {
         ThreadPool.UnsafeQueueUserWorkItem(
-            static state =>
-            {
-                var payload = ((GitCliVersionControlService Service, WorkspaceStatus Status))state!;
-                payload.Service.NotifyStatusChanged(payload.Status);
-            },
-            (this, status),
+            static state => ((Action)state!).Invoke(),
+            drain,
             preferLocal: false);
+    }
+
+    private void DrainStatusNotifications()
+    {
+        while (true)
+        {
+            while (_statusNotifications.TryDequeue(out WorkspaceStatus? status))
+            {
+                NotifyStatusChanged(status);
+            }
+
+            Volatile.Write(ref _statusNotificationDrainScheduled, 0);
+            if (_statusNotifications.IsEmpty
+                || Interlocked.CompareExchange(ref _statusNotificationDrainScheduled, 1, 0) != 0)
+            {
+                return;
+            }
+        }
     }
 
     private void NotifyStatusChanged(WorkspaceStatus status)
