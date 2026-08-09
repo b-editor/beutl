@@ -316,6 +316,12 @@ public static class CoreSerializer
                 return;
             }
 
+            if (suppressed.WasReinstated && uri == suppressedObj.Uri)
+            {
+                RestoreReinstatedBytes(suppressed, uri.LocalPath);
+                return;
+            }
+
             if (uri.Scheme != "file")
             {
                 throw new JsonException();

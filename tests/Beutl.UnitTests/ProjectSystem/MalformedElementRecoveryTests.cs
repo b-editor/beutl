@@ -2694,6 +2694,32 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void StoreToUri_ReinstatedRehomeToDifferentCollisionFailsWithoutOverwriting()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
+        File.WriteAllBytes(elementPath, corruptBytes);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        string rehomedPath = Path.Combine(_root, "rehomed", Path.GetFileName(elementPath));
+        CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath));
+        recovered.SuppressedStorageSource!.WasReinstated = true;
+
+        string foreignPath = Path.Combine(_root, "foreign", Path.GetFileName(elementPath));
+        Directory.CreateDirectory(Path.GetDirectoryName(foreignPath)!);
+        byte[] foreignBytes = "{ foreign sidecar"u8.ToArray();
+        File.WriteAllBytes(foreignPath, foreignBytes);
+
+        Assert.Throws<IOException>(() => CoreSerializer.StoreToUri(recovered, new Uri(foreignPath)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(foreignPath), Is.EqualTo(foreignBytes));
+            Assert.That(recovered.Uri, Is.EqualTo(new Uri(elementPath)));
+        });
+    }
+
+    [Test]
     public void Serialize_DoesNotMutateLongLivedRecoveryMaps()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();

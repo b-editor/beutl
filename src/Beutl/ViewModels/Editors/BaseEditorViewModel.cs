@@ -15,6 +15,7 @@ using Beutl.Engine.Expressions;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -190,15 +191,28 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         if (_element is { SuppressedStorageSource: not null }
             && Scene.TryResumeElementPersistence(_element, previous) is { } suppression)
         {
-            Element element = _element;
-            this.GetRequiredService<HistoryManager>().Record(
-                () => element.SuppressedStorageSource = null,
-                () =>
-                {
-                    suppression.WasReinstated = true;
-                    element.SuppressedStorageSource = suppression;
-                });
+            RecordPersistenceResume(_element, suppression);
         }
+    }
+
+    protected void ResumeElementPersistenceAfterKnownRecoveryBlockerReplacement()
+    {
+        if (_element is { SuppressedStorageSource: not null }
+            && Scene.TryResumeElementPersistence(_element) is { } suppression)
+        {
+            RecordPersistenceResume(_element, suppression);
+        }
+    }
+
+    private void RecordPersistenceResume(Element element, SuppressedStorageSource suppression)
+    {
+        this.GetRequiredService<HistoryManager>().Record(
+            () => element.SuppressedStorageSource = null,
+            () =>
+            {
+                suppression.WasReinstated = true;
+                element.SuppressedStorageSource = suppression;
+            });
     }
 
     public void Dispose()
@@ -567,6 +581,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
+            bool replacesKnownRecoveryBlocker = ReplacesLossyEasing();
             if (EditingKeyFrame.Value is { } kf)
             {
                 kf.Value = newValue!;
@@ -577,7 +592,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 prop.SetValue(newValue);
             }
 
-            ResumeElementPersistenceAfterFallbackReplacement(oldValue);
+            ResumeElementPersistenceAfterReplacement(oldValue, replacesKnownRecoveryBlocker);
             Commit(commandName);
         }
     }
@@ -585,6 +600,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     public void SetValue(T? newValue)
     {
         T? oldValue;
+        bool replacesKnownRecoveryBlocker = ReplacesLossyEasing();
         if (EditingKeyFrame.Value is { } kf)
         {
             oldValue = kf.Value;
@@ -597,8 +613,29 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             prop.SetValue(newValue);
         }
 
-        ResumeElementPersistenceAfterFallbackReplacement(oldValue);
+        ResumeElementPersistenceAfterReplacement(oldValue, replacesKnownRecoveryBlocker);
         Commit();
+    }
+
+    private bool ReplacesLossyEasing()
+        => PropertyAdapter.GetCoreProperty() == KeyFrame.EasingProperty
+           && PropertyAdapter is CorePropertyAdapter<T>
+           {
+               Object: KeyFrame { HasLossyEasing: true },
+           };
+
+    private void ResumeElementPersistenceAfterReplacement(
+        object? previous,
+        bool replacesKnownRecoveryBlocker)
+    {
+        if (replacesKnownRecoveryBlocker)
+        {
+            ResumeElementPersistenceAfterKnownRecoveryBlockerReplacement();
+        }
+        else
+        {
+            ResumeElementPersistenceAfterFallbackReplacement(previous);
+        }
     }
 
     public T? SetCurrentValueAndGetCoerced(T? value)
@@ -641,11 +678,14 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
 
+        IKeyFrame[] previousKeyFrames = [.. kfAnimation.KeyFrames];
         AnimationOperations.RemoveKeyFrame(
             animation: kfAnimation,
             keyTime: keyTime,
             logger: Logger);
-        ResumeElementPersistenceAfterFallbackReplacement(kfAnimation);
+        IKeyFrame? removedKeyFrame = previousKeyFrames.FirstOrDefault(
+            keyFrame => !kfAnimation.KeyFrames.Contains(keyFrame));
+        ResumeElementPersistenceAfterFallbackReplacement(removedKeyFrame);
         Commit();
     }
 
