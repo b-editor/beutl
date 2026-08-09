@@ -6144,6 +6144,108 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Explicit_open_accepts_a_canonical_repository_after_symlink_revalidation()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.AutoCommitOnClose = false;
+            Project target = await CreateProjectForFakeVersionControlAsync(
+                "version-control-symlink-revalidation-target");
+            string canonicalProjectFile = target.Uri!.LocalPath;
+            string canonicalRoot = Path.GetDirectoryName(canonicalProjectFile)!;
+            string aliasContainer = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-symlink-revalidation-alias");
+            string aliasRoot = Path.Combine(aliasContainer, "repository-link");
+            Directory.CreateDirectory(aliasContainer);
+            try
+            {
+                Directory.CreateSymbolicLink(aliasRoot, canonicalRoot);
+            }
+            catch (Exception ex)
+                when (ex is UnauthorizedAccessException
+                      or IOException
+                      or PlatformNotSupportedException)
+            {
+                Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
+            }
+
+            string aliasProjectFile = Path.Combine(aliasRoot, Path.GetFileName(canonicalProjectFile));
+            Project current = await CreateProjectForFakeVersionControlAsync(
+                "version-control-symlink-revalidation-current");
+            var projectService = new ProjectService();
+            var aliasRepository = new RepositoryInfo(aliasRoot, aliasRoot);
+            var canonicalRepository = new RepositoryInfo(canonicalRoot, canonicalRoot);
+            var originalTip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            int matchingDiscoveryCalls = 0;
+            var discovery = new PullCycleTestBackend(null, null, originalTip)
+            {
+                DiscoverRepositoryOverride = projectRoot =>
+                {
+                    if (!RepositoryPathComparer.AreEquivalent(projectRoot, canonicalRoot))
+                    {
+                        return null;
+                    }
+
+                    return Interlocked.Increment(ref matchingDiscoveryCalls) == 1
+                        ? aliasRepository
+                        : canonicalRepository;
+                },
+            };
+            var tracked = new PullCycleTestBackend(aliasRepository, aliasRepository, originalTip);
+            var checkpoint = new ProjectCheckpoint(
+                "refs/beutl/safety/test-checkpoint",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                originalTip);
+            await tracked.PersistPendingPullRecoveryAsync(
+                checkpoint,
+                originalTip,
+                aliasProjectFile,
+                CancellationToken.None);
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            coordinator.ConfirmPendingPullRecoveryAsync = (_, _) => Task.FromResult(true);
+
+            await projectService.OpenProject(aliasProjectFile);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(matchingDiscoveryCalls, Is.GreaterThanOrEqualTo(2));
+                Assert.That(tracked.RecoverPendingPullCalls, Is.EqualTo(1));
+                Assert.That(tracked.CompletePendingPullCalls, Is.EqualTo(1));
+                Assert.That(projectService.CurrentProject.Value, Is.Not.Null);
+                Assert.That(projectService.CurrentProject.Value, Is.Not.SameAs(current));
+                Assert.That(
+                    RepositoryPathComparer.AreEquivalent(
+                        projectService.CurrentProject.Value!.Uri!.LocalPath,
+                        aliasProjectFile),
+                    Is.True);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Explicit_open_reuses_matching_enclosing_repository_consent_once()
     {
         await TestReset.ResetShellAsync();

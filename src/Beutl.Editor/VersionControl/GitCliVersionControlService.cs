@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.VersionControl;
@@ -323,6 +324,7 @@ internal sealed class GitCliVersionControlService :
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<string, IGitCliRunner> _runnerFactory;
     private readonly Func<bool> _isWorktreeMutationAllowed;
+    private readonly string? _projectFile;
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
     private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileReplace;
     private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileCommit;
@@ -352,6 +354,7 @@ internal sealed class GitCliVersionControlService :
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: static () => true,
+            projectFile: null,
             policyNoticeSink: null,
             beforeHygieneFileReplace: null,
             beforeHygieneFileCommit: null,
@@ -364,7 +367,8 @@ internal sealed class GitCliVersionControlService :
         GitInstallationLocator installationLocator,
         RepositoryInfo? repository,
         Func<bool> isWorktreeMutationAllowed,
-        Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null)
+        Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
+        string? projectFile = null)
         : this(
             installationLocator,
             repository,
@@ -372,6 +376,7 @@ internal sealed class GitCliVersionControlService :
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
+            projectFile: projectFile,
             policyNoticeSink: policyNoticeSink,
             beforeHygieneFileReplace: null,
             beforeHygieneFileCommit: null,
@@ -397,6 +402,7 @@ internal sealed class GitCliVersionControlService :
             runnerFactory,
             createWatcherWhenRepositoryAvailable: false,
             isWorktreeMutationAllowed: static () => true,
+            projectFile: null,
             policyNoticeSink,
             beforeHygieneFileReplace: beforeHygieneFileReplace,
             beforeHygieneFileCommit: beforeHygieneFileCommit,
@@ -412,6 +418,7 @@ internal sealed class GitCliVersionControlService :
         Func<string, IGitCliRunner> runnerFactory,
         bool createWatcherWhenRepositoryAvailable,
         Func<bool> isWorktreeMutationAllowed,
+        string? projectFile,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
         Func<string, CancellationToken, Task>? beforeHygieneFileReplace,
         Func<string, CancellationToken, Task>? beforeHygieneFileCommit,
@@ -433,6 +440,7 @@ internal sealed class GitCliVersionControlService :
         _isWorktreeMutationAllowed = isWorktreeMutationAllowed
                                      ?? throw new ArgumentNullException(
                                          nameof(isWorktreeMutationAllowed));
+        _projectFile = projectFile is null ? null : Path.GetFullPath(projectFile);
         _policyNoticeSink = policyNoticeSink;
         _beforeHygieneFileReplace = beforeHygieneFileReplace;
         _beforeHygieneFileCommit = beforeHygieneFileCommit;
@@ -1275,7 +1283,7 @@ internal sealed class GitCliVersionControlService :
     {
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         RepositoryInfo repository = GetRepository();
-        ValidateRequiredProjectFileLayout(repository.ProjectRoot);
+        ValidateProjectSnapshotLayout(repository.ProjectRoot);
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         CheckedOutBranchTip baseHead = await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
@@ -4130,12 +4138,36 @@ internal sealed class GitCliVersionControlService :
     {
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-        return await GetStatusCoreAsync(
+        WorkspaceStatus status = await GetStatusCoreAsync(
                 repository,
                 runner,
                 cancellationToken,
                 extraPathspecs: null)
             .ConfigureAwait(false);
+        if (status.Branch is null
+            || (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count == 0)
+        {
+            return status;
+        }
+
+        string originBranchRef = $"refs/remotes/origin/{status.Branch}";
+        GitCommandResult originBranch = await runner.RunAsync(
+            repository,
+            ["for-each-ref", "--format=%(objectname)", originBranchRef],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(originBranch.Stdout))
+        {
+            return status with { Ahead = 0, Behind = 0 };
+        }
+
+        GitCommandResult counts = await runner.RunAsync(
+            repository,
+            ["rev-list", "--left-right", "--count", $"HEAD...{originBranchRef}"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        (int ahead, int behind) = ParseAheadBehindCounts(counts.Stdout);
+        return status with { Ahead = ahead, Behind = behind };
     }
 
     private async Task<WorkspaceStatus> GetSnapshotStatusCoreAsync(
@@ -4234,6 +4266,7 @@ internal sealed class GitCliVersionControlService :
             [
                 "show",
                 "--no-show-signature",
+                "--first-parent",
                 "--name-status",
                 "--format=",
                 "-z",
@@ -4261,6 +4294,7 @@ internal sealed class GitCliVersionControlService :
             [
                 "show",
                 "--no-show-signature",
+                "--first-parent",
                 "--no-color",
                 "--format=",
                 "--no-ext-diff",
@@ -5275,6 +5309,8 @@ internal sealed class GitCliVersionControlService :
             repository = options.TargetRepository;
         }
 
+        ValidateProjectSnapshotLayout(repository.ProjectRoot);
+
         if (Repository is not null
             && !string.Equals(Repository.ProjectRoot, projectRoot, PathComparison)
             && !MatchesRepositorySelection(Repository, repository))
@@ -5866,7 +5902,7 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         RepositoryInfo repository = GetRepository();
-        ValidateRequiredProjectFileLayout(repository.ProjectRoot);
+        ValidateProjectSnapshotLayout(repository.ProjectRoot);
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         string branchRef = await GetAttachedBranchRefCoreAsync(
                 repository,
@@ -7914,6 +7950,57 @@ internal sealed class GitCliVersionControlService :
                 }
             }
         }
+    }
+
+    private void ValidateProjectSnapshotLayout(string projectRoot)
+    {
+        ValidateRequiredProjectFileLayout(projectRoot);
+        if (_projectFile is null || !File.Exists(_projectFile))
+        {
+            return;
+        }
+
+        Project project = CoreSerializer.RestoreFromUri<Project>(new Uri(_projectFile));
+        ExternalResourceCollector.SerializationGraph graph =
+            ExternalResourceCollector.DiscoverSerializationGraph(project);
+        string projectDirectory = Path.GetDirectoryName(_projectFile)
+                                  ?? throw new InvalidOperationException(
+                                      "The project file has no parent directory.");
+        Uri? reservedReference = graph.Objects
+            .Select(static obj => obj.Uri)
+            .Concat(graph.UnaddressableFileSources)
+            .FirstOrDefault(uri => uri is not null
+                                   && ExternalResourceCollector.IsInReservedProjectPath(
+                                       uri,
+                                       projectDirectory));
+        reservedReference ??= ExternalResourceCollector
+            .Collect(graph, projectDirectory, stagedStorageObjects: null)
+            .FileSources
+            .Select(static source => source.OriginalUri)
+            .FirstOrDefault(uri => ExternalResourceCollector.IsInReservedProjectPath(
+                uri,
+                projectDirectory));
+        if (reservedReference is not null)
+        {
+            string relativePath = NormalizeGitPath(Path.GetRelativePath(
+                projectDirectory,
+                reservedReference.LocalPath));
+            throw new InvalidOperationException(
+                $"The required project path '{relativePath}' is beneath a reserved state directory.");
+        }
+    }
+
+    private static (int Ahead, int Behind) ParseAheadBehindCounts(string output)
+    {
+        string[] values = output.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (values.Length != 2
+            || !int.TryParse(values[0], out int ahead)
+            || !int.TryParse(values[1], out int behind))
+        {
+            throw new InvalidOperationException("Git returned invalid ahead/behind counts.");
+        }
+
+        return (ahead, behind);
     }
 
     private static void TryDeleteIgnoreProbeDirectory(string path)

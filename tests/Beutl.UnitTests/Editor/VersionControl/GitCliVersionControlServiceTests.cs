@@ -1,6 +1,8 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 
@@ -1574,6 +1576,36 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
     }
 
+    [Test]
+    public async Task CommitAllAsync_rejects_a_referenced_scene_in_the_Beutl_state_directory()
+    {
+        string stateDirectory = Path.Combine(Root, ".beutl");
+        Directory.CreateDirectory(stateDirectory);
+        string projectFile = Path.Combine(Root, "project.bep");
+        string sceneFile = Path.Combine(stateDirectory, "linked.scene");
+        var project = new Project();
+        project.Items.Add(new Scene(1920, 1080, "LinkedScene")
+        {
+            Uri = new Uri(sceneFile),
+        });
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        await RunGitAsync("add", "--", "project.bep");
+        await RunGitAsync("commit", "-m", "baseline");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            isWorktreeMutationAllowed: static () => true,
+            projectFile: projectFile);
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.That(exception!.Message, Does.Contain(".beutl/linked.scene"));
+    }
+
     [TestCase(".beutl", ".beutl")]
     [TestCase(".BeUtL", ".BeUtL")]
     [TestCase(".beutl", ".beutl/child")]
@@ -2143,6 +2175,35 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(
                 files,
                 Does.Contain(new FileChange("new.scene", FileChangeStatus.Renamed, "old.scene")));
+        });
+    }
+
+    [Test]
+    public async Task Commit_views_show_merge_changes_against_the_first_parent()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await RunGitAsync("checkout", "-b", "feature");
+        await CommitFileAsync("feature.scene", "feature\n", "feature");
+        await RunGitAsync("checkout", "main");
+        await CommitFileAsync("main.belm", "main\n", "main");
+        await RunGitAsync("merge", "--no-ff", "feature", "-m", "merge feature");
+        string merge = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = CreateService();
+
+        IReadOnlyList<FileChange> files = await service.GetCommitFilesAsync(
+            merge,
+            CancellationToken.None);
+        string diff = await service.GetDiffAsync(
+            merge,
+            "feature.scene",
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                files,
+                Does.Contain(new FileChange("feature.scene", FileChangeStatus.Added)));
+            Assert.That(diff, Does.Contain("+feature"));
         });
     }
 

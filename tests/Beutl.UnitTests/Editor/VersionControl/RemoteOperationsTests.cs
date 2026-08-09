@@ -136,6 +136,33 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Status_uses_origin_counts_when_branch_tracks_another_remote()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string originRoot = await CreateBareRemoteAsync();
+        string upstreamRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(originRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        await RunGitAsync("remote", "add", "upstream", upstreamRoot);
+        await RunGitAsync("push", "upstream", "main");
+        await RunGitAsync("branch", "--set-upstream-to=upstream/main", "main");
+        RepositoryInfo originPeer = await CloneRemoteAsync(originRoot);
+        await CommitInRepositoryAsync(originPeer, "project.bep", "from origin\n", "origin update");
+        await RunGitAsync("fetch", "origin", "+refs/heads/main:refs/remotes/origin/main");
+
+        WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Ahead, Is.Zero);
+            Assert.That(status.Behind, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task PreflightPull_fetches_the_current_origin_branch_outside_the_configured_refspec()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");

@@ -18,6 +18,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     private IProjectVersionControlService? _service;
     private CancellationTokenSource? _serviceBindingCancellation;
     private int _serviceRevision;
+    private int _statusRevision;
     private bool _gitAvailable;
     private bool _coordinatorGitAvailable;
     private bool _disposed;
@@ -378,6 +379,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
         WorkspaceStatus status;
         IReadOnlyList<BranchInfo> branches;
+        int statusRevision = Volatile.Read(ref _statusRevision);
         try
         {
             status = await service.GetStatusAsync(cancellationToken);
@@ -392,14 +394,16 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             return;
         }
 
-        if (!IsCurrentService(service, revision, cancellationToken))
+        if (!IsCurrentService(service, revision, cancellationToken)
+            || statusRevision != Volatile.Read(ref _statusRevision))
         {
             return;
         }
 
         _postToUi(() =>
         {
-            if (IsCurrentService(service, revision, cancellationToken))
+            if (IsCurrentService(service, revision, cancellationToken)
+                && statusRevision == Volatile.Read(ref _statusRevision))
             {
                 ApplyState(status, branches);
             }
@@ -461,6 +465,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
                 return;
             }
 
+            Interlocked.Increment(ref _statusRevision);
             string branchName = status.Branch ?? "—";
             bool becameVisible =
                 !IsVisible.Value

@@ -1839,6 +1839,13 @@ public sealed class VersionControlCoordinator :
         return RepositoryPathComparer.AreEquivalent(left, right);
     }
 
+    private static bool RepositoriesEqual(RepositoryInfo left, RepositoryInfo right)
+    {
+        return left.IsNestedInForeignRepo == right.IsNestedInForeignRepo
+               && PathsEqual(left.RepoRoot, right.RepoRoot)
+               && PathsEqual(left.ProjectRoot, right.ProjectRoot);
+    }
+
     private static bool RecoveryProjectPathsEqual(string left, string right)
     {
         string lexicalLeft = Path.TrimEndingDirectorySeparator(Path.GetFullPath(left));
@@ -3445,7 +3452,7 @@ public sealed class VersionControlCoordinator :
                         canonicalProjectFile,
                         out PendingOpeningPullRecovery? liveMarker)
                     && liveMarker is not null
-                    && liveMarker.Repository.Equals(repository)
+                    && RepositoriesEqual(liveMarker.Repository, repository)
                     && PendingPullRecoveriesMatch(
                         liveMarker.Recovery,
                         recovery,
@@ -3510,7 +3517,7 @@ public sealed class VersionControlCoordinator :
                         inspection.ProjectFile,
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (current is null || !current.Equals(inspection.Repository))
+                if (current is null || !RepositoriesEqual(current, inspection.Repository))
                 {
                     return ProjectOpenPreparationResult.Proceed;
                 }
@@ -3654,7 +3661,7 @@ public sealed class VersionControlCoordinator :
                     projectRoot,
                     operationCancellation)
                 .ConfigureAwait(false);
-            if (repository is null || !repository.Equals(selection.Repository))
+            if (repository is null || !RepositoriesEqual(repository, selection.Repository))
             {
                 return ProjectOpenPreparationResult.Abort;
             }
@@ -3876,7 +3883,8 @@ public sealed class VersionControlCoordinator :
                    repository,
                    () => _projectService.CurrentProject.Value is not { } project
                          || !PathsEqual(GetProjectFile(project), projectFile),
-                   PresentPolicyNoticeAsync);
+                   PresentPolicyNoticeAsync,
+                   projectFile);
     }
 
     private async Task ShowConflictMarkerWarningAsync(string markerFile)
@@ -4237,15 +4245,18 @@ public sealed class VersionControlCoordinator :
             }
 
             string projectRoot = GetProjectRoot(project);
+            string projectFile = GetProjectFile(project);
             IProjectVersionControlBackend service = _serviceFactory?.Invoke(null)
                 ?? new GitCliVersionControlService(
                     _installationLocator,
                     repository: null,
                     () => _projectService.CurrentProject.Value is null,
-                    PresentPolicyNoticeAsync);
+                    PresentPolicyNoticeAsync,
+                    projectFile);
             var activation = new ActivationContext(
                 activationRevision,
                 projectRoot,
+                projectFile,
                 service,
                 openingRepositoryDecision,
                 cancellationToken);
@@ -4387,7 +4398,9 @@ public sealed class VersionControlCoordinator :
                 PendingOpeningRepositoryDecision? openingDecision =
                     activation.OpeningRepositoryDecision;
                 bool matchesOpeningDecision = openingDecision is not null
-                                              && openingDecision.Repository.Equals(repository)
+                                              && RepositoriesEqual(
+                                                  openingDecision.Repository,
+                                                  repository)
                                               && RepositoryPathComparer.AreEquivalent(
                                                   repository.ProjectRoot,
                                                   activation.ProjectRoot);
@@ -4416,7 +4429,8 @@ public sealed class VersionControlCoordinator :
                     _installationLocator,
                     repository,
                     () => _projectService.CurrentProject.Value is null,
-                    PresentPolicyNoticeAsync);
+                    PresentPolicyNoticeAsync,
+                    activation.ProjectFile);
             candidateService = trackedService;
             if (!TryRegisterCandidateService(activation, trackedService))
             {
@@ -6135,12 +6149,14 @@ public sealed class VersionControlCoordinator :
         public ActivationContext(
             long revision,
             string projectRoot,
+            string projectFile,
             IProjectVersionControlBackend service,
             PendingOpeningRepositoryDecision? openingRepositoryDecision = null,
             CancellationToken cancellationToken = default)
         {
             Revision = revision;
             ProjectRoot = projectRoot;
+            ProjectFile = projectFile;
             Service = service;
             OpeningRepositoryDecision = openingRepositoryDecision;
             _ownedService = service;
@@ -6150,6 +6166,8 @@ public sealed class VersionControlCoordinator :
         public long Revision { get; }
 
         public string ProjectRoot { get; }
+
+        public string ProjectFile { get; }
 
         public IProjectVersionControlBackend Service { get; }
 

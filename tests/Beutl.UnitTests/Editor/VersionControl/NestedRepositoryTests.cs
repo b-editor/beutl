@@ -1,4 +1,6 @@
 ﻿using Beutl.Editor.VersionControl;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -207,6 +209,41 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             Assert.That(exception!.Message, Does.Contain("file symbolic link 'project.bep'"));
             Assert.That(service.Repository, Is.Null);
             Assert.That(new FileInfo(projectFile).LinkTarget, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public async Task Initialize_rejects_required_content_in_the_Beutl_state_directory()
+    {
+        string projectRoot = CreateProjectDirectory();
+        string projectFile = Path.Combine(projectRoot, "project.bep");
+        string stateDirectory = Path.Combine(projectRoot, ".beutl");
+        Directory.CreateDirectory(stateDirectory);
+        string sceneFile = Path.Combine(stateDirectory, "linked.scene");
+        var project = new Project();
+        project.Items.Add(new Scene(1920, 1080, "LinkedScene")
+        {
+            Uri = new Uri(sceneFile),
+        });
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        var selectedRepository = new RepositoryInfo(Root, projectRoot);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            isWorktreeMutationAllowed: static () => true,
+            projectFile: projectFile);
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
+                CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain(".beutl/linked.scene"));
+            Assert.That(service.Repository, Is.Null);
+            Assert.That(File.Exists(Path.Combine(projectRoot, ".gitignore")), Is.False);
+            Assert.That(File.Exists(Path.Combine(projectRoot, ".gitattributes")), Is.False);
         });
     }
 

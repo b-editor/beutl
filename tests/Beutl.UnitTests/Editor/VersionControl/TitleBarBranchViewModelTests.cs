@@ -246,6 +246,47 @@ public class TitleBarBranchViewModelTests
     }
 
     [Test]
+    public async Task Refresh_does_not_overwrite_a_newer_status_event()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var branchReadStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseBranchRead = new TaskCompletionSource<IReadOnlyList<BranchInfo>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        service.SetupSequence(item => item.GetStatusAsync(
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("main", 0, 0, [], false))
+            .ReturnsAsync(new WorkspaceStatus("stale", 1, 0, [], false));
+        service.SetupSequence(item => item.GetBranchesAsync(
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new BranchInfo("main", true, null)])
+            .Returns(() =>
+            {
+                branchReadStarted.TrySetResult();
+                return releaseBranchRead.Task;
+            });
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new TitleBarBranchViewModel(
+            serviceSource,
+            CreateGitAvailabilitySource(),
+            Mock.Of<IProjectVersionControlCoordinator>(),
+            action => action());
+        await viewModel.Initialization;
+
+        Task refresh = viewModel.RefreshAsync();
+        await branchReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        service.Raise(
+            item => item.StatusChanged += null,
+            service.Object,
+            new WorkspaceStatus("fresh", 0, 2, [], false));
+        releaseBranchRead.SetResult([new BranchInfo("stale", true, null)]);
+        await refresh;
+
+        Assert.That(viewModel.DisplayText.Value, Is.EqualTo("fresh ↓2"));
+    }
+
+    [Test]
     public async Task Preparing_the_flyout_refreshes_branches()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
