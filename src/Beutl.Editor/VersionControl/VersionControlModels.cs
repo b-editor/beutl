@@ -559,7 +559,8 @@ public sealed class GitOperationException : Exception
         => Stderr.Contains("another git process seems to be running", StringComparison.OrdinalIgnoreCase)
            || Stderr.Contains("index.lock", StringComparison.OrdinalIgnoreCase)
            || Stderr.Contains("HEAD.lock", StringComparison.OrdinalIgnoreCase)
-           || Stderr.Contains("config.lock", StringComparison.OrdinalIgnoreCase);
+           || Stderr.Contains("config.lock", StringComparison.OrdinalIgnoreCase)
+           || Stderr.Contains("could not lock config file", StringComparison.OrdinalIgnoreCase);
 
     private static string CreateMessage(int exitCode, string stderr)
     {
