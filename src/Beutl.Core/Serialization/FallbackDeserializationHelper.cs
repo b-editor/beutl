@@ -29,7 +29,7 @@ internal static class FallbackDeserializationHelper
         fallback.Reason = FallbackReason.DeserializationFailed;
         fallback.ErrorMessage = exception?.Message;
 
-        DeserializationIncidents.RecordFallback();
+        DeserializationIncidents.RecordFallback(fallback);
         return fallback;
     }
 }

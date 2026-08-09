@@ -1,4 +1,6 @@
-﻿namespace Beutl;
+﻿using System.Text.Json.Nodes;
+
+namespace Beutl;
 
 /// <summary>
 /// The retained on-disk bytes of an object the serializer must not regenerate, together with the
@@ -8,7 +10,8 @@
 internal sealed record SuppressedStorageSource(
     byte[] RawBytes,
     Uri SourceUri,
-    bool HasNonFallbackIncidents = false)
+    bool HasNonFallbackIncidents = false,
+    JsonObject[]? UntraversedFallbacks = null)
 {
     /// <summary>
     /// True when this suppression record was put back by undoing an in-process repair. Only a

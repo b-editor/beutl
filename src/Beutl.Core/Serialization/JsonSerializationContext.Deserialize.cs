@@ -116,7 +116,7 @@ public partial class JsonSerializationContext
             if (instance is IFallback fallbackObj)
             {
                 fallbackObj.Reason = FallbackReason.TypeNotFound;
-                DeserializationIncidents.RecordFallback();
+                DeserializationIncidents.RecordFallback(fallbackObj);
             }
 
             result = instance;

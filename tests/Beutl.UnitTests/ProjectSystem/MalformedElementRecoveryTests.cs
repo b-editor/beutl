@@ -72,6 +72,24 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [SuppressResourceClassGeneration]
+    public sealed class ManuallySerializedTransformHolder : EngineObject
+    {
+        public Transform? HiddenTransform { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(HiddenTransform), HiddenTransform);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            HiddenTransform = context.GetValue<Transform>(nameof(HiddenTransform));
+        }
+    }
+
+    [SuppressResourceClassGeneration]
     public sealed class TransformReferenceHolder : EngineObject
     {
         public TransformReferenceHolder()
@@ -1035,6 +1053,78 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_RepairedDescendantIdCollisionPreservesPlaceholderIdentity()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("claimant.belm", "repaired.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element claimant = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        Element repairedSource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        var claimantShape = (RectShape)claimant.Objects.Single();
+        var repairedShape = (RectShape)repairedSource.Objects.Single();
+        var claimantTransform = new RotationTransform();
+        claimantShape.Transform.CurrentValue = claimantTransform;
+        repairedShape.Transform.CurrentValue = new RotationTransform { Id = claimantTransform.Id };
+        CoreSerializer.StoreToUri(claimant, claimant.Uri!);
+        CoreSerializer.StoreToUri(repairedSource, repairedSource.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[1]))!.AsObject();
+        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        File.WriteAllText(elementPaths[1], json.ToJsonString());
+
+        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recoveredClaimant = recoveredScene.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[0]);
+        Guid placeholderId = ((CoreObject)GetTransformFallback(recoveredScene, elementPaths[1])).Id;
+        var referenceHolder = new TransformReferenceHolder();
+        referenceHolder.Target.CurrentValue = new Reference<Transform>(placeholderId);
+        recoveredClaimant.AddObject(referenceHolder);
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        var repaired = new Element
+        {
+            Id = repairedSource.Id,
+            Name = "Repaired",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPaths[1]),
+        };
+        var healthyShape = new RectShape();
+        healthyShape.Transform.CurrentValue = new RotationTransform { Id = claimantTransform.Id };
+        repaired.AddObject(healthyShape);
+        CoreSerializer.StoreToUri(repaired, repaired.Uri!);
+
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var application = new BeutlApplication();
+        var project = new Project();
+        application.Project = project;
+        project.Items.Add(reloaded);
+        Element reloadedClaimant = reloaded.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[0]);
+        Element reloadedRepaired = reloaded.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[1]);
+        Transform reloadedClaimantTransform = ((RectShape)reloadedClaimant.Objects
+            .OfType<RectShape>()
+            .Single()).Transform.CurrentValue!;
+        Transform reloadedRepairedTransform = ((RectShape)reloadedRepaired.Objects
+            .OfType<RectShape>()
+            .Single()).Transform.CurrentValue!;
+        Reference<Transform> reloadedReference = reloadedClaimant.Objects
+            .OfType<TransformReferenceHolder>()
+            .Single()
+            .Target.CurrentValue;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reloadedClaimantTransform.Id, Is.EqualTo(claimantTransform.Id));
+            Assert.That(reloadedRepairedTransform.Id, Is.EqualTo(placeholderId));
+            Assert.That(reloadedClaimantTransform.Id, Is.Not.EqualTo(reloadedRepairedTransform.Id));
+            Assert.That(reloadedReference.Id, Is.EqualTo(placeholderId));
+            Assert.That(reloadedReference.Value, Is.SameAs(reloadedRepairedTransform));
+        });
+    }
+
+    [Test]
     public void MigrateRecoveredElementReferences_TraversesContainersAndKeyFrames()
     {
         Guid originalId = Guid.NewGuid();
@@ -1454,6 +1544,41 @@ public sealed class MalformedElementRecoveryTests
         SuppressedStorageSource? suppression = Scene.TryResumeElementPersistence(element);
 
         Assert.That(suppression, Is.Null);
+    }
+
+    [Test]
+    public void TryResumeElementPersistence_ManuallySerializedFallbackStaysBlockedUntilRepair()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var holder = new ManuallySerializedTransformHolder
+        {
+            HiddenTransform = new RotationTransform(),
+        };
+        source.AddObject(holder);
+        CoreSerializer.StoreToUri(source, source.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        File.WriteAllText(elementPath, json.ToJsonString());
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        var recoveredHolder = recovered.Objects.OfType<ManuallySerializedTransformHolder>().Single();
+        Assert.That(recoveredHolder.HiddenTransform, Is.InstanceOf<IFallback>());
+        recovered.Name = "Unrelated edit";
+
+        SuppressedStorageSource? blocked = Scene.TryResumeElementPersistence(recovered);
+        recoveredHolder.HiddenTransform = new RotationTransform();
+        SuppressedStorageSource? resumed = Scene.TryResumeElementPersistence(recovered);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recoveredHolder.HiddenTransform, Is.Not.InstanceOf<IFallback>());
+            Assert.That(blocked, Is.Null);
+            Assert.That(resumed, Is.Not.Null);
+            Assert.That(recovered.SuppressedStorageSource, Is.Null);
+        });
     }
 
     [Test]

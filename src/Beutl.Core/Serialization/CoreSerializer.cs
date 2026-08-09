@@ -92,7 +92,7 @@ public static class CoreSerializer
             if (obj is IFallback fallbackObj)
             {
                 fallbackObj.Reason = FallbackReason.TypeNotFound;
-                DeserializationIncidents.RecordFallback();
+                DeserializationIncidents.RecordFallback(fallbackObj);
             }
 
             return obj;
@@ -216,7 +216,7 @@ public static class CoreSerializer
             if (obj is IFallback fallbackObj)
             {
                 fallbackObj.Reason = FallbackReason.TypeNotFound;
-                DeserializationIncidents.RecordFallback();
+                DeserializationIncidents.RecordFallback(fallbackObj);
             }
 
             return obj;
