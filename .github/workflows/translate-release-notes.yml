@@ -84,6 +84,16 @@ jobs:
                ```
                Find the first comment whose body contains the marker line `<!-- japanese-release-notes -->`. Define `COMMENT_URL`:
                  - If such a comment exists, set `COMMENT_URL` to its `url`. Skip step 4 — do NOT post another comment.
+                   Then check one thing: if the release body has a `[Flatpak](...)` download bullet that this comment does NOT have, the comment predates the Flatpak link (the release notes were repaired by a later run of `format-release-notes.yml`). Insert ONLY the translated Flatpak bullet directly after the `[Debian パッケージ](...)` bullet and leave every other byte of the comment unchanged — do NOT re-translate the rest, which would clobber any manual edit. Write the result with the `Write` tool to `comment-body.md` (keep the `<!-- japanese-release-notes -->` marker line) and update the comment in place with its `id` from the query above:
+                   ```
+                   gh api graphql -F commentId='<comment id>' -F body=@comment-body.md -f query='
+                     mutation($commentId: ID!, $body: String!) {
+                       updateDiscussionComment(input: { commentId: $commentId, body: $body }) {
+                         comment { id url }
+                       }
+                     }'
+                   ```
+                   If the comment already has the Flatpak bullet, or the release body has none, leave the comment untouched.
                  - Otherwise, leave `COMMENT_URL` unset and proceed to step 4 to create the comment.
 
                In either case, ALWAYS continue to step 5 — a previous run may have posted the comment but failed to update the release body, and step 5 must be allowed to repair that.
@@ -112,7 +122,7 @@ jobs:
 
             ## Constraints
 
-            - Do not edit the discussion body, title, or category — only ADD a comment.
+            - Do not edit the discussion body, title, or category. The only comment you may edit is the one carrying the `<!-- japanese-release-notes -->` marker, and only to insert the missing Flatpak bullet as described in step 3; never edit anyone else's comment.
             - Do not publish the release, edit the tag, or touch assets.
             - Do not modify any other discussion or release.
             - If anything is ambiguous (release missing, translation refused, API error), exit without partial writes.
