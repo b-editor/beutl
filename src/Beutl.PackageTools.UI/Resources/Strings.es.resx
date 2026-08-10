@@ -1,0 +1,185 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+      <xs:complexType>
+        <xs:choice maxOccurs="unbounded">
+          <xs:element name="data">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="value" type="xsd:string" minOccurs="0" ns1:Ordinal="1" />
+                <xs:element name="comment" type="xsd:string" minOccurs="0" ns1:Ordinal="2" />
+              </xs:sequence>
+              <xs:attribute name="name" type="xsd:string" ns1:Ordinal="1" />
+              <xs:attribute name="type" type="xsd:string" ns1:Ordinal="3" />
+              <xs:attribute name="mimetype" type="xsd:string" ns1:Ordinal="4" />
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="resheader">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="value" type="xsd:string" minOccurs="0" ns1:Ordinal="1" />
+              </xs:sequence>
+              <xs:attribute name="name" type="xsd:string" use="required" />
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+      </xs:complexType>
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Atrás</value>
+  </data>
+  <data name="Verify" xml:space="preserve">
+    <value>Verificar</value>
+  </data>
+  <data name="Hash_code_verification_failed" xml:space="preserve">
+    <value>La verificación del código hash falló.
+Este archivo de paquete puede haber sido manipulado.</value>
+  </data>
+  <data name="Do_you_really_want_to_continue_with_the_installation" xml:space="preserve">
+    <value>¿De verdad quieres continuar con la instalación?</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Sí</value>
+  </data>
+  <data name="Skipped_verification_because_local_source_is_used" xml:space="preserve">
+    <value>Se omitió la verificación porque se usa una fuente local.</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Cerrar</value>
+  </data>
+  <data name="ShowDetails" xml:space="preserve">
+    <value>Mostrar detalles</value>
+  </data>
+  <data name="Result" xml:space="preserve">
+    <value>Resultado</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>Instalar</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Actualizar</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>Desinstalar</value>
+  </data>
+  <data name="ResolveDependencies" xml:space="preserve">
+    <value>Resolver dependencias</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>Descargar</value>
+  </data>
+  <data name="Package_with_same_ID_found_in_local_source" xml:space="preserve">
+    <value>Se encontró un paquete con el mismo ID en la fuente local.</value>
+  </data>
+  <data name="Do_you_want_to_use_this_package" xml:space="preserve">
+    <value>¿Quieres usar este paquete?</value>
+  </data>
+  <data name="Skipped_downloading_to_use_local_source" xml:space="preserve">
+    <value>Se omitió la descarga para usar la fuente local.</value>
+  </data>
+  <data name="Start" xml:space="preserve">
+    <value>Iniciar</value>
+  </data>
+  <data name="Changes" xml:space="preserve">
+    <value>Cambios</value>
+  </data>
+  <data name="This_package_has_already_been_uninstalled" xml:space="preserve">
+    <value>Este paquete ya ha sido desinstalado.</value>
+  </data>
+  <data name="Deleting_files" xml:space="preserve">
+    <value>Eliminando archivos...</value>
+  </data>
+  <data name="Uninstalled_XXX" xml:space="preserve">
+    <value>Se desinstaló '{0}'.</value>
+  </data>
+  <data name="Acceptance_of_License" xml:space="preserve">
+    <value>Aceptación de la licencia</value>
+  </data>
+  <data name="Please_accept_the_following_license" xml:space="preserve">
+    <value>Acepta la siguiente licencia.</value>
+  </data>
+  <data name="AcceptAll" xml:space="preserve">
+    <value>Aceptar todo</value>
+  </data>
+  <data name="There_are_no_licenses_that_require_acceptance" xml:space="preserve">
+    <value>No hay licencias que requieran aceptación.</value>
+  </data>
+  <data name="These_packages_were_not_deleted_successfully" xml:space="preserve">
+    <value>Estos paquetes no se eliminaron correctamente.</value>
+  </data>
+  <data name="VerifyingHashCode" xml:space="preserve">
+    <value>Verificando código hash...</value>
+  </data>
+  <data name="Verified" xml:space="preserve">
+    <value>Verificado</value>
+  </data>
+  <data name="Downloading_XXX" xml:space="preserve">
+    <value>Descargando '{0}'...</value>
+  </data>
+  <data name="Downloaded_XXX" xml:space="preserve">
+    <value>Se descargó '{0}'.</value>
+  </data>
+  <data name="Operation_canceled" xml:space="preserve">
+    <value>Operación cancelada.</value>
+  </data>
+  <data name="Close_this_window_because_other_Beutl_PackageTools_processes_are_running" xml:space="preserve">
+    <value>Cierra esta ventana porque hay otros procesos de Beutl.PackageTools en ejecución.</value>
+  </data>
+  <data name="Waiting_for_all_Beutl_processes_to_terminate" xml:space="preserve">
+    <value>Esperando a que terminen todos los procesos de Beutl...</value>
+  </data>
+  <data name="Deleted_unnecessary_packages" xml:space="preserve">
+    <value>Se eliminaron los paquetes innecesarios.</value>
+  </data>
+  <data name="Deleting_unnecessary_packages" xml:space="preserve">
+    <value>Eliminando paquetes innecesarios...</value>
+  </data>
+  <data name="Delete_unnecessary_packages" xml:space="preserve">
+    <value>Eliminar paquetes innecesarios</value>
+  </data>
+  <data name="Select_the_packages_to_be_deleted" xml:space="preserve">
+    <value>Selecciona los paquetes que se eliminarán.</value>
+  </data>
+  <data name="XXX_will_be_released" xml:space="preserve">
+    <value>{0} será liberado.</value>
+  </data>
+  <data name="Clean" xml:space="preserve">
+    <value>Limpiar</value>
+  </data>
+  <data name="XXX_has_been_released" xml:space="preserve">
+    <value>{0} ha sido liberado.</value>
+  </data>
+  <data name="Canceled" xml:space="preserve">
+    <value>Cancelado</value>
+  </data>
+  <data name="Succeeded" xml:space="preserve">
+    <value>Correcto</value>
+  </data>
+  <data name="Failed" xml:space="preserve">
+    <value>Fallido</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>Desconocido</value>
+  </data>
+</root>
