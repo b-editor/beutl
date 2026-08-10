@@ -1,243 +1,351 @@
 ﻿using Beutl.Graphics;
-using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
-using Beutl.UnitTests.Engine.Graphics.Backend;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// Node cache scale tests: cache rasterizes at the renderer's density, replays tiles as At(density).
 [NonParallelizable]
 [TestFixture]
 public class NodeCacheScaleTests
 {
+    private static readonly Rect s_bounds = new(0, 0, 100, 100);
+
     private static EllipseRenderNode CacheableEllipse()
     {
-        var node = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
+        var node = new EllipseRenderNode(s_bounds, Brushes.Resource.White, null);
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
         return node;
     }
 
-    // A leaf node emitting a concrete At(density) supply.
-    private sealed class ConcreteSourceNode(float density) : RenderNode
-    {
-        public override RenderNodeOperation[] Process(RenderNodeContext context)
-            => [RenderNodeOperation.CreateLambda(
-                new Rect(0, 0, 100, 100),
-                canvas => canvas.DrawRectangle(new Rect(0, 0, 100, 100), Brushes.Resource.White, null),
-                hitTest: _ => false,
-                effectiveScale: EffectiveScale.At(density))];
-    }
-
-    private static float PullSingleDensity(RenderNode node, bool useRenderCache, float outputScale)
-    {
-        var processor = new RenderNodeProcessor(node, useRenderCache, outputScale, maxWorkingScale: 8f);
-        RenderNodeOperation[] ops = processor.PullToRoot();
-        try
-        {
-            Assert.That(ops, Is.Not.Empty);
-            return ops[0].EffectiveScale.Value;
-        }
-        finally
-        {
-            foreach (RenderNodeOperation op in ops) op.Dispose();
-        }
-    }
-
     [TestCase(0.5f)]
     [TestCase(1.0f)]
-    public void CreateDefaultCache_RecordsCreationDensity_AndReplayReportsIt(float outputScale)
+    public void FrameCache_RecordsResolvedDensity_WhileMetadataRemainsCacheIndependent(float outputScale)
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        using EllipseRenderNode node = CacheableEllipse();
+        using var renderer = CreateFrameRenderer(
+            node,
+            outputScale,
+            maxWorkingScale: 2f * outputScale);
+
+        using (renderer.Rasterize())
         {
-            EllipseRenderNode node = CacheableEllipse();
-            try
+        }
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Cache.IsCached, Is.True);
+            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(outputScale));
+            Assert.That(measurement.HasFragments, Is.True);
+            Assert.That(measurement.EffectiveScale.IsUnbounded, Is.True,
+                "metadata must retain the original graph instead of substituting a pixel cache");
+        });
+    }
+
+    [Test]
+    public void HighDensitySource_IsCachedAtItsResolvedSupplyDensity()
+    {
+        using var node = new ConcreteSourceNode();
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        using var renderer = CreateFrameRenderer(node, outputScale: 1f, maxWorkingScale: 8f);
+
+        using (renderer.Rasterize())
+        using (renderer.Rasterize())
+        {
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Cache.IsCached, Is.True);
+            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(4f));
+            Assert.That(node.ExecuteCount, Is.EqualTo(1), "the warm frame must use the cached producer output");
+            Assert.That(renderer.Measure().EffectiveScale.Value, Is.EqualTo(4f));
+        });
+    }
+
+    [Test]
+    public void FrameCache_TargetSizeMatchesResolvedDensity()
+    {
+        using EllipseRenderNode node = CacheableEllipse();
+        using var renderer = CreateFrameRenderer(node, outputScale: 0.5f, maxWorkingScale: 1f);
+
+        using (renderer.Rasterize())
+        {
+        }
+
+        Assert.That(node.Cache.IsCached, Is.True);
+        foreach ((RenderTarget target, Rect bounds) in node.Cache.UseCache())
+        {
+            using (target)
             {
-                RenderNodeCacheHelper.MakeCache(
-                    node, RenderCacheOptions.Default, outputScale, maxWorkingScale: 2f * outputScale);
+                PixelRect expectedDeviceBounds = RenderScaleUtilities.AddRasterApron(
+                    PixelRect.FromRect(bounds, 0.5f));
+                Assert.That(target.Width, Is.EqualTo(expectedDeviceBounds.Width));
+                Assert.That(target.Height, Is.EqualTo(expectedDeviceBounds.Height));
+            }
+        }
+    }
 
-                Assert.That(node.Cache.IsCached, Is.True);
-                Assert.That(node.Cache.Density, Is.EqualTo(outputScale));
+    [Test]
+    public void CacheRuleBypass_IsRequestPolicyAndDoesNotPoisonLaterEligibleFrames()
+    {
+        using EllipseRenderNode node = CacheableEllipse();
+        using (RenderNodeRenderer excluded = CreateFrameRenderer(
+                   node,
+                   outputScale: 1f,
+                   maxWorkingScale: 1f,
+                   cacheRules: new RenderCacheRules(9_999, 1)))
+        using (excluded.Rasterize())
+        {
+        }
 
-                var processor = new RenderNodeProcessor(
-                    node, useRenderCache: true, outputScale, maxWorkingScale: 2f * outputScale);
-                RenderNodeOperation[] ops = processor.PullToRoot();
-                try
+        Assert.That(node.Cache.IsCached, Is.False);
+
+        using (RenderNodeRenderer eligible = CreateFrameRenderer(
+                   node,
+                   outputScale: 1f,
+                   maxWorkingScale: 1f,
+                   cacheRules: RenderCacheRules.Default))
+        using (eligible.Rasterize())
+        {
+        }
+
+        Assert.That(node.Cache.IsCached, Is.True);
+    }
+
+    [Test]
+    public void ApronedDirectReplayCache_ColdAndWarmUsePlannedClampedDensity()
+    {
+        var bounds = new Rect(0, 0, RenderScaleUtilities.MaxBufferDimension, 1);
+        float expectedDensity =
+            RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1);
+        using var node = new RasterApronSourceNode(bounds);
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = CreateFrameRenderer(
+            node,
+            outputScale: 1,
+            maxWorkingScale: 1,
+            targetDomain: bounds,
+            diagnostics: diagnostics);
+
+        using RenderNodeRasterization cold = renderer.Rasterize();
+        using RenderNodeRasterization warm = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(expectedDensity, Is.LessThan(1));
+            Assert.That(cold.IsEmpty, Is.False);
+            Assert.That(warm.IsEmpty, Is.False);
+            Assert.That(node.Cache.IsCached, Is.True);
+            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
+            Assert.That(node.ExecuteCount, Is.EqualTo(1));
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
+                Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void BoundedValueReplayCache_PartialRoiUsesCompleteApronedDensity()
+    {
+        var bounds = new Rect(0, 0, RenderScaleUtilities.MaxBufferDimension, 1);
+        var requestedRegion = new Rect(
+            0,
+            0,
+            RenderScaleUtilities.MaxBufferDimension / 2,
+            1);
+        float expectedDensity =
+            RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1);
+        using var node = new BoundedValueReplayNode(bounds);
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = CreateFrameRenderer(
+            node,
+            outputScale: 1,
+            maxWorkingScale: 1,
+            targetDomain: bounds,
+            requestedRegion: requestedRegion,
+            diagnostics: diagnostics);
+
+        using RenderNodeRasterization cold = renderer.Rasterize();
+        using RenderNodeRasterization warm = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(expectedDensity, Is.LessThan(1));
+            Assert.That(cold.Bounds, Is.EqualTo(requestedRegion));
+            Assert.That(warm.Bounds, Is.EqualTo(requestedRegion));
+            Assert.That(node.Cache.IsCached, Is.True);
+            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
+            Assert.That(node.ExecuteCount, Is.EqualTo(1));
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
+                Is.EqualTo(1));
+        });
+    }
+
+    private static RenderNodeRenderer CreateFrameRenderer(
+        RenderNode node,
+        float outputScale,
+        float maxWorkingScale,
+        RenderCacheRules? cacheRules = null,
+        Rect? targetDomain = null,
+        Rect? requestedRegion = null,
+        IRenderPipelineDiagnosticsState? diagnostics = null)
+        => new(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
                 {
-                    Assert.That(ops, Is.Not.Empty);
-                    foreach (RenderNodeOperation op in ops)
+                    TargetDomain = targetDomain ?? s_bounds,
+                    RequestedRegion = requestedRegion,
+                    OutputScale = outputScale,
+                    MaxWorkingScale = maxWorkingScale,
+                    CacheOptions = new RenderCacheOptions(
+                        true,
+                        cacheRules ?? RenderCacheRules.Default),
+                    Purpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+    private sealed class ConcreteSourceNode : RenderNode
+    {
+        private readonly ExecutionProbe _probe = new();
+
+        public int ExecuteCount => _probe.Count;
+
+        public override void Process(RenderNodeContext context)
+        {
+            Brush.Resource fill = Brushes.Resource.White;
+            RenderResource<Brush.Resource> fillResource = context.Borrow(
+                fill,
+                fill.GetOriginal().Id,
+                fill.Version);
+            RenderResource<ExecutionProbe> probeResource = context.Borrow(
+                _probe,
+                typeof(ConcreteSourceNode));
+            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+                s_bounds,
+                static (session, bounds) =>
+                    session.UseDeclaredResource<ExecutionProbe>("probe", probe =>
                     {
-                        Assert.That(op.EffectiveScale.IsUnbounded, Is.False,
-                            "a cached tile is a concrete bitmap and must not replay as Unbounded");
-                        Assert.That(op.EffectiveScale.Value, Is.EqualTo(outputScale));
-                    }
-                }
-                finally
+                        probe.Record();
+                        session.UseDeclaredResource<Brush.Resource>("fill", currentFill =>
+                        {
+                            using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                            output.Canvas.Use(canvas => canvas.DrawRectangle(bounds, currentFill, null));
+                            session.Publish(output);
+                        });
+                    }),
+                bounds: OpaqueRenderBoundsContract.Source(s_bounds),
+                hitTest: RenderHitTestContract.None,
+                valueCardinality: RenderValueCardinality.Single,
+                scale: RenderScaleContract.Custom(
+                    static _ => 4f),
+                resources: [fillResource.Bind("fill"), probeResource.Bind("probe")]);
+            context.Publish(context.OpaqueSource(description));
+        }
+    }
+
+    private sealed class RasterApronSourceNode(Rect bounds) : RenderNode
+    {
+        private readonly ExecutionProbe _probe = new();
+
+        public int ExecuteCount => _probe.Count;
+
+        public override void Process(RenderNodeContext context)
+        {
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
+                execute: session =>
                 {
-                    foreach (RenderNodeOperation op in ops) op.Dispose();
-                }
-            }
-            finally
-            {
-                RenderNodeCacheHelper.ClearCache(node);
-                node.Dispose();
-            }
-        });
+                    _probe.Record();
+                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                    output.Canvas.Use(static canvas => canvas.Clear());
+                    session.Publish(output);
+                },
+                directReplay: static session => session.Canvas.Clear(),
+                bounds: OpaqueRenderBoundsContract.Source(bounds),
+                hitTest: RenderHitTestContract.OutputBounds,
+                scale: RenderScaleContract.Vector,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
+                structuralKey: typeof(RasterApronSourceNode),
+                runtimeIdentity: new RenderRuntimeIdentity((bounds, _probe)));
+            context.Publish(context.OpaqueSource(description));
+        }
     }
 
-    // A subtree whose supply density exceeds outputScale must not be cached (would collapse working scale).
-    [Test]
-    public void CreateDefaultCache_RefusesToCache_WhenSupplyDensityExceedsOutputScale()
+    private sealed class BoundedValueReplayNode(Rect bounds) : RenderNode
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        private readonly ExecutionProbe _probe = new();
+
+        public int ExecuteCount => _probe.Count;
+
+        public override void Process(RenderNodeContext context)
         {
-            var node = new ConcreteSourceNode(4f);
-            node.Cache.ReportRenderCount(RenderNodeCache.Count);
-            try
-            {
-                RenderNodeCacheHelper.CreateDefaultCache(
-                    node, RenderCacheOptions.Default, outputScale: 1f, maxWorkingScale: 8f);
-
-                Assert.That(node.Cache.IsCached, Is.False,
-                    "a subtree whose supply density exceeds outputScale must not be cached");
-            }
-            finally
-            {
-                RenderNodeCacheHelper.ClearCache(node);
-                node.Dispose();
-            }
-        });
-    }
-
-    // Caching must be behaviour-transparent: working scale must match cached or uncached.
-    [Test]
-    public void HighDensitySubtree_CacheReplay_MatchesUncachedWorkingScale()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var node = new ConcreteSourceNode(4f);
-            node.Cache.ReportRenderCount(RenderNodeCache.Count);
-            try
-            {
-                float uncached = PullSingleDensity(node, useRenderCache: false, outputScale: 1f);
-                RenderNodeCacheHelper.MakeCache(node, RenderCacheOptions.Default, outputScale: 1f, maxWorkingScale: 8f);
-                float cached = PullSingleDensity(node, useRenderCache: true, outputScale: 1f);
-
-                Assert.That(uncached, Is.EqualTo(4f), "the uncached supply density must be the source's At(4)");
-                Assert.That(cached, Is.EqualTo(uncached),
-                    "enabling the cache changed the resolved working scale");
-            }
-            finally
-            {
-                RenderNodeCacheHelper.ClearCache(node);
-                node.Dispose();
-            }
-        });
-    }
-
-    [Test]
-    public void CreateDefaultCache_TileSize_MatchesCreationDensity()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            EllipseRenderNode node = CacheableEllipse();
-            try
-            {
-                RenderNodeCacheHelper.CreateDefaultCache(
-                    node, RenderCacheOptions.Default, outputScale: 0.5f, maxWorkingScale: 1f);
-
-                Assert.That(node.Cache.IsCached, Is.True);
-                foreach ((RenderTarget rt, Rect bounds) in node.Cache.UseCache())
-                {
-                    using (rt)
+            RenderResource<ExecutionProbe> probeResource = context.Borrow(
+                _probe,
+                (typeof(BoundedValueReplayNode), bounds));
+            OpaqueRenderDescription sourceDescription = OpaqueRenderDescription.Create(
+                bounds,
+                static (session, currentBounds) =>
+                    session.UseDeclaredResource<ExecutionProbe>("probe", probe =>
                     {
-                        // 100x100 logical at density 0.5 = 50x50 px tile.
-                        Assert.That(rt.Width, Is.EqualTo((int)Math.Ceiling(bounds.Width * 0.5f)));
-                        Assert.That(rt.Height, Is.EqualTo((int)Math.Ceiling(bounds.Height * 0.5f)));
-                    }
-                }
-            }
-            finally
-            {
-                RenderNodeCacheHelper.ClearCache(node);
-                node.Dispose();
-            }
-        });
-    }
-
-    // Cache rejection is memoized; clears when the node changes. CPU-only.
-    [Test]
-    public void RejectedCache_IsMemoized_AndClearsWhenNodeChanges()
-    {
-        var node = new ConcreteSourceNode(4f);
-        try
-        {
-            RenderNodeCache cache = node.Cache;
-            cache.ReportRenderCount(RenderNodeCache.Count);
-            Assert.That(cache.CanCache(), Is.True);
-            Assert.That(cache.IsCacheRejected, Is.False);
-
-            cache.RejectCache();
-            Assert.That(cache.IsCacheRejected, Is.True,
-                "a refused subtree must stay marked so MakeCache does not re-attempt it every frame");
-
-            node.HasChanges = true;
-            cache.IncrementRenderCount();
-            Assert.That(cache.IsCacheRejected, Is.False, "a node change must clear the rejection");
-            Assert.That(cache.CanCache(), Is.False, "a node change must reset the render count");
-        }
-        finally
-        {
-            node.Dispose();
+                        probe.Record();
+                        using OpaqueRenderOutput output = session.CreateOutput(currentBounds);
+                        output.Canvas.Use(static canvas => canvas.Clear());
+                        session.Publish(output);
+                    }),
+                bounds: OpaqueRenderBoundsContract.Source(bounds),
+                hitTest: RenderHitTestContract.OutputBounds,
+                valueCardinality: RenderValueCardinality.Single,
+                scale: RenderScaleContract.Custom(
+                    static _ => 1),
+                resources: [probeResource.Bind("probe")]);
+            RenderFragmentHandle source = context.OpaqueSource(sourceDescription);
+            TargetScopeDescription replayDescription = TargetScopeDescription.CreateValueReplayMap(
+                static session => session.Canvas.Use(_ => session.ReplayInput()),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.PreserveInputSupply,
+                RenderDeviceGridSensitivity.Insensitive,
+                RenderDeviceGridMapping.Preserved,
+                structuralKey: typeof(BoundedValueReplayNode),
+                runtimeIdentity: new RenderRuntimeIdentity(bounds));
+            context.Publish(context.TargetScope(source, replayDescription));
         }
     }
 
-    // Invalidate also clears the rejection.
-    [Test]
-    public void RejectedCache_ClearsOnInvalidate()
+    private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        var node = new ConcreteSourceNode(4f);
-        try
-        {
-            node.Cache.RejectCache();
-            Assert.That(node.Cache.IsCacheRejected, Is.True);
+        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
 
-            node.Cache.Invalidate();
-            Assert.That(node.Cache.IsCacheRejected, Is.False);
-        }
-        finally
-        {
-            node.Dispose();
-        }
-    }
+        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation)
+            => RenderScaleUtilities.MaxBufferDimension;
 
-    // MakeCache must mark the high-density subtree rejected so subsequent frames skip it.
-    [Test]
-    public void MakeCache_HighDensitySubtree_MarksCacheRejected()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => new CpuRenderTarget(allocation.DeviceSize);
+
+        private sealed class CpuRenderTarget : RenderTarget
         {
-            var node = new ConcreteSourceNode(4f);
-            node.Cache.ReportRenderCount(RenderNodeCache.Count);
-            try
+            public CpuRenderTarget(PixelSize size)
+                : base(
+                    SKSurface.Create(new SKImageInfo(
+                        size.Width,
+                        size.Height,
+                        SKColorType.RgbaF16,
+                        SKAlphaType.Premul,
+                        s_colorSpace))
+                    ?? throw new InvalidOperationException("Could not create a CPU cache-scale test target."),
+                    size.Width,
+                    size.Height)
             {
-                RenderNodeCacheHelper.MakeCache(node, RenderCacheOptions.Default, outputScale: 1f, maxWorkingScale: 8f);
-
-                Assert.That(node.Cache.IsCached, Is.False);
-                Assert.That(node.Cache.IsCacheRejected, Is.True,
-                    "the high-density rejection must be memoized so MakeCache stops re-pulling the subtree every frame");
             }
-            finally
-            {
-                RenderNodeCacheHelper.ClearCache(node);
-                node.Dispose();
-            }
-        });
+        }
     }
 }

@@ -11,9 +11,12 @@ namespace Beutl.Graphics.Effects;
 
 public abstract partial class DisplacementMapTransform : EngineObject
 {
-    internal abstract void ApplyTo(
-        Brush.Resource displacementMap, Resource resource, GradientSpreadMethod spreadMethod,
-        DisplacementMapChannel channel, bool signed, FilterEffectContext context);
+    public partial class Resource
+    {
+        internal abstract void ApplyTo(
+            FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
+            DisplacementMapChannel channel, bool signed, FilterEffectContext context);
+    }
 }
 
 [Display(Name = nameof(GraphicsStrings.TranslateTransform), ResourceType = typeof(GraphicsStrings))]
@@ -75,53 +78,56 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
     [Display(Name = nameof(GraphicsStrings.TranslateTransform_Y), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Y { get; } = Property.CreateAnimatable<float>();
 
-    internal override void ApplyTo(
-        Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
-        GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed, FilterEffectContext context)
+    public partial class Resource
     {
-        if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
-        var r = (Resource)resource;
+        internal override void ApplyTo(
+            FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
+            DisplacementMapChannel channel, bool signed, FilterEffectContext context)
+        {
+            if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
 
-        context.CustomEffect((displacementMap, r, spreadMethod, channel, signed, r.X, r.Y),
-            (d, c) =>
-            {
-                var (map, r, sm, ch, isSigned, x, y) = d;
-                for (int i = 0; i < c.Targets.Count; i++)
+            context.CustomEffect((displacementMap, this, spreadMethod, channel, signed, X, Y),
+                (d, c) =>
                 {
-                    using EffectTarget effectTarget = c.Targets[i];
-                    var renderTarget = effectTarget.RenderTarget!;
-                    // Use the clamped density so uniforms / map brush match the buffer.
-                    float w = c.ResolveTargetDensity(effectTarget.Bounds);
-                    using var displacementMapShaderRaw =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
-                                c.MaxWorkingScale)
-                            .CreateShader();
-                    // Scale the map's local matrix by w so it cross-samples at device-px coords.
-                    using SKShader? displacementMapShaderScaled =
-                        w != 1f && displacementMapShaderRaw is { } rawShader
-                            ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
-                            : null;
-                    SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
+                    var (map, _, sm, ch, isSigned, x, y) = d;
+                    for (int i = 0; i < c.Targets.Count; i++)
+                    {
+                        using EffectTarget effectTarget = c.Targets[i];
+                        var renderTarget = effectTarget.RenderTarget!;
+                        // Use the clamped density so uniforms / map brush match the buffer.
+                        float w = c.ResolveTargetDensity(effectTarget.Bounds);
+                        using var displacementMapShaderRaw = c.CreateBrushShader(
+                            map,
+                            new Rect(effectTarget.Bounds.Size),
+                            BlendMode.SrcOver,
+                            w);
+                        // Scale the map's local matrix by w so it cross-samples at device-px coords.
+                        using SKShader? displacementMapShaderScaled =
+                            w != 1f && displacementMapShaderRaw is { } rawShader
+                                ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
+                                : null;
+                        SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
 
-                    using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
+                        using var image = renderTarget.Value.Snapshot();
+                        using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
 
-                    // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-                    var builder = s_shader.CreateBuilder();
+                        // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
+                        var builder = s_shader.CreateBuilder();
 
-                    // child shaderとしてテクスチャ用のシェーダーを設定
-                    builder.Children["uBaseTexture"] = baseShader;
-                    builder.Children["uDisplacementMap"] = displacementMapShader;
+                        // child shaderとしてテクスチャ用のシェーダーを設定
+                        builder.Children["uBaseTexture"] = baseShader;
+                        builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    // Absolute-px translation scales by w (shader operates in device px).
-                    builder.Uniforms["uTranslation"] = new SKPoint(x * w, y * w);
-                    builder.Uniforms["uChannel"] = (int)ch;
-                    builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
+                        // Absolute-px translation scales by w (shader operates in device px).
+                        builder.Uniforms["uTranslation"] = new SKPoint(x * w, y * w);
+                        builder.Uniforms["uChannel"] = (int)ch;
+                        builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
-                    // 新しいターゲットに適用
-                    c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-                }
-            });
+                        // 新しいターゲットに適用
+                        c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
+                    }
+                });
+        }
     }
 }
 
@@ -192,58 +198,61 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
     [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
 
-    internal override void ApplyTo(
-        Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
-        GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed, FilterEffectContext context)
+    public partial class Resource
     {
-        if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
-        var r = (Resource)resource;
+        internal override void ApplyTo(
+            FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
+            DisplacementMapChannel channel, bool signed, FilterEffectContext context)
+        {
+            if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
 
-        context.CustomEffect(
-            (displacementMap, spreadMethod, channel, signed, x: r.Scale * r.ScaleX / 10000, y: r.Scale * r.ScaleY / 10000,
-                center: new Point(r.CenterX, r.CenterY)),
-            (d, c) =>
-            {
-                var (map, sm, ch, isSigned, scaleX, scaleY, center) = d;
-                for (int i = 0; i < c.Targets.Count; i++)
+            context.CustomEffect(
+                (displacementMap, spreadMethod, channel, signed, x: Scale * ScaleX / 10000,
+                    y: Scale * ScaleY / 10000, center: new Point(CenterX, CenterY)),
+                (d, c) =>
                 {
-                    using var effectTarget = c.Targets[i];
-                    var renderTarget = effectTarget.RenderTarget!;
-                    // Use the clamped density so uniforms / map brush match the buffer.
-                    float w = c.ResolveTargetDensity(effectTarget.Bounds);
-                    using var displacementMapShaderRaw =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
-                                c.MaxWorkingScale)
-                            .CreateShader();
-                    // Scale the map's local matrix by w so it cross-samples at device-px coords.
-                    using SKShader? displacementMapShaderScaled =
-                        w != 1f && displacementMapShaderRaw is { } rawShader
-                            ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
-                            : null;
-                    SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
+                    var (map, sm, ch, isSigned, scaleX, scaleY, center) = d;
+                    for (int i = 0; i < c.Targets.Count; i++)
+                    {
+                        using var effectTarget = c.Targets[i];
+                        var renderTarget = effectTarget.RenderTarget!;
+                        // Use the clamped density so uniforms / map brush match the buffer.
+                        float w = c.ResolveTargetDensity(effectTarget.Bounds);
+                        using var displacementMapShaderRaw = c.CreateBrushShader(
+                            map,
+                            new Rect(effectTarget.Bounds.Size),
+                            BlendMode.SrcOver,
+                            w);
+                        // Scale the map's local matrix by w so it cross-samples at device-px coords.
+                        using SKShader? displacementMapShaderScaled =
+                            w != 1f && displacementMapShaderRaw is { } rawShader
+                                ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
+                                : null;
+                        SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
 
-                    using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
+                        using var image = renderTarget.Value.Snapshot();
+                        using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
 
-                    // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-                    var builder = s_shader.CreateBuilder();
+                        // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
+                        var builder = s_shader.CreateBuilder();
 
-                    // child shaderとしてテクスチャ用のシェーダーを設定
-                    builder.Children["uBaseTexture"] = baseShader;
-                    builder.Children["uDisplacementMap"] = displacementMapShader;
+                        // child shaderとしてテクスチャ用のシェーダーを設定
+                        builder.Children["uBaseTexture"] = baseShader;
+                        builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    // uScale is density-independent; the pivot maps logical-px to device-px, so it scales by w.
-                    builder.Uniforms["uScale"] = new SKPoint(scaleX, scaleY);
-                    builder.Uniforms["uPivot"] = new SKPoint(
-                        (effectTarget.Bounds.Width / 2 + center.X) * w,
-                        (effectTarget.Bounds.Height / 2 + center.Y) * w);
-                    builder.Uniforms["uChannel"] = (int)ch;
-                    builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
+                        // uScale is density-independent; the pivot maps logical-px to device-px, so it scales by w.
+                        builder.Uniforms["uScale"] = new SKPoint(scaleX, scaleY);
+                        builder.Uniforms["uPivot"] = new SKPoint(
+                            (effectTarget.Bounds.Width / 2 + center.X) * w,
+                            (effectTarget.Bounds.Height / 2 + center.Y) * w);
+                        builder.Uniforms["uChannel"] = (int)ch;
+                        builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
-                    // 新しいターゲットに適用
-                    c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-                }
-            });
+                        // 新しいターゲットに適用
+                        c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
+                    }
+                });
+        }
     }
 }
 
@@ -311,56 +320,59 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
     [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>(0);
 
-    internal override void ApplyTo(
-        Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
-        GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed, FilterEffectContext context)
+    public partial class Resource
     {
-        if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
-        var r = (Resource)resource;
+        internal override void ApplyTo(
+            FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
+            DisplacementMapChannel channel, bool signed, FilterEffectContext context)
+        {
+            if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
 
-        context.CustomEffect(
-            (displacementMap, spreadMethod, channel, signed, r.Rotation, new Point(r.CenterX, r.CenterY)),
-            (d, c) =>
-            {
-                var (map, sm, ch, isSigned, rotation, center) = d;
-                for (int i = 0; i < c.Targets.Count; i++)
+            context.CustomEffect(
+                (displacementMap, spreadMethod, channel, signed, Rotation, new Point(CenterX, CenterY)),
+                (d, c) =>
                 {
-                    using var effectTarget = c.Targets[i];
-                    var renderTarget = effectTarget.RenderTarget!;
-                    // Use the clamped density so uniforms / map brush match the buffer.
-                    float w = c.ResolveTargetDensity(effectTarget.Bounds);
-                    using var displacementMapShaderRaw =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
-                                c.MaxWorkingScale)
-                            .CreateShader();
-                    // Scale the map's local matrix by w so it cross-samples at device-px coords.
-                    using SKShader? displacementMapShaderScaled =
-                        w != 1f && displacementMapShaderRaw is { } rawShader
-                            ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
-                            : null;
-                    SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
+                    var (map, sm, ch, isSigned, rotation, center) = d;
+                    for (int i = 0; i < c.Targets.Count; i++)
+                    {
+                        using var effectTarget = c.Targets[i];
+                        var renderTarget = effectTarget.RenderTarget!;
+                        // Use the clamped density so uniforms / map brush match the buffer.
+                        float w = c.ResolveTargetDensity(effectTarget.Bounds);
+                        using var displacementMapShaderRaw = c.CreateBrushShader(
+                            map,
+                            new Rect(effectTarget.Bounds.Size),
+                            BlendMode.SrcOver,
+                            w);
+                        // Scale the map's local matrix by w so it cross-samples at device-px coords.
+                        using SKShader? displacementMapShaderScaled =
+                            w != 1f && displacementMapShaderRaw is { } rawShader
+                                ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
+                                : null;
+                        SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
 
-                    using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
+                        using var image = renderTarget.Value.Snapshot();
+                        using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
 
-                    // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-                    var builder = s_shader.CreateBuilder();
+                        // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
+                        var builder = s_shader.CreateBuilder();
 
-                    // child shaderとしてテクスチャ用のシェーダーを設定
-                    builder.Children["uBaseTexture"] = baseShader;
-                    builder.Children["uDisplacementMap"] = displacementMapShader;
+                        // child shaderとしてテクスチャ用のシェーダーを設定
+                        builder.Children["uBaseTexture"] = baseShader;
+                        builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    // Pivot maps logical-px to device-px (scales by w); the angle is density-independent.
-                    builder.Uniforms["uAngle"] = MathUtilities.Deg2Rad(rotation);
-                    builder.Uniforms["uPivot"] = new SKPoint(
-                        (effectTarget.Bounds.Width / 2 + center.X) * w,
-                        (effectTarget.Bounds.Height / 2 + center.Y) * w);
-                    builder.Uniforms["uChannel"] = (int)ch;
-                    builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
+                        // Pivot maps logical-px to device-px (scales by w); the angle is density-independent.
+                        builder.Uniforms["uAngle"] = MathUtilities.Deg2Rad(rotation);
+                        builder.Uniforms["uPivot"] = new SKPoint(
+                            (effectTarget.Bounds.Width / 2 + center.X) * w,
+                            (effectTarget.Bounds.Height / 2 + center.Y) * w);
+                        builder.Uniforms["uChannel"] = (int)ch;
+                        builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
-                    // 新しいターゲットに適用
-                    c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-                }
-            });
+                        // 新しいターゲットに適用
+                        c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
+                    }
+                });
+        }
     }
 }

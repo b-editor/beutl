@@ -1,4 +1,5 @@
 ﻿using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Media.Proxy;
 
 namespace Beutl.Composition;
@@ -47,6 +48,15 @@ public class CompositionContext(TimeSpan time)
     public bool PreferProxy { get; set; }
 
     public ProxyPreset PreferredProxyPreset { get; set; } = ProxyPreset.Quarter;
+
+    /// <summary>
+    /// Gets or sets the finite logical composition domain available to auxiliary render-node evaluation.
+    /// </summary>
+    /// <remarks>
+    /// Scene composition supplies its frame rectangle. A null value means the caller has no finite target domain;
+    /// self-bounded render graphs remain valid, while root <c>TargetRegion.Full</c> access requires a value.
+    /// </remarks>
+    public Rect? TargetDomain { get; set; }
 
     public virtual T Get<T>(IProperty<T> property)
     {

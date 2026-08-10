@@ -1,5 +1,7 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -171,6 +173,71 @@ public class RenderTargetThreadAffinityTests
 
         Assert.That(caller.Wait(TimeSpan.FromSeconds(30)), Is.True);
         Assert.That(completed, Is.True);
+    }
+
+    [Test]
+    public void Required_operation_keeps_waiting_while_the_dispatcher_is_live()
+    {
+        using var occupied = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+        int result = 0;
+
+        try
+        {
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                occupied.Set();
+                release.Wait(TimeSpan.FromSeconds(60));
+            });
+            Assert.That(occupied.Wait(TimeSpan.FromSeconds(30)), Is.True);
+
+            Task caller = Task.Run(() =>
+                result = GpuResourceRelease.RunRequired(RenderThread.Dispatcher, static () => 42));
+
+            Assert.That(caller.Wait(TimeSpan.FromSeconds(6)), Is.False,
+                "a live but busy dispatcher must not turn a valid queued operation into a timeout");
+            release.Set();
+            Assert.That(caller.Wait(TimeSpan.FromSeconds(30)), Is.True);
+            Assert.That(result, Is.EqualTo(42));
+        }
+        finally
+        {
+            release.Set();
+        }
+    }
+
+    [Test]
+    public void ReplayClipTo_preserves_transformed_path_clip_for_expanded_execution()
+    {
+        using var sourceTarget = RenderTarget.CreateNull(32, 32);
+        using RenderTarget executionTarget = RenderTarget.Create(32, 32)!;
+        using var source = new ImmediateCanvas(sourceTarget, 1, 1, new Size(32, 32));
+        using var execution = new ImmediateCanvas(executionTarget, 1, 1, new Size(32, 32));
+        var geometry = new EllipseGeometry
+        {
+            Width = { CurrentValue = 8 },
+            Height = { CurrentValue = 8 },
+        };
+        using Geometry.Resource resource = geometry.ToResource(CompositionContext.Default);
+
+        using (source.PushTransform(Matrix.CreateTranslation(5, 7)))
+        using (source.PushClip(resource))
+        {
+            source.ReplayClipTo(execution);
+            execution.Canvas.DrawColor(SKColors.White);
+            execution.Canvas.Flush();
+            using Bitmap snapshot = executionTarget.Snapshot();
+            SKColor outside = snapshot.SKBitmap.GetPixel(5, 7);
+            SKColor inside = snapshot.SKBitmap.GetPixel(9, 11);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(execution.Canvas.DeviceClipBounds, Is.EqualTo(source.Canvas.DeviceClipBounds));
+                Assert.That(outside.Alpha, Is.Zero,
+                    "the ellipse corner is inside its bounds but outside the exact path clip");
+                Assert.That(inside.Alpha, Is.GreaterThan(0));
+            });
+        }
     }
 
     [Test]

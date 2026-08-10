@@ -264,16 +264,16 @@ public sealed partial class PixelSortEffect : FilterEffect
         }
     }
 
-    // Delivery (MaxWorkingScale == +inf) must not ship silently unsorted frames; preview keeps the
-    // source pixels and logs. Cancellation always propagates.
-    internal static bool ShouldRethrowPassFailure(Exception exception, float maxWorkingScale)
-        => exception is OperationCanceledException || float.IsPositiveInfinity(maxWorkingScale);
+    // Delivery must not ship silently unsorted frames; preview keeps the source pixels and logs.
+    // Cancellation always propagates.
+    internal static bool ShouldRethrowPassFailure(Exception exception, RenderIntent intent)
+        => exception is OperationCanceledException || intent == RenderIntent.Delivery;
 
     // Same delivery contract for the non-exception failure: an output target without a texture
     // (allocation failure) must fail a delivery render instead of shipping the frame unsorted.
-    internal static void ThrowIfDeliveryAllocationFailure(float maxWorkingScale, int targetIndex)
+    internal static void ThrowIfDeliveryAllocationFailure(RenderIntent intent, int targetIndex)
     {
-        if (float.IsPositiveInfinity(maxWorkingScale))
+        if (intent == RenderIntent.Delivery)
         {
             throw new InvalidOperationException(
                 $"PixelSort could not allocate an output target for target {targetIndex}; the delivery render fails instead of shipping unsorted pixels.");
@@ -351,7 +351,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 if (newRenderTarget?.Texture == null)
                 {
                     newTarget.Dispose();
-                    ThrowIfDeliveryAllocationFailure(ctx.MaxWorkingScale, i);
+                    ThrowIfDeliveryAllocationFailure(ctx.Intent, i);
                     continue;
                 }
 
@@ -375,7 +375,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 catch (Exception ex)
                 {
                     newTarget.Dispose();
-                    if (ShouldRethrowPassFailure(ex, ctx.MaxWorkingScale))
+                    if (ShouldRethrowPassFailure(ex, ctx.Intent))
                     {
                         throw;
                     }
@@ -385,7 +385,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             }
             catch (Exception ex)
             {
-                if (ShouldRethrowPassFailure(ex, ctx.MaxWorkingScale))
+                if (ShouldRethrowPassFailure(ex, ctx.Intent))
                 {
                     throw;
                 }

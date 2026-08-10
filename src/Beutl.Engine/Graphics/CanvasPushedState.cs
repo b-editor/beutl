@@ -15,6 +15,18 @@ public partial class ImmediateCanvas
             }
         }
 
+        internal sealed record LayerPushedState(int Count) : SKCanvasPushedState(Count);
+
+        internal sealed record ClipPushedState(int Count, ClipReplayOperation Operation)
+            : SKCanvasPushedState(Count)
+        {
+            public override void Pop(ImmediateCanvas canvas)
+            {
+                base.Pop(canvas);
+                canvas.PopClipReplay(Operation);
+            }
+        }
+
         // No-op pop for PushDeviceSpace when the canvas is already in device space.
         internal sealed record NoOpPushedState : CanvasPushedState
         {
@@ -57,13 +69,32 @@ public partial class ImmediateCanvas
             }
         }
 
-        internal record BlendModePushedState(BlendMode BlendMode, int Count, SKPaint Paint) : CanvasPushedState
+        internal record BlendModePushedState(
+            BlendMode BlendMode,
+            bool ProductRectangleCoverage,
+            int Count,
+            SKPaint Paint) : CanvasPushedState
         {
             public override void Pop(ImmediateCanvas canvas)
             {
                 canvas.Canvas.RestoreToCount(Count);
                 canvas.BlendMode = BlendMode;
+                canvas._productRectangleCoverage = ProductRectangleCoverage;
                 Paint.Dispose();
+            }
+        }
+
+        internal record DirectBlendModePushedState(
+            BlendMode BlendMode,
+            BlendMode? DirectBlendMode,
+            int Count) : CanvasPushedState
+        {
+            public override void Pop(ImmediateCanvas canvas)
+            {
+                canvas.Canvas.RestoreToCount(Count);
+                canvas._currentTransform = canvas.Canvas.TotalMatrix.ToMatrix();
+                canvas.BlendMode = BlendMode;
+                canvas._directBlendMode = DirectBlendMode;
             }
         }
 

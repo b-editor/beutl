@@ -1,9 +1,12 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D.Textures;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
+using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
@@ -27,6 +30,21 @@ public class DrawableTextureSourceDensityTests
         source.TextureWidth.CurrentValue = AuthorSize;
         source.TextureHeight.CurrentValue = AuthorSize;
         return (DrawableTextureSource.Resource)source.ToResource(CompositionContext.Default);
+    }
+
+    [Test]
+    public void GetTexture_EmptyDrawableReturnsNullInsideDeferredCallback()
+    {
+        var sourceDefinition = new DrawableTextureSource();
+        using var source =
+            (DrawableTextureSource.Resource)sourceDefinition.ToResource(CompositionContext.Default);
+        using IDisposable callback = RenderExecutionCallbackGuard.Enter();
+
+        ITexture2D? texture = null;
+        Assert.That(
+            () => texture = source.GetTexture(Mock.Of<IGraphicsContext>()),
+            Throws.Nothing);
+        Assert.That(texture, Is.Null);
     }
 
     [Test]
@@ -58,5 +76,49 @@ public class DrawableTextureSourceDensityTests
             Assert.That(width2, Is.EqualTo(width1 * 2));
             Assert.That(height2, Is.EqualTo(height1 * 2));
         });
+    }
+
+    [Test]
+    public void GetTexture_NestedOversizedDrawableUsesTheClampedRecordingDensity()
+    {
+        var sourceDefinition = new DrawableTextureSource();
+        sourceDefinition.TextureWidth.CurrentValue = 8192;
+        sourceDefinition.TextureHeight.CurrentValue = 1;
+        using var source =
+            (DrawableTextureSource.Resource)sourceDefinition.ToResource(CompositionContext.Default);
+        using var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+        using RenderTargetLeaseSession session = registry.BeginSession(
+            RenderIntent.Preview,
+            RenderAllocationBudget.Default);
+        RenderTargetLease lease = session.Acquire(
+            new PixelSize(RenderScaleUtilities.MaxBufferDimension, 2));
+        using var binding = new NestedRenderTargetBinding();
+        binding.Stage(
+            lease,
+            source.TextureDomain,
+            density: 2,
+            diagnostics: null);
+        binding.PrepareForSampling();
+        ITexture2D? texture = null;
+
+        Assert.That(
+            () => NestedRenderTargetBindingScope.Use(
+                source,
+                binding,
+                () => texture = source.GetTexture(Mock.Of<IGraphicsContext>(), surfaceDensity: 4)),
+            Throws.Nothing);
+        Assert.That(texture, Is.Null,
+            "A CPU-backed nested target has no GPU texture, but its resolved density must still match.");
+    }
+
+    private sealed class CpuTargetFactory : IRenderTargetFactory
+    {
+        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation)
+            => RenderScaleUtilities.MaxBufferDimension;
+
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => FailureTestSupport.CreateCpuTarget(
+                allocation.DeviceSize.Width,
+                allocation.DeviceSize.Height);
     }
 }

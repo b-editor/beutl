@@ -1,10 +1,13 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// The supply density an operation's backing pixels actually exist at. Flows bottom-up from each
-/// <see cref="RenderNodeOperation"/> so the compositor can reconcile mixed scales.
-/// <c>default</c> is <see cref="Unbounded"/> (vector / re-rasterizable).
+/// Describes the device-pixel density supplied by a recorded fragment value.
 /// </summary>
+/// <remarks>
+/// The value flows through recorded fragments and values so planning can reconcile mixed densities
+/// without executing them. <c>default</c> is <see cref="Unbounded"/>, which denotes a value that can
+/// be rasterized at a later selected density.
+/// </remarks>
 public readonly record struct EffectiveScale
 {
     // Inverted flag: struct default (false) must mean Unbounded, not At(0).
@@ -18,13 +21,21 @@ public readonly record struct EffectiveScale
         _bounded = bounded;
     }
 
-    /// <summary>Vector / lossless sentinel: re-rasterizable at any scale. Equal to <c>default</c>.</summary>
+    /// <summary>Gets the re-rasterizable sentinel, which is equal to <c>default</c>.</summary>
     public static EffectiveScale Unbounded => default;
 
     /// <summary>
-    /// A concrete bitmap density (device px per logical unit). Must be positive-finite; throws otherwise.
-    /// Use <see cref="AtOrUnbounded"/> when the density is derived from animatable geometry that can go degenerate.
+    /// Creates a concrete bitmap density in device pixels per logical unit.
     /// </summary>
+    /// <param name="scale">A positive finite density.</param>
+    /// <returns>A concrete effective scale.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="scale"/> is non-finite, zero, or negative.
+    /// </exception>
+    /// <remarks>
+    /// Use <see cref="AtOrUnbounded"/> when a density derived from animatable geometry may be
+    /// non-finite or non-positive.
+    /// </remarks>
     public static EffectiveScale At(float scale)
         => float.IsFinite(scale) && scale > 0f
             ? new(scale, bounded: true)
@@ -32,15 +43,22 @@ public readonly record struct EffectiveScale
                 nameof(scale), scale, "EffectiveScale.At requires a positive finite density.");
 
     /// <summary>
-    /// Non-throwing companion to <see cref="At(float)"/>: returns <see cref="Unbounded"/> for
-    /// non-finite or non-positive <paramref name="scale"/>.
+    /// Creates a concrete density when possible, or returns <see cref="Unbounded"/> for an invalid density.
     /// </summary>
+    /// <param name="scale">The candidate density in device pixels per logical unit.</param>
+    /// <returns>
+    /// A concrete effective scale when <paramref name="scale"/> is positive and finite;
+    /// otherwise <see cref="Unbounded"/>.
+    /// </returns>
     public static EffectiveScale AtOrUnbounded(float scale)
         => float.IsFinite(scale) && scale > 0f ? new(scale, bounded: true) : Unbounded;
 
-    /// <summary>True for the <see cref="Unbounded"/> (vector) sentinel.</summary>
+    /// <summary>Gets whether this value is the <see cref="Unbounded"/> sentinel.</summary>
     public bool IsUnbounded => !_bounded;
 
-    /// <summary>The concrete density, or <c>1f</c> when <see cref="IsUnbounded"/>.</summary>
+    /// <summary>
+    /// Gets the concrete density, or <c>1f</c> for <see cref="Unbounded"/> when a numeric fallback is required.
+    /// </summary>
+    /// <remarks>Check <see cref="IsUnbounded"/> before treating this value as a declared concrete supply.</remarks>
     public float Value => _bounded ? _value : 1f;
 }

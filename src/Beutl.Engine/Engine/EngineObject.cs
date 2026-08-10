@@ -374,9 +374,12 @@ public class EngineObject : Hierarchical, INotifyEdited
 
     public class Resource : IDisposable
     {
+        private readonly object _resourceOwnershipGate = new();
+        private int _disposeState;
+
         ~Resource()
         {
-            Dispose(false);
+            DisposeCore(false);
         }
 
         private EngineObject _original = null!;
@@ -385,7 +388,7 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         public bool IsEnabled { get; set; }
 
-        public bool IsDisposed { get; private set; }
+        public bool IsDisposed => Volatile.Read(ref _disposeState) != 0;
 
         public EngineObject GetOriginal() => _original;
 
@@ -419,6 +422,32 @@ public class EngineObject : Hierarchical, INotifyEdited
             {
                 Version++;
                 updateOnly = true;
+            }
+        }
+
+        /// <summary>
+        /// Replaces an owned nested resource only after the previous resource disposes successfully.
+        /// </summary>
+        /// <remarks>
+        /// Generated property setters use this seam to take exclusive ownership of the assigned value; callers must
+        /// not retain or share a non-null value after a successful assignment. Generated disposal also uses this
+        /// seam. If disposal of the previous value throws, the owning slot remains unchanged and the replacement is
+        /// not installed.
+        /// </remarks>
+        protected void SetOwnedResource<TResource>(
+            ref TResource? location,
+            TResource? value)
+            where TResource : Resource
+        {
+            lock (_resourceOwnershipGate)
+            {
+                ObjectDisposedException.ThrowIf(IsDisposed, this);
+                TResource? current = location;
+                if (ReferenceEquals(current, value))
+                    return;
+
+                current?.Dispose();
+                Interlocked.Exchange(ref location, value);
             }
         }
 
@@ -481,50 +510,72 @@ public class EngineObject : Hierarchical, INotifyEdited
         protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop,
             ref TResource? field, ref bool updateOnly) where TObject : EngineObject? where TResource : Resource
         {
-            var value = context.Get(prop);
-            if (value is null)
+            lock (_resourceOwnershipGate)
             {
-                if (field is not null)
+                ObjectDisposedException.ThrowIf(IsDisposed, this);
+                var value = context.Get(prop);
+                if (value is null)
                 {
-                    field.Dispose();
-                    field = null;
-                    if (!updateOnly)
+                    if (field is not null)
                     {
-                        Version++;
-                        updateOnly = true;
-                    }
-                }
-            }
-            else
-            {
-                if (field is null)
-                {
-                    field = (TResource)value.ToResource(context);
-                    if (!updateOnly)
-                    {
-                        Version++;
-                        updateOnly = true;
+                        SetOwnedResource(ref field, default);
+                        if (!updateOnly)
+                        {
+                            Version++;
+                            updateOnly = true;
+                        }
                     }
                 }
                 else
                 {
-                    if (field.GetOriginal() != value)
+                    if (field is null)
                     {
-                        var oldField = field;
-                        field = (TResource)value.ToResource(context);
-                        Version++;
-                        updateOnly = true;
-                        oldField.Dispose();
-                    }
-                    else
-                    {
-                        var oldVersion = field.Version;
-                        var _ = false;
-                        field.Update(value, context, ref _);
-                        if (!updateOnly && oldVersion != field.Version)
+                        SetOwnedResource(ref field, (TResource)value.ToResource(context));
+                        if (!updateOnly)
                         {
                             Version++;
                             updateOnly = true;
+                        }
+                    }
+                    else
+                    {
+                        if (field.GetOriginal() != value)
+                        {
+                            TResource replacement = (TResource)value.ToResource(context);
+                            try
+                            {
+                                SetOwnedResource(ref field, replacement);
+                            }
+                            catch (Exception primary)
+                            {
+                                try
+                                {
+                                    replacement.Dispose();
+                                }
+                                catch (Exception cleanup)
+                                {
+                                    throw new AggregateException(
+                                        "Nested-resource replacement and rejected-resource cleanup both failed.",
+                                        primary,
+                                        cleanup);
+                                }
+
+                                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+                                throw;
+                            }
+                            Version++;
+                            updateOnly = true;
+                        }
+                        else
+                        {
+                            var oldVersion = field.Version;
+                            var _ = false;
+                            field.Update(value, context, ref _);
+                            if (!updateOnly && oldVersion != field.Version)
+                            {
+                                Version++;
+                                updateOnly = true;
+                            }
                         }
                     }
                 }
@@ -537,11 +588,25 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         public void Dispose()
         {
-            if (IsDisposed) return;
+            DisposeCore(true);
+        }
 
-            Dispose(true);
-            IsDisposed = true;
-            GC.SuppressFinalize(this);
+        private void DisposeCore(bool disposing)
+        {
+            lock (_resourceOwnershipGate)
+            {
+                if (IsDisposed)
+                {
+                    return;
+                }
+
+                Dispose(disposing);
+                Volatile.Write(ref _disposeState, 1);
+                if (disposing)
+                {
+                    GC.SuppressFinalize(this);
+                }
+            }
         }
     }
 

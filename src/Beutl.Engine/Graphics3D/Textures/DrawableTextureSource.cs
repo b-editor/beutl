@@ -36,20 +36,54 @@ public sealed partial class DrawableTextureSource : TextureSource
         private int _lastHeight;
         private float _lastDensity = -1f;
 
+        internal Rect TextureDomain
+            => new(0, 0, TextureWidth, TextureHeight);
+
+        internal float ResolveDensity(float density)
+        {
+            float sanitizedDensity = float.IsFinite(density) && density > 0f ? density : 1f;
+            return RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+                TextureDomain,
+                sanitizedDensity);
+        }
+
+        internal DrawableRenderNode? RecordDrawable(float density)
+        {
+            if (Drawable is null || TextureWidth <= 0 || TextureHeight <= 0)
+                return null;
+
+            float sanitizedDensity = ResolveDensity(density);
+            _drawableNode ??= new DrawableRenderNode(Drawable);
+            _drawableNode.Update(Drawable);
+            using var context = new GraphicsContext2D(
+                _drawableNode,
+                new Size(TextureWidth, TextureHeight),
+                sanitizedDensity);
+            Drawable.GetOriginal().Render(context, Drawable);
+            return _drawableNode;
+        }
+
         public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)
         {
-            if (Drawable == null)
+            ArgumentNullException.ThrowIfNull(graphicsContext);
+            if (Drawable is null)
             {
                 DisposeRenderTarget();
                 return null;
             }
 
+            if (NestedRenderTargetBindingScope.TryGet(this, out NestedRenderTargetBinding nestedBinding))
+                return nestedBinding.GetTexture(TextureDomain, ResolveDensity(surfaceDensity));
+            if (RenderExecutionCallbackGuard.IsActive)
+            {
+                throw new InvalidOperationException(
+                    "A drawable texture used by a deferred render callback has no prepared nested target.");
+            }
+
             // Rasterize at surfaceDensity so vector content stays crisp.
             int textureWidth = TextureWidth;
             int textureHeight = TextureHeight;
-            float density = float.IsFinite(surfaceDensity) && surfaceDensity > 0f ? surfaceDensity : 1f;
-            density = RenderNodeContext.ClampWorkingScaleToBufferBudget(
-                new Rect(0, 0, textureWidth, textureHeight), density);
+            float density = ResolveDensity(surfaceDensity);
             int deviceWidth = Math.Max(1, (int)Math.Ceiling(textureWidth * (double)density));
             int deviceHeight = Math.Max(1, (int)Math.Ceiling(textureHeight * (double)density));
 
@@ -69,19 +103,26 @@ public sealed partial class DrawableTextureSource : TextureSource
             if (_renderTargetVersion != Version || _lastDensity != density)
             {
                 _lastDensity = density;
-                _drawableNode ??= new DrawableRenderNode(Drawable);
-                _drawableNode.Update(Drawable);
-                using (var context = new GraphicsContext2D(
-                           _drawableNode, new Size(textureWidth, textureHeight), density))
-                {
-                    Drawable.GetOriginal().Render(context, Drawable);
-                }
+                DrawableRenderNode drawableNode = RecordDrawable(density)
+                    ?? throw new InvalidOperationException("The drawable texture source became empty while rendering.");
 
-                var processor = new RenderNodeProcessor(_drawableNode, true, density, density);
+                using var renderer = new RenderNodeRenderer(
+                    drawableNode,
+                    new RenderNodeRendererOptions
+                    {
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            Intent = RenderIntent.Preview,
+                            TargetDomain = new Rect(0, 0, textureWidth, textureHeight),
+                            OutputScale = density,
+                            MaxWorkingScale = density,
+                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+                        },
+                    });
                 using (var canvas = new ImmediateCanvas(_renderTarget, density, density))
                 {
                     canvas.Clear();
-                    processor.Render(canvas);
+                    renderer.Render(canvas);
                 }
 
                 // Prepare for sampling (flush the surface)
@@ -101,6 +142,8 @@ public sealed partial class DrawableTextureSource : TextureSource
         partial void PostDispose(bool disposing)
         {
             DisposeRenderTarget();
+            _drawableNode?.Dispose();
+            _drawableNode = null;
         }
     }
 }

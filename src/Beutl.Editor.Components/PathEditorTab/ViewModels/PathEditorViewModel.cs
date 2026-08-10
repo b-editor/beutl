@@ -172,12 +172,12 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         var shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value));
         Avalonia.Matrix matrix = CalculateMatrix(shapeResource).ToAvaMatrix();
         if (matrix.TryInvert(out Avalonia.Matrix inverted)
-            && shapeResource is GeometryShape.Resource { Data: not null } geometryShapeResource
-            && context.Value.Value is PathGeometry geometry)
+            && shapeResource is GeometryShape.Resource { Data: PathGeometry.Resource pathData } geometryShapeResource
+            && context.Value.Value is PathGeometry)
         {
             point = inverted.Transform(point);
-            PathFigure.Resource? figure = geometry.HitTestFigure(
-                point.ToBtlPoint(), geometryShapeResource.Pen, geometryShapeResource.Data);
+            PathFigure.Resource? figure = pathData.HitTestFigure(
+                point.ToBtlPoint(), geometryShapeResource.Pen);
             if (figure != null)
             {
                 var figContext = context.FindPathFigureContext(figure.GetOriginal());

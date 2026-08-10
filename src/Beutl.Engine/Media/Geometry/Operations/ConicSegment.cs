@@ -29,12 +29,6 @@ public sealed partial class ConicSegment : PathSegment
     [Display(Name = nameof(GraphicsStrings.ConicSegment_Weight), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Weight { get; } = Property.CreateAnimatable<float>(1);
 
-    public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.ConicTo(r.ControlPoint, r.EndPoint, r.Weight);
-    }
-
     public override IProperty<Point> GetEndPoint()
     {
         return EndPoint;
@@ -42,6 +36,11 @@ public sealed partial class ConicSegment : PathSegment
 
     public partial class Resource
     {
+        public override void ApplyTo(IGeometryContext context)
+        {
+            context.ConicTo(ControlPoint, EndPoint, Weight);
+        }
+
         public override Point? GetEndPoint()
         {
             return EndPoint;

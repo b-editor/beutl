@@ -66,8 +66,7 @@ public static class AvaloniaTypeConverter
             r =>
             {
                 using var context = new GeometryContext();
-                var original = r.GetOriginal();
-                original.ApplyTo(context, r);
+                r.ApplyTo(context);
 
                 string svgPath = context.NativeObject.ToSvgPathData();
                 reactiveProperty.Value = Avalonia.Media.Geometry.Parse(svgPath);
@@ -276,8 +275,21 @@ public static class AvaloniaTypeConverter
                     _drawableBrush.Drawable.GetOriginal()!.Render(context, _drawableBrush.Drawable);
                 }
 
-                var processor = new RenderNodeProcessor(node, false);
-                using var bitmap = processor.RasterizeAndConcat();
+                var renderer = new RenderNodeRenderer(
+                    new DrawableRenderNode(_drawableBrush.Drawable),
+                    new RenderNodeRendererOptions
+                    {
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            Intent = RenderIntent.Preview,
+                            TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
+                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                        },
+                    });
+                using RenderNodeRasterization rasterization = renderer.Rasterize();
+                Media.Bitmap? bitmap = rasterization.Bitmap;
+                if (token.IsCancellationRequested || bitmap is null)
+                    return;
 
                 var previous = _bitmap;
                 var pixelSize = new PixelSize(bitmap.Width, bitmap.Height);

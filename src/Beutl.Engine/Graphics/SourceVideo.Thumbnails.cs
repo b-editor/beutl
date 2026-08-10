@@ -125,6 +125,7 @@ public partial class SourceVideo : IThumbnailsProvider
     {
         Resource? resource = null;
         DrawableRenderNode? node = null;
+        RenderNodeRenderer? renderer = null;
         try
         {
             resource = ToResource(preferProxy
@@ -168,7 +169,18 @@ public partial class SourceVideo : IThumbnailsProvider
             int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
 
             node = new DrawableRenderNode(resource);
-            var processor = new RenderNodeProcessor(node, false);
+            renderer = new RenderNodeRenderer(
+                node,
+                new RenderNodeRendererOptions
+                {
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Preview,
+                        TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
+                        OutputScale = 1,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                    },
+                });
 
             for (int i = effectiveStart; i <= effectiveEnd; i++)
             {
@@ -205,7 +217,8 @@ public partial class SourceVideo : IThumbnailsProvider
                         DrawInternal(gctx, resource);
                     }
 
-                    return processor.RasterizeAndConcat();
+                    using RenderNodeRasterization rasterization = renderer.Rasterize();
+                    return rasterization.Bitmap?.Clone();
                 }, DispatchPriority.Medium, cancellationToken);
 
                 if (thumbnail != null)
@@ -219,11 +232,60 @@ public partial class SourceVideo : IThumbnailsProvider
         }
         finally
         {
-            RenderThread.Dispatcher.Dispatch(() =>
+            await DisposeThumbnailRenderResourcesAsync(renderer, node, resource);
+        }
+    }
+
+    internal static Task DisposeThumbnailRenderResourcesAsync(params IDisposable?[] resources)
+        => DisposeThumbnailRenderResourcesAsync(RenderThread.Dispatcher, resources);
+
+    internal static async Task DisposeThumbnailRenderResourcesAsync(
+        Dispatcher dispatcher,
+        params IDisposable?[] resources)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(resources);
+        if (dispatcher.HasShutdownStarted)
+            return;
+
+        using var shutdownCancellation = new ShutdownCancellationRegistration();
+        void OnShutdownStarted(object? _, EventArgs __) => shutdownCancellation.Cancel();
+        dispatcher.ShutdownStarted += OnShutdownStarted;
+        try
+        {
+            if (dispatcher.HasShutdownStarted)
+                return;
+
+            try
             {
-                node?.Dispose();
-                resource?.Dispose();
-            }, ct: CancellationToken.None);
+                await dispatcher.InvokeAsync(() =>
+                {
+                    Exception? primary = null;
+                    foreach (IDisposable? resource in resources)
+                    {
+                        try
+                        {
+                            resource?.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            primary ??= ex;
+                        }
+                    }
+
+                    if (primary is not null)
+                        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+                }, ct: shutdownCancellation.Token);
+            }
+            catch (OperationCanceledException) when (dispatcher.HasShutdownStarted)
+            {
+                // Shutdown is terminal. A queued render-thread cleanup can no longer execute, so do
+                // not await it forever or dispose thread-affine resources from the caller thread.
+            }
+        }
+        finally
+        {
+            dispatcher.ShutdownStarted -= OnShutdownStarted;
         }
     }
 
@@ -252,5 +314,76 @@ public partial class SourceVideo : IThumbnailsProvider
             return 0;
 
         return (int)raw;
+    }
+
+    private sealed class ShutdownCancellationRegistration : IDisposable
+    {
+        private readonly object _gate = new();
+        private CancellationTokenSource? _source = new();
+        private int _activeCancellations;
+        private bool _disposeRequested;
+
+        public CancellationToken Token
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _source?.Token
+                           ?? throw new ObjectDisposedException(nameof(ShutdownCancellationRegistration));
+                }
+            }
+        }
+
+        public void Cancel()
+        {
+            CancellationTokenSource? source;
+            lock (_gate)
+            {
+                source = _source;
+                if (source is null)
+                    return;
+                _activeCancellations++;
+            }
+
+            try
+            {
+                source.Cancel();
+            }
+            finally
+            {
+                CancellationTokenSource? dispose = null;
+                lock (_gate)
+                {
+                    _activeCancellations--;
+                    if (_disposeRequested && _activeCancellations == 0)
+                    {
+                        dispose = _source;
+                        _source = null;
+                    }
+                }
+
+                dispose?.Dispose();
+            }
+        }
+
+        public void Dispose()
+        {
+            CancellationTokenSource? dispose = null;
+            lock (_gate)
+            {
+                if (_disposeRequested)
+                    return;
+
+                _disposeRequested = true;
+                if (_activeCancellations == 0)
+                {
+                    dispose = _source;
+                    _source = null;
+                }
+            }
+
+            dispose?.Dispose();
+        }
     }
 }

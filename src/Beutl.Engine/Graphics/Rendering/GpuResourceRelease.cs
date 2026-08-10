@@ -31,14 +31,54 @@ internal static class GpuResourceRelease
             return;
         }
 
-        int claimed = 0;
         int started = 0;
+        Action? pendingRelease = release;
+        EventHandler? shutdownHandler = null;
+        void RemoveShutdownHandler()
+        {
+            EventHandler? handler = Interlocked.Exchange(ref shutdownHandler, null);
+            if (handler is not null)
+            {
+                dispatcher.ShutdownFinished -= handler;
+            }
+        }
+
         void Once()
         {
             Volatile.Write(ref started, 1);
-            if (Interlocked.Exchange(ref claimed, 1) == 0)
+            Action? claimedRelease = Interlocked.Exchange(ref pendingRelease, null);
+            if (claimedRelease is null)
             {
-                release();
+                return;
+            }
+
+            RemoveShutdownHandler();
+            claimedRelease();
+        }
+
+        void RegisterShutdownFallback()
+        {
+            EventHandler handler = (_, _) =>
+            {
+                try
+                {
+                    Once();
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogWarning(ex, "A GPU resource release failed after dispatcher shutdown");
+                }
+            };
+            dispatcher.ShutdownFinished += handler;
+            if (Interlocked.CompareExchange(ref shutdownHandler, handler, null) is not null)
+            {
+                dispatcher.ShutdownFinished -= handler;
+                return;
+            }
+
+            if (Volatile.Read(ref pendingRelease) is null)
+            {
+                RemoveShutdownHandler();
             }
         }
 
@@ -84,6 +124,13 @@ internal static class GpuResourceRelease
             return;
         }
 
+        RegisterShutdownFallback();
+        if (dispatcher.HasShutdownFinished)
+        {
+            Once();
+            return;
+        }
+
         s_logger.LogDebug(
             "GPU resource release is still queued after {Deadline}; leaving it to the render thread.",
             s_deadline);
@@ -96,5 +143,136 @@ internal static class GpuResourceRelease
             CancellationToken.None,
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
+    }
+
+    public static void RunRequired(Dispatcher dispatcher, Action operation)
+        => RunRequired(dispatcher, () =>
+        {
+            operation();
+            return true;
+        });
+
+    public static T RunRequired<T>(Dispatcher dispatcher, Func<T> operation)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(operation);
+
+        if (dispatcher.HasShutdownStarted)
+        {
+            throw new InvalidOperationException("The render dispatcher is shutting down.");
+        }
+
+        if (dispatcher.CheckAccess())
+        {
+            return operation();
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        int claim = 0;
+        Func<T>? pendingOperation = operation;
+        Task<T> queued = dispatcher.InvokeAsync(() =>
+        {
+            if (Interlocked.CompareExchange(ref claim, 1, 0) != 0)
+            {
+                return default!;
+            }
+
+            Func<T> claimedOperation = Interlocked.Exchange(ref pendingOperation, null)!;
+            return claimedOperation();
+        }, ct: cancellation.Token);
+
+        while (true)
+        {
+            if (((IAsyncResult)queued).AsyncWaitHandle.WaitOne(s_slice))
+            {
+                return queued.GetAwaiter().GetResult();
+            }
+
+            if (Volatile.Read(ref claim) == 1)
+            {
+                return queued.GetAwaiter().GetResult();
+            }
+
+            if (dispatcher.HasShutdownStarted)
+            {
+                if (Interlocked.CompareExchange(ref claim, 2, 0) != 0)
+                {
+                    return queued.GetAwaiter().GetResult();
+                }
+
+                Interlocked.Exchange(ref pendingOperation, null);
+                cancellation.Cancel();
+                throw new InvalidOperationException("The render dispatcher shut down before the operation started.");
+            }
+        }
+    }
+
+    public static void DispatchFinalizer(Dispatcher? dispatcher, Action release)
+    {
+        ArgumentNullException.ThrowIfNull(release);
+
+        if (dispatcher is null || dispatcher.CheckAccess() || dispatcher.HasShutdownFinished)
+        {
+            ReleaseFromFinalizer(release);
+            return;
+        }
+
+        Action? pendingRelease = release;
+        EventHandler? shutdownHandler = null;
+        void Once()
+        {
+            Action? claimedRelease = Interlocked.Exchange(ref pendingRelease, null);
+            if (claimedRelease is null)
+            {
+                return;
+            }
+
+            if (shutdownHandler is not null)
+            {
+                dispatcher.ShutdownFinished -= shutdownHandler;
+                shutdownHandler = null;
+            }
+
+            ReleaseFromFinalizer(claimedRelease);
+        }
+
+        shutdownHandler = (_, _) => Once();
+        dispatcher.ShutdownFinished += shutdownHandler;
+
+        if (dispatcher.HasShutdownFinished)
+        {
+            Once();
+            return;
+        }
+
+        if (dispatcher.HasShutdownStarted)
+        {
+            return;
+        }
+
+        try
+        {
+            dispatcher.Dispatch(Once, ct: CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogDebug(ex, "Could not dispatch finalizer-driven GPU resource cleanup");
+            if (dispatcher.HasShutdownFinished)
+            {
+                Once();
+            }
+        }
+    }
+
+    private static void ReleaseFromFinalizer(Action release)
+    {
+        try
+        {
+            release();
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogDebug(ex, "Finalizer-driven GPU resource cleanup failed");
+        }
     }
 }
