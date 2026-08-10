@@ -10,7 +10,7 @@ public class DetachedResourceTests
     [Test]
     public void ToBrushResource_ProducesADetachedResource()
     {
-        SolidColorBrush.Resource resource = Colors.Red.ToBrushResource();
+        using SolidColorBrush.Resource resource = Colors.Red.ToBrushResource();
 
         Assert.Multiple(() =>
         {
@@ -22,7 +22,7 @@ public class DetachedResourceTests
     [Test]
     public void RequireOriginal_OnADetachedResource_Throws()
     {
-        SolidColorBrush.Resource resource = Colors.Red.ToBrushResource();
+        using SolidColorBrush.Resource resource = Colors.Red.ToBrushResource();
 
         Assert.That(resource.RequireOriginal, Throws.InstanceOf<InvalidOperationException>());
     }
