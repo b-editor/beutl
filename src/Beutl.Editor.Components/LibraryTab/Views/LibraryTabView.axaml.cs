@@ -25,6 +25,7 @@ public sealed partial class LibraryTabView : UserControl
         (Icon.Search, Strings.Search, "Search", () => new SearchView()),
         (Icon.BezierCurveSquare, Strings.Easings, "Easings", () => new EasingsView()),
         (Icon.Library, Strings.Library, "Library", () => new LibraryView()),
+        (Icon.ImageMultiple, Strings.Materials, "Materials", () => new MaterialsView()),
         (Icon.Flow, Strings.NodeGraph, "Nodes", () => new NodesView()),
     ];
 

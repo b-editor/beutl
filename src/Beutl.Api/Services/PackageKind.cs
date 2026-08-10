@@ -1,4 +1,4 @@
-namespace Beutl.Api.Services;
+﻿namespace Beutl.Api.Services;
 
 /// <summary>
 /// What a store package delivers.

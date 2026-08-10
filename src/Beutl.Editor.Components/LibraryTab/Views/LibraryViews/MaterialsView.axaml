@@ -1,0 +1,31 @@
+<UserControl x:Class="Beutl.Editor.Components.LibraryTab.Views.LibraryViews.MaterialsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.Editor.Components.LibraryTab.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModel:LibraryTabViewModel"
+             mc:Ignorable="d">
+    <Panel>
+        <TextBlock Margin="8"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   IsVisible="{Binding !Materials.Count}"
+                   Text="{x:Static lang:Strings.NoMaterialsInstalled}"
+                   TextWrapping="Wrap" />
+
+        <TreeView x:Name="MaterialTree"
+                  ItemsSource="{Binding Materials}"
+                  SelectionMode="Single">
+            <TreeView.ItemTemplate>
+                <TreeDataTemplate x:DataType="viewModel:MaterialItemViewModel" ItemsSource="{Binding Children}">
+                    <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}" />
+                </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+    </Panel>
+</UserControl>

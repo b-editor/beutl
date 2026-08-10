@@ -70,7 +70,13 @@ public sealed class FontManager
             return Typeface.FromSKTypeface(sk);
         }
 
-        _fontDirs = [.. GlobalConfiguration.Instance.FontConfig.FontDirectories];
+        // A material package installs its fonts under the home directory, which is not one
+        // of the OS font directories the user configures.
+        _fontDirs =
+        [
+            .. GlobalConfiguration.Instance.FontConfig.FontDirectories,
+            BeutlEnvironment.GetMaterialsDirectoryPath()
+        ];
         var list = new List<SKTypeface>();
 
         foreach (string file in _fontDirs

@@ -1,4 +1,4 @@
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 using Beutl.Api.Services;
 using Reactive.Bindings;
 
