@@ -22,7 +22,7 @@ public sealed class DrawableResourceRenderTests
         using var node = new DrawableRenderNode(attached);
         using (var context = new GraphicsContext2D(node, new Size(64, 64)))
         {
-            attached.GetOriginal()!.Render(context, attached);
+            attached.RequireOriginal().Render(context, attached);
         }
 
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest

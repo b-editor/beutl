@@ -293,7 +293,7 @@ public partial class GroupNode : GraphNode
 
         public override void Initialize(GraphCompositionContext context)
         {
-            var node = GetOriginal()!;
+            var node = RequireOriginal();
             node.Group.TopologyChanged += OnGroupTopologyChanged;
             _innerSnapshot = new GraphSnapshot();
             _innerSnapshot.Build(node.Group, context);
@@ -308,7 +308,7 @@ public partial class GroupNode : GraphNode
 
         public override void Uninitialize()
         {
-            var node = GetOriginal()!;
+            var node = RequireOriginal();
             node.Group.TopologyChanged -= OnGroupTopologyChanged;
             _innerSnapshot?.Dispose();
             _innerSnapshot = null;
@@ -318,7 +318,7 @@ public partial class GroupNode : GraphNode
 
         public override void Update(GraphCompositionContext context)
         {
-            var node = GetOriginal()!;
+            var node = RequireOriginal();
             if (_innerSnapshot == null) return;
 
             // GroupNodeの入力値からGroupInputの出力値に転送

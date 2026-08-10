@@ -452,7 +452,7 @@ public static class AvaloniaTypeConverter
                 // TODO: UI側の物理的なサイズをもとに描画するように変更する
                 using (var context = new GraphicsContext2D(node, new Graphics.Size(1920, 1080)))
                 {
-                    _drawableBrush.Drawable.GetOriginal()!.Render(context, _drawableBrush.Drawable);
+                    _drawableBrush.Drawable.RequireOriginal().Render(context, _drawableBrush.Drawable);
                 }
 
                 using var renderer = new RenderNodeRenderer(

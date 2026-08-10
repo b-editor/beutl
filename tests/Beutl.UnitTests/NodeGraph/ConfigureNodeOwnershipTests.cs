@@ -228,14 +228,14 @@ internal sealed partial class FanOutConsumerNode : ConfigureNode
                 OutputPort = output;
             }
 
-            GetOriginal()!.OutputContainer = output;
+            RequireOriginal().OutputContainer = output;
         }
 
         partial void PostDispose(bool disposing)
         {
             OutputPort?.Dispose();
             OutputPort = null;
-            GetOriginal()!.OutputContainer = null;
+            RequireOriginal().OutputContainer = null;
         }
     }
 }
@@ -255,14 +255,14 @@ internal sealed partial class OwnedRenderNodeSource : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            OwnedRenderNodeSource source = GetOriginal()!;
+            OwnedRenderNodeSource source = RequireOriginal();
             Output = source.RenderNode;
         }
 
         partial void PostDispose(bool disposing)
         {
             if (disposing)
-                GetOriginal()!.RenderNode.Dispose();
+                RequireOriginal().RenderNode.Dispose();
         }
     }
 }
@@ -295,14 +295,14 @@ internal sealed partial class MutableOwnedRenderNodeSource : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            Output = GetOriginal()!.Current;
+            Output = RequireOriginal().Current;
         }
 
         partial void PostDispose(bool disposing)
         {
             if (!disposing) return;
 
-            foreach (TrackingRenderNode node in GetOriginal()!._ownedNodes)
+            foreach (TrackingRenderNode node in RequireOriginal()._ownedNodes)
             {
                 node.Dispose();
             }

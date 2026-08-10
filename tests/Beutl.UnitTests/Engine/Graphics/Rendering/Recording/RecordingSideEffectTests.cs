@@ -531,8 +531,8 @@ public sealed class RecordingSideEffectTests
     {
         if (invokedName != "Render"
             || invocation.Expression is not MemberAccessExpressionSyntax member
-            || Unsuppress(member.Expression) is not InvocationExpressionSyntax getOriginal
-            || GetInvokedName(getOriginal) is not "GetOriginal"
+            || Unsuppress(member.Expression) is not InvocationExpressionSyntax resourceAccessor
+            || GetInvokedName(resourceAccessor) is not "GetOriginal" and not "RequireOriginal"
             || invocation.ArgumentList.Arguments.Count < 1)
         {
             return false;
@@ -549,8 +549,8 @@ public sealed class RecordingSideEffectTests
                     .ValueText == "GraphicsContext2D") == true;
     }
 
-    // GetOriginal() is nullable, so a call site that knows its resource is attached writes GetOriginal()!,
-    // which wraps the invocation in a suppression before the member access reaches it.
+    // GetOriginal() is nullable and may be wrapped in a suppression before the member access reaches it.
+    // RequireOriginal() is non-nullable, so the same normalization also accepts it without a suppression.
     private static ExpressionSyntax Unsuppress(ExpressionSyntax expression)
         => expression is PostfixUnaryExpressionSyntax
         {
