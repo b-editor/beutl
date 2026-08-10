@@ -135,7 +135,7 @@ public sealed class FFmpegReaderProxy : MediaReader
         // SampleRate(1秒分)を超える場合はリクエストを分割
         if (length > sampleRate)
         {
-            return ReadAudioChunked(start, length, sampleRate, out sound);
+            return ReadAudioChunked(start, length, sampleRate, sampleRate, out sound);
         }
 
         return ReadAudioCore(start, length, out sound);
@@ -171,9 +171,9 @@ public sealed class FFmpegReaderProxy : MediaReader
         }
     }
 
-    private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    private bool ReadAudioChunked(int start, int length, int chunkSize, int sampleRate, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
-        var scratch = new Pcm<Stereo32BitFloat>(chunkSize, length);
+        var scratch = new Pcm<Stereo32BitFloat>(sampleRate, length);
         try
         {
             int offset = 0;
@@ -210,7 +210,7 @@ public sealed class FFmpegReaderProxy : MediaReader
             {
                 // Trim the trailing over-allocation so callers see the real decoded length
                 // (NumSamples == offset), not a zero-filled tail.
-                var trimmed = new Pcm<Stereo32BitFloat>(chunkSize, offset);
+                var trimmed = new Pcm<Stereo32BitFloat>(sampleRate, offset);
                 scratch.DataSpan.Slice(0, offset).CopyTo(trimmed.DataSpan);
                 scratch.Dispose();
                 sound = Ref<IPcm>.Create(trimmed);

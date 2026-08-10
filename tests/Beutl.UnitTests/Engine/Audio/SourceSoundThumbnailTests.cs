@@ -202,6 +202,26 @@ public class SourceSoundThumbnailTests
             "音声トラックのないソースは波形チャンクを生成しない (#2183)");
     }
 
+    // Regression for #2183: a reader that reports HasAudio but whose AudioInfo getter throws (the old
+    // FFmpegReaderProxy behavior) must not leak the exception out of TryGetOriginalDuration.
+    [Test]
+    public void TryGetOriginalDuration_AudioInfoGetterThrows_ReturnsFalseWithoutThrowing()
+    {
+        string path = TestMediaHelper.CreateTestThrowingAudioFile();
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(path));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = soundSource }
+        };
+
+        bool result = sound.TryGetOriginalDuration(out TimeSpan duration);
+
+        Assert.That(result, Is.False,
+            "AudioInfo が例外を投げるソースでも TryGetOriginalDuration は例外を漏らさない (#2183)");
+        Assert.That(duration, Is.EqualTo(TimeSpan.Zero));
+    }
+
     private static async Task<List<WaveformChunk>> CollectAsync(
         SourceSound sound, int chunkCount, int samplesPerChunk, IThumbnailCacheService cache)
     {

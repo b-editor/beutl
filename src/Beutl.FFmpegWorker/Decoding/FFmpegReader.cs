@@ -218,7 +218,7 @@ public sealed class FFmpegReader : MediaReader
                 // SampleConverterの設定
                 _sampleConverter.SetOpts(
                     AV_CHANNEL_LAYOUT_STEREO,
-                    AudioInfo.SampleRate,
+                    audioInfo.SampleRate,
                     AVSampleFormat.AV_SAMPLE_FMT_FLT,
                     _currentAudioFrame.NbSamples);
 

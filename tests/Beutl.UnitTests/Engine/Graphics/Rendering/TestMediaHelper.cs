@@ -102,6 +102,18 @@ internal static class TestMediaHelper
 
         return (int.Parse(match.Groups[1].Value), int.Parse(match.Groups[2].Value), int.Parse(match.Groups[3].Value));
     }
+
+    public static string CreateTestThrowingAudioFile()
+    {
+        var fileName = "test-throwing-audio.testthrowingaudio";
+        var filePath = Path.Combine(Path.GetTempPath(), fileName);
+        if (!File.Exists(filePath))
+        {
+            File.WriteAllBytes(filePath, []);
+        }
+
+        return filePath;
+    }
 }
 
 internal sealed class TestDecoderInfo : IDecoderInfo
@@ -116,6 +128,11 @@ internal sealed class TestDecoderInfo : IDecoderInfo
             return new TestAudioReader(rate, channels, TimeSpan.FromMilliseconds(ms));
         }
 
+        if (Path.GetExtension(file).Equals(".testthrowingaudio", StringComparison.OrdinalIgnoreCase))
+        {
+            return new TestThrowingAudioReader();
+        }
+
         if (!IsSupported(file))
             return null;
 
@@ -127,7 +144,8 @@ internal sealed class TestDecoderInfo : IDecoderInfo
     {
         var ext = Path.GetExtension(file);
         return ext.Equals(".testvideo", StringComparison.OrdinalIgnoreCase)
-            || ext.Equals(".testaudio", StringComparison.OrdinalIgnoreCase);
+            || ext.Equals(".testaudio", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".testthrowingaudio", StringComparison.OrdinalIgnoreCase);
     }
 
     public IEnumerable<string> VideoExtensions() => [".testvideo"];
@@ -239,5 +257,36 @@ internal sealed class TestAudioReader : MediaReader
 
         sound = Ref<IPcm>.Create(pcm);
         return true;
+    }
+}
+
+// Reports HasAudio but throws from the AudioInfo getter (old FFmpegReaderProxy behavior).
+internal sealed class TestThrowingAudioReader : MediaReader
+{
+    private readonly VideoStreamInfo _videoInfo;
+
+    public TestThrowingAudioReader()
+    {
+        _videoInfo = new VideoStreamInfo("test", 0, default, new Rational(1, 1));
+    }
+
+    public override VideoStreamInfo VideoInfo => _videoInfo;
+
+    public override AudioStreamInfo? AudioInfo => throw new Exception("The stream does not exist.");
+
+    public override bool HasVideo => false;
+
+    public override bool HasAudio => true;
+
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    {
+        image = null;
+        return false;
+    }
+
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    {
+        sound = null;
+        return false;
     }
 }
