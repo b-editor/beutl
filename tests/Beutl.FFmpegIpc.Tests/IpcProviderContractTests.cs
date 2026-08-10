@@ -822,6 +822,60 @@ public class IpcProviderContractTests
     }
 
     [Test]
+    public async Task RenderFrame_AfterDispose_ThrowsObjectDisposedException()
+    {
+        // A render issued after Dispose must be rejected by the _disposed guard (the cross-thread teardown signal).
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFrameServingHost(server, buffers, new List<long>(), new object(), hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
+
+        try
+        {
+            provider.Dispose();
+
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<ObjectDisposedException>(),
+                "a render after Dispose must be rejected by the _disposed guard");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task Sample_AfterDispose_ThrowsObjectDisposedException()
+    {
+        // Mirror of the frame-side guard: a sample issued after Dispose must be rejected by the _disposed guard.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunSampleServingHost(server, buffers, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 4, sampleRate: 4);
+
+        try
+        {
+            provider.Dispose();
+
+            Assert.That(async () => await provider.Sample(0, 4),
+                Throws.TypeOf<ObjectDisposedException>(),
+                "a sample after Dispose must be rejected by the _disposed guard");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
     public async Task RenderFrame_WhenHostCancels_ThrowsOperationCanceled()
     {
         var (server, client) = ConnectPair();
