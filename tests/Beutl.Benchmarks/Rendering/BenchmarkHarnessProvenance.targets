@@ -1,0 +1,196 @@
+<Project>
+  <UsingTask TaskName="ResolveBenchmarkHarnessImportedProjects"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ProjectPath ParameterType="System.String" Required="true" />
+      <ToolsVersion ParameterType="System.String" Required="true" />
+      <Configuration ParameterType="System.String" Required="true" />
+      <TargetFramework ParameterType="System.String" />
+      <BaselineEngineProject ParameterType="System.String" />
+      <ArtifactsPath ParameterType="System.String" />
+      <BaseOutputPath ParameterType="System.String" />
+      <BaseIntermediateOutputPath ParameterType="System.String" />
+      <ImportPaths ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.Collections" />
+      <Using Namespace="System.Collections.Generic" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Reflection" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var globalProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in ((Microsoft.Build.Framework.IBuildEngine6)BuildEngine).GetGlobalProperties())
+        {
+            globalProperties[pair.Key] = pair.Value;
+        }
+
+        Assembly buildAssembly = AppDomain.CurrentDomain.GetAssemblies()
+            .SingleOrDefault(assembly => assembly.GetName().Name == "Microsoft.Build")
+            ?? Assembly.Load("Microsoft.Build");
+        Type projectCollectionType = buildAssembly.GetType(
+            "Microsoft.Build.Evaluation.ProjectCollection",
+            throwOnError: true);
+        Type projectType = buildAssembly.GetType(
+            "Microsoft.Build.Evaluation.Project",
+            throwOnError: true);
+        Type projectLoadSettingsType = buildAssembly.GetType(
+            "Microsoft.Build.Evaluation.ProjectLoadSettings",
+            throwOnError: true);
+        object projectLoadSettings = Enum.Parse(
+            projectLoadSettingsType,
+            "RecordDuplicateButNotCircularImports");
+        object projectCollection = Activator.CreateInstance(projectCollectionType);
+        try
+        {
+            ConstructorInfo projectConstructor = projectType.GetConstructor(
+                new[]
+                {
+                    typeof(string),
+                    typeof(IDictionary<string, string>),
+                    typeof(string),
+                    projectCollectionType,
+                    projectLoadSettingsType,
+                });
+            if (projectConstructor == null)
+            {
+                Log.LogError("The current MSBuild host does not expose the required Project evaluation constructor.");
+                return false;
+            }
+
+            object project = projectConstructor.Invoke(
+                new object[]
+                {
+                    ProjectPath,
+                    globalProperties,
+                    ToolsVersion,
+                    projectCollection,
+                    projectLoadSettings,
+                });
+            MethodInfo getPropertyValue = projectType.GetMethod(
+                "GetPropertyValue",
+                new[] { typeof(string) });
+            var expectedProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Configuration"] = Configuration,
+                ["TargetFramework"] = TargetFramework ?? string.Empty,
+                ["BaselineEngineProject"] = BaselineEngineProject ?? string.Empty,
+                ["ArtifactsPath"] = ArtifactsPath ?? string.Empty,
+                ["BaseOutputPath"] = BaseOutputPath ?? string.Empty,
+                ["BaseIntermediateOutputPath"] = BaseIntermediateOutputPath ?? string.Empty,
+            };
+            foreach (var pair in expectedProperties)
+            {
+                string evaluated = (string)getPropertyValue.Invoke(project, new object[] { pair.Key });
+                if (!string.Equals(evaluated, pair.Value, StringComparison.Ordinal))
+                {
+                    Log.LogError(
+                        $"Benchmark harness import evaluation changed {pair.Key}: " +
+                        $"current='{pair.Value}', reevaluated='{evaluated}'.");
+                }
+            }
+
+            var importPaths = new List<Microsoft.Build.Framework.ITaskItem>();
+            var imports = (IEnumerable)projectType
+                .GetProperty("ImportsIncludingDuplicates")
+                .GetValue(project);
+            foreach (object import in imports)
+            {
+                object importedProject = import.GetType()
+                    .GetProperty("ImportedProject")
+                    .GetValue(import);
+                string fullPath = (string)importedProject.GetType()
+                    .GetProperty("FullPath")
+                    .GetValue(importedProject);
+                importPaths.Add(new Microsoft.Build.Utilities.TaskItem(fullPath));
+            }
+
+            ImportPaths = importPaths.ToArray();
+        }
+        finally
+        {
+            projectCollectionType.GetMethod("UnloadAllProjects")
+                .Invoke(projectCollection, Array.Empty<object>());
+            ((IDisposable)projectCollection).Dispose();
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <PropertyGroup>
+    <BenchmarkHarnessProvenanceTargetsPath>$(MSBuildThisFileFullPath)</BenchmarkHarnessProvenanceTargetsPath>
+  </PropertyGroup>
+
+  <Target Name="GenerateBenchmarkHarnessBuildInputProvenance" BeforeTargets="GetAssemblyAttributes">
+    <Error Condition="'$(RootDirectory)' == ''"
+           Text="RootDirectory is required to capture benchmark harness build provenance." />
+
+    <ResolveBenchmarkHarnessImportedProjects
+        ProjectPath="$(MSBuildProjectFullPath)"
+        ToolsVersion="$(MSBuildToolsVersion)"
+        Configuration="$(Configuration)"
+        TargetFramework="$(TargetFramework)"
+        BaselineEngineProject="$(BaselineEngineProject)"
+        ArtifactsPath="$(ArtifactsPath)"
+        BaseOutputPath="$(BaseOutputPath)"
+        BaseIntermediateOutputPath="$(BaseIntermediateOutputPath)">
+      <Output TaskParameter="ImportPaths" ItemName="_BenchmarkHarnessImportedBuildInput" />
+    </ResolveBenchmarkHarnessImportedProjects>
+
+    <PropertyGroup>
+      <_BenchmarkHarnessIntermediateRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)'))</_BenchmarkHarnessIntermediateRoot>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_BenchmarkHarnessBuildInput Include="$(MSBuildProjectFullPath)" />
+      <_BenchmarkHarnessBuildInput Include="@(_BenchmarkHarnessImportedBuildInput)"
+                                   Condition="Exists('%(_BenchmarkHarnessImportedBuildInput.FullPath)') And $([System.String]::Copy('%(_BenchmarkHarnessImportedBuildInput.FullPath)').StartsWith('$(RootDirectory)')) And !$([System.String]::Copy('%(_BenchmarkHarnessImportedBuildInput.FullPath)').StartsWith('$(_BenchmarkHarnessIntermediateRoot)'))" />
+      <_BenchmarkHarnessBuildInput Include="@(Compile)"
+                                   Condition="Exists('%(Compile.FullPath)') And $([System.String]::Copy('%(Compile.FullPath)').StartsWith('$(RootDirectory)')) And !$([System.String]::Copy('%(Compile.FullPath)').StartsWith('$(_BenchmarkHarnessIntermediateRoot)'))" />
+      <_BenchmarkHarnessBuildInput Include="@(None)"
+                                   Condition="Exists('%(None.FullPath)') And $([System.String]::Copy('%(None.FullPath)').StartsWith('$(RootDirectory)')) And !$([System.String]::Copy('%(None.FullPath)').StartsWith('$(_BenchmarkHarnessIntermediateRoot)'))" />
+      <_BenchmarkHarnessBuildInput Include="@(Content)"
+                                   Condition="Exists('%(Content.FullPath)') And $([System.String]::Copy('%(Content.FullPath)').StartsWith('$(RootDirectory)')) And !$([System.String]::Copy('%(Content.FullPath)').StartsWith('$(_BenchmarkHarnessIntermediateRoot)'))" />
+      <_BenchmarkHarnessBuildInput Include="@(EmbeddedResource)"
+                                   Condition="Exists('%(EmbeddedResource.FullPath)') And $([System.String]::Copy('%(EmbeddedResource.FullPath)').StartsWith('$(RootDirectory)')) And !$([System.String]::Copy('%(EmbeddedResource.FullPath)').StartsWith('$(_BenchmarkHarnessIntermediateRoot)'))" />
+      <_BenchmarkHarnessBuildInput Include="$(DirectoryBuildPropsPath)"
+                                   Condition="'$(DirectoryBuildPropsPath)' != '' And Exists('$(DirectoryBuildPropsPath)')" />
+      <_BenchmarkHarnessBuildInput Include="$(DirectoryBuildTargetsPath)"
+                                   Condition="'$(DirectoryBuildTargetsPath)' != '' And Exists('$(DirectoryBuildTargetsPath)')" />
+      <_BenchmarkHarnessBuildInput Include="$(DirectoryPackagesPropsPath)"
+                                   Condition="'$(DirectoryPackagesPropsPath)' != '' And Exists('$(DirectoryPackagesPropsPath)')" />
+      <_BenchmarkHarnessBuildInput Include="$(RootDirectory)Directory.Build.props"
+                                   Condition="Exists('$(RootDirectory)Directory.Build.props')" />
+      <_BenchmarkHarnessBuildInput Include="$(RootDirectory)Directory.Build.targets"
+                                   Condition="Exists('$(RootDirectory)Directory.Build.targets')" />
+      <_BenchmarkHarnessBuildInput Include="$(RootDirectory)Directory.Packages.props"
+                                   Condition="Exists('$(RootDirectory)Directory.Packages.props')" />
+      <_BenchmarkHarnessBuildInput Include="$(RootDirectory)global.json"
+                                   Condition="Exists('$(RootDirectory)global.json')" />
+      <_BenchmarkHarnessBuildInput Include="$(RootDirectory)NuGet.Config"
+                                   Condition="Exists('$(RootDirectory)NuGet.Config')" />
+      <_BenchmarkHarnessBuildInput Include="$(RootDirectory)nuget.config"
+                                   Condition="Exists('$(RootDirectory)nuget.config')" />
+      <_BenchmarkHarnessBuildInput Include="$(BenchmarkHarnessProvenanceTargetsPath)" />
+    </ItemGroup>
+
+    <RemoveDuplicates Inputs="@(_BenchmarkHarnessBuildInput)">
+      <Output TaskParameter="Filtered" ItemName="_UniqueBenchmarkHarnessBuildInput" />
+    </RemoveDuplicates>
+    <GetFileHash Files="@(_UniqueBenchmarkHarnessBuildInput)" Algorithm="SHA256" HashEncoding="hex">
+      <Output TaskParameter="Items" ItemName="_HashedBenchmarkHarnessBuildInput" />
+    </GetFileHash>
+
+    <ItemGroup>
+      <_HashedBenchmarkHarnessBuildInput>
+        <RepositoryRelativePath>$([MSBuild]::MakeRelative('$(RootDirectory)', '%(FullPath)').Replace('\', '/'))</RepositoryRelativePath>
+      </_HashedBenchmarkHarnessBuildInput>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute"
+                         Condition="!$([System.String]::Copy('%(_HashedBenchmarkHarnessBuildInput.RepositoryRelativePath)').StartsWith('../'))">
+        <_Parameter1>BeutlBenchmarkHarnessBuildInputSha256</_Parameter1>
+        <_Parameter2>%(_HashedBenchmarkHarnessBuildInput.RepositoryRelativePath)|%(_HashedBenchmarkHarnessBuildInput.FileHash)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+</Project>

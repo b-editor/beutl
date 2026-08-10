@@ -1,0 +1,1 @@
+dotnet run -c Release --artifacts-path /var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T//beutl-gpu-pass-benchmark-build.y3zQnH/feature --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- --filter '*RenderPipelineBenchmarks*'

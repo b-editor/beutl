@@ -1,0 +1,679 @@
+{
+  "allocationComparisons": {
+    "delivery": {
+      "dimensionsMatch": false,
+      "featureDimensions": "174x94",
+      "targetDimensions": "172x92"
+    },
+    "preview": {
+      "dimensionsMatch": false,
+      "featureDimensions": "174x94",
+      "targetDimensions": "172x92"
+    }
+  },
+  "allocationFailures": {
+    "delivery": {
+      "exceptionType": "System.InvalidOperationException",
+      "injectionPoint": "next EffectMaterialization RenderTarget.Create",
+      "intent": "delivery",
+      "maxWorkingScale": "+Infinity",
+      "outcome": "threw"
+    },
+    "preview": {
+      "exceptionType": null,
+      "injectionPoint": "next EffectMaterialization RenderTarget.Create",
+      "intent": "preview",
+      "maxWorkingScale": "2",
+      "outcome": "dropped-output-without-throw"
+    }
+  },
+  "allocationOutputContracts": {
+    "delivery": {
+      "feature": {
+        "exceptionMessage": "The render-target factory could not allocate 174x94 pixels.",
+        "failedAllocationHeight": 94,
+        "failedAllocationWidth": 174,
+        "outputBitmapHeight": null,
+        "outputBitmapWidth": null,
+        "outputBounds": null,
+        "outputIsEmpty": null,
+        "outputNonFiniteComponents": null,
+        "outputNonZeroComponents": null,
+        "outputScale": null,
+        "outputSha256": null,
+        "requestSucceeded": false,
+        "targetFactoryCreateCalls": 2
+      },
+      "targetExceptionMessage": "Effect flush buffer allocation failed (172x92 px, w 1, bounds 10, 8, 172, 92).",
+      "targetOutputSchema": "legacy-outcome-only",
+      "targetRequestSucceeded": false
+    },
+    "preview": {
+      "feature": {
+        "exceptionMessage": null,
+        "failedAllocationHeight": 94,
+        "failedAllocationWidth": 174,
+        "outputBitmapHeight": 102,
+        "outputBitmapWidth": 182,
+        "outputBounds": "5,3,182,102",
+        "outputIsEmpty": false,
+        "outputNonFiniteComponents": 0,
+        "outputNonZeroComponents": 0,
+        "outputScale": 1,
+        "outputSha256": "5e364eb2f6cc38287f3aec69da9cd156c1d7e6653a5083a7889cdf204d983fba",
+        "requestSucceeded": true,
+        "targetFactoryCreateCalls": 2
+      },
+      "targetExceptionMessage": null,
+      "targetOutputSchema": "legacy-outcome-only",
+      "targetRequestSucceeded": true
+    }
+  },
+  "environmentFingerprint": {
+    "deviceSelection": "automatic-no-preferred-device",
+    "environmentVersion": "10.0.9",
+    "frameworkDescription": ".NET 10.0.9",
+    "metalDeviceName": "Apple M3",
+    "metalDriver": "Apple Metal shipped with macOS build 25F84",
+    "metalFeatureFamily": "spdisplays_metal4",
+    "metalRegistryId": "0x00000001000003a8",
+    "osArchitecture": "Arm64",
+    "osBuild": "25F84",
+    "osDescription": "macOS 26.5.2",
+    "osVersion": "Unix 26.5.2",
+    "processArchitecture": "Arm64",
+    "rendererBackend": "Metal",
+    "runtimeIdentifier": "osx-arm64",
+    "silkNetVulkanVersion": "2.23.0+94605142f7b7bd6e69c9201e8e721d245c69eb7e",
+    "skiaBackend": "Metal",
+    "skiaSharpManagedVersion": "3.119.4+release-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
+    "skiaSharpNativeVersion": "119.0",
+    "vulkanApiVersion": "1.2.323",
+    "vulkanDeviceId": "0x1a050209",
+    "vulkanDeviceName": "Apple M3",
+    "vulkanDeviceType": "IntegratedGpu",
+    "vulkanDeviceUuid": "0000106b1a0502090000000000000000",
+    "vulkanDriverId": "DriverIDMoltenvk",
+    "vulkanDriverInfo": "1.4.0",
+    "vulkanDriverName": "MoltenVK",
+    "vulkanDriverUuid": "4d564b00000028a01a05020900000000",
+    "vulkanDriverVersionDecoded": "0.2.2208",
+    "vulkanDriverVersionRaw": "10400",
+    "vulkanEnabledExtensions": [
+      "VK_EXT_metal_objects",
+      "VK_EXT_metal_surface",
+      "VK_EXT_swapchain_colorspace",
+      "VK_KHR_get_physical_device_properties2",
+      "VK_KHR_portability_enumeration",
+      "VK_KHR_portability_subset",
+      "VK_KHR_surface",
+      "VK_KHR_swapchain"
+    ],
+    "vulkanVendorId": "0x0000106b"
+  },
+  "featureCodeSha": "01c70637a6fd7d2e34eac18fdc9343dc5b0aaa7f",
+  "featureCommand": "dotnet run --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -c Release -f net10.0 -- feature-visual-export",
+  "featureExporterProvenance": {
+    "exporterAssemblyVersion": "2.99.99+01c70637a6fd7d2e34eac18fdc9343dc5b0aaa7f",
+    "featureCodeSha": "01c70637a6fd7d2e34eac18fdc9343dc5b0aaa7f"
+  },
+  "featureManifestSha256": "817861223adb7a25abce24cae7c3b38b25fa5713b7520c34685ab5f611a079af",
+  "generatedAtUtc": "2026-08-09T12:10:03.711173+00:00",
+  "scenes": [
+    {
+      "edgeCrop": {
+        "alphaMae": 4.122453501671754e-08,
+        "coverageBandMaximumError": [
+          0.0003662109375,
+          4.57763671875e-05,
+          5.7220458984375e-06,
+          0.00048828125
+        ],
+        "coverageBandPixelCount": 340,
+        "coverageBandRgbaMae": 6.667831364799949e-07,
+        "linearLightSsim": 0.9999999989334684,
+        "linearRgbMae": 1.175401986208361e-08,
+        "maximumErrorBound": 0.02,
+        "region": [
+          18,
+          16,
+          156,
+          76
+        ]
+      },
+      "fullImage": {
+        "alphaMae": 2.3570509604465815e-08,
+        "linearLightSsim": 0.9999999993698873,
+        "linearRgbMae": 6.720469689663545e-09,
+        "maximumWindowedAlphaMae": 1.9073486328125e-06,
+        "maximumWindowedRgbaMae": 8.847564458847046e-07,
+        "minimumWindowedSsim": 0.9999999595941196
+      },
+      "sceneId": "aa-thin-line-color-times-alpha"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "aa-thin-line-control"
+    },
+    {
+      "edgeCrop": {
+        "alphaMae": 0.0,
+        "coverageBandMaximumError": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "coverageBandPixelCount": 356,
+        "coverageBandRgbaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumErrorBound": 0.02,
+        "region": [
+          18,
+          16,
+          156,
+          76
+        ]
+      },
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "aa-thin-stroke-color-times-alpha"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "aa-thin-stroke-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0014989276727040608,
+        "linearLightSsim": 0.9999803454569474,
+        "linearRgbMae": 0.0007533790857948884,
+        "maximumWindowedAlphaMae": 0.0034275054931640625,
+        "maximumWindowedRgbaMae": 0.0021386146545410156,
+        "minimumWindowedSsim": 0.9999579264921643
+      },
+      "sceneId": "automatic-device-selection"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "automatic-device-selection-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "cache-cold"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "cache-control-empty"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.00011562752928354859,
+        "linearLightSsim": 0.9999975316313043,
+        "linearRgbMae": 4.90559592705082e-05,
+        "maximumWindowedAlphaMae": 0.0006716251373291016,
+        "maximumWindowedRgbaMae": 0.0003812462091445923,
+        "minimumWindowedSsim": 0.9998608390483502
+      },
+      "sceneId": "cache-warm-hit"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "external-materialized-source"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "external-materialized-source-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "geometry-stroke"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "geometry-stroke-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "mixed-spatial-color-lut"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "mixed-spatial-color-lut-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "multiple-composition-roots"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "multiple-composition-roots-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0002082527419667185,
+        "linearLightSsim": 0.9994304161707878,
+        "linearRgbMae": 0.019756174809203594,
+        "maximumWindowedAlphaMae": 0.00048065185546875,
+        "maximumWindowedRgbaMae": 0.04065665602684021,
+        "minimumWindowedSsim": 0.9614714800458606
+      },
+      "sceneId": "nested-drawable-brush-delay"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "nested-drawable-brush-delay-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "opaque-custom-readback"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "opaque-custom-readback-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "primary-control-all-identity"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0001888040131256904,
+        "linearLightSsim": 0.9999988829736545,
+        "linearRgbMae": 0.00013323872514958243,
+        "maximumWindowedAlphaMae": 0.00048828125,
+        "maximumWindowedRgbaMae": 0.0004267692565917969,
+        "minimumWindowedSsim": 0.9999866660046058
+      },
+      "sceneId": "primary-control-gamma-disabled"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0001888040131256904,
+        "linearLightSsim": 0.9999996785738879,
+        "linearRgbMae": 9.246131044969637e-05,
+        "maximumWindowedAlphaMae": 0.00048828125,
+        "maximumWindowedRgbaMae": 0.00035953521728515625,
+        "minimumWindowedSsim": 0.9999976166869154
+      },
+      "sceneId": "primary-control-invert-disabled"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "primary-control-opacity-disabled"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0001888040131256904,
+        "linearLightSsim": 0.999999210134305,
+        "linearRgbMae": 0.0001005943780266699,
+        "maximumWindowedAlphaMae": 0.00048828125,
+        "maximumWindowedRgbaMae": 0.0003358125686645508,
+        "minimumWindowedSsim": 0.999978576633381
+      },
+      "sceneId": "primary-cross-node"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 2.3547513985339505e-07,
+        "linearLightSsim": 0.9999999998157727,
+        "linearRgbMae": 5.4944199299125516e-08,
+        "maximumWindowedAlphaMae": 7.62939453125e-06,
+        "maximumWindowedRgbaMae": 3.2186508178710938e-06,
+        "minimumWindowedSsim": 0.999999946178789
+      },
+      "sceneId": "root-a-b-no-clear-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "root-a-clear-b"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.001539107446593267,
+        "linearLightSsim": 0.9999210835390987,
+        "linearRgbMae": 0.0007727205937291369,
+        "maximumWindowedAlphaMae": 0.002948760986328125,
+        "maximumWindowedRgbaMae": 0.001755833625793457,
+        "minimumWindowedSsim": 0.9995838924196476
+      },
+      "sceneId": "scale-half"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0014427008084308955,
+        "linearLightSsim": 0.9998923890919312,
+        "linearRgbMae": 0.0009612693861433507,
+        "maximumWindowedAlphaMae": 0.003269195556640625,
+        "maximumWindowedRgbaMae": 0.002480708993971348,
+        "minimumWindowedSsim": 0.9991240181212453
+      },
+      "sceneId": "scale-half-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0007471554901128934,
+        "linearLightSsim": 0.9999937589118838,
+        "linearRgbMae": 0.0003665529820040911,
+        "maximumWindowedAlphaMae": 0.0019311904907226562,
+        "maximumWindowedRgbaMae": 0.0012366771697998047,
+        "minimumWindowedSsim": 0.9999737043528928
+      },
+      "sceneId": "scale-one"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "scale-one-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0011910794649192672,
+        "linearLightSsim": 0.9999594426431977,
+        "linearRgbMae": 0.0006702015554405933,
+        "maximumWindowedAlphaMae": 0.0029767572414129972,
+        "maximumWindowedRgbaMae": 0.002033275377471,
+        "minimumWindowedSsim": 0.9938805994442381
+      },
+      "sceneId": "scale-two"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0010034489728521878,
+        "linearLightSsim": 0.9999841124361449,
+        "linearRgbMae": 0.00048583135255056707,
+        "maximumWindowedAlphaMae": 0.0043799530249089,
+        "maximumWindowedRgbaMae": 0.0024713558377698064,
+        "minimumWindowedSsim": 0.9875851221774881
+      },
+      "sceneId": "scale-two-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "scene3d-no-2d-tail-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "scene3d-with-2d-tail"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.00037021028191714224,
+        "linearLightSsim": 0.9999968541090638,
+        "linearRgbMae": 0.00021246839743843795,
+        "maximumWindowedAlphaMae": 0.00048828125,
+        "maximumWindowedRgbaMae": 0.0003662109375,
+        "minimumWindowedSsim": 0.9999898723280614
+      },
+      "sceneId": "shifted-roi"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "shifted-roi-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "snapshot-clear-draw-backdrop"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "snapshot-draw-backdrop-no-clear-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "split-expansion"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "split-expansion-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "whole-source-coordinate-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
+      },
+      "sceneId": "whole-source-coordinate-shader"
+    }
+  ],
+  "schemaVersion": 2,
+  "semanticRefresh": {
+    "artifacts": [
+      {
+        "artifact": "scene3d-with-2d-tail.rgba16f",
+        "legacyArtifactSha256": "89d111e13da934fd2c233e48ca07bcae7c41da0d26b6423c0c47d40dca38bede",
+        "parityRanAgainstRefreshedArtifact": true,
+        "refreshedArtifactSha256": "8908d30de25b882368b3d9f7e3d355c783ef5f0026b10f1c108e577f067331f6",
+        "sceneId": "scene3d-with-2d-tail"
+      }
+    ],
+    "committedTargetBaselineManifestSha256": "5ad89761a3c2749818dc2fd1a9a908dfb1d8bbe1163927a6f6595183b8a02d5f",
+    "regeneratedTargetManifestSha256": "3c4f3e83039f876d1b3cc33d9e3bf862fa2a67ddda77107ec3a6858f235454df"
+  },
+  "sourceAssemblyVersions": {
+    "feature": "2.99.99+01c70637a6fd7d2e34eac18fdc9343dc5b0aaa7f",
+    "target": "2.99.99+83e63689d8c72bd0b7fbd4cb01d9e468d7a78c53"
+  },
+  "status": "passed",
+  "targetCodeSha": "83e63689d8c72bd0b7fbd4cb01d9e468d7a78c53",
+  "targetManifestSha256": "5ad89761a3c2749818dc2fd1a9a908dfb1d8bbe1163927a6f6595183b8a02d5f",
+  "thresholds": {
+    "maximumAaCoverageBandChannelError": 0.02,
+    "maximumAlphaMae": 0.02,
+    "maximumLinearRgbMae": 0.02,
+    "maximumWindowedAlphaMae": 0.02,
+    "maximumWindowedRgbaMae": 0.05,
+    "minimumLinearLightSsim": 0.99,
+    "minimumWindowedSsim": 0.95,
+    "windowSize": 16
+  }
+}
