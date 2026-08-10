@@ -53,6 +53,11 @@
                                Text="{Binding DisplayName.Value}"
                                Theme="{StaticResource SubtitleTextBlockStyle}" />
 
+                    <TextBlock Margin="0,0,0,8"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{Binding KindText.Value}" />
+
                     <Button Margin="0,0,0,32"
                             HorizontalAlignment="Center"
                             Click="OpenPublisherPage_Click"
@@ -205,7 +210,7 @@
                                 <ItemsRepeater Grid.Row="1"
                                                Grid.Column="1"
                                                Margin="4"
-                                               ItemsSource="{Binding Package.Tags.Value}">
+                                               ItemsSource="{Binding VisibleTags.Value}">
                                     <ItemsRepeater.Layout>
                                         <WrapLayout HorizontalSpacing="8"
                                                     Orientation="Horizontal"

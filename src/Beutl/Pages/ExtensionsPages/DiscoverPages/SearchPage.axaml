@@ -39,6 +39,16 @@
                            Text="{Binding Keyword, StringFormat='&quot;{0}&quot;'}"
                            Theme="{StaticResource SubtitleTextBlockStyle}" />
 
+                <TabStrip Margin="0,12"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding Kind.SelectedIndex.Value, Mode=TwoWay}"
+                          Theme="{DynamicResource SegmentedTabStrip}">
+                    <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_All}" />
+                    <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_Extensions}" />
+                    <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_Materials}" />
+                    <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_Templates}" />
+                </TabStrip>
+
                 <ItemsRepeater ItemsSource="{Binding Packages}">
                     <ItemsRepeater.Layout>
                         <panelx:HorizontalGridLayout ColumnSpacing="16"

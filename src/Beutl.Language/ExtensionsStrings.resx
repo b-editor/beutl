@@ -136,4 +136,25 @@ To force installation, use the CLI tool.</value>
   <data name="RemoveFromLibrary_PaidConfirmation" xml:space="preserve">
     <value>This is a paid package ({0}). If you remove it from your library, you will need to purchase it again to re-acquire. Are you sure?</value>
   </data>
+  <data name="PackageKind_All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="PackageKind_Extensions" xml:space="preserve">
+    <value>Extensions</value>
+  </data>
+  <data name="PackageKind_Materials" xml:space="preserve">
+    <value>Materials</value>
+  </data>
+  <data name="PackageKind_Templates" xml:space="preserve">
+    <value>Templates</value>
+  </data>
+  <data name="PackageKind_Extension" xml:space="preserve">
+    <value>Extension</value>
+  </data>
+  <data name="PackageKind_Material" xml:space="preserve">
+    <value>Material</value>
+  </data>
+  <data name="PackageKind_Template" xml:space="preserve">
+    <value>Template</value>
+  </data>
 </root>

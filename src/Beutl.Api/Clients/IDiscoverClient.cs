@@ -1,12 +1,12 @@
-﻿using Refit;
+using Refit;
 
 namespace Beutl.Api.Clients;
 
 public interface IDiscoverClient
 {
     [Get("/api/v3/discover/search")]
-    Task<SimplePackageResponse[]> Search(string query, int start = 0, int count = 30);
+    Task<SimplePackageResponse[]> Search(string query, int start = 0, int count = 30, string type = "all");
 
     [Get("/api/v3/discover/featured")]
-    Task<SimplePackageResponse[]> GetFeatured(int start = 0, int count = 30);
+    Task<SimplePackageResponse[]> GetFeatured(int start = 0, int count = 30, string type = "all");
 }

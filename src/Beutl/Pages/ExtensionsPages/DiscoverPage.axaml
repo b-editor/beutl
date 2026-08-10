@@ -34,123 +34,135 @@
 
     <Panel>
         <ScrollViewer Padding="18">
-            <ItemsControl Margin="10,0" ItemsSource="{Binding Items}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <ContentControl Content="{Binding}">
-                            <ContentControl.DataTemplates>
-                                <DataTemplate x:DataType="viewModel:LoadMoreItem">
-                                    <Button Width="160"
-                                            Height="270"
-                                            Margin="8"
-                                            Padding="0"
-                                            HorizontalContentAlignment="Stretch"
-                                            VerticalContentAlignment="Stretch"
-                                            Click="Package_Click">
-                                        <Grid Margin="16" RowDefinitions="Auto,16,*">
-                                            <Border Width="120" Height="120">
-                                                <icons:FluentIcon FontSize="32" Icon="MoreHorizontal" />
-                                            </Border>
+            <StackPanel>
+                <TabStrip Margin="10,0,10,12"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding Kind.SelectedIndex.Value, Mode=TwoWay}"
+                          Theme="{DynamicResource SegmentedTabStrip}">
+                    <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_All}" />
+                    <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_Extensions}" />
+                    <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_Materials}" />
+                    <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_Templates}" />
+                </TabStrip>
 
-                                            <TextBlock Grid.Row="2"
-                                                       VerticalAlignment="Center"
-                                                       Text="{x:Static lang:Strings.ShowMore}" />
-                                        </Grid>
-                                    </Button>
-                                </DataTemplate>
-                                <DataTemplate x:DataType="api:Package">
-                                    <Button Width="160"
-                                            Height="270"
-                                            Margin="8"
-                                            Padding="0"
-                                            HorizontalContentAlignment="Stretch"
-                                            VerticalContentAlignment="Stretch"
-                                            Click="Package_Click">
-                                        <Grid Margin="16" RowDefinitions="Auto,16,*">
-                                            <asyncImageLoader:AdvancedImage Width="120"
-                                                                            Height="120"
-                                                                            ImageClipping.CornerRadius="8"
-                                                                            Source="{Binding LogoUrl.Value}" />
-
-                                            <Grid Grid.Row="2"
-                                                  Margin="0,2"
-                                                  VerticalAlignment="Stretch"
-                                                  RowDefinitions="*,Auto,Auto">
-                                                <StackPanel Spacing="4">
-                                                    <TextBlock Text="{Binding Name}" />
-
-                                                    <TextBlock FontSize="16"
-                                                               IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                               Text="{Binding DisplayName.Value}"
-                                                               Theme="{StaticResource BaseTextBlockStyle}" />
-                                                </StackPanel>
-
-                                                <TextBlock Grid.Row="1"
-                                                           VerticalAlignment="Bottom"
-                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                           Text="{Binding Owner.Name}" />
+                <ItemsControl Margin="10,0" ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ContentControl Content="{Binding}">
+                                <ContentControl.DataTemplates>
+                                    <DataTemplate x:DataType="viewModel:LoadMoreItem">
+                                        <Button Width="160"
+                                                Height="270"
+                                                Margin="8"
+                                                Padding="0"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                Click="Package_Click">
+                                            <Grid Margin="16" RowDefinitions="Auto,16,*">
+                                                <Border Width="120" Height="120">
+                                                    <icons:FluentIcon FontSize="32" Icon="MoreHorizontal" />
+                                                </Border>
 
                                                 <TextBlock Grid.Row="2"
-                                                           VerticalAlignment="Bottom"
-                                                           FontWeight="SemiBold"
-                                                           Text="{Binding FormattedPrice.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Free}}" />
+                                                           VerticalAlignment="Center"
+                                                           Text="{x:Static lang:Strings.ShowMore}" />
                                             </Grid>
-                                        </Grid>
-                                    </Button>
-                                </DataTemplate>
-                                <DataTemplate x:DataType="viewModel:DummyItem">
-                                    <Button Width="160"
-                                            Height="270"
-                                            Margin="8"
-                                            Padding="0"
-                                            HorizontalContentAlignment="Stretch"
-                                            VerticalContentAlignment="Stretch"
-                                            IsHitTestVisible="False">
-                                        <Grid Margin="16" RowDefinitions="Auto,16,*">
-                                            <Border Width="120"
-                                                    Height="120"
-                                                    Classes="placeholder"
-                                                    CornerRadius="8" />
+                                        </Button>
+                                    </DataTemplate>
+                                    <DataTemplate x:DataType="api:Package">
+                                        <Button Width="160"
+                                                Height="270"
+                                                Margin="8"
+                                                Padding="0"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                Click="Package_Click">
+                                            <Grid Margin="16" RowDefinitions="Auto,16,*">
+                                                <asyncImageLoader:AdvancedImage Width="120"
+                                                                                Height="120"
+                                                                                ImageClipping.CornerRadius="8"
+                                                                                Source="{Binding LogoUrl.Value}" />
 
-                                            <Grid Grid.Row="2"
-                                                  Margin="0,2"
-                                                  VerticalAlignment="Stretch"
-                                                  RowDefinitions="*,Auto">
-                                                <StackPanel Spacing="4">
-                                                    <Border Width="80"
-                                                            Height="14"
-                                                            HorizontalAlignment="Left"
-                                                            Classes="placeholder"
-                                                            CornerRadius="8" />
+                                                <Grid Grid.Row="2"
+                                                      Margin="0,2"
+                                                      VerticalAlignment="Stretch"
+                                                      RowDefinitions="*,Auto,Auto">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Text="{Binding Name}" />
 
-                                                    <Border Width="100"
-                                                            Height="16"
-                                                            HorizontalAlignment="Left"
-                                                            Classes="placeholder"
-                                                            CornerRadius="8" />
-                                                </StackPanel>
+                                                        <TextBlock FontSize="16"
+                                                                   IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                                   Text="{Binding DisplayName.Value}"
+                                                                   Theme="{StaticResource BaseTextBlockStyle}" />
+                                                    </StackPanel>
 
-                                                <Border Grid.Row="1"
-                                                        Width="60"
-                                                        Height="16"
-                                                        HorizontalAlignment="Left"
-                                                        VerticalAlignment="Bottom"
+                                                    <TextBlock Grid.Row="1"
+                                                               VerticalAlignment="Bottom"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               Text="{Binding Owner.Name}" />
+
+                                                    <TextBlock Grid.Row="2"
+                                                               VerticalAlignment="Bottom"
+                                                               FontWeight="SemiBold"
+                                                               Text="{Binding FormattedPrice.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Free}}" />
+                                                </Grid>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                    <DataTemplate x:DataType="viewModel:DummyItem">
+                                        <Button Width="160"
+                                                Height="270"
+                                                Margin="8"
+                                                Padding="0"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                IsHitTestVisible="False">
+                                            <Grid Margin="16" RowDefinitions="Auto,16,*">
+                                                <Border Width="120"
+                                                        Height="120"
                                                         Classes="placeholder"
                                                         CornerRadius="8" />
+
+                                                <Grid Grid.Row="2"
+                                                      Margin="0,2"
+                                                      VerticalAlignment="Stretch"
+                                                      RowDefinitions="*,Auto">
+                                                    <StackPanel Spacing="4">
+                                                        <Border Width="80"
+                                                                Height="14"
+                                                                HorizontalAlignment="Left"
+                                                                Classes="placeholder"
+                                                                CornerRadius="8" />
+
+                                                        <Border Width="100"
+                                                                Height="16"
+                                                                HorizontalAlignment="Left"
+                                                                Classes="placeholder"
+                                                                CornerRadius="8" />
+                                                    </StackPanel>
+
+                                                    <Border Grid.Row="1"
+                                                            Width="60"
+                                                            Height="16"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Bottom"
+                                                            Classes="placeholder"
+                                                            CornerRadius="8" />
+                                                </Grid>
                                             </Grid>
-                                        </Grid>
-                                    </Button>
-                                </DataTemplate>
-                            </ContentControl.DataTemplates>
-                        </ContentControl>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                                        </Button>
+                                    </DataTemplate>
+                                </ContentControl.DataTemplates>
+                            </ContentControl>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </ScrollViewer>
 
         <ProgressRing IsIndeterminate="{Binding IsBusy.Value}" IsVisible="{Binding IsBusy.Value}" />

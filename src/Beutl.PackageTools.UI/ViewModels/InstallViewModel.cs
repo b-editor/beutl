@@ -1,6 +1,7 @@
 ﻿using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
 
+using NuGet.Packaging;
 using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
@@ -76,6 +77,11 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
             var pkg = new PackageIdentity(Model.Id, Model.Version);
             repos.AddPackage(pkg);
             repos.UpgradePackages(pkg);
+
+            // 素材・テンプレートパッケージはアセンブリを読み込まないため、
+            // 展開後にデータファイルをホームディレクトリへ配置する。
+            DeployDataPackage(pkg);
+
             _logger.LogInformation("Package {PackageId} version {Version} installed successfully.", Model.Id, Model.Version.ToString());
             Succeeded.Value = true;
             return;
@@ -104,5 +110,24 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
                 _logger.LogInformation("Deleted temporary file {File}.", file);
             }
         }
+    }
+
+    private void DeployDataPackage(PackageIdentity pkg)
+    {
+        string? directory = Helper.PackagePathResolver.GetInstalledPath(pkg);
+        if (!Directory.Exists(directory))
+        {
+            _logger.LogWarning("Installed directory not found for package {PackageId}.", pkg.Id);
+            return;
+        }
+
+        var reader = new PackageFolderReader(directory);
+        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
+        if (localPackage.Tags.GetPackageKind() == PackageKind.Extension)
+        {
+            return;
+        }
+
+        app.GetResource<PackageInstaller>().InstallDataPackage(localPackage);
     }
 }

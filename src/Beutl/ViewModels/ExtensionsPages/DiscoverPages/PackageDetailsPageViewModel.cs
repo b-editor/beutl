@@ -34,6 +34,18 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim(Package.Name)
             .DisposeWith(_disposables);
 
+        KindText = package.Tags
+            .Select(x => KindToText(x.GetPackageKind()))
+            .ToReadOnlyReactivePropertySlim(KindToText(PackageKind.Extension))
+            .DisposeWith(_disposables);
+
+        // The reserved tags say what kind the package is, which the badge above already
+        // shows; listing them again reads like tags the author chose.
+        VisibleTags = package.Tags
+            .Select(x => x.VisibleTags().ToArray())
+            .ToReadOnlyReactivePropertySlim<string[]>([])
+            .DisposeWith(_disposables);
+
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
@@ -355,6 +367,10 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
     public ReadOnlyReactivePropertySlim<string> DisplayName { get; }
 
+    public ReadOnlyReactivePropertySlim<string> KindText { get; }
+
+    public ReadOnlyReactivePropertySlim<string[]> VisibleTags { get; }
+
     public CoreList<Release> AllReleases { get; } = [];
 
     public ReactivePropertySlim<Release?> SelectedRelease { get; } = new();
@@ -396,5 +412,15 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     public override void Dispose()
     {
         _disposables.Dispose();
+    }
+
+    private static string KindToText(PackageKind kind)
+    {
+        return kind switch
+        {
+            PackageKind.Material => ExtensionsStrings.PackageKind_Material,
+            PackageKind.Template => ExtensionsStrings.PackageKind_Template,
+            _ => ExtensionsStrings.PackageKind_Extension
+        };
     }
 }

@@ -131,4 +131,25 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="RemoveFromLibrary_PaidConfirmation" xml:space="preserve">
     <value>これは有料パッケージ({0})です。ライブラリから削除すると、再取得するには再度購入が必要です。よろしいですか？</value>
   </data>
+  <data name="PackageKind_All" xml:space="preserve">
+    <value>すべて</value>
+  </data>
+  <data name="PackageKind_Extensions" xml:space="preserve">
+    <value>拡張機能</value>
+  </data>
+  <data name="PackageKind_Materials" xml:space="preserve">
+    <value>素材</value>
+  </data>
+  <data name="PackageKind_Templates" xml:space="preserve">
+    <value>テンプレート</value>
+  </data>
+  <data name="PackageKind_Extension" xml:space="preserve">
+    <value>拡張機能</value>
+  </data>
+  <data name="PackageKind_Material" xml:space="preserve">
+    <value>素材</value>
+  </data>
+  <data name="PackageKind_Template" xml:space="preserve">
+    <value>テンプレート</value>
+  </data>
 </root>

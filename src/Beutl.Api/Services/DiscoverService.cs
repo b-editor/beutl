@@ -28,14 +28,16 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
         return new Profile(response, clients);
     }
 
-    public async Task<Package[]> GetFeatured(int start = 0, int count = 30)
+    public async Task<Package[]> GetFeatured(
+        int start = 0, int count = 30, PackageKindFilter type = PackageKindFilter.All)
     {
         using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetDailyRanking", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
+        activity?.SetTag("type", type.ToString());
 
         // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
-        return await (await clients.Discover.GetFeatured(start, count).ConfigureAwait(false))
+        return await (await clients.Discover.GetFeatured(start, count, type.ToQueryValue()).ConfigureAwait(false))
             .ToObservable()
             .SelectMany(async x => await GetPackage(x.Name).ConfigureAwait(false))
             .ToArray()
@@ -43,10 +45,11 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
             .ConfigureAwait(false);
     }
 
-    public async Task<Package[]> Search(string query, int start = 0, int count = 30)
+    public async Task<Package[]> Search(
+        string query, int start = 0, int count = 30, PackageKindFilter type = PackageKindFilter.All)
     {
         // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
-        return await (await clients.Discover.Search(query, start, count).ConfigureAwait(false))
+        return await (await clients.Discover.Search(query, start, count, type.ToQueryValue()).ConfigureAwait(false))
             .ToObservable()
             .SelectMany(async x => await GetPackage(x.Name).ConfigureAwait(false))
             .ToArray()

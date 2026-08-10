@@ -93,6 +93,10 @@ public partial class PackageInstaller
         long totalSize = 0;
         foreach (PackageIdentity package in context.UnnecessaryPackages)
         {
+            // A data package's payload lives outside the install directory, and it has to
+            // go even when the extracted package itself is already missing.
+            bool dataRemoved = UninstallDataPackage(package.Id);
+
             string directory = Helper.ResolveInstalledDirectory(package);
             if (!Directory.Exists(directory))
             {
@@ -102,7 +106,7 @@ public partial class PackageInstaller
                 continue;
             }
 
-            bool hasAnyFailures = false;
+            bool hasAnyFailures = !dataRemoved;
             foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             {
                 try
