@@ -1,0 +1,200 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="StartTutorial" xml:space="preserve">
+    <value>开始教程</value>
+  </data>
+  <data name="TutorialStep" xml:space="preserve">
+    <value>第 {0} 步，共 {1} 步</value>
+  </data>
+  <data name="TutorialNext" xml:space="preserve">
+    <value>下一步</value>
+  </data>
+  <data name="TutorialPrevious" xml:space="preserve">
+    <value>上一步</value>
+  </data>
+  <data name="TutorialFinish" xml:space="preserve">
+    <value>完成</value>
+  </data>
+  <data name="TutorialSkip" xml:space="preserve">
+    <value>跳过教程</value>
+  </data>
+  <data name="LearnBeutlBasics" xml:space="preserve">
+    <value>学习 Beutl 的基础知识</value>
+  </data>
+  <data name="NoTutorialsAvailable" xml:space="preserve">
+    <value>没有可用的教程</value>
+  </data>
+  <data name="Tutorial_Welcome_Title" xml:space="preserve">
+    <value>欢迎使用 Beutl</value>
+  </data>
+  <data name="Tutorial_Welcome_Content" xml:space="preserve">
+    <value>Beutl 是一款跨平台视频编辑器。本教程将引导您了解基础知识。</value>
+  </data>
+  <data name="Tutorial_Welcome_MenuBar_Title" xml:space="preserve">
+    <value>菜单栏</value>
+  </data>
+  <data name="Tutorial_Welcome_MenuBar_Content" xml:space="preserve">
+    <value>菜单栏包含文件管理、编辑等选项。</value>
+  </data>
+  <data name="Tutorial_Welcome_Create_Title" xml:space="preserve">
+    <value>新建</value>
+  </data>
+  <data name="Tutorial_Welcome_Create_Content" xml:space="preserve">
+    <value>单击此处创建新项目或场景以开始编辑。</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Title" xml:space="preserve">
+    <value>场景编辑基础</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Description" xml:space="preserve">
+    <value>学习添加元素、编辑属性和创建动画</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step1_Title" xml:space="preserve">
+    <value>添加椭圆</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step1_Content" xml:space="preserve">
+    <value>在时间轴上右键单击并添加椭圆元素。您也可以从库中拖放。</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step2_Title" xml:space="preserve">
+    <value>选择元素</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step2_Content" xml:space="preserve">
+    <value>单击时间轴中刚添加的元素以将其选中。</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step3_Title" xml:space="preserve">
+    <value>属性</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step3_Content" xml:space="preserve">
+    <value>这是属性选项卡。您可以在此查看和编辑所选元素的属性。</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step4_Title" xml:space="preserve">
+    <value>启用动画</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step4_Content" xml:space="preserve">
+    <value>找到 Width 属性，单击其旁边的菜单图标以启用动画。您可以使用“编辑动画”或“在内联视图中编辑动画”启用它。</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step5_Title" xml:space="preserve">
+    <value>添加关键帧</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step5_Content" xml:space="preserve">
+    <value>播放位置已向前移动。单击菱形图标在此位置添加关键帧。</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step6_Title" xml:space="preserve">
+    <value>更改值</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step6_Content" xml:space="preserve">
+    <value>Width 值已更改为 300。这将随时间创建从 100 到 300 的动画。</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step7_Title" xml:space="preserve">
+    <value>预览动画</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step7_Content" xml:space="preserve">
+    <value>按播放器中的“播放”按钮预览您的动画。</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step8_Title" xml:space="preserve">
+    <value>教程完成！</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step8_Content" xml:space="preserve">
+    <value>恭喜！您已经学会了如何添加元素、编辑属性和创建动画。自己探索更多功能吧！</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Title" xml:space="preserve">
+    <value>动画编辑</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Description" xml:space="preserve">
+    <value>使用图形编辑器学习高级动画编辑</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step1_Title" xml:space="preserve">
+    <value>选择对象</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step1_Content" xml:space="preserve">
+    <value>在时间轴中选择要设置动画的元素。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step2_Title" xml:space="preserve">
+    <value>添加平移</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step2_Content" xml:space="preserve">
+    <value>单击 Transform 属性上的 + 按钮并添加“Translate”。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step3_Title" xml:space="preserve">
+    <value>启用 X 动画</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step3_Content" xml:space="preserve">
+    <value>单击 X 属性上的菜单图标并选择“编辑动画”。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step4_Title" xml:space="preserve">
+    <value>添加关键帧</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step4_Content" xml:space="preserve">
+    <value>播放位置已向前移动。单击菱形图标在此位置添加关键帧。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step5_Title" xml:space="preserve">
+    <value>应用缓动</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step5_Content" xml:space="preserve">
+    <value>从库面板（缓动选项卡）拖动缓动函数并将其放到图形编辑器上，即可使用该缓动函数添加关键帧。将其放到现有关键帧的相同位置会更改该关键帧的缓动函数。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step6_Title" xml:space="preserve">
+    <value>图形编辑器概览</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step6_Content" xml:space="preserve">
+    <value>在图形编辑器中，圆形图标表示缓动控制点。左右移动它们以显示下方的菱形图标（关键帧）。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step7_Title" xml:space="preserve">
+    <value>移动关键帧</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step7_Content" xml:space="preserve">
+    <value>您可以拖动菱形图标来更改关键帧的时间和值。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step8_Title" xml:space="preserve">
+    <value>预览动画</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step8_Content" xml:space="preserve">
+    <value>按“播放”按钮预览您的动画。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step9_Title" xml:space="preserve">
+    <value>复制动画</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step9_Content" xml:space="preserve">
+    <value>右键单击图形编辑器背景并选择“全部复制”以复制所有关键帧。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step10_Title" xml:space="preserve">
+    <value>启用 Y 动画</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step10_Content" xml:space="preserve">
+    <value>单击 Y 属性上的菜单图标并选择“编辑动画”。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step11_Title" xml:space="preserve">
+    <value>粘贴动画</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step11_Content" xml:space="preserve">
+    <value>右键单击 Y 属性的图形编辑器并选择“粘贴”以应用复制的动画。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step12_Title" xml:space="preserve">
+    <value>最终预览</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step12_Content" xml:space="preserve">
+    <value>再次按“播放”按钮以验证 X 和 Y 动画是否协同工作。</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step13_Title" xml:space="preserve">
+    <value>教程完成！</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step13_Content" xml:space="preserve">
+    <value>您已经学会了使用图形编辑器进行高级动画编辑、应用缓动函数以及复制/粘贴动画。自己探索更多功能吧！</value>
+  </data>
+</root>

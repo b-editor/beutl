@@ -1,0 +1,139 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="NoLogoImageAvailable" xml:space="preserve">
+    <value>没有可用的徽标图像</value>
+  </data>
+  <data name="Package_Screenshots" xml:space="preserve">
+    <value>截图</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>安装</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>卸载</value>
+  </data>
+  <data name="Package_LatestRelease" xml:space="preserve">
+    <value>最新版本</value>
+  </data>
+  <data name="Package_Tags" xml:space="preserve">
+    <value>标签</value>
+  </data>
+  <data name="Package_LatestVersion" xml:space="preserve">
+    <value>最新版本</value>
+  </data>
+  <data name="Package_InstalledVersion" xml:space="preserve">
+    <value>已安装版本</value>
+  </data>
+  <data name="OpenUrl_Title" xml:space="preserve">
+    <value>打开 URL？</value>
+  </data>
+  <data name="OpenUrl_Content" xml:space="preserve">
+    <value>您正在尝试打开 '{0}'。
+如果该 URL 可疑，建议您不要打开它。</value>
+  </data>
+  <data name="Search_Packages" xml:space="preserve">
+    <value>包</value>
+  </data>
+  <data name="Profile_PublishedPackages" xml:space="preserve">
+    <value>已发布的包</value>
+  </data>
+  <data name="RemoveFromLibrary" xml:space="preserve">
+    <value>从库中移除</value>
+  </data>
+  <data name="CheckUpdate" xml:space="preserve">
+    <value>检查更新</value>
+  </data>
+  <data name="LocalPackages" xml:space="preserve">
+    <value>本地包</value>
+  </data>
+  <data name="LocalPackage" xml:space="preserve">
+    <value>本地包</value>
+  </data>
+  <data name="Could_not_find_a_package_from_remote" xml:space="preserve">
+    <value>无法从远程找到 '{0}'。</value>
+  </data>
+  <data name="PackageInstaller" xml:space="preserve">
+    <value>包安装程序</value>
+  </data>
+  <data name="PackageInstaller_Installed" xml:space="preserve">
+    <value>'{0}' 已成功安装。</value>
+  </data>
+  <data name="PackageInstaller_Updated" xml:space="preserve">
+    <value>'{0}' 已成功更新。</value>
+  </data>
+  <data name="PackageInstaller_Uninstalled" xml:space="preserve">
+    <value>'{0}' 已成功卸载。</value>
+  </data>
+  <data name="PackageInstaller_ScheduledInstallation" xml:space="preserve">
+    <value>'{0}' 的安装已计划。
+要应用包更改，请退出 Beutl。</value>
+  </data>
+  <data name="PackageInstaller_ScheduledUpdate" xml:space="preserve">
+    <value>'{0}' 的更新已计划。
+要应用包更改，请退出 Beutl。</value>
+  </data>
+  <data name="PackageInstaller_ScheduledUninstallation" xml:space="preserve">
+    <value>'{0}' 的卸载已计划。
+要应用包更改，请退出 Beutl。</value>
+  </data>
+  <data name="PackageInstaller_CloseProjectConfirmation" xml:space="preserve">
+    <value>当前有项目处于打开状态。修改包之前需要先关闭它。是否要关闭？</value>
+  </data>
+  <data name="PackageInstaller_SaveAndClose" xml:space="preserve">
+    <value>保存并关闭</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>描述</value>
+  </data>
+  <data name="May_not_work_correctly_when_downgrading" xml:space="preserve">
+    <value>降级时可能无法正常工作</value>
+  </data>
+  <data name="Package_SelectedRelease" xml:space="preserve">
+    <value>选定的版本</value>
+  </data>
+  <data name="Release_TargetVersion" xml:space="preserve">
+    <value>目标版本</value>
+  </data>
+  <data name="This_extension_does_not_support_your_Beutl_version" xml:space="preserve">
+    <value>此扩展不支持您的 Beutl 版本。
+要强制安装，请使用 CLI 工具。</value>
+  </data>
+  <data name="Installing" xml:space="preserve">
+    <value>正在安装...</value>
+  </data>
+  <data name="Updating" xml:space="preserve">
+    <value>正在更新...</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>正在卸载...</value>
+  </data>
+  <data name="Free" xml:space="preserve">
+    <value>免费</value>
+  </data>
+  <data name="RemoveFromLibrary_Title" xml:space="preserve">
+    <value>从库中移除</value>
+  </data>
+  <data name="RemoveFromLibrary_PaidConfirmation" xml:space="preserve">
+    <value>这是一个付费包 ({0})。如果将其从库中移除，您需要再次购买才能重新获取。确定吗？</value>
+  </data>
+</root>

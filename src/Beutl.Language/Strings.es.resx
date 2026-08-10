@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?>
-<root>
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:element name="root" msdata:IsDataSet="true">
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
 
-    </xsd:element>
-  </xsd:schema>
+    </xs:element>
+  </xs:schema>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -18,430 +18,430 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="File" xml:space="preserve">
-    <value>File</value>
+    <value>Archivo</value>
   </data>
   <data name="Curves" xml:space="preserve">
-    <value>Curves</value>
+    <value>Curvas</value>
   </data>
   <data name="CustomCurve" xml:space="preserve">
-    <value>Custom (RGB)</value>
+    <value>Personalizado (RGB)</value>
   </data>
   <data name="HueVsHue" xml:space="preserve">
-    <value>Hue vs Hue</value>
+    <value>Tono vs Tono</value>
   </data>
   <data name="HueVsLuminance" xml:space="preserve">
-    <value>Hue vs Luminance</value>
+    <value>Tono vs Luminancia</value>
   </data>
   <data name="HueVsSaturation" xml:space="preserve">
-    <value>Hue vs Saturation</value>
+    <value>Tono vs Saturación</value>
   </data>
   <data name="LuminanceVsSaturation" xml:space="preserve">
-    <value>Luminance vs Saturation</value>
+    <value>Luminancia vs Saturación</value>
   </data>
   <data name="SaturationVsSaturation" xml:space="preserve">
-    <value>Saturation vs Saturation</value>
+    <value>Saturación vs Saturación</value>
   </data>
   <data name="CreateNew" xml:space="preserve">
-    <value>Create New</value>
+    <value>Crear nuevo</value>
   </data>
   <data name="CreateNewProject" xml:space="preserve">
-    <value>Create new project</value>
+    <value>Crear nuevo proyecto</value>
   </data>
   <data name="CreateNewScene" xml:space="preserve">
-    <value>Create new scene</value>
+    <value>Crear nueva escena</value>
   </data>
   <data name="Project" xml:space="preserve">
-    <value>Project</value>
+    <value>Proyecto</value>
   </data>
   <data name="Scene" xml:space="preserve">
-    <value>Scene</value>
+    <value>Escena</value>
   </data>
   <data name="Open" xml:space="preserve">
-    <value>Open</value>
+    <value>Abrir</value>
   </data>
   <data name="Close" xml:space="preserve">
-    <value>Close</value>
+    <value>Cerrar</value>
   </data>
   <data name="ColorScopes" xml:space="preserve">
-    <value>Scopes</value>
+    <value>Osciloscopios</value>
   </data>
   <data name="CloseProject" xml:space="preserve">
-    <value>Close Project</value>
+    <value>Cerrar proyecto</value>
   </data>
   <data name="Save" xml:space="preserve">
-    <value>Save</value>
+    <value>Guardar</value>
   </data>
   <data name="SaveAll" xml:space="preserve">
-    <value>Save All</value>
+    <value>Guardar todo</value>
   </data>
   <data name="Exit" xml:space="preserve">
-    <value>Exit</value>
+    <value>Salir</value>
   </data>
   <data name="Edit" xml:space="preserve">
-    <value>Edit</value>
+    <value>Editar</value>
   </data>
   <data name="Undo" xml:space="preserve">
-    <value>Undo</value>
+    <value>Deshacer</value>
   </data>
   <data name="Redo" xml:space="preserve">
-    <value>Redo</value>
+    <value>Rehacer</value>
   </data>
   <data name="View" xml:space="preserve">
-    <value>View</value>
+    <value>Ver</value>
   </data>
   <data name="Object" xml:space="preserve">
-    <value>Object</value>
+    <value>Objeto</value>
   </data>
   <data name="Help" xml:space="preserve">
-    <value>Help</value>
+    <value>Ayuda</value>
   </data>
   <data name="Extensions" xml:space="preserve">
-    <value>Extensions</value>
+    <value>Extensiones</value>
   </data>
   <data name="Output" xml:space="preserve">
-    <value>Output</value>
+    <value>Salida</value>
   </data>
   <data name="History" xml:space="preserve">
-    <value>History</value>
+    <value>Historial</value>
   </data>
   <data name="History_Initial" xml:space="preserve">
-    <value>Initial state</value>
+    <value>Estado inicial</value>
   </data>
   <data name="History_Unnamed" xml:space="preserve">
-    <value>(Unnamed)</value>
+    <value>(Sin nombre)</value>
   </data>
   <data name="History_OperationFailed" xml:space="preserve">
-    <value>History operation failed.</value>
+    <value>La operación del historial falló.</value>
   </data>
   <data name="Settings" xml:space="preserve">
-    <value>Settings</value>
+    <value>Configuración</value>
   </data>
   <data name="Properties" xml:space="preserve">
-    <value>Properties</value>
+    <value>Propiedades</value>
   </data>
   <data name="Easings" xml:space="preserve">
-    <value>Easings</value>
+    <value>Suavizados</value>
   </data>
   <data name="Timeline" xml:space="preserve">
-    <value>Timeline</value>
+    <value>Línea de tiempo</value>
   </data>
   <data name="SceneFile" xml:space="preserve">
-    <value>Scene File</value>
+    <value>Archivo de escena</value>
   </data>
   <data name="Info" xml:space="preserve">
-    <value>Info</value>
+    <value>Información</value>
   </data>
   <data name="Add" xml:space="preserve">
-    <value>Add</value>
+    <value>Agregar</value>
   </data>
   <data name="Search" xml:space="preserve">
-    <value>Search</value>
+    <value>Buscar</value>
   </data>
   <data name="Name" xml:space="preserve">
-    <value>Name</value>
+    <value>Nombre</value>
   </data>
   <data name="Note" xml:space="preserve">
-    <value>Note</value>
+    <value>Nota</value>
   </data>
   <data name="Color" xml:space="preserve">
     <value>Color</value>
   </data>
   <data name="EditMarker" xml:space="preserve">
-    <value>Edit Marker</value>
+    <value>Editar marcador</value>
   </data>
   <data name="StartTime" xml:space="preserve">
-    <value>Start Time</value>
+    <value>Hora de inicio</value>
   </data>
   <data name="DurationTime" xml:space="preserve">
-    <value>Duration Time</value>
+    <value>Duración</value>
   </data>
   <data name="Cut" xml:space="preserve">
-    <value>Cut</value>
+    <value>Cortar</value>
   </data>
   <data name="Copy" xml:space="preserve">
-    <value>Copy</value>
+    <value>Copiar</value>
   </data>
   <data name="Paste" xml:space="preserve">
-    <value>Paste</value>
+    <value>Pegar</value>
   </data>
   <data name="Split" xml:space="preserve">
-    <value>Split</value>
+    <value>Dividir</value>
   </data>
   <data name="Duplicate" xml:space="preserve">
-    <value>Duplicate</value>
+    <value>Duplicar</value>
   </data>
   <data name="EditingMode" xml:space="preserve">
-    <value>Editing Mode</value>
+    <value>Modo de edición</value>
   </data>
   <data name="RazorTool" xml:space="preserve">
-    <value>Razor Tool</value>
+    <value>Herramienta de cuchilla</value>
   </data>
   <data name="RazorTool_Description" xml:space="preserve">
-    <value>Toggle razor (split) tool. Click on a clip to split it.</value>
+    <value>Alterna la herramienta de cuchilla (dividir). Haz clic en un clip para dividirlo.</value>
   </data>
   <data name="ExitRazorTool" xml:space="preserve">
-    <value>Exit Razor Tool</value>
+    <value>Salir de la herramienta de cuchilla</value>
   </data>
   <data name="ExitRazorTool_Description" xml:space="preserve">
-    <value>Exit razor mode and return to selection tool.</value>
+    <value>Sale del modo de cuchilla y vuelve a la herramienta de selección.</value>
   </data>
   <data name="SlipTool" xml:space="preserve">
-    <value>Slip Tool</value>
+    <value>Herramienta de desplazamiento</value>
   </data>
   <data name="SlipTool_Description" xml:space="preserve">
-    <value>Toggle slip tool. Drag a clip to shift its source-media window without moving the clip.</value>
+    <value>Alterna la herramienta de desplazamiento. Arrastra un clip para desplazar su ventana de medio de origen sin mover el clip.</value>
   </data>
   <data name="ExitSlipTool" xml:space="preserve">
-    <value>Exit Slip Tool</value>
+    <value>Salir de la herramienta de desplazamiento</value>
   </data>
   <data name="ExitSlipTool_Description" xml:space="preserve">
-    <value>Exit slip mode and return to selection tool.</value>
+    <value>Sale del modo de desplazamiento y vuelve a la herramienta de selección.</value>
   </data>
   <data name="RollTool" xml:space="preserve">
-    <value>Roll Tool</value>
+    <value>Herramienta de rodadura</value>
   </data>
   <data name="RollTool_Description" xml:space="preserve">
-    <value>Toggle roll tool. Drag a clip edge to shift the boundary with its neighbor, preserving total length.</value>
+    <value>Alterna la herramienta de rodadura. Arrastra el borde de un clip para desplazar el límite con su vecino, conservando la longitud total.</value>
   </data>
   <data name="ExitRollTool" xml:space="preserve">
-    <value>Exit Roll Tool</value>
+    <value>Salir de la herramienta de rodadura</value>
   </data>
   <data name="ExitRollTool_Description" xml:space="preserve">
-    <value>Exit roll mode and return to selection tool.</value>
+    <value>Sale del modo de rodadura y vuelve a la herramienta de selección.</value>
   </data>
   <data name="SlideTool" xml:space="preserve">
-    <value>Slide Tool</value>
+    <value>Herramienta de deslizamiento</value>
   </data>
   <data name="SlideTool_Description" xml:space="preserve">
-    <value>Toggle slide tool. Drag a clip to shift it while neighbors compensate, preserving total length.</value>
+    <value>Alterna la herramienta de deslizamiento. Arrastra un clip para desplazarlo mientras los vecinos compensan, conservando la longitud total.</value>
   </data>
   <data name="ExitSlideTool" xml:space="preserve">
-    <value>Exit Slide Tool</value>
+    <value>Salir de la herramienta de deslizamiento</value>
   </data>
   <data name="ExitSlideTool_Description" xml:space="preserve">
-    <value>Exit slide mode and return to selection tool.</value>
+    <value>Sale del modo de deslizamiento y vuelve a la herramienta de selección.</value>
   </data>
   <data name="Delete" xml:space="preserve">
-    <value>Delete</value>
+    <value>Eliminar</value>
   </data>
   <data name="Remove" xml:space="preserve">
-    <value>Remove</value>
+    <value>Quitar</value>
   </data>
   <data name="Exclude" xml:space="preserve">
-    <value>Exclude</value>
+    <value>Excluir</value>
   </data>
   <data name="Back" xml:space="preserve">
-    <value>Back</value>
+    <value>Atrás</value>
   </data>
   <data name="Next" xml:space="preserve">
-    <value>Next</value>
+    <value>Siguiente</value>
   </data>
   <data name="Element" xml:space="preserve">
-    <value>Element</value>
+    <value>Elemento</value>
   </data>
   <data name="AddElement" xml:space="preserve">
-    <value>Add Element</value>
+    <value>Agregar elemento</value>
   </data>
   <data name="AddAdjustmentLayer" xml:space="preserve">
-    <value>Add Adjustment Layer</value>
+    <value>Agregar capa de ajuste</value>
   </data>
   <data name="AdjustmentLayer" xml:space="preserve">
-    <value>Adjustment Layer</value>
+    <value>Capa de ajuste</value>
   </data>
   <data name="Location" xml:space="preserve">
-    <value>Location</value>
+    <value>Ubicación</value>
   </data>
   <data name="Size" xml:space="preserve">
-    <value>Size</value>
+    <value>Tamaño</value>
   </data>
   <data name="FrameRate" xml:space="preserve">
-    <value>Frame rate</value>
+    <value>Velocidad de fotogramas</value>
   </data>
   <data name="SampleRate" xml:space="preserve">
-    <value>Sample rate</value>
+    <value>Frecuencia de muestreo</value>
   </data>
   <data name="SceneSettings" xml:space="preserve">
-    <value>Scene settings</value>
+    <value>Configuración de la escena</value>
   </data>
   <data name="Apply" xml:space="preserve">
-    <value>Apply</value>
+    <value>Aplicar</value>
   </data>
   <data name="Width" xml:space="preserve">
-    <value>Width</value>
+    <value>Ancho</value>
   </data>
   <data name="Height" xml:space="preserve">
-    <value>Height</value>
+    <value>Altura</value>
   </data>
   <data name="Reset" xml:space="preserve">
-    <value>Reset</value>
+    <value>Restablecer</value>
   </data>
   <data name="ResetDockLayout" xml:space="preserve">
-    <value>Reset dock layout</value>
+    <value>Restablecer diseño de acoplamiento</value>
   </data>
   <data name="DockLayout" xml:space="preserve">
-    <value>Dock layout</value>
+    <value>Diseño de acoplamiento</value>
   </data>
   <data name="ApplyDockLayout" xml:space="preserve">
-    <value>Apply dock layout</value>
+    <value>Aplicar diseño de acoplamiento</value>
   </data>
   <data name="ManageDockLayouts" xml:space="preserve">
-    <value>Manage dock layouts</value>
+    <value>Administrar diseños de acoplamiento</value>
   </data>
   <data name="SaveCurrentDockLayout" xml:space="preserve">
-    <value>Save the current layout</value>
+    <value>Guardar el diseño actual</value>
   </data>
   <data name="SavedDockLayouts" xml:space="preserve">
-    <value>Saved layouts</value>
+    <value>Diseños guardados</value>
   </data>
   <data name="EditAnimation" xml:space="preserve">
-    <value>Edit animation</value>
+    <value>Editar animación</value>
   </data>
   <data name="NewFolder" xml:space="preserve">
-    <value>New Folder</value>
+    <value>Nueva carpeta</value>
   </data>
   <data name="Left" xml:space="preserve">
-    <value>Left</value>
+    <value>Izquierda</value>
   </data>
   <data name="Right" xml:space="preserve">
-    <value>Right</value>
+    <value>Derecha</value>
   </data>
   <data name="Top" xml:space="preserve">
-    <value>Top</value>
+    <value>Arriba</value>
   </data>
   <data name="Bottom" xml:space="preserve">
-    <value>Bottom</value>
+    <value>Abajo</value>
   </data>
   <data name="Cancel" xml:space="preserve">
-    <value>Cancel</value>
+    <value>Cancelar</value>
   </data>
   <data name="Yes" xml:space="preserve">
-    <value>Yes</value>
+    <value>Sí</value>
   </data>
   <data name="No" xml:space="preserve">
     <value>No</value>
   </data>
   <data name="DiscardChanges" xml:space="preserve">
-    <value>Discard changes</value>
+    <value>Descartar cambios</value>
   </data>
   <data name="Others" xml:space="preserve">
-    <value>Others</value>
+    <value>Otros</value>
   </data>
   <data name="Link" xml:space="preserve">
-    <value>Link</value>
+    <value>Enlace</value>
   </data>
   <data name="ShowMore" xml:space="preserve">
-    <value>Show more</value>
+    <value>Mostrar más</value>
   </data>
   <data name="OK" xml:space="preserve">
-    <value>OK</value>
+    <value>Aceptar</value>
   </data>
   <data name="Animation" xml:space="preserve">
-    <value>Animation</value>
+    <value>Animación</value>
   </data>
   <data name="Easing" xml:space="preserve">
-    <value>Easing</value>
+    <value>Suavizado</value>
   </data>
   <data name="Hold" xml:space="preserve">
-    <value>Hold</value>
+    <value>Mantener</value>
   </data>
   <data name="ElementProperty" xml:space="preserve">
-    <value>Element Property</value>
+    <value>Propiedad del elemento</value>
   </data>
   <data name="ProjectFile" xml:space="preserve">
-    <value>Project File</value>
+    <value>Archivo de proyecto</value>
   </data>
   <data name="RecentFiles" xml:space="preserve">
-    <value>Recent Files</value>
+    <value>Archivos recientes</value>
   </data>
   <data name="RecentProjects" xml:space="preserve">
-    <value>Recent Projects</value>
+    <value>Proyectos recientes</value>
   </data>
   <data name="Editors" xml:space="preserve">
-    <value>Editors</value>
+    <value>Editores</value>
   </data>
   <data name="Tools" xml:space="preserve">
-    <value>Tools</value>
+    <value>Herramientas</value>
   </data>
   <data name="Rename" xml:space="preserve">
-    <value>Rename</value>
+    <value>Renombrar</value>
   </data>
   <data name="FinishEditing" xml:space="preserve">
-    <value>Finish editing</value>
+    <value>Terminar edición</value>
   </data>
   <data name="BringToTop" xml:space="preserve">
-    <value>Bring to the top</value>
+    <value>Traer al frente</value>
   </data>
   <data name="StartEditing" xml:space="preserve">
-    <value>Start editing</value>
+    <value>Comenzar edición</value>
   </data>
   <data name="CreateNewProjectOrScene" xml:space="preserve">
-    <value>Create new project or scene</value>
+    <value>Crear nuevo proyecto o escena</value>
   </data>
   <data name="OpenAFileYouHaveAlreadyCreated" xml:space="preserve">
-    <value>Open a file you have already created</value>
+    <value>Abrir un archivo que ya has creado</value>
   </data>
   <data name="Recently" xml:space="preserve">
-    <value>Recently</value>
+    <value>Recientemente</value>
   </data>
   <data name="Projects" xml:space="preserve">
-    <value>Projects</value>
+    <value>Proyectos</value>
   </data>
   <data name="Files" xml:space="preserve">
-    <value>Files</value>
+    <value>Archivos</value>
   </data>
   <data name="All" xml:space="preserve">
-    <value>All</value>
+    <value>Todo</value>
   </data>
   <data name="NoFilesUsedRecently" xml:space="preserve">
-    <value>No files used recently.</value>
+    <value>No se usaron archivos recientemente.</value>
   </data>
   <data name="AddOutputProfile" xml:space="preserve">
-    <value>Add Profile</value>
+    <value>Agregar perfil</value>
   </data>
   <data name="Encode" xml:space="preserve">
-    <value>Encode</value>
+    <value>Codificar</value>
   </data>
   <data name="DestinationToSaveTo_Tip" xml:space="preserve">
-    <value>Set the destination</value>
+    <value>Establecer el destino</value>
   </data>
   <data name="DestinationToSaveTo" xml:space="preserve">
-    <value>Destination to save to</value>
+    <value>Destino de guardado</value>
   </data>
   <data name="Encoder_Tip" xml:space="preserve">
-    <value>Select an encoder</value>
+    <value>Seleccionar un codificador</value>
   </data>
   <data name="Encoder" xml:space="preserve">
-    <value>Encoder</value>
+    <value>Codificador</value>
   </data>
   <data name="FrameSize" xml:space="preserve">
-    <value>Frame size</value>
+    <value>Tamaño de fotograma</value>
   </data>
   <data name="FrameSize_Tip" xml:space="preserve">
-    <value>Set the frame size</value>
+    <value>Establecer el tamaño de fotograma</value>
   </data>
   <data name="FrameRate_Tip" xml:space="preserve">
-    <value>Set the framerate</value>
+    <value>Establecer la velocidad de fotogramas</value>
   </data>
   <data name="Bitrate" xml:space="preserve">
-    <value>Bitrate</value>
+    <value>Tasa de bits</value>
   </data>
   <data name="Bitrate_Tip" xml:space="preserve">
-    <value>Set the bitrate</value>
+    <value>Establecer la tasa de bits</value>
   </data>
   <data name="KeyframeRate" xml:space="preserve">
-    <value>Keyframe rate</value>
+    <value>Velocidad de fotogramas clave</value>
   </data>
   <data name="KeyframeRate_Tip" xml:space="preserve">
-    <value>Set the keyframe rate</value>
+    <value>Establecer la velocidad de fotogramas clave</value>
   </data>
   <data name="SampleRate_Tip" xml:space="preserve">
-    <value>Set the sample rate</value>
+    <value>Establecer la frecuencia de muestreo</value>
   </data>
   <data name="Channels" xml:space="preserve">
-    <value>Channels</value>
+    <value>Canales</value>
   </data>
   <data name="Channels_Tip" xml:space="preserve">
-    <value>Set the number of channels</value>
+    <value>Establecer el número de canales</value>
   </data>
   <data name="Video" xml:space="preserve">
     <value>Video</value>
@@ -450,837 +450,837 @@
     <value>Audio</value>
   </data>
   <data name="Off" xml:space="preserve">
-    <value>Off</value>
+    <value>Desactivado</value>
   </data>
   <data name="On" xml:space="preserve">
-    <value>On</value>
+    <value>Activado</value>
   </data>
   <data name="NodeGraph" xml:space="preserve">
-    <value>Node Graph</value>
+    <value>Grafo de nodos</value>
   </data>
   <data name="Library" xml:space="preserve">
-    <value>Library</value>
+    <value>Biblioteca</value>
   </data>
   <data name="FileBrowser" xml:space="preserve">
-    <value>File Browser</value>
+    <value>Explorador de archivos</value>
   </data>
   <data name="ListView" xml:space="preserve">
-    <value>List View</value>
+    <value>Vista de lista</value>
   </data>
   <data name="TreeView" xml:space="preserve">
-    <value>Tree View</value>
+    <value>Vista de árbol</value>
   </data>
   <data name="IconView" xml:space="preserve">
-    <value>Icon View</value>
+    <value>Vista de iconos</value>
   </data>
   <data name="Refresh" xml:space="preserve">
-    <value>Refresh</value>
+    <value>Actualizar</value>
   </data>
   <data name="OpenFolder" xml:space="preserve">
-    <value>Open Folder</value>
+    <value>Abrir carpeta</value>
   </data>
   <data name="Favorites" xml:space="preserve">
-    <value>Favorites</value>
+    <value>Favoritos</value>
   </data>
   <data name="Feedback" xml:space="preserve">
-    <value>Feedback</value>
+    <value>Comentarios</value>
   </data>
   <data name="AddToFavorites" xml:space="preserve">
-    <value>Add to Favorites</value>
+    <value>Agregar a favoritos</value>
   </data>
   <data name="RemoveFromFavorites" xml:space="preserve">
-    <value>Remove from Favorites</value>
+    <value>Quitar de favoritos</value>
   </data>
   <data name="NoFavorites" xml:space="preserve">
-    <value>No favorites</value>
+    <value>Sin favoritos</value>
   </data>
   <data name="DeleteSelectedItems" xml:space="preserve">
-    <value>Delete {0} items?</value>
+    <value>¿Eliminar {0} elementos?</value>
   </data>
   <data name="Group" xml:space="preserve">
-    <value>Group</value>
+    <value>Grupo</value>
   </data>
   <data name="GraphEditor" xml:space="preserve">
-    <value>Graph Editor</value>
+    <value>Editor de gráficos</value>
   </data>
   <data name="Unknown" xml:space="preserve">
-    <value>Unknown</value>
+    <value>Desconocido</value>
   </data>
   <data name="Details" xml:space="preserve">
-    <value>Details</value>
+    <value>Detalles</value>
   </data>
   <data name="Completed" xml:space="preserve">
-    <value>Completed</value>
+    <value>Completado</value>
   </data>
   <data name="Brightness" xml:space="preserve">
-    <value>Brightness</value>
+    <value>Brillo</value>
   </data>
   <data name="ColorGrading" xml:space="preserve">
-    <value>Color Grading</value>
+    <value>Gradación de color</value>
   </data>
   <data name="Number_of_Layers" xml:space="preserve">
-    <value>Number of Layers</value>
+    <value>Número de capas</value>
   </data>
   <data name="ChangeColor" xml:space="preserve">
-    <value>Change color</value>
+    <value>Cambiar color</value>
   </data>
   <data name="EditAnimationInInlineView" xml:space="preserve">
-    <value>Edit animation in inline view</value>
+    <value>Editar animación en vista en línea</value>
   </data>
   <data name="EnableLivePreview" xml:space="preserve">
-    <value>Enable Live Preview</value>
+    <value>Habilitar vista previa en vivo</value>
   </data>
   <data name="DisableThumbnails" xml:space="preserve">
-    <value>Disable Thumbnails</value>
+    <value>Deshabilitar miniaturas</value>
   </data>
   <data name="Unsupported" xml:space="preserve">
-    <value>Unsupported</value>
+    <value>No compatible</value>
   </data>
   <data name="TimelineZoom" xml:space="preserve">
     <value>Zoom</value>
   </data>
   <data name="TimelineSnap" xml:space="preserve">
-    <value>Snap</value>
+    <value>Ajuste</value>
   </data>
   <data name="RippleEdit" xml:space="preserve">
-    <value>Ripple Edit</value>
+    <value>Edición de ondulación</value>
   </data>
   <data name="UseGlobalClock" xml:space="preserve">
-    <value>Use the Global Clock</value>
+    <value>Usar el reloj global</value>
   </data>
   <data name="EditJson" xml:space="preserve">
-    <value>Edit Json</value>
+    <value>Editar JSON</value>
   </data>
   <data name="AddNode" xml:space="preserve">
-    <value>Add node</value>
+    <value>Agregar nodo</value>
   </data>
   <data name="Change" xml:space="preserve">
-    <value>Change</value>
+    <value>Cambiar</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
-    <value>Disconnect</value>
+    <value>Desconectar</value>
   </data>
   <data name="Initialize" xml:space="preserve">
-    <value>Initialize</value>
+    <value>Inicializar</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
-    <value>Reset zoom</value>
+    <value>Restablecer zoom</value>
   </data>
   <data name="RemoveAnimation" xml:space="preserve">
-    <value>Remove animation</value>
+    <value>Quitar animación</value>
   </data>
   <data name="EditExpression" xml:space="preserve">
-    <value>Edit expression</value>
+    <value>Editar expresión</value>
   </data>
   <data name="RemoveExpression" xml:space="preserve">
-    <value>Remove expression</value>
+    <value>Quitar expresión</value>
   </data>
   <data name="ExpressionHelp" xml:space="preserve">
-    <value>Enter a mathematical expression. Available variables: Time, Start, Duration, Progress. Use GetProperty&lt;T&gt;("{GUID}.Property") to reference other properties.</value>
+    <value>Introduce una expresión matemática. Variables disponibles: Time, Start, Duration, Progress. Usa GetProperty&lt;T&gt;("{GUID}.Property") para hacer referencia a otras propiedades.</value>
   </data>
   <data name="CopyPropertyPath" xml:space="preserve">
-    <value>Copy property path</value>
+    <value>Copiar ruta de propiedad</value>
   </data>
   <data name="CopyGetPropertyCode" xml:space="preserve">
-    <value>Copy GetProperty code</value>
+    <value>Copiar código GetProperty</value>
   </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
-    <value>Change to original length</value>
+    <value>Cambiar a la longitud original</value>
   </data>
   <data name="SplitByCurrentFrame" xml:space="preserve">
-    <value>Split by current frame</value>
+    <value>Dividir por el fotograma actual</value>
   </data>
   <data name="GroupSelectedElements" xml:space="preserve">
-    <value>Group selected elements</value>
+    <value>Agrupar elementos seleccionados</value>
   </data>
   <data name="UngroupSelectedElements" xml:space="preserve">
-    <value>Ungroup selected elements</value>
+    <value>Desagrupar elementos seleccionados</value>
   </data>
   <data name="Agree" xml:space="preserve">
-    <value>Agree</value>
+    <value>Aceptar</value>
   </data>
   <data name="Disagree" xml:space="preserve">
-    <value>Disagree</value>
+    <value>Rechazar</value>
   </data>
   <data name="ShowDetails" xml:space="preserve">
-    <value>Show Details</value>
+    <value>Mostrar detalles</value>
   </data>
   <data name="SaveSelectedElementAsImage" xml:space="preserve">
-    <value>Save a selected element as an image</value>
+    <value>Guardar un elemento seleccionado como imagen</value>
   </data>
   <data name="SaveFrameAsImage" xml:space="preserve">
-    <value>Save a frame as an image</value>
+    <value>Guardar un fotograma como imagen</value>
   </data>
   <data name="SaveImageScale" xml:space="preserve">
-    <value>Scale</value>
+    <value>Escala</value>
   </data>
   <data name="SaveImageScale_OutputSize" xml:space="preserve">
-    <value>Output size</value>
+    <value>Tamaño de salida</value>
   </data>
   <data name="Move" xml:space="preserve">
-    <value>Move</value>
+    <value>Mover</value>
   </data>
   <data name="Hand" xml:space="preserve">
-    <value>Hand</value>
+    <value>Mano</value>
   </data>
   <data name="SetStartTime" xml:space="preserve">
-    <value>Set start time</value>
+    <value>Establecer hora de inicio</value>
   </data>
   <data name="SetEndTime" xml:space="preserve">
-    <value>Set end time</value>
+    <value>Establecer hora de fin</value>
   </data>
   <data name="NudgeLeftFrame" xml:space="preserve">
-    <value>Nudge left (1 frame)</value>
+    <value>Desplazar a la izquierda (1 fotograma)</value>
   </data>
   <data name="NudgeRightFrame" xml:space="preserve">
-    <value>Nudge right (1 frame)</value>
+    <value>Desplazar a la derecha (1 fotograma)</value>
   </data>
   <data name="NudgeLeftLarge" xml:space="preserve">
-    <value>Nudge left (10 frames)</value>
+    <value>Desplazar a la izquierda (10 fotogramas)</value>
   </data>
   <data name="NudgeRightLarge" xml:space="preserve">
-    <value>Nudge right (10 frames)</value>
+    <value>Desplazar a la derecha (10 fotogramas)</value>
   </data>
   <data name="NudgeLeftSecond" xml:space="preserve">
-    <value>Nudge left (1 second)</value>
+    <value>Desplazar a la izquierda (1 segundo)</value>
   </data>
   <data name="NudgeRightSecond" xml:space="preserve">
-    <value>Nudge right (1 second)</value>
+    <value>Desplazar a la derecha (1 segundo)</value>
   </data>
   <data name="CloseGap" xml:space="preserve">
-    <value>Close Gap</value>
+    <value>Cerrar espacio</value>
   </data>
   <data name="Gaps" xml:space="preserve">
-    <value>Gaps</value>
+    <value>Espacios</value>
   </data>
   <data name="CloseAllGaps" xml:space="preserve">
-    <value>Close All Gaps</value>
+    <value>Cerrar todos los espacios</value>
   </data>
   <data name="GoToNextGap" xml:space="preserve">
-    <value>Go to Next Gap</value>
+    <value>Ir al siguiente espacio</value>
   </data>
   <data name="GoToPreviousGap" xml:space="preserve">
-    <value>Go to Previous Gap</value>
+    <value>Ir al espacio anterior</value>
   </data>
   <data name="NoGapsToClose" xml:space="preserve">
-    <value>There are no gaps to close</value>
+    <value>No hay espacios para cerrar</value>
   </data>
   <data name="NoGapsToGoTo" xml:space="preserve">
-    <value>There are no gaps to go to</value>
+    <value>No hay espacios a los que ir</value>
   </data>
   <data name="NoElementSelected" xml:space="preserve">
-    <value>No element is selected</value>
+    <value>No se seleccionó ningún elemento</value>
   </data>
   <data name="Editor" xml:space="preserve">
     <value>Editor</value>
   </data>
   <data name="RunningStartupTasks" xml:space="preserve">
-    <value>Running startup tasks</value>
+    <value>Ejecutando tareas de inicio</value>
   </data>
   <data name="SaveAsImage" xml:space="preserve">
-    <value>Save as image</value>
+    <value>Guardar como imagen</value>
   </data>
   <data name="CopyAsImage" xml:space="preserve">
-    <value>Copy as image</value>
+    <value>Copiar como imagen</value>
   </data>
   <data name="AlwaysDisplay" xml:space="preserve">
-    <value>Always display</value>
+    <value>Mostrar siempre</value>
   </data>
   <data name="MemoryUsage" xml:space="preserve">
-    <value>Memory usage</value>
+    <value>Uso de memoria</value>
   </data>
   <data name="Locked" xml:space="preserve">
-    <value>Locked</value>
+    <value>Bloqueado</value>
   </data>
   <data name="Unlocked" xml:space="preserve">
-    <value>Unlocked</value>
+    <value>Desbloqueado</value>
   </data>
   <data name="DeleteAll" xml:space="preserve">
-    <value>Delete All</value>
+    <value>Eliminar todo</value>
   </data>
   <data name="Lock" xml:space="preserve">
-    <value>Lock</value>
+    <value>Bloquear</value>
   </data>
   <data name="Unlock" xml:space="preserve">
-    <value>Unlock</value>
+    <value>Desbloquear</value>
   </data>
   <data name="Solo" xml:space="preserve">
     <value>Solo</value>
   </data>
   <data name="LayerIsLocked" xml:space="preserve">
-    <value>The layer is locked.</value>
+    <value>La capa está bloqueada.</value>
   </data>
   <data name="FrameCache" xml:space="preserve">
-    <value>Frame cache</value>
+    <value>Caché de fotogramas</value>
   </data>
   <data name="RightClickToOperateCache" xml:space="preserve">
-    <value>Right-click to operate cache</value>
+    <value>Clic derecho para operar la caché</value>
   </data>
   <data name="Linear" xml:space="preserve">
-    <value>Linear</value>
+    <value>Lineal</value>
   </data>
   <data name="Conical" xml:space="preserve">
-    <value>Conical</value>
+    <value>Cónico</value>
   </data>
   <data name="Radial" xml:space="preserve">
     <value>Radial</value>
   </data>
   <data name="Red" xml:space="preserve">
-    <value>Red</value>
+    <value>Rojo</value>
   </data>
   <data name="Green" xml:space="preserve">
-    <value>Green</value>
+    <value>Verde</value>
   </data>
   <data name="Blue" xml:space="preserve">
-    <value>Blue</value>
+    <value>Azul</value>
   </data>
   <data name="Master" xml:space="preserve">
-    <value>Master</value>
+    <value>Maestro</value>
   </data>
   <data name="Hue" xml:space="preserve">
-    <value>Hue</value>
+    <value>Tono</value>
   </data>
   <data name="Saturation" xml:space="preserve">
-    <value>Saturation</value>
+    <value>Saturación</value>
   </data>
   <data name="ShowSliders" xml:space="preserve">
-    <value>Show sliders</value>
+    <value>Mostrar controles deslizantes</value>
   </data>
   <data name="ShowRing" xml:space="preserve">
-    <value>Show ring</value>
+    <value>Mostrar anillo</value>
   </data>
   <data name="Symmetry" xml:space="preserve">
-    <value>Symmetry</value>
+    <value>Simetría</value>
   </data>
   <data name="Asymmetry" xml:space="preserve">
-    <value>Asymmetry</value>
+    <value>Asimetría</value>
   </data>
   <data name="Separately" xml:space="preserve">
-    <value>Separately</value>
+    <value>Por separado</value>
   </data>
   <data name="Figure" xml:space="preserve">
-    <value>Figure</value>
+    <value>Figura</value>
   </data>
   <data name="Import" xml:space="preserve">
-    <value>Import</value>
+    <value>Importar</value>
   </data>
   <data name="ImportSvgPath" xml:space="preserve">
-    <value>Import SVG path</value>
+    <value>Importar ruta SVG</value>
   </data>
   <data name="ImportSvgPath_Description" xml:space="preserve">
-    <value>The current shape will be overwritten.</value>
+    <value>La forma actual se sobrescribirá.</value>
   </data>
   <data name="EditInFrame" xml:space="preserve">
-    <value>Edit in frame</value>
+    <value>Editar en fotograma</value>
   </data>
   <data name="EditInTab" xml:space="preserve">
-    <value>Edit in tab</value>
+    <value>Editar en pestaña</value>
   </data>
   <data name="PathEditor" xml:space="preserve">
-    <value>Path editor</value>
+    <value>Editor de trazado</value>
   </data>
   <data name="CopyAll" xml:space="preserve">
-    <value>Copy All</value>
+    <value>Copiar todo</value>
   </data>
   <data name="EnableElement" xml:space="preserve">
-    <value>Enable element</value>
+    <value>Habilitar elemento</value>
   </data>
   <data name="DockArea_LeftTop" xml:space="preserve">
-    <value>Left Top</value>
+    <value>Superior izquierda</value>
   </data>
   <data name="DockArea_LeftBottom" xml:space="preserve">
-    <value>Left Bottom</value>
+    <value>Inferior izquierda</value>
   </data>
   <data name="DockArea_RightTop" xml:space="preserve">
-    <value>Right Top</value>
+    <value>Superior derecha</value>
   </data>
   <data name="DockArea_RightBottom" xml:space="preserve">
-    <value>Right Bottom</value>
+    <value>Inferior derecha</value>
   </data>
   <data name="DockArea_BottomLeft" xml:space="preserve">
-    <value>Bottom Left</value>
+    <value>Inferior izquierda</value>
   </data>
   <data name="DockArea_BottomRight" xml:space="preserve">
-    <value>Bottom Right</value>
+    <value>Inferior derecha</value>
   </data>
   <data name="DockArea_TopLeft" xml:space="preserve">
-    <value>Top Left</value>
+    <value>Superior izquierda</value>
   </data>
   <data name="DockArea_TopRight" xml:space="preserve">
-    <value>Top Right</value>
+    <value>Superior derecha</value>
   </data>
   <data name="MoveTo" xml:space="preserve">
-    <value>Move to</value>
+    <value>Mover a</value>
   </data>
   <data name="MainView" xml:space="preserve">
-    <value>Main View</value>
+    <value>Vista principal</value>
   </data>
   <data name="OpenProject" xml:space="preserve">
-    <value>Open Project</value>
+    <value>Abrir proyecto</value>
   </data>
   <data name="OpenFile" xml:space="preserve">
-    <value>Open File</value>
+    <value>Abrir archivo</value>
   </data>
   <data name="Save_Description" xml:space="preserve">
-    <value>Save the current file</value>
+    <value>Guardar el archivo actual</value>
   </data>
   <data name="SaveAll_Description" xml:space="preserve">
-    <value>Save all files</value>
+    <value>Guardar todos los archivos</value>
   </data>
   <data name="CloseProject_Description" xml:space="preserve">
-    <value>Close the current project</value>
+    <value>Cerrar el proyecto actual</value>
   </data>
   <data name="Undo_Description" xml:space="preserve">
-    <value>Undo the last operation</value>
+    <value>Deshacer la última operación</value>
   </data>
   <data name="Redo_Description" xml:space="preserve">
-    <value>Redo the last operation</value>
+    <value>Rehacer la última operación</value>
   </data>
   <data name="Exit_Description" xml:space="preserve">
-    <value>Exit the application</value>
+    <value>Salir de la aplicación</value>
   </data>
   <data name="PlayPause" xml:space="preserve">
-    <value>Play/Pause</value>
+    <value>Reproducir/Pausar</value>
   </data>
   <data name="PlayPause_Description" xml:space="preserve">
-    <value>Switches between play and pause.</value>
+    <value>Alterna entre reproducir y pausar.</value>
   </data>
   <data name="MoveToNext" xml:space="preserve">
-    <value>Move to next</value>
+    <value>Mover al siguiente</value>
   </data>
   <data name="MoveToPrevious" xml:space="preserve">
-    <value>Move to previous</value>
+    <value>Mover al anterior</value>
   </data>
   <data name="MoveToNext_Description" xml:space="preserve">
-    <value>Move to the next frame.</value>
+    <value>Mover al siguiente fotograma.</value>
   </data>
   <data name="MoveToPrevious_Description" xml:space="preserve">
-    <value>Move to the previous frame.</value>
+    <value>Mover al fotograma anterior.</value>
   </data>
   <data name="MoveToStart" xml:space="preserve">
-    <value>Move to start</value>
+    <value>Mover al inicio</value>
   </data>
   <data name="MoveToEnd" xml:space="preserve">
-    <value>Move to end</value>
+    <value>Mover al final</value>
   </data>
   <data name="MoveToStart_Description" xml:space="preserve">
-    <value>Move to the start of the scene.</value>
+    <value>Mover al inicio de la escena.</value>
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
-    <value>Move to the end of the scene.</value>
+    <value>Mover al final de la escena.</value>
   </data>
   <data name="ToggleMarker" xml:space="preserve">
-    <value>Toggle marker</value>
+    <value>Alternar marcador</value>
   </data>
   <data name="ToggleMarker_Description" xml:space="preserve">
-    <value>Toggle a marker at the current playhead. Removes the existing marker if one already exists at this position.</value>
+    <value>Alterna un marcador en el cabezal de reproducción actual. Elimina el marcador existente si ya hay uno en esta posición.</value>
   </data>
   <data name="NextMarker" xml:space="preserve">
-    <value>Next marker</value>
+    <value>Siguiente marcador</value>
   </data>
   <data name="NextMarker_Description" xml:space="preserve">
-    <value>Seek to the next marker.</value>
+    <value>Ir al siguiente marcador.</value>
   </data>
   <data name="PreviousMarker" xml:space="preserve">
-    <value>Previous marker</value>
+    <value>Marcador anterior</value>
   </data>
   <data name="PreviousMarker_Description" xml:space="preserve">
-    <value>Seek to the previous marker.</value>
+    <value>Ir al marcador anterior.</value>
   </data>
   <data name="NextKeyFrame" xml:space="preserve">
-    <value>Next keyframe</value>
+    <value>Siguiente fotograma clave</value>
   </data>
   <data name="NextKeyFrame_Description" xml:space="preserve">
-    <value>Seek to the next keyframe within the selected element (or scene-wide if none).</value>
+    <value>Ir al siguiente fotograma clave dentro del elemento seleccionado (o de toda la escena si no hay ninguno).</value>
   </data>
   <data name="PreviousKeyFrame" xml:space="preserve">
-    <value>Previous keyframe</value>
+    <value>Fotograma clave anterior</value>
   </data>
   <data name="PreviousKeyFrame_Description" xml:space="preserve">
-    <value>Seek to the previous keyframe within the selected element (or scene-wide if none).</value>
+    <value>Ir al fotograma clave anterior dentro del elemento seleccionado (o de toda la escena si no hay ninguno).</value>
   </data>
   <data name="NoKeyFrameToSeek" xml:space="preserve">
-    <value>No keyframe to seek.</value>
+    <value>No hay fotograma clave al que ir.</value>
   </data>
   <data name="ShuttleForward" xml:space="preserve">
-    <value>Shuttle forward</value>
+    <value>Avance rápido</value>
   </data>
   <data name="ShuttleForward_Description" xml:space="preserve">
-    <value>Shuttle forward (L). Press repeatedly to accelerate.</value>
+    <value>Avance rápido (L). Pulsa repetidamente para acelerar.</value>
   </data>
   <data name="ShuttleForwardFine" xml:space="preserve">
-    <value>Shuttle forward (fine)</value>
+    <value>Avance rápido (fino)</value>
   </data>
   <data name="ShuttleForwardFine_Description" xml:space="preserve">
-    <value>Shuttle forward at half speed.</value>
+    <value>Avance rápido a media velocidad.</value>
   </data>
   <data name="ShuttleBackward" xml:space="preserve">
-    <value>Shuttle backward</value>
+    <value>Retroceso rápido</value>
   </data>
   <data name="ShuttleBackward_Description" xml:space="preserve">
-    <value>Shuttle backward (J). Press repeatedly to accelerate.</value>
+    <value>Retroceso rápido (J). Pulsa repetidamente para acelerar.</value>
   </data>
   <data name="ShuttleBackwardFine" xml:space="preserve">
-    <value>Shuttle backward (fine)</value>
+    <value>Retroceso rápido (fino)</value>
   </data>
   <data name="ShuttleBackwardFine_Description" xml:space="preserve">
-    <value>Shuttle backward at half speed.</value>
+    <value>Retroceso rápido a media velocidad.</value>
   </data>
   <data name="ShuttleStop" xml:space="preserve">
-    <value>Shuttle stop</value>
+    <value>Detener avance</value>
   </data>
   <data name="ShuttleStop_Description" xml:space="preserve">
-    <value>Stop shuttle playback.</value>
+    <value>Detener la reproducción de avance.</value>
   </data>
   <data name="ToggleLoop" xml:space="preserve">
-    <value>Toggle loop</value>
+    <value>Alternar bucle</value>
   </data>
   <data name="ToggleLoop_Description" xml:space="preserve">
-    <value>Toggle loop playback.</value>
+    <value>Alternar la reproducción en bucle.</value>
   </data>
   <data name="GotoTimecode" xml:space="preserve">
-    <value>Goto timecode</value>
+    <value>Ir al código de tiempo</value>
   </data>
   <data name="GotoTimecode_Description" xml:space="preserve">
-    <value>Edit the current timecode to seek. Accepts absolute (00:01:23.45), frame (60f or #60), relative (+5s/-10f/+1m) or marker name (@Intro).</value>
+    <value>Edita el código de tiempo actual para ir a una posición. Acepta absoluto (00:01:23.45), fotogramas (60f o #60), relativo (+5s/-10f/+1m) o nombre de marcador (@Intro).</value>
   </data>
   <data name="GotoTimecode_InputHint" xml:space="preserve">
-    <value>00:01:23 / 60f / +5s / @marker</value>
+    <value>00:01:23 / 60f / +5s / @marcador</value>
   </data>
   <data name="GotoTimecode_InvalidFormat" xml:space="preserve">
-    <value>Invalid timecode format.</value>
+    <value>Formato de código de tiempo no válido.</value>
   </data>
   <data name="GotoTimecode_MarkerNotFound" xml:space="preserve">
-    <value>Marker not found.</value>
+    <value>No se encontró el marcador.</value>
   </data>
   <data name="GotoTimecode_NoScene" xml:space="preserve">
-    <value>No scene is loaded.</value>
+    <value>No hay ninguna escena cargada.</value>
   </data>
   <data name="GotoTimecode_OutOfRange" xml:space="preserve">
-    <value>Timecode is out of range.</value>
+    <value>El código de tiempo está fuera de rango.</value>
   </data>
   <data name="Paste_Description" xml:space="preserve">
-    <value>Paste the copied data.</value>
+    <value>Pegar los datos copiados.</value>
   </data>
   <data name="Rename_Description" xml:space="preserve">
-    <value>Rename the selected item.</value>
+    <value>Renombrar el elemento seleccionado.</value>
   </data>
   <data name="Exclude_Description" xml:space="preserve">
-    <value>Exclude the selected item.</value>
+    <value>Excluir el elemento seleccionado.</value>
   </data>
   <data name="Delete_Description" xml:space="preserve">
-    <value>Delete the selected item.</value>
+    <value>Eliminar el elemento seleccionado.</value>
   </data>
   <data name="Copy_Description" xml:space="preserve">
-    <value>Copy the selected item.</value>
+    <value>Copiar el elemento seleccionado.</value>
   </data>
   <data name="Cut_Description" xml:space="preserve">
-    <value>Cut the selected item.</value>
+    <value>Cortar el elemento seleccionado.</value>
   </data>
   <data name="Duplicate_Description" xml:space="preserve">
-    <value>Duplicate the selected item.</value>
+    <value>Duplicar el elemento seleccionado.</value>
   </data>
   <data name="Duplicate_Failed" xml:space="preserve">
-    <value>Failed to duplicate</value>
+    <value>No se pudo duplicar</value>
   </data>
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
-    <value>Save the project before duplicating clips.</value>
+    <value>Guarda el proyecto antes de duplicar clips.</value>
   </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
-    <value>Could not write the duplicated element to disk.</value>
+    <value>No se pudo escribir el elemento duplicado en el disco.</value>
   </data>
   <data name="Duplicate_NoEmptySlot" xml:space="preserve">
-    <value>Could not find an empty slot on the timeline; the duplicate was placed where it may overlap an existing clip.</value>
+    <value>No se pudo encontrar un espacio vacío en la línea de tiempo; el duplicado se colocó donde puede superponerse a un clip existente.</value>
   </data>
   <data name="Duplicate_FallbackToMove" xml:space="preserve">
-    <value>Duplicate failed; falling back to a plain move of the original clips.</value>
+    <value>La duplicación falló; se recurre a un simple movimiento de los clips originales.</value>
   </data>
   <data name="Duplicate_FallbackFailed" xml:space="preserve">
-    <value>The move fallback also failed; the timeline state may not match what you see.</value>
+    <value>El movimiento de respaldo también falló; el estado de la línea de tiempo puede no coincidir con lo que ves.</value>
   </data>
   <data name="AboutBeutl" xml:space="preserve">
-    <value>About Beutl</value>
+    <value>Acerca de Beutl</value>
   </data>
   <data name="Update" xml:space="preserve">
-    <value>Update</value>
+    <value>Actualizar</value>
   </data>
   <data name="EditDrawable" xml:space="preserve">
-    <value>Edit drawable</value>
+    <value>Editar dibujable</value>
   </data>
   <data name="Item" xml:space="preserve">
-    <value>Item</value>
+    <value>Elemento</value>
   </data>
   <data name="Profiles" xml:space="preserve">
-    <value>Profiles</value>
+    <value>Perfiles</value>
   </data>
   <data name="Presets" xml:space="preserve">
-    <value>Presets</value>
+    <value>Ajustes preestablecidos</value>
   </data>
   <data name="Convert_to_preset" xml:space="preserve">
-    <value>Convert to preset</value>
+    <value>Convertir en ajuste preestablecido</value>
   </data>
   <data name="Expression_Input" xml:space="preserve">
-    <value>Input</value>
+    <value>Entrada</value>
   </data>
   <data name="Expression_Help" xml:space="preserve">
-    <value>Help</value>
+    <value>Ayuda</value>
   </data>
   <data name="Expression_Variables" xml:space="preserve">
     <value>Variables</value>
   </data>
   <data name="Expression_Functions" xml:space="preserve">
-    <value>Functions</value>
+    <value>Funciones</value>
   </data>
   <data name="Expression_Variables_Description" xml:space="preserve">
-    <value>Time: Current time relative to the element start (seconds)
-Start: Element start time (seconds)
-Duration: Element duration (seconds)
-Progress: Normalized progress (0.0 to 1.0)
-PI: Mathematical constant π (3.14159...)</value>
+    <value>Time: tiempo actual relativo al inicio del elemento (segundos)
+Start: hora de inicio del elemento (segundos)
+Duration: duración del elemento (segundos)
+Progress: progreso normalizado (0.0 a 1.0)
+PI: constante matemática π (3.14159...)</value>
   </data>
   <data name="Expression_Functions_Trigonometric" xml:space="preserve">
-    <value>Trigonometric: Sin, Cos, Tan, Asin, Acos, Atan, Atan2
-Hyperbolic: Sinh, Cosh, Tanh</value>
+    <value>Trigonométricas: Sin, Cos, Tan, Asin, Acos, Atan, Atan2
+Hiperbólicas: Sinh, Cosh, Tanh</value>
   </data>
   <data name="Expression_Functions_Math" xml:space="preserve">
-    <value>Math: Sqrt, Pow, Exp, Log, Log10, Log2
-Rounding: Abs, Floor, Ceil, Round, Truncate, Sign
-Range: Min, Max, Clamp</value>
+    <value>Matemáticas: Sqrt, Pow, Exp, Log, Log10, Log2
+Redondeo: Abs, Floor, Ceil, Round, Truncate, Sign
+Rango: Min, Max, Clamp</value>
   </data>
   <data name="Expression_Functions_Interpolation" xml:space="preserve">
-    <value>Interpolation: Lerp, InverseLerp, Remap, Smoothstep</value>
+    <value>Interpolación: Lerp, InverseLerp, Remap, Smoothstep</value>
   </data>
   <data name="Expression_Functions_Utility" xml:space="preserve">
-    <value>Utility: Radians, Degrees, Mod, Frac
-Random: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max)</value>
+    <value>Utilidad: Radians, Degrees, Mod, Frac
+Aleatorio: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max)</value>
   </data>
   <data name="Expression_GetProperty_Description" xml:space="preserve">
-    <value>Reference other properties:
-GetProperty&lt;T&gt;("path") or GetProperty&lt;T&gt;(guid, "propertyName")
-Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
+    <value>Referencia otras propiedades:
+GetProperty&lt;T&gt;("path") o GetProperty&lt;T&gt;(guid, "propertyName")
+Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="Histogram" xml:space="preserve">
-    <value>Histogram</value>
+    <value>Histograma</value>
   </data>
   <data name="Vectorscope" xml:space="preserve">
-    <value>Vectorscope</value>
+    <value>Vectoscopio</value>
   </data>
   <data name="Waveform" xml:space="preserve">
-    <value>Waveform</value>
+    <value>Forma de onda</value>
   </data>
   <data name="FalseColor" xml:space="preserve">
-    <value>False Color</value>
+    <value>Color falso</value>
   </data>
   <data name="Zebra" xml:space="preserve">
-    <value>Zebra</value>
+    <value>Cebra</value>
   </data>
   <data name="Threshold" xml:space="preserve">
-    <value>Threshold</value>
+    <value>Umbral</value>
   </data>
   <data name="ZebraHighThreshold" xml:space="preserve">
-    <value>High</value>
+    <value>Alto</value>
   </data>
   <data name="ZebraLowThreshold" xml:space="preserve">
-    <value>Low</value>
+    <value>Bajo</value>
   </data>
   <data name="Spectrum" xml:space="preserve">
-    <value>Spectrum</value>
+    <value>Espectro</value>
   </data>
   <data name="Meter" xml:space="preserve">
-    <value>Meter</value>
+    <value>Medidor</value>
   </data>
   <data name="AudioVisualizer" xml:space="preserve">
-    <value>Audio Visualizer</value>
+    <value>Visualizador de audio</value>
   </data>
   <data name="Spectrogram" xml:space="preserve">
-    <value>Spectrogram</value>
+    <value>Espectrograma</value>
   </data>
   <data name="PhaseScope" xml:space="preserve">
-    <value>Phase Scope</value>
+    <value>Osciloscopio de fase</value>
   </data>
   <data name="AudioVisualizer_ResetTooltip" xml:space="preserve">
-    <value>Right-click to reset to default</value>
+    <value>Clic derecho para restablecer a los valores predeterminados</value>
   </data>
   <data name="AudioVisualizer_Waveform_Description" xml:space="preserve">
-    <value>Time-domain L/R waveform of the most recent audio. The upper trace is the left channel, the lower trace is the right channel; both share a center axis line. Use this view to spot transients, clipping, asymmetric or DC-offset signals, and to confirm at a glance that audio is actually flowing.</value>
+    <value>Forma de onda L/R en el dominio del tiempo del audio más reciente. La traza superior es el canal izquierdo, la inferior el derecho; ambos comparten una línea de eje central. Usa esta vista para detectar transitorios, recortes, señales asimétricas o con desplazamiento de CC, y para confirmar de un vistazo que el audio realmente fluye.</value>
   </data>
   <data name="AudioVisualizer_Spectrum_Description" xml:space="preserve">
-    <value>Real-time FFT frequency spectrum on a logarithmic frequency axis (~20 Hz to Nyquist). Bar height represents energy in dB at each frequency band. The settings flyout exposes shape (Bar / Line / FilledArea / MirroredBars), FFT size, smoothing, and the noise floor (Min dB). Useful for EQ work, spotting hum or whistles, and confirming that the mix has the expected high-frequency content.</value>
+    <value>Espectro de frecuencia FFT en tiempo real sobre un eje de frecuencia logarítmico (~20 Hz a Nyquist). La altura de la barra representa la energía en dB en cada banda de frecuencia. El panel de configuración expone la forma (Barra / Línea / Área rellena / Barras reflejadas), el tamaño FFT, el suavizado y el piso de ruido (Min dB). Útil para trabajo de EQ, detectar zumbidos o silbidos y confirmar que la mezcla tiene el contenido de alta frecuencia esperado.</value>
   </data>
   <data name="AudioVisualizer_Meter_Description" xml:space="preserve">
-    <value>Stereo level meter combining several broadcast-standard readouts. Bars show RMS with a peak-hold marker that decays at ~6 dB/sec. Red LEDs at the top latch on for 2 seconds when the channel reaches 0 dBFS. The M number is momentary LUFS (BS.1770-4 K-weighted, 400 ms window). TP L / TP R are true peak in dBTP, computed by 4× polyphase oversampling. Use this view to verify loudness against delivery targets (-14 LUFS for YouTube, -23 LUFS for EBU R128) and to catch inter-sample peaks before encoding.</value>
+    <value>Medidor de nivel estéreo que combina varias lecturas estándar de radiodifusión. Las barras muestran RMS con un marcador de retención de pico que decae a ~6 dB/seg. Los LED rojos de la parte superior se encienden durante 2 segundos cuando el canal alcanza 0 dBFS. El número M es LUFS momentáneo (BS.1770-4 ponderado K, ventana de 400 ms). TP L / TP R son picos reales en dBTP, calculados mediante sobremuestreo polifásico de 4×. Usa esta vista para verificar la sonoridad según los objetivos de entrega (-14 LUFS para YouTube, -23 LUFS para EBU R128) y detectar picos entre muestras antes de codificar.</value>
   </data>
   <data name="AudioVisualizer_Spectrogram_Description" xml:space="preserve">
-    <value>Time-frequency heatmap of roughly the last 4 seconds. The vertical axis is logarithmic frequency (low at the bottom, high at the top); the horizontal axis is time (older on the left, newer on the right). Brightness represents energy in dB above the noise floor. Use this view to see how the spectrum evolves over time — identifying sweeping filters, vibrato, room modes, and the harmonic structure of sustained notes.</value>
+    <value>Mapa de calor tiempo-frecuencia de aproximadamente los últimos 4 segundos. El eje vertical es la frecuencia logarítmica (baja abajo, alta arriba); el horizontal es el tiempo (más antiguo a la izquierda, más reciente a la derecha). El brillo representa la energía en dB por encima del piso de ruido. Usa esta vista para ver cómo evoluciona el espectro con el tiempo: identifica filtros de barrido, vibrato, modos de sala y la estructura armónica de las notas sostenidas.</value>
   </data>
   <data name="AudioVisualizer_PhaseScope_Description" xml:space="preserve">
-    <value>Stereo Lissajous (goniometer) rotated 45° — the broadcast-standard convention. Pure mono content traces a vertical line on the M (mono) axis; fully out-of-phase material spreads horizontally toward the S (anti-phase) axis; a single channel traces the L or R diagonal. The "corr" value at the top-left is the Pearson correlation between channels: +1 means perfectly mono, 0 uncorrelated, -1 fully anti-phase. Use this view to catch channel-flipped or phase-cancelling material that would collapse during mono playback.</value>
+    <value>Lissajous estéreo (goniómetro) rotado 45°: la convención estándar de radiodifusión. El contenido mono puro traza una línea vertical en el eje M (mono); el material totalmente fuera de fase se extiende horizontalmente hacia el eje S (antifase); un solo canal traza la diagonal L o R. El valor "corr" en la parte superior izquierda es la correlación de Pearson entre canales: +1 significa perfectamente mono, 0 sin correlación, -1 totalmente en antifase. Usa esta vista para detectar material con canales invertidos o cancelación de fase que colapsaría durante la reproducción mono.</value>
   </data>
   <data name="Luma" xml:space="preserve">
     <value>Luma</value>
   </data>
   <data name="RgbOverlay" xml:space="preserve">
-    <value>RGB Overlay</value>
+    <value>Superposición RGB</value>
   </data>
   <data name="RgbParade" xml:space="preserve">
-    <value>RGB Parade</value>
+    <value>Desfile RGB</value>
   </data>
   <data name="Gamma" xml:space="preserve">
     <value>Gamma</value>
   </data>
   <data name="AVFoundationEncoder" xml:space="preserve">
-    <value>AVFoundation Encoder</value>
+    <value>Codificador AVFoundation</value>
   </data>
   <data name="AVFoundationDecoder" xml:space="preserve">
-    <value>AVFoundation Decoder</value>
+    <value>Decodificador AVFoundation</value>
   </data>
   <data name="UniformValue" xml:space="preserve">
-    <value>Uniform value</value>
+    <value>Valor uniforme</value>
   </data>
   <data name="Null" xml:space="preserve">
-    <value>Null</value>
+    <value>Nulo</value>
   </data>
   <data name="OpenInTab" xml:space="preserve">
-    <value>Open in tab</value>
+    <value>Abrir en pestaña</value>
   </data>
   <data name="Previous" xml:space="preserve">
-    <value>Previous</value>
+    <value>Anterior</value>
   </data>
   <data name="Current" xml:space="preserve">
-    <value>Current</value>
+    <value>Actual</value>
   </data>
   <data name="Result" xml:space="preserve">
-    <value>Result</value>
+    <value>Resultado</value>
   </data>
   <data name="ElapsedTime" xml:space="preserve">
-    <value>Elapsed time</value>
+    <value>Tiempo transcurrido</value>
   </data>
   <data name="Difference" xml:space="preserve">
-    <value>Difference</value>
+    <value>Diferencia</value>
   </data>
   <data name="Error" xml:space="preserve">
     <value>Error</value>
   </data>
   <data name="APIError" xml:space="preserve">
-    <value>API Error</value>
+    <value>Error de API</value>
   </data>
   <data name="Website" xml:space="preserve">
-    <value>Website</value>
+    <value>Sitio web</value>
   </data>
   <data name="DisplayMode" xml:space="preserve">
-    <value>Display mode</value>
+    <value>Modo de visualización</value>
   </data>
   <data name="Docked" xml:space="preserve">
-    <value>Docked</value>
+    <value>Acoplado</value>
   </data>
   <data name="Floating" xml:space="preserve">
-    <value>Floating</value>
+    <value>Flotante</value>
   </data>
   <data name="CropSelection" xml:space="preserve">
-    <value>Crop selection</value>
+    <value>Recortar selección</value>
   </data>
   <data name="Camera3DControl" xml:space="preserve">
-    <value>3D camera control</value>
+    <value>Control de cámara 3D</value>
   </data>
   <data name="Gizmo_Translate" xml:space="preserve">
-    <value>Translate</value>
+    <value>Trasladar</value>
   </data>
   <data name="Gizmo_Rotate" xml:space="preserve">
-    <value>Rotate</value>
+    <value>Rotar</value>
   </data>
   <data name="Gizmo_Scale" xml:space="preserve">
-    <value>Scale</value>
+    <value>Escalar</value>
   </data>
   <data name="Portal" xml:space="preserve">
     <value>Portal</value>
   </data>
   <data name="Portal_Count" xml:space="preserve">
-    <value>Count</value>
+    <value>Cantidad</value>
   </data>
   <data name="Portal_Clear" xml:space="preserve">
-    <value>Clear</value>
+    <value>Borrar</value>
   </data>
   <data name="ExportProject" xml:space="preserve">
-    <value>Export Project...</value>
+    <value>Exportar proyecto...</value>
   </data>
   <data name="ImportProject" xml:space="preserve">
-    <value>Import Project...</value>
+    <value>Importar proyecto...</value>
   </data>
   <data name="ExportingProject" xml:space="preserve">
-    <value>Exporting project...</value>
+    <value>Exportando proyecto...</value>
   </data>
   <data name="ImportingProject" xml:space="preserve">
-    <value>Importing project...</value>
+    <value>Importando proyecto...</value>
   </data>
   <data name="ProjectPackage" xml:space="preserve">
-    <value>Project Package</value>
+    <value>Paquete de proyecto</value>
   </data>
   <data name="SelectDestinationFolder" xml:space="preserve">
-    <value>Select Destination Folder</value>
+    <value>Seleccionar carpeta de destino</value>
   </data>
-  <!-- 3D Graphics -->
+  
   <data name="Experimental" xml:space="preserve">
     <value>Experimental</value>
   </data>
   <data name="Home" xml:space="preserve">
-    <value>Home</value>
+    <value>Inicio</value>
   </data>
   <data name="ProjectDirectory" xml:space="preserve">
-    <value>Project Directory</value>
+    <value>Directorio del proyecto</value>
   </data>
   <data name="MediaFiles" xml:space="preserve">
-    <value>Media Files</value>
+    <value>Archivos multimedia</value>
   </data>
   <data name="SearchingMediaFiles" xml:space="preserve">
-    <value>Searching for media files...</value>
+    <value>Buscando archivos multimedia...</value>
   </data>
   <data name="NoMediaFilesFound" xml:space="preserve">
-    <value>No media files found</value>
+    <value>No se encontraron archivos multimedia</value>
   </data>
   <data name="Tutorials" xml:space="preserve">
-    <value>Tutorials</value>
+    <value>Tutoriales</value>
   </data>
   <data name="BpmGrid" xml:space="preserve">
-    <value>BPM Grid</value>
+    <value>Cuadrícula BPM</value>
   </data>
   <data name="ShowBpmGrid" xml:space="preserve">
-    <value>Show BPM Grid</value>
+    <value>Mostrar cuadrícula BPM</value>
   </data>
   <data name="BpmValue" xml:space="preserve">
     <value>BPM</value>
   </data>
   <data name="BeatSubdivisions" xml:space="preserve">
-    <value>Subdivisions</value>
+    <value>Subdivisiones</value>
   </data>
   <data name="BpmOffset" xml:space="preserve">
-    <value>Offset</value>
+    <value>Desplazamiento</value>
   </data>
   <data name="Preview" xml:space="preserve">
-    <value>Preview</value>
+    <value>Vista previa</value>
   </data>
   <data name="PreviewSettings" xml:space="preserve">
-    <value>Preview Settings</value>
+    <value>Configuración de vista previa</value>
   </data>
   <data name="Templates" xml:space="preserve">
-    <value>Templates</value>
+    <value>Plantillas</value>
   </data>
   <data name="SaveAsTemplate" xml:space="preserve">
-    <value>Save as Template</value>
+    <value>Guardar como plantilla</value>
   </data>
   <data name="ApplyTemplate" xml:space="preserve">
-    <value>Apply Template</value>
+    <value>Aplicar plantilla</value>
   </data>
   <data name="AddFromTemplate" xml:space="preserve">
-    <value>Add from Template</value>
+    <value>Agregar desde plantilla</value>
   </data>
   <data name="TemplateSaved" xml:space="preserve">
-    <value>Template has been saved.</value>
+    <value>La plantilla se ha guardado.</value>
   </data>
   <data name="DeleteTemplateConfirm" xml:space="preserve">
-    <value>Are you sure you want to delete this template?</value>
+    <value>¿Seguro que quieres eliminar esta plantilla?</value>
   </data>
   <data name="EnterTemplateName" xml:space="preserve">
-    <value>Enter template name</value>
+    <value>Introduce el nombre de la plantilla</value>
   </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
@@ -1289,10 +1289,10 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>YouTube 4K 60fps</value>
   </data>
   <data name="Preset_Twitter_1080p" xml:space="preserve">
-    <value>Twitter (X) 1080p (max 2:20)</value>
+    <value>Twitter (X) 1080p (máx. 2:20)</value>
   </data>
   <data name="Preset_Instagram_Reels" xml:space="preserve">
-    <value>Instagram Reels 9:16 (max 90s)</value>
+    <value>Instagram Reels 9:16 (máx. 90 s)</value>
   </data>
   <data name="Preset_Instagram_Feed" xml:space="preserve">
     <value>Instagram Feed 1:1</value>
@@ -1304,270 +1304,270 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Discord 8MB (~1 min)</value>
   </data>
   <data name="Encoding" xml:space="preserve">
-    <value>Encoding...</value>
+    <value>Codificando...</value>
   </data>
   <data name="RemainingTime" xml:space="preserve">
-    <value>Remaining</value>
+    <value>Restante</value>
   </data>
   <data name="Frames" xml:space="preserve">
-    <value>Frames</value>
+    <value>Fotogramas</value>
   </data>
   <data name="FileSize" xml:space="preserve">
-    <value>Size</value>
+    <value>Tamaño</value>
   </data>
   <data name="EstimatedSize" xml:space="preserve">
-    <value>Estimated</value>
+    <value>Estimado</value>
   </data>
   <data name="ShowCommandPalette" xml:space="preserve">
-    <value>Show command palette</value>
+    <value>Mostrar paleta de comandos</value>
   </data>
   <data name="ShowCommandPalette_Description" xml:space="preserve">
-    <value>Open the searchable command list</value>
+    <value>Abrir la lista de comandos buscable</value>
   </data>
   <data name="CommandPalette_Placeholder" xml:space="preserve">
-    <value>Type a command name…</value>
+    <value>Escribe un nombre de comando…</value>
   </data>
   <data name="CommandPalette_NoResults" xml:space="preserve">
-    <value>No matching commands</value>
+    <value>No hay comandos coincidentes</value>
   </data>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
-    <value>Menu</value>
+    <value>Menú</value>
   </data>
   <data name="OnionSkin" xml:space="preserve">
-    <value>Onion skin</value>
+    <value>Piel de cebolla</value>
   </data>
   <data name="OnionSkin_Description" xml:space="preserve">
-    <value>Show semi-transparent previous and next frames overlaid on the current frame.</value>
+    <value>Muestra los fotogramas anterior y siguiente semitransparentes superpuestos sobre el fotograma actual.</value>
   </data>
   <data name="ToggleOnionSkin" xml:space="preserve">
-    <value>Toggle onion skin</value>
+    <value>Alternar piel de cebolla</value>
   </data>
   <data name="ToggleOnionSkin_Description" xml:space="preserve">
-    <value>Toggle the onion skin overlay in the preview.</value>
+    <value>Alterna la superposición de piel de cebolla en la vista previa.</value>
   </data>
   <data name="OnionSkinPrevCount" xml:space="preserve">
-    <value>Previous frames</value>
+    <value>Fotogramas anteriores</value>
   </data>
   <data name="OnionSkinNextCount" xml:space="preserve">
-    <value>Next frames</value>
+    <value>Fotogramas siguientes</value>
   </data>
   <data name="OnionSkinPrevOpacity" xml:space="preserve">
-    <value>Previous opacity</value>
+    <value>Opacidad anterior</value>
   </data>
   <data name="OnionSkinNextOpacity" xml:space="preserve">
-    <value>Next opacity</value>
+    <value>Opacidad siguiente</value>
   </data>
   <data name="Supersampling" xml:space="preserve">
-    <value>Supersampling</value>
+    <value>Supermuestreo</value>
   </data>
   <data name="Supersampling_Tip" xml:space="preserve">
-    <value>Render at the selected multiple of the output resolution, then downscale to the output size for smoother edges</value>
+    <value>Renderiza al múltiplo seleccionado de la resolución de salida y luego reduce a la escala de salida para obtener bordes más suaves</value>
   </data>
   <data name="PreviewRenderQuality" xml:space="preserve">
-    <value>Preview render quality</value>
+    <value>Calidad de renderizado de vista previa</value>
   </data>
   <data name="PreviewRenderQuality_Tip" xml:space="preserve">
-    <value>Preview render quality. Cannot be changed during playback.</value>
+    <value>Calidad de renderizado de vista previa. No se puede cambiar durante la reproducción.</value>
   </data>
   <data name="RenderScale_Full" xml:space="preserve">
-    <value>Full</value>
+    <value>Completo</value>
   </data>
   <data name="RenderScale_Half" xml:space="preserve">
-    <value>Half (1/2)</value>
+    <value>Mitad (1/2)</value>
   </data>
   <data name="RenderScale_Quarter" xml:space="preserve">
-    <value>Quarter (1/4)</value>
+    <value>Cuarto (1/4)</value>
   </data>
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
-    <value>Fit to previewer</value>
+    <value>Ajustar al visor</value>
   </data>
   <data name="Terminal" xml:space="preserve">
     <value>Terminal</value>
   </data>
   <data name="TerminalSessionEnded" xml:space="preserve">
-    <value>The terminal session has ended.</value>
+    <value>La sesión de terminal ha terminado.</value>
   </data>
   <data name="Restart" xml:space="preserve">
-    <value>Restart</value>
+    <value>Reiniciar</value>
   </data>
   <data name="Proxies" xml:space="preserve">
     <value>Proxies</value>
   </data>
   <data name="ProxyPresetHalf" xml:space="preserve">
-    <value>Half proxy (1/2)</value>
+    <value>Proxy de mitad (1/2)</value>
   </data>
   <data name="ProxyQuality" xml:space="preserve">
-    <value>Proxy quality</value>
+    <value>Calidad del proxy</value>
   </data>
   <data name="PreviewSource" xml:space="preserve">
-    <value>Preview source</value>
+    <value>Fuente de vista previa</value>
   </data>
   <data name="PreviewSourcePreferProxy" xml:space="preserve">
-    <value>Prefer proxy</value>
+    <value>Preferir proxy</value>
   </data>
   <data name="PreviewSourceForceOriginal" xml:space="preserve">
-    <value>Force original</value>
+    <value>Forzar original</value>
   </data>
   <data name="ProxyPresetQuarter" xml:space="preserve">
-    <value>Quarter proxy (1/4)</value>
+    <value>Proxy de cuarto (1/4)</value>
   </data>
   <data name="ProxyPresetEighth" xml:space="preserve">
-    <value>Eighth proxy (1/8)</value>
+    <value>Proxy de octavo (1/8)</value>
   </data>
   <data name="ProxyStoreUsage" xml:space="preserve">
-    <value>Store</value>
+    <value>Almacenamiento</value>
   </data>
   <data name="ProxyStoreCap" xml:space="preserve">
-    <value>Cap</value>
+    <value>Límite</value>
   </data>
   <data name="ProxyClips" xml:space="preserve">
     <value>Clips</value>
   </data>
   <data name="ProxyQueue" xml:space="preserve">
-    <value>Queue</value>
+    <value>Cola</value>
   </data>
   <data name="ProxyGenerate" xml:space="preserve">
-    <value>Generate</value>
+    <value>Generar</value>
   </data>
   <data name="ProxyGenerateSelected" xml:space="preserve">
-    <value>Generate selected</value>
+    <value>Generar seleccionados</value>
   </data>
   <data name="ProxyGenerateAll" xml:space="preserve">
-    <value>Generate all</value>
+    <value>Generar todos</value>
   </data>
   <data name="ProxyRegenerate" xml:space="preserve">
-    <value>Regenerate</value>
+    <value>Regenerar</value>
   </data>
   <data name="ProxyRegenerateSelected" xml:space="preserve">
-    <value>Regenerate selected</value>
+    <value>Regenerar seleccionados</value>
   </data>
   <data name="ProxyDeleteSelected" xml:space="preserve">
-    <value>Delete selected</value>
+    <value>Eliminar seleccionados</value>
   </data>
   <data name="ProxyDeleteProjectProxies" xml:space="preserve">
-    <value>Delete project proxies</value>
+    <value>Eliminar proxies del proyecto</value>
   </data>
   <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
-    <value>Proxies are stored in a machine-wide shared cache. Deleting the {0} proxy file(s) used by this project also removes them for every other project that references the same source files, and they will have to be regenerated. Continue?</value>
+    <value>Los proxies se almacenan en una caché compartida de toda la máquina. Eliminar los {0} archivos proxy usados por este proyecto también los elimina para todos los demás proyectos que hacen referencia a los mismos archivos de origen, y deberán regenerarse. ¿Continuar?</value>
   </data>
   <data name="ProxyReady" xml:space="preserve">
-    <value>Ready</value>
+    <value>Listo</value>
   </data>
   <data name="ProxyGenerating" xml:space="preserve">
-    <value>Generating</value>
+    <value>Generando</value>
   </data>
   <data name="ProxyStale" xml:space="preserve">
-    <value>Stale</value>
+    <value>Desactualizado</value>
   </data>
   <data name="ProxyFailed" xml:space="preserve">
-    <value>Failed</value>
+    <value>Fallido</value>
   </data>
   <data name="ProxyMissing" xml:space="preserve">
-    <value>Missing</value>
+    <value>Faltante</value>
   </data>
   <data name="ProxyPartial" xml:space="preserve">
-    <value>Partial</value>
+    <value>Parcial</value>
   </data>
   <data name="ProxyUnavailable" xml:space="preserve">
-    <value>Unavailable</value>
+    <value>No disponible</value>
   </data>
   <data name="ProxyStoreUnavailable" xml:space="preserve">
-    <value>Proxy store is not available.</value>
+    <value>El almacenamiento de proxies no está disponible.</value>
   </data>
   <data name="ProxyQueueUnavailable" xml:space="preserve">
-    <value>Proxy queue is not available.</value>
+    <value>La cola de proxies no está disponible.</value>
   </data>
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
-    <value>No clips met the bulk-generation threshold; use per-clip generate.</value>
+    <value>Ningún clip alcanzó el umbral de generación masiva; usa la generación por clip.</value>
   </data>
   <data name="ProxyQueueIdle" xml:space="preserve">
-    <value>Queue idle</value>
+    <value>Cola inactiva</value>
   </data>
   <data name="ProxyQueuedJobSingular" xml:space="preserve">
-    <value>1 queued job</value>
+    <value>1 trabajo en cola</value>
   </data>
   <data name="ProxyQueuedJobPlural" xml:space="preserve">
-    <value>{0} queued jobs</value>
+    <value>{0} trabajos en cola</value>
   </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
-    <value>1 proxy could not be deleted because its file is in use.</value>
+    <value>No se pudo eliminar 1 proxy porque su archivo está en uso.</value>
   </data>
   <data name="ProxyDeleteFailedPluralFormat" xml:space="preserve">
-    <value>{0} proxies could not be deleted because their files are in use.</value>
+    <value>No se pudieron eliminar {0} proxies porque sus archivos están en uso.</value>
   </data>
   <data name="ProxyClipSummaryFormat" xml:space="preserve">
-    <value>{0} clips / {1} ready / {2} stale / {3} failed / {4} missing</value>
+    <value>{0} clips / {1} listos / {2} desactualizados / {3} fallidos / {4} faltantes</value>
   </data>
   <data name="ProxySelectedSingular" xml:space="preserve">
-    <value>1 selected</value>
+    <value>1 seleccionado</value>
   </data>
   <data name="ProxySelectedPlural" xml:space="preserve">
-    <value>{0} selected</value>
+    <value>{0} seleccionados</value>
   </data>
   <data name="ProxyStoreSummaryFormat" xml:space="preserve">
-    <value>Project {0} / Store {1} / Cap {2}</value>
+    <value>Proyecto {0} / Almacenamiento {1} / Límite {2}</value>
   </data>
   <data name="ProxySourceInfoFormat" xml:space="preserve">
-    <value>Source {0} / {1}</value>
+    <value>Fuente {0} / {1}</value>
   </data>
   <data name="ProxyInfoFormat" xml:space="preserve">
-    <value>Proxy {0} -> {1} / {2}</value>
+    <value>Proxy {0} -&gt; {1} / {2}</value>
   </data>
   <data name="ProxyMissingForSelectedPreset" xml:space="preserve">
-    <value>Proxy missing for selected preset</value>
+    <value>Falta el proxy para el ajuste preestablecido seleccionado</value>
   </data>
   <data name="ProxyLastUsedFormat" xml:space="preserve">
-    <value>Used {0}</value>
+    <value>Usado {0}</value>
   </data>
   <data name="ProxyJobStatusQueued" xml:space="preserve">
-    <value>Queued</value>
+    <value>En cola</value>
   </data>
   <data name="ProxyJobStatusRunning" xml:space="preserve">
-    <value>Running</value>
+    <value>En ejecución</value>
   </data>
   <data name="ProxyJobStatusSucceeded" xml:space="preserve">
-    <value>Succeeded</value>
+    <value>Correcto</value>
   </data>
   <data name="ProxyJobStatusFailed" xml:space="preserve">
-    <value>Failed</value>
+    <value>Fallido</value>
   </data>
   <data name="ProxyJobStatusCanceled" xml:space="preserve">
-    <value>Canceled</value>
+    <value>Cancelado</value>
   </data>
   <data name="ProxyJobStatusSkipped" xml:space="preserve">
-    <value>Skipped</value>
+    <value>Omitido</value>
   </data>
   <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
   <data name="Start" xml:space="preserve">
-    <value>Start</value>
+    <value>Iniciar</value>
   </data>
   <data name="Debug" xml:space="preserve">
-    <value>Debug</value>
+    <value>Depuración</value>
   </data>
   <data name="AudioVisualizer_Display" xml:space="preserve">
-    <value>Display</value>
+    <value>Visualización</value>
   </data>
   <data name="WindowCapture" xml:space="preserve">
-    <value>Window Capture</value>
+    <value>Captura de ventana</value>
   </data>
   <data name="AudioVisualizer_MinDecibels" xml:space="preserve">
-    <value>Min dB</value>
+    <value>dB mín.</value>
   </data>
   <data name="WindowCapture_RenderScale" xml:space="preserve">
-    <value>Render scale</value>
+    <value>Escala de renderizado</value>
   </data>
   <data name="WindowCapture_FrameRate" xml:space="preserve">
-    <value>Frame rate (fps)</value>
+    <value>Velocidad de fotogramas (fps)</value>
   </data>
   <data name="WindowCapture_OutputFile" xml:space="preserve">
-    <value>Output file (.mp4)</value>
+    <value>Archivo de salida (.mp4)</value>
   </data>
   <data name="Browse" xml:space="preserve">
-    <value>Browse...</value>
+    <value>Examinar...</value>
   </data>
   <data name="ClickBrowse" xml:space="preserve">
-    <value>Click Browse...</value>
+    <value>Haz clic en Examinar...</value>
   </data>
 </root>

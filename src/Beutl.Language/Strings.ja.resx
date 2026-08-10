@@ -1534,4 +1534,34 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
+  <data name="Start" xml:space="preserve">
+    <value>開始</value>
+  </data>
+  <data name="Debug" xml:space="preserve">
+    <value>デバッグ</value>
+  </data>
+  <data name="AudioVisualizer_Display" xml:space="preserve">
+    <value>表示</value>
+  </data>
+  <data name="WindowCapture" xml:space="preserve">
+    <value>ウィンドウキャプチャ</value>
+  </data>
+  <data name="AudioVisualizer_MinDecibels" xml:space="preserve">
+    <value>最小dB</value>
+  </data>
+  <data name="WindowCapture_RenderScale" xml:space="preserve">
+    <value>レンダースケール</value>
+  </data>
+  <data name="WindowCapture_FrameRate" xml:space="preserve">
+    <value>フレームレート (fps)</value>
+  </data>
+  <data name="WindowCapture_OutputFile" xml:space="preserve">
+    <value>出力ファイル (.mp4)</value>
+  </data>
+  <data name="Browse" xml:space="preserve">
+    <value>参照...</value>
+  </data>
+  <data name="ClickBrowse" xml:space="preserve">
+    <value>参照をクリック...</value>
+  </data>
 </root>

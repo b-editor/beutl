@@ -1,0 +1,139 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="NoLogoImageAvailable" xml:space="preserve">
+    <value>사용 가능한 로고 이미지가 없습니다</value>
+  </data>
+  <data name="Package_Screenshots" xml:space="preserve">
+    <value>스크린샷</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>설치</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>업데이트</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>제거</value>
+  </data>
+  <data name="Package_LatestRelease" xml:space="preserve">
+    <value>최신 릴리스</value>
+  </data>
+  <data name="Package_Tags" xml:space="preserve">
+    <value>태그</value>
+  </data>
+  <data name="Package_LatestVersion" xml:space="preserve">
+    <value>최신 버전</value>
+  </data>
+  <data name="Package_InstalledVersion" xml:space="preserve">
+    <value>설치된 버전</value>
+  </data>
+  <data name="OpenUrl_Title" xml:space="preserve">
+    <value>URL을 여시겠습니까?</value>
+  </data>
+  <data name="OpenUrl_Content" xml:space="preserve">
+    <value>'{0}'을(를) 열려고 합니다.
+URL이 의심스러우면 열지 않는 것이 좋습니다.</value>
+  </data>
+  <data name="Search_Packages" xml:space="preserve">
+    <value>패키지</value>
+  </data>
+  <data name="Profile_PublishedPackages" xml:space="preserve">
+    <value>게시된 패키지</value>
+  </data>
+  <data name="RemoveFromLibrary" xml:space="preserve">
+    <value>라이브러리에서 제거</value>
+  </data>
+  <data name="CheckUpdate" xml:space="preserve">
+    <value>업데이트 확인</value>
+  </data>
+  <data name="LocalPackages" xml:space="preserve">
+    <value>로컬 패키지</value>
+  </data>
+  <data name="LocalPackage" xml:space="preserve">
+    <value>로컬 패키지</value>
+  </data>
+  <data name="Could_not_find_a_package_from_remote" xml:space="preserve">
+    <value>원격에서 '{0}'을(를) 찾을 수 없습니다.</value>
+  </data>
+  <data name="PackageInstaller" xml:space="preserve">
+    <value>패키지 설치 프로그램</value>
+  </data>
+  <data name="PackageInstaller_Installed" xml:space="preserve">
+    <value>'{0}'이(가) 성공적으로 설치되었습니다.</value>
+  </data>
+  <data name="PackageInstaller_Updated" xml:space="preserve">
+    <value>'{0}'이(가) 성공적으로 업데이트되었습니다.</value>
+  </data>
+  <data name="PackageInstaller_Uninstalled" xml:space="preserve">
+    <value>'{0}'이(가) 성공적으로 제거되었습니다.</value>
+  </data>
+  <data name="PackageInstaller_ScheduledInstallation" xml:space="preserve">
+    <value>'{0}' 설치가 예약되었습니다.
+패키지 변경 사항을 적용하려면 Beutl을 종료하세요.</value>
+  </data>
+  <data name="PackageInstaller_ScheduledUpdate" xml:space="preserve">
+    <value>'{0}' 업데이트가 예약되었습니다.
+패키지 변경 사항을 적용하려면 Beutl을 종료하세요.</value>
+  </data>
+  <data name="PackageInstaller_ScheduledUninstallation" xml:space="preserve">
+    <value>'{0}' 제거가 예약되었습니다.
+패키지 변경 사항을 적용하려면 Beutl을 종료하세요.</value>
+  </data>
+  <data name="PackageInstaller_CloseProjectConfirmation" xml:space="preserve">
+    <value>현재 프로젝트가 열려 있습니다. 패키지를 수정하기 전에 닫아야 합니다. 닫으시겠습니까?</value>
+  </data>
+  <data name="PackageInstaller_SaveAndClose" xml:space="preserve">
+    <value>저장 후 닫기</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>설명</value>
+  </data>
+  <data name="May_not_work_correctly_when_downgrading" xml:space="preserve">
+    <value>다운그레이드 시 제대로 작동하지 않을 수 있습니다</value>
+  </data>
+  <data name="Package_SelectedRelease" xml:space="preserve">
+    <value>선택한 릴리스</value>
+  </data>
+  <data name="Release_TargetVersion" xml:space="preserve">
+    <value>대상 버전</value>
+  </data>
+  <data name="This_extension_does_not_support_your_Beutl_version" xml:space="preserve">
+    <value>이 확장 프로그램은 현재 Beutl 버전을 지원하지 않습니다.
+강제 설치하려면 CLI 도구를 사용하세요.</value>
+  </data>
+  <data name="Installing" xml:space="preserve">
+    <value>설치 중...</value>
+  </data>
+  <data name="Updating" xml:space="preserve">
+    <value>업데이트 중...</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>제거 중...</value>
+  </data>
+  <data name="Free" xml:space="preserve">
+    <value>무료</value>
+  </data>
+  <data name="RemoveFromLibrary_Title" xml:space="preserve">
+    <value>라이브러리에서 제거</value>
+  </data>
+  <data name="RemoveFromLibrary_PaidConfirmation" xml:space="preserve">
+    <value>이것은 유료 패키지({0})입니다. 라이브러리에서 제거하면 다시 구매해야 다시 획득할 수 있습니다. 계속하시겠습니까?</value>
+  </data>
+</root>

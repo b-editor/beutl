@@ -233,7 +233,7 @@
                 <TextBlock VerticalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            IsVisible="{CompiledBinding IsDebuggerAttached}"
-                           Text="Debug" />
+                           Text="{x:Static lang:Strings.Debug}" />
 
                 <Border Margin="4,0,0,0"
                         wnd:AppWindow.AllowInteractionInTitleBar="True"
