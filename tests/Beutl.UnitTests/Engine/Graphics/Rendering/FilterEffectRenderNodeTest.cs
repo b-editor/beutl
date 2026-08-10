@@ -1,5 +1,4 @@
 ﻿using Beutl.Composition;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -53,14 +52,14 @@ public class FilterEffectRenderNodeTest
     }
 
     [Test]
-    public void CurrentPixelEffects_ExecuteAsOneFusedShaderRun()
+    public void CurrentPixelBuiltIns_ExecuteAsOneFusedShaderRun()
     {
         var diagnostics = new RenderPipelineDiagnosticsState();
-        using Bitmap disabled = RenderCurrentPixelEffects(
+        using Bitmap disabled = RenderCurrentPixelBuiltIns(
             FusionMode.Disabled,
             diagnostics: null,
             out _);
-        using Bitmap enabled = RenderCurrentPixelEffects(
+        using Bitmap enabled = RenderCurrentPixelBuiltIns(
             FusionMode.Enabled,
             diagnostics,
             out RenderExecutionStatistics statistics);
@@ -127,7 +126,7 @@ public class FilterEffectRenderNodeTest
             },
         });
 
-    private static Bitmap RenderCurrentPixelEffects(
+    private static Bitmap RenderCurrentPixelBuiltIns(
         FusionMode fusionMode,
         RenderPipelineDiagnosticsState? diagnostics,
         out RenderExecutionStatistics statistics)
@@ -136,10 +135,8 @@ public class FilterEffectRenderNodeTest
         {
             Children =
             {
-                new TestCurrentPixelEffect(
-                    "half4 apply(half4 color) { return half4(color.rgb * 0.75, color.a); }"),
-                new TestCurrentPixelEffect(
-                    "half4 apply(half4 color) { return half4(color.bgr, color.a); }"),
+                new Gamma(),
+                new Invert(),
             },
         };
         using var node = CreateNode(group.ToResource(CompositionContext.Default));
@@ -183,28 +180,4 @@ public class FilterEffectRenderNodeTest
 
     private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
         : RenderTarget(surface, size.Width, size.Height);
-
-    [SuppressResourceClassGeneration]
-    private sealed partial class TestCurrentPixelEffect(string source) : FilterEffect
-    {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-        {
-            context.Shader(ShaderDescription.CurrentPixel(source));
-        }
-
-        public override Resource ToResource(CompositionContext context)
-        {
-            var resource = new Resource();
-            bool updateOnly = false;
-            resource.Update(this, context, ref updateOnly);
-            return resource;
-        }
-
-        public new sealed class Resource : FilterEffect.Resource
-        {
-            public Resource()
-            {
-            }
-        }
-    }
 }

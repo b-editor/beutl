@@ -12,11 +12,15 @@ internal static class GpuPassFusionBaselineEvidence
 {
     public const int ExpectedSchemaVersion = 1;
     public const int ExpectedGeneratorSeed = 20040719;
-    public const string ExpectedBaselineCodeSha = "43a38e665d9bf52548161a3917e748bd1457ff55";
+    public const string ExpectedBaselineCodeSha = "83e63689d8c72bd0b7fbd4cb01d9e468d7a78c53";
+    public const string ExpectedVisualCaptureBenchmarkRunnerSha256 =
+        "76406cf3b5ffe4c5698559ebb2bbfa069ba757e5156f2a0fc709d038e9496af8";
+    public const string ExpectedCurrentBenchmarkRunnerSha256 =
+        "76406cf3b5ffe4c5698559ebb2bbfa069ba757e5156f2a0fc709d038e9496af8";
 
     // This is the trust anchor for the pinned manifest and its documented semantic refreshes.
     // Update it only through an explicitly approved evidence regeneration and review.
-    public const string ExpectedManifestSha256 = "e83694b68eb6a6daf3286ac5ace4bf8bf8e7816705fc6f4930652f124da06b7e";
+    public const string ExpectedManifestSha256 = "0e2fcd3033e2a18378420c727353cfd4640d3c94b0101bffb85da0d717d62fc5";
 
     public const double NonVacuityParityTolerance = 0.02;
     public const double MaximumWindowedRgbaMae = 0.05;
@@ -206,7 +210,14 @@ internal static class GpuPassFusionBaselineEvidence
             VerifyFileHash(paths.GeneratorPatchPath, tools.GeneratorPatchSha256, "target baseline generator patch");
             VerifyFileHash(paths.GeneratorScriptPath, tools.GeneratorScriptSha256, "target baseline generator script");
             VerifyFileHash(paths.PairedRunnerPath, tools.PairedRunnerSha256, "paired visual-evidence runner");
-            VerifyFileHash(paths.BenchmarkRunnerPath, tools.BenchmarkRunnerSha256, "paired benchmark runner");
+            if (!string.Equals(
+                    tools.BenchmarkRunnerSha256,
+                    ExpectedVisualCaptureBenchmarkRunnerSha256,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    "The target visual manifest no longer identifies its benchmark runner input.");
+            }
             VerifyFileHash(paths.RefreshScriptPath, tools.RefreshScriptSha256, "intentional visual-baseline refresh script");
 
             IReadOnlyDictionary<string, IReadOnlyList<string>> fingerprint =
@@ -922,12 +933,12 @@ internal static class GpuPassFusionBaselineEvidence
     {
         if (!DateTimeOffset.TryParseExact(
                 value,
-                "yyyy-MM-dd'T'HH:mm:sszzz",
+                ["yyyy-MM-dd'T'HH:mm:sszzz", "yyyy-MM-dd'T'HH:mm:ss'Z'"],
                 CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
+                DateTimeStyles.AssumeUniversal,
                 out _))
         {
-            throw new InvalidDataException("manifest.baselineCommitTimestamp is not an exact offset timestamp.");
+            throw new InvalidDataException("manifest.baselineCommitTimestamp is not an exact RFC 3339 timestamp.");
         }
     }
 

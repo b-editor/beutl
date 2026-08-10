@@ -53,47 +53,43 @@ public sealed class SKSLShader : IDisposable
         }
     }
 
-    public SKRuntimeEffect Effect
-    {
-        get
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            return _effect;
-        }
-    }
-
-    public SKRuntimeShaderBuilder CreateBuilder()
+    public SKSLShaderBuilder CreateBuilder()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        return new SKRuntimeShaderBuilder(_effect);
+        return new SKSLShaderBuilder(this, _effect);
     }
 
-    public EffectTarget ApplyToNewTarget(CustomFilterEffectContext context, SKRuntimeShaderBuilder builder, Rect bounds)
+    /// <summary>
+    /// Renders a configured runtime shader over the complete backing buffer of an existing target.
+    /// The caller retains ownership of <paramref name="target"/>, including when rendering fails.
+    /// </summary>
+    public void RenderToTarget(
+        CustomFilterEffectContext context,
+        SKSLShaderBuilder builder,
+        EffectTarget target)
     {
-        var newTarget = context.CreateTarget(bounds);
-        try
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(target);
+        if (!builder.IsOwnedBy(this))
         {
-            using (SKShader finalShader = builder.Build())
-            using (var paint = new SKPaint())
-            using (var canvas = context.Open(newTarget))
-            {
-                paint.Shader = finalShader;
-                canvas.Clear();
-                // Cover the full device buffer in device space.
-                float dw = context.WorkingScale == 1f ? (float)bounds.Width : newTarget.RenderTarget!.Width;
-                float dh = context.WorkingScale == 1f ? (float)bounds.Height : newTarget.RenderTarget!.Height;
-                using (canvas.PushDeviceSpace())
-                {
-                    canvas.Canvas.DrawRect(new SKRect(0, 0, dw, dh), paint);
-                }
-            }
-
-            return newTarget;
+            throw new ArgumentException(
+                "The builder must be created by the shader used for rendering.",
+                nameof(builder));
         }
-        catch
+        if (target.RenderTarget is null || target.Scale.IsUnbounded)
+            throw new ArgumentException("The target must be materialized with a concrete scale.", nameof(target));
+
+        using SKShader finalShader = builder.Build();
+        using var paint = new SKPaint { Shader = finalShader };
+        using ImmediateCanvas canvas = context.Open(target);
+        canvas.Clear();
+        using (canvas.PushDeviceSpace())
         {
-            newTarget.Dispose();
-            throw;
+            canvas.Canvas.DrawRect(
+                SKRect.Create(target.RenderTarget.Width, target.RenderTarget.Height),
+                paint);
         }
     }
 
@@ -102,5 +98,50 @@ public sealed class SKSLShader : IDisposable
         if (_disposed) return;
         _disposed = true;
         _effect.Dispose();
+    }
+
+    internal SKShader Build(
+        SKRuntimeEffectUniforms uniforms,
+        SKRuntimeEffectChildren children)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _effect.ToShader(uniforms, children);
+    }
+}
+
+public sealed class SKSLShaderBuilder : IDisposable
+{
+    private readonly SKSLShader _owner;
+    private bool _disposed;
+
+    internal SKSLShaderBuilder(SKSLShader owner, SKRuntimeEffect effect)
+    {
+        _owner = owner;
+        Uniforms = new SKRuntimeEffectUniforms(effect);
+        Children = new SKRuntimeEffectChildren(effect);
+    }
+
+    public SKRuntimeEffectUniforms Uniforms { get; }
+
+    public SKRuntimeEffectChildren Children { get; }
+
+    /// <summary>
+    /// Builds the configured runtime shader. The caller owns the returned shader.
+    /// </summary>
+    public SKShader Build()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _owner.Build(Uniforms, Children);
+    }
+
+    internal bool IsOwnedBy(SKSLShader shader)
+        => ReferenceEquals(_owner, shader);
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        Uniforms.Dispose();
+        Children.Dispose();
     }
 }

@@ -9,11 +9,26 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
 [TestFixture]
 public sealed class GpuPassFusionBaselineTests
 {
+    private const int ExpectedTargetBenchmarkMeasurementIterations = 15;
+
+    private const string ExpectedTargetBenchmarkJobDisplay =
+        "TargetBaselinePersistentGpu(InvocationCount=1, IterationCount=15, LaunchCount=1, "
+        + "RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)";
+
     private const string ExpectedTargetBenchmarkManifestSha256 =
-        "39272c4eef6414cf4099f3f2ab0a388dded36473e86deb506f127c65b85e78c6";
+        "60e9ef1f43cdc82db5674e9b8abae9e770bd79245c6d47efa5b6d011bfb30656";
+
+    private const string ExpectedTargetBenchmarkPairedRunnerSha256 =
+        "32b7713a007ec719d839335352ac2a75914b2d179512edd13943ff94f4c64b78";
+
+    private const string ExpectedTargetBenchmarkGeneratorScriptSha256 =
+        "4c2c3c4272c403943fa60c5a812b2aba68bac2ddfb1d2999684576e16b59285f";
 
     private const string ExpectedPairedBenchmarkManifestSha256 =
-        "839eaf34e4fa5824a03333fa50418259ea3fca302a044eb767110afb6b676b1e";
+        "f10ab3ba6f03f36621c9e4254d7cb9467481fce301245b75434855e75b2c9303";
+
+    private const string ExpectedPairedBenchmarkFeatureCodeSha =
+        "01c70637a6fd7d2e34eac18fdc9343dc5b0aaa7f";
 
     private static readonly string[] ExpectedPairedBenchmarkCounterFiles =
     [
@@ -30,11 +45,27 @@ public sealed class GpuPassFusionBaselineTests
         "StructuralToggle.json",
     ];
 
+    private static readonly string[] ExpectedPairedBenchmarkOutputBlobFiles =
+    [
+        .. ExpectedPairedBenchmarkCounterFiles.SelectMany(static file =>
+        {
+            string caseName = Path.GetFileNameWithoutExtension(file);
+            return new[]
+            {
+                $"{caseName}.measured.rgba16f",
+                $"{caseName}.setup.rgba16f",
+            };
+        }),
+    ];
+
     private static readonly string[] ExpectedPairedBenchmarkArchiveFiles =
     [
         .. ExpectedPairedBenchmarkCounterFiles.Select(file => $"baseline-a/counters/{file}"),
         .. ExpectedPairedBenchmarkCounterFiles.Select(file => $"baseline-b/counters/{file}"),
         .. ExpectedPairedBenchmarkCounterFiles.Select(file => $"feature/counters/{file}"),
+        .. ExpectedPairedBenchmarkOutputBlobFiles.Select(file => $"baseline-a/output-blobs/{file}"),
+        .. ExpectedPairedBenchmarkOutputBlobFiles.Select(file => $"baseline-b/output-blobs/{file}"),
+        .. ExpectedPairedBenchmarkOutputBlobFiles.Select(file => $"feature/output-blobs/{file}"),
         "baseline-a/code-sha.txt",
         "baseline-a/command.txt",
         "baseline-a/raw-benchmark-full.json",
@@ -104,6 +135,10 @@ public sealed class GpuPassFusionBaselineTests
     {
         GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         GpuPassFusionEvidenceManifest manifest = GpuPassFusionBaselineEvidence.LoadAndVerify();
+        GpuPassFusionBaselineEvidence.VerifyFileHash(
+            manifest.Paths.BenchmarkRunnerPath,
+            GpuPassFusionBaselineEvidence.ExpectedCurrentBenchmarkRunnerSha256,
+            "current paired benchmark runner");
 
         using (Assert.EnterMultipleScope())
         {
@@ -112,11 +147,77 @@ public sealed class GpuPassFusionBaselineTests
                 manifest.BaselineCodeSha,
                 Is.EqualTo(GpuPassFusionBaselineEvidence.ExpectedBaselineCodeSha));
             Assert.That(manifest.GeneratorSeed, Is.EqualTo(GpuPassFusionBaselineEvidence.ExpectedGeneratorSeed));
+            Assert.That(
+                manifest.EvidenceTools.BenchmarkRunnerSha256,
+                Is.EqualTo(GpuPassFusionBaselineEvidence.ExpectedVisualCaptureBenchmarkRunnerSha256));
             Assert.That(manifest.ArtifactHashes, Is.Not.Empty);
             Assert.That(manifest.Scenes.Count(scene => scene.Role == "parity"), Is.GreaterThan(0));
             Assert.That(
                 manifest.Fingerprint.Keys,
                 Is.EquivalentTo(GpuPassFusionBaselineEvidence.RequiredFingerprintFields));
+        }
+    }
+
+    [Test]
+    public void ImmutableTargetBenchmark_RawSamplesAndJobMatchFrozenProtocol()
+    {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
+        GpuPassFusionEvidenceManifest baseline = GpuPassFusionBaselineEvidence.LoadAndVerify();
+        string directory = Path.Combine(baseline.Paths.EvidenceDirectory, "target-benchmark");
+        string manifestPath = Path.Combine(directory, "manifest.json");
+        string rawPath = Path.Combine(directory, "raw-benchmark-full.json");
+        GpuPassFusionBaselineEvidence.VerifyFileHash(
+            manifestPath,
+            ExpectedTargetBenchmarkManifestSha256,
+            "target benchmark manifest");
+
+        using JsonDocument manifestDocument = JsonDocument.Parse(File.ReadAllBytes(manifestPath));
+        JsonElement manifest = manifestDocument.RootElement;
+        GpuPassFusionBaselineEvidence.VerifyFileHash(
+            rawPath,
+            manifest.GetProperty("artifactSha256").GetProperty("raw-benchmark-full.json").GetString()
+                ?? throw new InvalidDataException("Target benchmark raw-result hash is null."),
+            "target benchmark raw result");
+
+        JsonElement configuration = manifest.GetProperty("configuration");
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                configuration.GetProperty("measurementIterations").GetInt32(),
+                Is.EqualTo(ExpectedTargetBenchmarkMeasurementIterations));
+            Assert.That(configuration.GetProperty("benchmarkWarmupIterations").GetInt32(), Is.EqualTo(3));
+            Assert.That(configuration.GetProperty("launchCount").GetInt32(), Is.EqualTo(1));
+            Assert.That(configuration.GetProperty("invocationCount").GetInt32(), Is.EqualTo(1));
+        });
+
+        using JsonDocument rawDocument = JsonDocument.Parse(File.ReadAllBytes(rawPath));
+        JsonElement benchmarks = rawDocument.RootElement.GetProperty("Benchmarks");
+        Assert.That(benchmarks.GetArrayLength(), Is.EqualTo(3));
+        foreach (JsonElement benchmark in benchmarks.EnumerateArray())
+        {
+            string fullName = benchmark.GetProperty("FullName").GetString()
+                ?? throw new InvalidDataException("Target benchmark FullName is null.");
+            string display = benchmark.GetProperty("DisplayInfo").GetString()
+                ?? throw new InvalidDataException($"Target benchmark DisplayInfo is null: {fullName}");
+            int separator = display.IndexOf(": ", StringComparison.Ordinal);
+            int parameters = display.LastIndexOf(" [CaseName=", StringComparison.Ordinal);
+            Assert.That(separator, Is.GreaterThanOrEqualTo(0), fullName);
+            Assert.That(parameters, Is.GreaterThan(separator + 2), fullName);
+            string jobDisplay = display[(separator + 2)..parameters];
+            JsonElement statistics = benchmark.GetProperty("Statistics");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(jobDisplay, Is.EqualTo(ExpectedTargetBenchmarkJobDisplay), fullName);
+                Assert.That(
+                    statistics.GetProperty("N").GetInt32(),
+                    Is.EqualTo(ExpectedTargetBenchmarkMeasurementIterations),
+                    fullName);
+                Assert.That(
+                    statistics.GetProperty("OriginalValues").GetArrayLength(),
+                    Is.EqualTo(ExpectedTargetBenchmarkMeasurementIterations),
+                    fullName);
+            });
         }
     }
 
@@ -169,9 +270,9 @@ public sealed class GpuPassFusionBaselineTests
         {
             ["benchmarkRunnerSha256"] = baseline.EvidenceTools.BenchmarkRunnerSha256,
             ["generatorPatchSha256"] = baseline.EvidenceTools.GeneratorPatchSha256,
-            ["generatorScriptSha256"] = baseline.EvidenceTools.GeneratorScriptSha256,
+            ["generatorScriptSha256"] = ExpectedTargetBenchmarkGeneratorScriptSha256,
             ["generatorSourceBundleSha256"] = baseline.EvidenceTools.GeneratorSourceBundleSha256,
-            ["pairedRunnerSha256"] = baseline.EvidenceTools.PairedRunnerSha256,
+            ["pairedRunnerSha256"] = ExpectedTargetBenchmarkPairedRunnerSha256,
             ["refreshScriptSha256"] = baseline.EvidenceTools.RefreshScriptSha256,
         };
         JsonElement tools = root.GetProperty("evidenceTools");
@@ -237,9 +338,13 @@ public sealed class GpuPassFusionBaselineTests
         Assert.Multiple(() =>
         {
             Assert.That(root.GetProperty("schemaVersion").GetInt32(), Is.EqualTo(2));
+            Assert.That(root.GetProperty("primaryAcceptancePassed").GetBoolean(), Is.False);
+            Assert.That(root.GetProperty("baselineRepeatStable").GetBoolean(), Is.False);
+            Assert.That(root.GetProperty("controlBarrierAcceptancePassed").GetBoolean(), Is.False);
+            Assert.That(root.GetProperty("overallAcceptancePassed").GetBoolean(), Is.False);
             Assert.That(
-                root.EnumerateObject().Select(static property => property.Name),
-                Does.Contain("overallAcceptancePassed"));
+                root.GetProperty("feature").GetProperty("codeSha").GetString(),
+                Is.EqualTo(ExpectedPairedBenchmarkFeatureCodeSha));
         });
 
         string[] actualFiles = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
@@ -281,10 +386,54 @@ public sealed class GpuPassFusionBaselineTests
                 Is.EquivalentTo(ExpectedPairedBenchmarkCounterFiles));
             foreach (JsonProperty counter in counterHashes.EnumerateObject())
             {
+                string counterPath = Path.Combine(counterDirectory, counter.Name);
                 GpuPassFusionBaselineEvidence.VerifyFileHash(
-                    Path.Combine(counterDirectory, counter.Name),
+                    counterPath,
                     counter.Value.GetString() ?? throw new InvalidDataException($"{laneName} counter hash is null"),
                     $"{laneName} counter '{counter.Name}'");
+                using JsonDocument counterDocument = JsonDocument.Parse(File.ReadAllBytes(counterPath));
+                Assert.That(
+                    counterDocument.RootElement.GetProperty("schemaVersion").GetInt32(),
+                    Is.EqualTo(3),
+                    $"{laneName} counter '{counter.Name}' schema");
+            }
+
+            Assert.That(lane.GetProperty("outputDirectory").GetString(), Is.EqualTo("output-blobs"));
+            JsonElement outputHashes = lane.GetProperty("outputBlobFileSha256");
+            Assert.That(
+                outputHashes.EnumerateObject().Select(static property => property.Name),
+                Is.EquivalentTo(ExpectedPairedBenchmarkOutputBlobFiles));
+            foreach (JsonProperty outputBlob in outputHashes.EnumerateObject())
+            {
+                GpuPassFusionBaselineEvidence.VerifyFileHash(
+                    Path.Combine(directory, laneDirectory, "output-blobs", outputBlob.Name),
+                    outputBlob.Value.GetString()
+                        ?? throw new InvalidDataException($"{laneName} output blob hash is null"),
+                    $"{laneName} output blob '{outputBlob.Name}'");
+            }
+
+            JsonElement archiveHashes = lane.GetProperty("benchmarkDotNetArtifactSha256");
+            string[] laneFiles = Directory.EnumerateFiles(
+                    Path.Combine(directory, laneDirectory),
+                    "*",
+                    SearchOption.AllDirectories)
+                .Select(path => Path.GetRelativePath(Path.Combine(directory, laneDirectory), path)
+                    .Replace(Path.DirectorySeparatorChar, '/'))
+                .Order(StringComparer.Ordinal)
+                .ToArray();
+            Assert.That(
+                archiveHashes.EnumerateObject().Select(static property => property.Name),
+                Is.EquivalentTo(laneFiles));
+            foreach (JsonProperty artifact in archiveHashes.EnumerateObject())
+            {
+                GpuPassFusionBaselineEvidence.VerifyFileHash(
+                    Path.Combine(
+                        directory,
+                        laneDirectory,
+                        artifact.Name.Replace('/', Path.DirectorySeparatorChar)),
+                    artifact.Value.GetString()
+                        ?? throw new InvalidDataException($"{laneName} archive hash is null"),
+                    $"{laneName} archive artifact '{artifact.Name}'");
             }
         }
     }

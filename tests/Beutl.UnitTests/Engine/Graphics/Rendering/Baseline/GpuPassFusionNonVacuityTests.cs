@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Benchmarks.Rendering;
+using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
@@ -8,6 +9,27 @@ public sealed class GpuPassFusionNonVacuityTests
 {
     private static readonly Lazy<GpuPassFusionEvidenceManifest> s_manifest =
         new(GpuPassFusionBaselineEvidence.LoadAndVerify);
+
+    [Test]
+    public void PrimaryGammaSceneDefinitions_KeepTargetAndFeatureWorkloadsSynchronized()
+    {
+        GpuPassFusionEvidencePaths paths = GpuPassFusionEvidencePaths.Discover();
+        string targetGeneratorPatch = File.ReadAllText(paths.GeneratorPatchPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(FeatureVisualEvidenceExporter.PrimaryEvidenceGammaPercent, Is.EqualTo(275));
+            Assert.That(
+                targetGeneratorPatch,
+                Does.Contain("BuildPrimaryChain(275, 0.62f, 72)")
+                    .And.Contain("BuildPrimaryChain(275, 1f, 72)")
+                    .And.Contain("BuildPrimaryChain(275, 0.62f, 0)"));
+            Assert.That(
+                targetGeneratorPatch,
+                Does.Contain("BuildPrimaryChain(100, 0.62f, 72)"),
+                "the gamma-disabled control must retain the identity gamma amount");
+        });
+    }
 
     private static IEnumerable<TestCaseData> ParityWorkloads
     {

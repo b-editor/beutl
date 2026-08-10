@@ -290,6 +290,71 @@ public sealed class LosslessCompositeCoverageTests
         });
     }
 
+    [TestCase(0.5f)]
+    [TestCase(1f)]
+    [TestCase(2f)]
+    public void MosaicClamp_PreservesConstantOpaqueSourceAndFarEdgeAlpha(float density)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var mosaic = new MosaicEffect();
+            mosaic.TileSize.CurrentValue = new Size(20, 20);
+            mosaic.Origin.CurrentValue = RelativePoint.Center;
+            var frame = new PixelSize(180, 180);
+            using Drawable.Resource plain = CreateRectangle(
+                width: 180,
+                height: 180,
+                effect: null,
+                alignmentX: AlignmentX.Left,
+                alignmentY: AlignmentY.Top);
+            using Drawable.Resource filtered = CreateRectangle(
+                width: 180,
+                height: 180,
+                mosaic,
+                AlignmentX.Left,
+                AlignmentY.Top);
+            using Bitmap expected = RenderThroughPipeline(plain, density, frame);
+            using Bitmap actual = RenderThroughPipeline(filtered, density, frame);
+
+            ReadOnlySpan<ushort> expectedPixels = expected.GetPixelSpan<ushort>();
+            ReadOnlySpan<ushort> actualPixels = actual.GetPixelSpan<ushort>();
+            int differingChannels = 0;
+            float minimumFarEdgeAlpha = 1;
+            for (int y = 0; y < actual.Height; y++)
+            {
+                for (int x = 0; x < actual.Width; x++)
+                {
+                    int pixelOffset = ((y * actual.Width) + x) * 4;
+                    for (int channel = 0; channel < 4; channel++)
+                    {
+                        if (actualPixels[pixelOffset + channel] != expectedPixels[pixelOffset + channel])
+                            differingChannels++;
+                    }
+
+                    if (x == actual.Width - 1 || y == actual.Height - 1)
+                    {
+                        minimumFarEdgeAlpha = Math.Min(
+                            minimumFarEdgeAlpha,
+                            (float)BitConverter.UInt16BitsToHalf(actualPixels[pixelOffset + 3]));
+                    }
+                }
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    differingChannels,
+                    Is.Zero,
+                    "Mosaic over a constant opaque source must preserve every premultiplied channel.");
+                Assert.That(
+                    minimumFarEdgeAlpha,
+                    Is.EqualTo(1).Within(0.001f),
+                    "Clamp sampling must preserve opaque alpha at the source's right and bottom edges.");
+            });
+        });
+    }
+
     [Test]
     public void ScaledComposite_StaysInsideTheSourceRange()
     {

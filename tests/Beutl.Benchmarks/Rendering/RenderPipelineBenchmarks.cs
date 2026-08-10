@@ -1,5 +1,4 @@
-﻿using System.Buffers.Binary;
-using System.Collections;
+﻿using System.Collections;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -218,10 +217,10 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             Directory.CreateDirectory(outputBlobsPath);
             File.WriteAllBytes(
                 Path.Combine(outputBlobsPath, setupBlobFile),
-                EncodeRgba16f(setupBitmap));
+                Rgba16fEvidenceWriter.Encode(setupBitmap));
             File.WriteAllBytes(
                 Path.Combine(outputBlobsPath, measuredBlobFile),
-                EncodeRgba16f(measuredBitmap));
+                Rgba16fEvidenceWriter.Encode(measuredBitmap));
         }
 
         return new RenderPipelineBenchmarkCounterRecord
@@ -778,32 +777,6 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         SortedDictionary<string, long> TargetPoolStatistics);
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
-
-    private static byte[] EncodeRgba16f(Bitmap bitmap)
-    {
-        if (bitmap.ColorType != BitmapColorType.RgbaF16
-            || bitmap.AlphaType != BitmapAlphaType.Premul
-            || !bitmap.ColorSpace.Equals(BitmapColorSpace.LinearSrgb))
-        {
-            throw new InvalidOperationException("Benchmark bitmap must be RgbaF16/Premul/LinearSrgb.");
-        }
-
-        byte[] bytes = new byte[checked(bitmap.Width * bitmap.Height * 8)];
-        int destination = 0;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
-            if (row.Length != bitmap.Width * 4)
-                throw new InvalidOperationException("Unexpected RGBA16F row length.");
-            foreach (ushort component in row)
-            {
-                BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(destination, 2), component);
-                destination += 2;
-            }
-        }
-
-        return bytes;
-    }
 }
 
 internal interface IFrameStateConsumer
@@ -1285,8 +1258,9 @@ internal sealed class RenderPipelineEvidenceFingerprint
             if (value is string text
                 && (text.Contains("unknown", StringComparison.OrdinalIgnoreCase)
                     || (string.IsNullOrWhiteSpace(text)
-                        && !(string.Equals(fingerprint.VulkanDeviceType, "Cpu", StringComparison.OrdinalIgnoreCase)
-                             && string.Equals(property.Name, "VulkanDriverInfo", StringComparison.OrdinalIgnoreCase)))))
+                        && !EvidenceFingerprintRules.AllowsBlankValue(
+                            property.Name,
+                            fingerprint.VulkanDeviceType))))
             {
                 throw new InvalidOperationException(
                     $"Fingerprint field '{property.Name}' is missing or unknown.");

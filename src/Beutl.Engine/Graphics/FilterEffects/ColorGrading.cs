@@ -1,25 +1,16 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Reactive;
+using System.Numerics;
 using Beutl.Engine;
 using Beutl.Language;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.ColorGrading), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class ColorGrading : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<ColorGrading>();
-    private static readonly SKSLShader? s_shader;
-
-    static ColorGrading()
-    {
-        const string sksl =
-            """
-            uniform shader src;
+    private const string ShaderSource =
+        """
             uniform float exposure; // EV stops (-5 to +5)
             uniform float contrast; // -1 to +1
             uniform float contrastPivot; // typically 0.18 or 0.5
@@ -76,8 +67,8 @@ public sealed partial class ColorGrading : FilterEffect
                 return mix(float3(luma), color, 1.0 + sat);
             }
 
-            float3 apply_hue(float3 color, float hue) {
-                float rad = radians(hue);
+            float3 apply_hue(float3 color, float hueAmount) {
+                float rad = radians(hueAmount);
                 float cos_a = cos(rad);
                 float sin_a = sin(rad);
 
@@ -102,53 +93,44 @@ public sealed partial class ColorGrading : FilterEffect
                 return yiq_to_rgb * (rotation * (rgb_to_yiq * color));
             }
 
-            float3 apply_temperature_tint(float3 color, float temperature, float tint) {
+            float3 apply_temperature_tint(float3 color, float temperatureAmount, float tintAmount) {
                 float3 temp_adjustment = float3(
-                    1.0 + temperature * 0.1,
+                    1.0 + temperatureAmount * 0.1,
                     1.0,
-                    1.0 - temperature * 0.1
+                    1.0 - temperatureAmount * 0.1
                 );
 
                 float3 tint_adjustment = float3(
-                    1.0 + tint * 0.05,
-                    1.0 - tint * 0.1,
-                    1.0 + tint * 0.05
+                    1.0 + tintAmount * 0.05,
+                    1.0 - tintAmount * 0.1,
+                    1.0 + tintAmount * 0.05
                 );
 
                 return color * temp_adjustment * tint_adjustment;
             }
 
-            half4 main(float2 coord) {
-                half4 srcColor = src.eval(coord);
-                float alpha = srcColor.a;
-                float3 color;
-                if (alpha > 0.0001) {
-                    color = srcColor.rgb / alpha;
-                } else {
-                    return half4(0.0);
-                }
+            half4 apply(half4 color) {
+                float alpha = color.a;
+                if (alpha <= 0.0001) return half4(0.0);
+                float3 rgb = color.rgb / alpha;
 
-                color *= exp2(exposure);
-                color = apply_lift_gamma_gain(color, lift, gamma, gain);
-                color = (color - contrastPivot) * (1.0 + contrast) + contrastPivot;
-                color = apply_tonal_balance(color, shadows, midtones, highlights);
-                color = apply_temperature_tint(color, temperature, tint);
-                float satWeight = 1.0 - clamp(saturation_of(color), 0.0, 1.0);
-                color = apply_saturation(color, saturation * (1.0 + vibrance * satWeight));
-                color = apply_hue(color, hue);
+                rgb *= exp2(exposure);
+                rgb = apply_lift_gamma_gain(rgb, lift, gamma, gain);
+                rgb = (rgb - contrastPivot) * (1.0 + contrast) + contrastPivot;
+                rgb = apply_tonal_balance(rgb, shadows, midtones, highlights);
+                rgb = apply_temperature_tint(rgb, temperature, tint);
+                float satWeight = 1.0 - clamp(saturation_of(rgb), 0.0, 1.0);
+                rgb = apply_saturation(rgb, saturation * (1.0 + vibrance * satWeight));
+                rgb = apply_hue(rgb, hue);
 
-                color += offset;
+                rgb += offset;
 
-                return half4(color * alpha, alpha);
+                return half4(rgb * alpha, alpha);
             }
+        """;
 
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile color grading shader: {ErrorText}", errorText);
-        }
-    }
+    private static readonly SkslSource s_shaderSource =
+        new(ShaderSource, ShaderDescriptionKind.CurrentPixel);
 
     public ColorGrading()
     {
@@ -218,70 +200,41 @@ public sealed partial class ColorGrading : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        if (s_shader is null)
-        {
-            throw new InvalidOperationException("Failed to compile SKSL.");
-        }
-
         var r = (Resource)resource;
-        // TODO: 第二引数がIEquatableを要求しているので，タプルにしている
-        context.CustomEffect(
-            (r, Unit.Default),
-            (t, c) => OnApply(t.r, c),
-            static (_, rect) => rect);
-    }
-
-    private static void OnApply(Resource data, CustomFilterEffectContext context)
-    {
-        if (s_shader is null) return;
-
-        for (int i = 0; i < context.Targets.Count; i++)
+        float lowRange = Math.Clamp(r.LowRange, 0f, 100f);
+        float highRange = Math.Clamp(r.HighRange, 0f, 100f);
+        if (lowRange > highRange)
         {
-            using var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
-
-            using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-            var builder = s_shader.CreateBuilder();
-
-            builder.Children["src"] = baseShader;
-            builder.Uniforms["exposure"] = data.Exposure;
-            builder.Uniforms["contrast"] = data.Contrast / 100f;
-            builder.Uniforms["contrastPivot"] = data.ContrastPivot;
-            builder.Uniforms["saturation"] = data.Saturation / 100f;
-            builder.Uniforms["vibrance"] = data.Vibrance / 100f;
-            builder.Uniforms["hue"] = data.Hue;
-            builder.Uniforms["temperature"] = data.Temperature / 100f;
-            builder.Uniforms["tint"] = data.Tint / 100f;
-
-            float lowRange = Math.Clamp(data.LowRange, 0f, 100f);
-            float highRange = Math.Clamp(data.HighRange, 0f, 100f);
-            if (lowRange > highRange)
-            {
-                (lowRange, highRange) = (highRange, lowRange);
-            }
-
-            builder.Uniforms["lowRange"] = lowRange / 100f;
-            builder.Uniforms["highRange"] = highRange / 100f;
-            builder.Uniforms["shadows"] = ToColorVector(data.Shadows);
-            builder.Uniforms["midtones"] = ToColorVector(data.Midtones);
-            builder.Uniforms["highlights"] = ToColorVector(data.Highlights);
-            builder.Uniforms["lift"] = ToColorVector(data.Lift);
-            builder.Uniforms["gamma"] = ToColorVector(data.Gamma, 0.001f);
-            builder.Uniforms["gain"] = ToColorVector(data.Gain, 0.0f);
-            builder.Uniforms["offset"] = ToColorVector(data.Offset);
-
-            // 新しいターゲットに適用
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
+            (lowRange, highRange) = (highRange, lowRange);
         }
+
+        context.Shader(ShaderDescription.CurrentPixel(
+            s_shaderSource,
+            bindings =>
+            {
+                bindings.Uniform("exposure", r.Exposure);
+                bindings.Uniform("contrast", r.Contrast / 100f);
+                bindings.Uniform("contrastPivot", r.ContrastPivot);
+                bindings.Uniform("saturation", r.Saturation / 100f);
+                bindings.Uniform("vibrance", r.Vibrance / 100f);
+                bindings.Uniform("hue", r.Hue);
+                bindings.Uniform("temperature", r.Temperature / 100f);
+                bindings.Uniform("tint", r.Tint / 100f);
+                bindings.Uniform("lowRange", lowRange / 100f);
+                bindings.Uniform("highRange", highRange / 100f);
+                bindings.Uniform("shadows", ToColorVector(r.Shadows));
+                bindings.Uniform("midtones", ToColorVector(r.Midtones));
+                bindings.Uniform("highlights", ToColorVector(r.Highlights));
+                bindings.Uniform("lift", ToColorVector(r.Lift));
+                bindings.Uniform("gamma", ToColorVector(r.Gamma, 0.001f));
+                bindings.Uniform("gain", ToColorVector(r.Gain, 0.0f));
+                bindings.Uniform("offset", ToColorVector(r.Offset));
+            }));
     }
 
-    private static SKColorF ToColorVector(GradingColor value, float minValue = float.NegativeInfinity)
-    {
-        return new SKColorF(
+    private static Vector3 ToColorVector(GradingColor value, float minValue = float.NegativeInfinity)
+        => new(
             Math.Max(value.R, minValue),
             Math.Max(value.G, minValue),
-            Math.Max(value.B, minValue),
-            1f);
-    }
+            Math.Max(value.B, minValue));
 }

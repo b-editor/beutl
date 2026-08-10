@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.ExceptionServices;
 using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Language;
@@ -61,28 +62,33 @@ public partial class DisplacementMapEffect : FilterEffect
                         EffectTarget effectTarget = effectContext.Targets[i];
                         // Create target first so the map brush uses the buffer's post-clamp density.
                         var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
-                        float w = newTarget.Scale.Value;
-                        using var displacementMapShader = effectContext.CreateBrushShader(
-                            brush,
-                            new Rect(effectTarget.Bounds.Size),
-                            BlendMode.SrcOver,
-                            w);
+                        RenderAndCommitReplacement(
+                            effectContext,
+                            i,
+                            effectTarget,
+                            newTarget,
+                            (Context: effectContext, Brush: brush, Original: effectTarget, Replacement: newTarget),
+                            static state =>
+                            {
+                                float w = state.Replacement.Scale.Value;
+                                using SKShader displacementMapShader = DisplacementMapShaderFactory.CreateOrTransparent(
+                                    state.Context,
+                                    state.Brush,
+                                    new Rect(state.Original.Bounds.Size),
+                                    w);
 
-                        using (var paint = new SKPaint())
-                        using (var canvas = effectContext.Open(newTarget))
-                        {
-                            paint.Shader = displacementMapShader;
-                            canvas.Clear();
-                            // The base CTM CreateScale(w) maps the logical DrawRect onto the full
-                            // ceil(bounds × w) device buffer; no manual prescale. w == 1 = bare logical rect.
-                            canvas.Canvas.DrawRect(
-                                new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
-                                paint);
-
-                            effectContext.Targets[i] = newTarget;
-                        }
-
-                        effectTarget.Dispose();
+                                using (var paint = new SKPaint())
+                                using (var canvas = state.Context.Open(state.Replacement))
+                                {
+                                    paint.Shader = displacementMapShader;
+                                    canvas.Clear();
+                                    // The base CTM CreateScale(w) maps the logical DrawRect onto the full
+                                    // ceil(bounds × w) device buffer; no manual prescale. w == 1 = bare logical rect.
+                                    canvas.Canvas.DrawRect(
+                                        new SKRect(0, 0, state.Original.Bounds.Width, state.Original.Bounds.Height),
+                                        paint);
+                                }
+                            });
                     }
                 });
         }
@@ -91,5 +97,36 @@ public partial class DisplacementMapEffect : FilterEffect
             transform.ApplyTo(
                 context.RegisterBrush(displacementMap), r.SpreadMethod, r.Channel, r.Signed, context);
         }
+    }
+
+    internal static void RenderAndCommitReplacement<TState>(
+        CustomFilterEffectContext context,
+        int index,
+        EffectTarget original,
+        EffectTarget replacement,
+        TState state,
+        Action<TState> draw)
+    {
+        try
+        {
+            draw(state);
+        }
+        catch (Exception ex)
+        {
+            ExceptionDispatchInfo primary = ExceptionDispatchInfo.Capture(ex);
+            try
+            {
+                replacement.Dispose();
+            }
+            catch (Exception cleanupFailure)
+            {
+                ex.Data["DisplacementMapReplacementCleanupFailure"] = cleanupFailure;
+            }
+
+            primary.Throw();
+        }
+
+        context.Targets[index] = replacement;
+        original.Dispose();
     }
 }

@@ -59,6 +59,83 @@ public sealed class RasterFootprintContractTests
     }
 
     [Test]
+    public void LegacyCustomShaderApi_SeparatesAllocationMappingAndRendering()
+    {
+        Type contextType = typeof(CustomFilterEffectContext);
+        Type shaderType = typeof(SKSLShader);
+        Type shaderBuilderType = typeof(SKSLShaderBuilder);
+        var useMappedInputShader = contextType.GetMethods()
+            .Single(method => method.Name == nameof(CustomFilterEffectContext.UseMappedInputShader));
+        Type stateType = useMappedInputShader.GetGenericArguments().Single();
+        Type[] mappedInputParameters = useMappedInputShader.GetParameters()
+            .Select(static parameter => parameter.ParameterType)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                contextType.GetMethod(
+                    nameof(CustomFilterEffectContext.ResolveTargetDensity),
+                    [typeof(Rect)])?.ReturnType,
+                Is.EqualTo(typeof(float)));
+            Assert.That(
+                contextType.GetMethod(
+                    nameof(CustomFilterEffectContext.CreateTargetLike),
+                    [typeof(EffectTarget)]),
+                Is.Not.Null);
+            Assert.That(
+                contextType.GetMethod(
+                    nameof(CustomFilterEffectContext.CreateReplacement),
+                    [typeof(EffectTarget), typeof(RenderTarget)]),
+                Is.Not.Null);
+            Assert.That(
+                contextType.GetMethod(
+                    nameof(CustomFilterEffectContext.CreateMappedInputShader),
+                    [typeof(EffectTarget), typeof(EffectTarget), typeof(SKShader)]),
+                Is.Not.Null);
+            Assert.That(
+                useMappedInputShader.IsGenericMethodDefinition,
+                Is.True);
+            Assert.That(
+                useMappedInputShader.ReturnType,
+                Is.EqualTo(typeof(bool)),
+                "The mapped-input readback reports whether the callback ran so a degraded preview keeps its source target.");
+            Assert.That(
+                mappedInputParameters,
+                Is.EqualTo(new[]
+                {
+                    typeof(EffectTarget),
+                    typeof(EffectTarget),
+                    stateType,
+                    typeof(Action<,>).MakeGenericType(stateType, typeof(SKShader)),
+                    typeof(SKShaderTileMode),
+                    typeof(SKShaderTileMode),
+                }));
+            Assert.That(
+                shaderType.GetMethod(
+                    nameof(SKSLShader.RenderToTarget),
+                    [typeof(CustomFilterEffectContext), shaderBuilderType, typeof(EffectTarget)]),
+                Is.Not.Null);
+            Assert.That(
+                shaderType.GetMethod(nameof(SKSLShader.CreateBuilder), Type.EmptyTypes)?.ReturnType,
+                Is.EqualTo(shaderBuilderType));
+            Assert.That(
+                shaderBuilderType.GetProperty(nameof(SKSLShaderBuilder.Uniforms))?.PropertyType,
+                Is.EqualTo(typeof(SKRuntimeEffectUniforms)));
+            Assert.That(
+                shaderBuilderType.GetProperty(nameof(SKSLShaderBuilder.Children))?.PropertyType,
+                Is.EqualTo(typeof(SKRuntimeEffectChildren)));
+            Assert.That(
+                shaderBuilderType.GetMethod(nameof(SKSLShaderBuilder.Build), Type.EmptyTypes)?.ReturnType,
+                Is.EqualTo(typeof(SKShader)));
+            Assert.That(shaderType.GetProperty("Effect"), Is.Null,
+                "the owning shader must not expose its disposable runtime effect");
+            Assert.That(shaderType.GetMethod("ApplyToNewTarget"), Is.Null,
+                "the allocation-owning compatibility overload must not remain public");
+        });
+    }
+
+    [Test]
     public void GridAwareRasterFacades_ExposeTheCompositionDeviceTranslation()
     {
         Assert.Multiple(() =>

@@ -551,6 +551,169 @@ public sealed class RasterFootprintMetadataTests
     }
 
     [Test]
+    public void CustomFilterContext_WrapsReplacementOnTheSourceDeviceGrid()
+    {
+        var bounds = new Rect(10, 12, 8, 6);
+        var gridOffset = new Vector(0.25f, 0.75f);
+        PixelRect deviceBounds = PixelRect.FromRect(bounds.Translate(gridOffset), 1);
+        using RenderTarget sourceBacking = RenderTarget.CreateNull(
+            deviceBounds.Width,
+            deviceBounds.Height);
+        using var source = new EffectTarget(
+            sourceBacking,
+            bounds,
+            EffectiveScale.At(1),
+            deviceBounds,
+            gridOffset);
+        using var targets = new EffectTargets { source.Clone() };
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame);
+        using RenderTarget replacementBacking = RenderTarget.CreateNull(
+            deviceBounds.Width,
+            deviceBounds.Height);
+
+        using EffectTarget replacement = context.CreateReplacement(
+            source,
+            replacementBacking);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(replacement.DeviceGridOffset, Is.EqualTo(gridOffset));
+            Assert.That(replacement.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(replacement.RasterBounds, Is.EqualTo(source.RasterBounds));
+            Assert.That(replacement.Bounds, Is.EqualTo(source.Bounds));
+        });
+    }
+
+    [Test]
+    public void CustomFilterContext_ScopesGpuBackedMappedInputShader()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var bounds = new Rect(0, 0, 8, 6);
+            PixelRect deviceBounds = PixelRect.FromRect(bounds, 1);
+            using RenderTarget sourceBacking = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height)
+                ?? throw new AssertionException("Vulkan did not create the mapped-input source target.");
+            using RenderTarget destinationBacking = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height)
+                ?? throw new AssertionException("Vulkan did not create the mapped-input destination target.");
+            using var source = new EffectTarget(
+                sourceBacking,
+                bounds,
+                EffectiveScale.At(1),
+                deviceBounds);
+            using var destination = new EffectTarget(
+                destinationBacking,
+                bounds,
+                EffectiveScale.At(1),
+                deviceBounds);
+            using var targets = new EffectTargets { source.Clone() };
+            var context = new CustomFilterEffectContext(
+                targets,
+                RenderIntent.Preview,
+                RenderRequestPurpose.Frame);
+            int[] callbackEntries = [0];
+
+            bool rendered = context.UseMappedInputShader(
+                source,
+                destination,
+                callbackEntries,
+                static (entries, shader) =>
+                {
+                    entries[0]++;
+                    using SKShader remapped = shader.WithLocalMatrix(SKMatrix.Identity);
+                    Assert.That(remapped, Is.Not.Null);
+                },
+                SKShaderTileMode.Repeat,
+                SKShaderTileMode.Mirror);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(callbackEntries[0], Is.EqualTo(1));
+                Assert.That(rendered, Is.True, "A successful readback must report that the callback ran.");
+            });
+
+            Assert.Multiple(() =>
+            {
+                Assert.Throws<ArgumentOutOfRangeException>(() => context.UseMappedInputShader(
+                    source,
+                    destination,
+                    0,
+                    static (_, _) => { },
+                    (SKShaderTileMode)(-1)));
+                Assert.Throws<ArgumentOutOfRangeException>(() => context.UseMappedInputShader(
+                    source,
+                    destination,
+                    0,
+                    static (_, _) => { },
+                    y: (SKShaderTileMode)(-1)));
+            });
+        });
+    }
+
+    [Test]
+    public void SkslShaderBuilder_RejectsCrossOwnerAndDisposedOwnerUse()
+    {
+        const string source = "half4 main(float2 coord) { return half4(1); }";
+        using SKSLShader first = SKSLShader.Create(source);
+        using SKSLShader second = SKSLShader.Create(source);
+        using SKSLShaderBuilder secondBuilder = second.CreateBuilder();
+        using var targets = new EffectTargets();
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame);
+        using var emptyTarget = new EffectTarget();
+
+        Assert.That(
+            () => first.RenderToTarget(context, secondBuilder, emptyTarget),
+            Throws.ArgumentException.With.Property("ParamName").EqualTo("builder"));
+
+        using SKSLShader disposedOwner = SKSLShader.Create(source);
+        using SKSLShaderBuilder disposedOwnerBuilder = disposedOwner.CreateBuilder();
+        disposedOwner.Dispose();
+
+        Assert.That(
+            () => disposedOwnerBuilder.Build(),
+            Throws.TypeOf<ObjectDisposedException>());
+    }
+
+    [Test]
+    public void CustomFilterContext_ReplacementFootprintFailureNamesPublicArgument()
+    {
+        var bounds = new Rect(10, 12, 8, 6);
+        PixelRect deviceBounds = PixelRect.FromRect(bounds, 1);
+        using RenderTarget sourceBacking = RenderTarget.CreateNull(
+            deviceBounds.Width,
+            deviceBounds.Height);
+        using var source = new EffectTarget(
+            sourceBacking,
+            bounds,
+            EffectiveScale.At(1),
+            deviceBounds);
+        using var targets = new EffectTargets { source.Clone() };
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame);
+        using RenderTarget wrongSize = RenderTarget.CreateNull(
+            deviceBounds.Width + 1,
+            deviceBounds.Height);
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(
+            () => context.CreateReplacement(source, wrongSize))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.ParamName, Is.EqualTo("renderTarget"));
+            Assert.That(exception.Message, Does.Contain("footprint"));
+            Assert.That(exception.Message, Does.Contain($"{deviceBounds.Width}x{deviceBounds.Height}"));
+        });
+    }
+
+    [Test]
     public void MeasureAlphaBounds_IgnoresNonFiniteAndNonPositiveAlpha()
     {
         using var bitmap = new Bitmap(
