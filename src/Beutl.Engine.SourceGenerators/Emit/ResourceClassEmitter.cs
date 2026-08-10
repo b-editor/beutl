@@ -38,6 +38,7 @@ public static class ResourceClassEmitter
 
         string innerIndent = indent + "    ";
 
+        EmitConstructors(sb, innerIndent, currentTypeDisplay, info);
         EmitFields(sb, innerIndent, info);
         EmitProperties(sb, innerIndent, info);
         EmitGetOriginal(sb, innerIndent, currentTypeDisplay);
@@ -46,6 +47,83 @@ public static class ResourceClassEmitter
         EmitDisposeMethod(sb, innerIndent, info);
 
         sb.Append(indent).AppendLine("}");
+    }
+
+    private static void EmitConstructors(
+        StringBuilder sb,
+        string innerIndent,
+        string currentTypeDisplay,
+        ClassInfo info)
+    {
+        if (!info.Symbol.IsAbstract)
+        {
+            sb.Append(innerIndent)
+                .Append("internal static Resource __CreateAttached")
+                .Append(info.Symbol.Name)
+                .AppendLine("()");
+            sb.Append(innerIndent).AppendLine("    => new(skipDefaultInitialization: true);");
+            sb.AppendLine();
+
+            sb.Append(innerIndent).AppendLine("public Resource()");
+            sb.Append(innerIndent)
+                .Append("    : this(")
+                .Append(currentTypeDisplay)
+                .AppendLine(".__CreateResourceDefaultValues())");
+            sb.Append(innerIndent).AppendLine("{");
+            sb.Append(innerIndent).AppendLine("}");
+            sb.AppendLine();
+        }
+
+        sb.Append(innerIndent)
+            .Append("protected Resource(")
+            .Append(currentTypeDisplay)
+            .AppendLine(" defaultValues)");
+        sb.Append(innerIndent).AppendLine("    : base(defaultValues)");
+        sb.Append(innerIndent).AppendLine("{");
+        foreach (ValuePropertyInfo property in info.ValueProperties)
+        {
+            if (property.ExcludeFromResource) continue;
+
+            string fieldName = EmitHelpers.ToFieldName(property.Name);
+            sb.Append(innerIndent)
+                .Append("    ")
+                .Append(fieldName)
+                .Append(" = defaultValues.")
+                .Append(property.Name)
+                .AppendLine(".DefaultValue;");
+        }
+        foreach (ObjectPropertyInfo property in info.ObjectProperties)
+        {
+            if (property.ExcludeFromResource) continue;
+
+            string fieldName = EmitHelpers.ToFieldName(property.Name);
+            string resourceType = EmitHelpers.GetResourceTypeName(property.ValueType);
+            string localName = fieldName + "DefaultValue";
+            sb.Append(innerIndent)
+                .Append("    if (defaultValues.")
+                .Append(property.Name)
+                .Append(".DefaultValue is { } ")
+                .Append(localName)
+                .AppendLine(")");
+            sb.Append(innerIndent).AppendLine("    {");
+            sb.Append(innerIndent)
+                .Append("        ")
+                .Append(fieldName)
+                .Append(" = (")
+                .Append(resourceType)
+                .Append(")")
+                .Append(localName)
+                .AppendLine(".ToResource(global::Beutl.Composition.CompositionContext.Default);");
+            sb.Append(innerIndent).AppendLine("    }");
+        }
+        sb.Append(innerIndent).AppendLine("}");
+        sb.AppendLine();
+
+        sb.Append(innerIndent).AppendLine("protected Resource(bool skipDefaultInitialization)");
+        sb.Append(innerIndent).AppendLine("    : base(skipDefaultInitialization)");
+        sb.Append(innerIndent).AppendLine("{");
+        sb.Append(innerIndent).AppendLine("}");
+        sb.AppendLine();
     }
 
     private static void EmitFields(StringBuilder sb, string innerIndent, ClassInfo info)

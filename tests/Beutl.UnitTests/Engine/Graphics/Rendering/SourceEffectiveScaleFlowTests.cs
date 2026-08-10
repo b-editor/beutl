@@ -558,6 +558,11 @@ internal sealed partial class ClampToOutputEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+
         public override FilterEffectRenderNode CreateRenderNode() => new ClampToOutputEscapeHatchNode(this);
     }
 }

@@ -64,6 +64,9 @@ internal static class GeneratorDriverHarness
 
             [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Property)]
             public sealed class SuppressResourceClassGenerationAttribute : System.Attribute { }
+
+            [System.AttributeUsage(System.AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+            public sealed class ResourceDefaultValuesProviderAttribute : System.Attribute { }
         }
 
         namespace Beutl.Validation
