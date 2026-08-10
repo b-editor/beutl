@@ -66,8 +66,8 @@ public class MFReaderIntegrationTests
         {
             Assert.That(reader!.HasVideo, Is.False, "the WAV has no video stream");
             Assert.That(reader.HasAudio, Is.True);
-            Assert.That(reader.AudioInfo.SampleRate, Is.EqualTo(44100));
-            Assert.That(reader.AudioInfo.NumChannels, Is.EqualTo(2));
+            Assert.That(reader.AudioInfo!.SampleRate, Is.EqualTo(44100));
+            Assert.That(reader.AudioInfo!.NumChannels, Is.EqualTo(2));
         });
 
         bool read = reader!.ReadAudio(0, 4410, out var pcm);

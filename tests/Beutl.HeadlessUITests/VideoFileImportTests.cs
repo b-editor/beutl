@@ -154,8 +154,9 @@ public class VideoFileImportTests
         public IEnumerable<string> AudioExtensions() => [];
     }
 
-    // Mirrors the real backends: AudioInfo/VideoInfo throw "The stream does not exist." when the
-    // reader was not created with the corresponding stream, exactly like FFmpegReaderProxy.
+    // Mirrors the real backends: VideoInfo throws "The stream does not exist." when the reader was
+    // not created with a video stream, exactly like FFmpegReaderProxy. AudioInfo is null when the
+    // reader has no audio stream.
     private sealed class ImportTestReader : MediaReader
     {
         private readonly VideoStreamInfo? _videoInfo;
@@ -185,7 +186,7 @@ public class VideoFileImportTests
 
         public override VideoStreamInfo VideoInfo => _videoInfo ?? throw new Exception("The stream does not exist.");
 
-        public override AudioStreamInfo AudioInfo => _audioInfo ?? throw new Exception("The stream does not exist.");
+        public override AudioStreamInfo? AudioInfo => _audioInfo;
 
         public override bool HasVideo { get; }
 

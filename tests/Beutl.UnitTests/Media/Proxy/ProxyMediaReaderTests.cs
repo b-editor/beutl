@@ -141,11 +141,7 @@ public sealed class ProxyMediaReaderTests
             frameSize: new PixelSize(50, 40),
             frameRate: new Rational(30, 1));
 
-        public override AudioStreamInfo AudioInfo { get; } = new AudioStreamInfo(
-            CodecName: "test",
-            Duration: Rational.Zero,
-            SampleRate: 44100,
-            NumChannels: 2);
+        public override AudioStreamInfo? AudioInfo => null;
 
         public override bool HasVideo => true;
         public override bool HasAudio => false;

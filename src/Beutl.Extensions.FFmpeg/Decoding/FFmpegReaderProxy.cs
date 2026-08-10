@@ -64,7 +64,7 @@ public sealed class FFmpegReaderProxy : MediaReader
 
     public override VideoStreamInfo VideoInfo => field ?? throw new Exception("The stream does not exist.");
 
-    public override AudioStreamInfo AudioInfo => field ?? throw new Exception("The stream does not exist.");
+    public override AudioStreamInfo? AudioInfo => field;
 
     public override bool HasVideo => _openResponse.HasVideo;
 
@@ -124,7 +124,13 @@ public sealed class FFmpegReaderProxy : MediaReader
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
-        int sampleRate = AudioInfo.SampleRate;
+        if (AudioInfo is not { } audioInfo)
+        {
+            sound = null;
+            return false;
+        }
+
+        int sampleRate = audioInfo.SampleRate;
 
         // SampleRate(1秒分)を超える場合はリクエストを分割
         if (length > sampleRate)
@@ -167,7 +173,7 @@ public sealed class FFmpegReaderProxy : MediaReader
 
     private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
-        var scratch = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
+        var scratch = new Pcm<Stereo32BitFloat>(chunkSize, length);
         try
         {
             int offset = 0;
@@ -204,7 +210,7 @@ public sealed class FFmpegReaderProxy : MediaReader
             {
                 // Trim the trailing over-allocation so callers see the real decoded length
                 // (NumSamples == offset), not a zero-filled tail.
-                var trimmed = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, offset);
+                var trimmed = new Pcm<Stereo32BitFloat>(chunkSize, offset);
                 scratch.DataSpan.Slice(0, offset).CopyTo(trimmed.DataSpan);
                 scratch.Dispose();
                 sound = Ref<IPcm>.Create(trimmed);

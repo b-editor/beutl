@@ -69,7 +69,7 @@ public class EncodeDecodeRoundTripTests
         Assert.That(reader.VideoInfo.CodecName, Is.Not.Empty);
 
         Assert.That(reader.HasAudio, Is.True, "Decoded file should expose an audio track.");
-        Assert.That(reader.AudioInfo.SampleRate, Is.EqualTo(sampleRate));
+        Assert.That(reader.AudioInfo!.SampleRate, Is.EqualTo(sampleRate));
 
         // Read a representative frame from mid-clip; VideoToolbox is lossy so we only
         // check the decode succeeded without asserting pixel equality.
@@ -146,7 +146,7 @@ public class EncodeDecodeRoundTripTests
         var decodingExtension = new AVFDecodingExtension();
         using var reader = new AVFReader(outputPath, new MediaOptions(), decodingExtension);
         Assert.That(reader.HasAudio, Is.True);
-        Assert.That(reader.AudioInfo.SampleRate, Is.EqualTo(sampleRate));
+        Assert.That(reader.AudioInfo!.SampleRate, Is.EqualTo(sampleRate));
 
         int[] probes =
         {

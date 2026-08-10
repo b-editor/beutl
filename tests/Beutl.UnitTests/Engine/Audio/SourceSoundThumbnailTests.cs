@@ -181,6 +181,27 @@ public class SourceSoundThumbnailTests
         Assert.That(duration, Is.EqualTo(TimeSpan.Zero));
     }
 
+    // Regression for #2183: a video-only source (no audio track) must yield no waveform chunks
+    // instead of throwing from AudioInfo dereference while the resource loads.
+    [Test]
+    public async Task GetWaveformChunks_VideoOnlySource_YieldsNothing()
+    {
+        string path = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(path));
+
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = soundSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+        };
+
+        var chunks = await CollectAsync(sound, 50, 4096, new FakeWaveformCache());
+
+        Assert.That(chunks, Is.Empty,
+            "音声トラックのないソースは波形チャンクを生成しない (#2183)");
+    }
+
     private static async Task<List<WaveformChunk>> CollectAsync(
         SourceSound sound, int chunkCount, int samplesPerChunk, IThumbnailCacheService cache)
     {

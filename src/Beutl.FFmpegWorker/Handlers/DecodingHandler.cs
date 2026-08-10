@@ -52,9 +52,9 @@ internal sealed partial class DecodingHandler : IDisposable
                 () => Interlocked.Increment(ref _shmGeneration));
         }
 
-        if (reader.HasAudio)
+        if (reader.HasAudio && reader.AudioInfo is { } audioInfo)
         {
-            long audioBufferSize = reader.AudioInfo.SampleRate * 8 + 64; // 1 second stereo float
+            long audioBufferSize = audioInfo.SampleRate * 8 + 64; // 1 second stereo float
             string audioShmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{id}";
             state.AudioBuffer = SharedMemoryBuffer.Create(audioShmName, audioBufferSize);
         }
@@ -85,9 +85,8 @@ internal sealed partial class DecodingHandler : IDisposable
             response.DurationDen = vi.Duration.Denominator;
         }
 
-        if (reader.HasAudio)
+        if (reader.HasAudio && reader.AudioInfo is { } ai)
         {
-            var ai = reader.AudioInfo;
             response.AudioCodecName = ai.CodecName;
             response.AudioDurationNum = ai.Duration.Numerator;
             response.AudioDurationDen = ai.Duration.Denominator;

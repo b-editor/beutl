@@ -128,7 +128,7 @@ public class MFReader : MediaReader
 
     public override VideoStreamInfo VideoInfo => _videoInfo ?? throw new NotSupportedException();
 
-    public override AudioStreamInfo AudioInfo => _audioInfo ?? throw new NotSupportedException();
+    public override AudioStreamInfo? AudioInfo => _audioInfo;
 
     public override bool HasVideo { get; }
 

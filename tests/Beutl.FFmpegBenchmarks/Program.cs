@@ -104,8 +104,8 @@ internal static class Program
 
         if (reader.HasAudio)
         {
-            int sampleRate = reader.AudioInfo.SampleRate;
-            Console.WriteLine($"  音声: {sampleRate}Hz, {reader.AudioInfo.NumChannels}ch");
+            int sampleRate = reader.AudioInfo!.SampleRate;
+            Console.WriteLine($"  音声: {sampleRate}Hz, {reader.AudioInfo!.NumChannels}ch");
 
             // 4. 音声読み取り
             results.Audio = MeasureAudio(reader, sampleRate);

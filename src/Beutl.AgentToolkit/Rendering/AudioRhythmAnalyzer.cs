@@ -84,7 +84,7 @@ public sealed class AudioRhythmAnalyzer
         int sampleRate = resource.SampleRate;
         double sourceDurationSeconds = resource.Duration > TimeSpan.Zero
             ? resource.Duration.TotalSeconds
-            : resource.MediaReader.AudioInfo.NumSamples.ToDouble() / Math.Max(1, sampleRate);
+            : resource.MediaReader.AudioInfo?.NumSamples.ToDouble() / Math.Max(1, sampleRate) ?? 0;
         if (sourceDurationSeconds <= 0)
         {
             throw new CodecUnavailableException($"Audio duration could not be read from '{fullPath}'.");

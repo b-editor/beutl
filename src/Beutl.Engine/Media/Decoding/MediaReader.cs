@@ -16,7 +16,10 @@ public abstract class MediaReader : IDisposable
 
     public abstract VideoStreamInfo VideoInfo { get; }
 
-    public abstract AudioStreamInfo AudioInfo { get; }
+    /// <summary>
+    /// Gets the audio stream info, or <see langword="null"/> when the media has no audio stream.
+    /// </summary>
+    public abstract AudioStreamInfo? AudioInfo { get; }
 
     public abstract bool HasVideo { get; }
 

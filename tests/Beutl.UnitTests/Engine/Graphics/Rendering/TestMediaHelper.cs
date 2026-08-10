@@ -141,7 +141,6 @@ internal sealed class TestMediaReader : MediaReader
     private readonly Rational _frameRate;
     private readonly int _frameCount;
     private readonly VideoStreamInfo _videoInfo;
-    private readonly AudioStreamInfo _audioInfo;
 
     public TestMediaReader(PixelSize frameSize, Rational frameRate, int frameCount)
     {
@@ -153,16 +152,11 @@ internal sealed class TestMediaReader : MediaReader
             frameCount,
             frameSize,
             frameRate);
-        _audioInfo = new AudioStreamInfo(
-            "test",
-            Rational.Zero,
-            44100,
-            2);
     }
 
     public override VideoStreamInfo VideoInfo => _videoInfo;
 
-    public override AudioStreamInfo AudioInfo => _audioInfo;
+    public override AudioStreamInfo? AudioInfo => null;
 
     public override bool HasVideo => true;
 

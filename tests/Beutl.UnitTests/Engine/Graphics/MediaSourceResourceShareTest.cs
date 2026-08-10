@@ -233,8 +233,8 @@ public class MediaSourceResourceShareTest
     }
 
     // Regression for #2183: a video-only file (no audio track) must not crash SoundSource.Resource.
-    // The test decoder's TestMediaReader reports HasAudio == false for .testvideo files, mirroring the
-    // FFmpegReaderProxy behavior that threw "The stream does not exist." when AudioInfo was dereferenced.
+    // The test decoder's TestMediaReader reports HasAudio == false (and a null AudioInfo) for
+    // .testvideo files, mirroring the real backends.
     [Test]
     public void SoundSource_VideoOnlyFile_DoesNotThrowAndYieldsUnloadedResource()
     {

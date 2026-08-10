@@ -235,9 +235,8 @@ public sealed class FileThumbnailService : IDisposable
                     int? sampleRate = null;
                     int? numChannels = null;
 
-                    if (reader.HasAudio)
+                    if (reader.HasAudio && reader.AudioInfo is { } ai)
                     {
-                        var ai = reader.AudioInfo;
                         audioCodec = ai.CodecName;
                         sampleRate = ai.SampleRate;
                         numChannels = ai.NumChannels;

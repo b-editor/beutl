@@ -12,7 +12,7 @@ internal sealed class ProxyMediaReader(
 {
     public override VideoStreamInfo VideoInfo => inner.VideoInfo;
 
-    public override AudioStreamInfo AudioInfo => inner.AudioInfo;
+    public override AudioStreamInfo? AudioInfo => inner.AudioInfo;
 
     public override bool HasVideo => inner.HasVideo;
 

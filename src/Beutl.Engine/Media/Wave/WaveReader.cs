@@ -29,7 +29,7 @@ public sealed class WaveReader : MediaReader
 
     public override VideoStreamInfo VideoInfo => throw new NotSupportedException();
 
-    public override AudioStreamInfo AudioInfo { get; }
+    public override AudioStreamInfo? AudioInfo { get; }
 
     public override bool HasVideo => false;
 

@@ -143,12 +143,11 @@ public sealed class SoundSource : MediaSource
                     }
                 }
 
-                // A media without an audio stream (e.g. a video-only file) cannot expose AudioInfo
-                // without throwing, so treat it as an unreadable source (#2183): release the reader
-                // and zero the metadata so callers safely see "no audio". Never publish such a
-                // counter to the shared cache, which would poison other resources with a silent
-                // source.
-                if (!_counter.Value.HasAudio)
+                // A media without an audio stream (e.g. a video-only file) exposes a null AudioInfo,
+                // so treat it as an unreadable source (#2183): release the reader and zero the
+                // metadata so callers safely see "no audio". Never publish such a counter to the
+                // shared cache, which would poison other resources with a silent source.
+                if (!_counter.Value.HasAudio || _counter.Value.AudioInfo is not { } audioInfo)
                 {
                     _counter.Release();
                     _counter = null;
@@ -167,9 +166,9 @@ public sealed class SoundSource : MediaSource
                     Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
                 }
 
-                Duration = TimeSpan.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());
-                SampleRate = _counter.Value.AudioInfo.SampleRate;
-                NumChannels = _counter.Value.AudioInfo.NumChannels;
+                Duration = TimeSpan.FromSeconds(audioInfo.Duration.ToDouble());
+                SampleRate = audioInfo.SampleRate;
+                NumChannels = audioInfo.NumChannels;
                 _loadedUri = soundSource.Uri;
 
                 if (!updateOnly)

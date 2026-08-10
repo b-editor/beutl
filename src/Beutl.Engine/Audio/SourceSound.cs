@@ -24,17 +24,22 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
 
     public bool TryGetOriginalDuration(out TimeSpan timeSpan)
     {
-        using var resource = Source.CurrentValue?.ToResource(CompositionContext.Default);
-        if (resource != null && resource.Duration > TimeSpan.Zero)
+        try
         {
-            timeSpan = resource.Duration;
-            return true;
+            using var resource = Source.CurrentValue?.ToResource(CompositionContext.Default);
+            if (resource != null && resource.Duration > TimeSpan.Zero)
+            {
+                timeSpan = resource.Duration;
+                return true;
+            }
         }
-        else
+        catch
         {
-            timeSpan = TimeSpan.Zero;
-            return false;
+            // Try-pattern contract: resource loading must never leak an exception to the caller.
         }
+
+        timeSpan = TimeSpan.Zero;
+        return false;
     }
 
     public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)

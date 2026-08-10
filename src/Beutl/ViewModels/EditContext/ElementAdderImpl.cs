@@ -125,7 +125,7 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             {
                 _logger.LogDebug("File is a video.");
                 // Probe the audio track so a video-only file (e.g. an .mkv without sound) does not
-                // get a SourceSound element that would crash on AudioInfo access (#2183).
+                // get a SourceSound element with no audio stream (#2183).
                 bool hasAudio = HasAudioTrack(desc.FileName);
                 // The audio companion goes to desc.Layer + 1; refuse the whole import when that
                 // layer is locked and an audio companion is actually going to be created.

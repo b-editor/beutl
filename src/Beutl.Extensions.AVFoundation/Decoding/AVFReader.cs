@@ -45,9 +45,8 @@ public sealed class AVFReader : MediaReader
         HasAudio = hasAudio != 0;
 
         // Fail construction when the caller explicitly asked for a stream that the file does
-        // not contain. Callers (SoundSource, VideoSource) dereference VideoInfo/AudioInfo
-        // immediately after a successful Open, so leaving these null would produce an NRE
-        // on video-only or audio-only inputs.
+        // not contain. VideoInfo stays non-nullable (it throws when absent), so a video-only
+        // request on an audio-only file must not leave a reader whose VideoInfo would throw.
         if (wantsVideo && !HasVideo)
         {
             _handle.Dispose();
@@ -94,7 +93,7 @@ public sealed class AVFReader : MediaReader
 
     public override VideoStreamInfo VideoInfo { get; } = default!;
 
-    public override AudioStreamInfo AudioInfo { get; } = default!;
+    public override AudioStreamInfo? AudioInfo { get; }
 
     public override bool HasVideo { get; }
 
@@ -137,14 +136,15 @@ public sealed class AVFReader : MediaReader
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
-        if (!HasAudio || _handle == null || _handle.IsClosed || _handle.IsInvalid)
+        if (!HasAudio || AudioInfo is not { } audioInfo
+            || _handle == null || _handle.IsClosed || _handle.IsInvalid)
         {
             return false;
         }
 
         if (length <= 0)
         {
-            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, 0));
+            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(audioInfo.SampleRate, 0));
             return true;
         }
 
@@ -153,7 +153,7 @@ public sealed class AVFReader : MediaReader
         // EOF shape permitted by the ReadAudio contract: NumSamples is always == length here, so callers
         // must detect EOF by cross-checking `start + length` against the stream duration rather than by
         // a short read.
-        var buffer = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
+        var buffer = new Pcm<Stereo32BitFloat>(audioInfo.SampleRate, length);
         try
         {
             int capacityBytes = length * (int)buffer.SampleSize;

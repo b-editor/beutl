@@ -34,7 +34,7 @@ public class AnimatedImageReader : MediaReader
 
     public override VideoStreamInfo VideoInfo { get; }
 
-    public override AudioStreamInfo AudioInfo => throw new NotSupportedException();
+    public override AudioStreamInfo? AudioInfo => null;
 
     public override bool HasVideo => true;
 

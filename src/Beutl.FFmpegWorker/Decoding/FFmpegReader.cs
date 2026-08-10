@@ -141,7 +141,7 @@ public sealed class FFmpegReader : MediaReader
 
     public override VideoStreamInfo VideoInfo => field ?? throw new Exception("The stream does not exist.");
 
-    public override AudioStreamInfo AudioInfo => field ?? throw new Exception("The stream does not exist.");
+    public override AudioStreamInfo? AudioInfo => field;
 
     public override bool HasVideo => _hasVideo;
 
@@ -149,17 +149,23 @@ public sealed class FFmpegReader : MediaReader
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? result)
     {
+        if (AudioInfo is not { } audioInfo)
+        {
+            result = null;
+            return false;
+        }
+
         // Decoder側でResampleされるかのチェックのため
         if (length == 0)
         {
-            result = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, 0));
+            result = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(audioInfo.SampleRate, 0));
             return true;
         }
 
         result = null;
         if (_audioDecoder == null || _currentAudioFrame == null) return false;
 
-        var sound = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
+        var sound = new Pcm<Stereo32BitFloat>(audioInfo.SampleRate, length);
         if (ReadAudio(start, length, MemoryMarshal.AsBytes(sound.DataSpan), out _))
         {
             result = Ref<IPcm>.Create(sound);
@@ -176,9 +182,12 @@ public sealed class FFmpegReader : MediaReader
     {
         info = default;
 
+        if (AudioInfo is not { } audioInfo)
+            return false;
+
         if (length == 0)
         {
-            info = new AudioFrameInfo { SampleRate = AudioInfo.SampleRate, NumSamples = 0, DataLength = 0, };
+            info = new AudioFrameInfo { SampleRate = audioInfo.SampleRate, NumSamples = 0, DataLength = 0, };
             return true;
         }
 
@@ -249,7 +258,7 @@ public sealed class FFmpegReader : MediaReader
                 {
                     info = new AudioFrameInfo
                     {
-                        SampleRate = AudioInfo.SampleRate,
+                        SampleRate = audioInfo.SampleRate,
                         NumSamples = decoded,
                         DataLength = decoded * sampleSize,
                     };
@@ -261,7 +270,7 @@ public sealed class FFmpegReader : MediaReader
 
             info = new AudioFrameInfo
             {
-                SampleRate = AudioInfo.SampleRate,
+                SampleRate = audioInfo.SampleRate,
                 NumSamples = decoded,
                 DataLength = decoded * sampleSize,
             };
