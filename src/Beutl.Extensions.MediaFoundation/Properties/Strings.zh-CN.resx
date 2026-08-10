@@ -44,10 +44,10 @@
     <value>Media Foundation 解码</value>
   </data>
   <data name="SeekThresholdInVideoStream" xml:space="preserve">
-    <value>视频流中的搜索阈值</value>
+    <value>视频流中的跳转阈值</value>
   </data>
   <data name="SeekThresholdInVideoStream_Description" xml:space="preserve">
-    <value>如果读取的帧超过此帧数，则执行搜索。</value>
+    <value>如果读取的帧距离当前帧超过此帧数，则执行跳转。</value>
   </data>
   <data name="MaxVideoBufferSize" xml:space="preserve">
     <value>要缓存的帧数</value>

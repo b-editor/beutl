@@ -64,7 +64,7 @@
   </data>
   <data name="Content" xml:space="preserve">
     <value>抱歉。
-Beutl 发生了未正确处理错误。
+Beutl 遇到了一个未处理的错误。
 
 如果启用了遥测收集，将自动收集日志。</value>
   </data>
