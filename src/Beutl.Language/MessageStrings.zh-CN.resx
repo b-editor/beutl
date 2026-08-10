@@ -295,7 +295,7 @@
     <value>正在就地更新文件...</value>
   </data>
   <data name="UpdateFailedRestoringBackup" xml:space="preserve">
-    <value>更新放置失败。正在还原备份...</value>
+    <value>更新失败。正在还原备份...</value>
   </data>
   <data name="UpdateCompleted" xml:space="preserve">
     <value>更新已完成。</value>

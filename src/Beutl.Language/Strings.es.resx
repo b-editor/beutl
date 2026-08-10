@@ -63,7 +63,7 @@
     <value>Cerrar</value>
   </data>
   <data name="ColorScopes" xml:space="preserve">
-    <value>Osciloscopios</value>
+    <value>Scopes de color</value>
   </data>
   <data name="CloseProject" xml:space="preserve">
     <value>Cerrar proyecto</value>

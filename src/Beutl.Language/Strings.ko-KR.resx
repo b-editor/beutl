@@ -1313,10 +1313,10 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>프레임</value>
   </data>
   <data name="FileSize" xml:space="preserve">
-    <value>크기</value>
+    <value>파일 크기</value>
   </data>
   <data name="EstimatedSize" xml:space="preserve">
-    <value>예상</value>
+    <value>예상 크기</value>
   </data>
   <data name="ShowCommandPalette" xml:space="preserve">
     <value>명령 팔레트 표시</value>
@@ -1334,16 +1334,16 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>메뉴</value>
   </data>
   <data name="OnionSkin" xml:space="preserve">
-    <value>양파 껍질</value>
+    <value>어니언 스킨</value>
   </data>
   <data name="OnionSkin_Description" xml:space="preserve">
     <value>현재 프레임 위에 반투명한 이전 및 다음 프레임을 겹쳐 표시합니다.</value>
   </data>
   <data name="ToggleOnionSkin" xml:space="preserve">
-    <value>양파 껍질 전환</value>
+    <value>어니언 스킨 전환</value>
   </data>
   <data name="ToggleOnionSkin_Description" xml:space="preserve">
-    <value>미리 보기에서 양파 껍질 오버레이를 전환합니다.</value>
+    <value>미리 보기에서 어니언 스킨 오버레이를 전환합니다.</value>
   </data>
   <data name="OnionSkinPrevCount" xml:space="preserve">
     <value>이전 프레임 수</value>
@@ -1376,7 +1376,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>절반 (1/2)</value>
   </data>
   <data name="RenderScale_Quarter" xml:space="preserve">
-    <value>1/4 (1/4)</value>
+    <value>1/4</value>
   </data>
   <data name="RenderScale_FitToPreviewer" xml:space="preserve">
     <value>미리 보기에 맞춤</value>
