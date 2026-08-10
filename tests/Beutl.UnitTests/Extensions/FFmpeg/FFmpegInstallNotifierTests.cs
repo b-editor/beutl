@@ -85,7 +85,7 @@ public class FFmpegInstallNotifierTests
     [Test]
     public void ShouldSkipStartProbe_SkipsWithinCooldownThenAllowsAfterElapsed()
     {
-        const long cooldownMs = 5_000; // mirrors FFmpegInstallNotifier.ReprobeCooldownMs
+        const long cooldownMs = 30_000; // mirrors FFmpegLibraryState.ReprobeCooldownMs
 
         FFmpegInstallNotifier.MarkMissing();
         long since = FFmpegInstallNotifier.MissingSinceTicks;
@@ -100,12 +100,30 @@ public class FFmpegInstallNotifierTests
     }
 
     [Test]
-    public void MarkMissingObserved_SetsLatchWithoutArmingCooldown()
+    public void ShouldSkipStartProbe_RepeatedProbesWithinCooldown_AllShortCircuit()
     {
-        FFmpegInstallNotifier.MarkMissingObserved();
+        // A burst of decode attempts inside the cooldown window must all short-circuit (no worker
+        // re-probe). This is what suppresses the hundreds-of-errors-per-session pattern: only the
+        // first attempt in the window pays for a real worker start.
+        FFmpegInstallNotifier.MarkMissing();
+        long since = FFmpegInstallNotifier.MissingSinceTicks;
+
+        for (long t = since; t < since + 25_000; t += 1_000)
+        {
+            Assert.That(FFmpegInstallNotifier.ShouldSkipStartProbe(t), Is.True,
+                $"expected a short-circuit at t={t - since}ms into the cooldown");
+        }
+    }
+
+    [Test]
+    public void RecordMissingObserved_FirstObservation_ReturnsFalse()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
 
         Assert.Multiple(() =>
         {
+            Assert.That(FFmpegInstallNotifier.RecordMissingObserved(), Is.False,
+                "the first observation is a genuine discovery, so callers must log it as an error");
             Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.True);
             Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(0),
                 "an observe-only decode failure must not arm the re-probe cooldown");
@@ -113,12 +131,22 @@ public class FFmpegInstallNotifierTests
     }
 
     [Test]
-    public void MarkMissingObserved_DoesNotPushCooldownWindowForward()
+    public void RecordMissingObserved_SecondObservation_ReturnsTrue()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+        FFmpegInstallNotifier.RecordMissingObserved();
+
+        Assert.That(FFmpegInstallNotifier.RecordMissingObserved(), Is.True,
+            "a later observation is an expected short-circuit, so callers must fail quietly");
+    }
+
+    [Test]
+    public void RecordMissingObserved_DoesNotPushCooldownWindowForward()
     {
         FFmpegInstallNotifier.MarkMissing();
         long since = FFmpegInstallNotifier.MissingSinceTicks;
 
-        FFmpegInstallNotifier.MarkMissingObserved();
+        FFmpegInstallNotifier.RecordMissingObserved();
 
         Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(since),
             "a short-circuited decode must not re-arm and push the cooldown window forward");

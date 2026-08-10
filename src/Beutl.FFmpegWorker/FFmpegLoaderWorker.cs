@@ -95,7 +95,10 @@ internal static class FFmpegLoaderWorker
                 return path;
         }
 
-        throw new FFmpegLibrariesNotFoundException("FFmpeg libraries not found");
+        // Surface the searched paths so a missing-FFmpeg failure is diagnosable: the worker's
+        // "FFmpeg libraries not found" error (relayed to the host log) shows exactly where it looked.
+        throw new FFmpegLibrariesNotFoundException(
+            $"FFmpeg libraries not found. Searched: {string.Join(", ", paths)}");
     }
 
     private static bool LibrariesExists(string basePath)

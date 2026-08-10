@@ -5,7 +5,9 @@ public static class FFmpegLibraryState
     // After libraries are reported missing, skip fresh worker-start probes for this long, then allow
     // a probe so a transient failure (momentary file lock, crashed worker) can self-recover without
     // the user re-running the install wizard. A genuinely-missing install just re-arms the cooldown.
-    private const long ReprobeCooldownMs = 5_000;
+    // 30s bounds a missing-FFmpeg session to ~2 worker-start attempts per minute, so the worker's own
+    // "libraries not found" stdout error does not repeat on every frame/thumbnail request.
+    private const long ReprobeCooldownMs = 30_000;
     private static volatile bool s_librariesMissing;
     private static long s_missingSinceTicks;
 
@@ -36,11 +38,16 @@ public static class FFmpegLibraryState
         SetLibrariesMissing(true);
     }
 
-    // Record the missing latch observed by a decode attempt WITHOUT re-arming the cooldown. The
-    // short-circuit throw (ShouldSkipStartProbe) surfaces the same exception as a real failure, so
-    // re-arming here would push the re-probe window forward on every short-circuited decode and keep
-    // queued jobs from ever re-probing. A real worker-start failure arms the cooldown itself.
-    public static void MarkMissingObserved() => SetLibrariesMissing(true);
+    // Record the missing latch observed by a decode attempt WITHOUT re-arming the cooldown (a real
+    // worker-start failure arms it; re-arming on a short-circuited decode would keep the re-probe
+    // window from ever elapsing). Returns whether the condition was already known, so callers can
+    // log a first discovery as an error and an already-known short-circuit quietly.
+    public static bool RecordMissingObserved()
+    {
+        bool wasKnownMissing = s_librariesMissing;
+        SetLibrariesMissing(true);
+        return wasKnownMissing;
+    }
 
     // A worker process handshaked successfully, so FFmpeg loaded: clear any missing latch. This is
     // the self-recovery path for a transient failure that had latched the queue.

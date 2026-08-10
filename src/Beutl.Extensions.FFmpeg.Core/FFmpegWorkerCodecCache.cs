@@ -1,4 +1,5 @@
 ﻿using Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.Logging;
@@ -58,6 +59,17 @@ internal static class FFmpegWorkerCodecCache
             _videoCodecs = result;
             return result;
         }
+        catch (FFmpegLibrariesNotFoundException ex)
+        {
+            // Only the first discovery is an error; later attempts are expected short-circuits that
+            // would otherwise spam the log every time the codec list is opened without FFmpeg.
+            bool wasKnownMissing = FFmpegLibraryState.RecordMissingObserved();
+            if (wasKnownMissing)
+                s_logger.LogDebug(ex, "FFmpeg libraries missing; skipping video codec query");
+            else
+                s_logger.LogError(ex, "Failed to query video codecs from worker");
+            return [CodecRecord.Default];
+        }
         catch (Exception ex)
         {
             s_logger.LogError(ex, "Failed to query video codecs from worker");
@@ -79,6 +91,17 @@ internal static class FFmpegWorkerCodecCache
                 .ToArray();
             _audioCodecs = result;
             return result;
+        }
+        catch (FFmpegLibrariesNotFoundException ex)
+        {
+            // Only the first discovery is an error; later attempts are expected short-circuits that
+            // would otherwise spam the log every time the codec list is opened without FFmpeg.
+            bool wasKnownMissing = FFmpegLibraryState.RecordMissingObserved();
+            if (wasKnownMissing)
+                s_logger.LogDebug(ex, "FFmpeg libraries missing; skipping audio codec query");
+            else
+                s_logger.LogError(ex, "Failed to query audio codecs from worker");
+            return [CodecRecord.Default];
         }
         catch (Exception ex)
         {

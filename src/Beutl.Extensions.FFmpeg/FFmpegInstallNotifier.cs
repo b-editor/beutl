@@ -61,7 +61,7 @@ internal static class FFmpegInstallNotifier
 
     public static void MarkMissing() => FFmpegLibraryState.MarkMissing();
 
-    internal static void MarkMissingObserved() => FFmpegLibraryState.MarkMissingObserved();
+    internal static bool RecordMissingObserved() => FFmpegLibraryState.RecordMissingObserved();
 
     internal static void NotifyWorkerStarted() => FFmpegLibraryState.NotifyWorkerStarted();
 
