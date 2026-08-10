@@ -97,10 +97,17 @@ public class RendererExceptionSafetyTests
 // Emits a fixed set of ops into the render graph, with Render overridden to bypass the blend/opacity/filter
 // pushes so they reach the Renderer's pull loop unwrapped. Top-level partial because
 // EngineObjectResourceGenerator does not support nested types.
-internal sealed partial class FaultingDrawable(RenderNodeOperation[] operations) : Drawable
+internal sealed partial class FaultingDrawable : Drawable
 {
+    private readonly RenderNodeOperation[] _operations;
+
+    public FaultingDrawable(RenderNodeOperation[] operations)
+    {
+        _operations = operations;
+    }
+
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-        => context.DrawNode(new FixedOpsNode(operations));
+        => context.DrawNode(new FixedOpsNode(_operations));
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
 

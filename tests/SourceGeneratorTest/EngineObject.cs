@@ -7,9 +7,23 @@ namespace Beutl.Engine;
 
 public class EngineObject
 {
+    protected readonly struct ResourceDefaultValuesConstruction
+    {
+    }
+
+    public EngineObject()
+    {
+    }
+
+    protected EngineObject(ResourceDefaultValuesConstruction construction)
+    {
+    }
+
     public virtual IReadOnlyList<IProperty> Properties => throw null!;
 
     internal int Version { get; private set; }
+
+    public bool IsEnabled { get; set; } = true;
 
     protected virtual IEnumerable<IProperty> ScanPropertiesCore<T>() where T : EngineObject
     {
@@ -26,9 +40,31 @@ public class EngineObject
 
     public class Resource : IDisposable
     {
+        public Resource()
+        {
+            IsEnabled = true;
+        }
+
+        protected Resource(EngineObject defaultValues)
+        {
+            IsEnabled = defaultValues.IsEnabled;
+        }
+
+        protected Resource(bool skipDefaultInitialization)
+        {
+            if (!skipDefaultInitialization)
+            {
+                throw new ArgumentException(
+                    "Attached-resource construction must explicitly opt out of detached default initialization.",
+                    nameof(skipDefaultInitialization));
+            }
+        }
+
         private EngineObject? _original;
 
         public int Version { get; protected set; }
+
+        public bool IsEnabled { get; set; }
 
         public bool IsAttached => _original is not null;
 

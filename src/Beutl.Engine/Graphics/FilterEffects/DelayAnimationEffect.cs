@@ -117,6 +117,16 @@ public partial class DelayAnimationEffect : FilterEffect
 
     public new class Resource : FilterEffect.Resource
     {
+        internal Resource()
+            : this(skipDefaultInitialization: true)
+        {
+        }
+
+        protected Resource(bool skipDefaultInitialization)
+            : base(skipDefaultInitialization)
+        {
+        }
+
         private float _delay;
         private FilterEffect.Resource? _effect;
         private TimeSpan _globalTime;
