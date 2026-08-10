@@ -71,7 +71,9 @@ presence only suggests otherwise.
   a plain file, which the player and the timeline already accept; whether a given file
   becomes an image, a sound or nothing at all is the drop target's decision.
 - **Fonts** — `FontManager` scans `{home}/materials` alongside the configured font
-  directories, so a font a material package ships is available to text elements.
+  directories, so a font a material package ships is available to text elements. It builds
+  its family list once per launch, so a font installed while Beutl is running appears after
+  the next start.
 
 ## Updating and uninstalling
 
