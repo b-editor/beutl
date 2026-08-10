@@ -457,19 +457,9 @@ public class EngineObject
         public bool IsDisposed { get; }
         public EngineObject GetOriginal();
 
-        protected TResource? ExchangeOwnedResource<TResource>(
-            ref TResource? location,
-            TResource? value)
-            where TResource : Resource;
-
         protected void SetOwnedResource<TResource>(
             ref TResource? location,
             TResource? value)
-            where TResource : Resource;
-
-        protected TResource ReplaceOwnedResource<TResource>(
-            ref TResource? location,
-            TResource replacement)
             where TResource : Resource;
 
         protected virtual void Dispose(bool disposing);
@@ -484,9 +474,9 @@ A detached resource is not a hypothetical out-of-tree shape. In-tree production 
 
 A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot rather than a borrowed reference. Assigning a different resource first disposes the previous value and transfers ownership to the containing resource only after that cleanup succeeds; assigning the same instance is a no-op. Disposing the containing resource disposes the currently held value through the base `Dispose(bool)` chain.
 
-For a nullable owning property `Child`, the generated resource exposes `public Child.Resource? Child { get; set; }` plus a generated `public Child.Resource? DetachChild()` that atomically clears the slot through `ExchangeOwnedResource(ref location, default)` and transfers the previous value to the caller without disposal. For a non-null owning property, the generated setter rejects null and generation exposes `public Child.Resource ReplaceChild(Child.Resource replacement)`, which atomically installs the replacement through `ReplaceOwnedResource(ref location, replacement)` and returns the previous value to the caller. In-tree production code does not call the generated detach/replace members; their in-repo callers are the contract tests, so they ship as the generated ownership seam rather than a used migration surface. Copying always requires an independently created resource rather than aliasing one owner.
+For a nullable or non-null owning property `Child`, the generated resource exposes a plain `public Child.Resource? Child { get; set; }` (nullable) or `public Child.Resource Child { get; set; }` (non-null, setter rejects null) slot. The property setter and `Update` reconciliation dispose the previous value; there is no generated detach/replace surface. Copying always requires an independently created resource rather than aliasing one owner.
 
-`ExchangeOwnedResource`, `SetOwnedResource`, and `ReplaceOwnedResource` are the protected seam for generated and hand-written resource owners. All three serialize on the resource's ownership gate with generated `Update` and the first disposal attempt, and throw `ObjectDisposedException` once disposal starts. `ExchangeOwnedResource` commits the supplied nullable value and returns the previous value without disposal. `SetOwnedResource` treats the supplied value as a normal assignment: assigning the same instance is a no-op, while a different previous value remains in the slot until its disposal succeeds and only then is the new value committed. A nested disposal failure therefore leaves the slot unchanged and the replacement uninstalled. `ReplaceOwnedResource` requires an existing non-null current value and a different non-null replacement; null replacement, empty current slot, and same-instance replacement fail before mutation. Generated object-property `Update` and disposal hold the same gate while comparing, recursively updating, replacing, and disposing children; if disposing the old child fails, the old child stays owned and the internally created rejected replacement is cleaned up.
+`SetOwnedResource` is the protected seam for generated and hand-written resource owners. It serializes on the resource's ownership gate with generated `Update` and the first disposal attempt, and throws `ObjectDisposedException` once disposal starts. It treats the supplied value as a normal assignment: assigning the same instance is a no-op, while a different previous value remains in the slot until its disposal succeeds and only then is the new value committed. A nested disposal failure therefore leaves the slot unchanged and the replacement uninstalled. Generated object-property `Update` and disposal hold the same gate while comparing, recursively updating, replacing, and disposing children; if disposing the old child fails, the old child stays owned and the internally created rejected replacement is cleaned up.
 
 The first public `Dispose()` attempt atomically transitions the resource to its terminal state after invoking author code. `DisposeCore(disposing)` runs under the ownership gate, invokes the most-derived author-facing virtual `Dispose(bool)` entry at most once, and then publishes the terminal `_disposeState`; every update, setter, or ownership helper rejects after that transition. A finalizer runs `DisposeCore(false)`, so `Dispose(bool)` is still invoked from finalization, but `GC.SuppressFinalize` is only called on the explicit path. Generated implementations invoke `PreDispose`/`PostDispose` partial hooks around their child disposal and call `base.Dispose(disposing)`; they do not implement a separate generated-cleanup retry hook. A hand-written override is a conforming part of that chain when it likewise invokes `base.Dispose(disposing)`. Because the terminal state is published after `Dispose(bool)` returns, an exception thrown by an override still completes the transition.
 
