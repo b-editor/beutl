@@ -6,8 +6,8 @@ code, and Beutl never loads an assembly from them:
 | Kind | Reserved tag | Ships |
 |---|---|---|
 | Extension | *(none)* | assemblies loaded into the editor |
-| Material | `material` | images, audio, video, fonts |
-| Template | `template` | object templates (`.json`) |
+| Material | `beutl-material` | images, audio, video, fonts |
+| Template | `beutl-template` | object templates (`.json`) |
 
 ## Declaring the kind
 
@@ -20,15 +20,17 @@ tag to the `.nuspec`:
     <id>Contoso.Materials.CityPhotos</id>
     <version>1.0.0</version>
     <description>Royalty-free city photography.</description>
-    <tags>material photography cc0</tags>
+    <tags>beutl-material photography cc0</tags>
   </metadata>
 </package>
 ```
 
-A package that carries neither `material` nor `template` is an extension. One that carries
-both is treated as a material. The reserved tags are set from the package type selector in
-the developer portal, which also refuses them as hand-typed tags — do not add them through
-the tag editor.
+The tags are prefixed because the same vocabulary is read out of the nuspec, where a bare
+`material` is an ordinary tag plenty of unrelated packages already carry. A package that
+carries neither reserved tag is an extension. One that carries both is treated as a
+material. The reserved tags are set from the package type selector in the developer
+portal, which also refuses them as hand-typed tags — do not add them through the tag
+editor.
 
 The two reserved tags are hidden wherever the store lists an author's tags; the package
 page shows the kind instead.

@@ -5,7 +5,9 @@
 /// </summary>
 /// <remarks>
 /// The store has no column for this. A package declares its kind with a reserved tag —
-/// <c>material</c> or <c>template</c> — and one that carries neither is an extension.
+/// <c>beutl-material</c> or <c>beutl-template</c> — and one that carries neither is an
+/// extension. The tags are prefixed because the same vocabulary is read out of a package's
+/// nuspec, where a bare "material" is an ordinary tag plenty of unrelated packages carry.
 /// Named "kind" rather than "type" because <c>NuGet.Packaging.Core.PackageType</c> is in
 /// scope across the install pipeline.
 /// </remarks>
@@ -34,11 +36,9 @@ public enum PackageKindFilter
 
 public static class PackageKinds
 {
-    public const string MaterialTag = "material";
+    public const string MaterialTag = "beutl-material";
 
-    public const string TemplateTag = "template";
-
-    public static IReadOnlyList<string> ReservedTags { get; } = [MaterialTag, TemplateTag];
+    public const string TemplateTag = "beutl-template";
 
     /// <remarks>
     /// Matching is case-sensitive on purpose: the server filters with a case-sensitive
@@ -86,14 +86,16 @@ public static class PackageKinds
 
     /// <summary>
     /// The wire value the discover endpoints expect for the <c>type</c> query parameter.
+    /// The query vocabulary is the kind name, not the reserved tag: the server maps
+    /// <c>material</c> onto the <c>beutl-material</c> tag.
     /// </summary>
     public static string ToQueryValue(this PackageKindFilter filter)
     {
         return filter switch
         {
             PackageKindFilter.Extension => "extension",
-            PackageKindFilter.Material => MaterialTag,
-            PackageKindFilter.Template => TemplateTag,
+            PackageKindFilter.Material => "material",
+            PackageKindFilter.Template => "template",
             _ => "all"
         };
     }

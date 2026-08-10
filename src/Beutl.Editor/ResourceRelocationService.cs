@@ -219,7 +219,13 @@ public class ResourceRelocationService
     [ExcludeFromCodeCoverage]
     private static IEnumerable<string> FindFontFiles(string fontFamilyName)
     {
-        IReadOnlyList<string> fontDirs = GlobalConfiguration.Instance.FontConfig.FontDirectories;
+        // A material package installs its fonts under the home directory, which is not one
+        // of the OS font directories the user configures.
+        IReadOnlyList<string> fontDirs =
+        [
+            .. GlobalConfiguration.Instance.FontConfig.FontDirectories,
+            BeutlEnvironment.GetMaterialsDirectoryPath()
+        ];
         List<string> foundFiles = [];
 
         foreach (string fontDir in fontDirs)

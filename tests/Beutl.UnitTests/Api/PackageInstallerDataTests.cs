@@ -45,8 +45,8 @@ public class PackageInstallerDataTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(new[] { "material" }.GetPackageKind(), Is.EqualTo(PackageKind.Material));
-            Assert.That(new[] { "fonts", "template" }.GetPackageKind(), Is.EqualTo(PackageKind.Template));
+            Assert.That(new[] { PackageKinds.MaterialTag }.GetPackageKind(), Is.EqualTo(PackageKind.Material));
+            Assert.That(new[] { "fonts", PackageKinds.TemplateTag }.GetPackageKind(), Is.EqualTo(PackageKind.Template));
             Assert.That(new[] { "blur", "effect" }.GetPackageKind(), Is.EqualTo(PackageKind.Extension));
             // LocalPackage yields [""] for a nuspec with no <tags> element.
             Assert.That(new[] { "" }.GetPackageKind(), Is.EqualTo(PackageKind.Extension));
@@ -55,16 +55,26 @@ public class PackageInstallerDataTests
     }
 
     [Test]
+    public void GetPackageKind_DoesNotTreatABareMaterialTagAsTheKindMarker()
+    {
+        // "material" is an ordinary tag plenty of unrelated packages carry (e.g. Material
+        // Design themes), so only the prefixed marker classifies a package.
+        Assert.That(new[] { "material", "design", "theme" }.GetPackageKind(), Is.EqualTo(PackageKind.Extension));
+    }
+
+    [Test]
     public void GetPackageKind_PrefersMaterial_WhenBothReservedTagsArePresent()
     {
-        Assert.That(new[] { "template", "material" }.GetPackageKind(), Is.EqualTo(PackageKind.Material));
+        Assert.That(
+            new[] { PackageKinds.TemplateTag, PackageKinds.MaterialTag }.GetPackageKind(),
+            Is.EqualTo(PackageKind.Material));
     }
 
     [Test]
     public void VisibleTags_DropsOnlyTheReservedTags()
     {
         Assert.That(
-            new[] { "material", "fonts", "cc0" }.VisibleTags(),
+            new[] { PackageKinds.MaterialTag, "fonts", "cc0" }.VisibleTags(),
             Is.EqualTo(new[] { "fonts", "cc0" }));
     }
 
