@@ -1,6 +1,6 @@
 # Breaking Changes and Migration Contract
 
-Feature 004 intentionally replaces the executable render-node pull API. It is breaking for custom `RenderNode`/`RenderNodeOperation` authors and direct `RenderNodeProcessor` consumers in `Beutl.Engine`, `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and downstream plugins. Existing `FilterEffect.ApplyTo` operation calls remain source-compatible unless they directly use the removed operation-backed `EffectTarget` members or subclass/consume the changed render-node API, but synchronous author-time metadata access is intentionally stricter: symbolic `Bounds` is unavailable and symbolic or branch-dependent `WorkingScale` must be probed with `TryGetWorkingScale` and bound later in an execution callback. Generated `EngineObject.Resource` authoring, `GetOriginal()` nullability, object-resource replacement ownership, and direct `FilterEffectActivator` construction also change as described below.
+Feature 004 intentionally replaces the executable render-node pull API. It is breaking for custom `RenderNode`/`RenderNodeOperation` authors and direct `RenderNodeProcessor` consumers in `Beutl.Engine`, `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and downstream plugins. Existing `FilterEffect.ApplyTo` operation calls remain source-compatible unless they directly use the removed operation-backed `EffectTarget` members or subclass/consume the changed render-node API, but synchronous author-time metadata access is intentionally stricter: symbolic `Bounds` is unavailable and symbolic or branch-dependent `WorkingScale` must be probed with `TryGetWorkingScale` and bound later in an execution callback. Generated `EngineObject.Resource` authoring, object-resource replacement ownership, and direct `FilterEffectActivator` construction also change as described below.
 
 The slice-2 auditor's stored integration message carrying this public change must use a breaking Conventional Commit. It must contain a literal `BREAKING CHANGE:` footer; a Markdown heading is not a substitute. Use this template:
 
@@ -22,12 +22,6 @@ BREAKING CHANGE: `IRenderer.GetBoundaries`, `IRenderer.GetBoundary`, and `Render
 BREAKING CHANGE: `RenderCacheOptions.Default` now denotes the same disabled policy as `RenderCacheOptions.Disabled`, so unchanged `Beutl.Engine` and plugin callers no longer opt into persistent render caching implicitly. `RenderNodeRenderRequest.UseRenderCache` is removed and replaced by `CacheOptions`: migrate `true`/`false` to `RenderCacheOptions.Enabled`/`RenderCacheOptions.Disabled`, and migrate request-specific admission rules to `new RenderCacheOptions(enabled, rules)`. Callers that require persistent caching must select `RenderCacheOptions.Enabled` explicitly or set `RenderNodeRenderRequest.CacheOptions = RenderCacheOptions.Enabled`.
 
 BREAKING CHANGE: `RenderNodeRenderer` operations now accept an optional complete `RenderNodeRenderRequest`. `RenderNodeRendererOptions` composes a sanitized `DefaultRequest` with the renderer-lifetime `TargetFactory`; request intent, target domain, requested region, output/working scales, and cache policy move under that descriptor. A null operation argument selects the default snapshot, while a supplied descriptor completely replaces it, allowing one persistent renderer to serve changing regions and scales without discarding its structural/program caches or target pool.
-
-BREAKING CHANGE: `EngineObject.Resource.GetOriginal()` and every generated typed form now return nullable values for detached resources. Callers that require an attached backing object migrate to `RequireOriginal()`; callers that support detached authoring handle null or use `EngineResourceIdentity.Of`. A bare `EngineObject.Resource()` now starts enabled, public generated `Resource()` constructors apply declared value/object defaults and inherit `IsEnabled` from their defaults owner, and `ToResource` uses a separate attached fast path.
-
-BREAKING CHANGE: Resource-generating `EngineObject` subclasses without an explicit defaults provider must expose every generated `IProperty` from stable declaration-time state: an auto-property has a declaration initializer, or a computed getter directly returns a declaration-initialized readonly instance field, and no ordinary constructor replaces that storage. `BESG003` reports unsupported or constructor-replaced storage and `BESG004` reports a primary constructor on this automatic path. Authors move property creation to one of the supported declaration shapes, move primary-constructor logic to an ordinary constructor, or add exactly one `[ResourceDefaultValuesProvider]` static parameterless non-generic method returning the declaring owner. `BESG005` rejects an invalid or ambiguous provider, and `BESG006` requires every generated derived type in a provider-backed hierarchy to declare its own provider. Suppressing generation and implementing the complete `Resource`/`ToResource` contract remains the manual alternative.
-
-BREAKING CHANGE: Generated abstract `Resource` types no longer expose a protected parameterless constructor. A hand-written or generation-suppressed attached resource must explicitly chain to `base(skipDefaultInitialization: true)` before its first `Update`; a hand-written detached resource that promises declared-default parity must chain to `base(defaultValues)` with a correctly constructed owner. This replaces the old implicit `base()` path that silently left abstract-base properties at `default(T)`. The attached-only `ParticleEmitter.Resource`, `ShakeEffect.Resource`, `DelayAnimationEffect.Resource`, `NodeGraphDrawable.Resource`, `NodeGraphFilterEffect.Resource`, and `RenderNodeDrawable.Resource` parameterless constructors are now internal; callers construct the corresponding owner and call `ToResource(CompositionContext)` instead of exposing a pre-`Update` resource.
 
 BREAKING CHANGE: A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot. Assigning a different nested resource now disposes the previous value before committing the replacement, assigning the same instance is a no-op, and disposing the containing resource disposes its current value. If nested disposal fails, the old child remains owned and the generated cleanup hook may retry it; the replacement remains caller-owned. Callers must not retain a successfully replaced resource for later use or share one owned nested resource between independently disposed owners. To transfer a nullable slot, call generated `Detach<Property>()`, which atomically clears the source and returns its nullable old value without disposal. To transfer a non-null slot without violating its invariant, call generated `Replace<Property>(nonNullReplacement)`, which atomically installs the replacement and returns the previous non-null resource. The caller owns either non-null return until transfer or disposal. The first `Dispose()` attempt now makes the owner terminal before callbacks, invokes the most-derived author `Dispose(bool)` entry once, and separately attempts generated child cleanup. Generated `PreDispose`/`PostDispose` phases capture failures and continue through their base-chain call. A hand-written override must do the same: catch its failure, call the reserved protected `CaptureResourceAuthorCleanupFailure(exception)`, and invoke `base.Dispose(disposing)` through finally-equivalent flow. The base orchestrator then preserves one failure or emits one flat aggregate in reached derived-to-base author order; throwing before the base call is nonconforming and cannot be repaired. A later `Dispose()` retries only failed generated child slots and never re-enters reached author cleanup. Generated `Update`, setters, transfers, and disposal serialize through the same ownership gate so an update cannot dispose a transferred child or install one after disposal starts. Custom generated-resource implementations migrate retryable child cleanup from `Dispose(bool)` to parameterless `DisposeGeneratedResources()` and its `DisposeGeneratedResource`/`DisposeGeneratedResourceList` helpers; failure aggregation remains base-owned and cannot be rewritten by the override.
 
@@ -605,31 +599,6 @@ non-virtual on a public subclassable type, so an out-of-tree author had no worka
 resource removes the dereference: a hand-built resource produces the same path or mesh as its attached
 counterpart once it carries the same property values.
 
-That last qualifier is now supplied by the generator. The public generated `Resource()` initializes each
-generated value property from its declared `IProperty.DefaultValue` and materializes non-null EngineObject-valued
-defaults as owned nested resources. It obtains them from one initializer-only temporary owner; the attached
-`ToResource` fast path does not construct that owner or evaluate defaults that its first update would overwrite.
-On the automatic path, `BESG003` rejects generated properties that are unavailable from declaration-time state
-or replaced by an ordinary constructor. The accepted computed-getter form directly returns a declaration-initialized
-readonly instance field; arbitrary getter logic is not evaluated as storage. `BESG004` rejects a primary
-constructor on that path. Either shape can instead declare exactly one `[ResourceDefaultValuesProvider]` static
-parameterless non-generic method returning the declaring owner. `BESG005` rejects an invalid or ambiguous
-provider, and `BESG006` requires a generated derived type to declare its own provider whenever a base owner uses
-one. The most-derived provider runs once for a direct concrete `Resource()` and its owner flows through the
-complete base-resource constructor chain; base providers do not run separately. This constructs the complete
-defaults source without forcing the author to replace the generated `Resource`/`ToResource` contract.
-
-Generated abstract `Resource` types no longer provide a protected parameterless constructor. A hand-written or
-generation-suppressed attached resource explicitly calls `base(skipDefaultInitialization: true)`, while a
-hand-written detached resource that promises declared-default parity explicitly calls `base(defaultValues)`.
-The missing decision is therefore a compile error rather than a base resource whose properties silently remain
-at `default(T)`. See `docs/specs/004-gpu-pass-fusion/contracts/public-api.md`.
-
-The six hand-written attached-only resources for `ParticleEmitter`, `ShakeEffect`, `DelayAnimationEffect`,
-`NodeGraphDrawable`, `NodeGraphFilterEffect`, and `RenderNodeDrawable` no longer expose their implicit public
-parameterless constructors. Construct the owner and call `ToResource(CompositionContext)`; those resources have
-read-only evaluated state and are not detached authoring surfaces.
-
 Generated EngineObject-valued resource properties are owning slots. Replacing one with a different resource
 immediately disposes the previous value; assigning the same instance does nothing, and disposing the containing
 resource disposes the currently held value. Code that retained or shared the old value must transfer ownership
@@ -643,21 +612,8 @@ call retries the build and rethrows.
 `Pen.Resource.GetOriginal()`, which is null for every detached pen and therefore made any two of them compare
 equal — the cache served the first pen's stroke for the second.
 
-`EngineObject.Resource` gains `IsAttached` and `RequireOriginal()`. `GetOriginal()` and each generated typed
-form now declare their nullable return because a detached resource has no backing object. The dereferences this change migrated to
-`RequireOriginal()` — which raises `InvalidOperationException` naming the resource type instead of a
-`NullReferenceException` — cover `Drawable.Render` on both the immediate and the recording
-canvas, `MeasureInternal`, `GetTransformMatrix`, `ZIndex`, the generated `BindNodePortValues`, the hand-written
-`Beutl.NodeGraph` resource overrides beside it, and `AvaloniaTypeConverter`'s drawable-brush render.
-
-This document does not claim that list is complete, because a prose list of this kind already failed once: an
-earlier draft was written from a `GetOriginal().Member` search and so omitted `GraphicsContext2D.DrawDrawable`,
-which spells the same dereference across two statements and still threw. The line is held by
-`EngineObjectOriginalAccessCensusTests` instead, which counts call sites syntactically under `src/` and fails
-until a new one is accounted for deliberately. The calls that remain are mostly null-safe identity comparisons;
-they have not been individually probed for detached reachability, and the census is what forces that question
-to be asked when one is added. `EngineResourceIdentity.Of` continues to read `GetOriginal()`
-and synthesize an identity when it is null.
+`EngineResourceIdentity.Of` reads `GetOriginal()` and synthesizes an identity when it is null, so it keys a
+detached resource the same way it keys an attached one.
 
 ## Ownership summary
 

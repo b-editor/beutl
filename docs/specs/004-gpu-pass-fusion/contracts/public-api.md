@@ -449,28 +449,13 @@ public class CompositionContext
 ```csharp
 namespace Beutl.Engine;
 
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-public sealed class ResourceDefaultValuesProviderAttribute : Attribute;
-
 public class EngineObject
 {
-    protected readonly struct ResourceDefaultValuesConstruction
-    {
-    }
-
-    protected EngineObject(ResourceDefaultValuesConstruction construction);
-
     public class Resource : IDisposable
     {
-        public Resource();
-        protected Resource(EngineObject defaultValues);
-        protected Resource(bool skipDefaultInitialization);
-
         public bool IsEnabled { get; set; }
-        public bool IsAttached { get; }
         public bool IsDisposed { get; }
-        public EngineObject? GetOriginal();
-        public EngineObject RequireOriginal();
+        public EngineObject GetOriginal();
 
         protected TResource? ExchangeOwnedResource<TResource>(
             ref TResource? location,
@@ -541,44 +526,11 @@ public class EngineObject
 }
 ```
 
-`EngineObject.Resource.Update` is what attaches the backing engine object, so a resource built through its public constructor is detached and `GetOriginal()` returns null. The base return and each generated typed return are nullable. `IsAttached` tests for that state, and `RequireOriginal()` throws `InvalidOperationException` naming the resource type when a member cannot proceed without a backing object. Members that can proceed — identity derivation, and any authoring path that reads its values from the resource — keep using `GetOriginal()` or avoid it entirely. `Geometry.Resource.ApplyTo`, `PathSegment.Resource.ApplyTo`, `PathFigure.Resource.ApplyTo`, `PathGeometry.Resource.HitTestFigure`, and `Mesh.Resource.ApplyTo` are the authoring members that moved onto the resource for this reason; see `breaking-changes.md`.
+`EngineObject.Resource.Update` is what attaches the backing engine object, so a resource built through its public constructor is detached. Members that can proceed without a backing object — identity derivation, and any authoring path that reads its values from the resource — avoid `GetOriginal()` entirely. `Geometry.Resource.ApplyTo`, `PathSegment.Resource.ApplyTo`, `PathFigure.Resource.ApplyTo`, `PathGeometry.Resource.HitTestFigure`, and `Mesh.Resource.ApplyTo` are the authoring members that moved onto the resource for this reason; see `breaking-changes.md`.
 
-`ResourceDefaultValuesConstruction` and the matching protected constructor are a generator-only extension contract. When a type has no explicit defaults provider, generated constructors use this path to execute the author's declaration and instance initializers without running ordinary constructor bodies. The resulting object is only a defaults source, not an application object; plugin code must not call the marker constructor directly. A type that declares a valid `[ResourceDefaultValuesProvider]` bypasses this marker path and lets the provider construct the defaults source explicitly.
+A detached resource is not a hypothetical out-of-tree shape. In-tree production code mints and consumes one: `ColorExtensions.ToBrushResource` returns `new SolidColorBrush.Resource { … }` and `TextElementsBuilder` puts it on a `TextElement` for a `<color=…>` tag on the text-render path; `FormattedTextParser` builds a detached `SolidColorBrush.Resource` and `Pen.Resource` for a stroke tag; `AvaloniaTypeConverter.ToBtlImmutableGradientStop` and `GradientStopsEditor` build a detached `GradientStop.Resource`.
 
-A detached resource is not a hypothetical out-of-tree shape. In-tree production code mints and consumes one: `ColorExtensions.ToBrushResource` returns `new SolidColorBrush.Resource { … }` and `TextElementsBuilder` puts it on a `TextElement` for a `<color=…>` tag on the text-render path; `FormattedTextParser` builds a detached `SolidColorBrush.Resource` and `Pen.Resource` for a stroke tag; `AvaloniaTypeConverter.ToBtlImmutableGradientStop` and `GradientStopsEditor` build a detached `GradientStop.Resource`. Each was probed: `IsAttached` is false and `GetOriginal()` is null for all of them.
-
-### Detached resources inherit declared defaults
-
-The public generated `Resource()` constructor initializes each generated value property from its declared `IProperty.DefaultValue`. It also materializes a non-null EngineObject-valued default through `ToResource(CompositionContext.Default)` and owns that nested resource until disposal. Consequently, a detached `new Pen.Resource { Thickness = 4, Brush = black }` retains `TrimEnd = 100` and `MiterLimit = 10`, while a detached `new SolidColorBrush.Resource { Color = red }` retains `Opacity = 100`; they match an attached resource unless the author overrides a value.
-
-The public base `EngineObject.Resource()` likewise starts with `IsEnabled = true`, matching an ordinary `EngineObject`. A generated typed resource copies `IsEnabled` from its defaults owner: the automatic initializer-only owner retains the declared `true`, while an explicit provider can deliberately return an owner with a different value.
-
-Without an explicit provider, the generator obtains those defaults from one temporary owner constructed through the generator-only marker constructor. This evaluates the original semantically bound declaration and instance initializers rather than copying their source expressions into a generated file. The accepted declaration-time shapes are intentionally narrow:
-
-- An auto-property has a declaration initializer, and no instance constructor assigns that property again.
-- A computed property directly returns a non-static `readonly` field on the current instance. That field has a declaration initializer, and no instance constructor assigns it again. The direct return may be expression-bodied, an expression-bodied getter, or a getter body containing one `return`; conversions and parentheses around the field are allowed. A method call, conditional, mutable field, lazy initializer, or multi-statement getter is not declaration-time storage.
-
-`BESG003` rejects every generated value/object `IProperty` outside those shapes, including a declaration-initialized property or backing field that an ordinary constructor replaces. `BESG004` rejects a primary-constructor owner because the marker path cannot supply its arguments. An author can migrate either shape without hand-writing the complete generated contract by declaring exactly one provider on that owner:
-
-```csharp
-public partial class PluginEffect(string preset) : FilterEffect
-{
-    [ResourceDefaultValuesProvider]
-    private static PluginEffect CreateResourceDefaultValues()
-        => new("default-preset");
-
-    public IProperty<float> Amount { get; }
-        = Property.CreateAnimatable(100f);
-}
-```
-
-The provider method may be non-public, but it must be static, parameterless, non-generic, and return the declaring owner type; `BESG005` rejects an invalid signature or multiple annotated methods. It must return a non-null owner whose generated `IProperty` members expose the intended detached defaults. The direct concrete generated `Resource()` invokes the most-derived provider exactly once and passes that same owner through the complete base-resource constructor chain; base providers are not invoked separately. If any base owner declares an explicit provider, each generated derived owner therefore declares its own provider that constructs the most-derived type. `BESG006` prevents the derived type from falling back to the initializer-only chain and thereby bypassing the base owner's explicit construction contract. Providers are not inherited as defaults factories.
-
-The attached `ToResource` path uses a separate internal construction path. It invokes neither the marker defaults source nor an explicit provider, so it does not evaluate or allocate detached-only defaults that its first update would overwrite. Generated abstract `Resource` types no longer expose a protected parameterless constructor: a hand-written or generation-suppressed attached resource explicitly chains to `base(skipDefaultInitialization: true)`, while a detached resource that promises declared-default parity explicitly chains to `base(defaultValues)` with an owner constructed by its chosen defaults factory. This makes an omitted default-initialization decision a compile error instead of silently preserving `default(T)`. Implementing the complete `Resource`/`ToResource` contract manually remains the escape hatch when neither automatic declaration-time storage nor an explicit owner factory represents the intended contract.
-
-The hand-written resources for `ParticleEmitter`, `ShakeEffect`, `DelayAnimationEffect`, `NodeGraphDrawable`, `NodeGraphFilterEffect`, and `RenderNodeDrawable` are attached-only: their parameterless constructors are internal, and their owners expose them through `ToResource(CompositionContext)` after a successful `Update`. They do not promise detached authoring of their read-only evaluated fields.
-
-A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot rather than a borrowed reference. A non-null declared object default is materialized through `ToResource(CompositionContext.Default)`. Assigning a different resource first disposes the previous value and transfers ownership to the containing resource only after that cleanup succeeds; assigning the same instance is a no-op. Disposing the containing resource disposes the currently held value through the generator-reserved retry hook.
+A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot rather than a borrowed reference. Assigning a different resource first disposes the previous value and transfers ownership to the containing resource only after that cleanup succeeds; assigning the same instance is a no-op. Disposing the containing resource disposes the currently held value through the generator-reserved retry hook.
 
 For a nullable owning property `Child`, generation also exposes `public Child.Resource? DetachChild()`. It atomically clears that slot without disposing its previous value and returns the detached resource, or null when the slot is empty. The caller owns a non-null return until it assigns the value into another owning slot or disposes it. `destination.Child = source.DetachChild()` is the canonical nullable-slot transfer.
 
