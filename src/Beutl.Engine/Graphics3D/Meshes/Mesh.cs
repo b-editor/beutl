@@ -111,7 +111,7 @@ public abstract partial class Mesh : EngineObject
             {
                 _capturedVersion = Version;
                 BuffersDirty = true;
-                GetOriginal().ApplyTo(this, out _cachedVertices!, out _cachedIndices!);
+                RequireOriginal().ApplyTo(this, out _cachedVertices!, out _cachedIndices!);
             }
         }
 

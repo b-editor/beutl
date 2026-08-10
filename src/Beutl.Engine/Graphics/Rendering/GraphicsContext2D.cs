@@ -295,7 +295,7 @@ public sealed class GraphicsContext2D(
         int count = _nodes.Count;
         try
         {
-            var obj = drawable.GetOriginal();
+            var obj = drawable.RequireOriginal();
             obj.Render(this, drawable);
         }
         finally

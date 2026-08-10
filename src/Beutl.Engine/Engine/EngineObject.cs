@@ -379,7 +379,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             Dispose(false);
         }
 
-        private EngineObject _original = null!;
+        private EngineObject? _original;
 
         public int Version { get; set; }
 
@@ -387,7 +387,40 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         public bool IsDisposed { get; private set; }
 
-        public EngineObject GetOriginal() => _original;
+        /// <summary>
+        /// Gets whether this resource has a backing engine object.
+        /// </summary>
+        /// <remarks>
+        /// Only <see cref="Update"/> attaches one, so a resource built through its public constructor rather
+        /// than through <see cref="ToResource"/> is detached.
+        /// </remarks>
+        public bool IsAttached => _original is not null;
+
+        /// <summary>
+        /// Gets the backing engine object, or <see langword="null"/> when <see cref="IsAttached"/> is false.
+        /// </summary>
+        /// <remarks>
+        /// A detached resource is a shape in-tree production code already mints and consumes:
+        /// <see cref="Beutl.Media.ColorExtensions.ToBrushResource"/> reached from <c>TextElementsBuilder</c>,
+        /// the <c>SolidColorBrush.Resource</c> and <c>Pen.Resource</c> that <c>FormattedTextParser</c> builds
+        /// for a stroke tag, and the <c>GradientStop.Resource</c> the Avalonia editor adapters build. This
+        /// returns <see langword="null"/> for every one of them. Use <see cref="RequireOriginal"/> when a null
+        /// backing object cannot be handled.
+        /// </remarks>
+        public EngineObject? GetOriginal() => _original;
+
+        /// <summary>
+        /// Gets the backing engine object, throwing when this resource is detached.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// This resource has no backing engine object.
+        /// </exception>
+        public EngineObject RequireOriginal()
+        {
+            return _original ?? throw new InvalidOperationException(
+                $"{GetType()} was constructed directly rather than through {nameof(EngineObject)}.{nameof(ToResource)}, "
+                + "so it has no backing engine object to dispatch to.");
+        }
 
         public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {

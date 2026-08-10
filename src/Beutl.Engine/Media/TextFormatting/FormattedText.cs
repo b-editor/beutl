@@ -67,7 +67,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     // which the resource's cached render path does not cover.
     private static void DisposePathListEntry(SKPathGeometry.Resource? resource)
     {
-        resource?.GetOriginal().Dispose();
+        resource?.RequireOriginal().Dispose();
         resource?.Dispose();
     }
 
@@ -341,7 +341,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                     else
                     {
                         // SetSKPath reuses the slot without bumping Version, so invalidate the caches explicitly.
-                        exist.GetOriginal().SetSKPath(tmp, false);
+                        exist.RequireOriginal().SetSKPath(tmp, false);
                         exist.InvalidateCachedPaths();
                     }
                 }
@@ -362,7 +362,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 else
                 {
                     // Empty glyph: invalidate the caches so the reused slot stops serving the old path.
-                    exist.GetOriginal().SetSKPath(tmp, false);
+                    exist.RequireOriginal().SetSKPath(tmp, false);
                     exist.InvalidateCachedPaths();
                 }
             }

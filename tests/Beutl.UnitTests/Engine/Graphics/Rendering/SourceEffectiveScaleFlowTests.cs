@@ -403,7 +403,7 @@ public class SourceEffectiveScaleFlowTests
             workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, workingScale);
 
             using var feContext = new FilterEffectContext(bounds, context.OutputScale, workingScale);
-            FilterEffect.Value.Resource.GetOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);
+            FilterEffect.Value.Resource.RequireOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);
             var effectTargets = new EffectTargets();
             effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
 

@@ -62,7 +62,7 @@ public partial class TextNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = RequireOriginal();
             var output = Output;
             if (output?.Drawable?.Resource is not TextBlock.Resource resource)
             {

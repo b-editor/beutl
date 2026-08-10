@@ -249,7 +249,7 @@ public readonly struct BrushConstructor(
             var drawable = drawableBrush.Drawable;
             using var node = new DrawableRenderNode(drawable);
             using var context = new GraphicsContext2D(node, new Size((int)Bounds.Width, (int)Bounds.Height), s);
-            drawable.GetOriginal().Render(context, drawable);
+            drawable.RequireOriginal().Render(context, drawable);
             var processor = new RenderNodeProcessor(node, true, s, MaxWorkingScale);
             var ops = processor.RasterizeToRenderTargets();
             var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));

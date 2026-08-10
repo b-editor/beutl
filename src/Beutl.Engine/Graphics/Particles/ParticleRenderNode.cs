@@ -186,7 +186,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         // 1920x1080 is only the logical measurement canvas; actual buffer is sized from drawable bounds.
         using (var gctx = new GraphicsContext2D(node, new Size(1920, 1080), nominalScale))
         {
-            drawable.GetOriginal().Render(gctx, drawable);
+            drawable.RequireOriginal().Render(gctx, drawable);
         }
 
         var processor = new RenderNodeProcessor(node, false, nominalScale, maxWorkingScale);

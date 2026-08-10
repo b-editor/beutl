@@ -59,7 +59,7 @@ public sealed partial class PathFigure : EngineObject
                 continue;
             }
 
-            item.GetOriginal().ApplyTo(context, item);
+            item.RequireOriginal().ApplyTo(context, item);
         }
 
         if (resource.IsClosed)

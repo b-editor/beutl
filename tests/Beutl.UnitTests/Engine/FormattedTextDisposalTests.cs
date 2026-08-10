@@ -126,7 +126,7 @@ public class FormattedTextDisposalTests
         // cached render path; capture those handles so we can assert they were released by Dispose.
         List<SKPath> glyphPaths = geometries
             .OfType<SKPathGeometry.Resource>()
-            .Select(r => r.GetOriginal().Path)
+            .Select(r => r.RequireOriginal().Path)
             .Where(p => p is not null)
             .Select(p => p!)
             .ToList();
@@ -168,7 +168,7 @@ public class FormattedTextDisposalTests
 
         List<SKPath> trailingGlyphPaths = trailingResources
             .OfType<SKPathGeometry.Resource>()
-            .Select(r => r.GetOriginal().Path)
+            .Select(r => r.RequireOriginal().Path)
             .Where(p => p is not null)
             .Select(p => p!)
             .ToList();
