@@ -57,6 +57,22 @@ public class EngineObject
         {
         }
 
+        protected TResource? ExchangeOwnedResource<TResource>(
+            ref TResource? location,
+            TResource? value)
+            where TResource : Resource
+        {
+            lock (_resourceOwnershipGate)
+            {
+                if (System.Threading.Volatile.Read(ref _disposeState) != 0)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
+
+                return System.Threading.Interlocked.Exchange(ref location, value);
+            }
+        }
+
         protected void SetOwnedResource<TResource>(
             ref TResource? location,
             TResource? value)
@@ -75,6 +91,29 @@ public class EngineObject
 
                 current?.Dispose();
                 System.Threading.Interlocked.Exchange(ref location, value);
+            }
+        }
+
+        protected TResource ReplaceOwnedResource<TResource>(
+            ref TResource? location,
+            TResource replacement)
+            where TResource : Resource
+        {
+            lock (_resourceOwnershipGate)
+            {
+                if (System.Threading.Volatile.Read(ref _disposeState) != 0)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
+
+                ArgumentNullException.ThrowIfNull(replacement);
+                TResource current = location ?? throw new InvalidOperationException();
+                if (ReferenceEquals(current, replacement))
+                {
+                    throw new ArgumentException(null, nameof(replacement));
+                }
+
+                return System.Threading.Interlocked.Exchange(ref location, replacement)!;
             }
         }
 

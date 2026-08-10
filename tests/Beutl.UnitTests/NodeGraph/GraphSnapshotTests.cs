@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Media.Proxy;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
@@ -20,12 +21,14 @@ public sealed class GraphSnapshotTests
             DisableResourceShare = false,
             PreferProxy = true,
             PreferredProxyPreset = ProxyPreset.Half,
+            TargetDomain = new Rect(0, 0, 1920, 1080),
         };
         var secondContext = new CompositionContext(TimeSpan.FromSeconds(1))
         {
             DisableResourceShare = true,
             PreferProxy = false,
             PreferredProxyPreset = ProxyPreset.Eighth,
+            TargetDomain = new Rect(0, 0, 1280, 720),
         };
 
         snapshot.Build(model, firstContext);
@@ -40,6 +43,8 @@ public sealed class GraphSnapshotTests
             Assert.That(node.CapturedContexts[1].DisableResourceShare, Is.True);
             Assert.That(node.CapturedContexts[1].PreferProxy, Is.False);
             Assert.That(node.CapturedContexts[1].PreferredProxyPreset, Is.EqualTo(ProxyPreset.Eighth));
+            Assert.That(node.CapturedContexts[0].TargetDomain, Is.EqualTo(firstContext.TargetDomain));
+            Assert.That(node.CapturedContexts[1].TargetDomain, Is.EqualTo(secondContext.TargetDomain));
         });
     }
 }
@@ -56,7 +61,8 @@ internal sealed partial class ContextCaptureNode : GraphNode
             node.CapturedContexts.Add(new CapturedGraphContext(
                 context.DisableResourceShare,
                 context.PreferProxy,
-                context.PreferredProxyPreset));
+                context.PreferredProxyPreset,
+                context.TargetDomain));
         }
     }
 }
@@ -64,4 +70,5 @@ internal sealed partial class ContextCaptureNode : GraphNode
 internal readonly record struct CapturedGraphContext(
     bool DisableResourceShare,
     bool PreferProxy,
-    ProxyPreset PreferredProxyPreset);
+    ProxyPreset PreferredProxyPreset,
+    Rect? TargetDomain);
