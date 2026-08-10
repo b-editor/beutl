@@ -472,54 +472,6 @@ public class EngineObject
             TResource replacement)
             where TResource : Resource;
 
-        protected void AddOwnedResource<TResource>(
-            List<TResource> resources,
-            TResource item)
-            where TResource : Resource;
-
-        protected bool RemoveOwnedResource<TResource>(
-            List<TResource> resources,
-            TResource item)
-            where TResource : Resource;
-
-        protected void ClearOwnedResources<TResource>(List<TResource> resources)
-            where TResource : Resource;
-
-        protected void ReplaceOwnedResources<TResource>(
-            List<TResource> resources,
-            IReadOnlyList<TResource> replacements)
-            where TResource : Resource;
-
-        protected TResource DetachOwnedResourceAt<TResource>(
-            List<TResource> resources,
-            int index)
-            where TResource : Resource;
-
-        protected TResource ReplaceOwnedResourceAt<TResource>(
-            List<TResource> resources,
-            int index,
-            TResource replacement)
-            where TResource : Resource;
-
-        protected void MoveOwnedResource<TResource>(
-            List<TResource> resources,
-            int oldIndex,
-            int newIndex)
-            where TResource : Resource;
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        protected void CaptureResourceAuthorCleanupFailure(Exception failure);
-
-        protected virtual void DisposeGeneratedResources();
-
-        protected void DisposeGeneratedResource<TResource>(
-            ref TResource? location)
-            where TResource : Resource;
-
-        protected void DisposeGeneratedResourceList<TResource>(
-            List<TResource> resources)
-            where TResource : Resource;
-
         protected virtual void Dispose(bool disposing);
         public void Dispose();
     }
@@ -530,39 +482,15 @@ public class EngineObject
 
 A detached resource is not a hypothetical out-of-tree shape. In-tree production code mints and consumes one: `ColorExtensions.ToBrushResource` returns `new SolidColorBrush.Resource { … }` and `TextElementsBuilder` puts it on a `TextElement` for a `<color=…>` tag on the text-render path; `FormattedTextParser` builds a detached `SolidColorBrush.Resource` and `Pen.Resource` for a stroke tag; `AvaloniaTypeConverter.ToBtlImmutableGradientStop` and `GradientStopsEditor` build a detached `GradientStop.Resource`.
 
-A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot rather than a borrowed reference. Assigning a different resource first disposes the previous value and transfers ownership to the containing resource only after that cleanup succeeds; assigning the same instance is a no-op. Disposing the containing resource disposes the currently held value through the generator-reserved retry hook.
+A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot rather than a borrowed reference. Assigning a different resource first disposes the previous value and transfers ownership to the containing resource only after that cleanup succeeds; assigning the same instance is a no-op. Disposing the containing resource disposes the currently held value through the base `Dispose(bool)` chain.
 
-For a nullable owning property `Child`, generation also exposes `public Child.Resource? DetachChild()`. It atomically clears that slot without disposing its previous value and returns the detached resource, or null when the slot is empty. The caller owns a non-null return until it assigns the value into another owning slot or disposes it. `destination.Child = source.DetachChild()` is the canonical nullable-slot transfer.
+For a nullable owning property `Child`, the generated resource exposes a plain `public Child.Resource? Child { get; set; }` slot. `Update` reconciliation and the property setter dispose the previous value; there is no generated detach/replace surface. A caller that needs to transfer a child between owners without disposal uses `ExchangeOwnedResource(ref location, value)` on the source resource. Copying always requires an independently created resource rather than aliasing one owner.
 
-For a non-null owning property `Child`, generation instead exposes `public Child.Resource ReplaceChild(Child.Resource replacement)`. The required non-null replacement and old value are atomically exchanged, the slot never becomes empty, and ownership of the returned old value transfers to the caller. Passing null to either the property setter or `ReplaceChild` is rejected. `ReplaceChild` also rejects the currently held instance, because returning that still-owned instance would create a second apparent owner, and rejects an unexpectedly empty non-null slot before taking ownership of the replacement. Every rejected call leaves both ownership locations unchanged. A transfer replaces the source with an independently owned placeholder, then passes the returned resource into the destination; sharing the same instance between two live owning slots remains invalid. The generated setter, `Update` reconciliation, nullable detach, non-null replace, and containing-resource disposal all use one serialized atomic ownership seam. Concurrent update/detach/replace/dispose cannot return one nested resource to two callers, dispose a resource after a successful transfer, or install a new child after owner disposal. Copying always requires an independently created resource rather than aliasing one owner.
+`ExchangeOwnedResource`, `SetOwnedResource`, and `ReplaceOwnedResource` are the protected seam for generated and hand-written resource owners. All three serialize on the resource's ownership gate with generated `Update` and the first disposal attempt, and throw `ObjectDisposedException` once disposal starts. `ExchangeOwnedResource` commits the supplied nullable value and returns the previous value without disposal. `SetOwnedResource` treats the supplied value as a normal assignment: assigning the same instance is a no-op, while a different previous value remains in the slot until its disposal succeeds and only then is the new value committed. A nested disposal failure therefore leaves the slot unchanged and the replacement uninstalled. `ReplaceOwnedResource` requires an existing non-null current value and a different non-null replacement; null replacement, empty current slot, and same-instance replacement fail before mutation. Generated object-property `Update` and disposal hold the same gate while comparing, recursively updating, replacing, and disposing children; if disposing the old child fails, the old child stays owned and the internally created rejected replacement is cleaned up.
 
-For a generated fully owning list property `Items`, generation no longer exposes the mutable backing `List<TResource>`. Its public surface is:
+The first public `Dispose()` attempt atomically transitions the resource to its terminal state after invoking author code. `DisposeCore(disposing)` runs under the ownership gate, invokes the most-derived author-facing virtual `Dispose(bool)` entry at most once, and then publishes the terminal `_disposeState`; every update, setter, or ownership helper rejects after that transition. A finalizer runs `DisposeCore(false)`, so `Dispose(bool)` is still invoked from finalization, but `GC.SuppressFinalize` is only called on the explicit path. Generated implementations invoke `PreDispose`/`PostDispose` partial hooks around their child disposal and call `base.Dispose(disposing)`; they do not implement a separate generated-cleanup retry hook. A hand-written override is a conforming part of that chain when it likewise invokes `base.Dispose(disposing)`. Because the terminal state is published after `Dispose(bool)` returns, an exception thrown by an override still completes the transition.
 
-```csharp
-public IReadOnlyList<TResource> Items { get; set; }
-public void AddToItems(TResource item);
-public bool RemoveFromItems(TResource item);
-public void ClearItems();
-public TResource DetachItemsAt(int index);
-public TResource ReplaceItemsAt(int index, TResource replacement);
-public void MoveItems(int oldIndex, int newIndex);
-```
-
-The getter returns a cached read-only view, so a retained reference cannot call a working `Add`, `Remove`, `Clear`, or index setter behind the owner's gate. The setter snapshots and validates its complete replacement before cleanup, rejects null entries, duplicate reference identities, any resource already present in another current slot of this owner, and aliasing the current view. It disposes every old item; successful items are removed, failed items remain owned in stable order, and the validated replacement stays caller-owned unless all old cleanup succeeds and the new list commits atomically. `AddToItems` transfers one non-null resource after rejecting duplicate/current ownership in this owner. `RemoveFromItems` disposes a matching owned item before removing it and returns false when absent. `ClearItems` attempts every item and retains only failures. `DetachItemsAt` removes without disposal and transfers the returned item to the caller. `ReplaceItemsAt` rejects null, the same instance, or an instance present in another current slot of this owner, atomically installs the replacement, and transfers the old item to the caller. `MoveItems` reorders one existing item under the same gate without disposing or changing ownership; callers use it instead of passing current entries back through the whole-list setter. Every mutation/transfer linearizes with generated update and disposal and throws `ObjectDisposedException` after the first disposal attempt. The read-only view may reflect cleanup of already-owned items, but cannot introduce a new retry candidate; later disposal retries exactly the items whose earlier cleanup failed. As with singular owning slots, the caller must not retain/share an item after a successful transfer into a list; cross-owner aliasing is a contract violation rather than something reference-local validation can discover.
-
-Five hand-written/generation-suppressed public list properties use the same read-only/gated naming convention: `DrawableGroup.Resource.Children`, `DrawableDecorator.Resource.Children`, `SoundGroup.Resource.Children`, and `Scene3D.Resource.Lights`/`Objects`. Each property keeps a public `IReadOnlyList<TResource>` setter and exposes `AddTo<Property>`, `RemoveFrom<Property>`, `Clear<Property>`, `Detach<Property>At`, `Replace<Property>At`, and `Move<Property>`. These flow-backed lists have mixed lifetime: the reconciler-maintained prefix is borrowed from `CompositionContext.Flow`, while entries added/materialized after that prefix are owned. Add and whole-list replacement create owned entries. Remove, detach-at, and replace-at reject an index/reference in the borrowed prefix. Move accepts only two indices in the owned tail and rejects a borrowed-prefix or cross-boundary move. Clear or whole replacement detaches the borrowed prefix without disposal, attempts cleanup only for the owned tail, retains only failed owned entries, and resets prefix tracking; terminal cleanup follows the same rule. Their cached read-only views prevent a retained alias from changing either lifetime partition outside the owner gate.
-
-`DelayAnimationEffect.Resource.DelayedResources` is not an authoring list at all: it is an internal request/effect cache owned by that resource. Its public mutable member is removed, and only an internal/private read-only cache view remains for the built-in delay execution path.
-
-`ExchangeOwnedResource`, `SetOwnedResource`, and `ReplaceOwnedResource` are the protected extension surface behind that seam for generated and hand-written resource owners. All three linearize with generated `Update` and the first disposal attempt on the containing resource and throw `ObjectDisposedException` once disposal starts. `ExchangeOwnedResource` commits the supplied nullable value and returns the previous value without disposal; nullable detach uses it to transfer ownership. `SetOwnedResource` treats the supplied value as a normal assignment: assigning the same instance is a no-op, while a different previous value remains in the slot until its disposal succeeds and only then is the new value committed. A nested disposal failure therefore leaves both ownership locations unchanged and retryable. `ReplaceOwnedResource` requires an existing non-null current value and a different non-null replacement; null replacement, empty current slot, and same-instance replacement fail before mutation. Generated object-property `Update` holds the same gate while comparing, recursively updating, replacing, and disposing its child; if disposing the old child fails, the old child stays owned and the internally created rejected replacement is cleaned up.
-
-`AddOwnedResource`, `RemoveOwnedResource`, `ClearOwnedResources`, `ReplaceOwnedResources`, `DetachOwnedResourceAt`, `ReplaceOwnedResourceAt`, and `MoveOwnedResource` are the matching protected fully-owned-list extension surface. They require one non-null backing list owned by the resource, validate non-null/duplicate/current-slot aliasing before ownership changes, and execute under the same terminal/ownership gate. Remove and clear are dispose-before-remove operations; detach and replace-at transfer the old item without disposal; move changes order without changing ownership. Whole-list replacement snapshots the supplied `IReadOnlyList` before touching current ownership and installs it only after every old item disposes successfully. Hand-written fully-owning resource implementations use these helpers rather than exposing or mutating their backing list directly; the five flow-backed mixed-lifetime lists use their explicit prefix-aware implementations while preserving the same public mutation names and terminal gate.
-
-The first public `Dispose()` attempt atomically transitions the resource to its terminal state before invoking author code. `IsDisposed` is therefore true during `Dispose(bool)`, and every update, setter, detach, replace, or ownership helper rejects immediately even when cleanup later throws. The most-derived author-facing virtual `Dispose(bool)` entry is invoked at most once. Generated implementations catch each `PreDispose`/`PostDispose` failure, pass it to `CaptureResourceAuthorCleanupFailure`, attempt their remaining one-shot phases, and invoke the base chain. A hand-written override is a conforming part of that chain only when it likewise captures its own failure with that reserved helper and invokes `base.Dispose(disposing)` through finally-equivalent control flow. The helper accepts a non-null exception only while the base-owned author-cleanup collector is active; calling it at any other time throws `InvalidOperationException`. The outer `Dispose` orchestrator preserves one captured exception through `ExceptionDispatchInfo` or creates one final flat aggregate in reached derived-to-base author-phase order, before generated child failures. It cannot resume a base phase that an arbitrary override skipped. A failure cannot cause a later `Dispose()` call to re-enter any author phase that was reached on the first attempt.
-
-Generated owning object and list cleanup lives in the separate protected `DisposeGeneratedResources()` retry hook. Generated overrides process their own slots in declaration order and then call the base override, giving deterministic derived-to-base ordering. `DisposeGeneratedResource` clears an object slot only after the child disposes successfully. `DisposeGeneratedResourceList` removes null or successfully disposed entries in place and retains only failed entries in stable order. The helpers append failures only to a base-owned collector active during this hook; the override cannot enumerate, remove, reorder, or replace already recorded author/generated failures, and calling a helper outside the active generated-cleanup phase throws. The first attempt invokes this hook even when author cleanup failed; later `Dispose()` calls invoke only this hook while pending generated children remain. One cleanup failure is rethrown with its original type and stack. Multiple failures are aggregated in reached author-phase order, then generated derived-to-base/declaration order. Recursive or concurrent disposal observes the terminal state and cannot repeat author cleanup or transfer a child. Finalization never invokes author or generated retry hooks, and no finalizer exception escapes.
-
-This concurrency guarantee is deliberately limited to generated object/list ownership transitions versus that same resource's generated reconciliation and terminal disposal transition. It does not make generated value properties, getters, arbitrary child mutation, or the complete multi-property `Update` transaction thread-safe. Callers continue to serialize ordinary resource reads/mutation and whole updates; the ownership gate prevents an owned child from being double-transferred, disposed after transfer, installed after disposal starts, or appended through a retained list alias when the documented ownership operations race.
+This concurrency guarantee is deliberately limited to ownership transitions versus that same resource's reconciliation and terminal disposal transition. It does not make generated value properties, getters, arbitrary child mutation, or the complete multi-property `Update` transaction thread-safe. Callers continue to serialize ordinary resource reads/mutation and whole updates; the ownership gate prevents an owned child from being double-transferred, disposed after transfer, or installed after disposal starts when the documented ownership operations race.
 
 `EngineResourceIdentity.Of` is the only safe way to key on an `EngineObject.Resource`, and is renderer-wide for the same reason: nodes, brushes, filter effects, and 3D all key on the same resources, and a node needs the identity outside `Borrow` whenever it feeds a hit-test or structural key rather than a declared-resource registration. It returns the backing `EngineObject.Id`, or a synthesized `Guid` for a resource with no backing object, stable per `Resource` instance and held weakly — a caller that reallocates the resource every frame gets a new identity every frame. Returning `Guid` rather than `object` is what lets a caller hold the identity in a `Guid`-typed cache-key field without boxing on every `Process`, which is why the engine's own hit-test and structural keys can route through it; a synthesized identity is therefore the same shape as a backing object id, and a collision between the two is treated as a non-scenario rather than prevented by construction. The public `Borrow((Resource, Version))` overload derives its key the same way, but registers a borrow as well, so it is not a substitute when the identity is only wanted for comparison.
 
