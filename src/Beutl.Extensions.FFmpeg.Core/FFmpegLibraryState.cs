@@ -79,6 +79,24 @@ public static class FFmpegLibraryState
         DrainNotifications(notification);
     }
 
+    // Mark libraries missing after a worker failure, but preserve an active cooldown when this is
+    // only a repeated short-circuit observation from another caller.
+    public static void MarkMissingIfNeeded()
+    {
+        PendingNotification? notification = null;
+        lock (s_stateGate)
+        {
+            if (!ShouldSkipStartProbeCore(Environment.TickCount64))
+                ArmReprobeCooldownCore();
+
+            bool shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
+            if (shouldNotify)
+                notification = QueueNotificationCore(NotificationKind.AvailabilityChanged, isLibrariesMissing: true);
+        }
+
+        DrainNotifications(notification);
+    }
+
     // Record the missing latch observed by a decode attempt WITHOUT re-arming the cooldown (a real
     // worker-start failure arms it; re-arming on a short-circuited decode would keep the re-probe
     // window from ever elapsing). Returns whether the condition was already known, so callers can
@@ -136,11 +154,7 @@ public static class FFmpegLibraryState
     // the outcome re-probes actual FFmpeg availability instead of trusting the sticky flag.
     public static bool ShouldSkipStartProbe(long now)
     {
-        if (!s_librariesMissing)
-            return false;
-
-        long since = Interlocked.Read(ref s_missingSinceTicks);
-        return since != 0 && now - since < ReprobeCooldownMs;
+        return ShouldSkipStartProbeCore(now);
     }
 
     private static void SetLibrariesMissing(bool value, bool notify = true, bool notifyWhenUnchanged = false)
@@ -326,4 +340,13 @@ public static class FFmpegLibraryState
 
     private static void ArmReprobeCooldownCore()
         => Interlocked.Exchange(ref s_missingSinceTicks, Environment.TickCount64);
+
+    private static bool ShouldSkipStartProbeCore(long now)
+    {
+        if (!s_librariesMissing)
+            return false;
+
+        long since = Interlocked.Read(ref s_missingSinceTicks);
+        return since != 0 && now - since < ReprobeCooldownMs;
+    }
 }

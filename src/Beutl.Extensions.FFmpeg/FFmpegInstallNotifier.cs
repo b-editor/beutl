@@ -31,10 +31,7 @@ internal static class FFmpegInstallNotifier
 
     public static void NotifyMissing()
     {
-        if (FFmpegLibraryState.ShouldSkipStartProbe(Environment.TickCount64))
-            FFmpegLibraryState.RecordMissingObserved();
-        else
-            FFmpegLibraryState.MarkMissing();
+        FFmpegLibraryState.MarkMissingIfNeeded();
 
         ShowMissingNotification();
     }

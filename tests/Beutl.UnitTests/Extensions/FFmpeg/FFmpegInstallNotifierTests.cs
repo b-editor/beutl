@@ -166,6 +166,28 @@ public class FFmpegInstallNotifierTests
     }
 
     [Test]
+    public void NotifyMissing_UnderConcurrency_DoesNotRearmActiveCooldown()
+    {
+        FFmpegInstallNotifier.MarkMissing();
+        long since = FFmpegInstallNotifier.MissingSinceTicks;
+        const int callers = 32;
+        using var barrier = new Barrier(callers);
+        var tasks = new Task[callers];
+
+        for (int i = 0; i < callers; i++)
+        {
+            tasks[i] = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                FFmpegInstallNotifier.NotifyMissing();
+            });
+        }
+
+        Task.WaitAll(tasks);
+        Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(since));
+    }
+
+    [Test]
     public void RecordMissingObserved_UnderConcurrency_OnlyOneFirstObservation()
     {
         const int iterations = 25;
