@@ -59,6 +59,7 @@ public sealed class BeutlApiApplicationTests
     {
         // LoadMetadata reads asset_metadata.json from AppContext.BaseDirectory (cached per process).
         string metadataPath = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
+        string? originalContent = File.Exists(metadataPath) ? File.ReadAllText(metadataPath) : null;
         try
         {
             File.WriteAllText(metadataPath, """
@@ -85,7 +86,14 @@ public sealed class BeutlApiApplicationTests
         }
         finally
         {
-            File.Delete(metadataPath);
+            if (originalContent != null)
+            {
+                File.WriteAllText(metadataPath, originalContent);
+            }
+            else
+            {
+                File.Delete(metadataPath);
+            }
         }
     }
 
