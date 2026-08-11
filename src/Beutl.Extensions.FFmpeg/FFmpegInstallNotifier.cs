@@ -26,12 +26,21 @@ internal static class FFmpegInstallNotifier
         if (Interlocked.Exchange(ref s_hooked, 1) != 0)
             return;
 
-        FFmpegLibraryState.LibrariesMissing += (_, _) => NotifyMissing();
+        FFmpegLibraryState.LibrariesMissing += (_, _) => ShowMissingNotification();
     }
 
     public static void NotifyMissing()
     {
-        FFmpegLibraryState.MarkMissing();
+        if (FFmpegLibraryState.ShouldSkipStartProbe(Environment.TickCount64))
+            FFmpegLibraryState.RecordMissingObserved();
+        else
+            FFmpegLibraryState.MarkMissing();
+
+        ShowMissingNotification();
+    }
+
+    private static void ShowMissingNotification()
+    {
         if (!TryAcquireNotifySlot(Environment.TickCount64))
             return;
 

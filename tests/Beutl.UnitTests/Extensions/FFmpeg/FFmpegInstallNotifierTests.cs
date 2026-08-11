@@ -154,6 +154,18 @@ public class FFmpegInstallNotifierTests
     }
 
     [Test]
+    public void NotifyMissing_DoesNotPushActiveCooldownWindowForward()
+    {
+        FFmpegInstallNotifier.MarkMissing();
+        long since = FFmpegInstallNotifier.MissingSinceTicks;
+
+        FFmpegInstallNotifier.NotifyMissing();
+
+        Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(since),
+            "a short-circuited encoding retry must not re-arm the cooldown");
+    }
+
+    [Test]
     public void RecordMissingObserved_UnderConcurrency_OnlyOneFirstObservation()
     {
         const int iterations = 25;
