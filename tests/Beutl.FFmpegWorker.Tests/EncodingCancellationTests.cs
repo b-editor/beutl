@@ -16,6 +16,15 @@ namespace Beutl.FFmpegWorker.Tests;
 [TestFixture]
 public class EncodingCancellationTests
 {
+    [Test]
+    public void RedactPath_ReplacesBeutlHomePrefix()
+    {
+        string home = BeutlEnvironment.GetHomeDirectoryPath();
+        string path = Path.Combine(home, "ffmpeg", "native");
+
+        Assert.That(FFmpegLoaderWorker.RedactPath(path), Is.EqualTo("~" + path[home.Length..]));
+    }
+
     // FFmpegLoaderWorker.Initialize() throws FFmpegLibrariesNotFoundException (or another native-load
     // error) when the shared libraries are absent. Probe once; the FFmpeg-native tests self-skip if
     // the natives cannot be loaded on this machine.

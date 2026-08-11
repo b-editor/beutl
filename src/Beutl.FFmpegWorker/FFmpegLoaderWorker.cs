@@ -98,7 +98,22 @@ internal static class FFmpegLoaderWorker
         // Surface the searched paths so a missing-FFmpeg failure is diagnosable: the worker's
         // "FFmpeg libraries not found" error (relayed to the host log) shows exactly where it looked.
         throw new FFmpegLibrariesNotFoundException(
-            $"FFmpeg libraries not found. Searched: {string.Join(", ", paths)}");
+            $"FFmpeg libraries not found. Searched: {string.Join(", ", paths.Select(RedactPath))}");
+    }
+
+    internal static string RedactPath(string path)
+    {
+        string home = BeutlEnvironment.GetHomeDirectoryPath();
+        if (path.Equals(home, StringComparison.OrdinalIgnoreCase))
+            return "~";
+
+        string homePrefix = home.EndsWith(Path.DirectorySeparatorChar)
+            ? home
+            : home + Path.DirectorySeparatorChar;
+        if (path.StartsWith(homePrefix, StringComparison.OrdinalIgnoreCase))
+            return "~" + path[home.Length..];
+
+        return path;
     }
 
     private static bool LibrariesExists(string basePath)
