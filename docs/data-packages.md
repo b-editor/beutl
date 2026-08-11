@@ -8,6 +8,7 @@ code, and Beutl never loads an assembly from them:
 | Extension | *(none)* | assemblies loaded into the editor |
 | Material | `beutl-material` | images, audio, video, fonts |
 | Template | `beutl-template` | object templates (`.json`) |
+| Both | `beutl-material` + `beutl-template` | a `materials/` and a `templates/` payload |
 
 ## Publishing without a nupkg
 
@@ -15,16 +16,23 @@ Most data-package authors are not developers and never build a nupkg. The store'
 **Publish materials or templates** page (`/developer/upload`) takes a folder of files
 and does the packaging for them: pick a type, a name, a title and a description, select
 the folder, and the server builds the package, creates a `1.0.0` release and publishes
-it. The package id is namespaced as `Beutl.Materials.<username>.<name>` or
-`Beutl.Templates.<username>.<name>`, so the author only chooses the short name.
+it. The package id is namespaced as `Beutl.Materials.<username>.<name>`,
+`Beutl.Templates.<username>.<name>` or `Beutl.Data.<username>.<name>` (for a package
+with both kinds), so the author only chooses the short name.
+
+For the **both** type the folder must contain `materials/` and `templates/`
+subdirectories. A template in the package can use a bundled material: the upload flow
+rewrites the template's `file://` references to the material into URIs relative to the
+template file, and the editor resolves them against the template's own location after
+installation.
 
 The rest of this document describes the nupkg layout for authors who do build the
 package themselves (or want to know what the upload page produces).
 
 ## Declaring the kind
 
-The kind lives in the package's tags, not in a field of its own. Add exactly one reserved
-tag to the `.nuspec`:
+The kind lives in the package's tags, not in a field of its own. Add the reserved
+tag(s) to the `.nuspec`:
 
 ```xml
 <package>
@@ -39,17 +47,17 @@ tag to the `.nuspec`:
 
 The tags are prefixed because the same vocabulary is read out of the nuspec, where a bare
 `material` is an ordinary tag plenty of unrelated packages already carry. A package that
-carries neither reserved tag is an extension. One that carries both is treated as a
-material. The reserved tags are set from the package type selector in the developer
-portal, which also refuses them as hand-typed tags — do not add them through the tag
-editor.
+carries neither reserved tag is an extension. One that carries both ships both payloads
+and appears in both the material and the template listings. The reserved tags are set
+from the package type selector in the developer portal, which also refuses them as
+hand-typed tags — do not add them through the tag editor.
 
 The two reserved tags are hidden wherever the store lists an author's tags; the package
 page shows the kind instead.
 
 ## Content layout
 
-Beutl copies one directory out of the package, chosen by the kind:
+Beutl copies the payload directories the package carries, chosen by the tags:
 
 ```text
 material package
@@ -57,9 +65,13 @@ material package
 
 template package
   templates/**            ->  {home}/templates/{package-id}/
+
+both package
+  materials/**            ->  {home}/materials/{package-id}/
+  templates/**            ->  {home}/templates/{package-id}/
 ```
 
-Both are copied recursively, so subdirectories are preserved. `{home}` is `$BEUTL_HOME`
+All are copied recursively, so subdirectories are preserved. `{home}` is `$BEUTL_HOME`
 when that directory exists, otherwise `~/.beutl`.
 
 Pack the payload with `<files>` (or `contentFiles`), keeping the directory name at the
