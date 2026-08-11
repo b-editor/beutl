@@ -2,10 +2,8 @@
 
 public sealed class PushRenderNode : ContainerRenderNode
 {
-    public override void Process(RenderNodeContext context)
-    {
-        TargetScopeDescription description = TargetScopeDescription.Create(
-            typeof(PushRenderNode),
+    private static readonly TargetScopeDefinition<PushState> s_definition =
+        TargetScopeDefinition<PushState>.Create(
             static (session, _) => session.Canvas.Use(canvas =>
             {
                 using (canvas.Push())
@@ -19,9 +17,12 @@ public sealed class PushRenderNode : ContainerRenderNode
             deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             deviceGridMapping: RenderDeviceGridMapping.Preserved);
 
-        foreach (RenderFragmentHandle input in context.Inputs)
-        {
-            context.Publish(context.TargetScope(input, description));
-        }
+    public override void Process(RenderNodeContext context)
+    {
+        context.PublishMappedInputs(
+            s_definition.Call(default),
+            static (context, input, value) => context.TargetScope(input, value));
     }
+
+    private readonly record struct PushState;
 }

@@ -38,15 +38,12 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
         RenderBoundsContract bounds = transform.HasInverse
             ? RenderBoundsContract.Create(
                 metadataState.TransformBounds,
-                metadataState.GetRequiredInputBounds,
-                structuralKey: (typeof(TransformRenderNode), "invertible-bounds"))
+                metadataState.GetRequiredInputBounds)
             : RenderBoundsContract.CreateFullInput(
-                metadataState.TransformBounds,
-                structuralKey: (typeof(TransformRenderNode), "singular-bounds"));
+                metadataState.TransformBounds);
         RenderHitTestContract hitTest = RenderHitTestContract.Custom(metadataState.HitTest);
         RenderScaleContract scale = RenderScaleContract.MapInputSupply(
             new TransformScaleMapper(transform).Map);
-        var runtimeIdentity = new RenderRuntimeIdentity((transform, transformOperator));
         // Set discards the ambient transform for the canvas base transform, so it moves the input even when
         // the matrix is identity.
         RenderDeviceGridMapping gridMapping =
@@ -54,30 +51,34 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                 ? RenderDeviceGridMapping.Preserved
                 : RenderDeviceGridMapping.Remapped;
 
-        foreach (RenderFragmentHandle input in context.Inputs)
+        // Only Prepend places its matrix in the input's own logical space. Append and Set are defined
+        // against the ambient target transform, which the value graph has no representation of.
+        if (transformOperator == TransformOperator.Prepend)
         {
-            // Only Prepend places its matrix in the input's own logical space. Append and Set are defined
-            // against the ambient target transform, which the value graph has no representation of.
-            TargetScopeDescription description = transformOperator == TransformOperator.Prepend
-                ? TargetScopeDescription.CreateValueReplayMap(
-                    session => ExecuteTransform(session, (transform, transformOperator)),
-                    bounds,
-                    hitTest,
-                    scale,
-                    RenderDeviceGridSensitivity.Insensitive,
-                    gridMapping,
-                    structuralKey: typeof(TransformRenderNode),
-                    runtimeIdentity: runtimeIdentity)
-                : TargetScopeDescription.Create(
-                    (transform, transformOperator),
-                    ExecuteTransform,
-                    bounds,
-                    hitTest,
-                    scale,
-                    deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
-                    deviceGridMapping: gridMapping);
-            context.Publish(context.TargetScope(input, description));
+            TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
+                session => ExecuteTransform(session, (transform, transformOperator)),
+                bounds,
+                hitTest,
+                scale,
+                RenderDeviceGridSensitivity.Insensitive,
+                gridMapping);
+            context.PublishMappedInputs(
+                description,
+                static (context, input, value) => context.TargetScope(input, value));
+            return;
         }
+
+        TargetScopeDefinition<(Matrix Transform, TransformOperator Operator)> definition =
+            TargetScopeDefinition<(Matrix Transform, TransformOperator Operator)>.Create(
+                ExecuteTransform,
+                bounds,
+                hitTest,
+                scale,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
+                deviceGridMapping: gridMapping);
+        context.PublishMappedInputs(
+            definition.Call((transform, transformOperator)),
+            static (context, input, value) => context.TargetScope(input, value));
     }
 
     private static void ExecuteTransform(

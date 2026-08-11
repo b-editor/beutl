@@ -4,6 +4,9 @@ namespace Beutl.Graphics.Rendering;
 
 public abstract class RenderNode : IDisposable
 {
+    private bool _hasChanges;
+    private long _changeVersion;
+
     protected RenderNode()
     {
         Cache = new RenderNodeCache(this);
@@ -20,7 +23,20 @@ public abstract class RenderNode : IDisposable
 
     public bool IsDisposed { get; private set; }
 
-    public bool HasChanges { get; set; }
+    public bool HasChanges
+    {
+        get => _hasChanges;
+        set
+        {
+            _hasChanges = value;
+            if (value)
+            {
+                _changeVersion++;
+            }
+        }
+    }
+
+    internal long ChangeVersion => _changeVersion;
 
     /// <summary>The nodes this node records through, in recording order.</summary>
     /// <remarks>
@@ -33,7 +49,7 @@ public abstract class RenderNode : IDisposable
     /// </remarks>
     public virtual ReadOnlySpan<RenderNode> ChildNodes => default;
 
-    public RenderNodeCache Cache { get; }
+    internal RenderNodeCache Cache { get; }
 
     public abstract void Process(RenderNodeContext context);
 
@@ -45,6 +61,14 @@ public abstract class RenderNode : IDisposable
             Cache.Dispose();
             IsDisposed = true;
             GC.SuppressFinalize(this);
+        }
+    }
+
+    internal void ClearChanges(long observedVersion)
+    {
+        if (_hasChanges && _changeVersion == observedVersion)
+        {
+            _hasChanges = false;
         }
     }
 

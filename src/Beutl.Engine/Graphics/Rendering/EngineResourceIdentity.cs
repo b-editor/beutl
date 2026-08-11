@@ -5,8 +5,7 @@ using Beutl.Engine;
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Derives the equality-stable identity of an <see cref="EngineObject.Resource"/> for use as a cache,
-/// structural, or hit-test key.
+/// Derives an equality-stable identity of an <see cref="EngineObject.Resource"/> for engine-only metadata use.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -16,11 +15,11 @@ namespace Beutl.Graphics.Rendering;
 /// </para>
 /// <para>
 /// The derivation is renderer-wide rather than a recorder or effect responsibility: nodes, brushes, filter
-/// effects, and 3D all key on the same resources, and a node needs this outside <c>Borrow</c> whenever the
-/// identity feeds a hit-test or structural key rather than a declared-resource registration.
+/// effects, and 3D all consult the same resources when evaluating engine-only metadata. Public render-node
+/// authoring uses declared <see cref="RenderResourceSlot{T}"/> values instead.
 /// </para>
 /// </remarks>
-public static class EngineResourceIdentity
+internal static class EngineResourceIdentity
 {
     private static readonly ConditionalWeakTable<EngineObject.Resource, DetachedIdentityHolder> s_detached = new();
 
@@ -32,9 +31,8 @@ public static class EngineResourceIdentity
     /// </returns>
     /// <remarks>
     /// A synthesized identity is stable per <see cref="EngineObject.Resource"/> instance and held weakly, so a
-    /// caller that reallocates the resource every frame gets a new identity every frame and never reaches a
-    /// cached output. Returning <see cref="Guid"/> rather than <see cref="object"/> is what lets a caller hold
-    /// the identity in a <see cref="Guid"/>-typed field without boxing on every <c>Process</c>.
+/// caller that reallocates the resource every frame gets a new identity every frame. Returning
+/// <see cref="Guid"/> rather than <see cref="object"/> avoids boxing in engine metadata paths.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="resource"/> is <see langword="null"/>.</exception>
     public static Guid Of(EngineObject.Resource resource)

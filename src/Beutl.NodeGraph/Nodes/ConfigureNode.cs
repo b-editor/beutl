@@ -26,11 +26,57 @@ public abstract partial class ConfigureNode : GraphNode
             var output = OutputPort;
             if (output == null) return;
 
-            output.HasChanges = inputs.Any(i => i?.HasChanges == true) || output.HasChanges;
-            output.RemoveRange(0, output.Children.Count);
-            foreach (var input in inputs.OfType<RenderNode>())
+            bool hasChanges = false;
+            if (output.Children.Any(static child => child is not ReferencesChildRenderNode))
             {
-                output.AddChild(input);
+                DetachInputReferences(output);
+                hasChanges = true;
+            }
+
+            int childIndex = 0;
+            foreach (RenderNode? input in inputs)
+            {
+                if (input is null) continue;
+
+                ReferencesChildRenderNode reference;
+                if (childIndex < output.Children.Count)
+                {
+                    reference = (ReferencesChildRenderNode)output.Children[childIndex];
+                }
+                else
+                {
+                    reference = new ReferencesChildRenderNode(input);
+                    output.AddChild(reference);
+                    hasChanges = true;
+                }
+
+                hasChanges |= reference.Update(input);
+                childIndex++;
+            }
+
+            while (output.Children.Count > childIndex)
+            {
+                int index = output.Children.Count - 1;
+                RenderNode child = output.Children[index];
+                output.RemoveRange(index, 1);
+                ((ReferencesChildRenderNode)child).Dispose();
+                hasChanges = true;
+            }
+
+            output.HasChanges = inputs.Any(i => i?.HasChanges == true) || hasChanges || output.HasChanges;
+        }
+
+        private static void DetachInputReferences(ContainerRenderNode output)
+        {
+            while (output.Children.Count > 0)
+            {
+                int index = output.Children.Count - 1;
+                RenderNode child = output.Children[index];
+                output.RemoveRange(index, 1);
+                if (child is ReferencesChildRenderNode reference)
+                {
+                    reference.Dispose();
+                }
             }
         }
 

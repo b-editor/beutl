@@ -5,11 +5,10 @@ namespace Beutl.Graphics.Effects;
 /// <summary>Declares an immutable deferred geometry transformation recorded into a render graph.</summary>
 /// <remarks>
 /// Geometry is an order-preserving zero-or-one map over each input value and is a materialization boundary.
-/// Description instances use reference equality; the renderer derives a separate structural identity for plan
-/// reuse. The render callback receives a borrowed execution-scoped <see cref="GeometrySession"/> that must not be
-/// retained.
+/// The renderer derives plan shape from the callback and declared contracts. The render callback receives a
+/// borrowed execution-scoped <see cref="GeometrySession"/> that must not be retained.
 /// </remarks>
-public sealed class GeometryDescription
+internal sealed class GeometryDescription
 {
     private readonly RenderExecutionChannel<GeometrySession> _execution;
 
@@ -17,23 +16,22 @@ public sealed class GeometryDescription
         RenderExecutionChannel<GeometrySession> execution,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
-        object structuralKey,
+        object definitionFingerprint,
         bool requiresReadback,
         IReadOnlyList<RenderResourceBinding> resources)
     {
         _execution = execution;
-        RuntimeIdentity = RenderDescriptionValidation.ResolveRuntimeIdentity(execution);
         Bounds = bounds;
         HitTest = hitTest;
-        StructuralKey = structuralKey;
+        DefinitionFingerprint = definitionFingerprint;
         RequiresReadback = requiresReadback;
         Resources = resources;
         StructuralIdentity = new GeometryStructuralIdentity(
-            structuralKey,
+            definitionFingerprint,
             bounds.StructuralIdentity,
             hitTest.StructuralIdentity,
             requiresReadback,
-            resources.Select(static binding => (binding.Name, binding.Resource.GetType())).ToArray());
+            resources.Select(static binding => binding.Slot.ValueType).ToArray());
     }
 
     /// <summary>Gets the pure mapping from complete input bounds to conservative complete output bounds.</summary>
@@ -42,18 +40,7 @@ public sealed class GeometryDescription
     /// <summary>Gets the CPU-only hit-test contract for the conservative produced geometry.</summary>
     public RenderHitTestContract HitTest { get; }
 
-    /// <summary>Gets the non-null, parameter-independent identity used for structural plan caching.</summary>
-    /// <remarks>
-    /// When no explicit key is supplied to <see cref="Create"/>, this is the render callback's method identity.
-    /// </remarks>
-    public object StructuralKey { get; }
-
-    /// <summary>Gets the complete identity of the pixel-affecting state passed to the render callback.</summary>
-    /// <remarks>
-    /// <see langword="null"/> for a <see cref="CreateRequestLocal"/> description: each recording then uses a
-    /// fresh request-local identity and no cross-request output-cache reuse is possible for the geometry value.
-    /// </remarks>
-    internal RenderRuntimeIdentity? RuntimeIdentity { get; }
+    internal object DefinitionFingerprint { get; }
 
     /// <summary>Gets whether the callback is permitted to request declared input readback.</summary>
     public bool RequiresReadback { get; }
@@ -71,8 +58,8 @@ public sealed class GeometryDescription
 
     /// <summary>Creates an immutable deferred geometry description.</summary>
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads, and the complete output-cache runtime identity of the
-    /// geometry value. It must be a lightweight immutable CPU value.
+    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
+    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
     /// </param>
     /// <param name="render">
     /// A non-capturing callback invoked only during execution. Declare it <see langword="static"/>: a capture
@@ -81,10 +68,6 @@ public sealed class GeometryDescription
     /// </param>
     /// <param name="bounds">An initialized pure input-to-output bounds contract.</param>
     /// <param name="hitTest">An initialized pure CPU output hit-test contract.</param>
-    /// <param name="structuralKey">
-    /// An optional equality-stable, parameter-independent key. <see langword="null"/> uses
-    /// <paramref name="render"/>'s method identity; shape-changing choices require an explicit key.
-    /// </param>
     /// <param name="requiresReadback">Whether the callback may request declared readback of its input.</param>
     /// <param name="resources">
     /// An optional sequence of non-null declared resources. <see langword="null"/> means no resources; otherwise
@@ -95,15 +78,14 @@ public sealed class GeometryDescription
     /// <paramref name="render"/> or <paramref name="state"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
-    /// A contract is uninitialized, <paramref name="render"/> captures, <paramref name="state"/> is not a valid
-    /// identity, or <paramref name="resources"/> contains a null or released resource.
+    /// A contract is uninitialized, <paramref name="render"/> captures, or <paramref name="resources"/> contains
+    /// a null or released resource.
     /// </exception>
-    public static GeometryDescription Create<TState>(
+    internal static GeometryDescription Create<TState>(
         TState state,
         Action<GeometrySession, TState> render,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
-        object? structuralKey = null,
         bool requiresReadback = false,
         IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull
@@ -115,7 +97,7 @@ public sealed class GeometryDescription
                 nameof(render)),
             bounds,
             hitTest,
-            structuralKey,
+            render.Method,
             requiresReadback,
             resources);
 
@@ -126,35 +108,31 @@ public sealed class GeometryDescription
     /// The opt-out for a callback whose pixel-affecting state cannot be expressed as a lightweight immutable
     /// key. The callback may capture, and the recorded value takes a fresh request-local identity every time.
     /// </remarks>
-    public static GeometryDescription CreateRequestLocal(
+    internal static GeometryDescription CreateRequestLocal(
         Action<GeometrySession> render,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
-        object? structuralKey = null,
         bool requiresReadback = false,
         IEnumerable<RenderResourceBinding>? resources = null)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(render, nameof(render)),
             bounds,
             hitTest,
-            structuralKey,
+            render.Method,
             requiresReadback,
             resources);
 
-    private static GeometryDescription CreateCore(
+    internal static GeometryDescription CreateCore(
         RenderExecutionChannel<GeometrySession> execution,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
-        object? structuralKey,
+        object definitionFingerprint,
         bool requiresReadback,
         IEnumerable<RenderResourceBinding>? resources)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
-        object resolvedStructuralKey = RenderDescriptionValidation.ResolveStructuralKey(
-            structuralKey,
-            execution.Method,
-            nameof(structuralKey));
+        ArgumentNullException.ThrowIfNull(definitionFingerprint);
         IReadOnlyList<RenderResourceBinding> resourceCopy = RenderDescriptionValidation.CopyResourceBindings(
             resources,
             nameof(resources));
@@ -163,7 +141,7 @@ public sealed class GeometryDescription
             execution,
             bounds,
             hitTest,
-            resolvedStructuralKey,
+            definitionFingerprint,
             requiresReadback,
             resourceCopy);
     }
@@ -174,7 +152,7 @@ internal sealed class GeometryStructuralIdentity(
     object bounds,
     object hitTest,
     bool requiresReadback,
-    (string Name, Type Type)[] resourceTypes)
+    Type[] resourceTypes)
     : IEquatable<GeometryStructuralIdentity>
 {
     public bool Equals(GeometryStructuralIdentity? other)
@@ -194,9 +172,8 @@ internal sealed class GeometryStructuralIdentity(
         hash.Add(bounds);
         hash.Add(hitTest);
         hash.Add(requiresReadback);
-        foreach ((string name, Type resourceType) in resourceTypes)
+        foreach (Type resourceType in resourceTypes)
         {
-            hash.Add(name, StringComparer.Ordinal);
             hash.Add(resourceType);
         }
         return hash.ToHashCode();
@@ -206,5 +183,5 @@ internal sealed class GeometryStructuralIdentity(
     private object Bounds => bounds;
     private object HitTest => hitTest;
     private bool RequiresReadback => requiresReadback;
-    private (string Name, Type Type)[] ResourceTypes => resourceTypes;
+    private Type[] ResourceTypes => resourceTypes;
 }

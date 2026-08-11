@@ -31,45 +31,37 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
         if (rasterBounds.Width == 0 || rasterBounds.Height == 0)
             return;
 
-        Rect bounds = text.Bounds;
-
         (Brush.Resource Resource, int Version)? fillSnapshot = Fill;
         (Pen.Resource Resource, int Version)? penSnapshot = Pen;
         Brush.Resource? fill = fillSnapshot?.Resource;
         Pen.Resource? pen = penSnapshot?.Resource;
         Brush.Resource? textBrush = text.Brush;
         Pen.Resource? textPen = text.Pen;
-        RenderResource<FormattedText> textResource = context.Borrow(
-            text,
-            DeferredOpaqueSource.GetCacheKey(text));
+        RenderResource<FormattedText> textResource = context.Borrow(text);
         RenderResource<Brush.Resource>? textBrushResource = textBrush is null
             ? null
-            : context.Borrow(textBrush, EngineResourceIdentity.Of(textBrush), textBrush.Version);
+            : context.Borrow(textBrush);
         RenderResource<Pen.Resource>? textPenResource = textPen is null
             ? null
-            : context.Borrow(textPen, EngineResourceIdentity.Of(textPen), textPen.Version);
+            : context.Borrow(textPen);
         bool hasFill = fill is not null;
-        TextRuntimeIdentity runtimeIdentity = CreateRuntimeIdentity(text, bounds);
 
         context.Publish(context.PaintedSource(
-            state: (text, runtimeIdentity),
+            state: text,
             draw: static (canvas, fill, pen, state) =>
-                canvas.DrawText(state.text, fill, pen),
-            fill: fillSnapshot,
-            pen: penSnapshot,
+                canvas.DrawText(state, fill, pen),
+            fill: fill,
+            pen: pen,
             outputBounds: rasterBounds,
             hitTest: RenderHitTestContract.FromResource(
                 textResource,
-                (currentText, point) => HitTest(currentText, hasFill, point),
-                typeof(TextRenderNode)),
+                (currentText, point) => HitTest(currentText, hasFill, point)),
             scale: RenderScaleContract.Vector,
-            structuralKey: typeof(TextRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity(runtimeIdentity),
             deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
             resources: DeferredOpaqueSource.Resources(
-                ("text", textResource),
-                ("textBrush", textBrushResource),
-                ("textPen", textPenResource))));
+                textResource,
+                textBrushResource,
+                textPenResource)));
     }
 
     private static bool HitTest(FormattedText text, bool hasFill, Point point)
@@ -84,36 +76,4 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
         return stroke?.Contains(point.X, point.Y) == true;
     }
 
-    private static TextRuntimeIdentity CreateRuntimeIdentity(FormattedText text, Rect bounds)
-    {
-        Brush.Resource? textBrush = text.Brush;
-        Pen.Resource? textPen = text.Pen;
-        return new TextRuntimeIdentity(
-            text.Weight,
-            text.Style,
-            text.Font.Name,
-            text.Size,
-            text.Spacing,
-            text.Text,
-            text.BeginOnNewLine,
-            textBrush is null ? null : EngineResourceIdentity.Of(textBrush),
-            textBrush?.Version,
-            textPen is null ? null : EngineResourceIdentity.Of(textPen),
-            textPen?.Version,
-            bounds);
-    }
-
-    private readonly record struct TextRuntimeIdentity(
-        FontWeight Weight,
-        FontStyle Style,
-        string FontFamily,
-        float Size,
-        float Spacing,
-        StringSpan Text,
-        bool BeginOnNewLine,
-        Guid? BrushIdentity,
-        int? BrushVersion,
-        Guid? PenIdentity,
-        int? PenVersion,
-        Rect Bounds);
 }

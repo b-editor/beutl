@@ -100,19 +100,18 @@ public class EllipseRenderNodeTest
         var fillResource = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
         using var node = new EllipseRenderNode(rect, fillResource, null);
 
-        for (int frame = 0; frame < RenderNodeCache.Count; frame++)
+        for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, fillResource, null);
-            node.Cache.IncrementRenderCount();
-            node.HasChanges = false;
+            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
         }
 
-        Assert.That(node.Cache.CanCache(), Is.True, "a stable ellipse must become a cache candidate");
+        Assert.That(node.Cache.CanCapture, Is.True, "a stable ellipse must become a cache candidate");
 
         node.Update(new Rect(0, 0, 200, 200), fillResource, null);
-        node.Cache.IncrementRenderCount();
+        RenderNodeCacheHelper.BeginLifecycle(node);
 
-        Assert.That(node.Cache.CanCache(), Is.False);
+        Assert.That(node.Cache.CanCapture, Is.False);
     }
 
     [Test]

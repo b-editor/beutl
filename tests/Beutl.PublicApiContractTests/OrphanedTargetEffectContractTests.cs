@@ -11,16 +11,12 @@ public sealed class OrphanedTargetEffectContractTests
     public enum TargetEffectKind
     {
         TargetCommand,
-        RawTargetCommand,
         TargetScope,
-        RawTargetScope,
         TargetLayerScope,
     }
 
     [TestCase(TargetEffectKind.TargetCommand)]
-    [TestCase(TargetEffectKind.RawTargetCommand)]
     [TestCase(TargetEffectKind.TargetScope)]
-    [TestCase(TargetEffectKind.RawTargetScope)]
     [TestCase(TargetEffectKind.TargetLayerScope)]
     public void UnpublishedTargetEffect_FailsTheRecordingInsteadOfSilentlyDoingNothing(
         TargetEffectKind kind)
@@ -43,9 +39,7 @@ public sealed class OrphanedTargetEffectContractTests
     }
 
     [TestCase(TargetEffectKind.TargetCommand)]
-    [TestCase(TargetEffectKind.RawTargetCommand)]
     [TestCase(TargetEffectKind.TargetScope)]
-    [TestCase(TargetEffectKind.RawTargetScope)]
     [TestCase(TargetEffectKind.TargetLayerScope)]
     public void TargetEffectConsumedByAPublishedFragment_Executes(TargetEffectKind kind)
     {
@@ -134,9 +128,7 @@ public sealed class OrphanedTargetEffectContractTests
     }
 
     [TestCase(TargetEffectKind.TargetCommand)]
-    [TestCase(TargetEffectKind.RawTargetCommand)]
     [TestCase(TargetEffectKind.TargetScope)]
-    [TestCase(TargetEffectKind.RawTargetScope)]
     [TestCase(TargetEffectKind.TargetLayerScope)]
     public void UnpublishedTargetEffectInAChildNode_FailsThatChildsOwnRecording(TargetEffectKind kind)
     {
@@ -291,21 +283,14 @@ public sealed class OrphanedTargetEffectContractTests
         {
             TargetEffectKind.TargetCommand => context.TargetCommand(
                 [source],
-                TargetCommandDescription.CreateRequestLocal(
+                RenderDefinitionCallFactory.TargetCommand(
                     _ => onExecute?.Invoke(),
                     TargetRegion.Region(s_bounds),
                     s_bounds,
-                    RenderHitTestContract.None,
-                    structuralKey: "orphan-target-command")),
-            TargetEffectKind.RawTargetCommand => context.RawTargetCommand(
-                RawTargetCommandDescription.CreateRequestLocal(
-                    _ => onExecute?.Invoke(),
-                    s_bounds,
-                    RenderHitTestContract.None,
-                    structuralKey: "orphan-raw-target-command")),
+                    RenderHitTestContract.None)),
             TargetEffectKind.TargetScope => context.TargetScope(
                 source,
-                TargetScopeDescription.CreateRequestLocal(
+                RenderDefinitionCallFactory.TargetScope(
                     session =>
                     {
                         onExecute?.Invoke();
@@ -313,20 +298,7 @@ public sealed class OrphanedTargetEffectContractTests
                     },
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
-                    RenderScaleContract.PreserveInputSupply,
-                    structuralKey: "orphan-target-scope")),
-            TargetEffectKind.RawTargetScope => context.RawTargetScope(
-                source,
-                RawTargetScopeDescription.CreateRequestLocal(
-                    session =>
-                    {
-                        onExecute?.Invoke();
-                        session.ReplayInput();
-                    },
-                    RenderBoundsContract.Identity,
-                    RenderHitTestContract.AnyInput,
-                    RenderScaleContract.PreserveInputSupply,
-                    structuralKey: "orphan-raw-target-scope")),
+                    RenderScaleContract.PreserveInputSupply)),
             TargetEffectKind.TargetLayerScope => context.TargetLayerScope(
                 [
                     onExecute is null
@@ -338,9 +310,9 @@ public sealed class OrphanedTargetEffectContractTests
         };
     }
 
-    private static OpaqueRenderDescription ExecutingSource(object structuralKey)
+    private static OpaqueRenderCall<Action<OpaqueRenderSession>> ExecutingSource(object _)
     {
-        return OpaqueRenderDescription.CreateRequestLocal(
+        return RenderDefinitionCallFactory.Opaque(
             static session =>
             {
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -349,8 +321,7 @@ public sealed class OrphanedTargetEffectContractTests
             OpaqueRenderBoundsContract.Source(s_bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: structuralKey);
+            RenderScaleContract.MaterializeAtWorkingScale);
     }
 
     private static RenderNodeRasterization Rasterize(RenderNode node)

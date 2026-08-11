@@ -19,10 +19,6 @@ public class Renderer : IRenderer
     private readonly ConditionalWeakTable<Drawable, Entry> _nodeCache = new();
     private readonly List<Entry> _allCurrentEntries = [];
 
-    // One revalidation pass, not one entry: a referenced subtree is reachable from several entries
-    // and the cache-admission threshold counts one visit per frame.
-    private readonly HashSet<RenderNode> _revalidatedNodes = new(ReferenceEqualityComparer.Instance);
-
     private readonly ClearRenderNode _frameClear;
     private readonly CompleteTargetRenderNode _completeTarget;
     private RenderNodeRenderer _frameRenderer;
@@ -396,7 +392,7 @@ public class Renderer : IRenderer
             ClearFrame();
         }
 
-        RevalidateEntries(pendingEntries);
+        InvalidateEntryBounds(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
     }
 
@@ -411,22 +407,11 @@ public class Renderer : IRenderer
         }
     }
 
-    // A mark on a shared node may only be consumed once every entry that reads it this frame has read it.
-    // Preparation therefore completes before any entry is revalidated, and a frame that faults during
-    // preparation revalidates nothing: the entries the fault skipped still owe those marks a read.
-    private void RevalidateEntries(List<Entry> entries)
+    private static void InvalidateEntryBounds(List<Entry> entries)
     {
-        try
+        foreach (Entry entry in entries)
         {
-            foreach (Entry entry in entries)
-            {
-                RevalidateAll(entry.Node);
-                entry.InvalidateBounds();
-            }
-        }
-        finally
-        {
-            _revalidatedNodes.Clear();
+            entry.InvalidateBounds();
         }
     }
 
@@ -549,26 +534,6 @@ public class Renderer : IRenderer
         }
     }
 
-    private void RevalidateAll(RenderNode current)
-    {
-        if (current.IsDisposed || !_revalidatedNodes.Add(current))
-            return;
-
-        ReadOnlySpan<RenderNode> children = current.ChildNodes;
-        for (int i = 0; i < children.Length; i++)
-        {
-            RevalidateAll(children[i]);
-        }
-
-        RenderNodeCache cache = current.Cache;
-        cache.IncrementRenderCount();
-        current.HasChanges = false;
-        if (cache.IsCached && !RenderNodeCacheHelper.CanCacheRecursive(current))
-        {
-            cache.Invalidate();
-        }
-    }
-
     private void ClearFrame()
     {
         _allCurrentEntries.Clear();
@@ -582,7 +547,7 @@ public class Renderer : IRenderer
         var pendingEntries = new List<Entry>();
 
         PrepareEntries(frame, pendingEntries);
-        RevalidateEntries(pendingEntries);
+        InvalidateEntryBounds(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
     }
 
@@ -856,7 +821,7 @@ public class Renderer : IRenderer
         {
             try
             {
-                RenderNodeCacheHelper.ClearCache(entry.Node);
+                RenderNodeCacheHelper.ClearOwnedCaches(entry.Node);
             }
             catch (Exception ex)
             {

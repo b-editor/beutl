@@ -1,4 +1,4 @@
-﻿using Beutl.Engine;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 
 namespace Beutl.Graphics.Rendering;
@@ -139,7 +139,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             IReadOnlyList<RenderFragmentHandle> current = effectInputs;
             FilterEffectWorkingScalePolicy? pendingWorkingScalePolicy = resolvedWorkingScalePolicy;
             var legacyItems = new List<IFEItem>();
-            int legacySegment = 0;
             Rect legacyBounds = default;
             bool legacyBoundsInitialized = false;
             bool opaqueTail = false;
@@ -189,13 +188,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                     bool requiresOwningTargetDomain = segmentOutputBounds.IsInvalid;
                     if (requiresOwningTargetDomain)
                         segmentOutputBounds = segmentInputBounds;
-                    RenderResource<FilterEffectContext> segmentResource = context.Own(
-                        segment,
-                        (
-                            typeof(FilterEffectRenderNode),
-                            EngineResourceIdentity.Of(effectResource),
-                            legacySegment++),
-                        effectSnapshot.Version);
+                    RenderResource<FilterEffectContext> segmentResource = context.Own(segment);
                     segment = null;
                     current =
                     [

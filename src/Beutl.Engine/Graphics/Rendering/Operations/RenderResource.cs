@@ -3,31 +3,106 @@
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
+/// Represents a declaration-owned resource address.
+/// </summary>
+/// <remarks>
+/// This non-generic base exists only so a definition can declare a heterogeneous set of typed slots.
+/// It does not expose a raw resource type or value to callbacks.
+/// </remarks>
+public abstract class RenderResourceSlot
+{
+    internal RenderResourceSlot()
+    {
+    }
+
+    internal abstract Type ValueType { get; }
+
+    internal abstract bool Accepts(RenderResource resource);
+}
+
+/// <summary>
+/// Declares one typed resource address for a reusable render definition.
+/// </summary>
+/// <typeparam name="T">The raw resource type leased to the execution callback.</typeparam>
+public sealed class RenderResourceSlot<T> : RenderResourceSlot
+    where T : class
+{
+    /// <summary>Initializes a resource slot.</summary>
+    public RenderResourceSlot()
+    {
+    }
+
+    /// <summary>Binds this declared slot to a resource token from the active render context.</summary>
+    /// <param name="resource">The request-scoped resource token to bind.</param>
+    /// <returns>A binding suitable for a call of the definition that declares this slot.</returns>
+    public RenderResourceBinding Bind(RenderResource<T> resource)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        resource.Registry.ValidateBinding(resource);
+        return new RenderResourceBinding(this, resource);
+    }
+
+    internal override Type ValueType => typeof(T);
+
+    internal override bool Accepts(RenderResource resource)
+        => resource is RenderResource<T>;
+}
+
+/// <summary>
+/// Binds a definition-declared resource slot to a request-scoped resource token.
+/// </summary>
+/// <remarks>
+/// Bindings can only be created by <see cref="RenderResourceSlot{T}.Bind(RenderResource{T})"/>, which
+/// prevents pairing a slot with a fabricated or differently typed token.
+/// </remarks>
+public sealed class RenderResourceBinding
+{
+    internal RenderResourceBinding(RenderResourceSlot slot, RenderResource resource)
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+        ArgumentNullException.ThrowIfNull(resource);
+        if (!slot.Accepts(resource))
+        {
+            throw new ArgumentException(
+                "A render resource binding must use a token whose type matches its slot.",
+                nameof(resource));
+        }
+
+        Slot = slot;
+        Resource = resource;
+    }
+
+    internal RenderResourceSlot Slot { get; }
+
+    internal RenderResource Resource { get; }
+
+    internal static RenderResourceBinding CreateEngineBinding(RenderResource resource)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        resource.Registry.ValidateBinding(resource);
+        return new RenderResourceBinding(new EngineRenderResourceSlot(resource.ValueType), resource);
+    }
+}
+
+/// <summary>
 /// Identifies a request-scoped resource without exposing its raw value.
 /// </summary>
 public abstract class RenderResource
 {
-    private RenderResourceSlot? _slot;
+    private RenderResourceRegistration? _slot;
     private RenderResourceOwnershipState _terminalState;
 
-    internal RenderResource(RenderRequestResourceRegistry registry, RenderResourceSlot slot)
+    internal RenderResource(RenderRequestResourceRegistry registry, RenderResourceRegistration slot)
     {
         Registry = registry;
         _slot = slot;
     }
 
-    public RenderResourceIdentity CacheIdentity
-    {
-        get
-        {
-            Registry.ValidateIdentityAccess(this);
-            return GetActiveSlot().CacheIdentity;
-        }
-    }
-
     internal RenderRequestResourceRegistry Registry { get; }
 
-    internal RenderResourceSlot Slot => GetActiveSlot();
+    internal abstract Type ValueType { get; }
+
+    internal RenderResourceRegistration Slot => GetActiveSlot();
 
     internal object SlotIdentity => GetActiveSlot();
 
@@ -41,7 +116,7 @@ public abstract class RenderResource
         _slot = null;
     }
 
-    private RenderResourceSlot GetActiveSlot()
+    private RenderResourceRegistration GetActiveSlot()
         => _slot ?? throw new InvalidOperationException(
             "A released render resource no longer retains its request-scoped slot.");
 }
@@ -53,73 +128,37 @@ public abstract class RenderResource
 public sealed class RenderResource<T> : RenderResource
     where T : class
 {
-    internal RenderResource(RenderRequestResourceRegistry registry, RenderResourceSlot slot)
+    internal RenderResource(RenderRequestResourceRegistry registry, RenderResourceRegistration slot)
         : base(registry, slot)
     {
     }
 
-    /// <summary>Declares this resource under a stable callback-visible name.</summary>
-    public RenderResourceBinding Bind(string name)
-        => new(name, this);
+    internal override Type ValueType => typeof(T);
 }
 
-/// <summary>Associates a request-scoped resource with a stable callback-visible name.</summary>
-public sealed class RenderResourceBinding
+internal sealed class EngineRenderResourceSlot(Type valueType) : RenderResourceSlot
 {
-    internal RenderResourceBinding(string name, RenderResource resource)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("A render resource binding name must be non-empty.", nameof(name));
-        ArgumentNullException.ThrowIfNull(resource);
-        Name = name;
-        Resource = resource;
-    }
+    private readonly Type _valueType = valueType ?? throw new ArgumentNullException(nameof(valueType));
 
-    public string Name { get; }
+    internal override Type ValueType => _valueType;
 
-    public RenderResource Resource { get; }
-}
-
-public readonly record struct RenderResourceIdentity(object Key, long Version)
-{
-    internal void ThrowIfUninitialized(string parameterName)
-    {
-        if (Key is null)
-        {
-            throw new ArgumentException("A render resource identity must have a non-null key.", parameterName);
-        }
-    }
-}
-
-internal readonly record struct RenderRuntimeIdentity(object Key)
-{
-    internal void ThrowIfUninitialized(string parameterName)
-    {
-        if (Key is null)
-        {
-            throw new ArgumentException("A render runtime identity must have a non-null key.", parameterName);
-        }
-    }
+    internal override bool Accepts(RenderResource resource) => true;
 }
 
 internal sealed class RenderRequestResourceRegistry : IDisposable
 {
-    private readonly Dictionary<object, List<RenderResourceSlot>> _slotsByRawValue =
+    private readonly Dictionary<object, List<RenderResourceRegistration>> _slotsByRawValue =
         new(ReferenceEqualityComparer.Instance);
     private readonly ConditionalWeakTable<object, OwnedResourceTombstone> _ownedTombstones = new();
     private readonly ConditionalWeakTable<object, BorrowedResourceTombstone> _borrowedTombstones = new();
-    private readonly List<RenderResourceSlot> _slots = [];
+    private readonly List<RenderResourceRegistration> _slots = [];
     private bool _disposed;
 
-    public RenderResource<T> RegisterOwned<T>(T value, object? cacheKey = null, long version = 0)
+    public RenderResource<T> RegisterOwned<T>(T value)
         where T : class, IDisposable
     {
         ArgumentNullException.ThrowIfNull(value);
         ThrowIfDisposed();
-        if (cacheKey is not null)
-        {
-            RenderIdentityKeyValidator.ThrowIfInvalid(cacheKey, nameof(cacheKey));
-        }
 
         if (_ownedTombstones.TryGetValue(value, out _))
         {
@@ -133,31 +172,25 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
                 "The raw resource was already borrowed by this request family and cannot later transfer ownership.");
         }
 
-        if (_slotsByRawValue.TryGetValue(value, out List<RenderResourceSlot>? registrations)
+        if (_slotsByRawValue.TryGetValue(value, out List<RenderResourceRegistration>? registrations)
             && registrations.Count > 0)
         {
             throw new InvalidOperationException(
                 "The raw resource is already registered. Duplicate ownership and Own/Borrow mixtures are forbidden.");
         }
 
-        RenderResourceSlot slot = CreateSlot(
+        RenderResourceRegistration slot = CreateSlot(
             value,
-            RenderResourceOwnershipMode.Owned,
-            CreateCacheIdentity(cacheKey, version),
-            cacheKey is not null);
+            RenderResourceOwnershipMode.Owned);
         _ownedTombstones.Add(value, OwnedResourceTombstone.Instance);
         return CreateToken<T>(slot);
     }
 
-    public RenderResource<T> RegisterBorrowed<T>(T value, object? cacheKey = null, long version = 0)
+    public RenderResource<T> RegisterBorrowed<T>(T value)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(value);
         ThrowIfDisposed();
-        if (cacheKey is not null)
-        {
-            RenderIdentityKeyValidator.ThrowIfInvalid(cacheKey, nameof(cacheKey));
-        }
 
         if (_ownedTombstones.TryGetValue(value, out _))
         {
@@ -165,45 +198,18 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
                 "The raw resource was already transferred to this request family and cannot be borrowed.");
         }
 
-        if (_slotsByRawValue.TryGetValue(value, out List<RenderResourceSlot>? registrations))
+        if (_slotsByRawValue.TryGetValue(value, out List<RenderResourceRegistration>? registrations))
         {
             if (registrations.Any(static slot => slot.Mode == RenderResourceOwnershipMode.Owned))
             {
                 throw new InvalidOperationException(
                     "The raw resource is already owned by this request family and cannot also be borrowed.");
             }
-
-            if (cacheKey is not null)
-            {
-                RenderResourceSlot? matching = null;
-                foreach (RenderResourceSlot slot in registrations.Where(static item => item.HasExplicitCacheKey))
-                {
-                    if (slot.CacheIdentity.Version == version
-                        && Equals(slot.CacheIdentity.Key, cacheKey))
-                    {
-                        matching = slot;
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException(
-                            "Repeated explicit Borrow registrations must use equal cache keys and matching versions.");
-                    }
-                }
-
-                if (matching is not null)
-                {
-                    RenderResource<T> token = CreateToken<T>(matching);
-                    MarkBorrowed(value);
-                    return token;
-                }
-            }
         }
 
-        RenderResourceSlot created = CreateSlot(
+        RenderResourceRegistration created = CreateSlot(
             value,
-            RenderResourceOwnershipMode.Borrowed,
-            CreateCacheIdentity(cacheKey, version),
-            cacheKey is not null);
+            RenderResourceOwnershipMode.Borrowed);
         RenderResource<T> createdToken = CreateToken<T>(created);
         MarkBorrowed(value);
         return createdToken;
@@ -252,7 +258,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         ArgumentNullException.ThrowIfNull(use);
         EnsureCommitted(resource);
 
-        RenderResourceSlot slot = resource.Slot;
+        RenderResourceRegistration slot = resource.Slot;
         if (slot.State == RenderResourceOwnershipState.LeasedToCallback)
         {
             throw new InvalidOperationException("A render resource cannot be leased by nested callbacks.");
@@ -277,7 +283,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         where T : class, IDisposable
     {
         EnsureCommitted(resource);
-        RenderResourceSlot slot = resource.Slot;
+        RenderResourceRegistration slot = resource.Slot;
         if (slot.Mode != RenderResourceOwnershipMode.Owned
             || slot.State != RenderResourceOwnershipState.RequestOwned)
         {
@@ -312,7 +318,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         List<Exception>? failures = null;
         for (int index = _slots.Count - 1; index >= 0; index--)
         {
-            RenderResourceSlot slot = _slots[index];
+            RenderResourceRegistration slot = _slots[index];
             try
             {
                 RemoveSlot(slot);
@@ -334,24 +340,22 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         }
     }
 
-    internal IReadOnlyList<RenderResourceSlot> Slots => _slots;
+    internal IReadOnlyList<RenderResourceRegistration> Slots => _slots;
 
-    internal void ValidateIdentityAccess(RenderResource resource)
+    internal void ValidateBinding(RenderResource resource)
     {
         EnsureRegistered(resource);
         if (resource.RegistrationState == RenderResourceRegistrationState.Released)
-            throw new InvalidOperationException("A released render resource has no usable cache identity.");
+            throw new InvalidOperationException("A released render resource cannot be bound to a resource slot.");
     }
 
-    private RenderResourceSlot CreateSlot(
+    private RenderResourceRegistration CreateSlot(
         object rawValue,
-        RenderResourceOwnershipMode mode,
-        RenderResourceIdentity cacheIdentity,
-        bool hasExplicitCacheKey)
+        RenderResourceOwnershipMode mode)
     {
-        var slot = new RenderResourceSlot(rawValue, mode, cacheIdentity, hasExplicitCacheKey);
+        var slot = new RenderResourceRegistration(rawValue, mode);
         _slots.Add(slot);
-        if (!_slotsByRawValue.TryGetValue(rawValue, out List<RenderResourceSlot>? registrations))
+        if (!_slotsByRawValue.TryGetValue(rawValue, out List<RenderResourceRegistration>? registrations))
         {
             registrations = [];
             _slotsByRawValue.Add(rawValue, registrations);
@@ -361,7 +365,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         return slot;
     }
 
-    private RenderResource<T> CreateToken<T>(RenderResourceSlot slot)
+    private RenderResource<T> CreateToken<T>(RenderResourceRegistration slot)
         where T : class
     {
         var token = new RenderResource<T>(this, slot)
@@ -373,9 +377,6 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         slot.UpdateStableState();
         return token;
     }
-
-    private static RenderResourceIdentity CreateCacheIdentity(object? cacheKey, long version)
-        => new(cacheKey ?? new RequestLocalResourceIdentityKey(), version);
 
     private void EnsureRegistered(RenderResource resource)
     {
@@ -398,7 +399,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
 
     private void ReleaseCore(RenderResource resource)
     {
-        RenderResourceSlot slot = resource.Slot;
+        RenderResourceRegistration slot = resource.Slot;
         if (slot.State == RenderResourceOwnershipState.LeasedToCallback)
         {
             throw new InvalidOperationException(
@@ -430,7 +431,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         }
     }
 
-    private static void DischargeSlot(RenderResourceSlot slot)
+    private static void DischargeSlot(RenderResourceRegistration slot)
     {
         if (slot.State is RenderResourceOwnershipState.Discharged
             or RenderResourceOwnershipState.ReleasedToken)
@@ -457,7 +458,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         }
     }
 
-    private static void InvalidateTokens(RenderResourceSlot slot)
+    private static void InvalidateTokens(RenderResourceRegistration slot)
     {
         foreach (RenderResource token in slot.Tokens)
         {
@@ -469,11 +470,11 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         slot.CommittedRegistrations = 0;
     }
 
-    private void RemoveSlot(RenderResourceSlot slot)
+    private void RemoveSlot(RenderResourceRegistration slot)
     {
         _slots.Remove(slot);
         object rawValue = slot.RawValue;
-        if (_slotsByRawValue.TryGetValue(rawValue, out List<RenderResourceSlot>? registrations))
+        if (_slotsByRawValue.TryGetValue(rawValue, out List<RenderResourceRegistration>? registrations))
         {
             registrations.Remove(slot);
             if (registrations.Count == 0)
@@ -492,20 +493,16 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         => _ = _borrowedTombstones.GetValue(value, static _ => BorrowedResourceTombstone.Instance);
 }
 
-internal sealed class RenderResourceSlot
+internal sealed class RenderResourceRegistration
 {
     private object? _rawValue;
 
-    public RenderResourceSlot(
+    public RenderResourceRegistration(
         object rawValue,
-        RenderResourceOwnershipMode mode,
-        RenderResourceIdentity cacheIdentity,
-        bool hasExplicitCacheKey)
+        RenderResourceOwnershipMode mode)
     {
         _rawValue = rawValue;
         Mode = mode;
-        CacheIdentity = cacheIdentity;
-        HasExplicitCacheKey = hasExplicitCacheKey;
         State = mode == RenderResourceOwnershipMode.Owned
             ? RenderResourceOwnershipState.Pending
             : RenderResourceOwnershipState.BorrowedPending;
@@ -523,10 +520,6 @@ internal sealed class RenderResourceSlot
     }
 
     public RenderResourceOwnershipMode Mode { get; }
-
-    public RenderResourceIdentity CacheIdentity { get; }
-
-    public bool HasExplicitCacheKey { get; }
 
     public List<RenderResource> Tokens { get; } = [];
 
@@ -580,10 +573,6 @@ internal enum RenderResourceRegistrationState : byte
     Pending,
     Committed,
     Released,
-}
-
-internal sealed class RequestLocalResourceIdentityKey
-{
 }
 
 internal sealed class OwnedResourceTombstone

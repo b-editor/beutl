@@ -31,18 +31,17 @@ public sealed class OpacityRenderNode(float opacity) : ContainerRenderNode
     public override void Process(RenderNodeContext context)
     {
         float opacity = Opacity;
-        foreach (RenderFragmentHandle input in context.Inputs)
-        {
-            context.Publish(context.Opacity(input, opacity));
-        }
+        context.PublishMappedInputs(
+            opacity,
+            static (context, input, value) => context.Opacity(input, value));
     }
 
     /// <summary>Returns the shared immutable fusion description for one normalized opacity.</summary>
     /// <remarks>
     /// Recording allocates one opacity fragment per drawable per pass while the SkSL text is a compile-time
     /// constant, so the source is parsed and validated once and every distinct normalized opacity keeps its
-    /// description. Descriptions are immutable and their structural and runtime identities are value-based, so
-    /// sharing an instance is transparent to the renderer.
+    /// description. Sharing an instance only avoids repeated construction; retained-output reuse is controlled by
+    /// the owning node's <see cref="RenderNode.HasChanges"/> lifecycle.
     /// </remarks>
     internal static ShaderDescription CreateFusionDescription(float opacity)
     {

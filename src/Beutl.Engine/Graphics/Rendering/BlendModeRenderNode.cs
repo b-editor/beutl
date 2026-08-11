@@ -22,12 +22,11 @@ public sealed class BlendModeRenderNode(BlendMode blendMode) : ContainerRenderNo
         if (blendMode != BlendMode.SrcOver)
             context.DisableRenderCache();
 
-        foreach (RenderFragmentHandle input in context.Inputs)
-        {
-            context.Publish(blendMode == BlendMode.SrcOver
+        context.PublishMappedInputs(
+            blendMode,
+            static (context, input, value) => value == BlendMode.SrcOver
                 ? input
-                : context.Blend(input, blendMode));
-        }
+                : context.Blend(input, value));
     }
 
     internal static bool RequiresFullTargetRegion(BlendMode blendMode)

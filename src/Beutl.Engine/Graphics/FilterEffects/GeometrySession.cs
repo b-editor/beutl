@@ -109,30 +109,11 @@ public sealed class GeometrySession
         get { _token.ThrowIfInactive(); return field; }
     }
 
-    /// <summary>Uses a resource by its token.</summary>
-    /// <remarks>
-    /// The addressing mode for a callback that may capture: one recorded through <c>CreateRequestLocal</c>, or
-    /// one whose runtime identity is declared separately from what it captures. A state-passing callback
-    /// addresses its resources through <c>UseDeclaredResource</c> instead, because its state is the produced
-    /// value's output-cache runtime identity: a <see cref="RenderResource"/> in a tuple element is rejected, and
-    /// so is a capturing callback. A sealed non-tuple state does pass validation and physically delivers a token
-    /// to this method, but it is an enumerated identity channel rather than a way to address resources — the
-    /// author then owns the identity contract by hand, and a state object mutated in place cannot discharge it:
-    /// the cached identity and the new one hold the same instance, so no equality the author writes observes
-    /// the change. A token left over from a finished request throws when leased. Position is the address by
-    /// design, not by impossibility.
-    /// </remarks>
-    public void UseResource<T>(RenderResource<T> resource, Action<T> use)
+    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
+    public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
         where T : class
     {
-        _token.UseResource(resource, _resources, use);
-    }
-
-    /// <summary>Uses a resource by its stable declared name.</summary>
-    public void UseDeclaredResource<T>(string name, Action<T> use)
-        where T : class
-    {
-        _token.UseDeclaredResource(name, _resourceBindings, use);
+        _token.UseResource(slot, _resourceBindings, use);
     }
 
     public void SetOutputBounds(Rect logicalBounds)

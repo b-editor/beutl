@@ -11,7 +11,7 @@ namespace Beutl.Graphics.Rendering;
 /// <remarks>
 /// The renderer reuses a cached output only when every value that shaped its pixels is part of the cache
 /// identity. Device-grid phase — the sub-pixel offset between the description's own coordinate space and the
-/// pixel centres it writes to — is one such value, and no bounds, density, or runtime identity carries it.
+/// pixel centres it writes to — is one such value, and no bounds, density, or author-supplied field carries it.
 /// </remarks>
 public enum RenderDeviceGridSensitivity : byte
 {
@@ -34,7 +34,7 @@ public enum RenderDeviceGridSensitivity : byte
     PhaseDependent,
 }
 
-public sealed class OpaqueRenderDescription
+internal sealed class OpaqueRenderDescription
 {
     private readonly RenderExecutionChannel<OpaqueRenderSession> _execution;
 
@@ -45,20 +45,19 @@ public sealed class OpaqueRenderDescription
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
-        object structuralKey,
+        object definitionFingerprint,
         IReadOnlyList<RenderInputReadback> inputReadbacks,
         IReadOnlyList<RenderResourceBinding> resources,
         RenderBackendBoundary backendBoundary,
         Action<EngineDirectRenderSession>? directReplay)
     {
         _execution = execution;
-        RuntimeIdentity = RenderDescriptionValidation.ResolveRuntimeIdentity(execution);
         Bounds = bounds;
         HitTest = hitTest;
         ValueCardinality = valueCardinality;
         Scale = scale;
         DeviceGridSensitivity = deviceGridSensitivity;
-        StructuralKey = structuralKey;
+        DefinitionFingerprint = definitionFingerprint;
         InputReadbacks = inputReadbacks;
         Resources = resources;
         BackendBoundary = backendBoundary;
@@ -78,9 +77,7 @@ public sealed class OpaqueRenderDescription
 
     public IReadOnlyList<RenderInputReadback> InputReadbacks { get; }
 
-    public object StructuralKey { get; }
-
-    internal RenderRuntimeIdentity? RuntimeIdentity { get; }
+    internal object DefinitionFingerprint { get; }
 
     public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
@@ -131,7 +128,7 @@ public sealed class OpaqueRenderDescription
     internal object GetStructuralIdentity(OpaqueRenderTopology topology)
         => new OpaqueRenderStructuralIdentity(
             topology,
-            StructuralKey,
+            DefinitionFingerprint,
             DeviceGridSensitivity,
             BackendBoundary,
             DirectReplay is not null);
@@ -146,17 +143,15 @@ public sealed class OpaqueRenderDescription
                 ValueCardinality,
                 Scale,
                 DeviceGridSensitivity,
-                StructuralKey,
+                DefinitionFingerprint,
                 InputReadbacks,
                 Resources,
                 BackendBoundary,
                 directReplay: null);
 
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads, and the complete output-cache runtime identity of the
-    /// produced value. It must be copied, deeply immutable CPU state. The engine derives equality and hashing
-    /// from its complete field graph rather than author-provided equality members; resources stay separate as
-    /// stable named bindings.
+    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
+    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
     /// </param>
     /// <param name="execute">
     /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
@@ -166,7 +161,7 @@ public sealed class OpaqueRenderDescription
     /// The declared dependency of the produced pixels on the device-grid phase. The default states that the
     /// output is unchanged by a sub-pixel shift of the grid, which lets the renderer cache and resample it.
     /// </param>
-    public static OpaqueRenderDescription Create<TState>(
+    internal static OpaqueRenderDescription Create<TState>(
         TState state,
         Action<OpaqueRenderSession, TState> execute,
         OpaqueRenderBoundsContract bounds,
@@ -174,7 +169,6 @@ public sealed class OpaqueRenderDescription
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
-        object? structuralKey = null,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull
@@ -189,7 +183,7 @@ public sealed class OpaqueRenderDescription
             valueCardinality,
             scale,
             deviceGridSensitivity,
-            structuralKey,
+            execute.Method,
             inputReadbacks,
             resources);
 
@@ -201,14 +195,13 @@ public sealed class OpaqueRenderDescription
     /// CPU state. The callback may capture, and the recorded output takes a fresh request-local identity every
     /// time.
     /// </remarks>
-    public static OpaqueRenderDescription CreateRequestLocal(
+    internal static OpaqueRenderDescription CreateRequestLocal(
         Action<OpaqueRenderSession> execute,
         OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
-        object? structuralKey = null,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IEnumerable<RenderResourceBinding>? resources = null)
         => CreateCore(
@@ -218,18 +211,18 @@ public sealed class OpaqueRenderDescription
             valueCardinality,
             scale,
             deviceGridSensitivity,
-            structuralKey,
+            execute.Method,
             inputReadbacks,
             resources);
 
-    private static OpaqueRenderDescription CreateCore(
+    internal static OpaqueRenderDescription CreateCore(
         RenderExecutionChannel<OpaqueRenderSession> execution,
         OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
-        object? structuralKey,
+        object definitionFingerprint,
         IEnumerable<RenderInputReadback>? inputReadbacks,
         IEnumerable<RenderResourceBinding>? resources)
     {
@@ -239,10 +232,7 @@ public sealed class OpaqueRenderDescription
         scale.ThrowIfUninitialized(nameof(scale));
         ThrowIfUndefined(deviceGridSensitivity);
 
-        object resolvedStructuralKey = RenderDescriptionValidation.ResolveStructuralKey(
-            structuralKey,
-            execution.Method,
-            nameof(structuralKey));
+        ArgumentNullException.ThrowIfNull(definitionFingerprint);
 
         return new OpaqueRenderDescription(
             execution,
@@ -251,7 +241,7 @@ public sealed class OpaqueRenderDescription
             valueCardinality,
             scale,
             deviceGridSensitivity,
-            resolvedStructuralKey,
+            definitionFingerprint,
             Array.AsReadOnly(CopyInputReadbacks(inputReadbacks)),
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
             RenderBackendBoundary.None,
@@ -273,32 +263,28 @@ public sealed class OpaqueRenderDescription
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
-        object structuralKey,
-        RenderRuntimeIdentity? runtimeIdentity,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IEnumerable<RenderResource>? resources = null)
     {
         ArgumentNullException.ThrowIfNull(execute);
         ArgumentNullException.ThrowIfNull(bounds);
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         scale.ThrowIfUninitialized(nameof(scale));
         ThrowIfUndefined(deviceGridSensitivity);
-        ArgumentNullException.ThrowIfNull(structuralKey);
-        RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
+        object definitionFingerprint = new EngineOpaqueDefinition(
+            RenderBackendBoundary.None,
+            execute.Method,
+            directReplay?.Method);
 
         return new OpaqueRenderDescription(
-            RenderDescriptionValidation.CreateDeclaredIdentityChannel(
-                execute,
-                runtimeIdentity,
-                nameof(execute),
-                nameof(runtimeIdentity)),
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             bounds,
             hitTest,
             RenderValueCardinality.Single,
             scale,
             deviceGridSensitivity,
-            structuralKey,
+            definitionFingerprint,
             Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
-            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
+            BindInternalResources(resources),
             RenderBackendBoundary.None,
             directReplay);
     }
@@ -311,8 +297,6 @@ public sealed class OpaqueRenderDescription
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
-        object structuralKey,
-        RenderRuntimeIdentity runtimeIdentity,
         IEnumerable<RenderResource>? resources = null)
     {
         if (backendBoundary == RenderBackendBoundary.None || !Enum.IsDefined(backendBoundary))
@@ -323,21 +307,19 @@ public sealed class OpaqueRenderDescription
         valueCardinality.ThrowIfUninitialized(nameof(valueCardinality));
         scale.ThrowIfUninitialized(nameof(scale));
         ThrowIfUndefined(deviceGridSensitivity);
-        ArgumentNullException.ThrowIfNull(structuralKey);
-        RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
+        object definitionFingerprint = new EngineOpaqueDefinition(
+            backendBoundary,
+            execute.Method,
+            DirectReplayMethod: null);
 
         return new OpaqueRenderDescription(
-            RenderDescriptionValidation.CreateDeclaredIdentityChannel(
-                execute,
-                runtimeIdentity,
-                nameof(execute),
-                nameof(runtimeIdentity)),
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             bounds,
             hitTest,
             valueCardinality,
             scale,
             deviceGridSensitivity,
-            structuralKey,
+            definitionFingerprint,
             Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
             BindInternalResources(resources),
             backendBoundary,
@@ -356,7 +338,7 @@ public sealed class OpaqueRenderDescription
         IReadOnlyList<RenderResource> copy =
             RenderDescriptionValidation.CopyResources(resources, nameof(resources));
         return copy
-            .Select(static (resource, index) => new RenderResourceBinding($"__engine{index}", resource))
+            .Select(static resource => RenderResourceBinding.CreateEngineBinding(resource))
             .ToArray();
     }
 
@@ -447,19 +429,16 @@ public sealed class OpaqueRenderBoundsContract
     private OpaqueRenderBoundsContract(
         OpaqueRenderBoundsKind kind,
         Func<IReadOnlyList<Rect>, Rect> transformBounds,
-        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? getRequiredInputBounds,
-        object? structuralKey)
+        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? getRequiredInputBounds)
     {
         Kind = kind;
         _transformBounds = transformBounds;
         _getRequiredInputBounds = getRequiredInputBounds;
-        StructuralIdentity = structuralKey is null
-            ? new OpaqueRenderBoundsStructuralIdentity(
-                kind,
-                transformBounds.Method,
-                getRequiredInputBounds?.Method,
-                null)
-            : new OpaqueRenderBoundsStructuralIdentity(kind, null, null, structuralKey);
+        StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(
+            kind,
+            transformBounds.Method,
+            getRequiredInputBounds?.Method,
+            null);
     }
 
     public static OpaqueRenderBoundsContract Source(Rect outputBounds)
@@ -476,8 +455,7 @@ public sealed class OpaqueRenderBoundsContract
 
     public static OpaqueRenderBoundsContract Combine(
         Func<IReadOnlyList<Rect>, Rect> transformBounds,
-        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>> getRequiredInputBounds,
-        object? structuralKey = null)
+        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>> getRequiredInputBounds)
     {
         ArgumentNullException.ThrowIfNull(transformBounds);
         ArgumentNullException.ThrowIfNull(getRequiredInputBounds);
@@ -485,34 +463,21 @@ public sealed class OpaqueRenderBoundsContract
         RenderDescriptionValidation.ValidatePureMetadataCallback(
             getRequiredInputBounds,
             nameof(getRequiredInputBounds));
-        if (structuralKey is not null)
-        {
-            RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
-        }
-
         return new OpaqueRenderBoundsContract(
             OpaqueRenderBoundsKind.Combine,
             transformBounds,
-            getRequiredInputBounds,
-            structuralKey);
+            getRequiredInputBounds);
     }
 
     public static OpaqueRenderBoundsContract FullInputs(
-        Func<IReadOnlyList<Rect>, Rect> transformBounds,
-        object? structuralKey = null)
+        Func<IReadOnlyList<Rect>, Rect> transformBounds)
     {
         ArgumentNullException.ThrowIfNull(transformBounds);
         RenderDescriptionValidation.ValidatePureMetadataCallback(transformBounds, nameof(transformBounds));
-        if (structuralKey is not null)
-        {
-            RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
-        }
-
         return new OpaqueRenderBoundsContract(
             OpaqueRenderBoundsKind.FullInputs,
             transformBounds,
-            null,
-            structuralKey);
+            null);
     }
 
     internal OpaqueRenderBoundsKind Kind { get; }
@@ -674,46 +639,37 @@ public readonly struct RenderHitTestContract
         RenderHitTestContractKind.AnyInput);
 
     public static RenderHitTestContract Custom(
-        Func<RenderHitTestContext, Point, bool> hitTest,
-        object? structuralKey = null)
+        Func<RenderHitTestContext, Point, bool> hitTest)
     {
         ArgumentNullException.ThrowIfNull(hitTest);
         RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
-        object identity = RenderDescriptionValidation.ResolveStructuralKey(
-            structuralKey,
-            hitTest.Method,
-            nameof(structuralKey));
-        return new RenderHitTestContract(hitTest, identity);
+        return new RenderHitTestContract(hitTest, hitTest.Method);
     }
 
     internal static RenderHitTestContract FromResource<T>(
         RenderResource<T> resource,
-        Func<T, Point, bool> hitTest,
-        object structuralKey)
+        Func<T, Point, bool> hitTest)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentNullException.ThrowIfNull(hitTest);
-        RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
         return new RenderHitTestContract(
             (_, point) => resource.Registry.Use(resource, value => hitTest(value, point)),
-            structuralKey);
+            hitTest.Method);
     }
 
     internal static RenderHitTestContract FromResource<T>(
         RenderResource<T> resource,
-        Func<T, RenderHitTestContext, Point, bool> hitTest,
-        object structuralKey)
+        Func<T, RenderHitTestContext, Point, bool> hitTest)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentNullException.ThrowIfNull(hitTest);
-        RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
         return new RenderHitTestContract(
             (context, point) => resource.Registry.Use(
                 resource,
                 value => hitTest(value, context, point)),
-            structuralKey);
+            hitTest.Method);
     }
 
     internal RenderHitTestContractKind Kind => _kind;
@@ -851,38 +807,25 @@ public readonly struct RenderScaleContract
     /// A pure metadata callback that maps the corresponding input supply to the output supply.
     /// The callback may return <see cref="EffectiveScale.Unbounded"/>.
     /// </param>
-    /// <param name="structuralKey">
-    /// An optional immutable key that identifies the mapping shape independently of runtime values.
-    /// </param>
     /// <returns>A declarative one-input supply mapping contract.</returns>
     /// <remarks>
     /// The callback may be evaluated again during graph-wide metadata resolution when an upstream fragment has
     /// symbolic recording metadata, so it must remain deterministic and side-effect-free.
     /// </remarks>
     public static RenderScaleContract MapInputSupply(
-        Func<EffectiveScale, EffectiveScale> map,
-        object? structuralKey = null)
+        Func<EffectiveScale, EffectiveScale> map)
     {
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
-        object identity = RenderDescriptionValidation.ResolveStructuralKey(
-            structuralKey,
-            map.Method,
-            nameof(structuralKey));
-        return new RenderScaleContract(map, identity);
+        return new RenderScaleContract(map, map.Method);
     }
 
     public static RenderScaleContract Custom(
-        Func<RenderScaleContext, float> resolve,
-        object? structuralKey = null)
+        Func<RenderScaleContext, float> resolve)
     {
         ArgumentNullException.ThrowIfNull(resolve);
         RenderDescriptionValidation.ValidatePureMetadataCallback(resolve, nameof(resolve));
-        object identity = RenderDescriptionValidation.ResolveStructuralKey(
-            structuralKey,
-            resolve.Method,
-            nameof(structuralKey));
-        return new RenderScaleContract(resolve, identity);
+        return new RenderScaleContract(resolve, resolve.Method);
     }
 
     internal RenderScaleContractKind Kind => _kind;
@@ -1176,25 +1119,17 @@ public sealed class OpaqueRenderSession
         output.Publish(this, _publish);
     }
 
-    /// <summary>Uses a resource by its token.</summary>
-    /// <remarks>
-    /// This token-addressed form is for a request-local callback, or one whose runtime identity is declared
-    /// separately from what it captures. A state-passing callback cannot retain a <see cref="RenderResource"/>
-    /// in its deeply immutable state; declare resources as stable named bindings and address them through
-    /// <see cref="UseDeclaredResource{T}(string, Action{T})"/>. A token from a finished request throws when
-    /// leased.
-    /// </remarks>
-    public void UseResource<T>(RenderResource<T> resource, Action<T> use)
+    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
+    public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
+        where T : class
+    {
+        _token.UseResource(slot, _resourceBindings, use);
+    }
+
+    internal void UseResource<T>(RenderResource<T> resource, Action<T> use)
         where T : class
     {
         _token.UseResource(resource, _resources, use);
-    }
-
-    /// <summary>Uses a resource by its stable name in the description's declared resource bindings.</summary>
-    public void UseDeclaredResource<T>(string name, Action<T> use)
-        where T : class
-    {
-        _token.UseDeclaredResource(name, _resourceBindings, use);
     }
 
     internal void UseNestedTarget(
@@ -1361,10 +1296,15 @@ internal readonly record struct OpaqueRenderStructuralIdentity(
     RenderBackendBoundary BackendBoundary,
     bool HasEngineDirectReplay);
 
+internal sealed record EngineOpaqueDefinition(
+    RenderBackendBoundary BackendBoundary,
+    MethodInfo ExecuteMethod,
+    MethodInfo? DirectReplayMethod);
+
 internal static class RenderDescriptionValidation
 {
     /// <summary>
-    /// Binds a non-capturing callback to the state that becomes its complete runtime identity.
+    /// Binds a definition callback to the values supplied by one operation call.
     /// </summary>
     public static RenderExecutionChannel<TSession> CreateStateChannel<TSession, TState>(
         TState state,
@@ -1378,8 +1318,7 @@ internal static class RenderDescriptionValidation
     }
 
     /// <summary>
-    /// Enforces the state-passing rule: the callback carries no captured value and the state is the
-    /// output-cache runtime identity.
+    /// Enforces the state-passing rule: every per-recording value reaches the callback through its call state.
     /// </summary>
     public static void ValidateStatePassingCallback<TState>(
         TState state,
@@ -1403,10 +1342,8 @@ internal static class RenderDescriptionValidation
         if (RenderIdentityKeyValidator.CapturesState(execute))
         {
             throw new ArgumentException(
-                $"A state-passing execution callback must not capture: '{stateParameterName}' is the only "
-                + "channel a per-frame value may reach it through, and is the output-cache runtime identity. "
-                + $"Move the captured value into '{stateParameterName}' and declare the callback static, or "
-                + "record through CreateRequestLocal when the value cannot be represented as copied state.",
+                $"A definition callback must not capture per-recording values. Move them into '{stateParameterName}' "
+                + "and pass the callback as static.",
                 executeParameterName);
         }
     }
@@ -1417,34 +1354,6 @@ internal static class RenderDescriptionValidation
     {
         ArgumentNullException.ThrowIfNull(execute, executeParameterName);
         return RenderExecutionChannel<TSession>.RequestLocal(execute);
-    }
-
-    public static RenderExecutionChannel<TSession> CreateDeclaredIdentityChannel<TSession>(
-        Action<TSession> execute,
-        RenderRuntimeIdentity? runtimeIdentity,
-        string executeParameterName,
-        string identityParameterName)
-    {
-        ArgumentNullException.ThrowIfNull(execute, executeParameterName);
-        ValidateRuntimeIdentity(runtimeIdentity, identityParameterName);
-        return RenderExecutionChannel<TSession>.DeclaredIdentity(execute, runtimeIdentity);
-    }
-
-    public static RenderRuntimeIdentity? ResolveRuntimeIdentity<TSession>(
-        RenderExecutionChannel<TSession> execution)
-        => execution.IdentityKey is { } key ? new RenderRuntimeIdentity(key) : null;
-
-    public static object ResolveStructuralKey(
-        object? structuralKey,
-        MethodInfo callbackMethod,
-        string parameterName)
-    {
-        if (structuralKey is null)
-            return callbackMethod;
-
-        ThrowIfExecutionFacadeIdentity(structuralKey, parameterName);
-        RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, parameterName);
-        return structuralKey;
     }
 
     /// <summary>
@@ -1471,16 +1380,6 @@ internal static class RenderDescriptionValidation
             "A zero-area queryBounds contributes no query region, so the hit-test contract must be "
             + "RenderHitTestContract.None.",
             parameterName);
-    }
-
-    public static void ValidateRuntimeIdentity(RenderRuntimeIdentity? runtimeIdentity, string parameterName)
-    {
-        if (runtimeIdentity is not { } value)
-            return;
-
-        value.ThrowIfUninitialized(parameterName);
-        ThrowIfExecutionFacadeIdentity(value.Key, parameterName);
-        RenderIdentityKeyValidator.ThrowIfInvalid(value.Key, parameterName);
     }
 
     public static void ValidatePureMetadataCallback(Delegate callback, string parameterName)
@@ -1543,19 +1442,75 @@ internal static class RenderDescriptionValidation
         if (resources is null)
             return Array.Empty<RenderResourceBinding>();
 
-        var names = new HashSet<string>(StringComparer.Ordinal);
+        var slots = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
         var result = new List<RenderResourceBinding>();
         foreach (RenderResourceBinding? binding in resources)
         {
             if (binding is null)
                 throw new ArgumentException("A declared render resource binding cannot be null.", parameterName);
-            if (!names.Add(binding.Name))
-                throw new ArgumentException($"Render resource name '{binding.Name}' is declared more than once.", parameterName);
+            if (!slots.Add(binding.Slot))
+                throw new ArgumentException("A render resource slot cannot be bound more than once.", parameterName);
             ThrowIfUndeclarable(binding.Resource, parameterName);
             result.Add(binding);
         }
 
         return result.Count == 0 ? Array.Empty<RenderResourceBinding>() : result.AsReadOnly();
+    }
+
+    public static IReadOnlyList<RenderResourceSlot> CopyResourceSlots(
+        IEnumerable<RenderResourceSlot>? slots,
+        string parameterName)
+    {
+        if (slots is null)
+            return Array.Empty<RenderResourceSlot>();
+
+        var seen = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
+        var result = new List<RenderResourceSlot>();
+        foreach (RenderResourceSlot? slot in slots)
+        {
+            if (slot is null)
+                throw new ArgumentException("A render resource slot cannot be null.", parameterName);
+            if (!seen.Add(slot))
+                throw new ArgumentException("A render resource slot cannot be declared more than once.", parameterName);
+            result.Add(slot);
+        }
+
+        return result.Count == 0 ? Array.Empty<RenderResourceSlot>() : result.AsReadOnly();
+    }
+
+    public static IReadOnlyList<RenderResourceBinding> ValidateResourceBindings(
+        IReadOnlyList<RenderResourceSlot> declaredSlots,
+        IEnumerable<RenderResourceBinding>? bindings,
+        string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(declaredSlots);
+        IReadOnlyList<RenderResourceBinding> copy = CopyResourceBindings(bindings, parameterName);
+        if (declaredSlots.Count != copy.Count)
+        {
+            throw new ArgumentException(
+                "A render call must bind every resource slot declared by its definition exactly once.",
+                parameterName);
+        }
+
+        var bySlot = new Dictionary<RenderResourceSlot, RenderResourceBinding>(ReferenceEqualityComparer.Instance);
+        foreach (RenderResourceBinding binding in copy)
+            bySlot.Add(binding.Slot, binding);
+
+        var ordered = new RenderResourceBinding[declaredSlots.Count];
+        for (int index = 0; index < declaredSlots.Count; index++)
+        {
+            RenderResourceSlot slot = declaredSlots[index];
+            if (!bySlot.TryGetValue(slot, out RenderResourceBinding? binding))
+            {
+                throw new ArgumentException(
+                    "A render call contains a resource slot that its definition did not declare.",
+                    parameterName);
+            }
+
+            ordered[index] = binding;
+        }
+
+        return ordered.Length == 0 ? Array.Empty<RenderResourceBinding>() : Array.AsReadOnly(ordered);
     }
 
     public static void ThrowIfUndeclarable(RenderResource resource, string parameterName)

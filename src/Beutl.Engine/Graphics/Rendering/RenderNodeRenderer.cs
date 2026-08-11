@@ -242,9 +242,11 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderTargetLeaseSession targets = _targetRegistry.BeginSession(effectiveRequest.Intent, destination._renderTarget);
         CompiledRenderRequest? request = null;
         RenderRequestOwner? owner = null;
+        RenderNodeCacheLifecycle? cacheLifecycle = null;
         ExceptionDispatchInfo? primary = null;
         try
         {
+            cacheLifecycle = RenderNodeCacheHelper.BeginLifecycle(Root);
             request = RecordAndCompile(
                 effectiveRequest.Purpose,
                 destination.Density,
@@ -295,6 +297,8 @@ public sealed class RenderNodeRenderer : IDisposable
         }
 
         ThrowAfterCleanup(primary, owner, targets);
+        cacheLifecycle?.CompleteSuccessfully(
+            effectiveRequest.Purpose is RenderRequestPurpose.Frame or RenderRequestPurpose.CacheWarmup);
     }
 
     private static void ExecuteWithExpandedTarget(
@@ -409,6 +413,7 @@ public sealed class RenderNodeRenderer : IDisposable
         ThrowIfInvalidExecutionPurpose(effectiveRequest.Purpose);
         CompiledRenderRequest? request = null;
         RenderRequestOwner? owner = null;
+        RenderNodeCacheLifecycle? cacheLifecycle = null;
         RenderTargetLeaseSession? targets = null;
         RenderTargetLease? rootLease = null;
         ImmediateCanvas? canvas = null;
@@ -418,6 +423,7 @@ public sealed class RenderNodeRenderer : IDisposable
         try
         {
             targets = _targetRegistry.BeginSession(effectiveRequest.Intent);
+            cacheLifecycle = RenderNodeCacheHelper.BeginLifecycle(Root);
             request = RecordAndCompile(
                 effectiveRequest.Purpose,
                 effectiveRequest.OutputScale,
@@ -532,6 +538,8 @@ public sealed class RenderNodeRenderer : IDisposable
         try
         {
             ThrowAfterCleanup(primary, owner, targets);
+            cacheLifecycle?.CompleteSuccessfully(
+                effectiveRequest.Purpose is RenderRequestPurpose.Frame or RenderRequestPurpose.CacheWarmup);
         }
         catch
         {

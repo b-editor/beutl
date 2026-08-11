@@ -37,8 +37,7 @@ public readonly struct RenderBoundsContract
 
     public static RenderBoundsContract Create(
         Func<Rect, Rect> transformBounds,
-        Func<Rect, Rect> getRequiredInputBounds,
-        object? structuralKey = null)
+        Func<Rect, Rect> getRequiredInputBounds)
     {
         ArgumentNullException.ThrowIfNull(transformBounds);
         ArgumentNullException.ThrowIfNull(getRequiredInputBounds);
@@ -48,36 +47,25 @@ public readonly struct RenderBoundsContract
         RenderDescriptionValidation.ValidatePureMetadataCallback(
             getRequiredInputBounds,
             nameof(getRequiredInputBounds));
-        if (structuralKey is not null)
-        {
-            RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
-        }
-
         return new RenderBoundsContract(
             transformBounds,
             getRequiredInputBounds,
             requiresFullInput: false,
-            RenderBoundsStructuralIdentity.Create(transformBounds, getRequiredInputBounds, structuralKey));
+            RenderBoundsStructuralIdentity.Create(transformBounds, getRequiredInputBounds));
     }
 
     public static RenderBoundsContract CreateFullInput(
-        Func<Rect, Rect> transformBounds,
-        object? structuralKey = null)
+        Func<Rect, Rect> transformBounds)
     {
         ArgumentNullException.ThrowIfNull(transformBounds);
         RenderDescriptionValidation.ValidatePureMetadataCallback(
             transformBounds,
             nameof(transformBounds));
-        if (structuralKey is not null)
-        {
-            RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
-        }
-
         return new RenderBoundsContract(
             transformBounds,
             IdentityMap,
             requiresFullInput: true,
-            RenderBoundsStructuralIdentity.CreateFullInput(transformBounds, structuralKey));
+            RenderBoundsStructuralIdentity.CreateFullInput(transformBounds));
     }
 
     public Rect TransformBounds(Rect inputBounds)
@@ -132,33 +120,25 @@ public readonly struct RenderBoundsContract
 internal readonly record struct RenderBoundsStructuralIdentity(
     RenderBoundsContractKind Kind,
     object? ForwardMethod,
-    object? BackwardMethod,
-    object? ExplicitKey)
+    object? BackwardMethod)
 {
     public static RenderBoundsStructuralIdentity Identity { get; } =
-        new(RenderBoundsContractKind.Identity, null, null, null);
+        new(RenderBoundsContractKind.Identity, null, null);
 
     public static RenderBoundsStructuralIdentity FullInput { get; } =
-        new(RenderBoundsContractKind.FullInput, null, null, null);
+        new(RenderBoundsContractKind.FullInput, null, null);
 
     public static RenderBoundsStructuralIdentity Create(
         Func<Rect, Rect> transformBounds,
-        Func<Rect, Rect> getRequiredInputBounds,
-        object? structuralKey)
-        => structuralKey is null
-            ? new(
-                RenderBoundsContractKind.Custom,
-                transformBounds.Method,
-                getRequiredInputBounds.Method,
-                null)
-            : new(RenderBoundsContractKind.Custom, null, null, structuralKey);
+        Func<Rect, Rect> getRequiredInputBounds)
+        => new(
+            RenderBoundsContractKind.Custom,
+            transformBounds.Method,
+            getRequiredInputBounds.Method);
 
     public static RenderBoundsStructuralIdentity CreateFullInput(
-        Func<Rect, Rect> transformBounds,
-        object? structuralKey)
-        => structuralKey is null
-            ? new(RenderBoundsContractKind.CustomFullInput, transformBounds.Method, null, null)
-            : new(RenderBoundsContractKind.CustomFullInput, null, null, structuralKey);
+        Func<Rect, Rect> transformBounds)
+        => new(RenderBoundsContractKind.CustomFullInput, transformBounds.Method, null);
 }
 
 internal enum RenderBoundsContractKind : byte

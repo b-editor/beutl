@@ -545,31 +545,28 @@ internal sealed class RenderExecutionSessionToken
         }
     }
 
-    public void UseDeclaredResource<T>(
-        string name,
+    public void UseResource<T>(
+        RenderResourceSlot<T> slot,
         IReadOnlyList<RenderResourceBinding> declaredResources,
         Action<T> use)
         where T : class
     {
         ThrowIfInactive();
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("A declared resource name must be non-empty.", nameof(name));
+        ArgumentNullException.ThrowIfNull(slot);
         ArgumentNullException.ThrowIfNull(declaredResources);
         ArgumentNullException.ThrowIfNull(use);
         RenderResourceBinding? binding = declaredResources.FirstOrDefault(
-            item => string.Equals(item.Name, name, StringComparison.Ordinal));
+            item => ReferenceEquals(item.Slot, slot));
         if (binding is null)
-            throw new KeyNotFoundException($"No render resource named '{name}' was declared by this callback.");
+        {
+            throw new KeyNotFoundException(
+                "No resource was bound to the requested slot for this execution callback.");
+        }
 
         if (binding.Resource is not RenderResource<T> resource)
         {
-            Type declaredType = binding.Resource.GetType();
-            string declaredValueType = declaredType.IsGenericType
-                ? DescribeType(declaredType.GetGenericArguments()[0])
-                : declaredType.Name;
             throw new InvalidOperationException(
-                $"Declared resource '{name}' is a RenderResource<{declaredValueType}>, not a "
-                + $"RenderResource<{DescribeType(typeof(T))}>.");
+                "The resource bound to the requested slot does not match the slot's declared type.");
         }
 
         UseResource(resource, declaredResources.Select(static item => item.Resource).ToArray(), use);
@@ -585,8 +582,4 @@ internal sealed class RenderExecutionSessionToken
         _previousDrawableBrushMaterializer = null;
     }
 
-    // Nested resource types are all named "Resource", so the declaring type has to be part of the name for the
-    // message to distinguish two declared resources.
-    private static string DescribeType(Type type)
-        => type.DeclaringType is { } declaring ? $"{declaring.Name}.{type.Name}" : type.Name;
 }

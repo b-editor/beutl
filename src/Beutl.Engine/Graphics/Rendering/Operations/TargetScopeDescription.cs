@@ -26,7 +26,7 @@ public enum RenderDeviceGridMapping : byte
     Preserved,
 }
 
-public sealed class TargetScopeDescription
+internal sealed class TargetScopeDescription
 {
     private readonly RenderExecutionChannel<TargetScopeSession> _execution;
 
@@ -37,18 +37,17 @@ public sealed class TargetScopeDescription
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
         RenderDeviceGridMapping deviceGridMapping,
-        object structuralKey,
+        object definitionFingerprint,
         IReadOnlyList<RenderResourceBinding> resources,
         bool isValueReplayMap)
     {
         _execution = execution;
-        RuntimeIdentity = RenderDescriptionValidation.ResolveRuntimeIdentity(execution);
         Bounds = bounds;
         HitTest = hitTest;
         Scale = scale;
         DeviceGridSensitivity = deviceGridSensitivity;
         DeviceGridMapping = deviceGridMapping;
-        StructuralKey = structuralKey;
+        DefinitionFingerprint = definitionFingerprint;
         Resources = resources;
         IsValueReplayMap = isValueReplayMap;
     }
@@ -65,9 +64,7 @@ public sealed class TargetScopeDescription
     /// <summary>Gets the declared device pixel grid this scope replays its input onto.</summary>
     public RenderDeviceGridMapping DeviceGridMapping { get; }
 
-    public object StructuralKey { get; }
-
-    internal RenderRuntimeIdentity? RuntimeIdentity { get; }
+    internal object DefinitionFingerprint { get; }
 
     public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
@@ -76,10 +73,8 @@ public sealed class TargetScopeDescription
     internal bool IsValueReplayMap { get; }
 
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads, and the complete output-cache runtime identity of the
-    /// scope. It must be copied, deeply immutable CPU state. The engine derives equality and hashing from its
-    /// complete field graph rather than author-provided equality members; resources stay separate as stable
-    /// named bindings.
+    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
+    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
     /// </param>
     /// <param name="deviceGridSensitivity">
     /// Whether this scope's replay or surrounding clip state changes coverage with device-grid phase. The
@@ -94,7 +89,7 @@ public sealed class TargetScopeDescription
     /// declare <see cref="RenderDeviceGridMapping.Preserved"/> only when the callback leaves the target
     /// transform alone.
     /// </param>
-    public static TargetScopeDescription Create<TState>(
+    internal static TargetScopeDescription Create<TState>(
         TState state,
         Action<TargetScopeSession, TState> execute,
         RenderBoundsContract bounds,
@@ -102,7 +97,6 @@ public sealed class TargetScopeDescription
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
-        object? structuralKey = null,
         IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull
         => CreateCore(
@@ -116,7 +110,7 @@ public sealed class TargetScopeDescription
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
-            structuralKey,
+            execute.Method,
             resources,
             isValueReplayMap: false);
 
@@ -128,14 +122,13 @@ public sealed class TargetScopeDescription
     /// CPU state. The callback may capture, and the recorded output takes a fresh request-local identity every
     /// time.
     /// </remarks>
-    public static TargetScopeDescription CreateRequestLocal(
+    internal static TargetScopeDescription CreateRequestLocal(
         Action<TargetScopeSession> execute,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
-        object? structuralKey = null,
         IEnumerable<RenderResourceBinding>? resources = null)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
@@ -144,7 +137,7 @@ public sealed class TargetScopeDescription
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
-            structuralKey,
+            execute.Method,
             resources,
             isValueReplayMap: false);
 
@@ -163,32 +156,26 @@ public sealed class TargetScopeDescription
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
         RenderDeviceGridMapping deviceGridMapping,
-        object structuralKey,
-        RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResourceBinding>? resources = null)
         => CreateCore(
-            RenderDescriptionValidation.CreateDeclaredIdentityChannel(
-                execute,
-                runtimeIdentity,
-                nameof(execute),
-                nameof(runtimeIdentity)),
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             bounds,
             hitTest,
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
-            structuralKey,
+            new EngineValueReplayMapDefinition(execute.Method),
             resources,
             isValueReplayMap: true);
 
-    private static TargetScopeDescription CreateCore(
+    internal static TargetScopeDescription CreateCore(
         RenderExecutionChannel<TargetScopeSession> execution,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
         RenderDeviceGridMapping deviceGridMapping,
-        object? structuralKey,
+        object definitionFingerprint,
         IEnumerable<RenderResourceBinding>? resources,
         bool isValueReplayMap)
     {
@@ -199,6 +186,7 @@ public sealed class TargetScopeDescription
             throw new ArgumentOutOfRangeException(nameof(deviceGridSensitivity));
         if (!Enum.IsDefined(deviceGridMapping))
             throw new ArgumentOutOfRangeException(nameof(deviceGridMapping));
+        ArgumentNullException.ThrowIfNull(definitionFingerprint);
 
         return new TargetScopeDescription(
             execution,
@@ -207,10 +195,7 @@ public sealed class TargetScopeDescription
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
-            RenderDescriptionValidation.ResolveStructuralKey(
-                structuralKey,
-                execution.Method,
-                nameof(structuralKey)),
+            definitionFingerprint,
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
             isValueReplayMap);
     }
@@ -286,25 +271,11 @@ public sealed class TargetScopeSession
         canvas.ReplayTargetScopeInput(_replayInput);
     }
 
-    /// <summary>Uses a resource by its token.</summary>
-    /// <remarks>
-    /// This token-addressed form is for a request-local callback, or one whose runtime identity is declared
-    /// separately from what it captures. A state-passing callback cannot retain a <see cref="RenderResource"/>
-    /// in its deeply immutable state; declare resources as stable named bindings and address them through
-    /// <see cref="UseDeclaredResource{T}(string, Action{T})"/>. A token from a finished request throws when
-    /// leased.
-    /// </remarks>
-    public void UseResource<T>(RenderResource<T> resource, Action<T> use)
+    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
+    public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
         where T : class
     {
-        _token.UseResource(resource, _resources, use);
-    }
-
-    /// <summary>Uses a resource by its stable declared name.</summary>
-    public void UseDeclaredResource<T>(string name, Action<T> use)
-        where T : class
-    {
-        _token.UseDeclaredResource(name, _resourceBindings, use);
+        _token.UseResource(slot, _resourceBindings, use);
     }
 
     internal void ValidateCompletion()
@@ -315,7 +286,9 @@ public sealed class TargetScopeSession
     }
 }
 
-public sealed class RawTargetScopeDescription
+internal sealed record EngineValueReplayMapDefinition(System.Reflection.MethodInfo ExecuteMethod);
+
+internal sealed class RawTargetScopeDescription
 {
     private readonly RenderExecutionChannel<RawTargetScopeSession> _execution;
 
@@ -324,14 +297,14 @@ public sealed class RawTargetScopeDescription
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
-        object structuralKey,
+        object definitionFingerprint,
         IReadOnlyList<RenderResourceBinding> resources)
     {
         _execution = execution;
         Bounds = bounds;
         HitTest = hitTest;
         Scale = scale;
-        StructuralKey = structuralKey;
+        DefinitionFingerprint = definitionFingerprint;
         Resources = resources;
     }
 
@@ -341,7 +314,7 @@ public sealed class RawTargetScopeDescription
 
     public RenderScaleContract Scale { get; }
 
-    public object StructuralKey { get; }
+    internal object DefinitionFingerprint { get; }
 
     public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
@@ -355,28 +328,39 @@ public sealed class RawTargetScopeDescription
     /// nothing about what it draws and gives every recording a fresh request-local identity. There is no
     /// state-passing form: no declared state could make the output reusable.
     /// </remarks>
-    public static RawTargetScopeDescription CreateRequestLocal(
+    internal static RawTargetScopeDescription CreateRequestLocal(
         Action<RawTargetScopeSession> execute,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
-        object? structuralKey = null,
         IEnumerable<RenderResourceBinding>? resources = null)
-    {
-        ArgumentNullException.ThrowIfNull(execute);
-        bounds.ThrowIfUninitialized(nameof(bounds));
-        hitTest.ThrowIfUninitialized(nameof(hitTest));
-        scale.ThrowIfUninitialized(nameof(scale));
-
-        return new RawTargetScopeDescription(
+        => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             bounds,
             hitTest,
             scale,
-            RenderDescriptionValidation.ResolveStructuralKey(
-                structuralKey,
-                execute.Method,
-                nameof(structuralKey)),
+            execute.Method,
+            resources);
+
+    internal static RawTargetScopeDescription CreateCore(
+        RenderExecutionChannel<RawTargetScopeSession> execution,
+        RenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        object definitionFingerprint,
+        IEnumerable<RenderResourceBinding>? resources)
+    {
+        bounds.ThrowIfUninitialized(nameof(bounds));
+        hitTest.ThrowIfUninitialized(nameof(hitTest));
+        scale.ThrowIfUninitialized(nameof(scale));
+        ArgumentNullException.ThrowIfNull(definitionFingerprint);
+
+        return new RawTargetScopeDescription(
+            execution,
+            bounds,
+            hitTest,
+            scale,
+            definitionFingerprint,
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
     }
 }
@@ -461,7 +445,7 @@ public sealed class RawTargetScopeSession
     }
 }
 
-public sealed class RawTargetCommandDescription
+internal sealed class RawTargetCommandDescription
 {
     private readonly RenderExecutionChannel<RawTargetCommandSession> _execution;
 
@@ -469,13 +453,13 @@ public sealed class RawTargetCommandDescription
         RenderExecutionChannel<RawTargetCommandSession> execution,
         Rect queryBounds,
         RenderHitTestContract hitTest,
-        object structuralKey,
+        object definitionFingerprint,
         IReadOnlyList<RenderResourceBinding> resources)
     {
         _execution = execution;
         QueryBounds = queryBounds;
         HitTest = hitTest;
-        StructuralKey = structuralKey;
+        DefinitionFingerprint = definitionFingerprint;
         Resources = resources;
     }
 
@@ -483,7 +467,7 @@ public sealed class RawTargetCommandDescription
 
     public RenderHitTestContract HitTest { get; }
 
-    public object StructuralKey { get; }
+    internal object DefinitionFingerprint { get; }
 
     public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
@@ -497,14 +481,25 @@ public sealed class RawTargetCommandDescription
     /// nothing about what it draws and gives every recording a fresh request-local identity. There is no
     /// state-passing form: no declared state could make the output reusable.
     /// </remarks>
-    public static RawTargetCommandDescription CreateRequestLocal(
+    internal static RawTargetCommandDescription CreateRequestLocal(
         Action<RawTargetCommandSession> execute,
         Rect queryBounds,
         RenderHitTestContract hitTest,
-        object? structuralKey = null,
         IEnumerable<RenderResourceBinding>? resources = null)
+        => CreateCore(
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
+            queryBounds,
+            hitTest,
+            execute.Method,
+            resources);
+
+    internal static RawTargetCommandDescription CreateCore(
+        RenderExecutionChannel<RawTargetCommandSession> execution,
+        Rect queryBounds,
+        RenderHitTestContract hitTest,
+        object definitionFingerprint,
+        IEnumerable<RenderResourceBinding>? resources)
     {
-        ArgumentNullException.ThrowIfNull(execute);
         RenderRectValidation.ThrowIfInvalidInput(queryBounds, nameof(queryBounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         if (hitTest.Kind == RenderHitTestContractKind.AnyInput)
@@ -518,15 +513,13 @@ public sealed class RawTargetCommandDescription
             queryBounds,
             hitTest,
             nameof(hitTest));
+        ArgumentNullException.ThrowIfNull(definitionFingerprint);
 
         return new RawTargetCommandDescription(
-            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
+            execution,
             queryBounds,
             hitTest,
-            RenderDescriptionValidation.ResolveStructuralKey(
-                structuralKey,
-                execute.Method,
-                nameof(structuralKey)),
+            definitionFingerprint,
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
     }
 }

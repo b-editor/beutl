@@ -55,24 +55,19 @@ public sealed class RenderScaleMappingContractTests
             RenderScaleContract sourceScale = inputSupply.IsUnbounded
                 ? RenderScaleContract.Vector
                 : RenderScaleContract.Custom(
-                    new FixedScaleResolver(inputSupply.Value).Resolve,
-                    structuralKey: (typeof(SupplyMappingNode), inputSupply));
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
+                    new FixedScaleResolver(inputSupply.Value).Resolve);
+            RenderFragmentHandle source = context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
                 execute: static _ => throw new AssertionException("Measurement must not execute opaque callbacks."),
                 bounds: OpaqueRenderBoundsContract.Source(s_bounds),
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
-                scale: sourceScale,
-                structuralKey: (typeof(SupplyMappingNode), "source", inputSupply)));
-            RenderFragmentHandle mapped = context.OpaqueMap(source, OpaqueRenderDescription.CreateRequestLocal(
+                scale: sourceScale));
+            RenderFragmentHandle mapped = context.OpaqueMap(source, RenderDefinitionCallFactory.Opaque(
                 execute: static _ => throw new AssertionException("Measurement must not execute opaque callbacks."),
                 bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.MapInputSupply(
-                    DoubleSupply,
-                    structuralKey: (typeof(SupplyMappingNode), "double")),
-                structuralKey: (typeof(SupplyMappingNode), "map")));
+                scale: RenderScaleContract.MapInputSupply(DoubleSupply)));
             context.Publish(mapped);
         }
 

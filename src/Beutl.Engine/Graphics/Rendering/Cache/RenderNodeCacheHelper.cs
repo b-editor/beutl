@@ -6,52 +6,197 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering.Cache;
 
-public static class RenderNodeCacheHelper
+internal static class RenderNodeCacheHelper
 {
     internal static readonly ILogger _logger = Log.CreateLogger("RenderNodeCache");
 
-    /// <summary>
-    /// Whether <paramref name="node"/> and everything it records through are all warm enough to cache.
-    /// </summary>
-    /// <remarks>
-    /// Walks <see cref="RenderNode.ChildNodes"/>, so it agrees with the renderer's revalidation pass about
-    /// what a node's subtree is. Cache teardown does not: <see cref="ClearCache"/> follows ownership.
-    /// </remarks>
-    public static bool CanCacheRecursive(RenderNode node)
+    internal static RenderNodeCacheLifecycle BeginLifecycle(RenderNode root)
     {
-        RenderNodeCache cache = node.Cache;
-        if (!cache.CanCache())
-            return false;
-
-        ReadOnlySpan<RenderNode> children = node.ChildNodes;
-        for (int i = 0; i < children.Length; i++)
-        {
-            if (!CanCacheRecursive(children[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        ArgumentNullException.ThrowIfNull(root);
+        return RenderNodeCacheLifecycle.Create(root);
     }
 
-    /// <summary>Invalidates the cache of <paramref name="node"/> and of every node it owns.</summary>
+    /// <summary>Resets the cache of <paramref name="node"/> and of every node it owns.</summary>
     /// <remarks>
     /// Ownership, not <see cref="RenderNode.ChildNodes"/>: a merely referenced node is shared with other
     /// live entries, so tearing down one holder must not drop caches the others still rely on.
     /// </remarks>
-    public static void ClearCache(RenderNode node)
+    internal static void ClearOwnedCaches(RenderNode node)
     {
-        node.Cache.Invalidate();
+        node.Cache.Reset();
 
         if (node is not ContainerRenderNode containerNode) return;
 
         foreach (RenderNode item in containerNode.Children)
         {
-            ClearCache(item);
+            ClearOwnedCaches(item);
+        }
+    }
+}
+
+internal sealed class RenderNodeCacheLifecycle
+{
+    private readonly NodeSnapshot[] _nodes;
+    private bool _completed;
+
+    private RenderNodeCacheLifecycle(NodeSnapshot[] nodes)
+    {
+        _nodes = nodes;
+    }
+
+    internal static RenderNodeCacheLifecycle Create(RenderNode root)
+    {
+        var snapshots = new Dictionary<RenderNode, NodeSnapshot>(ReferenceEqualityComparer.Instance);
+        Collect(root, snapshots);
+
+        var ancestors = new HashSet<NodeSnapshot>();
+        foreach (NodeSnapshot snapshot in snapshots.Values)
+        {
+            if (!snapshot.WasDirty)
+                continue;
+
+            MarkNodeAndAncestors(snapshot, ancestors);
+        }
+
+        foreach (NodeSnapshot snapshot in snapshots.Values)
+        {
+            if (snapshot.IsInvalidated && !snapshot.Node.IsDisposed)
+            {
+                snapshot.Node.Cache.Reset();
+            }
+        }
+
+        return new RenderNodeCacheLifecycle([.. snapshots.Values]);
+    }
+
+    internal void CompleteSuccessfully(bool advanceWarmup)
+    {
+        if (_completed)
+            throw new InvalidOperationException("A render-node cache lifecycle can complete only once.");
+
+        var changedDuringRequest = new List<NodeSnapshot>();
+        foreach (NodeSnapshot snapshot in _nodes)
+        {
+            if (snapshot.Node.HasChanges
+                && (!snapshot.WasDirty || snapshot.Node.ChangeVersion != snapshot.ObservedChangeVersion))
+            {
+                changedDuringRequest.Add(snapshot);
+            }
+        }
+
+        if (changedDuringRequest.Count != 0)
+        {
+            var ancestors = new HashSet<NodeSnapshot>();
+            foreach (NodeSnapshot snapshot in changedDuringRequest)
+            {
+                MarkNodeAndAncestors(snapshot, ancestors);
+            }
+
+            foreach (NodeSnapshot snapshot in ancestors)
+            {
+                if (!snapshot.Node.IsDisposed)
+                {
+                    snapshot.Node.Cache.Reset();
+                }
+            }
+        }
+
+        foreach (NodeSnapshot snapshot in _nodes)
+        {
+            if (snapshot.WasDirty)
+            {
+                snapshot.Node.ClearChanges(snapshot.ObservedChangeVersion);
+            }
+        }
+
+        if (advanceWarmup)
+        {
+            foreach (NodeSnapshot snapshot in _nodes)
+            {
+                if (!snapshot.IsInvalidated
+                    && !snapshot.Node.IsDisposed
+                    && !snapshot.Node.HasChanges
+                    && snapshot.Node.ChangeVersion == snapshot.ObservedChangeVersion)
+                {
+                    snapshot.Node.Cache.RecordSuccessfulStableRequest();
+                }
+            }
+        }
+
+        _completed = true;
+    }
+
+    private static NodeSnapshot Collect(
+        RenderNode node,
+        IDictionary<RenderNode, NodeSnapshot> snapshots)
+    {
+        if (snapshots.TryGetValue(node, out NodeSnapshot? existing))
+        {
+            if (existing.IsVisiting)
+            {
+                throw new InvalidOperationException(
+                    "A render-node ChildNodes cycle was detected while preparing cache lifecycle state.");
+            }
+
+            return existing;
+        }
+
+        var snapshot = new NodeSnapshot(node, node.HasChanges, node.ChangeVersion)
+        {
+            IsVisiting = true,
+        };
+        snapshots.Add(node, snapshot);
+        try
+        {
+            ReadOnlySpan<RenderNode> children = node.ChildNodes;
+            for (int i = 0; i < children.Length; i++)
+            {
+                RenderNode child = children[i];
+                ArgumentNullException.ThrowIfNull(child);
+                NodeSnapshot childSnapshot = Collect(child, snapshots);
+                snapshot.Children.Add(childSnapshot);
+                childSnapshot.Parents.Add(snapshot);
+            }
+        }
+        finally
+        {
+            snapshot.IsVisiting = false;
+        }
+
+        return snapshot;
+    }
+
+    private static void MarkNodeAndAncestors(NodeSnapshot node, ISet<NodeSnapshot> visited)
+    {
+        if (!visited.Add(node))
+            return;
+
+        node.IsInvalidated = true;
+        foreach (NodeSnapshot parent in node.Parents)
+        {
+            MarkNodeAndAncestors(parent, visited);
         }
     }
 
+    private sealed class NodeSnapshot(
+        RenderNode node,
+        bool wasDirty,
+        long observedChangeVersion)
+    {
+        public RenderNode Node { get; } = node;
+
+        public bool WasDirty { get; } = wasDirty;
+
+        public long ObservedChangeVersion { get; } = observedChangeVersion;
+
+        public List<NodeSnapshot> Children { get; } = [];
+
+        public List<NodeSnapshot> Parents { get; } = [];
+
+        public bool IsVisiting { get; set; }
+
+        public bool IsInvalidated { get; set; }
+    }
 }
 
 [JsonSerializable(typeof(RenderCacheOptions))]

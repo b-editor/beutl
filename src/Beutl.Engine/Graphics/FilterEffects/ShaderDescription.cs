@@ -6,12 +6,11 @@ namespace Beutl.Graphics.Effects;
 
 /// <summary>Declares an immutable, validated SkSL stage recorded into a render graph.</summary>
 /// <remarks>
-/// Create instances through <see cref="CurrentPixel"/> or <see cref="WholeSource"/>. Description instances use
-/// reference equality; the renderer derives separate structural and runtime identities for cache reuse. Declared
-/// binding callbacks run only during execution and receive execution-scoped writers and contexts that must not be
-/// retained.
+/// Create instances through <see cref="CurrentPixel"/> or <see cref="WholeSource"/>. The renderer derives plan
+/// shape from source and declared binding layout. Declared binding callbacks run only during execution and receive
+/// execution-scoped writers and contexts that must not be retained.
 /// </remarks>
-public sealed class ShaderDescription
+internal sealed class ShaderDescription
 {
     private ShaderDescription(
         ShaderDescriptionKind kind,
@@ -29,19 +28,17 @@ public sealed class ShaderDescription
         Bounds = bounds;
         Uniforms = new ReadOnlyCollection<ShaderUniformBinding>(builder.Uniforms.ToArray());
         Resources = new ReadOnlyCollection<ShaderResourceBinding>(builder.Resources.ToArray());
-        UsesReusableCallback = Uniforms.Any(static item => item.UsesReusableCallback)
-                               || Resources.Any(static item => item.UsesReusableCallback);
         SourceTileMode = sourceTileMode;
         StructuralIdentity = new ShaderDescriptionStructuralIdentity(
             kind,
             parsed.Text,
             bounds.StructuralIdentity,
             sourceTileMode,
-            Uniforms.Select(static item => new ShaderBindingStructuralIdentity(item.Name, item.StructuralKey)).ToArray(),
+            Uniforms.Select(static item => new ShaderBindingStructuralIdentity(item.Name, item.DefinitionFingerprint)).ToArray(),
             Resources.Select(static item => new ShaderResourceStructuralIdentity(
                 item.Name,
                 item.CoordinateSpace,
-                item.StructuralKey)).ToArray());
+                item.DefinitionFingerprint)).ToArray());
     }
 
     /// <summary>Gets whether the stage transforms only the current pixel or samples the complete upstream source.</summary>
@@ -67,13 +64,6 @@ public sealed class ShaderDescription
 
     internal object StructuralIdentity { get; }
 
-    internal bool UsesReusableCallback { get; }
-
-    internal object CreateRuntimeIdentity()
-        => new ShaderDescriptionRuntimeIdentity(
-            Uniforms.Select(static item => item.CreateRuntimeIdentity()).ToArray(),
-            Resources.Select(static item => (ShaderResourceRuntimeIdentity)item.CreateRuntimeIdentity()).ToArray());
-
     /// <summary>Creates a coordinate-independent shader stage that transforms one resolved pixel value.</summary>
     /// <param name="source">
     /// Non-null SkSL defining exactly one <c>half4 apply(half4 color)</c> entry point. Its argument and result are
@@ -97,7 +87,7 @@ public sealed class ShaderDescription
     /// <exception cref="ArgumentException">
     /// The source grammar, entry point, declarations, or supplied bindings are invalid or incompatible.
     /// </exception>
-    public static ShaderDescription CurrentPixel(
+    internal static ShaderDescription CurrentPixel(
         string source,
         Action<ShaderBindingBuilder>? bindings = null)
         => CurrentPixel(new SkslSource(source, ShaderDescriptionKind.CurrentPixel), bindings);
@@ -149,7 +139,7 @@ public sealed class ShaderDescription
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="sourceTileMode"/> is not a defined <see cref="SKShaderTileMode"/> value.
     /// </exception>
-    public static ShaderDescription WholeSource(
+    internal static ShaderDescription WholeSource(
         string source,
         RenderBoundsContract bounds,
         Action<ShaderBindingBuilder>? bindings = null,
@@ -162,6 +152,26 @@ public sealed class ShaderDescription
         return new ShaderDescription(
             ShaderDescriptionKind.WholeSource,
             new SkslSource(source, ShaderDescriptionKind.WholeSource),
+            bounds,
+            bindings,
+            sourceTileMode);
+    }
+
+    internal static ShaderDescription WholeSource(
+        SkslSource source,
+        RenderBoundsContract bounds,
+        Action<ShaderBindingBuilder>? bindings,
+        SKShaderTileMode sourceTileMode)
+    {
+        if (source.Kind != ShaderDescriptionKind.WholeSource)
+            throw new ArgumentException("The parsed source is not a WholeSource source.", nameof(source));
+        bounds.ThrowIfUninitialized(nameof(bounds));
+        if (!Enum.IsDefined(sourceTileMode))
+            throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
+
+        return new ShaderDescription(
+            ShaderDescriptionKind.WholeSource,
+            source,
             bounds,
             bindings,
             sourceTileMode);
@@ -273,35 +283,9 @@ internal sealed class ShaderDescriptionStructuralIdentity(
     private ShaderResourceStructuralIdentity[] Resources => resources;
 }
 
-internal sealed record ShaderBindingStructuralIdentity(string Name, object StructuralKey);
+internal sealed record ShaderBindingStructuralIdentity(string Name, object DefinitionFingerprint);
 
 internal sealed record ShaderResourceStructuralIdentity(
     string Name,
     ShaderResourceCoordinateSpace CoordinateSpace,
-    object StructuralKey);
-
-internal sealed class ShaderDescriptionRuntimeIdentity(object[] uniforms, ShaderResourceRuntimeIdentity[] resources)
-    : IEquatable<ShaderDescriptionRuntimeIdentity>
-{
-    public bool Equals(ShaderDescriptionRuntimeIdentity? other)
-        => other is not null
-           && uniforms.AsSpan().SequenceEqual(other.Uniforms)
-           && resources.AsSpan().SequenceEqual(other.Resources);
-
-    public override bool Equals(object? obj) => obj is ShaderDescriptionRuntimeIdentity other && Equals(other);
-
-    public override int GetHashCode()
-    {
-        var hash = new HashCode();
-        foreach (object item in uniforms)
-            hash.Add(item);
-        foreach (ShaderResourceRuntimeIdentity item in resources)
-            hash.Add(item);
-        return hash.ToHashCode();
-    }
-
-    private object[] Uniforms => uniforms;
-    private ShaderResourceRuntimeIdentity[] Resources => resources;
-}
-
-internal sealed record ShaderResourceRuntimeIdentity(RenderResourceIdentity Resource, object RuntimeIdentity);
+    object DefinitionFingerprint);

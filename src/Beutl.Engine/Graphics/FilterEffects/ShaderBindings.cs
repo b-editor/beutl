@@ -29,79 +29,30 @@ public enum ShaderResourceCoordinateSpace
     OutputDevice,
 }
 
-/// <summary>Declares whether a custom shader binder may reuse output-cache entries across requests.</summary>
-public enum ShaderBindingCachePolicy
-{
-    /// <summary>Gives each recorded binding a unique runtime identity.</summary>
-    RequestUnique,
-
-    /// <summary>
-    /// Reuses entries from the immutable value or resource snapshot passed to a non-capturing binder.
-    /// </summary>
-    /// <remarks>
-    /// A binder using this policy must not capture instance or closure state and may read only its callback arguments
-    /// and execution context. A static lambda provides that guarantee at compile time. The binder must not read
-    /// mutable globals, services, clocks, or other state that was not snapshotted into those arguments.
-    /// </remarks>
-    ReuseFromSnapshot,
-}
-
 /// <summary>Describes one immutable uniform binding declared for a shader.</summary>
 /// <remarks>Instances are created through <see cref="ShaderBindingBuilder"/>.</remarks>
-public sealed class ShaderUniformBinding
+internal sealed class ShaderUniformBinding
 {
     private readonly Action<ShaderUniformWriter, ShaderExecutionContext> _bind;
     private readonly Action<SkslUniformDeclaration> _validate;
-    private readonly object _runtimeValue;
-    private readonly bool _isCustom;
-
     internal ShaderUniformBinding(
         string name,
-        object structuralKey,
-        ShaderBindingCachePolicy cachePolicy,
+        object definitionFingerprint,
         Action<ShaderUniformWriter, ShaderExecutionContext> bind,
-        Action<SkslUniformDeclaration> validate,
-        object runtimeValue,
-        bool isCustom = false)
+        Action<SkslUniformDeclaration> validate)
     {
         Name = name;
-        StructuralKey = structuralKey;
-        CachePolicy = cachePolicy;
+        DefinitionFingerprint = definitionFingerprint;
         _bind = bind;
         _validate = validate;
-        _runtimeValue = runtimeValue;
-        _isCustom = isCustom;
     }
 
     /// <summary>Gets the non-null SkSL uniform declaration name.</summary>
     public string Name { get; }
 
-    /// <summary>Gets the equality-stable key that identifies the binding's structural behavior.</summary>
-    /// <remarks>
-    /// Runtime values are excluded from this key. A custom binder must supply an explicit structural key when
-    /// captured state changes the generated binding shape.
-    /// </remarks>
-    public object StructuralKey { get; }
-
-    /// <summary>Gets the output-cache policy for this binding.</summary>
-    /// <remarks>
-    /// Direct bindings use <see cref="ShaderBindingCachePolicy.ReuseFromSnapshot"/> because their immutable canonical
-    /// value is copied while the description is created.
-    /// </remarks>
-    public ShaderBindingCachePolicy CachePolicy { get; }
+    internal object DefinitionFingerprint { get; }
 
     internal void ValidateDeclaration(SkslUniformDeclaration declaration) => _validate(declaration);
-
-    internal object CreateRuntimeIdentity()
-    {
-        if (!_isCustom || CachePolicy == ShaderBindingCachePolicy.ReuseFromSnapshot)
-            return _runtimeValue;
-
-        return new CustomUniformRuntimeValue(_runtimeValue, new object());
-    }
-
-    internal bool UsesReusableCallback
-        => _isCustom && CachePolicy == ShaderBindingCachePolicy.ReuseFromSnapshot;
 
     internal ShaderUniformValue Bind(SkslUniformDeclaration declaration, ShaderExecutionContext context)
     {
@@ -120,7 +71,7 @@ public sealed class ShaderUniformBinding
 
 /// <summary>Describes one immutable child-shader resource binding declared for a shader.</summary>
 /// <remarks>Instances are created through <see cref="ShaderBindingBuilder"/>.</remarks>
-public sealed class ShaderResourceBinding
+internal sealed class ShaderResourceBinding
 {
     private readonly Action<ShaderResourceWriter, object, ShaderExecutionContext> _bind;
     private readonly Func<Action<object>, bool> _useResource;
@@ -129,16 +80,14 @@ public sealed class ShaderResourceBinding
         string name,
         RenderResource resource,
         ShaderResourceCoordinateSpace coordinateSpace,
-        object structuralKey,
-        ShaderBindingCachePolicy cachePolicy,
+        object definitionFingerprint,
         Action<ShaderResourceWriter, object, ShaderExecutionContext> bind,
         Func<Action<object>, bool> useResource)
     {
         Name = name;
         Resource = resource;
         CoordinateSpace = coordinateSpace;
-        StructuralKey = structuralKey;
-        CachePolicy = cachePolicy;
+        DefinitionFingerprint = definitionFingerprint;
         _bind = bind;
         _useResource = useResource;
     }
@@ -155,28 +104,7 @@ public sealed class ShaderResourceBinding
     /// </remarks>
     public RenderResource Resource { get; }
 
-    /// <summary>Gets the equality-stable key that identifies the binding's structural behavior.</summary>
-    /// <remarks>
-    /// Resource contents and other runtime values are excluded. Supply an explicit key when captured state changes
-    /// the generated binding shape.
-    /// </remarks>
-    public object StructuralKey { get; }
-
-    /// <summary>Gets the output-cache policy for this binding.</summary>
-    /// <remarks>
-    /// Reusable bindings derive runtime identity from the resource token's immutable key and version snapshot.
-    /// </remarks>
-    public ShaderBindingCachePolicy CachePolicy { get; }
-
-    internal object CreateRuntimeIdentity()
-        => new ShaderResourceRuntimeIdentity(
-            Resource.CacheIdentity,
-            CachePolicy == ShaderBindingCachePolicy.RequestUnique
-                ? new object()
-                : ShaderBindingCachePolicy.ReuseFromSnapshot);
-
-    internal bool UsesReusableCallback
-        => CachePolicy == ShaderBindingCachePolicy.ReuseFromSnapshot;
+    internal object DefinitionFingerprint { get; }
 
     internal SKShader Bind(ShaderExecutionContext context)
     {
@@ -212,7 +140,7 @@ public sealed class ShaderResourceBinding
 /// or borrowed registration. Every binding name must be a unique SkSL identifier matching a declaration in the
 /// source.
 /// </remarks>
-public sealed class ShaderBindingBuilder
+internal sealed class ShaderBindingBuilder
 {
     private readonly List<ShaderUniformBinding> _uniforms = [];
     private readonly List<ShaderResourceBinding> _resources = [];
@@ -225,7 +153,7 @@ public sealed class ShaderBindingBuilder
     /// <summary>Declares a direct uniform whose canonical value is written without an execution callback.</summary>
     /// <typeparam name="T">An unmanaged type in the supported canonical scalar, vector, or matrix allowlist.</typeparam>
     /// <param name="name">The unique non-null SkSL uniform declaration name.</param>
-    /// <param name="value">The value copied into the immutable description and its runtime cache identity.</param>
+    /// <param name="value">The value copied into the immutable description for execution.</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
     /// <paramref name="name"/> is invalid or duplicated, or <typeparamref name="T"/> is not a supported canonical
@@ -240,10 +168,8 @@ public sealed class ShaderBindingBuilder
         _uniforms.Add(new ShaderUniformBinding(
             name,
             new DirectUniformStructuralKey(typeof(T)),
-            ShaderBindingCachePolicy.ReuseFromSnapshot,
             (writer, _) => writer.Set(value),
-            canonical.ThrowIfIncompatible,
-            canonical.Identity));
+            canonical.ThrowIfIncompatible));
     }
 
     /// <summary>Declares a direct floating-point uniform from a sequence copied during description creation.</summary>
@@ -259,35 +185,23 @@ public sealed class ShaderBindingBuilder
         float[] copy = values.ToArray();
         if (copy.Length == 0)
             throw new ArgumentException("A direct uniform span cannot be empty.", nameof(values));
-        var identity = new FloatSequenceIdentity(copy.Select(BitConverter.SingleToInt32Bits).ToArray());
         _uniforms.Add(new ShaderUniformBinding(
             name,
             typeof(FloatSequenceIdentity),
-            ShaderBindingCachePolicy.ReuseFromSnapshot,
             (writer, _) => writer.Set(copy),
-            declaration => ShaderCanonicalValue.ThrowIfFloatSequenceIncompatible(copy, declaration),
-            identity));
+            declaration => ShaderCanonicalValue.ThrowIfFloatSequenceIncompatible(copy, declaration)));
     }
 
     /// <summary>Declares a uniform whose value is produced by an execution-time binder.</summary>
     /// <typeparam name="T">An unmanaged type in the supported canonical scalar, vector, or matrix allowlist.</typeparam>
     /// <param name="name">The unique non-null SkSL uniform declaration name.</param>
     /// <param name="value">
-    /// The author value passed to <paramref name="bind"/> and automatically included in runtime cache identity.
+    /// The author value passed to <paramref name="bind"/> during execution.
     /// </param>
     /// <param name="bind">
     /// The non-null execution callback. It must call <see cref="ShaderUniformWriter.Set{T}(T)"/> or
     /// <see cref="ShaderUniformWriter.Set(ReadOnlySpan{float})"/> exactly once and must not retain the writer or
     /// context. The unmanaged <paramref name="value"/> is passed by value.
-    /// </param>
-    /// <param name="structuralKey">
-    /// An optional immutable, equality-stable key for captured state that changes binding shape. When
-    /// <see langword="null"/>, the binder method identifies the shape.
-    /// </param>
-    /// <param name="cachePolicy">
-    /// The output-cache reuse policy. <see cref="ShaderBindingCachePolicy.ReuseFromSnapshot"/> requires a
-    /// non-capturing binder whose pixel result depends only on the copied <paramref name="value"/> and execution
-    /// context.
     /// </param>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="name"/> or <paramref name="bind"/> is <see langword="null"/>.
@@ -300,27 +214,16 @@ public sealed class ShaderBindingBuilder
     public void Uniform<T>(
         string name,
         T value,
-        Action<ShaderUniformWriter, T, ShaderExecutionContext> bind,
-        object? structuralKey = null,
-        ShaderBindingCachePolicy cachePolicy = ShaderBindingCachePolicy.RequestUnique)
+        Action<ShaderUniformWriter, T, ShaderExecutionContext> bind)
         where T : unmanaged
     {
         ValidateName(name);
         ArgumentNullException.ThrowIfNull(bind);
-        if (structuralKey is not null)
-            RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
-        ValidateCachePolicy(bind, cachePolicy, nameof(cachePolicy));
-
-        ShaderCanonicalValue canonical = ShaderCanonicalValue.Create(value);
-        object key = structuralKey ?? bind.Method;
         _uniforms.Add(new ShaderUniformBinding(
             name,
-            new CustomUniformStructuralKey(typeof(T), key),
-            cachePolicy,
+            new CustomUniformStructuralKey(typeof(T), bind.Method),
             (writer, context) => bind(writer, value, context),
-            static _ => { },
-            canonical.Identity,
-            isCustom: true));
+            static _ => { }));
     }
 
     /// <summary>Declares a child-shader resource produced by an execution-time binder.</summary>
@@ -333,15 +236,6 @@ public sealed class ShaderBindingBuilder
     /// created shader. It must not retain the writer, context, or callback-provided resource and must not dispose the
     /// resource. A borrowed resource remains caller-owned and its pixel-affecting state must remain read-only
     /// throughout the executing request; an owned resource remains request-owned.
-    /// </param>
-    /// <param name="structuralKey">
-    /// An optional immutable, equality-stable key for captured state that changes binding shape. When
-    /// <see langword="null"/>, the binder method identifies the shape.
-    /// </param>
-    /// <param name="cachePolicy">
-    /// The output-cache reuse policy. <see cref="ShaderBindingCachePolicy.ReuseFromSnapshot"/> requires a
-    /// non-capturing binder whose pixel result depends only on the resource token's immutable key/version snapshot
-    /// and execution context.
     /// </param>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="name"/>, <paramref name="resource"/>, or <paramref name="bind"/> is <see langword="null"/>.
@@ -356,9 +250,7 @@ public sealed class ShaderBindingBuilder
         string name,
         RenderResource<T> resource,
         ShaderResourceCoordinateSpace coordinateSpace,
-        Action<ShaderResourceWriter, T, ShaderExecutionContext> bind,
-        object? structuralKey = null,
-        ShaderBindingCachePolicy cachePolicy = ShaderBindingCachePolicy.RequestUnique)
+        Action<ShaderResourceWriter, T, ShaderExecutionContext> bind)
         where T : class
     {
         ValidateName(name);
@@ -366,17 +258,11 @@ public sealed class ShaderBindingBuilder
         ArgumentNullException.ThrowIfNull(bind);
         if (!Enum.IsDefined(coordinateSpace))
             throw new ArgumentOutOfRangeException(nameof(coordinateSpace), coordinateSpace, "The coordinate space is invalid.");
-        if (structuralKey is not null)
-            RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
-        ValidateCachePolicy(bind, cachePolicy, nameof(cachePolicy));
-
-        object key = structuralKey ?? bind.Method;
         _resources.Add(new ShaderResourceBinding(
             name,
             resource,
             coordinateSpace,
-            new ResourceBindingStructuralKey(typeof(T), key),
-            cachePolicy,
+            new ResourceBindingStructuralKey(typeof(T), bind.Method),
             (writer, value, context) => bind(writer, (T)value, context),
             use => resource.Registry.Use(resource, value =>
             {
@@ -408,22 +294,6 @@ public sealed class ShaderBindingBuilder
                 return false;
         }
         return true;
-    }
-
-    private static void ValidateCachePolicy(
-        Delegate bind,
-        ShaderBindingCachePolicy cachePolicy,
-        string parameterName)
-    {
-        if (!Enum.IsDefined(cachePolicy))
-            throw new ArgumentOutOfRangeException(parameterName, cachePolicy, "The shader binding cache policy is invalid.");
-        if (cachePolicy == ShaderBindingCachePolicy.ReuseFromSnapshot
-            && RenderIdentityKeyValidator.CapturesState(bind))
-        {
-            throw new ArgumentException(
-                "A reusable shader binder must not capture instance or closure state and may read only its snapshotted callback arguments and execution context.",
-                parameterName);
-        }
     }
 
 }
@@ -751,8 +621,6 @@ internal sealed record DirectUniformStructuralKey(Type Type);
 internal sealed record CustomUniformStructuralKey(Type Type, object Binder);
 
 internal sealed record ResourceBindingStructuralKey(Type Type, object Binder);
-
-internal sealed record CustomUniformRuntimeValue(object Value, object AdditionalIdentity);
 
 internal sealed class FloatSequenceIdentity(int[] bits) : IEquatable<FloatSequenceIdentity>
 {

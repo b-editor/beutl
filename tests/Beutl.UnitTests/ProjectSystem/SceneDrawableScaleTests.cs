@@ -203,7 +203,7 @@ public class SceneDrawableScaleTests
     }
 
     [Test]
-    public void NestedScene_ReusesChildrenAndAdvancesTheirCacheCountsAcrossFrames()
+    public void NestedScene_ReusesChildrenAndWarmsStableChildCachesDespiteChangingAncestors()
     {
         string basePath = GetTempPath();
         try
@@ -227,7 +227,7 @@ public class SceneDrawableScaleTests
                 .ElementAt(1);
 
             CompleteSuccessfulFrame(root);
-            for (int frame = 0; frame < RenderNodeCache.Count; frame++)
+            for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
             {
                 changingResource.Version++;
                 resource.Version++;
@@ -246,8 +246,12 @@ public class SceneDrawableScaleTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(stable.Cache.CanCache(), Is.True);
-                Assert.That(changing.Cache.CanCache(), Is.False);
+                Assert.That(root.Cache.CanCapture, Is.False, "the changing parent restarts warm-up each frame");
+                Assert.That(sceneNode.Cache.CanCapture, Is.False, "the changing child invalidates its ancestors");
+                Assert.That(changing.Cache.CanCapture, Is.False, "the changing child restarts warm-up each frame");
+                Assert.That(stable.Cache.CanCapture, Is.True, "the unchanged child retains its warm-up");
+                Assert.That(stable.Cache.SuccessfulStableRequestCount,
+                    Is.GreaterThanOrEqualTo(RenderNodeCache.StableRequestCount));
             });
 
             root.Dispose();
@@ -511,14 +515,7 @@ public class SceneDrawableScaleTests
 
     private static void CompleteSuccessfulFrame(RenderNode node)
     {
-        if (node is ContainerRenderNode container)
-        {
-            foreach (RenderNode child in container.Children)
-                CompleteSuccessfulFrame(child);
-        }
-
-        node.Cache.IncrementRenderCount();
-        node.HasChanges = false;
+        RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
     }
 }
 

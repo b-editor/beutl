@@ -11,41 +11,48 @@ namespace Beutl.PublicApiContractTests;
 public sealed class DeclaredResourceAddressingContractTests
 {
     private static readonly Rect s_bounds = new(0, 0, 8, 8);
+    private static readonly RenderResourceSlot<Payload> s_leftSlot = new();
+    private static readonly RenderResourceSlot<Payload> s_rightSlot = new();
+    private static readonly RenderResourceSlot<Payload> s_unboundSlot = new();
+    private static readonly RenderResourceSlot<Payload> s_missingSlot = new();
+    private static readonly OpaqueRenderDefinition<byte> s_twoPayloadDefinition =
+        OpaqueRenderDefinition<byte>.Create(
+            static (session, _) => session.UseResource(s_leftSlot, left =>
+                session.UseResource(s_rightSlot, right =>
+                {
+                    left.Touch();
+                    right.Touch();
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    output.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
+                    session.Publish(output);
+                })),
+            OpaqueRenderBoundsContract.Source(s_bounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale,
+            resources: [s_leftSlot, s_rightSlot]);
+    private static readonly OpaqueRenderDefinition<byte> s_missingLookupDefinition =
+        OpaqueRenderDefinition<byte>.Create(
+            static (session, _) => session.UseResource(s_missingSlot, static _ => { }),
+            OpaqueRenderBoundsContract.Source(s_bounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale,
+            resources: [s_leftSlot]);
 
     [TestCase(false)]
     [TestCase(true)]
-    public void NamedBindingsRemainStableWhenSameTypedResourcesAreReordered(bool reverse)
+    public void TypedBindingsRemainStableWhenSameTypedResourcesAreReordered(bool reverse)
     {
         var reached = new List<string>();
         using var node = new DelegateSourceNode(context =>
         {
-            RenderResource<Payload> left = context.Borrow(
-                new Payload("left", reached),
-                cacheKey: "left",
-                version: 1);
-            RenderResource<Payload> right = context.Borrow(
-                new Payload("right", reached),
-                cacheKey: "right",
-                version: 1);
+            RenderResource<Payload> left = context.Borrow(new Payload("left", reached));
+            RenderResource<Payload> right = context.Borrow(new Payload("right", reached));
             RenderResourceBinding[] bindings = reverse
-                ? [right.Bind("right"), left.Bind("left")]
-                : [left.Bind("left"), right.Bind("right")];
-            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
-                s_bounds,
-                static (session, _) => session.UseDeclaredResource<Payload>("left", leftPayload =>
-                    session.UseDeclaredResource<Payload>("right", rightPayload =>
-                    {
-                        leftPayload.Touch();
-                        rightPayload.Touch();
-                        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                        output.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
-                        session.Publish(output);
-                    })),
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                resources: bindings)));
+                ? [s_rightSlot.Bind(right), s_leftSlot.Bind(left)]
+                : [s_leftSlot.Bind(left), s_rightSlot.Bind(right)];
+            context.Publish(context.OpaqueSource(s_twoPayloadDefinition.Call(default, bindings)));
         });
 
         using RenderNodeRasterization rasterization = Rasterize(node, RenderCacheOptions.Disabled);
@@ -58,124 +65,126 @@ public sealed class DeclaredResourceAddressingContractTests
     }
 
     [Test]
-    public void BindingValidationRejectsBlankAndDuplicateNames()
+    public void DefinitionCallsRejectMissingDuplicateAndUnexpectedSlots()
     {
-        ArgumentException? blank = null;
+        ArgumentException? missing = null;
         ArgumentException? duplicate = null;
+        ArgumentException? unexpected = null;
         using var node = new DelegateSourceNode(context =>
         {
-            RenderResource<Payload> first = context.Borrow(new Payload(), cacheKey: "first");
-            RenderResource<Payload> second = context.Borrow(new Payload(), cacheKey: "second");
-            blank = Assert.Throws<ArgumentException>(() => first.Bind(" "));
-            duplicate = Assert.Throws<ArgumentException>(() => OpaqueRenderDescription.Create(
-                s_bounds,
-                static (_, _) => { },
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.Vector,
-                resources: [first.Bind("payload"), second.Bind("payload")]));
+            RenderResource<Payload> first = context.Borrow(new Payload());
+            RenderResource<Payload> second = context.Borrow(new Payload());
+            missing = Assert.Throws<ArgumentException>(() =>
+                s_twoPayloadDefinition.Call(default, [s_leftSlot.Bind(first)]));
+            duplicate = Assert.Throws<ArgumentException>(() =>
+                s_twoPayloadDefinition.Call(
+                    default,
+                    [s_leftSlot.Bind(first), s_leftSlot.Bind(second)]));
+            unexpected = Assert.Throws<ArgumentException>(() =>
+                s_twoPayloadDefinition.Call(
+                    default,
+                    [s_leftSlot.Bind(first), s_unboundSlot.Bind(second)]));
         });
 
         _ = Measure(node);
 
         Assert.Multiple(() =>
         {
-            Assert.That(blank!.ParamName, Is.EqualTo("name"));
-            Assert.That(duplicate!.ParamName, Is.EqualTo("resources"));
+            Assert.That(missing!.ParamName, Is.EqualTo("bindings"));
+            Assert.That(duplicate!.ParamName, Is.EqualTo("bindings"));
+            Assert.That(unexpected!.ParamName, Is.EqualTo("bindings"));
         });
     }
 
-    [TestCase(ResourceFailure.MissingName, typeof(KeyNotFoundException), "missing")]
-    [TestCase(ResourceFailure.TypeMismatch, typeof(InvalidOperationException), "OtherPayload")]
-    public void NamedLookupFailsDeterministically(
-        ResourceFailure failure,
-        Type exceptionType,
-        string messageFragment)
+    [Test]
+    public void DefinitionRejectsTheSameSlotTwice()
     {
-        using var node = new LookupFailureNode(failure);
+        ArgumentException? exception = Assert.Throws<ArgumentException>(() =>
+            OpaqueRenderDefinition<byte>.Create(
+                static (_, _) => { },
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                resources: [s_leftSlot, s_leftSlot]));
+
+        Assert.That(exception!.ParamName, Is.EqualTo("resources"));
+    }
+
+    [Test]
+    public void MissingSlotFailsWithoutFallingBackToAnotherSameTypedBinding()
+    {
+        using var node = new DelegateSourceNode(context =>
+        {
+            RenderResource<Payload> token = context.Borrow(new Payload());
+            context.Publish(context.OpaqueSource(
+                s_missingLookupDefinition.Call(default, [s_leftSlot.Bind(token)])));
+        });
         using RenderNodeRenderer renderer = CreateRenderer(node, RenderCacheOptions.Disabled);
 
-        Exception? exception = Assert.Throws(exceptionType, () => renderer.Rasterize());
+        KeyNotFoundException? exception = Assert.Throws<KeyNotFoundException>(() => renderer.Rasterize());
 
-        Assert.That(exception!.Message, Does.Contain(messageFragment));
+        Assert.That(exception!.Message, Does.Contain("slot"));
     }
 
     [Test]
-    public void BindingIdentityInvalidatesTheOutputCacheWhenTheVersionChanges()
+    public void PublicResourceAddressingUsesTypedSlotsWithoutCacheIdentityOrNames()
     {
-        using var node = new VersionedPayloadNode();
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
-        using RenderNodeRenderer renderer = CreateRenderer(node, RenderCacheOptions.Enabled);
-
-        using (RenderNodeRasterization first = renderer.Rasterize())
-        using (RenderNodeRasterization second = renderer.Rasterize())
-        {
-            Assert.That(first.IsEmpty || second.IsEmpty, Is.False);
-        }
-
-        node.Version++;
-        using RenderNodeRasterization third = renderer.Rasterize();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(third.IsEmpty, Is.False);
-            Assert.That(node.ExecutionCount, Is.EqualTo(2));
-        });
-    }
-
-    [Test]
-    public void CallbackRuntimeIdentity_IsNotAPublicAuthoringChannel()
-    {
-        Type[] descriptions =
-        [
-            typeof(OpaqueRenderDescription),
-            typeof(GeometryDescription),
-            typeof(TargetScopeDescription),
-            typeof(TargetCommandDescription),
-        ];
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                typeof(OpaqueRenderDescription).Assembly.GetExportedTypes()
-                    .Any(static type => type.FullName == "Beutl.Graphics.Rendering.RenderRuntimeIdentity"),
-                Is.False);
-            foreach (Type description in descriptions)
-            {
-                Assert.That(
-                    description.GetProperty("RuntimeIdentity", BindingFlags.Public | BindingFlags.Instance),
-                    Is.Null,
-                    description.FullName);
-            }
-        });
-    }
-
-    [Test]
-    public void EveryDeclaredResourceSessionUsesAStringNameAndRawSessionsRemainTokenOnly()
-    {
-        Type[] namedSessions =
+        Type[] slotSessions =
         [
             typeof(OpaqueRenderSession),
             typeof(GeometrySession),
             typeof(TargetScopeSession),
             typeof(TargetCommandSession),
         ];
-        foreach (Type session in namedSessions)
-        {
-            MethodInfo? method = session.GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                .SingleOrDefault(static candidate => candidate.Name == "UseDeclaredResource");
-            Assert.That(method, Is.Not.Null, session.Name);
-            Assert.That(method!.GetParameters()[0].ParameterType, Is.EqualTo(typeof(string)), session.Name);
-        }
 
+        MethodInfo? bind = typeof(RenderResourceSlot<Payload>).GetMethod(
+            nameof(RenderResourceSlot<Payload>.Bind),
+            [typeof(RenderResource<Payload>)]);
         Assert.Multiple(() =>
         {
+            Assert.That(bind, Is.Not.Null);
+            Assert.That(bind!.ReturnType, Is.EqualTo(typeof(RenderResourceBinding)));
+            Assert.That(
+                typeof(RenderResourceSlot<Payload>).GetMethod(
+                    nameof(RenderResourceSlot<Payload>.Bind),
+                    [typeof(RenderResource<OtherPayload>)]),
+                Is.Null,
+                "A slot can only bind a token of its exact declared resource type.");
             Assert.That(typeof(RenderResourceBinding).GetConstructors(), Is.Empty);
-            Assert.That(typeof(RawTargetScopeSession).GetMethod("UseDeclaredResource"), Is.Null);
-            Assert.That(typeof(RawTargetCommandSession).GetMethod("UseDeclaredResource"), Is.Null);
-            Assert.That(typeof(RawTargetScopeSession).GetMethod("UseResource"), Is.Not.Null);
-            Assert.That(typeof(RawTargetCommandSession).GetMethod("UseResource"), Is.Not.Null);
+            Assert.That(typeof(RenderResourceBinding).GetProperties(), Is.Empty);
+            Assert.That(typeof(RenderResource<Payload>).GetMethod("Bind"), Is.Null);
+            Assert.That(typeof(RenderResource).GetProperty("CacheIdentity"), Is.Null);
+            Assert.That(
+                typeof(RenderResource).Assembly.GetExportedTypes()
+                    .Any(static type => type.FullName == "Beutl.Graphics.Rendering.RenderResourceIdentity"),
+                Is.False);
+
+            foreach (Type session in slotSessions)
+            {
+                Assert.That(session.GetMethod("UseDeclaredResource"), Is.Null, session.Name);
+                MethodInfo[] resourceMethods = session.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(static method => method.Name == "UseResource")
+                    .ToArray();
+                Assert.That(resourceMethods, Has.Length.EqualTo(1), session.Name);
+                ParameterInfo slotParameter = resourceMethods[0].GetParameters()[0];
+                Assert.That(slotParameter.ParameterType.IsGenericType, Is.True, session.Name);
+                Assert.That(
+                    slotParameter.ParameterType.GetGenericTypeDefinition(),
+                    Is.EqualTo(typeof(RenderResourceSlot<>)),
+                    session.Name);
+            }
+
+            Assert.That(
+                typeof(RenderNodeContext).GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(static method => method.Name is "Own" or "Borrow")
+                    .All(static method => method.GetParameters().Length == 1),
+                Is.True);
+            Assert.That(
+                typeof(FilterEffectContext).GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(static method => method.Name is "Own" or "Borrow")
+                    .All(static method => method.GetParameters().Length == 1),
+                Is.True);
         });
     }
 
@@ -204,81 +213,15 @@ public sealed class DeclaredResourceAddressingContractTests
                 },
             });
 
-    public enum ResourceFailure
-    {
-        MissingName,
-        TypeMismatch,
-    }
-
     private sealed class DelegateSourceNode(Action<RenderNodeContext> process) : RenderNode
     {
         public override void Process(RenderNodeContext context) => process(context);
     }
 
-    private sealed class LookupFailureNode(ResourceFailure failure) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderResource<Payload> token = context.Borrow(new Payload(), cacheKey: "payload");
-            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
-                failure,
-                static (session, currentFailure) =>
-                {
-                    if (currentFailure == ResourceFailure.MissingName)
-                    {
-                        session.UseDeclaredResource<Payload>("missing", static _ => { });
-                    }
-                    else
-                    {
-                        session.UseDeclaredResource<OtherPayload>("payload", static _ => { });
-                    }
-                },
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [token.Bind("payload")])));
-        }
-    }
-
-    private sealed class VersionedPayloadNode : RenderNode
-    {
-        private readonly Payload _payload = new();
-
-        public int Version { get; set; } = 1;
-
-        public int ExecutionCount => _payload.Count;
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderResource<Payload> token = context.Borrow(
-                _payload,
-                cacheKey: "versioned-payload",
-                version: Version);
-            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
-                s_bounds,
-                static (session, _) => session.UseDeclaredResource<Payload>("payload", payload =>
-                {
-                    payload.Touch();
-                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
-                    session.Publish(output);
-                }),
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [token.Bind("payload")])));
-        }
-    }
-
     private sealed class Payload(string? name = null, List<string>? reached = null)
     {
-        public int Count { get; private set; }
-
         public void Touch()
         {
-            Count++;
             if (name is not null)
                 reached!.Add(name);
         }

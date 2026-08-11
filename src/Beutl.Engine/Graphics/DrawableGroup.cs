@@ -279,11 +279,9 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             RenderBoundsContract boundsContract = hasInverse
                 ? RenderBoundsContract.Create(
                     metadataState.TransformBounds,
-                    metadataState.GetRequiredInputBounds,
-                    structuralKey: (typeof(CustomTransformRenderNode), "invertible-bounds"))
+                    metadataState.GetRequiredInputBounds)
                 : RenderBoundsContract.CreateFullInput(
-                    metadataState.TransformBounds,
-                    structuralKey: (typeof(CustomTransformRenderNode), "singular-bounds"));
+                    metadataState.TransformBounds);
             TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
                 execute: session => ExecuteTransform(session, transform),
                 bounds: boundsContract,
@@ -292,13 +290,10 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                 deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
                 deviceGridMapping: transform.IsIdentity
                     ? RenderDeviceGridMapping.Preserved
-                    : RenderDeviceGridMapping.Remapped,
-                structuralKey: typeof(CustomTransformRenderNode),
-                runtimeIdentity: new RenderRuntimeIdentity(transform));
-            foreach (RenderFragmentHandle input in context.Inputs)
-            {
-                context.Publish(context.TargetScope(input, description));
-            }
+                    : RenderDeviceGridMapping.Remapped);
+            context.PublishMappedInputs(
+                description,
+                static (context, input, value) => context.TargetScope(input, value));
         }
 
         private static void ExecuteTransform(TargetScopeSession session, Matrix transform)

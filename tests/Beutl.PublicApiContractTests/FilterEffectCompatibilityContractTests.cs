@@ -13,6 +13,8 @@ namespace Beutl.PublicApiContractTests;
 public sealed class FilterEffectCompatibilityContractTests
 {
     private static readonly Rect s_bounds = new(3, 5, 12, 8);
+    private static readonly ShaderDefinition<byte> s_identityShader =
+        ShaderDefinition<byte>.CurrentPixel("half4 apply(half4 color) { return color; }");
 
     [Test]
     public void ExecutionContexts_RequireExplicitIntentAndPurpose()
@@ -240,8 +242,7 @@ public sealed class FilterEffectCompatibilityContractTests
                     getterFailure = ex;
                 }
             },
-            static context => context.Shader(ShaderDescription.CurrentPixel(
-                "half4 apply(half4 color) { return color; }")));
+            static context => context.Shader(s_identityShader.Call(default)));
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var root = new ConcreteMultiFilterInputNode(
             new BranchSensitiveWorkingScaleFilterNode(resource));
@@ -281,8 +282,7 @@ public sealed class FilterEffectCompatibilityContractTests
                 hasWorkingScale = context.TryGetWorkingScale(out probedWorkingScale);
                 getterWorkingScale = context.WorkingScale;
             },
-            static context => context.Shader(ShaderDescription.CurrentPixel(
-                "half4 apply(half4 color) { return color; }")));
+            static context => context.Shader(s_identityShader.Call(default)));
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var root = new ConcreteSingleFilterInputNode(
             new VectorWorkingScaleFilterNode(resource));
@@ -458,8 +458,7 @@ public sealed class FilterEffectCompatibilityContractTests
                 ? metadata.InputSupplies[0].IsUnbounded
                     ? metadata.OutputScale
                     : metadata.InputSupplies[0].Value
-                : 4,
-            typeof(BranchSensitiveWorkingScaleFilterNode));
+                : 4);
 
         protected override RenderScaleContract? GetWorkingScaleContract() => s_scale;
     }
@@ -478,7 +477,7 @@ public sealed class FilterEffectCompatibilityContractTests
         {
             RenderFragmentHandle concrete = context.OpaqueSource(CreateMetadataSource(
                 sourceBounds,
-                RenderScaleContract.Custom(static _ => 4, "concrete-at-four"),
+                RenderScaleContract.Custom(static _ => 4),
                 "concrete"));
             RenderFragmentHandle scopedSource = context.OpaqueSource(CreateMetadataSource(
                 sourceBounds,
@@ -507,11 +506,11 @@ public sealed class FilterEffectCompatibilityContractTests
         {
             RenderFragmentHandle first = context.OpaqueSource(CreateMetadataSource(
                 s_bounds,
-                RenderScaleContract.Custom(static _ => 1, "concrete-at-one"),
+                RenderScaleContract.Custom(static _ => 1),
                 "concrete-at-one"));
             RenderFragmentHandle second = context.OpaqueSource(CreateMetadataSource(
                 s_bounds.Translate(new Point(20, 0)),
-                RenderScaleContract.Custom(static _ => 2, "concrete-at-two"),
+                RenderScaleContract.Custom(static _ => 2),
                 "concrete-at-two"));
 
             context.PublishRange(context.RecordNode(filter, [first, second]));
@@ -533,7 +532,7 @@ public sealed class FilterEffectCompatibilityContractTests
         {
             RenderFragmentHandle source = context.OpaqueSource(CreateMetadataSource(
                 s_bounds,
-                RenderScaleContract.Custom(static _ => 1, "single-at-one"),
+                RenderScaleContract.Custom(static _ => 1),
                 "single-at-one"));
             context.PublishRange(context.RecordNode(filter, [source]));
         }
@@ -547,25 +546,24 @@ public sealed class FilterEffectCompatibilityContractTests
         }
     }
 
-    private static OpaqueRenderDescription CreateMetadataSource(
+    private static OpaqueRenderCall<Action<OpaqueRenderSession>> CreateMetadataSource(
         Rect bounds,
         RenderScaleContract scale,
-        object structuralKey)
+        object _)
     {
-        return OpaqueRenderDescription.CreateRequestLocal(
+        return RenderDefinitionCallFactory.Opaque(
             static _ => throw new AssertionException("Measure must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
-            scale,
-            structuralKey: structuralKey);
+            scale);
     }
 
     private sealed class SolidSourceNode(Rect bounds, Color color) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderCall<(Rect bounds, Color color)> call = RenderDefinitionCallFactory.Opaque(
                 (bounds, color),
                 static (session, state) =>
                 {
@@ -577,7 +575,7 @@ public sealed class FilterEffectCompatibilityContractTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale);
-            context.Publish(context.OpaqueSource(description));
+            context.Publish(context.OpaqueSource(call));
         }
     }
 

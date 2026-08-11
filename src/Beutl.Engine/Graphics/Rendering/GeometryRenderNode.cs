@@ -1,5 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using Beutl.Engine;
+﻿using Beutl.Engine;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
@@ -42,36 +41,24 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         if (bounds.Width == 0 || bounds.Height == 0)
             return;
 
-        RenderResource<Geometry.Resource> geometryResource = context.Borrow(geometrySnapshot);
+        RenderResource<Geometry.Resource> geometryResource = context.Borrow(geometry);
         var hitTestState = new GeometryHitTestState(geometry, fill, pen);
-        var hitTestIdentity = new GeometryHitTestIdentity(
-            EngineResourceIdentity.Of(geometry),
-            geometrySnapshot.Version,
-            fill is null ? null : EngineResourceIdentity.Of(fill),
-            fillSnapshot?.Version,
-            pen is null ? null : EngineResourceIdentity.Of(pen),
-            penSnapshot?.Version);
-        RenderResource<GeometryHitTestState> hitTestResource = context.Borrow(
-            hitTestState,
-            hitTestIdentity);
+        RenderResource<GeometryHitTestState> hitTestResource = context.Borrow(hitTestState);
 
         context.Publish(context.PaintedSource(
-            state: (geometry, bounds),
+            state: geometry,
             draw: static (canvas, fill, pen, state) =>
-                canvas.DrawGeometry(state.geometry, fill, pen),
-            fill: fillSnapshot,
-            pen: penSnapshot,
+                canvas.DrawGeometry(state, fill, pen),
+            fill: fill,
+            pen: pen,
             outputBounds: bounds,
             hitTest: RenderHitTestContract.FromResource(
                 hitTestResource,
-                static (state, point) => state.HitTest(point),
-                typeof(GeometryHitTestState)),
+                static (state, point) => state.HitTest(point)),
             scale: RenderScaleContract.Vector,
-            structuralKey: typeof(GeometryRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity(bounds),
             resources: DeferredOpaqueSource.Resources(
-                ("geometry", geometryResource),
-                ("hitTest", hitTestResource))));
+                geometryResource,
+                hitTestResource)));
     }
 
     protected override void OnDispose(bool disposing)
@@ -92,38 +79,16 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         }
     }
 
-    private readonly record struct GeometryHitTestIdentity(
-        Guid GeometryId,
-        int GeometryVersion,
-        Guid? FillId,
-        int? FillVersion,
-        Guid? PenId,
-        int? PenVersion);
 }
 
 internal static class DeferredOpaqueSource
 {
-    private static readonly ConditionalWeakTable<object, ResourceCacheKey> s_resourceKeys = new();
-
-    public static object GetCacheKey(object resource)
-    {
-        ArgumentNullException.ThrowIfNull(resource);
-        return resource is EngineObject.Resource engineResource
-            ? EngineResourceIdentity.Of(engineResource)
-            : s_resourceKeys.GetValue(resource, static _ => new ResourceCacheKey());
-    }
-
-    public static IReadOnlyList<RenderResourceBinding> Resources(
-        params (string Name, RenderResource? Resource)[] resources)
+    public static IReadOnlyList<RenderResource> Resources(params RenderResource?[] resources)
     {
         return resources
-            .Where(static item => item.Resource is not null)
-            .DistinctBy(static item => item.Resource!.SlotIdentity)
-            .Select(static item => new RenderResourceBinding(item.Name, item.Resource!))
+            .Where(static resource => resource is not null)
+            .Select(static resource => resource!)
+            .DistinctBy(static resource => resource.SlotIdentity)
             .ToArray();
-    }
-
-    private sealed class ResourceCacheKey
-    {
     }
 }

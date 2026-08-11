@@ -10,54 +10,50 @@ namespace Beutl.Graphics.Rendering.Cache;
 /// Cache access is serialized by the owning render lifetime and render thread.
 /// This type does not provide independent synchronization and must not be accessed concurrently.
 /// </remarks>
-public sealed class RenderNodeCache(RenderNode node) : IDisposable
+internal sealed class RenderNodeCache(RenderNode node) : IDisposable
 {
     private readonly WeakReference<RenderNode> _node = new(node);
     private CacheStorage _storage = CacheStorage.Empty;
 
-    public const int Count = 3;
+    internal const int StableRequestCount = 3;
 
-    private int _count;
+    private int _successfulStableRequests;
 
     ~RenderNodeCache()
     {
         Dispose(disposing: false);
     }
 
-    public bool IsCached => _storage.Identity is not null || _storage.Values.Length != 0;
+    internal bool IsCached => _storage.Identity is not null || _storage.Values.Length != 0;
 
-    public int CacheCount => _storage.Values.Length;
+    internal int CacheCount => _storage.Values.Length;
 
     internal float IdentityDensity => _storage.IdentityDensity;
 
     internal Type? NodeType => _node.TryGetTarget(out RenderNode? node) ? node.GetType() : null;
 
-    public bool IsDisposed { get; private set; }
+    internal bool IsDisposed { get; private set; }
 
-    public void ReportRenderCount(int count)
+    internal int SuccessfulStableRequestCount => _successfulStableRequests;
+
+    internal bool CanCapture => _successfulStableRequests >= StableRequestCount;
+
+    internal void RecordSuccessfulStableRequest()
     {
-        _count = count;
+        if (!IsDisposed && _successfulStableRequests < StableRequestCount)
+            _successfulStableRequests++;
     }
 
-    public void IncrementRenderCount()
+    internal void Reset()
     {
-        if (_node.TryGetTarget(out RenderNode? node) && !node.HasChanges)
-        {
-            _count++;
-        }
-        else
-        {
-            _count = 0;
-            Invalidate();
-        }
+        if (IsDisposed)
+            return;
+
+        _successfulStableRequests = 0;
+        InvalidateStorage();
     }
 
-    public bool CanCache()
-    {
-        return _count >= Count;
-    }
-
-    public void Invalidate()
+    private void InvalidateStorage()
     {
         CacheStorage previous = DetachStorage();
         if (previous.Identity is not null || previous.Values.Length != 0)

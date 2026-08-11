@@ -105,8 +105,7 @@ public class WorkingScaleClampConsistencyTests
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.None,
             RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: "negative-origin-materialization-policy"));
+            RenderScaleContract.MaterializeAtWorkingScale));
         RenderFragmentReference reference = transaction.GetReference(handle);
 
         Assert.Multiple(() =>

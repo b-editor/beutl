@@ -218,10 +218,10 @@ internal sealed partial class RecordingFailureDrawable : Drawable
 
 internal sealed class FixedOpsNode : RenderNode
 {
+    private static readonly RenderResourceSlot<SolidColorBrush.Resource> s_fillSlot = new();
     private readonly Func<IReadOnlyList<RecordedOperationSpec>> _operationFactory;
     private readonly ICollection<string> _discharged;
     private readonly Action? _onProcess;
-    private readonly Guid _recordingIdentity = Guid.NewGuid();
 
     public FixedOpsNode(
         IReadOnlyList<RecordedOperationSpec> operations,
@@ -247,28 +247,23 @@ internal sealed class FixedOpsNode : RenderNode
         ProcessCalls++;
         _onProcess?.Invoke();
         IReadOnlyList<RecordedOperationSpec> operations = _operationFactory();
-        RenderResource<SolidColorBrush.Resource> fillResource = context.Borrow(
-            Brushes.Resource.White,
-            (typeof(FixedOpsNode), "white-fill"));
+        RenderResource<SolidColorBrush.Resource> fillResource = context.Borrow(Brushes.Resource.White);
         for (int index = 0; index < operations.Count; index++)
         {
             RecordedOperationSpec spec = operations[index];
             bool trackDischarge = context.Purpose != RenderRequestPurpose.Bounds || spec.TrackMetadataDischarge;
             var operation = new RecordedOperation(spec, _discharged, trackDischarge);
-            var resourceKey = (_recordingIdentity, index, context.Purpose);
-            RenderResource<RecordedOperation> resource = context.Own(operation, resourceKey);
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                (resourceKey, spec),
-                static (session, state) => session.UseDeclaredResource<SolidColorBrush.Resource>(
-                    "fill",
-                    fill => RecordedOperation.Execute(state.spec, session, fill)),
-                bounds: OpaqueRenderBoundsContract.Source(spec.EffectiveBounds),
-                hitTest: RenderHitTestContract.OutputBounds,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.Vector,
-                structuralKey: (typeof(FixedOpsNode), index),
-                resources: [resource.Bind("operation"), fillResource.Bind("fill")]);
-            context.Publish(context.OpaqueSource(description));
+            _ = context.Own(operation);
+            var definition = OpaqueRenderDefinition<RecordedOperationSpec>.Create(
+                static (session, state) => session.UseResource(
+                    s_fillSlot,
+                    fill => RecordedOperation.Execute(state, session, fill)),
+                OpaqueRenderBoundsContract.Source(spec.EffectiveBounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.Vector,
+                resources: [s_fillSlot]);
+            context.Publish(context.OpaqueSource(definition.Call(spec, [s_fillSlot.Bind(fillResource)])));
         }
     }
 }

@@ -103,8 +103,8 @@ public class NodeGraphFilterEffectRenderNodeTests
         });
     }
 
-    // The render node leaves ChildNodes empty, so neither revalidation nor cache recursion can see the graph
-    // output subtree. That is sound only while the node itself never reaches the cache-admission threshold.
+    // The render node leaves ChildNodes empty, so it must remain dirty after every graph rebuild and never warm
+    // its own persistent cache.
     [Test]
     public void RepeatedBuilds_NeverAdmitTheGraphRenderNodeToTheCache()
     {
@@ -112,14 +112,14 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         using FilterEffectRenderNode node = resource.CreateRenderNode();
 
-        for (int i = 0; i < RenderNodeCache.Count + 1; i++)
+        for (int i = 0; i < RenderNodeCache.StableRequestCount + 1; i++)
         {
             bool updateOnly = false;
             resource.Update(effect, CompositionContext.Default, ref updateOnly);
             node.Update(resource);
-            node.Cache.IncrementRenderCount();
+            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
 
-            Assert.That(node.Cache.CanCache(), Is.False,
+            Assert.That(node.Cache.CanCapture, Is.False,
                 "a build left the graph render node cacheable although its subtree is invisible to the cache pass");
         }
     }
@@ -754,7 +754,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 
     [Test]
-    public void PreviewCommands_ReuseStructuralPlanWithStableDistinctRuntimeIdentities()
+    public void PreviewCommands_ReuseSharedDefinitionWithoutPersistentRuntimeIdentities()
     {
         var effect = new NodeGraphFilterEffect();
         GraphModel model = effect.Model.CurrentValue!;
@@ -778,20 +778,13 @@ public class NodeGraphFilterEffectRenderNodeTests
 
         TargetCommandDescription[] firstCommands = RecordTargetCommands(pipeline, bounds);
         TargetCommandDescription[] secondCommands = RecordTargetCommands(pipeline, bounds);
-        object[] firstRuntimeKeys = firstCommands
-            .Select(static command => command.RuntimeIdentity!.Value.Key)
-            .ToArray();
-        object[] secondRuntimeKeys = secondCommands
-            .Select(static command => command.RuntimeIdentity!.Value.Key)
-            .ToArray();
-
         Assert.Multiple(() =>
         {
             Assert.That(firstCommands, Has.Length.EqualTo(2));
             Assert.That(secondCommands, Has.Length.EqualTo(2));
-            Assert.That(firstRuntimeKeys[0], Is.Not.EqualTo(firstRuntimeKeys[1]));
-            Assert.That(secondRuntimeKeys, Is.EqualTo(firstRuntimeKeys),
-                "Each PreviewNode runtime identity must remain stable across requests.");
+            Assert.That(firstCommands[1].DefinitionFingerprint, Is.SameAs(firstCommands[0].DefinitionFingerprint));
+            Assert.That(secondCommands[0].DefinitionFingerprint, Is.SameAs(firstCommands[0].DefinitionFingerprint));
+            Assert.That(secondCommands[1].DefinitionFingerprint, Is.SameAs(firstCommands[0].DefinitionFingerprint));
             foreach (TargetCommandDescription command in firstCommands)
             {
                 Assert.That(command.Resources, Has.Count.EqualTo(1),

@@ -37,15 +37,13 @@ public readonly struct TargetCaptureScaleContract
     /// A pure resolver that receives no input supplies and may use output bounds, output scale, and maximum working
     /// scale.
     /// </param>
-    /// <param name="structuralKey">An optional immutable key that identifies the resolver's structural behavior.</param>
     /// <returns>A validated target-capture scale contract.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="resolve"/> is <see langword="null"/>.</exception>
     public static TargetCaptureScaleContract Custom(
-        Func<RenderScaleContext, float> resolve,
-        object? structuralKey = null)
+        Func<RenderScaleContext, float> resolve)
         => new(
             TargetCaptureScaleContractKind.Declared,
-            RenderScaleContract.Custom(resolve, structuralKey));
+            RenderScaleContract.Custom(resolve));
 
     internal bool PreservesTargetSupply
     {

@@ -15,8 +15,16 @@ public class NodeCacheScaleTests
     private static EllipseRenderNode CacheableEllipse()
     {
         var node = new EllipseRenderNode(s_bounds, Brushes.Resource.White, null);
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        WarmForCapture(node);
         return node;
+    }
+
+    private static void WarmForCapture(RenderNode node)
+    {
+        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
+        {
+            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+        }
     }
 
     [TestCase(0.5f)]
@@ -48,7 +56,7 @@ public class NodeCacheScaleTests
     public void HighDensitySource_IsCachedAtItsResolvedSupplyDensity()
     {
         using var node = new ConcreteSourceNode();
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        WarmForCapture(node);
         using var renderer = CreateFrameRenderer(node, outputScale: 1f, maxWorkingScale: 8f);
 
         using (renderer.Rasterize())
@@ -122,7 +130,7 @@ public class NodeCacheScaleTests
         float expectedDensity =
             RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1);
         using var node = new RasterApronSourceNode(bounds);
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        WarmForCapture(node);
         using var renderer = CreateFrameRenderer(
             node,
             outputScale: 1,
@@ -155,7 +163,7 @@ public class NodeCacheScaleTests
         float expectedDensity =
             RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1);
         using var node = new BoundedValueReplayNode(bounds);
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        WarmForCapture(node);
         using var renderer = CreateFrameRenderer(
             node,
             outputScale: 1,
@@ -204,6 +212,27 @@ public class NodeCacheScaleTests
 
     private sealed class ConcreteSourceNode : RenderNode
     {
+        private static readonly RenderResourceSlot<Brush.Resource> s_fillSlot = new();
+        private static readonly RenderResourceSlot<ExecutionProbe> s_probeSlot = new();
+        private static readonly OpaqueRenderDefinition<Rect> s_definition =
+            OpaqueRenderDefinition<Rect>.Create(
+                static (session, bounds) =>
+                    session.UseResource(s_probeSlot, probe =>
+                    {
+                        probe.Record();
+                        session.UseResource(s_fillSlot, fill =>
+                        {
+                            using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                            output.Canvas.Use(canvas => canvas.DrawRectangle(bounds, fill, null));
+                            session.Publish(output);
+                        });
+                    }),
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.None,
+                RenderValueCardinality.Single,
+                RenderScaleContract.Custom(static _ => 4f),
+                resources: [s_fillSlot, s_probeSlot]);
+
         private readonly ExecutionProbe _probe = new();
 
         public int ExecuteCount => _probe.Count;
@@ -211,33 +240,11 @@ public class NodeCacheScaleTests
         public override void Process(RenderNodeContext context)
         {
             Brush.Resource fill = Brushes.Resource.White;
-            RenderResource<Brush.Resource> fillResource = context.Borrow(
-                fill,
-                fill.GetOriginal().Id,
-                fill.Version);
-            RenderResource<ExecutionProbe> probeResource = context.Borrow(
-                _probe,
-                typeof(ConcreteSourceNode));
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            RenderResource<Brush.Resource> fillResource = context.Borrow(fill);
+            RenderResource<ExecutionProbe> probeResource = context.Borrow(_probe);
+            context.Publish(context.OpaqueSource(s_definition.Call(
                 s_bounds,
-                static (session, bounds) =>
-                    session.UseDeclaredResource<ExecutionProbe>("probe", probe =>
-                    {
-                        probe.Record();
-                        session.UseDeclaredResource<Brush.Resource>("fill", currentFill =>
-                        {
-                            using OpaqueRenderOutput output = session.CreateOutput(bounds);
-                            output.Canvas.Use(canvas => canvas.DrawRectangle(bounds, currentFill, null));
-                            session.Publish(output);
-                        });
-                    }),
-                bounds: OpaqueRenderBoundsContract.Source(s_bounds),
-                hitTest: RenderHitTestContract.None,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.Custom(
-                    static _ => 4f),
-                resources: [fillResource.Bind("fill"), probeResource.Bind("probe")]);
-            context.Publish(context.OpaqueSource(description));
+                [s_fillSlot.Bind(fillResource), s_probeSlot.Bind(probeResource)])));
         }
     }
 
@@ -261,50 +268,46 @@ public class NodeCacheScaleTests
                 bounds: OpaqueRenderBoundsContract.Source(bounds),
                 hitTest: RenderHitTestContract.OutputBounds,
                 scale: RenderScaleContract.Vector,
-                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
-                structuralKey: typeof(RasterApronSourceNode),
-                runtimeIdentity: new RenderRuntimeIdentity((bounds, _probe)));
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive);
             context.Publish(context.OpaqueSource(description));
         }
     }
 
     private sealed class BoundedValueReplayNode(Rect bounds) : RenderNode
     {
+        private static readonly RenderResourceSlot<ExecutionProbe> s_probeSlot = new();
         private readonly ExecutionProbe _probe = new();
-
-        public int ExecuteCount => _probe.Count;
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderResource<ExecutionProbe> probeResource = context.Borrow(
-                _probe,
-                (typeof(BoundedValueReplayNode), bounds));
-            OpaqueRenderDescription sourceDescription = OpaqueRenderDescription.Create(
-                bounds,
+        private readonly OpaqueRenderDefinition<Rect> _sourceDefinition =
+            OpaqueRenderDefinition<Rect>.Create(
                 static (session, currentBounds) =>
-                    session.UseDeclaredResource<ExecutionProbe>("probe", probe =>
+                    session.UseResource(s_probeSlot, probe =>
                     {
                         probe.Record();
                         using OpaqueRenderOutput output = session.CreateOutput(currentBounds);
                         output.Canvas.Use(static canvas => canvas.Clear());
                         session.Publish(output);
                     }),
-                bounds: OpaqueRenderBoundsContract.Source(bounds),
-                hitTest: RenderHitTestContract.OutputBounds,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.Custom(
-                    static _ => 1),
-                resources: [probeResource.Bind("probe")]);
-            RenderFragmentHandle source = context.OpaqueSource(sourceDescription);
+                OpaqueRenderBoundsContract.Source(bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.Custom(static _ => 1),
+                resources: [s_probeSlot]);
+
+        public int ExecuteCount => _probe.Count;
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderResource<ExecutionProbe> probeResource = context.Borrow(_probe);
+            RenderFragmentHandle source = context.OpaqueSource(_sourceDefinition.Call(
+                bounds,
+                [s_probeSlot.Bind(probeResource)]));
             TargetScopeDescription replayDescription = TargetScopeDescription.CreateValueReplayMap(
                 static session => session.Canvas.Use(_ => session.ReplayInput()),
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
                 RenderScaleContract.PreserveInputSupply,
                 RenderDeviceGridSensitivity.Insensitive,
-                RenderDeviceGridMapping.Preserved,
-                structuralKey: typeof(BoundedValueReplayNode),
-                runtimeIdentity: new RenderRuntimeIdentity(bounds));
+                RenderDeviceGridMapping.Preserved);
             context.Publish(context.TargetScope(source, replayDescription));
         }
     }

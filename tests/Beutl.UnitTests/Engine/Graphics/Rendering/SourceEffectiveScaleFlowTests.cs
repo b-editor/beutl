@@ -408,8 +408,7 @@ public class SourceEffectiveScaleFlowTests
                     metadata.InputSupplies.ToArray(),
                     metadata.OutputScale,
                     metadata.MaxWorkingScale),
-                metadata.OutputScale),
-            typeof(ClampToOutputRenderNode));
+                metadata.OutputScale));
 
         protected override RenderScaleContract? GetWorkingScaleContract() => s_scale;
     }
@@ -500,8 +499,7 @@ public class SourceEffectiveScaleFlowTests
     {
         Rect inputBounds = new(100, 20, 100, 10);
         var policy = new FilterEffectWorkingScalePolicy(RenderScaleContract.Custom(
-            static _ => 2,
-            "legacy-buffer-budget-test"));
+            static _ => 2));
 
         using var localOriginContext = new FilterEffectContext(inputBounds);
         localOriginContext.AppendSkiaFilter(
@@ -601,8 +599,7 @@ public class SourceEffectiveScaleFlowTests
             retainedBackingContext.GetOrderedItems(),
             retainedBackingContext.Bounds);
         var unitScalePolicy = new FilterEffectWorkingScalePolicy(RenderScaleContract.Custom(
-            static _ => 1,
-            "retained-backing-budget-test"));
+            static _ => 1));
         EffectiveScale retainedBackingScale = unitScalePolicy.Resolve(
             [EffectiveScale.At(1)],
             [retainedBackingInputBounds],
@@ -897,7 +894,7 @@ public class SourceEffectiveScaleFlowTests
             childBounds,
             session => observedWorkingScales.Add(session.WorkingScale));
         RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
-        layer.Cache.ReportRenderCount(RenderNodeCache.Count);
+        WarmForCacheCapture(layer);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
         using var renderer = new RenderNodeRenderer(
             pipeline,
@@ -942,7 +939,7 @@ public class SourceEffectiveScaleFlowTests
             childBounds,
             _ => executeCount++);
         RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
-        layer.Cache.ReportRenderCount(RenderNodeCache.Count);
+        WarmForCacheCapture(layer);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
         using var renderer = new RenderNodeRenderer(
             pipeline,
@@ -990,7 +987,7 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Width,
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        WarmForCacheCapture(node);
         using var renderer = new RenderNodeRenderer(
             node,
             new RenderNodeRendererOptions
@@ -1036,7 +1033,7 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Height);
         var materializedInput = new MaterializedSourceRenderNode(source, bounds, sourceScale);
         var opacity = new OpacityRenderNode(2);
-        opacity.Cache.ReportRenderCount(RenderNodeCache.Count);
+        WarmForCacheCapture(opacity);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(materializedInput, opacity);
         using var renderer = new RenderNodeRenderer(
             pipeline,
@@ -1080,7 +1077,7 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Width,
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        WarmForCacheCapture(node);
         using var renderer = new RenderNodeRenderer(
             node,
             new RenderNodeRendererOptions
@@ -1122,7 +1119,7 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Width,
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        WarmForCacheCapture(node);
         using var renderer = new RenderNodeRenderer(
             node,
             new RenderNodeRendererOptions
@@ -1382,8 +1379,7 @@ public class SourceEffectiveScaleFlowTests
                     session.Canvas.Use(session.Input.Draw);
                 },
                 RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput,
-                structuralKey: "working-scale-device-footprint-probe"));
+                RenderHitTestContract.AnyInput));
         });
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds),
@@ -1464,11 +1460,11 @@ public class SourceEffectiveScaleFlowTests
         using var enabledNode = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds),
             new ConstantWorkingScaleRenderNode(
-                CreateContextProbeEffect(enabledObservations, "enabled-first")
+                CreateContextProbeEffect(enabledObservations)
                     .ToResource(CompositionContext.Default),
                 2),
             new FilterEffectRenderNode(
-                CreateContextProbeEffect(enabledObservations, "enabled-second")
+                CreateContextProbeEffect(enabledObservations)
                     .ToResource(CompositionContext.Default)));
         using var enabled = CreateCpuRenderer(enabledNode, bounds, FusionMode.Enabled);
 
@@ -1476,11 +1472,11 @@ public class SourceEffectiveScaleFlowTests
         using var disabledNode = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds),
             new ConstantWorkingScaleRenderNode(
-                CreateContextProbeEffect(disabledObservations, "disabled-first")
+                CreateContextProbeEffect(disabledObservations)
                     .ToResource(CompositionContext.Default),
                 2),
             new FilterEffectRenderNode(
-                CreateContextProbeEffect(disabledObservations, "disabled-second")
+                CreateContextProbeEffect(disabledObservations)
                     .ToResource(CompositionContext.Default)));
         using var disabled = CreateCpuRenderer(disabledNode, bounds, FusionMode.Disabled);
 
@@ -1525,18 +1521,18 @@ public class SourceEffectiveScaleFlowTests
         using var enabledNode = ScaleRecordingTestHelper.Pipeline(
             new MaterializedSourceRenderNode(source, bounds, sourceScale),
             new DirectShaderRenderNode(
-                CreateContextProbeShaderDescription(enabledObservations, "enabled-clamped-first")),
+                CreateContextProbeShaderDescription(enabledObservations)),
             new DirectShaderRenderNode(
-                CreateContextProbeShaderDescription(enabledObservations, "enabled-clamped-second")));
+                CreateContextProbeShaderDescription(enabledObservations)));
         using var enabled = CreateCpuRenderer(enabledNode, bounds, FusionMode.Enabled);
 
         var disabledObservations = new List<ShaderContextObservation>();
         using var disabledNode = ScaleRecordingTestHelper.Pipeline(
             new MaterializedSourceRenderNode(source, bounds, sourceScale),
             new DirectShaderRenderNode(
-                CreateContextProbeShaderDescription(disabledObservations, "disabled-clamped-first")),
+                CreateContextProbeShaderDescription(disabledObservations)),
             new DirectShaderRenderNode(
-                CreateContextProbeShaderDescription(disabledObservations, "disabled-clamped-second")));
+                CreateContextProbeShaderDescription(disabledObservations)));
         using var disabled = CreateCpuRenderer(disabledNode, bounds, FusionMode.Disabled);
 
         using RenderNodeRasterization enabledRaster = enabled.Rasterize();
@@ -1624,13 +1620,11 @@ public class SourceEffectiveScaleFlowTests
             "half4 apply(half4 color) { return color; }")));
 
     private static WorkingScaleProbeEffect CreateContextProbeEffect(
-        ICollection<ShaderContextObservation> observations,
-        string identity)
-        => new(context => context.Shader(CreateContextProbeShaderDescription(observations, identity)));
+        ICollection<ShaderContextObservation> observations)
+        => new(context => context.Shader(CreateContextProbeShaderDescription(observations)));
 
     private static ShaderDescription CreateContextProbeShaderDescription(
-        ICollection<ShaderContextObservation> observations,
-        string identity)
+        ICollection<ShaderContextObservation> observations)
         => ShaderDescription.CurrentPixel(
             "uniform float gain; half4 apply(half4 color) { return color * gain; }",
             bindings => bindings.Uniform(
@@ -1640,8 +1634,7 @@ public class SourceEffectiveScaleFlowTests
                 {
                     observations.Add(ShaderContextObservation.Capture(execution));
                     writer.Set(1f);
-                },
-                structuralKey: identity));
+                }));
 
     private static RenderNodeRenderer CreateCpuRenderer(
         RenderNode node,
@@ -1661,6 +1654,14 @@ public class SourceEffectiveScaleFlowTests
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
+
+    private static void WarmForCacheCapture(RenderNode node)
+    {
+        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
+        {
+            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+        }
+    }
 
     private static CompiledRenderRequest Compile(RenderNode node)
     {
@@ -1699,8 +1700,7 @@ public class SourceEffectiveScaleFlowTests
             : base(effect)
         {
             _scale = RenderScaleContract.Custom(
-                new ConstantWorkingScaleResolver(scale).Resolve,
-                new ConstantWorkingScaleIdentity(scale));
+                new ConstantWorkingScaleResolver(scale).Resolve);
         }
 
         protected override RenderScaleContract? GetWorkingScaleContract() => _scale;
@@ -1736,19 +1736,16 @@ public class SourceEffectiveScaleFlowTests
 
     private sealed class TargetCommandSourceRenderNode(Rect bounds, bool owningTargetDomain) : RenderNode
     {
-        public override void Process(RenderNodeContext context)
-        {
-            TargetRegion region = owningTargetDomain
-                ? TargetRegion.Full
-                : TargetRegion.Region(bounds);
-            context.Publish(context.TargetCommand([], TargetCommandDescription.Create(
-                new TargetCommandSourceIdentity(bounds, owningTargetDomain),
+        private readonly TargetCommandSourceIdentity _state = new(bounds, owningTargetDomain);
+        private readonly TargetCommandDefinition<TargetCommandSourceIdentity> _definition =
+            TargetCommandDefinition<TargetCommandSourceIdentity>.Create(
                 static (session, _) => session.Canvas.Use(static _ => { }),
-                region,
+                owningTargetDomain ? TargetRegion.Full : TargetRegion.Region(bounds),
                 bounds,
-                RenderHitTestContract.None,
-                structuralKey: new TargetCommandSourceIdentity(bounds, owningTargetDomain))));
-        }
+                RenderHitTestContract.None);
+
+        public override void Process(RenderNodeContext context)
+            => context.Publish(context.TargetCommand([], _definition.Call(_state)));
     }
 
     private sealed class LayerTargetCommandProbeNode(
@@ -1792,8 +1789,7 @@ public class SourceEffectiveScaleFlowTests
     {
         public override void Process(RenderNodeContext context)
         {
-            var identity = new MaterializedSourceIdentity(bounds, scale);
-            RenderResource<RenderTarget> target = context.Borrow(source, identity, version: 1);
+            RenderResource<RenderTarget> target = context.Borrow(source);
             context.Publish(context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
                 target,
                 bounds,
@@ -1806,6 +1802,7 @@ public class SourceEffectiveScaleFlowTests
 
     private sealed class MutableScaleFusionNode : RenderNode
     {
+        private static readonly RenderResourceSlot<Brush.Resource> s_fillSlot = new();
         private readonly Rect _bounds;
         private readonly PreserveWorkingScaleRenderNode _preserve;
         private readonly ConstantWorkingScaleRenderNode _fixed;
@@ -1831,28 +1828,24 @@ public class SourceEffectiveScaleFlowTests
         public override void Process(RenderNodeContext context)
         {
             Brush.Resource fill = Brushes.Resource.White;
-            RenderResource<Brush.Resource> fillToken = context.Borrow(
-                fill,
-                fill.GetOriginal().Id,
-                fill.Version);
+            RenderResource<Brush.Resource> fillToken = context.Borrow(fill);
             float density = _density;
-            OpaqueRenderDescription source = OpaqueRenderDescription.Create(
-                (_bounds, density),
-                static (session, state) => session.UseDeclaredResource<Brush.Resource>("fill", currentFill =>
+            var definition = OpaqueRenderDefinition<(Rect Bounds, float Density)>.Create(
+                static (session, state) => session.UseResource(s_fillSlot, currentFill =>
                 {
-                    using OpaqueRenderOutput output = session.CreateOutput(state._bounds);
-                    output.Canvas.Use(canvas => canvas.DrawRectangle(state._bounds, currentFill, null));
+                    using OpaqueRenderOutput output = session.CreateOutput(state.Bounds);
+                    output.Canvas.Use(canvas => canvas.DrawRectangle(state.Bounds, currentFill, null));
                     session.Publish(output);
                 }),
                 OpaqueRenderBoundsContract.Source(_bounds),
                 RenderHitTestContract.None,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(
-                    new ConstantWorkingScaleResolver(density).Resolve,
-                    "mutable-scale-contract"),
-                structuralKey: "mutable-scale-source",
-                resources: [fillToken.Bind("fill")]);
-            RenderFragmentHandle current = context.OpaqueSource(source);
+                    new ConstantWorkingScaleResolver(density).Resolve),
+                resources: [s_fillSlot]);
+            RenderFragmentHandle current = context.OpaqueSource(definition.Call(
+                (_bounds, density),
+                [s_fillSlot.Bind(fillToken)]));
             current = context.RecordNode(_preserve, [current]).Single();
             current = context.RecordNode(_fixed, [current]).Single();
             context.Publish(current);
@@ -1902,16 +1895,12 @@ public class SourceEffectiveScaleFlowTests
                 hitTest: RenderHitTestContract.AnyInput,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Custom(
-                    new ConstantScaleResolver(scale).Resolve,
-                    new ConstantScaleIdentity(scale)),
-                structuralKey: new ConstantScaleIdentity(scale));
+                    new ConstantScaleResolver(scale).Resolve));
 
         private sealed record ConstantScaleResolver(float Scale)
         {
             public float Resolve(RenderScaleContext _) => Scale;
         }
-
-        private readonly record struct ConstantScaleIdentity(float Scale);
 
         private sealed class VectorSourceNode(
             Rect bounds,
@@ -2003,13 +1992,7 @@ public class SourceEffectiveScaleFlowTests
         IReadOnlyList<EffectiveScale> InputSupplies,
         Rect OutputBounds);
 
-    private readonly record struct ConstantWorkingScaleIdentity(float Value);
-
     private readonly record struct TargetCommandSourceIdentity(Rect Bounds, bool OwningTargetDomain);
-
-    private readonly record struct MutableScaleSourceRuntimeIdentity(float Density);
-
-    private readonly record struct MaterializedSourceIdentity(Rect Bounds, EffectiveScale Scale);
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
@@ -2041,8 +2024,7 @@ public class SourceEffectiveScaleFlowTests
                         metadata.OutputScale,
                         metadata.MaxWorkingScale),
                     2 * metadata.OutputScale),
-                metadata.MaxWorkingScale),
-            typeof(OversampleMosaicRenderNode));
+                metadata.MaxWorkingScale));
 
         protected override RenderScaleContract? GetWorkingScaleContract() => s_scale;
     }
@@ -2152,8 +2134,7 @@ internal sealed class ClampToOutputEscapeHatchNode(FilterEffect.Resource effect)
                 metadata.InputSupplies.ToArray(),
                 metadata.OutputScale,
                 metadata.MaxWorkingScale),
-            metadata.OutputScale),
-        typeof(ClampToOutputEscapeHatchNode));
+            metadata.OutputScale));
 
     protected override RenderScaleContract? GetWorkingScaleContract() => s_scale;
 }
@@ -2308,41 +2289,37 @@ internal static class ScaleRecordingTestHelper
         EffectiveScale scale,
         Action<OpaqueRenderSession>? observe) : RenderNode
     {
+        private static readonly RenderResourceSlot<Brush.Resource> s_fillSlot = new();
+        private static readonly RenderResourceSlot<SessionProbe<OpaqueRenderSession>> s_probeSlot = new();
         private readonly SessionProbe<OpaqueRenderSession> _probe = new(observe);
 
         public override void Process(RenderNodeContext context)
         {
             Brush.Resource fill = Brushes.Resource.White;
-            RenderResource<Brush.Resource> fillToken = context.Borrow(
-                fill,
-                fill.GetOriginal().Id,
-                fill.Version);
-            RenderResource<SessionProbe<OpaqueRenderSession>> probeToken = context.Borrow(
-                _probe,
-                (typeof(FixedScaleSourceRenderNode), bounds, scale));
+            RenderResource<Brush.Resource> fillToken = context.Borrow(fill);
+            RenderResource<SessionProbe<OpaqueRenderSession>> probeToken = context.Borrow(_probe);
             RenderScaleContract scaleContract = scale.IsUnbounded
                 ? RenderScaleContract.Vector
                 : RenderScaleContract.Custom(
-                    new FixedScaleResolver(scale.Value).Resolve,
-                    new FixedScaleIdentity(scale.Value));
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                (bounds, scale),
-                static (session, state) =>
-                    session.UseDeclaredResource<SessionProbe<OpaqueRenderSession>>("probe", probe =>
-                        session.UseDeclaredResource<Brush.Resource>("fill", currentFill =>
+                    new FixedScaleResolver(scale.Value).Resolve);
+            var definition = OpaqueRenderDefinition<Rect>.Create(
+                static (session, currentBounds) =>
+                    session.UseResource(s_probeSlot, probe =>
+                        session.UseResource(s_fillSlot, currentFill =>
                         {
                             probe.Observe(session);
-                            using OpaqueRenderOutput output = session.CreateOutput(state.bounds);
-                            output.Canvas.Use(canvas => canvas.DrawRectangle(state.bounds, currentFill, null));
+                            using OpaqueRenderOutput output = session.CreateOutput(currentBounds);
+                            output.Canvas.Use(canvas => canvas.DrawRectangle(currentBounds, currentFill, null));
                             session.Publish(output);
                         })),
-                bounds: OpaqueRenderBoundsContract.Source(bounds),
-                hitTest: RenderHitTestContract.None,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: scaleContract,
-                structuralKey: new FixedScaleSourceIdentity(bounds, scale),
-                resources: [fillToken.Bind("fill"), probeToken.Bind("probe")]);
-            context.Publish(context.OpaqueSource(description));
+                OpaqueRenderBoundsContract.Source(bounds),
+                RenderHitTestContract.None,
+                RenderValueCardinality.Single,
+                scaleContract,
+                resources: [s_fillSlot, s_probeSlot]);
+            context.Publish(context.OpaqueSource(definition.Call(
+                bounds,
+                [s_fillSlot.Bind(fillToken), s_probeSlot.Bind(probeToken)])));
         }
     }
 
@@ -2379,7 +2356,4 @@ internal static class ScaleRecordingTestHelper
         public float Resolve(RenderScaleContext _) => Value;
     }
 
-    private readonly record struct FixedScaleIdentity(float Value);
-
-    private readonly record struct FixedScaleSourceIdentity(Rect Bounds, EffectiveScale Scale);
 }

@@ -7,10 +7,8 @@ namespace Beutl.NodeGraph.Nodes.Utilities;
 
 public partial class PreviewNode : GraphNode
 {
-    private static long s_nextPreviewRuntimeIdentity;
     private readonly object _previewLock = new();
     private readonly NodeMonitor<Ref<Bitmap>?> _preview;
-    private readonly long _previewRuntimeIdentity = Interlocked.Increment(ref s_nextPreviewRuntimeIdentity);
 
     public PreviewNode()
     {
@@ -30,7 +28,7 @@ public partial class PreviewNode : GraphNode
 
             if (FilterEffectInputBinding.TryGetCurrent(out FilterEffectInputBinding binding))
             {
-                binding.RegisterPreview(Input, node.SwapPreview, node._previewRuntimeIdentity);
+                binding.RegisterPreview(Input, node.SwapPreview);
             }
             else if (Input is RenderNode renderNode)
             {

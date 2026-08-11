@@ -40,6 +40,35 @@ public sealed class RecordingAndPlanningFailureTests
     }
 
     [Test]
+    public void PublishMappedInputs_MapperFailureAfterPublication_RollsBackOwnedResourcesAndInvalidatesHandles()
+    {
+        var resource = new FailureTestDisposable();
+        var failure = new InvalidOperationException("mapped-input-failure");
+        using var node = new MappedInputsFailureNode(resource, failure);
+        node.AddChild(new CacheableSourceNode());
+        node.AddChild(new CacheableSourceNode());
+        var factory = new FailureTestTargetFactory();
+        using var renderer = FailureTestSupport.CreateRenderer(node, factory, useRenderCache: false);
+
+        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() => renderer.Measure());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.SameAs(failure));
+            Assert.That(node.MapperCalls, Is.EqualTo(2));
+            Assert.That(resource.DisposeCalls, Is.EqualTo(1));
+            Assert.That(factory.CreateCalls, Is.Zero);
+            Assert.That(node.RetainedContext, Is.Not.Null);
+            Assert.That(node.RetainedHandle, Is.Not.Null);
+            Assert.That(() => _ = node.RetainedContext!.Inputs, Throws.TypeOf<InvalidOperationException>());
+            Assert.That(
+                () => node.RetainedHandle!.TryGetMetadata(out _),
+                Throws.TypeOf<InvalidOperationException>());
+            Assert.That(node.Cache.IsCached, Is.False);
+        });
+    }
+
+    [Test]
     public void RecordingFailure_ReportsCleanupFaultWithoutReplacingThePrimary()
     {
         var cleanupFailure = new InvalidOperationException("recording-cleanup");
@@ -71,8 +100,6 @@ public sealed class RecordingAndPlanningFailureTests
     [TestCase(ResourceConflict.DuplicateOwn)]
     [TestCase(ResourceConflict.OwnThenBorrow)]
     [TestCase(ResourceConflict.BorrowThenOwn)]
-    [TestCase(ResourceConflict.BorrowKey)]
-    [TestCase(ResourceConflict.BorrowVersion)]
     public void RecordingOwnershipConflict_FailsAtomicallyThroughTheProductionRecorder(ResourceConflict conflict)
     {
         var resource = new FailureTestDisposable();
@@ -86,7 +113,6 @@ public sealed class RecordingAndPlanningFailureTests
         {
             ResourceConflict.DuplicateOwn or ResourceConflict.OwnThenBorrow => "already transferred",
             ResourceConflict.BorrowThenOwn => "already borrowed",
-            ResourceConflict.BorrowKey or ResourceConflict.BorrowVersion => "Repeated explicit Borrow",
             _ => throw new ArgumentOutOfRangeException(nameof(conflict)),
         };
 
@@ -114,15 +140,13 @@ public sealed class RecordingAndPlanningFailureTests
         InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() =>
             context.ApplyTransactional(() =>
             {
-                _ = context.Own(resource, "apply-owned", 1);
+                _ = context.Own(resource);
                 context.Geometry(GeometryDescription.CreateRequestLocal(
                     static _ => { },
                     RenderBoundsContract.Create(
                         static bounds => bounds.Inflate(new Thickness(3)),
-                        static bounds => bounds.Inflate(new Thickness(3)),
-                        "apply-geometry-bounds"),
-                    RenderHitTestContract.AnyInput,
-                    structuralKey: "apply-geometry"));
+                        static bounds => bounds.Inflate(new Thickness(3))),
+                    RenderHitTestContract.AnyInput));
                 throw failure;
             }));
 
@@ -211,7 +235,7 @@ public sealed class RecordingAndPlanningFailureTests
     public void CacheLookupFailure_RemainsTheCompilerPrimaryAndCleansTheRecordedRequest()
     {
         using var node = new CacheableSourceNode();
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        FailureTestSupport.WarmForCacheCapture(node);
         using var request = FailureTestSupport.CreateFrameRequest(useRenderCache: true);
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         var compiler = new RenderRequestCompiler(
@@ -234,7 +258,7 @@ public sealed class RecordingAndPlanningFailureTests
     public void CacheHitWithInvalidSubstitutionPayload_FailsExecutionWithoutPublishingAnything()
     {
         using var node = new CacheableSourceNode();
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        FailureTestSupport.WarmForCacheCapture(node);
         using var request = FailureTestSupport.CreateFrameRequest(useRenderCache: true);
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         var compiler = new RenderRequestCompiler(
@@ -264,7 +288,7 @@ public sealed class RecordingAndPlanningFailureTests
     public void CachePublicationFailure_RejectsTheStagedCaptureAndReturnsEveryLease()
     {
         using var node = new CacheableSourceNode();
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        FailureTestSupport.WarmForCacheCapture(node);
         using var request = FailureTestSupport.CreateFrameRequest(useRenderCache: true);
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         using CompiledRenderRequest compiled = new RenderRequestCompiler(
@@ -302,8 +326,6 @@ public sealed class RecordingAndPlanningFailureTests
         DuplicateOwn,
         OwnThenBorrow,
         BorrowThenOwn,
-        BorrowKey,
-        BorrowVersion,
     }
 
     public enum BoundsFailure
@@ -331,10 +353,39 @@ public sealed class RecordingAndPlanningFailureTests
         public override void Process(RenderNodeContext context)
         {
             RetainedContext = context;
-            _ = context.Own(resource, "recording-owned", 1);
+            _ = context.Own(resource);
             RetainedHandle = context.OpaqueSource(FailureTestSupport.SourceDescription());
             context.Publish(RetainedHandle);
             throw failure;
+        }
+    }
+
+    private sealed class MappedInputsFailureNode(
+        FailureTestDisposable resource,
+        InvalidOperationException failure) : ContainerRenderNode
+    {
+        public int MapperCalls { get; private set; }
+
+        public RenderNodeContext? RetainedContext { get; private set; }
+
+        public RenderFragmentHandle? RetainedHandle { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            RetainedContext = context;
+            context.PublishMappedInputs(input =>
+            {
+                MapperCalls++;
+                if (MapperCalls == 1)
+                {
+                    _ = context.Own(resource);
+                    RenderFragmentHandle mapped = context.Opacity(input, 0.5f);
+                    RetainedHandle = mapped;
+                    return mapped;
+                }
+
+                throw failure;
+            });
         }
     }
 
@@ -347,24 +398,16 @@ public sealed class RecordingAndPlanningFailureTests
             switch (conflict)
             {
                 case ResourceConflict.DuplicateOwn:
-                    _ = context.Own(resource, "owned", 0);
-                    _ = context.Own(resource, "owned", 0);
+                    _ = context.Own(resource);
+                    _ = context.Own(resource);
                     break;
                 case ResourceConflict.OwnThenBorrow:
-                    _ = context.Own(resource, "owned", 0);
-                    _ = context.Borrow(resource, "borrowed", 0);
+                    _ = context.Own(resource);
+                    _ = context.Borrow(resource);
                     break;
                 case ResourceConflict.BorrowThenOwn:
-                    _ = context.Borrow(resource, "borrowed", 0);
-                    _ = context.Own(resource, "owned", 0);
-                    break;
-                case ResourceConflict.BorrowKey:
-                    _ = context.Borrow(resource, "first", 0);
-                    _ = context.Borrow(resource, "second", 0);
-                    break;
-                case ResourceConflict.BorrowVersion:
-                    _ = context.Borrow(resource, "borrowed", 0);
-                    _ = context.Borrow(resource, "borrowed", 1);
+                    _ = context.Borrow(resource);
+                    _ = context.Own(resource);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -379,16 +422,14 @@ public sealed class RecordingAndPlanningFailureTests
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle source = context.OpaqueSource(FailureTestSupport.SourceDescription(
-                _ => ExecuteCalls++,
-                structuralKey: "bounds-failure-source"));
+                _ => ExecuteCalls++));
             RenderBoundsContract bounds = failurePoint == BoundsFailure.Forward
-                ? RenderBoundsContract.Create(ThrowForward, static value => value, "throw-forward")
-                : RenderBoundsContract.Create(static value => value, ThrowBackward, "throw-backward");
+                ? RenderBoundsContract.Create(ThrowForward, static value => value)
+                : RenderBoundsContract.Create(static value => value, ThrowBackward);
             GeometryDescription geometry = GeometryDescription.CreateRequestLocal(
                 static _ => { },
                 bounds,
-                RenderHitTestContract.AnyInput,
-                structuralKey: "bounds-failure-geometry");
+                RenderHitTestContract.AnyInput);
             context.Publish(context.Geometry(source, geometry));
         }
     }
@@ -430,7 +471,7 @@ public sealed class RecordingAndPlanningFailureTests
         {
             RetainedContext = context;
             if (_resource is not null)
-                _ = context.Own(_resource, "recursion-owned", 1);
+                _ = context.Own(_resource);
 
             switch (_shape)
             {
@@ -475,8 +516,7 @@ public sealed class RecordingAndPlanningFailureTests
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
-                },
-                structuralKey: "cacheable-failure-source")));
+                })));
         }
     }
 
@@ -505,6 +545,13 @@ public sealed class RecordingAndPlanningFailureTests
 internal static class FailureTestSupport
 {
     private static readonly Rect s_bounds = new(0, 0, 8, 8);
+    private static readonly OpaqueRenderDefinition<Action<OpaqueRenderSession>> s_sourceDefinition =
+        OpaqueRenderDefinition<Action<OpaqueRenderSession>>.Create(
+            static (session, execute) => execute(session),
+            OpaqueRenderBoundsContract.Source(s_bounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale);
 
     public static RenderCacheResolutionContext CacheResolutionContext { get; } = new(
         RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
@@ -544,11 +591,8 @@ internal static class FailureTestSupport
             maxWorkingScale: 1,
             cachePolicy: useRenderCache ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled));
 
-    public static OpaqueRenderDescription SourceDescription(
-        Action<OpaqueRenderSession>? execute = null,
-        object? structuralKey = null,
-        RenderValueCardinality? cardinality = null,
-        RenderBackendBoundary backendBoundary = RenderBackendBoundary.None)
+    public static OpaqueRenderCall<Action<OpaqueRenderSession>> SourceDescription(
+        Action<OpaqueRenderSession>? execute = null)
     {
         execute ??= static session =>
         {
@@ -557,24 +601,15 @@ internal static class FailureTestSupport
             session.Publish(output);
         };
 
-        return backendBoundary == RenderBackendBoundary.None
-            ? OpaqueRenderDescription.CreateRequestLocal(
-                execute,
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.OutputBounds,
-                cardinality ?? RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: structuralKey ?? "failure-test-source")
-            : OpaqueRenderDescription.CreateBackendBoundary(
-                backendBoundary,
-                execute,
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.OutputBounds,
-                cardinality ?? RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                RenderDeviceGridSensitivity.Insensitive,
-                structuralKey ?? "failure-test-backend-source",
-                new RenderRuntimeIdentity(structuralKey ?? "failure-test-backend-runtime"));
+        return s_sourceDefinition.Call(execute);
+    }
+
+    public static void WarmForCacheCapture(RenderNode node)
+    {
+        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
+        {
+            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+        }
     }
 
     public static RenderTarget CreateCpuTarget(int width = 8, int height = 8)

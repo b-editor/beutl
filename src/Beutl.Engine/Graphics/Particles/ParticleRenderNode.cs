@@ -8,6 +8,19 @@ namespace Beutl.Graphics.Particles;
 internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : RenderNode
 {
     private static readonly Rect s_drawableRecordingDomain = new(0, 0, 1920, 1080);
+    private static readonly Rect s_fallbackBounds = new(-5, -5, 10, 10);
+    private static readonly RenderResourceSlot<Particle[]> s_particlesSlot = new();
+    private static readonly RenderResourceSlot<Brush.Resource> s_fallbackFillSlot = new();
+    private static readonly OpaqueRenderDefinition<ParticleFallbackState> s_fallbackDefinition =
+        OpaqueRenderDefinition<ParticleFallbackState>.Create(
+            static (session, _) => session.UseResource(
+                s_fallbackFillSlot,
+                fill => DrawFallbackParticle(session, fill)),
+            OpaqueRenderBoundsContract.Source(s_fallbackBounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.Vector,
+            resources: [s_fallbackFillSlot]);
 
     public (ParticleEmitter.Resource Resource, int Version)? Particle { get; private set; } = particle.Capture();
 
@@ -50,19 +63,19 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         if (totalBounds.Width <= 0 || totalBounds.Height <= 0)
             return;
 
-        RenderResource<Particle[]> particlesToken = context.Borrow(
-            particles,
-            new ParticleSnapshotIdentity(EngineResourceIdentity.Of(resource), snapshot.Version),
-            snapshot.Version);
-        TargetCommandDescription description = TargetCommandDescription.CreateRequestLocal(
-            execute: session => session.UseResource(
-                particlesToken,
-                current => DrawParticles(session, current)),
-            affectedRegion: TargetRegion.Region(totalBounds),
-            queryBounds: totalBounds,
-            hitTest: RenderHitTestContract.None,
-            resources: [particlesToken.Bind("particles")]);
-        RenderFragmentHandle painter = context.TargetCommand([source], description);
+        RenderResource<Particle[]> particlesToken = context.Borrow(particles);
+        TargetCommandDefinition<ParticleCommandState> definition =
+            TargetCommandDefinition<ParticleCommandState>.Create(
+                static (session, _) => session.UseResource(
+                    s_particlesSlot,
+                    current => DrawParticles(session, current)),
+                affectedRegion: TargetRegion.Region(totalBounds),
+                queryBounds: totalBounds,
+                hitTest: RenderHitTestContract.None,
+                resources: [s_particlesSlot]);
+        RenderFragmentHandle painter = context.TargetCommand(
+            [source],
+            definition.Call(default, [s_particlesSlot.Bind(particlesToken)]));
 
         // Repetition is an engine-controlled target command over a pre-recorded value. The finite
         // layer turns that ordered painter result back into the single value published by this node.
@@ -94,29 +107,18 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
     private static RenderFragmentHandle RecordFallbackSource(RenderNodeContext context)
     {
-        var bounds = new Rect(-5, -5, 10, 10);
         Brush.Resource fill = Brushes.Resource.White;
-        RenderResource<Brush.Resource> fillToken = context.Borrow(
-            fill,
-            EngineResourceIdentity.Of(fill),
-            fill.Version);
-        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-            bounds,
-            static (session, state) => DrawFallbackParticle(session, state),
-            bounds: OpaqueRenderBoundsContract.Source(bounds),
-            hitTest: RenderHitTestContract.OutputBounds,
-            valueCardinality: RenderValueCardinality.Single,
-            scale: RenderScaleContract.Vector,
-            resources: [fillToken.Bind("fill")]);
-        return context.OpaqueSource(description);
+        RenderResource<Brush.Resource> fillToken = context.Borrow(fill);
+        return context.OpaqueSource(
+            s_fallbackDefinition.Call(
+                default,
+                [s_fallbackFillSlot.Bind(fillToken)]));
     }
 
-    private static void DrawFallbackParticle(OpaqueRenderSession session, Rect bounds)
+    private static void DrawFallbackParticle(OpaqueRenderSession session, Brush.Resource fill)
     {
         using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
-        output.Canvas.Use(canvas => session.UseDeclaredResource<Brush.Resource>(
-            "fill",
-            fill => canvas.DrawEllipse(bounds, fill, null)));
+        output.Canvas.Use(canvas => canvas.DrawEllipse(s_fallbackBounds, fill, null));
         session.Publish(output);
     }
 
@@ -236,9 +238,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         Particle = null;
     }
 
-    private readonly record struct ParticleSnapshotIdentity(Guid ResourceId, int Version);
+    private readonly record struct ParticleCommandState;
 
-    private sealed class ParticleFallbackSource
-    {
-    }
+    private readonly record struct ParticleFallbackState;
 }

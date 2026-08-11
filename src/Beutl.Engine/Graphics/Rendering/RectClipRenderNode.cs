@@ -34,28 +34,25 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
         Rect clip = Clip;
         ClipOperation operation = Operation;
         var metadata = new RectClipMetadata(clip, operation);
-        TargetScopeDescription description = TargetScopeDescription.Create(
-            (clip, operation),
+        TargetScopeDefinition<RectClipMetadata> definition = TargetScopeDefinition<RectClipMetadata>.Create(
             static (session, state) => session.Canvas.Use(canvas =>
             {
-                using (canvas.PushClip(state.clip, state.operation))
+                using (canvas.PushClip(state.Clip, state.Operation))
                 {
                     session.ReplayInput();
                 }
             }),
             RenderBoundsContract.Create(
                 metadata.TransformBounds,
-                metadata.GetRequiredInputBounds,
-                structuralKey: (typeof(RectClipRenderNode), "clip-bounds")),
+                metadata.GetRequiredInputBounds),
             RenderHitTestContract.Custom(metadata.HitTest),
             RenderScaleContract.PreserveInputSupply,
             deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
             deviceGridMapping: RenderDeviceGridMapping.Preserved);
 
-        foreach (RenderFragmentHandle input in context.Inputs)
-        {
-            context.Publish(context.TargetScope(input, description));
-        }
+        context.PublishMappedInputs(
+            definition.Call(metadata),
+            static (context, input, value) => context.TargetScope(input, value));
     }
 
     private readonly record struct RectClipMetadata(Rect Clip, ClipOperation Operation)

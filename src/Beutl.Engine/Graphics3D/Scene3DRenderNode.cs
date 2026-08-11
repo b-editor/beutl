@@ -93,10 +93,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             gizmoTarget,
             scene.GizmoMode,
             textureBindings);
-        RenderResource<SceneExecutionSnapshot> sceneToken = context.Borrow(
-            execution,
-            new SceneSnapshotIdentity(EngineResourceIdentity.Of(scene), sceneSnapshot.Version),
-            sceneSnapshot.Version);
+        RenderResource<SceneExecutionSnapshot> sceneToken = context.Borrow(execution);
 
         RenderResource[] resources =
         [
@@ -113,9 +110,6 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             valueCardinality: RenderValueCardinality.ZeroOrOne,
             scale: RenderScaleContract.MaterializeAtWorkingScale,
             deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
-            structuralKey: typeof(Scene3DRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity(
-                new SceneRuntimeIdentity(EngineResourceIdentity.Of(scene), sceneSnapshot.Version, bounds)),
             resources: resources);
         context.Publish(context.OpaqueSource(description));
     }
@@ -326,7 +320,4 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             ExceptionDispatchInfo.Capture(exception).Throw();
     }
 
-    private readonly record struct SceneSnapshotIdentity(Guid SceneId, int Version);
-
-    private readonly record struct SceneRuntimeIdentity(Guid SceneId, int Version, Rect Bounds);
 }

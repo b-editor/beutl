@@ -61,26 +61,23 @@ public sealed class VideoSourceRenderNode(
         Brush.Resource? fill = fillSnapshot?.Resource;
         Pen.Resource? pen = penSnapshot?.Resource;
         float supplyDensity = source.SupplyDensity;
-        RenderResource<VideoSource.Resource> sourceResource = context.Borrow(sourceSnapshot);
+        RenderResource<VideoSource.Resource> sourceResource = context.Borrow(source);
         var hitTestState = new VideoHitTestState(
             bounds,
             fill is not null,
             pen?.StrokeAlignment ?? StrokeAlignment.Inside,
             pen?.Thickness ?? 0);
-        var runtimeIdentity = (bounds, frame, supplyDensity, hitTestState);
 
         context.Publish(context.PaintedSource(
-            state: (source, runtimeIdentity),
+            state: (source, frame),
             draw: static (canvas, fill, pen, state) =>
-                canvas.DrawVideoSource(state.source, state.runtimeIdentity.frame, fill, pen),
-            fill: fillSnapshot,
-            pen: penSnapshot,
+                canvas.DrawVideoSource(state.source, state.frame, fill, pen),
+            fill: fill,
+            pen: pen,
             outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
             scale: RenderScaleContract.Custom(new VideoScaleResolver(supplyDensity).Resolve),
-            structuralKey: typeof(VideoSourceRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity(runtimeIdentity),
-            resources: [sourceResource.Bind("source")]));
+            resources: [sourceResource]));
     }
 
     private readonly record struct VideoHitTestState(

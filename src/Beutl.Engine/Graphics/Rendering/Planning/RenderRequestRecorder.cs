@@ -139,7 +139,8 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
             {
                 node.Process(context);
                 bool canCache = transaction.IsRenderCacheEnabled
-                                && node.Cache.CanCache()
+                                && node.Cache.CanCapture
+                                && !node.HasChanges
                                 && !node.Cache.IsDisposed;
                 ImmutableArray<RenderFragmentReference> outputs = transaction.Commit();
                 if (canCache)

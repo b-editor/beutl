@@ -12,7 +12,7 @@ internal sealed class RecordedRenderGraph
         ImmutableArray<RenderFragmentId> publicationRoots,
         ImmutableArray<RootProvenance> provenance,
         ImmutableArray<RenderCacheCandidate> cacheCandidates,
-        ImmutableArray<RenderResourceSlot> resources,
+        ImmutableArray<RenderResourceRegistration> resources,
         ImmutableArray<RecordedNestedRenderRequest> nestedRequests)
     {
         RequestId = requestId;
@@ -37,7 +37,7 @@ internal sealed class RecordedRenderGraph
 
     public ImmutableArray<RenderCacheCandidate> CacheCandidates { get; }
 
-    public ImmutableArray<RenderResourceSlot> Resources { get; }
+    public ImmutableArray<RenderResourceRegistration> Resources { get; }
 
     public ImmutableArray<RecordedNestedRenderRequest> NestedRequests { get; }
 }
@@ -49,7 +49,7 @@ internal sealed class RecordedRenderGraphBuilder
     private readonly List<RenderFragmentId> _publicationRoots = [];
     private readonly List<RootProvenance> _provenance = [];
     private readonly List<RenderCacheCandidate> _cacheCandidates = [];
-    private readonly List<RenderResourceSlot> _resources = [];
+    private readonly List<RenderResourceRegistration> _resources = [];
     private readonly List<RecordedNestedRenderRequest> _nestedRequests = [];
     private bool _built;
 
@@ -140,7 +140,7 @@ internal sealed class RecordedRenderGraphBuilder
         return id;
     }
 
-    public void AddResource(RenderResourceSlot resource)
+    public void AddResource(RenderResourceRegistration resource)
     {
         EnsureMutable();
         ArgumentNullException.ThrowIfNull(resource);

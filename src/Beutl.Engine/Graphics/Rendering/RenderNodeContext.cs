@@ -148,7 +148,7 @@ public sealed class RenderNodeContext
     }
 
     /// <summary>Monotonically disables persistent render caching for the current node transaction.</summary>
-    public void DisableRenderCache()
+    internal void DisableRenderCache()
     {
         GetTransaction().DisableRenderCache();
     }
@@ -176,6 +176,53 @@ public sealed class RenderNodeContext
         foreach (RenderFragmentHandle fragment in fragments)
         {
             transaction.Publish(fragment);
+        }
+    }
+
+    /// <summary>Maps every current input to one output and publishes the mapped outputs in input order.</summary>
+    /// <param name="mapper">
+    /// A synchronous callback that returns one active, unpublished handle for each borrowed input without
+    /// publishing fragments itself.
+    /// </param>
+    /// <remarks>
+    /// This is explicit publication for a one-to-one input transform. An empty input list invokes no callbacks and
+    /// publishes no output. Use <see cref="Publish"/>, <see cref="PublishRange"/>, or <see cref="PassThrough"/>
+    /// directly for other topologies or publication orders.
+    /// </remarks>
+    public void PublishMappedInputs(Func<RenderFragmentHandle, RenderFragmentHandle> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        PublishMappedInputs(mapper, static (_, input, callback) => callback(input));
+    }
+
+    /// <summary>Maps every current input to one output and publishes the mapped outputs in input order.</summary>
+    /// <typeparam name="TState">The callback state supplied for every input.</typeparam>
+    /// <param name="state">The callback state supplied for every input.</param>
+    /// <param name="mapper">
+    /// A synchronous callback that returns one active, unpublished handle for each borrowed input without
+    /// publishing fragments itself.
+    /// </param>
+    /// <remarks>
+    /// Pass explicit state with a <see langword="static"/> callback when the recording path must avoid a
+    /// per-call capture. The context and every input handle remain transaction-scoped and must not be retained.
+    /// </remarks>
+    public void PublishMappedInputs<TState>(
+        TState state,
+        Func<RenderNodeContext, RenderFragmentHandle, TState, RenderFragmentHandle> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        NodeRecordingTransaction transaction = GetTransaction();
+        foreach (RenderFragmentHandle input in _inputs)
+        {
+            int publicationCount = transaction.PublicationCount;
+            RenderFragmentHandle mapped = mapper(this, input, state);
+            if (transaction.PublicationCount != publicationCount)
+            {
+                throw new InvalidOperationException(
+                    "A PublishMappedInputs mapper must return its output without publishing fragments.");
+            }
+
+            transaction.Publish(mapped);
         }
     }
 
@@ -311,10 +358,20 @@ public sealed class RenderNodeContext
     /// family.
     /// </param>
     /// <returns>A new transaction-scoped shader fragment. The result is not published automatically.</returns>
-    public RenderFragmentHandle Shader(
+    internal RenderFragmentHandle Shader(
         RenderFragmentHandle input,
         ShaderDescription description)
         => Shader(input, description, workingScalePolicy: null);
+
+    /// <summary>Records one shader definition call over a value-eligible input.</summary>
+    public RenderFragmentHandle Shader<TState>(
+        RenderFragmentHandle input,
+        ShaderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return Shader(input, call.Description, workingScalePolicy: null);
+    }
 
     internal RenderFragmentHandle Shader(
         RenderFragmentHandle input,
@@ -366,7 +423,6 @@ public sealed class RenderNodeContext
             [reference],
             new ShaderRenderFragmentPayload(
                 description,
-                description.CreateRuntimeIdentity(),
                 workingScalePolicy),
             reference.HitTest);
     }
@@ -381,10 +437,20 @@ public sealed class RenderNodeContext
     /// family.
     /// </param>
     /// <returns>A new transaction-scoped geometry fragment. The result is not published automatically.</returns>
-    public RenderFragmentHandle Geometry(
+    internal RenderFragmentHandle Geometry(
         RenderFragmentHandle input,
         GeometryDescription description)
         => Geometry(input, description, workingScalePolicy: null);
+
+    /// <summary>Records a deferred geometry call over one value-eligible fragment.</summary>
+    public RenderFragmentHandle Geometry<TState>(
+        RenderFragmentHandle input,
+        GeometryCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return Geometry(input, call.Description, workingScalePolicy: null);
+    }
 
     internal RenderFragmentHandle Geometry(
         RenderFragmentHandle input,
@@ -433,7 +499,6 @@ public sealed class RenderNodeContext
             [reference],
             new GeometryRenderFragmentPayload(
                 description,
-                description.RuntimeIdentity?.Key ?? new object(),
                 workingScalePolicy),
             hitTest);
     }
@@ -441,59 +506,52 @@ public sealed class RenderNodeContext
     internal RenderFragmentHandle PaintedSource<TState>(
         TState state,
         PaintedSourceDraw<TState> draw,
-        (Brush.Resource Resource, int Version)? fill,
-        (Pen.Resource Resource, int Version)? pen,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
         Rect outputBounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
-        object structuralKey,
-        RenderRuntimeIdentity? runtimeIdentity,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IEnumerable<RenderResource>? resources = null)
     {
         ArgumentNullException.ThrowIfNull(draw);
-        ArgumentNullException.ThrowIfNull(structuralKey);
-        RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         scale.ThrowIfUninitialized(nameof(scale));
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
         GetTransaction();
 
-        var declaredResources = new List<RenderResourceBinding>(
-            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
+        var declaredResources = new List<RenderResource>(
+            RenderDescriptionValidation.CopyResources(resources, nameof(resources)));
         RenderResource<Brush.Resource>? fillResource = null;
         RenderResource<Pen.Resource>? penResource = null;
-        if (fill is { } fillSnapshot)
+        if (fill is not null)
         {
-            fillResource = Borrow(fillSnapshot);
-            declaredResources.Add(fillResource.Bind("__fill"));
+            fillResource = Borrow(fill);
+            declaredResources.Add(fillResource);
         }
-        if (pen is { } penSnapshot)
+        if (pen is not null)
         {
-            penResource = Borrow(penSnapshot);
-            declaredResources.Add(penResource.Bind("__pen"));
+            penResource = Borrow(pen);
+            declaredResources.Add(penResource);
         }
 
         var source = new PlainPaintedSource<TState>(
             state,
             draw,
-            fill?.Resource,
-            pen?.Resource,
+            fill,
+            pen,
             declaredResources
-                .Select(static binding => binding.Resource)
                 .DistinctBy(static resource => resource.SlotIdentity)
                 .ToArray());
         OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
             execute: source.Execute,
-            directReplay: scale.DeclaresNoSupplyDensity && !ContainsDrawableBrush(fill?.Resource, pen?.Resource)
+            directReplay: scale.DeclaresNoSupplyDensity && !ContainsDrawableBrush(fill, pen)
                 ? source.ExecuteDirect
                 : null,
             bounds: OpaqueRenderBoundsContract.Source(outputBounds),
             hitTest: hitTest,
             scale: scale,
             deviceGridSensitivity: deviceGridSensitivity,
-            structuralKey: structuralKey,
-            runtimeIdentity: runtimeIdentity,
             resources: declaredResources);
         return OpaqueSource(description);
     }
@@ -520,7 +578,7 @@ public sealed class RenderNodeContext
     /// A non-null caller-owned source-topology description whose declared resources belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
-    public RenderFragmentHandle OpaqueSource(OpaqueRenderDescription description)
+    internal RenderFragmentHandle OpaqueSource(OpaqueRenderDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
         description.ThrowIfIncompatible(OpaqueRenderTopology.Source, nameof(description));
@@ -546,13 +604,21 @@ public sealed class RenderNodeContext
             hitTest);
     }
 
+    /// <summary>Records an opaque value-source call.</summary>
+    public RenderFragmentHandle OpaqueSource<TState>(OpaqueRenderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return OpaqueSource(call.Description);
+    }
+
     /// <summary>Records an opaque one-input value transformation.</summary>
     /// <param name="input">A non-null value-eligible fragment borrowed from the active transaction.</param>
     /// <param name="description">
     /// A non-null caller-owned map-topology description whose declared resources belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped opaque fragment. The result is not published automatically.</returns>
-    public RenderFragmentHandle OpaqueMap(
+    internal RenderFragmentHandle OpaqueMap(
         RenderFragmentHandle input,
         OpaqueRenderDescription description)
     {
@@ -590,6 +656,16 @@ public sealed class RenderNodeContext
             hitTest);
     }
 
+    /// <summary>Records an opaque one-input value-transformation call.</summary>
+    public RenderFragmentHandle OpaqueMap<TState>(
+        RenderFragmentHandle input,
+        OpaqueRenderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return OpaqueMap(input, call.Description);
+    }
+
     /// <summary>Records an opaque many-input combination.</summary>
     /// <param name="inputs">
     /// A non-null ordered list of non-null value-eligible fragments borrowed from the active transaction.
@@ -598,10 +674,20 @@ public sealed class RenderNodeContext
     /// A non-null caller-owned combine-topology description whose declared resources belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped opaque fragment. The result is not published automatically.</returns>
-    public RenderFragmentHandle OpaqueCombine(
+    internal RenderFragmentHandle OpaqueCombine(
         IReadOnlyList<RenderFragmentHandle> inputs,
         OpaqueRenderDescription description)
         => RecordOpaqueMany(inputs, description, OpaqueRenderTopology.Combine);
+
+    /// <summary>Records an opaque many-input combination call.</summary>
+    public RenderFragmentHandle OpaqueCombine<TState>(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        OpaqueRenderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return RecordOpaqueMany(inputs, call.Description, OpaqueRenderTopology.Combine);
+    }
 
     /// <summary>Records an opaque many-input fragment that may expand value cardinality.</summary>
     /// <param name="inputs">
@@ -611,10 +697,20 @@ public sealed class RenderNodeContext
     /// A non-null caller-owned expand-topology description whose declared resources belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped opaque fragment. The result is not published automatically.</returns>
-    public RenderFragmentHandle OpaqueExpand(
+    internal RenderFragmentHandle OpaqueExpand(
         IReadOnlyList<RenderFragmentHandle> inputs,
         OpaqueRenderDescription description)
         => RecordOpaqueMany(inputs, description, OpaqueRenderTopology.Expand);
+
+    /// <summary>Records an opaque many-input expansion call.</summary>
+    public RenderFragmentHandle OpaqueExpand<TState>(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        OpaqueRenderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return RecordOpaqueMany(inputs, call.Description, OpaqueRenderTopology.Expand);
+    }
 
     internal RenderFragmentHandle LegacyFilterEffect(
         IReadOnlyList<RenderFragmentHandle> inputs,
@@ -908,12 +1004,22 @@ public sealed class RenderNodeContext
     /// The non-null caller-owned guarded scope contract. Every declared resource must belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped target scope. The result is not published automatically.</returns>
-    public RenderFragmentHandle TargetScope(
+    internal RenderFragmentHandle TargetScope(
         RenderFragmentHandle input,
         TargetScopeDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
         return RecordTargetScope(input, description, raw: false);
+    }
+
+    /// <summary>Records a guarded target-scope call around one input.</summary>
+    public RenderFragmentHandle TargetScope<TState>(
+        RenderFragmentHandle input,
+        TargetScopeCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return RecordTargetScope(input, call.Description, raw: false);
     }
 
     /// <summary>Records an opaque external target scope around one input.</summary>
@@ -922,7 +1028,7 @@ public sealed class RenderNodeContext
     /// The non-null caller-owned raw scope contract. Every declared resource must belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped external-work boundary. The result is not published automatically.</returns>
-    public RenderFragmentHandle RawTargetScope(
+    internal RenderFragmentHandle RawTargetScope(
         RenderFragmentHandle input,
         RawTargetScopeDescription description)
     {
@@ -930,12 +1036,22 @@ public sealed class RenderNodeContext
         return RecordTargetScope(input, description, raw: true);
     }
 
+    /// <summary>Records an opaque external target-scope call around one input.</summary>
+    public RenderFragmentHandle RawTargetScope<TState>(
+        RenderFragmentHandle input,
+        RawTargetScopeCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return RecordTargetScope(input, call.Description, raw: true);
+    }
+
     /// <summary>Records an opaque external command against the active target.</summary>
     /// <param name="description">
     /// The non-null caller-owned raw command contract. Every declared resource must belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped external-work boundary. The result is not published automatically.</returns>
-    public RenderFragmentHandle RawTargetCommand(RawTargetCommandDescription description)
+    internal RenderFragmentHandle RawTargetCommand(RawTargetCommandDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
         ValidateDescriptionResources(description.Resources, nameof(description));
@@ -957,6 +1073,14 @@ public sealed class RenderNodeContext
             hitTest);
     }
 
+    /// <summary>Records an opaque external target-command call.</summary>
+    public RenderFragmentHandle RawTargetCommand<TState>(RawTargetCommandCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return RawTargetCommand(call.Description);
+    }
+
     /// <summary>Records a guarded command that consumes declared values and accesses the active target.</summary>
     /// <param name="inputs">
     /// A non-null ordered list of non-null value-eligible fragments borrowed from the active transaction and made
@@ -967,7 +1091,7 @@ public sealed class RenderNodeContext
     /// family.
     /// </param>
     /// <returns>A new transaction-scoped target command. The result is not published automatically.</returns>
-    public RenderFragmentHandle TargetCommand(
+    internal RenderFragmentHandle TargetCommand(
         IReadOnlyList<RenderFragmentHandle> inputs,
         TargetCommandDescription description)
     {
@@ -998,6 +1122,16 @@ public sealed class RenderNodeContext
             references,
             new TargetCommandRenderFragmentPayload(description, inputReadbacks),
             hitTest);
+    }
+
+    /// <summary>Records a guarded target-command call.</summary>
+    public RenderFragmentHandle TargetCommand<TState>(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        TargetCommandCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return TargetCommand(inputs, call.Description);
     }
 
     /// <summary>Records a root and its descendants into the current request without executing them.</summary>
@@ -1048,7 +1182,7 @@ public sealed class RenderNodeContext
         NodeRecordingTransaction transaction = GetTransaction();
         try
         {
-            bindingResource = transaction.Own(binding, cacheKey: null, version: 0);
+            bindingResource = transaction.Own(binding);
             RenderRequestOptions nestedOptions = workingScale is { } scale
                 ? transaction.Request.Options.CreateNestedAtScale(
                     binding,
@@ -1090,69 +1224,26 @@ public sealed class RenderNodeContext
     /// <summary>Transfers a disposable resource to the current request family.</summary>
     /// <typeparam name="T">The disposable resource type.</typeparam>
     /// <param name="resource">The non-null resource whose ownership is transferred.</param>
-    /// <param name="cacheKey">
-    /// An optional equality-stable cache identity. <see langword="null"/> creates a distinct request-local identity.
-    /// </param>
-    /// <param name="version">The pixel-affecting resource version.</param>
     /// <returns>A non-null declared resource handle owned by the request family.</returns>
     /// <remarks>
     /// Ownership transfers when this method succeeds. The family disposes the resource exactly once on rollback,
-    /// failure, or normal completion unless an accepted cache transfer explicitly assumes ownership.
+    /// failure, or normal completion.
     /// </remarks>
-    public RenderResource<T> Own<T>(T resource, object? cacheKey = null, long version = 0)
+    public RenderResource<T> Own<T>(T resource)
         where T : class, IDisposable
-        => GetTransaction().Own(resource, cacheKey, version);
+        => GetTransaction().Own(resource);
 
     /// <summary>Registers a caller-owned resource that the current request may borrow.</summary>
     /// <typeparam name="T">The resource type.</typeparam>
     /// <param name="resource">The non-null caller-owned resource.</param>
-    /// <param name="cacheKey">
-    /// An optional equality-stable coalescing identity. <see langword="null"/> creates a distinct request-local
-    /// registration and never coalesces.
-    /// </param>
-    /// <param name="version">The pixel-affecting resource version.</param>
     /// <returns>A non-null declared resource handle that never transfers disposal ownership.</returns>
     /// <remarks>
-    /// The request borrows the resource only for its active family and never disposes it. Leaving
-    /// <paramref name="cacheKey"/> at its default is the safe choice for a volatile provider, not a neutral
-    /// one: it disables cross-request output-cache reuse for everything that declares this registration. For an
-    /// <see cref="EngineObject.Resource"/> the snapshot overload,
-    /// <see cref="Borrow{T}(ValueTuple{T, int})"/>, derives a coalescing key instead and does reuse.
+    /// The request borrows the resource only for its active family and never disposes it. Resource registrations
+    /// do not provide persistent render-cache identity; cache eligibility follows the node's change reporting.
     /// </remarks>
-    public RenderResource<T> Borrow<T>(T resource, object? cacheKey = null, long version = 0)
+    public RenderResource<T> Borrow<T>(T resource)
         where T : class
-        => GetTransaction().Borrow(resource, cacheKey, version);
-
-    /// <summary>
-    /// Registers a caller-owned engine resource that the current request may borrow, taking its coalescing
-    /// identity and version from the snapshot <c>Capture()</c> produced.
-    /// </summary>
-    /// <typeparam name="T">The engine resource type.</typeparam>
-    /// <param name="captured">
-    /// A non-default snapshot of the resource and the version it was snapshotted at, as
-    /// <see cref="RenderNode"/> holds it and <c>Compare</c> tests it.
-    /// </param>
-    /// <returns>A non-null declared resource handle that never transfers disposal ownership.</returns>
-    /// <remarks>
-    /// <para>
-    /// Unlike <see cref="Borrow{T}(T, object?, long)"/> with its default key, this overload always derives a
-    /// coalescing identity, so registrations of the same resource do reuse each other's cached output.
-    /// </para>
-    /// <para>
-    /// The version is the snapshot's, never the resource's current one, so the recorded cache identity cannot
-    /// encode a version the node's <c>Update</c> never compared. The identity is
-    /// <see cref="EngineResourceIdentity.Of"/>: the backing <see cref="EngineObject.Id"/>, or — for a resource
-    /// that never went through <see cref="EngineObject.ToResource"/> — a synthesized identity that is stable
-    /// per <see cref="EngineObject.Resource"/> instance and held weakly. A caller that reallocates such a
-    /// resource every frame therefore gets a new identity every frame and never reaches a cached output.
-    /// </para>
-    /// </remarks>
-    public RenderResource<T> Borrow<T>((T Resource, int Version) captured)
-        where T : EngineObject.Resource
-    {
-        ArgumentNullException.ThrowIfNull(captured.Resource);
-        return Borrow(captured.Resource, EngineResourceIdentity.Of(captured.Resource), captured.Version);
-    }
+        => GetTransaction().Borrow(resource);
 
     internal void RollbackResources(IReadOnlyList<RenderResource> resources)
         => GetTransaction().RollbackResources(resources);
@@ -1404,12 +1495,10 @@ internal sealed record OpacityMaskRenderFragmentPayload(
 
 internal sealed record ShaderRenderFragmentPayload(
     ShaderDescription Description,
-    object RuntimeIdentity,
     FilterEffectWorkingScalePolicy? WorkingScalePolicy = null);
 
 internal sealed record GeometryRenderFragmentPayload(
     GeometryDescription Description,
-    object RuntimeIdentity,
     FilterEffectWorkingScalePolicy? WorkingScalePolicy = null);
 
 internal sealed record LayerRenderFragmentPayload(Rect? Domain);

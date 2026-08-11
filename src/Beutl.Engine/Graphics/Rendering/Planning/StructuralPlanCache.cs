@@ -406,19 +406,19 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 AddTargetScopeComponents(scope.Description, components);
                 return;
             case RawTargetScopeRenderFragmentPayload scope:
-                components.Add(scope.Description.StructuralKey);
+                components.Add(scope.Description.DefinitionFingerprint);
                 components.Add(scope.Description.Bounds.StructuralIdentity);
                 components.Add(scope.Description.HitTest.StructuralIdentity);
                 components.Add(scope.Description.Scale.StructuralIdentity);
                 AddResourceTypes(scope.Description.Resources, components);
                 return;
             case RawTargetCommandRenderFragmentPayload command:
-                components.Add(command.Description.StructuralKey);
+                components.Add(command.Description.DefinitionFingerprint);
                 components.Add(command.Description.HitTest.StructuralIdentity);
                 AddResourceTypes(command.Description.Resources, components);
                 return;
             case TargetCommandRenderFragmentPayload command:
-                components.Add(command.Description.StructuralKey);
+                components.Add(command.Description.DefinitionFingerprint);
                 components.Add(command.Description.Access);
                 components.Add(command.InputReadbacks.Count);
                 foreach (RenderInputReadback inputReadback in command.InputReadbacks)
@@ -458,7 +458,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
         TargetScopeDescription description,
         ICollection<object> components)
     {
-        components.Add(description.StructuralKey);
+        components.Add(description.DefinitionFingerprint);
         components.Add(description.Bounds.StructuralIdentity);
         components.Add(description.HitTest.StructuralIdentity);
         components.Add(description.Scale.StructuralIdentity);
@@ -482,8 +482,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
         components.Add(resources.Count);
         foreach (RenderResourceBinding binding in resources)
         {
-            components.Add(binding.Name);
-            components.Add(binding.Resource.GetType());
+            components.Add(binding.Slot.ValueType);
         }
     }
 }

@@ -10,15 +10,15 @@ namespace Beutl.PublicApiContractTests;
 public sealed class RenderNodeRendererContractTests
 {
     [Test]
-    public void RenderNodeCache_PublicSurfaceDoesNotExposeRendererOwnedPayloads()
+    public void RenderNodeCache_IsNotExposedToExternalAuthors()
     {
-        Type cacheType = typeof(RenderNodeCache);
-
         Assert.Multiple(() =>
         {
-            Assert.That(cacheType.GetProperty("Density"), Is.Null);
-            Assert.That(cacheType.GetMethods().Where(static method => method.Name == "UseCache"), Is.Empty);
-            Assert.That(cacheType.GetMethods().Where(static method => method.Name == "StoreCache"), Is.Empty);
+            Assert.That(typeof(RenderNode).GetProperty("Cache"), Is.Null);
+            Assert.That(
+                typeof(RenderNode).Assembly.GetExportedTypes()
+                    .Any(static type => type.FullName == "Beutl.Graphics.Rendering.Cache.RenderNodeCache"),
+                Is.False);
         });
     }
 
@@ -420,12 +420,11 @@ public sealed class RenderNodeRendererContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.CreateRequestLocal(
+                RenderDefinitionCallFactory.TargetCommand(
                     _ => executions++,
                     TargetRegion.Full,
                     Rect.Empty,
-                    RenderHitTestContract.None,
-                    structuralKey: "singular-transform-full-command"));
+                    RenderHitTestContract.None));
             context.Publish(command);
         });
         using var renderer = new RenderNodeRenderer(
@@ -467,12 +466,11 @@ public sealed class RenderNodeRendererContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.CreateRequestLocal(
+                RenderDefinitionCallFactory.TargetCommand(
                     _ => executions++,
                     TargetRegion.Empty,
                     Rect.Empty,
-                    RenderHitTestContract.None,
-                    structuralKey: "singular-transform-empty-command"));
+                    RenderHitTestContract.None));
             context.Publish(command);
         });
         using var renderer = new RenderNodeRenderer(
@@ -537,12 +535,11 @@ public sealed class RenderNodeRendererContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.CreateRequestLocal(
+                RenderDefinitionCallFactory.TargetCommand(
                     static _ => throw new AssertionException("Measure must not execute commands."),
                     TargetRegion.Full,
                     query,
-                    RenderHitTestContract.OutputBounds,
-                    structuralKey: "measurement-command"));
+                    RenderHitTestContract.OutputBounds));
             context.Publish(command);
         });
         RenderNodeMeasurement command = Measure(commandNode, targetDomain: domain);
@@ -859,12 +856,11 @@ public sealed class RenderNodeRendererContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.CreateRequestLocal(
+                RenderDefinitionCallFactory.TargetCommand(
                     session => observed = session.AffectedBounds,
                     TargetRegion.Full,
                     Rect.Empty,
-                    RenderHitTestContract.None,
-                    structuralKey: ("render-target-domain", transform)));
+                    RenderHitTestContract.None));
             context.Publish(command);
         });
         using var renderer = new RenderNodeRenderer(
@@ -893,12 +889,12 @@ public sealed class RenderNodeRendererContractTests
         });
     }
 
-    private static OpaqueRenderDescription ExecutingSource(
+    private static OpaqueRenderCall<Action<OpaqueRenderSession>> ExecutingSource(
         Rect bounds,
         Action<OpaqueRenderSession>? observe,
-        object structuralKey)
+        object _)
     {
-        return OpaqueRenderDescription.CreateRequestLocal(
+        return RenderDefinitionCallFactory.Opaque(
             session =>
             {
                 observe?.Invoke(session);
@@ -908,8 +904,7 @@ public sealed class RenderNodeRendererContractTests
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: structuralKey);
+            RenderScaleContract.MaterializeAtWorkingScale);
     }
 
     private static RenderNodeMeasurement Measure(RenderNode node, Rect? targetDomain = null)

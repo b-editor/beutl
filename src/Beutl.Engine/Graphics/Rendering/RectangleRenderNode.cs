@@ -52,13 +52,11 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
             state,
             draw: static (canvas, fill, pen, state) =>
                 canvas.DrawRectangle(state.rect, fill, pen),
-            fill: fillSnapshot,
-            pen: penSnapshot,
+            fill: fill,
+            pen: pen,
             outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom((_, point) => hitTestState.HitTest(point)),
-            scale: RenderScaleContract.Vector,
-            structuralKey: typeof(RectangleRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity(state)));
+            scale: RenderScaleContract.Vector));
     }
 
     private readonly record struct RectangleHitTestState(

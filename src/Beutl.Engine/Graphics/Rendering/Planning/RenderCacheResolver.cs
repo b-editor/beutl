@@ -1531,9 +1531,7 @@ internal sealed class RenderCacheResolver
     }
 }
 
-internal readonly record struct RenderFragmentOutputIdentityMemoKey(
-    RenderFragmentReference Reference,
-    bool ShaderContextSensitive);
+internal readonly record struct RenderFragmentOutputIdentityMemoKey(RenderFragmentReference Reference);
 
 internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOutputIdentity>
 {
@@ -1583,8 +1581,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             memo,
             outputScale,
             maxWorkingScale,
-            regions,
-            shaderContextSensitive: false);
+            regions);
     }
 
     internal static RenderFragmentOutputIdentity Create(
@@ -1605,8 +1602,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             memo,
             outputScale,
             maxWorkingScale,
-            regions,
-            shaderContextSensitive: false);
+            regions);
     }
 
     public bool Equals(RenderFragmentOutputIdentity? other)
@@ -1658,15 +1654,9 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         IDictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity> memo,
         float outputScale,
         float maxWorkingScale,
-        RegionAnalysis? regions,
-        bool shaderContextSensitive)
+        RegionAnalysis? regions)
     {
-        bool currentShaderContextSensitive = shaderContextSensitive
-                                             || reference.Payload is ShaderRenderFragmentPayload shader
-                                             && shader.Description.UsesReusableCallback;
-        var memoKey = new RenderFragmentOutputIdentityMemoKey(
-            reference,
-            currentShaderContextSensitive);
+        var memoKey = new RenderFragmentOutputIdentityMemoKey(reference);
         if (memo.TryGetValue(memoKey, out RenderFragmentOutputIdentity? cached))
             return cached;
 
@@ -1678,24 +1668,13 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
                 memo,
                 outputScale,
                 maxWorkingScale,
-                regions,
-                currentShaderContextSensitive))
+                regions))
             .ToArray();
         var components = new List<object>();
-        AddRuntimeComponents(
+        AddRequestScopedComponents(
             reference,
             requestId,
-            outputScale,
-            maxWorkingScale,
-            regions,
             components);
-        if (regions is not null && currentShaderContextSensitive)
-        {
-            ResolvedFragmentMetadata metadata = regions.GetMetadata(reference);
-            components.Add(new ShaderExecutionRegionIdentity(
-                metadata.Bounds,
-                ResolveRequirement(regions, reference, metadata.Bounds)));
-        }
         EffectiveScale? demand = materializationDemands?.TryGetValue(
             reference,
             out EffectiveScale selectedDemand) == true
@@ -1710,98 +1689,23 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         return identity;
     }
 
-    private static void AddRuntimeComponents(
+    private static void AddRequestScopedComponents(
         RenderFragmentReference reference,
         RenderRequestId requestId,
-        float outputScale,
-        float maxWorkingScale,
-        RegionAnalysis? regions,
         ICollection<object> components)
     {
         switch (reference.Payload)
         {
-            case null:
-                return;
-            case OpacityRenderFragmentPayload opacity:
-                components.Add(BitConverter.SingleToInt32Bits(opacity.Opacity));
-                return;
-            case BlendRenderFragmentPayload blend:
-                components.Add(blend.BlendMode);
-                return;
-            case OpacityMaskRenderFragmentPayload mask:
-                components.Add(mask.BrushBounds);
-                components.Add(mask.Invert);
-                AddResources([mask.Mask], components);
-                return;
-            case ShaderRenderFragmentPayload shader:
-                components.Add(shader.Description.StructuralIdentity);
-                components.Add(shader.RuntimeIdentity);
-                if (shader.Description.UsesReusableCallback)
-                {
-                    components.Add(new ShaderExecutionRequestIdentity(
-                        BitConverter.SingleToInt32Bits(outputScale),
-                        BitConverter.SingleToInt32Bits(maxWorkingScale)));
-                    if (regions is null)
-                    {
-                        components.Add(RequestLocalIdentity(reference, requestId, "shader-execution-context"));
-                    }
-                }
-                return;
-            case GeometryRenderFragmentPayload geometry:
-                components.Add(geometry.Description.StructuralIdentity);
-                components.Add(geometry.RuntimeIdentity);
-                AddResources(geometry.Description.Resources, components);
-                return;
-            case LayerRenderFragmentPayload layer:
-                components.Add(layer.Domain.HasValue);
-                if (layer.Domain is { } layerDomain)
-                    components.Add(layerDomain);
-                return;
-            case TargetLayerScopeRenderFragmentPayload layer:
-                components.Add(layer.Region);
-                return;
-            case OpaqueRenderFragmentPayload opaque:
-                components.Add(opaque.Topology);
-                components.Add(opaque.Description.RuntimeIdentity?.Key
-                               ?? RequestLocalIdentity(reference, requestId, "opaque"));
-                AddResources(opaque.Description.Resources, components);
-                return;
-            case LegacyFilterEffectRenderFragmentPayload legacy:
-                components.Add(legacy.Context.CacheIdentity);
-                return;
-            case MaterializedInputRenderFragmentPayload input:
-                components.Add(input.Description.Target.CacheIdentity);
-                components.Add(input.Description.DeviceBounds);
-                components.Add(input.Description.DeviceGridOffset);
-                return;
-            case TargetCaptureRenderFragmentPayload capture:
-                components.Add(capture.Description.SourceRegion);
-                components.Add(capture.Description.Bounds);
-                return;
             case BuiltInBackdropCaptureRenderFragmentPayload capture:
                 components.Add(capture.Description.SourceRegion);
                 components.Add(capture.Description.Bounds);
                 components.Add(RequestLocalIdentity(reference, requestId, "backdrop"));
                 return;
-            case TargetScopeRenderFragmentPayload scope:
-                components.Add(scope.Description.RuntimeIdentity?.Key
-                               ?? RequestLocalIdentity(reference, requestId, "target-scope"));
-                AddResources(scope.Description.Resources, components);
-                return;
             case RawTargetScopeRenderFragmentPayload:
             case RawTargetCommandRenderFragmentPayload:
                 components.Add(RequestLocalIdentity(reference, requestId, "raw-target"));
                 return;
-            case TargetCommandRenderFragmentPayload command:
-                components.Add(command.Description.AffectedRegion);
-                components.Add(command.Description.Access);
-                components.Add(command.Description.RuntimeIdentity?.Key
-                               ?? RequestLocalIdentity(reference, requestId, "target-command"));
-                AddResources(command.Description.Resources, components);
-                return;
             default:
-                components.Add(reference.Payload.GetType());
-                components.Add(reference.Payload);
                 return;
         }
     }
@@ -1815,45 +1719,9 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             reference.Id?.Value ?? 0,
             role);
 
-    private static Rect ResolveRequirement(
-        RegionAnalysis regions,
-        RenderFragmentReference reference,
-        Rect completeBounds)
-        => regions.GetFragmentRequirement(reference)
-            .Resolve(completeBounds)
-            .Intersect(completeBounds);
-
-    private static void AddResources(
-        IReadOnlyList<RenderResource> resources,
-        ICollection<object> components)
-    {
-        components.Add(resources.Count);
-        foreach (RenderResource resource in resources)
-            components.Add(resource.CacheIdentity);
-    }
-
-    private static void AddResources(
-        IReadOnlyList<RenderResourceBinding> resources,
-        ICollection<object> components)
-    {
-        components.Add(resources.Count);
-        foreach (RenderResourceBinding binding in resources)
-        {
-            components.Add(binding.Name);
-            components.Add(binding.Resource.CacheIdentity);
-        }
-    }
-
     private sealed record RequestLocalRenderCacheIdentity(
         long RequestId,
         long FragmentId,
         string Role);
 
-    private sealed record ShaderExecutionRequestIdentity(
-        int OutputScaleBits,
-        int MaxWorkingScaleBits);
-
-    private sealed record ShaderExecutionRegionIdentity(
-        Rect CompleteBounds,
-        Rect RequiredRegion);
 }

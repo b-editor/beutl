@@ -125,7 +125,11 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
 internal sealed class FilterEffectInputBinding : IDisposable
 {
     private static readonly AsyncLocal<FilterEffectInputBinding?> s_current = new();
-    private static readonly object s_previewCommandStructuralKey = new();
+    private static readonly RenderResourceSlot<Func<Ref<Bitmap>?, Ref<Bitmap>?>> s_previewSinkSlot = new();
+    private static readonly TargetCommandDefinition<PreviewCommandState> s_emptyPreviewCommand =
+        CreatePreviewCommand([]);
+    private static readonly TargetCommandDefinition<PreviewCommandState> s_singlePreviewCommand =
+        CreatePreviewCommand([RenderInputReadback.Values([0])]);
     private readonly RenderNodeContext _context;
     private readonly FilterEffectInputRenderNode _inputFacade;
     private readonly IReadOnlyList<RenderFragmentHandle> _graphInputs;
@@ -158,23 +162,27 @@ internal sealed class FilterEffectInputBinding : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(node);
-        if (_recordedSubtrees.TryGetValue(node, out IReadOnlyList<RenderFragmentHandle>? cached))
+        RenderNode? canonicalNode = GetCanonicalNode(node);
+        if (canonicalNode == null)
+            return [];
+
+        if (_recordedSubtrees.TryGetValue(canonicalNode, out IReadOnlyList<RenderFragmentHandle>? cached))
             return cached;
 
-        if (!_activeNodes.Add(node))
+        if (!_activeNodes.Add(canonicalNode))
         {
             throw new InvalidOperationException(
-                $"A node-graph render cycle was detected at '{node.GetType().FullName}'.");
+                $"A node-graph render cycle was detected at '{canonicalNode.GetType().FullName}'.");
         }
 
         try
         {
             IReadOnlyList<RenderFragmentHandle> result;
-            if (ReferenceEquals(node, _inputFacade))
+            if (ReferenceEquals(canonicalNode, _inputFacade))
             {
-                result = _context.RecordNode(node, _graphInputs);
+                result = _context.RecordNode(canonicalNode, _graphInputs);
             }
-            else if (node is ContainerRenderNode container)
+            else if (canonicalNode is ContainerRenderNode container)
             {
                 var inputs = new List<RenderFragmentHandle>();
                 foreach (RenderNode child in container.Children)
@@ -184,19 +192,19 @@ internal sealed class FilterEffectInputBinding : IDisposable
                     inputs.AddRange(childOutputs);
                 }
 
-                result = _context.RecordNode(node, inputs);
+                result = _context.RecordNode(canonicalNode, inputs);
             }
             else
             {
-                result = _context.RecordNode(node, []);
+                result = _context.RecordNode(canonicalNode, []);
             }
 
-            _recordedSubtrees.Add(node, result);
+            _recordedSubtrees.Add(canonicalNode, result);
             return result;
         }
         finally
         {
-            _activeNodes.Remove(node);
+            _activeNodes.Remove(canonicalNode);
         }
     }
 
@@ -224,21 +232,20 @@ internal sealed class FilterEffectInputBinding : IDisposable
 
     internal void RegisterPreview(
         RenderNode? node,
-        Func<Ref<Bitmap>?, Ref<Bitmap>?> replace,
-        long runtimeIdentity)
+        Func<Ref<Bitmap>?, Ref<Bitmap>?> replace)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(replace);
         if (node is null)
         {
-            _previews.Add(new DeferredPreview([], replace, runtimeIdentity));
+            _previews.Add(new DeferredPreview([], replace));
             return;
         }
 
         IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(node);
         if (outputs.Count == 0 || HasEmptyRecordedBounds(outputs))
         {
-            _previews.Add(new DeferredPreview([], replace, runtimeIdentity));
+            _previews.Add(new DeferredPreview([], replace));
             return;
         }
 
@@ -246,7 +253,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
             && single.CanBeUsedAsValueInput
             && single.ValueCardinality.Maximum != 0)
         {
-            _previews.Add(new DeferredPreview([single], replace, runtimeIdentity));
+            _previews.Add(new DeferredPreview([single], replace));
             return;
         }
 
@@ -257,9 +264,9 @@ internal sealed class FilterEffectInputBinding : IDisposable
         if (outputs.Any(static output => !output.CanBeUsedAsValueInput))
         {
             MarkSubtreeConsumed(node, outputs);
-            _recordedSubtrees[node] = [layer];
+            _recordedSubtrees[GetCanonicalNode(node)!] = [layer];
         }
-        _previews.Add(new DeferredPreview([layer], replace, runtimeIdentity));
+        _previews.Add(new DeferredPreview([layer], replace));
     }
 
     internal void PublishDeferredPreviews()
@@ -269,28 +276,17 @@ internal sealed class FilterEffectInputBinding : IDisposable
         {
             Func<Ref<Bitmap>?, Ref<Bitmap>?> replace = preview.Replace;
             IReadOnlyList<RenderFragmentHandle> inputs = preview.Inputs;
-            RenderInputReadback[] inputReadbacks = inputs
-                .Select(static (_, index) => index == 0
-                    ? RenderInputReadback.Values([0])
-                    : RenderInputReadback.None)
-                .ToArray();
-            // The preview sink is a capturing delegate, so it can never be a persistent identity and travels
-            // through the declared-resource channel instead. Its own identity is the preview's.
-            RenderResource<Func<Ref<Bitmap>?, Ref<Bitmap>?>> sink = _context.Borrow(
-                replace,
-                preview.RuntimeIdentity);
-            TargetCommandDescription description = TargetCommandDescription.Create(
-                preview.RuntimeIdentity,
-                static (session, _) => session.UseDeclaredResource<Func<Ref<Bitmap>?, Ref<Bitmap>?>>(
-                    "previewSink",
-                    sink => ExecutePreview(session, sink)),
-                TargetRegion.Empty,
-                Rect.Empty,
-                RenderHitTestContract.None,
-                inputReadbacks: inputReadbacks,
-                structuralKey: s_previewCommandStructuralKey,
-                resources: [sink.Bind("previewSink")]);
-            _context.Publish(_context.TargetCommand(inputs, description));
+            RenderResource<Func<Ref<Bitmap>?, Ref<Bitmap>?>> sink = _context.Borrow(replace);
+            TargetCommandDefinition<PreviewCommandState> command = inputs.Count switch
+            {
+                0 => s_emptyPreviewCommand,
+                1 => s_singlePreviewCommand,
+                _ => throw new InvalidOperationException(
+                    "A normalized node-graph preview must have zero or one value input."),
+            };
+            _context.Publish(_context.TargetCommand(
+                inputs,
+                command.Call(default, [s_previewSinkSlot.Bind(sink)])));
         }
 
         _previews.Clear();
@@ -309,7 +305,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
 
         MarkSubtreeConsumed(node, outputs);
         IReadOnlyList<RenderFragmentHandle> normalized = [NormalizeToLayer(outputs)];
-        _recordedSubtrees[node] = normalized;
+        _recordedSubtrees[GetCanonicalNode(node)!] = normalized;
         return normalized;
     }
 
@@ -320,16 +316,43 @@ internal sealed class FilterEffectInputBinding : IDisposable
         if (outputs.All(static output => output.CanBeUsedAsValueInput))
             return;
 
+        RenderNode? canonicalNode = GetCanonicalNode(node);
+        if (canonicalNode == null)
+            return;
+
         // A non-value fragment cannot fan out. If its identity reappears after one parent has already
         // consumed it, normalization is no longer safe because the first parent transaction is recorded.
         // Fail here with the NodeGraph identity rather than later in transaction fan-out validation.
-        if (!_consumedNonFanOutSubtrees.Add(node))
+        if (!_consumedNonFanOutSubtrees.Add(canonicalNode))
         {
             throw new InvalidOperationException(
-                $"The non-value node-graph subtree '{node.GetType().FullName}' is used by more than one consumer. "
+                $"The non-value node-graph subtree '{canonicalNode.GetType().FullName}' is used by more than one consumer. "
                 + "Wrap the shared subtree in a finite value-producing layer before branching.");
         }
     }
+
+    private static RenderNode? GetCanonicalNode(RenderNode node)
+    {
+        RenderNode current = node;
+        RenderNode? slow = node;
+        RenderNode? fast = node;
+        while (current is ReferencesChildRenderNode { Child: { IsDisposed: false } child })
+        {
+            current = child;
+            slow = GetReferenceChild(slow);
+            fast = GetReferenceChild(GetReferenceChild(fast));
+            if (slow != null && ReferenceEquals(slow, fast))
+            {
+                throw new InvalidOperationException(
+                    $"A node-graph render cycle was detected at '{slow.GetType().FullName}'.");
+            }
+        }
+
+        return current is ReferencesChildRenderNode ? null : current;
+    }
+
+    private static RenderNode? GetReferenceChild(RenderNode? node)
+        => node is ReferencesChildRenderNode { Child: { IsDisposed: false } child } ? child : null;
 
     /// <summary>
     /// Normalizes <paramref name="outputs"/> into one value-eligible layer.
@@ -404,6 +427,18 @@ internal sealed class FilterEffectInputBinding : IDisposable
         }
     }
 
+    private static TargetCommandDefinition<PreviewCommandState> CreatePreviewCommand(
+        IReadOnlyList<RenderInputReadback> inputReadbacks)
+        => TargetCommandDefinition<PreviewCommandState>.Create(
+            static (session, _) => session.UseResource(
+                s_previewSinkSlot,
+                sink => ExecutePreview(session, sink)),
+            TargetRegion.Empty,
+            Rect.Empty,
+            RenderHitTestContract.None,
+            inputReadbacks: inputReadbacks,
+            resources: [s_previewSinkSlot]);
+
     public void Dispose()
     {
         if (_disposed)
@@ -420,6 +455,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
 
     private sealed record DeferredPreview(
         IReadOnlyList<RenderFragmentHandle> Inputs,
-        Func<Ref<Bitmap>?, Ref<Bitmap>?> Replace,
-        long RuntimeIdentity);
+        Func<Ref<Bitmap>?, Ref<Bitmap>?> Replace);
+
+    private readonly record struct PreviewCommandState;
 }

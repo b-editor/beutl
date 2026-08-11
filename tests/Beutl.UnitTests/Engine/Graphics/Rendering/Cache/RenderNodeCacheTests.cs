@@ -13,55 +13,88 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 public class RenderNodeCacheTests
 {
     [Test]
-    [TestCase(3)]
-    [TestCase(4)]
-    public void ReportRenderCount_GreaterThanOrEqualToThree_ShouldSetCanCacheToTrue(int count)
+    public void StableRequests_ReachingThreshold_AdmitsCacheCapture()
     {
-        // Arrange
         using var node = new ContainerRenderNode();
-        using var cache = new RenderNodeCache(node);
 
-        // Act
-        cache.ReportRenderCount(count);
+        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
+        {
+            node.Cache.RecordSuccessfulStableRequest();
+        }
 
-        // Assert
-        Assert.That(cache.CanCache(), Is.True);
+        Assert.That(node.Cache.CanCapture, Is.True);
     }
 
     [Test]
-    public void IncrementRenderCount_CalledThreeOrMoreTimes_ShouldSetCanCacheToTrue()
+    public void DirtyNode_BeginLifecycleInvalidatesCacheAndResetsWarmup()
     {
-        // Arrange
         using var node = new ContainerRenderNode();
-        using var cache = new RenderNodeCache(node);
-
-        // Act
-        cache.IncrementRenderCount();
-        cache.IncrementRenderCount();
-        cache.IncrementRenderCount();
-
-        // Assert
-        Assert.That(cache.CanCache(), Is.True);
-    }
-
-    [Test]
-    public void IncrementRenderCount_WhenNodeChanged_ShouldInvalidateExistingCache()
-    {
-        // Arrange
-        using var node = new ContainerRenderNode();
-        using var renderTarget = RenderTarget.CreateNull(1, 1);
-        Rect bounds = new(0, 0, 1, 1);
         RenderNodeCache.PublishAtomically(
-            [RenderCacheTestSupport.CreatePublication(node.Cache, renderTarget, bounds)]);
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+            [RenderCacheTestSupport.CreatePublication(node.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1))]);
+        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
+        {
+            node.Cache.RecordSuccessfulStableRequest();
+        }
         node.HasChanges = true;
 
-        // Act
-        node.Cache.IncrementRenderCount();
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
 
-        // Assert
-        Assert.That(node.Cache.IsCached, Is.False);
-        Assert.That(node.Cache.CanCache(), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Cache.IsCached, Is.False);
+            Assert.That(node.Cache.SuccessfulStableRequestCount, Is.Zero);
+            Assert.That(node.HasChanges, Is.True);
+        });
+
+        lifecycle.CompleteSuccessfully(advanceWarmup: true);
+
+        Assert.That(node.HasChanges, Is.False);
+    }
+
+    [Test]
+    public void DirtyBranch_BeginLifecycleInvalidatesItselfAndAncestorsButKeepsUnchangedDescendantsAndSiblings()
+    {
+        using var root = new ContainerRenderNode();
+        using var dirtyBranch = new ContainerRenderNode();
+        using var dirtyLeaf = new ContainerRenderNode();
+        using var sibling = new ContainerRenderNode();
+        root.AddChild(dirtyBranch);
+        root.AddChild(sibling);
+        dirtyBranch.AddChild(dirtyLeaf);
+
+        RenderNodeCache.PublishAtomically(
+        [
+            RenderCacheTestSupport.CreatePublication(root.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
+            RenderCacheTestSupport.CreatePublication(dirtyBranch.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
+            RenderCacheTestSupport.CreatePublication(dirtyLeaf.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
+            RenderCacheTestSupport.CreatePublication(sibling.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
+        ]);
+        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
+        {
+            root.Cache.RecordSuccessfulStableRequest();
+            dirtyBranch.Cache.RecordSuccessfulStableRequest();
+            dirtyLeaf.Cache.RecordSuccessfulStableRequest();
+            sibling.Cache.RecordSuccessfulStableRequest();
+        }
+        dirtyBranch.HasChanges = true;
+
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(root);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.Cache.IsCached, Is.False, "a dirty descendant must invalidate its ancestor");
+            Assert.That(dirtyBranch.Cache.IsCached, Is.False);
+            Assert.That(root.Cache.SuccessfulStableRequestCount, Is.Zero);
+            Assert.That(dirtyBranch.Cache.SuccessfulStableRequestCount, Is.Zero);
+            Assert.That(dirtyLeaf.Cache.IsCached, Is.True, "an unchanged descendant remains reusable");
+            Assert.That(dirtyLeaf.Cache.CanCapture, Is.True, "an unchanged descendant retains its warm-up");
+            Assert.That(sibling.Cache.IsCached, Is.True, "an unrelated sibling remains reusable");
+            Assert.That(sibling.Cache.CanCapture, Is.True, "an unrelated sibling retains its warm-up");
+        });
+
+        lifecycle.CompleteSuccessfully(advanceWarmup: true);
+
+        Assert.That(dirtyBranch.HasChanges, Is.False);
     }
 
     [Test]

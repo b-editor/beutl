@@ -4,457 +4,143 @@
 
 ```mermaid
 flowchart LR
-    O["RenderRequestOptions"] --> R["RenderRequest"]
-    R --> G["RecordedRenderGraph"]
-    G --> F["ordered RenderFragment DAG"]
-    F --> V["embedded RenderValue DAG"]
-    F --> D["scope-token dependency lowering/discovery"]
-    D --> T["scoped TargetToken threads"]
-    G --> P["RootProvenance"]
-    V --> M["forward ResolvedMetadata<br/>RootOutputExtent + QueryBounds"]
-    T --> M
-    P --> M
-    M --> Q["RequiredRegionMap"]
-    Q --> C["Resolved cache substitutions"]
-    C --> I["Execution islands"]
-    I --> S["StructuralPlan"]
-    S --> U["RuntimeBindings"]
-    S --> L["ResourcePlan"]
-    U --> E["RenderRequestExecutor"]
-    L --> E
-    E --> X["Output + cache captures"]
+    N[RenderNode] --> C[RenderNodeContext]
+    C --> G[RecordedRenderGraph]
+    D[immutable Definition] --> K[per-recording Call]
+    S[typed RenderResourceSlot] --> K
+    K --> C
+    G --> M[ResolvedMetadata]
+    M --> R[RequiredRegionMap]
+    R --> P[ExecutionPlan]
+    P --> E[RenderRequestExecutor]
 ```
+
+The public model records an immutable operation shape and a request-local invocation of that shape. The internal model resolves the complete graph only after all nodes have recorded.
 
 ## Public authoring entities
 
 ### RenderNode
 
-Represents one author-defined step in a render-node tree.
+`RenderNode` owns application state and implements `void Process(RenderNodeContext)`. `ChildNodes` exposes content dependencies in recording order but does not transfer ownership.
 
-| Field/member | Meaning |
-|---|---|
-| `Process(RenderNodeContext)` | Records the node transaction and returns no value. |
-| `Cache` | Persistent output-cache policy/state associated with the node. Lookup does not occur inside `Process`. |
-| `HasChanges` | Existing invalidation input; contributes to cache identity/versioning. |
-
-Invariants:
-
-- Recording uses the normal bottom-up traversal: child input streams are recorded before their parent node's `Process` call. Every concrete node, including `LayerRenderNode`, follows this rule; there is no concrete-node pre-order bypass.
-- `Process` is called at most once per node occurrence in one recording traversal unless the graph explicitly contains multiple occurrences.
-- A request-family active-node guard rejects self/ancestor recursion before invocation; only completed sequential occurrences may reuse the same node object.
-- `Process` performs no drawing, media decode/read, target allocation/materialization, GPU access, nested execution, snapshot, flush, synchronization, or readback.
-- The node publishes value/effect fragments only through its active context.
-
-### RenderNodeRenderer
-
-A disposable high-level owner for repeated requests over one borrowed root node.
-
-| Field | Meaning |
-|---|---|
-| `Root` | Borrowed node; never disposed by the renderer. |
-| options snapshot | Sanitized request defaults and borrowed target-factory reference. |
-| structural/program caches | Persistent reusable compiled state owned by this renderer. |
-| target pool | Owns every target accepted from `IRenderTargetFactory` while pooled/request-leased; successful cache publication transfers its payload to `RenderNodeCache`. |
-| state | `Active` or `Disposed`; disposal is idempotent and later calls fail. |
-
-The caller owns the disposable `RenderNodeRasterization` returned by `Rasterize`; that result in turn owns its optional bitmap. Render destinations, the root and its existing cache, and the factory remain borrowed. One renderer instance does not support concurrent requests; separate instances own independent persistent state. There is no list-returning rasterizer because a fragment stream denotes one painter-ordered result.
-
-### RenderNodeRasterization
-
-A disposable single-output rasterization result.
-
-| Field | Meaning |
-|---|---|
-| `Bounds` | Logical raster domain selected for this request. A non-degenerate `RequestedRegion` is intersected with `RootOutputExtent`/`OutputBounds`; a wholly outside request yields the empty intersection and `Bitmap == null`. A null request uses `RootOutputExtent`. An explicitly degenerate request preserves its authored zero-area bounds and origin without clipping. |
-| `OutputScale` | Density used to rasterize `Bounds`. |
-| `Bitmap` | Optional bitmap owned by this result. It is non-null exactly for a non-empty raster domain. |
-| `IsEmpty` | True when `Bounds` is empty and no bitmap was allocated. |
-
-Disposal is idempotent and disposes the owned bitmap exactly once. Empty output is a normal result rather than an attempt to allocate an invalid zero-area bitmap.
-
-### RenderNodeMeasurement
-
-An immutable metadata-only result containing execution-facing `OutputBounds` (`RootOutputExtent`), query-facing `QueryBounds`, aggregate `EffectiveScale`, materializable `ValueCardinality`, and the independent flags `HasFragments`, `HasContributingValues`, and `HasTargetEffects`. A command-only result can therefore report `HasFragments == true`, `ValueCardinality.None`, and `HasTargetEffects == true`; a published non-contributing capture reports a value without claiming a visible contribution. Measurement never executes deferred work.
+`HasChanges` is the public content-invalidation signal. A node sets it when a property can change pixels, bounds, hit testing, or topology. The renderer observes and clears it as part of successful request processing, invalidating that node and its recorded ancestors without resetting unchanged descendants. Public node code does not expose or supply output-reuse identities.
 
 ### RenderNodeContext
 
-A transaction-scoped facade over an internal `NodeRecordingTransaction`.
+The engine creates one sealed context for each `Process` invocation. It exposes borrowed `Inputs`, request intent/purpose/domain/scale metadata, and recording methods. It is invalid after the invocation returns.
 
-| Field | Meaning |
+Publication is explicit:
+
+| Method | Meaning |
 |---|---|
-| `Inputs` | Ordered, borrowed fragment-stream handles, including effect-only commands. The node never disposes them. |
-| `Purpose` | `Frame`, `HitTest`, `Bounds`, `CacheWarmup`, or `Auxiliary`. |
-| `Intent` | `Preview` or `Delivery`. |
-| `OutputScale` | Final root density; not an intermediate ceiling. |
-| `MaxWorkingScale` | Global intermediate quality ceiling; `+Infinity` means none. |
-| `IsRenderCacheEnabled` | Effective inherited cache eligibility; read-only and monotonic. |
-| pending fragments/values | Semantic values, target commands/captures/current-target scopes, scope-relative `TargetLayerScope` effects, finite value-producing Layers, materialized inputs, or opaque records created in this transaction. |
-| pending publications | One ordered list of handles explicitly published through `Publish`/`PublishRange`. There is no separate command side list. |
-| pending resources | Disposable ownership transferred to the transaction. |
+| `PassThrough` | Publish all inputs unchanged and ordered. |
+| `Publish` / `PublishRange` | Publish authored outputs at their intended painter position. |
+| `PublishMappedInputs` | Map each input to exactly one published output in the same order. |
+| `Drop` | Abandon an unpublished handle. |
 
-State:
-
-```text
-Open -> Committed -> Invalid
-  \-> RolledBack -> Invalid
-```
-
-- Only `Open` accepts reads/recording/publication.
-- `Committed` atomically moves pending state to the parent request or parent node transaction.
-- `RolledBack` publishes nothing and releases every pending owned resource best-effort.
-- `Invalid` rejects retained context and handle use deterministically.
+`PublishMappedInputs` runs synchronously. Its callback may record intermediate handles but cannot publish; a violation rolls back the transaction. It is not a general map/flat-map primitive.
 
 ### RenderFragmentHandle
 
-A sealed public handle to an ordered logical fragment stream. It is not executable work itself.
+A handle represents a fragment in the active recording transaction. It carries no public executable canvas or persistent ownership. Methods return handles; publication makes them node outputs. Metadata and hit testing can be unavailable until enclosing target information is resolved.
 
-| Field | Meaning |
+### Definitions and calls
+
+A public callback operation has these two entities:
+
+| Entity | Holds |
 |---|---|
-| internal owner/id | Identifies one transaction-local fragment edge; never public. |
-| `ValueCardinality` | Declared minimum and maximum materializable value count, independent of fragment existence. |
-| `ContributesValuesToTarget` | Whether replay automatically composites carried values; it says nothing about target-command side effects. |
-| `CanBeUsedAsValueInput` | Whether all possible runtime values are exposed to value-consuming APIs after scheduling explicit dependencies; it does not imply purity or target independence. |
-| `TryGetMetadata(out RenderFragmentMetadata)` | Returns concrete recording-time `Bounds` and `EffectiveScale` only when the stream has no unresolved owning-target dependency; otherwise returns false and assigns `default(RenderFragmentMetadata)`. |
-| `TryHitTest(Point, out bool)` | Evaluates the CPU-only aggregate hit-test only when recording metadata is concrete; otherwise returns false and assigns `false`. |
+| `*Definition<TState>` | Fixed callback code, operation metadata, and resource-slot schema. |
+| `*Call<TState>` | State and resource bindings for one recording. |
 
-`RenderFragmentMetadata` is the public immutable pair `(Rect Bounds, EffectiveScale EffectiveScale)`. `Unbounded` is a valid concrete vector/lossless supply and is not a sentinel for unavailable metadata.
+Definitions are immutable and are commonly static/shared when their fixed shape is unchanged to avoid allocation. Equivalent definitions recreated later still share an engine-derived plan because equivalence comes from callback code and declared metadata, not object lifetime. Calls are created by `.Call(state, bindings)` for each recording. Changing call state is ordinary node content change and requires the owning node to set `HasChanges` before the next request.
 
-Invariants:
+The rendering context accepts:
 
-- A handle is accepted only by its active owning context. A nested transaction receives fresh child-owned facade handles mapped to the same internal fragment IDs; it never receives parent objects. Child facades invalidate on child exit, original parent handles remain active, and committed child publications are re-exposed as fresh parent-owned handles.
-- There is no public constructor, render method, factory, disposal, equality-by-id contract, or cross-request retention.
-- Publishing one handle publishes its complete ordered fragment stream. Pure fan-out is legal; effectful duplication is rejected except for a target capture executed once and shared by pure consumers. Pure sources/materialized values, target captures, finite Layers, and eligible value maps can be value inputs; commands, Blend, public or unrestricted current-target scopes, `TargetLayerScope`, raw target forms, and mixed sequences cannot until the author deliberately wraps the sequence in a finite Layer. The engine-owned value-replay-map exception remains subject to its mechanically restricted callback and input proof.
-- Recording a fragment computes conservative pure metadata immediately only when every required input is concrete. An `OwningTargetDomain` requirement makes that fragment and every ordinary descendant publicly symbolic even if internal references contain finite recorded hints; `TryGetMetadata`, `TryHitTest`, and `RenderNodeContext.TryCalculateInputBounds` return false rather than publishing those hints. `TryCalculateInputBounds` succeeds for an empty input list with `default(Rect)`.
-- A finite `Layer` is the explicit concrete-metadata barrier. With only concrete inputs it keeps tight child-derived bounds and hit testing. If any input is symbolic it publishes the complete finite Layer domain as conservative bounds and domain containment as hit testing, while retaining the internal symbolic dependencies for graph-wide resolution and fan-out analysis. It always publishes `EffectiveScale.Unbounded`; lowering chooses its materialization density from downstream demand, child supplies, `OutputScale`, and `MaxWorkingScale` (`src/Beutl.Engine/Graphics/Rendering/RenderNodeContext.cs:703-752`, `src/Beutl.Engine/Graphics/Rendering/RenderScaleUtilities.cs:19-35`).
-- Public `OwningTargetLayer` is available to plugin nodes and semantic engine consumers such as `FilterEffectRenderNode` when a value-input-ineligible Full/raw target stream cannot yet name a finite local domain. It stays publicly symbolic, inherits its domain through parent scope lowering, then follows the same one-value Layer lowering/execution path. Graph finalization rejects it when no single finite owning domain exists. Owner-independent finite target-write metadata uses an ordinary finite Layer instead.
+- `OpaqueRenderCall<TState>` through source, map, combine, and expansion methods;
+- `TargetScopeCall<TState>` and `TargetCommandCall<TState>` for guarded target work;
+- `RawTargetScopeCall<TState>` and `RawTargetCommandCall<TState>` for opaque external canvas work;
+- `ShaderCall<TState>` and `GeometryCall<TState>` for value transforms.
 
-`CanBeUsedAsValueInput` propagation is fixed by the public contract rather than inferred by the planner: Shader, Geometry, and opaque maps require an eligible input and return eligible values; combine/expand require every input eligible and return eligible values; Opacity and OpacityMask preserve the primary child's eligibility, with the mask represented as a declared resource dependency rather than another value input; Blend, public TargetScope, `TargetLayerScope`, RawTargetScope, and both command forms return false; source/materialized/capture/finite Layer return true; and `ContributeValues` requires/preserves true. An engine-owned TargetScope may use an internal value-replay descriptor and conditionally preserve eligibility only when its mechanically restricted callback, single contributing input, cardinality, and target dependencies prove that replay self-contained. Nested recording preserves each child handle's recorded result. Public contract tests cover every public rule and the primary `Shader -> Opacity -> Shader` proof.
+### RenderResource and RenderResourceSlot
 
-### RenderValueCardinality
+`RenderResource<T>` is an opaque request-scoped token. `RenderNodeContext.Own` transfers a disposable raw object to the request family; `Borrow` leaves ownership with the caller. Neither changes output invalidation semantics.
 
-Declares materializable value count without forcing recording-time execution. Effectful fragment existence is a separate internal fact.
+`RenderResourceSlot<T>` is a typed address declared by a definition. `slot.Bind(token)` creates the only valid public binding form. A call binds every declared slot exactly once and cannot bind an undeclared or differently typed token.
 
-| Field | Rule |
-|---|---|
-| `Minimum` | Non-negative. |
-| `Maximum` | `null` for unbounded/runtime-dynamic; otherwise `>= Minimum`. |
+Guarded sessions use `UseResource(slot, callback)` to lease the matching raw value. Raw sessions intentionally use `UseResource(token, callback)` because their callback boundary is request-local; the token remains in call state and the same token is also bound to a typed slot for validation.
 
-Named values include `None` (`0..0`), `Single` (`1..1`), `ZeroOrOne` (`0..1`), and `Dynamic` (`0..unbounded`). Fixed cardinality is represented by equal minimum/maximum.
+### ShaderDefinition and GeometryDefinition
 
-Shader, opacity, current-target scopes, and `TargetLayerScope` preserve declared value cardinality, although `TargetLayerScope` remains value-input-ineligible. Geometry and opaque map produce one or zero-or-one value per value input while preserving order. Combine produces at most `Single`; finite Layer produces exactly `Single`; expansion declares arbitrary fixed or dynamic range. `TargetCommand` is a published effect fragment with `None`; `TargetCapture` is `Single` but initially non-contributing. The planner never infers either fragment existence or cardinality from empty bounds.
+`ShaderDefinition<TState>` fixes source, entry-point kind, bounds behavior, uniforms, and child-shader slots. `.CurrentPixel` models `half4 apply(half4 color)`; `.WholeSource` models `half4 main(float2 coord)` with `uniform shader src;`. `ShaderDefinitionBuilder<TState>` maps call state to uniforms and declares typed child resources. `.Call` yields the `ShaderCall<TState>` passed to `RenderNodeContext.Shader` or `FilterEffectContext.Shader`.
 
-### RenderScaleUtilities
+`GeometryDefinition<TState>` fixes a geometry callback, bounds, hit testing, optional readback, and slots. `.Call` yields the `GeometryCall<TState>` passed to the corresponding context method.
 
-The independent public owner of feature 003's pure scale helpers: `MaxBufferDimension`, max-scale sanitization, working-scale resolution, and complete-bounds buffer-budget clamping. These calculations are intentionally not members of the transaction-scoped recorder because 3D, brushes, export policy, and the planner use them without a `RenderNodeContext`.
+### Raw target definitions
 
-### RenderResource<T>
+Raw definitions declare metadata and typed slots even though their canvas work is opaque external. A raw scope wraps and replays one input exactly once. A raw command has no logical value input. Both prevent persistent output reuse because the renderer cannot inspect their internal canvas behavior.
 
-A request-scoped token returned when a context accepts an owned disposable or an externally borrowed reference-type resource.
+### Metadata contracts
 
-| Field | Meaning |
-|---|---|
-| owner/id | Transaction/request owner and resource slot. |
-| mode | `Owned` or `Borrowed`. |
-| state | Owned: Pending -> RequestOwned -> LeasedToCallback -> RequestOwned -> Discharged; Borrowed: BorrowedPending -> RequestBorrowed -> LeasedToCallback -> RequestBorrowed -> ReleasedToken. |
-| cache identity | Equality-stable runtime key plus caller-supplied content version, or a unique non-reusable slot identity by default. |
+Definitions use `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleContract`, `RenderValueCardinality`, target region/access, input readback, and device-grid contracts as appropriate. Metadata callbacks are deterministic, side-effect-free, and non-capturing. The engine derives operation-shape information from the definition and contract callbacks.
 
-`Own<T>` requires `T : class, IDisposable`; `Borrow<T>` and `RenderResource<T>` require only `T : class`. The request-family raw-reference table rejects duplicate Own and any Own/Borrow conflict. Repeated Borrow with an explicit non-null key coalesces only with the same key/version; an explicit mismatch is rejected, while each null-key registration gets a distinct request-local identity and cannot reuse output cache across requests. The raw value is exposed only inside an authorized execution callback. Every consuming description lists its token, causing key/version to enter output-cache identity; undeclared use is rejected. An owned slot is discharged exactly once by rollback/teardown disposal or by an atomic ownership transfer into an accepted persistent cache payload; the request then holds no lease to it. Borrowed teardown invalidates only the token; both owner and callback keep pixel-affecting state read-only throughout the request. Metadata-only requests never access the raw value. Keys retained by caches are lightweight immutable equality-stable CPU IDs, never resource/context/native objects or large payloads.
-
-### Existing EngineObject.Resource lifecycle
-
-Feature 004 does not add a new engine-object resource entity or lifecycle. Generated nested-resource properties keep their existing plain assignment, `Update`, and `Dispose(bool)` behavior; no renderer-specific assignment gate, terminal-disposal protocol, or generated replacement helper participates in the request data model.
-
-### Callback state identity
-
-Reusable opaque, Geometry, target-scope, and target-command factories store the supplied callback state and derive render-output cache identity from its complete engine-owned field-wise equality/hash representation without exposing a separate author-supplied key. Their request-local execution forms may capture state that cannot remain stable and receive a fresh identity for every recording, safely disabling cross-request pixel-cache reuse. Custom bounds, multi-input bounds, scale, and hit-test factories have no request-local form: each stores one `TState` with non-capturing state-first callbacks, and paired phases receive that same state. Authors are responsible for keeping reusable state stable across metadata and cache use; production does not recursively validate or reject a state type for mutability. The callback method and optional explicit key form structural identity. There is no overlapping explicit runtime-key channel. Built-in semantic descriptors include their scalar values automatically, and Shader uniforms contribute their canonical validated values automatically. Callback-state identity participates in render-output cache identity but never structural plan/program identity.
-
-## Shared effect descriptions
-
-### RenderBoundsContract
-
-Describes coordinate behavior independently of execution.
-
-| Field | Meaning |
-|---|---|
-| forward map | Complete logical output bounds from complete logical input bounds. |
-| backward map | Required logical input region for a requested logical output region. |
-| `RequiresFullInput` | Conservative alternative when a tight backward map cannot be proven. |
-| structural identity | Stable static callback method/kind identity excluding runtime state values. |
-| runtime metadata identity | Engine-owned complete field-wise identity of the stored author-stable state shared by forward/backward phases. |
-
-Kinds:
-
-- `Identity`: forward/backward identity, not full-input.
-- `FullInput`: forward identity, backward requests complete input.
-- `Create`: explicit forward and backward delegates.
-- `CreateFullInput`: explicit forward delegate, backward conservatively requests complete input.
-
-`default(RenderBoundsContract)` is invalid and rejected at description construction.
-
-### ShaderDescription
-
-Immutable description of one element-wise Shader operation.
-
-| Field | Structural or runtime | Meaning |
-|---|---|---|
-| `Kind` | Structural | `CurrentPixel` or `WholeSource`. |
-| normalized source text | Structural | Validated SkSL source. Full text participates in equality. |
-| stable source hash | Structural bucket only | Deterministic cache bucket; never sufficient for equality. |
-| uniform names/types/order | Structural | Binding signature. |
-| uniform values/providers | Runtime | Direct values bind canonically; custom providers may use final bounds/density/device context. |
-| child/sampler names/types/order | Structural | Binding signature and resource budget. |
-| child/sampler coordinate spaces | Structural | Value or output-device; CurrentPixel accepts value only, and output-logical coordinates are derived explicitly from execution context. |
-| child/sampler providers/resources | Runtime | Resolved only by the executor. |
-| runtime identities | Runtime | Canonical uniform values, resource key/version, and request-unique binder identities unless snapshot reuse is selected. |
-| bounds contract | Structural behavior | Identity for CurrentPixel; mandatory explicit contract for WholeSource. |
-| color/alpha contract | Structural | Linear-light RGBA16F, premultiplied input/output for this feature. |
-
-CurrentPixel validation proves the restricted coordinate form and is the sole Shader fusion eligibility source within one resolved-coverage domain. CurrentPixel consumes premultiplied pixels after upstream analytic/antialiased coverage has been applied. Coordinate validation does not prove `f(kx) = kf(x)` for partial coverage, so an arbitrary public stage cannot fold into vector, text, path, or antialiased-clip coverage generation. Only an engine-known participant with mechanically proven premultiplied-coverage homogeneity may carry a compiled run across that boundary; no public author flag supplies this proof. WholeSource never becomes fusible from an author flag. Its coordinate is local output device pixels; runtime context carries logical origin, required region, device bounds, output density, and input supply density so implicit source and declared resources map coordinates without recording-time assumptions.
-
-Direct uniform values automatically enter output-cache identity. Custom uniform/resource binders default to a request-unique runtime identity. `ReuseFromSnapshot` accepts only non-capturing binders and derives a reusable binding identity from the copied canonical uniform value or the resource token's immutable key/version snapshot. For each cache candidate, a containing Shader subtree also keys request `OutputScale` and `MaxWorkingScale` plus the resolved complete bounds and required region of the reusable stage and every fragment in its upstream input closure. Together with the subtree density and device-grid components, those values determine every callback-visible execution-context footprint, including the materialized bounds that pass transparently through value wrappers, without making an unrelated fan-out branch region-sensitive. Other pixel-affecting state must be represented by a copied value or versioned resource. Source/binding shape remains structural and does not vary with those runtime values.
-
-### GeometryDescription
-
-Immutable deferred one-input/zero-or-one-output operation.
-
-| Field | Meaning |
-|---|---|
-| callback | Invoked later by the executor. |
-| bounds contract | Mandatory forward/backward behavior. |
-| hit-test contract | Mandatory CPU-only conservative metadata behavior. |
-| structural key | Stable geometry-kind identity; excludes animated captured values. |
-| callback state | Author-stable state whose complete field-wise identity contributes to output-cache identity, or request-local capture with no cross-request reuse. |
-| `RequiresReadback` | Schedules an explicit input synchronization before callback execution. |
-| resources | Explicit request-owned tokens whose key/version enters output-cache identity. |
-
-Geometry is always an execution-island boundary in this feature. It maps each input to zero or one ordered output and may shrink the result within allocated forward bounds.
-
-### GeometrySession and RenderExecutionInput
-
-Callback-scoped borrowed views.
-
-`GeometrySession` exposes complete output bounds, resolved required region/device bounds, output scale, working scale, maximum working scale, request purpose/intent, one shared `RenderExecutionInput`, and a non-disposable scoped canvas facade over the executor-owned output. The facade exposes the cropped semantic allocation, immutable global `DeviceBounds`, derived `RasterBounds == DeviceBounds.ToRect(Density).Translate(-DeviceGridOffset)`, and rounded `LogicalOrigin == RasterBounds.Position` (`src/Beutl.Engine/Graphics/Rendering/Operations/RenderCallbackCanvas.cs:129-151`); its one-shot canvas is pretranslated/clipped to the physical raster footprint so author coordinates remain composition-global, antialiasing can reach canonical rounding pixels, and close adds no implicit flush. The raw `ImmediateCanvas` is capability-guarded: it rejects author disposal, snapshot, nested drawing, undeclared resources, every `SaveLayer`-backed opacity/blend/mask/paint API, hidden allocation, and any hidden flush/synchronization. `RenderExecutionInput` separately exposes semantic `Bounds`, concrete supply density, immutable device footprint, the same offset-adjusted derived raster footprint (`src/Beutl.Engine/Graphics/Rendering/RenderExecutionInput.cs:214-245`), scoped sampling/blit operations over the complete physical image, and a one-shot `UseSnapshot` scope enabled only when the owning description declares input readback. Materialization and cache capture/hit propagate `DeviceBounds`; they do not derive a replacement footprint from semantic bounds.
-
-State:
-
-```text
-Active -> Closed
-```
-
-All methods validate the shared active token. `UseSnapshot` additionally requires `RequiresReadback`; the request owns its temporary bitmap, invokes the action synchronously, and disposes it before return. The planner-owned output is transparently cleared inside the scheduled Geometry island before callback entry. Standard supply-driven density is resolved per element from output scale/input supply/max/clamp. The output may transition `Keep -> Shrink` or `Keep/Shrink -> Discard`; it may never grow beyond allocated bounds. The callback does not own or dispose input/output/snapshot resources.
-
-### TargetCapture, TargetScope, TargetLayerScope, Layer, and TargetCommand descriptions
-
-- `TargetCapture` consumes the preceding scope-local token and produces a non-contributing request-owned value. Its finite content bounds, Full/finite source region, hit test, and target-specific scale contract are pure metadata. `MaterializeAtWorkingScale` is output-derived; `Custom` always receives an empty `InputSupplies` list and may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale`. Both are explicit materialization/resampling boundaries and may downsample a denser finite Layer or TargetLayerScope. `PreserveTargetSupply` instead remains publicly `EffectiveScale.Unbounded` during recording and late-binds during execution: affine transforms use their linear part's maximum singular value, while perspective is rejected because its scale is position-dependent. The built-in backdrop uses the same public mode. `ContributeValues` explicitly enables later automatic compositing; unary transforms preserve the flag.
-- `TargetScope` is a same-target per-fragment map restricted to mechanically allocation-free transform/clip state plus exactly one replay. Opacity and Blend are planner-visible typed layer scopes. OpacityMask stores a declared `RenderResource<Brush.Resource>` dependency recorded through `Own` or `Borrow`; after the execution session is active, the ordinary `BrushConstructor` resolves the mask, and an executor-installed materializer handles nested `DrawableBrush` content without introducing a feature-only paint lifecycle.
-- Public `TargetLayerScope(inputs, TargetRegion)` is a scope-relative offscreen-isolation effect recorded through the same normal bottom-up `Process` path as every other node. A non-empty resolved region replays the ordered input stream into one transient local target and composites that target back into the current painter target; `Empty` preserves order without allocating a target or executing pixel work. A `Full` region remains symbolic during recording and becomes finite only during scope-token dependency lowering, after enclosing transforms, clips, external-root domains, and finite Layers are known. The scope preserves declared cardinality for dependency accounting but has `ContributesValuesToTarget == false` and `CanBeUsedAsValueInput == false`; non-empty offscreen materialization remains required unless the planner proves an equivalent removal. Existing `LayerRenderNode` default/`PushLayer(default)` records this typed public shape with `TargetRegion.Full`.
-- `RawTargetScope` is the marked opaque-external decorator escape and `RawTargetCommand` is its zero-input painter-target counterpart. Both conservatively access `TargetRegion.Full` as read/write because raw callback bounds are query metadata, not enforceable access limits.
-- Public `Layer(inputs, Rect domain)` is the distinct reusable-value constructor. It replays an arbitrary mixed fragment sequence into one finite non-empty local target and emits exactly one outer value, so nested commands consume that local token. It always publishes `EffectiveScale.Unbounded`; lowering selects its actual materialization density from downstream demand, child supplies, `OutputScale`, and `MaxWorkingScale`. Invalid/empty domains are rejected and Layer never accepts Full. With concrete inputs, its content bounds union contributing child values with potentially pixel-writing target-effect regions after scope transforms and clip to the explicit domain; read/order-only accesses do not add content and hit testing remains based on query metadata. With any symbolic input, author-readable bounds/hit testing conservatively become the entire domain and domain containment, while internal final resolution still follows the symbolic children (`src/Beutl.Engine/Graphics/Rendering/RenderNodeContext.cs:703-752`, `src/Beutl.Engine/Graphics/Rendering/RenderScaleUtilities.cs:19-35`).
-- `TargetCommand` is an effect fragment with value cardinality `None`, separate `TargetRegion` access and visible `QueryBounds`/hit-test metadata, a conservative prior-token dependency, and zero or more inputs that MUST each have `CanBeUsedAsValueInput == true`. Target readback snapshots the pre-command token exactly once; input readback uses one explicit `RenderInputReadback` selector per authored input.
-
-`TargetRegion` is `Full`, `Empty`, or finite `Region(Rect)`; default is invalid. Full resolves to the finite current external-root, `TargetLayerScope`, or Layer target domain. For root X-domain `[0, 100)`, the ordered sequence `Transform(+10) -> PushLayer(default) -> Full clear` resolves the nested local Full region to `[-10, 90)` during lowering; resolving it to `[0, 100)` while recording would incorrectly miss root `[0, 10)`. Empty readback is invalid. Public commands are `ReadWrite`/`Readback`; only engine-proven capability-enforced work may be internally write-only.
+`RenderScaleContract.MapInputSupply` accepts a pure one-input supply transform and can be reevaluated after symbolic upstream metadata becomes concrete.
 
 ## Recorded request entities
 
 ### RenderRequestOptions
 
-Immutable options carried by each request. Nested requests inherit classification, scale, cache, and ownership policy, but every non-null `RequestedRegion` is selected in the nested request's logical coordinate space; an omitted nested `RequestedRegion` is null rather than an unmapped copy of the parent's rectangle.
-
-| Field | Meaning |
-|---|---|
-| `Intent` | Preview/delivery allocation-failure behavior. |
-| `Purpose` | Frame/query/cache/auxiliary behavior. |
-| `TargetDomain` | Optional finite non-empty root domain for target-less Rasterize/Measure/HitTest. A real destination overrides it; null is valid only when scope-token lowering finds no root `TargetRegion.Full` access that requires an available destination domain. |
-| `RequestedRegion` | Final root logical output selection: null selects `RootOutputExtent`; a non-degenerate value is intersected with that extent for commit, while an explicitly degenerate value preserves its authored empty bounds and origin. It is not the current target domain. Invalid rectangles are rejected. |
-| `OutputScale` | Final root density. |
-| `MaxWorkingScale` | Intermediate quality ceiling. |
-| `CachePolicy` | Effective persistent/transient cache permissions. |
-| internal `FusionMode` | `Enabled` for production; friend evidence tests may select `Disabled` compatibility partitioning. It is inherited by nested requests and participates in structural-plan identity, but is not exposed through public renderer options. |
-| target-factory/failure owner | Shared allocation policy plus cleanup/failure aggregation inherited by nested requests. |
-| target/backend identity | Externally owned destination and backend capabilities. |
+Options carry intent, purpose, optional target domain, requested region, output and maximum working scales, and the renderer's execution policy. A complete render request owns one active recording transaction and all temporary state required to finish or roll it back.
 
 ### RecordedRenderGraph
 
-Request-owned immutable result of successful recording transactions.
-
-| Collection | Contents |
-|---|---|
-| fragments | Ordered/composable `RenderFragment` records and publication roots. |
-| values | Topologically addressable `RenderValue` records embedded by fragments. |
-| scoped target tokens | Target-state transitions created only during scope-token dependency lowering for the external root, `TargetLayerScope`, and finite Layer scopes. |
-| roots | Published final fragment streams plus external presentation target. |
-| provenance | Renderer entry/node/cache origin for fragments, values, commands, and captures. |
-| cache candidates | Candidate subtree boundaries recorded without lookup. |
-| owned resources | Resources transferred by committed transactions. |
-| nested requests | Separate-target requests with inherited options/owners. |
-
-After recording, author contexts/handles are invalid. Internal IDs, concrete metadata, provisional symbolic hints, and symbolic dependency markers remain valid through planning/execution. Scope-token dependency lowering/discovery runs immediately after recording and before graph-wide forward metadata resolution; it resolves scope-relative regions and introduces every target-token dependency needed by later analyses.
+The graph preserves authored painter order and consists of ordered fragments plus embedded value edges. Nested same-target recording remains in this graph. Separate-target work records a child request before parent execution.
 
 ### RenderFragment
 
-One execution-relevant compositional IR record.
+A fragment has ordered inputs, conservative bounds/scale/cardinality metadata, contribution behavior, hit-test provenance, and an execution payload. Value fragments can be transformed or combined. Target effects remain ordinary ordered fragments even when they produce no value.
 
-| Field | Meaning |
-|---|---|
-| `FragmentId` | Request-local stable identity. |
-| kind | Value contribution, target command, target capture, sequence, current-target scope, scope-relative `TargetLayerScope`, finite Layer, nested/backend, or opaque external. |
-| ordered children/value edges | Child fragments and embedded values in authored order. |
-| value cardinality/contribution | Materializable value count plus independent automatic-composite flag. |
-| value-input eligibility | Whether all runtime values can be supplied to a value consumer after explicit dependencies are scheduled. |
-| content/query metadata | Dependency bounds versus visible root bounds/hit testing. |
-| target behavior | None, same-target replay, scope-relative offscreen isolation, finite value-producing local target, read/write region, or token-to-value capture. |
-| provenance/cache identity | Node/root origin and structural/runtime identities. |
+### Target scopes, commands, and captures
 
-Target commands and non-contributing captures remain real fragments even with no visible query bounds. Pure value transforms can be extracted/fused through the embedded value DAG only when fragment ordering, scope, and target-token equivalence remain intact.
-
-### RenderValue
-
-One typed value-producing IR record.
-
-| Field | Meaning |
-|---|---|
-| `ValueId` | Request-local stable identity. |
-| kind/descriptor | Source, opacity, transform, clip, Shader, Geometry, combine, expansion, materialized, opaque, or backend. |
-| inputs | Ordered upstream `ValueId`s. |
-| cardinality/topology | Source, map-each, combine, expand; fixed or dynamic count. |
-| bounds contract | Sound forward/backward mapping or conservative full input. |
-| scale contract | Vector/concrete supply and materialization policy. |
-| hit-test contract | CPU-only metadata mapping. |
-| dependencies | Readback, backend, target capture, external ownership, dynamic topology. |
-| structural identity | Kind, placement, signature, and structural key. |
-| runtime output identity | Built-in parameters, description runtime keys, uniform values, and declared resource identities/versions. |
-| provenance/cache candidate | Origin and cache boundary annotations. |
-
-An opaque record remains typed with respect to topology, bounds, density, per-authored-input readback selection, and ownership, but its pixel semantics are unknown and it is never fused. Each runtime output may select an independent finite positive density; the executor caps and clamps it against that output's own bounds, cached values retain their individual effective scales, and cache publication applies the pixel rule to the actual aggregate device-pixel area.
-
-`RenderScaleContract` is vector/unbounded, input-supply preserving, one-input supply mapping, standard supply-driven materialization, or a pure CPU custom resolver. `MapInputSupply<TState>(TState state, Func<TState, EffectiveScale, EffectiveScale> map, object? structuralKey)` is valid only for an element-wise one-input map. It applies `map` and the stored author-stable state to that input's resolved supply, may preserve `EffectiveScale.Unbounded`, and uses the callback/key as structural identity; Transform and DrawableGroup use it for their density transform. If the input is symbolic, any recording-time result is only an internal hint and the map is evaluated again from the resolved supply with the same state during forward resolution.
-
-A custom resolver uses its stored author-stable state, input supplies, and complete conservative output bounds and cannot observe the later requested region. With concrete inputs it establishes the recording-time result; with symbolic inputs any provisional result remains internal and the resolver is reevaluated with the same state after graph-wide bounds/supply resolution. It must return a finite value greater than zero; a throw or invalid result fails rather than selecting a fallback. A valid finite result is capped by `MaxWorkingScale` plus the per-buffer dimension clamp against the complete resolved output bounds. Only a concrete recording result is available through `TryGetMetadata`; later ROI crops logical allocation bounds without changing the final density. The callback/key identity is structural, while complete field-wise state identity and resolved density are runtime metadata.
-
-### TargetCommand, TargetCapture, and TargetToken
-
-Scope-token dependency lowering threads a `TargetToken` independently through the external root, every non-empty `TargetLayerScope`, and every finite Layer. An empty `TargetLayerScope` remains an order-only fragment and creates no local target-token chain. A `TargetCommand` consumes/emits the current token. A `TargetCapture` consumes/emits it plus an immutable value. Each carries structural identity, state-derived or request-local output-cache identity, and Full/Empty/finite access; visible query metadata is independent. A Readback command schedules an immutable pre-command bitmap scope and disposes it before return.
-
-`TargetLayerScope(TargetRegion.Full)` resolves only in this lowering phase. The lowering composes every enclosing transform and clip before mapping the finite destination scope into the layer's local coordinates. Consequently, for root X-domain `[0, 100)`, `Transform(+10) -> PushLayer(default) -> Full clear` assigns local X-domain `[-10, 90)` rather than freezing the root coordinates as `[0, 100)`. A Full access that reaches the external root requires a real destination or explicit finite `TargetDomain`; `QueryBounds`, `RootOutputExtent`, `RequestedRegion`, and finite value anchors are not target-domain sources.
-
-Command kinds include clear/source-replace, guarded custom target draw, backdrop draw, explicit target readback, raw target command, and external presentation. Capture is a distinct token-to-value edge. `ContributeValues` is a distinct value-contribution wrapper. Opacity, Blend, OpacityMask, guarded TargetScope, and RawTargetScope are scope fragments rather than commands. Empty query bounds or value cardinality `None` do not delete an effect fragment. Commands/captures/scopes are barriers unless a concrete equivalence rule proves a fold.
-
-### RootProvenance
-
-Links renderer entries and node/cache occurrences to fragment/value/command/capture IDs.
-
-It retains:
-
-- original metadata producer independent of cache substitution;
-- painter-order index;
-- node/cache candidate hierarchy;
-- bounds/hit-test group;
-- frame render-count and cache publication owner.
-
-Renderer entry `QueryBounds` are the union of contributing-value query bounds and target-command/scope query bounds, not non-contributing capture dependency bounds or cached temporaries. Hit testing walks the same visible provenance in reverse top-level painter order and applies the optional final requested-region clip.
-
-### RootOutputExtent and QueryBounds
-
-Forward analysis retains two independent root aggregates:
-
-- `RootOutputExtent` is the conservative execution/output union of contributing value bounds and every potentially pixel-writing root target-effect region after scope transforms and clips. A finite Layer first aggregates writes into its one emitted value; a `TargetLayerScope` maps its local writes back as an effect on the enclosing target. Read-only captures and order-only target accesses do not enlarge the extent.
-- `QueryBounds` is measurement/layout and hit-test provenance. It is the union described by `RootProvenance` and does not become larger merely because an effect may write a target region.
-
-Potentially writing work remains in `RootOutputExtent` even when its query metadata is empty. Therefore a Full root Clear can have empty `QueryBounds` while still requiring the full finite root output extent. `RenderNodeMeasurement.OutputBounds` reports `RootOutputExtent`, `RenderNodeMeasurement.QueryBounds` reports the query aggregate, and a null `RequestedRegion` selects `RootOutputExtent` for backward ROI, final commit, and `RenderNodeRasterization.Bounds`.
+Guarded scopes and commands declare their target behavior. Captures form explicit target-to-value edges. A finite layer may materialize mixed painter work into one value; a target-layer scope stays an effectful scope. Raw scope/command fragments conservatively form opaque external boundaries.
 
 ## Analysis and planning entities
 
-### ResolvedMetadata
+### ResolvedMetadata and RequiredRegionMap
 
-Per-fragment/value analysis result containing forward content/query bounds, root `RootOutputExtent` and `QueryBounds`, contribution state, aggregate/per-output scale facts, value cardinality, lowered target region, hit-test mapping, and validity/empty state. Resolution errors are planning failures, not identity operations.
+Forward analysis resolves conservative output bounds, hit-test provenance, value cardinality, and effective supply. Backward analysis maps requested output regions to the required regions of their producers. Symbolic target dependencies become concrete only after their enclosing scopes are known.
 
-### RequiredRegionMap
+### CacheCandidate and retained output
 
-Maps each value and relevant target dependency to an explicit `Full`, `Empty`, or finite `Region(Rect)` state after reverse propagation. A non-degenerate `RequestedRegion` is intersected with `RootOutputExtent` to seed the final output/commit requirement; an explicitly degenerate region preserves its authored empty bounds, while null selects the complete extent, never `QueryBounds`. The separately lowered target Full remains the available scope domain so capture/read aprons may expand up to it. Multiple consumers union requirements. An invalid rectangle is a planning error and never aliases Full.
+The renderer may select a safe retained-output candidate after complete graph analysis. Node content invalidation is driven by `HasChanges`; authors do not define cache fields or token content identities. Raw target fragments and other opaque/external boundaries are not candidates for persistent reuse.
 
-### CacheCandidate and CacheResolution
+### ExecutionIsland and ExecutionPlan
 
-`CacheCandidate` identifies a recorded subtree result, its hierarchy, cache policy, and provenance. `CacheResolution` is one of:
-
-- `Bypass`: ineligible/disabled;
-- `Hit`: execution producer replaced by a `MaterializedInput`, original metadata retained;
-- `MissCapture`: current schedule produces the value and captures it after success;
-- `Superseded`: a parent or more appropriate child candidate owns the selected boundary.
-
-A hit is valid only when identity, bounds/coverage, density, format, intent/purpose policy, and device/context match. Capture publication is atomic with complete request success.
-
-A candidate transitively containing a target command, current-target/external scope, or target capture is `Bypass` for whole-subtree output caching unless the complete prior-token pixel identity/coverage is immutable and known. External-root prior pixels are request-unique and never cross-request hits. Pure nested value candidates remain eligible; substitution rewires only value producers while every fragment/token edge stays in authored order/scope.
-
-### ExecutionIsland
-
-A maximal dependency-consistent region sharing backend/cache/lifetime policy.
-
-Island boundaries include:
-
-- cache materialization/capture;
-- opaque or Geometry execution;
-- target command/capture/current-target scope, scope-relative `TargetLayerScope` offscreen isolation, and raw target work;
-- explicit readback;
-- destination-dependent Blend or another unsupported/unproven composite;
-- external target ownership;
-- backend transition or 3D output;
-- runtime-dynamic topology where downstream scheduling cannot be static;
-- backend Shader resource limit split.
-
-Legacy `FilterEffectContext.CustomEffect` is `LegacyCustomEffect` opaque external work. When the render-node input metadata is symbolic, the legacy `FilterEffectContext` no longer exposes `Bounds` publicly (engine-internal recording tracker only); bounds-dependent parameters are resolved from execution-time target bounds. A custom item without a bounds transformer carries a symbolic owning-target-domain bound through recording. Scope lowering resolves it only after enclosing transforms, clips, and finite target scopes are known, then forward analysis reevaluates the retained bounds-transforming items from the resolved input bounds. Every subsequent legacy Skia/custom/Shader/Geometry item stays in the same opaque island and derives its mapping from actual runtime targets. The executor crops only the final semantic outputs to the resolved local domain; internal allocations and passes remain opaque. Retained raw author canvases such as arbitrary `IBackdrop.Draw`, audio-visualizer callbacks, `RawTargetScope`, and `RawTargetCommand` are `LegacyRawCanvas`. Surrounding fragment/resource ownership is planned, but internal raw-callback passes/synchronizations are intentionally unknown and the compiled plan retains the opaque-external boundary.
-
-An island contains ordered stages, inputs/outputs, backend, required synchronization, materializations, and a structural identity.
+The planner partitions the graph at materialization, target dependencies, readback, backend transitions, raw work, and unsupported fusion seams. It may combine compatible current-pixel shader stages into one island while preserving fragment order, bounds, scale, color/alpha semantics, and target behavior.
 
 ### StructuralPlan and RuntimeBindings
 
-`StructuralPlan` contains operation order, island/fusion partitions, binding layout, bounds behavior identity, backend capability class, resource lifetime shape, and cache capture locations. It excludes animated values and resource contents.
-
-`RuntimeBindings` contains current values, resource versions/handles, resolved bounds/regions, working densities, device sizes, target identity, and frame-specific parameters. A structural mismatch rejects the plan and compiles one replacement; parameter-only changes reuse it.
-
-Structural identity compares full structural components after any hash bucket match so collisions cannot alias plans/programs.
+An internal plan records fixed graph topology, operation schemas, shader source/binding layout, barriers, and allocation shape. Request-time bindings contain current call state, request-scoped resources, resolved bounds/regions, densities, target allocation data, and frame inputs. The engine owns this split; public authoring supplies definitions and calls only.
 
 ### ResourcePlan and ResourceLease
 
-`ResourcePlan` assigns materialized values to exact-format/size target lease intervals and synchronization points.
-
-A lease has:
-
-- pool owner/context identity;
-- exact device size and RGBA16F format;
-- generation token;
-- acquisition and last-use schedule positions;
-- state `Available -> Leased -> Available/Evicted`, or `Leased -> CacheTransferred` when an accepted persistent cache payload takes ownership.
-
-Stale/double releases fail deterministically. `CacheTransferred` discharges the request lease exactly once and removes it from pool ownership; later invalidation is owned by `RenderNodeCache`. Stable warmed schedules create no new targets. Peak-live accounting includes every planner-owned lease and excludes externally owned root/presentation targets.
+The resource plan calculates first/last use for materialized values and manages pooled targets. A lease has one owner at a time and is released, transferred, or disposed exactly once. Externally borrowed root/presentation targets are never pooled or disposed by the request.
 
 ### CompiledShaderRun
 
-A maximal compatible sequence of validated CurrentPixel Shader stages and participating invariant operations such as opacity, rooted in an input whose upstream analytic/antialiased coverage is already resolved. It stores merged source/signature, stage-to-binding layout, coverage provenance, backend capability/budget decisions, and program-cache key. A vector/text/path/AA-clip producer is a deterministic boundary unless every crossing engine-known participant has mechanically proven premultiplied-coverage homogeneity. The run is also split deterministically before exceeding stage, uniform, sampler, child, source, or backend limits.
+A compiled shader run stores merged source/binding layout and backend capability requirements. Runtime uniforms and child resources bind after final bounds, density, and target allocation are known. Full program equality guards any hash lookup.
 
 ## Request lifecycle
 
-```text
-Created
-  -> Recording
-  -> Recorded
-  -> TargetDependenciesLowered
-  -> MetadataResolved
-  -> RegionsResolved
-  -> CachesResolved
-  -> Planned
-  -> Executing
-  -> Completed
-  -> Disposed
+1. Begin a request and record each node transactionally.
+2. Lower scope-local target dependencies and resolve forward metadata.
+3. Propagate required regions backward and select eligible retained-output substitutions/captures.
+4. Build islands, shader runs, and resource leases.
+5. Execute in dependency and painter order.
+6. Publish retained output only after complete success, then settle all leases and resource transfers.
 
-Any non-terminal state
-  -> Failed
-  -> Disposed
-```
-
-Failure from any non-terminal state transitions to `Failed`, runs the same request-owner cleanup, preserves the primary exception, rejects any cache publication that has not reached its atomic commit point, and then transitions to `Disposed` (`src/Beutl.Engine/Graphics/Rendering/Planning/RenderRequest.cs:95-151`). If the complete replacement set was already committed, a later failure disposing superseded cache storage remains a cleanup failure and does not roll back the accepted replacements.
-
-Only Frame/allowed CacheWarmup requests may mutate persistent render caches. HitTest and Bounds stop after metadata/provenance and never enter pixel execution. Nested separate-target requests have their own lifecycle/islands but share parent target-factory policy and failure ownership.
+Any failure invalidates sessions/handles, suppresses partial output, preserves the primary failure, and performs remaining cleanup best-effort.
 
 ## Evidence is not request state
 
-The final request model has no completed-request snapshot or event stream. Friend tests inspect immutable recorded/compiled plans, component-local plan/program/pool statistics, test-owned execution probes, rendered output, exceptions, and final resource state directly. Evidence observations do not participate in request lifecycle, planning decisions, cache identity, or ownership.
+Test probes, renderer statistics, golden artifacts, and benchmark measurements observe recording, planning, allocation, and execution. They are not mutable state carried by production requests or public callbacks.

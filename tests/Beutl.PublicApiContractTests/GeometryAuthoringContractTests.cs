@@ -11,48 +11,41 @@ namespace Beutl.PublicApiContractTests;
 [TestFixture]
 public sealed class GeometryAuthoringContractTests
 {
+    private static readonly RenderResourceSlot<GeometryResource> s_metadataSlot = new();
+    private static readonly GeometryDefinition<byte> s_metadataDefinition =
+        GeometryDefinition<byte>.Create(
+            static (_, _) => { },
+            RenderBoundsContract.Create(
+                static bounds => bounds.Inflate(new Thickness(2)),
+                static required => required.Inflate(new Thickness(2))),
+            RenderHitTestContract.Custom(GeometryHitTest),
+            requiresReadback: true,
+            resources: [s_metadataSlot]);
+
     [Test]
     public void Geometry_ExposesZeroOrOneBoundsHitTestResourceAndEligibilityContracts()
     {
         var inputBounds = new Rect(10, 20, 8, 6);
         var outputBounds = inputBounds.Inflate(new Thickness(2));
         var resource = new GeometryResource("metadata");
-        GeometryDescription? observedDescription = null;
-        RenderResourceIdentity observedResourceIdentity = default;
         FragmentSnapshot observedFragment = default;
-        var probe = new ExecutionProbe();
 
         using var node = new DelegateNode(context =>
         {
-            RenderResource<GeometryResource> token = context.Borrow(resource, "metadata-resource", version: 4);
-            observedResourceIdentity = token.CacheIdentity;
-            GeometryDescription description = GeometryDescription.Create(
-                "geometry-runtime",
-                static (_, _) => { },
-                RenderBoundsContract.Create(
-                    bounds => bounds.Inflate(new Thickness(2)),
-                    required => required.Inflate(new Thickness(2)),
-                    structuralKey: "geometry-inflate-two"),
-                RenderHitTestContract.Custom(
-                    GeometryHitTest,
-                    structuralKey: "geometry-output-hit"),
-                structuralKey: "public-geometry",
-                requiresReadback: true,
-                resources: [token.Bind("metadata")]);
+            RenderResource<GeometryResource> token = context.Borrow(resource);
+            GeometryCall<byte> call = s_metadataDefinition.Call(default, [s_metadataSlot.Bind(token)]);
             RenderFragmentHandle source = context.OpaqueSource(MetadataSource(inputBounds));
-            RenderFragmentHandle geometry = context.Geometry(source, description);
+            RenderFragmentHandle geometry = context.Geometry(source, call);
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.CreateRequestLocal(
+                RenderDefinitionCallFactory.TargetCommand(
                     static _ => throw new AssertionException("Metadata must not execute target commands."),
                     TargetRegion.Region(inputBounds),
                     Rect.Empty,
-                    RenderHitTestContract.None,
-                    structuralKey: "geometry-ineligible-command"));
+                    RenderHitTestContract.None));
 
-            Assert.That(() => context.Geometry(command, description), Throws.TypeOf<ArgumentException>());
+            Assert.That(() => context.Geometry(command, call), Throws.TypeOf<ArgumentException>());
             context.Drop(command);
-            observedDescription = description;
             observedFragment = FragmentSnapshot.From(geometry);
             context.Publish(geometry);
         });
@@ -63,7 +56,6 @@ public sealed class GeometryAuthoringContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(probe.Count, Is.Zero, "Bounds and hit-test requests are metadata-only.");
             Assert.That(hit, Is.True);
             Assert.That(measurement.OutputBounds, Is.EqualTo(outputBounds));
             Assert.That(measurement.QueryBounds, Is.EqualTo(outputBounds));
@@ -73,18 +65,6 @@ public sealed class GeometryAuthoringContractTests
             Assert.That(observedFragment.ContributesValues, Is.True);
             Assert.That(observedFragment.CanBeUsedAsValueInput, Is.True);
 
-            Assert.That(observedDescription, Is.Not.Null);
-            Assert.That(observedDescription!.Bounds.TransformBounds(inputBounds), Is.EqualTo(outputBounds));
-            Assert.That(observedDescription.Bounds.GetRequiredInputBounds(outputBounds),
-                Is.EqualTo(outputBounds.Inflate(new Thickness(2))));
-            Assert.That(observedDescription.StructuralKey, Is.EqualTo("public-geometry"));
-            Assert.That(observedDescription.RequiresReadback, Is.True);
-            Assert.That(observedDescription.Resources, Has.Count.EqualTo(1));
-            Assert.That(observedResourceIdentity,
-                Is.EqualTo(new RenderResourceIdentity("metadata-resource", 4)));
-            Assert.That(
-                () => _ = observedDescription.Resources[0].Resource.CacheIdentity,
-                Throws.TypeOf<ObjectDisposedException>());
             Assert.That(resource.DisposeCalls, Is.Zero);
         });
     }
@@ -144,7 +124,7 @@ public sealed class GeometryAuthoringContractTests
         using var node = new DelegateNode(context =>
         {
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds, Colors.White));
-            GeometryDescription description = GeometryDescription.CreateRequestLocal(
+            GeometryCall<Action<GeometrySession>> call = RenderDefinitionCallFactory.Geometry(
                 session =>
                 {
                     executionCalls++;
@@ -153,9 +133,8 @@ public sealed class GeometryAuthoringContractTests
                     session.DiscardOutput();
                 },
                 RenderBoundsContract.Identity,
-                RenderHitTestContract.OutputBounds,
-                structuralKey: "discard-after-shrink");
-            RenderFragmentHandle geometry = context.Geometry(source, description);
+                RenderHitTestContract.OutputBounds);
+            RenderFragmentHandle geometry = context.Geometry(source, call);
             Assert.That(geometry.ValueCardinality, Is.EqualTo(RenderValueCardinality.ZeroOrOne));
             context.Publish(geometry);
         });
@@ -179,13 +158,12 @@ public sealed class GeometryAuthoringContractTests
         using var node = new DelegateNode(context =>
         {
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds, Colors.White));
-            GeometryDescription description = GeometryDescription.CreateRequestLocal(
+            GeometryCall<Action<GeometrySession>> call = RenderDefinitionCallFactory.Geometry(
                 session => session.Input.UseSnapshot(static _ => { }),
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
-                structuralKey: "undeclared-readback",
                 requiresReadback: false);
-            context.Publish(context.Geometry(source, description));
+            context.Publish(context.Geometry(source, call));
         });
 
         Assert.That(
@@ -239,15 +217,14 @@ public sealed class GeometryAuthoringContractTests
         return max;
     }
 
-    private static OpaqueRenderDescription MetadataSource(Rect bounds)
+    private static OpaqueRenderCall<Action<OpaqueRenderSession>> MetadataSource(Rect bounds)
     {
-        return OpaqueRenderDescription.CreateRequestLocal(
+        return RenderDefinitionCallFactory.Opaque(
             static _ => throw new AssertionException("A metadata request must not execute the source."),
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
-            RenderScaleContract.Vector,
-            structuralKey: (typeof(GeometryAuthoringContractTests), "metadata-source", bounds));
+            RenderScaleContract.Vector);
     }
 
     private static bool GeometryHitTest(RenderHitTestContext context, Point point)
@@ -261,9 +238,9 @@ public sealed class GeometryAuthoringContractTests
         return context.OutputBounds.Contains(point);
     }
 
-    private static OpaqueRenderDescription ExecutingSource(Rect bounds, Color color)
+    private static OpaqueRenderCall<(Rect bounds, Color color)> ExecutingSource(Rect bounds, Color color)
     {
-        return OpaqueRenderDescription.Create(
+        return RenderDefinitionCallFactory.Opaque(
             (bounds, color),
             static (session, state) =>
             {
@@ -274,15 +251,7 @@ public sealed class GeometryAuthoringContractTests
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: (typeof(GeometryAuthoringContractTests), "executing-source"));
-    }
-
-    private sealed class ExecutionProbe
-    {
-        public int Count { get; private set; }
-
-        public void Record() => Count++;
+            RenderScaleContract.MaterializeAtWorkingScale);
     }
 
     private sealed class SolidSourceNode(Rect bounds, Color color) : RenderNode
@@ -301,6 +270,15 @@ public sealed class GeometryAuthoringContractTests
         GeometryResource declaredResource,
         Rect shrinkBounds) : FilterEffect
     {
+        private static readonly RenderResourceSlot<GeometryResource> s_resourceSlot = new();
+        private static readonly GeometryDefinition<PluginGeometryEffect> s_definition =
+            GeometryDefinition<PluginGeometryEffect>.Create(
+                static (session, effect) => effect.ExecuteGeometry(session),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.OutputBounds,
+                requiresReadback: true,
+                resources: [s_resourceSlot]);
+
         public int ExecutionCalls { get; private set; }
 
         public int ResourceUses { get; private set; }
@@ -323,46 +301,39 @@ public sealed class GeometryAuthoringContractTests
 
         public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
         {
-            RenderResource<GeometryResource> token = context.Borrow(
-                declaredResource,
-                cacheKey: "plugin-geometry-resource",
-                version: 2);
-            context.Geometry(GeometryDescription.CreateRequestLocal(
-                session =>
-                {
-                    ExecutionCalls++;
-                    RetainedSession = session;
-                    RetainedInput = session.Input;
-                    RetainedCanvas = session.Canvas;
-                    ObservedInputRasterBounds = session.Input.RasterBounds;
-                    ObservedCanvasRasterBounds = session.Canvas.RasterBounds;
-                    session.UseResource(token, value =>
-                    {
-                        ResourceUses++;
-                        ObservedResource = value;
-                    });
-                    session.Input.UseSnapshot(bitmap =>
-                    {
-                        SnapshotUses++;
-                        RetainedSnapshot = bitmap;
-                        Assert.That(bitmap.IsDisposed, Is.False);
-                    });
-                    Assert.That(
-                        () => session.Input.UseSnapshot(static _ => { }),
-                        Throws.TypeOf<InvalidOperationException>(),
-                        "A declared snapshot is still a one-shot lease.");
-                    Assert.That(
-                        () => session.SetOutputBounds(new Rect(-1, -1, 20, 20)),
-                        Throws.TypeOf<ArgumentException>(),
-                        "Geometry may shrink but cannot grow beyond its allocated forward bounds.");
-                    session.Canvas.Use(canvas => session.Input.Draw(canvas));
-                    session.SetOutputBounds(shrinkBounds);
-                },
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.OutputBounds,
-                structuralKey: "plugin-geometry",
-                requiresReadback: true,
-                resources: [token.Bind("geometry")]));
+            RenderResource<GeometryResource> token = context.Borrow(declaredResource);
+            context.Geometry(s_definition.Call(this, [s_resourceSlot.Bind(token)]));
+        }
+
+        private void ExecuteGeometry(GeometrySession session)
+        {
+            ExecutionCalls++;
+            RetainedSession = session;
+            RetainedInput = session.Input;
+            RetainedCanvas = session.Canvas;
+            ObservedInputRasterBounds = session.Input.RasterBounds;
+            ObservedCanvasRasterBounds = session.Canvas.RasterBounds;
+            session.UseResource(s_resourceSlot, value =>
+            {
+                ResourceUses++;
+                ObservedResource = value;
+            });
+            session.Input.UseSnapshot(bitmap =>
+            {
+                SnapshotUses++;
+                RetainedSnapshot = bitmap;
+                Assert.That(bitmap.IsDisposed, Is.False);
+            });
+            Assert.That(
+                () => session.Input.UseSnapshot(static _ => { }),
+                Throws.TypeOf<InvalidOperationException>(),
+                "A declared snapshot is still a one-shot lease.");
+            Assert.That(
+                () => session.SetOutputBounds(new Rect(-1, -1, 20, 20)),
+                Throws.TypeOf<ArgumentException>(),
+                "Geometry may shrink but cannot grow beyond its allocated forward bounds.");
+            session.Canvas.Use(canvas => session.Input.Draw(canvas));
+            session.SetOutputBounds(shrinkBounds);
         }
 
         public override Resource ToResource(CompositionContext context)

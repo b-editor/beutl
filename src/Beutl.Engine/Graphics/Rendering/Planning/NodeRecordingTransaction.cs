@@ -43,6 +43,15 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
 
     public RenderRequest Request => _host.Request;
 
+    public int PublicationCount
+    {
+        get
+        {
+            VerifyActive();
+            return _publications.Count;
+        }
+    }
+
     public bool IsRenderCacheEnabled
         => State == NodeRecordingTransactionState.Active
            && !_cacheDisabled
@@ -147,26 +156,20 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         _cacheDisabled = true;
     }
 
-    public RenderResource<T> Own<T>(T resource, object? cacheKey, long version)
+    public RenderResource<T> Own<T>(T resource)
         where T : class, IDisposable
     {
         VerifyActive();
-        RenderResource<T> token = Request.Options.Owner.ResourceRegistry.RegisterOwned(
-            resource,
-            cacheKey,
-            version);
+        RenderResource<T> token = Request.Options.Owner.ResourceRegistry.RegisterOwned(resource);
         _resources.Add(token);
         return token;
     }
 
-    public RenderResource<T> Borrow<T>(T resource, object? cacheKey, long version)
+    public RenderResource<T> Borrow<T>(T resource)
         where T : class
     {
         VerifyActive();
-        RenderResource<T> token = Request.Options.Owner.ResourceRegistry.RegisterBorrowed(
-            resource,
-            cacheKey,
-            version);
+        RenderResource<T> token = Request.Options.Owner.ResourceRegistry.RegisterBorrowed(resource);
         _resources.Add(token);
         return token;
     }

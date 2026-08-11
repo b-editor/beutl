@@ -65,14 +65,13 @@ public class RectClipRenderNodeTest
         var operation = ClipOperation.Intersect;
         using var node = new RectClipRenderNode(rect, operation);
 
-        for (int frame = 0; frame < RenderNodeCache.Count; frame++)
+        for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, operation);
-            node.Cache.IncrementRenderCount();
-            node.HasChanges = false;
+            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
         }
 
-        Assert.That(node.Cache.CanCache(), Is.True);
+        Assert.That(node.Cache.CanCapture, Is.True);
     }
 
     [Test]
@@ -84,16 +83,17 @@ public class RectClipRenderNodeTest
         var node = new RectClipRenderNode(rect, operation);
         parent.AddChild(node);
 
-        for (int frame = 0; frame < RenderNodeCache.Count; frame++)
+        for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, operation);
-            node.Cache.IncrementRenderCount();
-            node.HasChanges = false;
-            parent.Cache.IncrementRenderCount();
-            parent.HasChanges = false;
+            RenderNodeCacheHelper.BeginLifecycle(parent).CompleteSuccessfully(advanceWarmup: true);
         }
 
-        Assert.That(RenderNodeCacheHelper.CanCacheRecursive(parent), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(parent.Cache.CanCapture, Is.True);
+            Assert.That(node.Cache.CanCapture, Is.True);
+        });
     }
 
     [Test]
@@ -148,7 +148,7 @@ public class RectClipRenderNodeTest
     }
 
     [Test]
-    public void RuntimeClipChanges_ReuseTheStructuralPlan()
+    public void ClipStateChanges_ReuseTheStructuralPlan()
     {
         using var cache = new StructuralPlanCache();
         using var node = new RectClipRenderNode(
@@ -171,6 +171,58 @@ public class RectClipRenderNodeTest
             Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 100, 100)));
             Assert.That(cache.Statistics.Compilations, Is.EqualTo(1));
             Assert.That(cache.Statistics.Hits, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void EquivalentIndependentlyConstructedScopeDefinitions_ReuseTheStructuralPlan()
+    {
+        using var cache = new StructuralPlanCache();
+        using var node = new EquivalentScopeDefinitionNode();
+        node.AddChild(new RectangleRenderNode(
+            new Rect(0, 0, 100, 100),
+            Brushes.Resource.White,
+            null));
+
+        using (Compile(cache, node))
+        {
+        }
+        using (Compile(cache, node))
+        {
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.DefinitionCreations, Is.EqualTo(2));
+            Assert.That(cache.Statistics.Compilations, Is.EqualTo(1));
+            Assert.That(cache.Statistics.Hits, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void DifferentScopeDefinitionContracts_RecompileTheStructuralPlan()
+    {
+        using var cache = new StructuralPlanCache();
+        using var node = new ContractChangingScopeDefinitionNode();
+        node.AddChild(new RectangleRenderNode(
+            new Rect(0, 0, 100, 100),
+            Brushes.Resource.White,
+            null));
+
+        using (Compile(cache, node))
+        {
+        }
+
+        node.UseFullInputContract = true;
+        using (Compile(cache, node))
+        {
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.DefinitionCreations, Is.EqualTo(2));
+            Assert.That(cache.Statistics.Compilations, Is.EqualTo(2));
+            Assert.That(cache.Statistics.Hits, Is.Zero);
         });
     }
 
@@ -199,5 +251,66 @@ public class RectClipRenderNodeTest
             request.Dispose();
             throw;
         }
+    }
+
+    private sealed class EquivalentScopeDefinitionNode : ContainerRenderNode
+    {
+        public int DefinitionCreations { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            DefinitionCreations++;
+            TargetScopeDefinition<ScopeState> definition = TargetScopeDefinition<ScopeState>.Create(
+                static (session, _) => session.Canvas.Use(canvas =>
+                {
+                    using (canvas.Push())
+                    {
+                        session.ReplayInput();
+                    }
+                }),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.PreserveInputSupply,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
+                deviceGridMapping: RenderDeviceGridMapping.Preserved);
+            context.PublishMappedInputs(
+                definition.Call(default),
+                static (current, input, call) => current.TargetScope(input, call));
+        }
+
+        private readonly record struct ScopeState;
+    }
+
+    private sealed class ContractChangingScopeDefinitionNode : ContainerRenderNode
+    {
+        public bool UseFullInputContract { get; set; }
+
+        public int DefinitionCreations { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            DefinitionCreations++;
+            RenderBoundsContract bounds = UseFullInputContract
+                ? RenderBoundsContract.FullInput
+                : RenderBoundsContract.Identity;
+            TargetScopeDefinition<ScopeState> definition = TargetScopeDefinition<ScopeState>.Create(
+                static (session, _) => session.Canvas.Use(canvas =>
+                {
+                    using (canvas.Push())
+                    {
+                        session.ReplayInput();
+                    }
+                }),
+                bounds,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.PreserveInputSupply,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
+                deviceGridMapping: RenderDeviceGridMapping.Preserved);
+            context.PublishMappedInputs(
+                definition.Call(default),
+                static (current, input, call) => current.TargetScope(input, call));
+        }
+
+        private readonly record struct ScopeState;
     }
 }

@@ -201,7 +201,7 @@ public sealed class FilterEffectContext : IDisposable
         }
     }
 
-    public void Shader(ShaderDescription description)
+    internal void Shader(ShaderDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
         _resourceState.ValidateResources(
@@ -210,7 +210,15 @@ public sealed class FilterEffectContext : IDisposable
         AppendDescription(new FEItem_Shader(description));
     }
 
-    public void Geometry(GeometryDescription description)
+    /// <summary>Appends one shader definition call to this filter-effect stream.</summary>
+    public void Shader<TState>(ShaderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        Shader(call.Description);
+    }
+
+    internal void Geometry(GeometryDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
         _resourceState.ValidateResources(
@@ -219,18 +227,26 @@ public sealed class FilterEffectContext : IDisposable
         AppendDescription(new FEItem_Geometry(description));
     }
 
-    public RenderResource<T> Own<T>(T resource, object? cacheKey = null, long version = 0)
+    /// <summary>Appends one geometry definition call to this filter-effect stream.</summary>
+    public void Geometry<TState>(GeometryCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        Geometry(call.Description);
+    }
+
+    public RenderResource<T> Own<T>(T resource)
         where T : class, IDisposable
     {
         ThrowIfDisposed();
-        return _resourceState.Own(resource, cacheKey, version);
+        return _resourceState.Own(resource);
     }
 
-    public RenderResource<T> Borrow<T>(T resource, object? cacheKey = null, long version = 0)
+    public RenderResource<T> Borrow<T>(T resource)
         where T : class
     {
         ThrowIfDisposed();
-        return _resourceState.Borrow(resource, cacheKey, version);
+        return _resourceState.Borrow(resource);
     }
 
     private void AppendDescription(IFEItem item)
@@ -853,24 +869,24 @@ internal sealed class FilterEffectResourceState
         return this;
     }
 
-    public RenderResource<T> Own<T>(T resource, object? cacheKey, long version)
+    public RenderResource<T> Own<T>(T resource)
         where T : class, IDisposable
     {
         ThrowIfTransferred();
         RenderResource<T> token = _renderContext is not null
-            ? _renderContext.Own(resource, cacheKey, version)
-            : _standaloneRegistry!.RegisterOwned(resource, cacheKey, version);
+            ? _renderContext.Own(resource)
+            : _standaloneRegistry!.RegisterOwned(resource);
         _resources.Add(token);
         return token;
     }
 
-    public RenderResource<T> Borrow<T>(T resource, object? cacheKey, long version)
+    public RenderResource<T> Borrow<T>(T resource)
         where T : class
     {
         ThrowIfTransferred();
         RenderResource<T> token = _renderContext is not null
-            ? _renderContext.Borrow(resource, cacheKey, version)
-            : _standaloneRegistry!.RegisterBorrowed(resource, cacheKey, version);
+            ? _renderContext.Borrow(resource)
+            : _standaloneRegistry!.RegisterBorrowed(resource);
         _resources.Add(token);
         return token;
     }
