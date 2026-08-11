@@ -76,6 +76,11 @@ public partial class PackageInstaller
                 // The files are already gone, so the repository entry would outlive them.
                 _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
                 _installedPackageRepository.RemovePackage(package);
+                if (!dataRemoved)
+                {
+                    failedPackages.Add(directory);
+                }
+
                 continue;
             }
 

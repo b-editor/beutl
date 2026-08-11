@@ -126,6 +126,20 @@ internal class PackageOperationHandler
                         hasFallback = true;
                     }
                 }
+                else
+                {
+                    // The extracted package is already gone, but a data package's payload
+                    // lives outside it and still has to be removed.
+                    if (!_packageInstaller.UninstallDataPackage(item.Id))
+                    {
+                        _queue.UninstallQueue(item);
+                        hasFallback = true;
+                    }
+                    else
+                    {
+                        _installedPackageRepository.RemovePackage(item);
+                    }
+                }
             }
             catch (Exception ex)
             {

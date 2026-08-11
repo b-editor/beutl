@@ -39,7 +39,7 @@ page shows the kind instead.
 
 Beutl copies one directory out of the package, chosen by the kind:
 
-```
+```text
 material package
   materials/**            ->  {home}/materials/{package-id}/
 

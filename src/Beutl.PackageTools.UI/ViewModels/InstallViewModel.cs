@@ -78,8 +78,8 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
             repos.AddPackage(pkg);
             repos.UpgradePackages(pkg);
 
-            // 素材・テンプレートパッケージはアセンブリを読み込まないため、
-            // 展開後にデータファイルをホームディレクトリへ配置する。
+            // A material or template package is not loaded as an assembly; its payload is
+            // copied into the home directory after extraction.
             DeployDataPackage(pkg);
 
             _logger.LogInformation("Package {PackageId} version {Version} installed successfully.", Model.Id, Model.Version.ToString());

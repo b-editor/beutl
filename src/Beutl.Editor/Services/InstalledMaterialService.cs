@@ -155,6 +155,7 @@ public sealed class InstalledMaterialService
             _watcher.Created += OnFileSystemEvent;
             _watcher.Deleted += OnFileSystemEvent;
             _watcher.Renamed += OnFileSystemEvent;
+            _watcher.Error += OnWatcherError;
 
             _logger.LogInformation("Started watching materials directory: {DirectoryPath}", _directoryPath);
         }
@@ -165,6 +166,19 @@ public sealed class InstalledMaterialService
     }
 
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
+    {
+        ScheduleRefresh();
+    }
+
+    private void OnWatcherError(object sender, ErrorEventArgs e)
+    {
+        // The watcher lost events (e.g. its internal buffer overflowed), so the list
+        // may be stale; rescan to resynchronize.
+        _logger.LogWarning(e.GetException(), "The materials watcher reported an error; rescanning.");
+        ScheduleRefresh();
+    }
+
+    private void ScheduleRefresh()
     {
         lock (_lock)
         {

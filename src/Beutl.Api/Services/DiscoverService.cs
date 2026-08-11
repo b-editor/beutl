@@ -31,7 +31,7 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
     public async Task<Package[]> GetFeatured(
         int start = 0, int count = 30, PackageKindFilter type = PackageKindFilter.All)
     {
-        using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetDailyRanking", ActivityKind.Client);
+        using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetFeatured", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
         activity?.SetTag("type", type.ToString());
