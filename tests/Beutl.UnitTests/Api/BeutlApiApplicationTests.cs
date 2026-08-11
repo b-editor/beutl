@@ -6,6 +6,7 @@ using Beutl.Api.Services;
 namespace Beutl.UnitTests.Api;
 
 [TestFixture]
+[NonParallelizable]
 public sealed class BeutlApiApplicationTests
 {
     [Test]
@@ -39,24 +40,37 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
+    public void ToServerType_Flatpak_MapsToZip()
+    {
+        Assert.That(BeutlApiApplication.ToServerType("flatpak"), Is.EqualTo("zip"));
+    }
+
+    [TestCase("zip")]
+    [TestCase("debian")]
+    [TestCase("installer")]
+    [TestCase("app")]
+    public void ToServerType_KnownType_PassesThrough(string type)
+    {
+        Assert.That(BeutlApiApplication.ToServerType(type), Is.EqualTo(type));
+    }
+
+    [Test]
     public async Task CheckForUpdatesAsync_WithFlatpakMetadata_SendsZipType()
     {
-        // The server's /api/v3/app/updates endpoint only accepts zip/debian/installer/app.
-        // Flatpak bundles are built from the standalone zip, so report them as zip.
-        // (s_metadata is a per-process static cache, so this must be the only test exercising the metadata path.)
+        // LoadMetadata reads asset_metadata.json from AppContext.BaseDirectory (cached per process).
         string metadataPath = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
-        File.WriteAllText(metadataPath, """
-            {
-              "id": "test-id",
-              "os": "linux",
-              "arch": "x64",
-              "version": "2.0.0-preview.6",
-              "standalone": "true",
-              "type": "flatpak"
-            }
-            """);
         try
         {
+            File.WriteAllText(metadataPath, """
+                {
+                  "id": "test-id",
+                  "os": "linux",
+                  "arch": "x64",
+                  "version": "2.0.0-preview.6",
+                  "standalone": "true",
+                  "type": "flatpak"
+                }
+                """);
             var handler = new CapturingHandler();
             using var httpClient = new HttpClient(handler);
             var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
