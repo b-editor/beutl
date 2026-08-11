@@ -12,22 +12,22 @@ code, and Beutl never loads an assembly from them:
 
 ## Publishing without a nupkg
 
-Most data-package authors are not developers and never build a nupkg. The store's
-**Publish materials or templates** page (`/developer/upload`) takes a folder of files
-and does the packaging for them: pick a type, a name, a title and a description, select
-the folder, and the server builds the package, creates a `1.0.0` release and publishes
-it. The package id is namespaced as `Beutl.Materials.<username>.<name>`,
-`Beutl.Templates.<username>.<name>` or `Beutl.Data.<username>.<name>` (for a package
-with both kinds), so the author only chooses the short name.
+Most data-package authors are not developers and never build a nupkg. The developer
+portal's release editor accepts a **materials or templates folder** instead of a nupkg
+file: pick the kind (material, template, or both), select the folder, and the server
+builds the package and attaches it to the release. The package id is namespaced as
+`Beutl.Materials.<username>.<name>`, `Beutl.Templates.<username>.<name>` or
+`Beutl.Data.<username>.<name>` (for a package with both kinds), so the author only
+chooses the short name.
 
-For the **both** type the folder must contain `materials/` and `templates/`
-subdirectories. A template in the package can use a bundled material: the upload flow
+For the **both** kind the folder must contain `materials/` and `templates/`
+subdirectories. A template in the package can use a bundled material: the server
 rewrites the template's `file://` references to the material into URIs relative to the
 template file, and the editor resolves them against the template's own location after
 installation.
 
 The rest of this document describes the nupkg layout for authors who do build the
-package themselves (or want to know what the upload page produces).
+package themselves (or want to know what the release editor produces).
 
 ## Declaring the kind
 
