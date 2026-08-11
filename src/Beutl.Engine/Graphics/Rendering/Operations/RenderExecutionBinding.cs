@@ -77,7 +77,7 @@ internal abstract class RenderExecutionBinding<TSession>
 /// <remarks>
 /// Because the callback cannot capture, <typeparamref name="TState"/> is the only channel carrying a per-frame
 /// value into it, so no value can shape the produced pixels without being part of the cache key. Cache identity
-/// compares and hashes the complete deeply immutable field graph instead of trusting author-provided equality
+/// compares and hashes the complete field graph instead of trusting author-provided equality
 /// members. The state is stored in its own field rather than as an identity object, so a value-typed state is
 /// never boxed while the binding is recorded or invoked.
 /// </remarks>

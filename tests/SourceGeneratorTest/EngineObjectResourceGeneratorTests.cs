@@ -107,17 +107,17 @@ public class EngineObjectResourceGeneratorTests
             // surfaced as a Derived.Resource and compared via CompareAndUpdateObject.
             Assert.That(source, Does.Contain("Child"));
             Assert.That(source, Does.Contain("CompareAndUpdateObject(context"));
-            Assert.That(source, Does.Contain("SetOwnedResource(ref _child, value);"));
+            Assert.That(source, Does.Contain("set => _child = value;"));
+            Assert.That(source, Does.Contain("set => _optionalChild = value;"));
+            Assert.That(source, Does.Not.Contain("SetOwnedResource"));
             Assert.That(source, Does.Not.Contain("ReplaceChild("));
             Assert.That(source, Does.Not.Contain("DetachChild()"));
             Assert.That(source, Does.Contain(
                 "get => _child ?? throw new global::System.InvalidOperationException"));
-            Assert.That(source, Does.Contain("global::System.ArgumentNullException.ThrowIfNull(value);"));
             Assert.That(source, Does.Not.Contain("DetachOptionalChild()"));
             Assert.That(source, Does.Not.Contain("ReplaceOptionalChild("));
             // The disposable object property is released by its backing field in Dispose.
-            Assert.That(source, Does.Contain(
-                "SetOwnedResource(ref _child, default);"));
+            Assert.That(source, Does.Contain("_child?.Dispose();"));
         });
     }
 

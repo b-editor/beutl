@@ -358,10 +358,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
             case BlendRenderFragmentPayload:
                 return;
             case OpacityMaskRenderFragmentPayload mask:
-                components.Add(mask.Mask.Kind);
-                components.Add(mask.Mask.DependencyIndex);
-                components.Add(mask.IsRawFallback);
-                AddResourceTypes(mask.Resources, components);
+                AddResourceTypes([mask.Mask], components);
                 return;
             case ShaderRenderFragmentPayload shader:
                 components.Add(shader.Description.StructuralIdentity);
@@ -395,8 +392,6 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
             case LegacyFilterEffectRenderFragmentPayload legacy:
                 AddWorkingScalePolicy(legacy.WorkingScalePolicy, components);
                 components.Add(legacy.StreamInputCount);
-                components.Add(legacy.Brushes.IsDefault ? 0 : legacy.Brushes.Length);
-                AddResourceTypes(legacy.BrushResources, components);
                 return;
             case MaterializedInputRenderFragmentPayload input:
                 components.Add(input.Description.HitTest.StructuralIdentity);

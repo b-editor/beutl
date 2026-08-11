@@ -87,26 +87,30 @@ public sealed class DetachedResourceAuthoringContractTests
     }
 
     [Test]
-    public void ADetachedResource_OwnsTheNestedResourceItHoldsAndItsReplacement()
+    public void AResourcePropertySetter_ReplacesWithoutDisposingThePreviousValue()
     {
-        var resource = new PluginObjectDefaultOwner.Resource();
-        var initial = new PluginObjectDefault.Resource();
+        using var resource = new PluginObjectDefaultOwner.Resource();
+        using var initial = new PluginObjectDefault.Resource();
+        using var replacement = new PluginObjectDefault.Resource();
         resource.Child = initial;
-        var replacement = new PluginObjectDefault.Resource();
 
         resource.Child = replacement;
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(initial.IsDisposed, Is.True,
-                "replacing an owned object property must release the resource it displaced");
+            Assert.That(initial.IsDisposed, Is.False,
+                "a resource property setter is a plain assignment and must not dispose the displaced value");
             Assert.That(replacement.IsDisposed, Is.False);
         }
 
         resource.Dispose();
 
-        Assert.That(replacement.IsDisposed, Is.True,
-            "a resource property setter transfers ownership of the replacement to its owner");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(initial.IsDisposed, Is.False);
+            Assert.That(replacement.IsDisposed, Is.True,
+                "disposing the owner must still release the resource currently stored in the property");
+        }
     }
 
     private static Pen.Resource DetachedPen(float thickness)

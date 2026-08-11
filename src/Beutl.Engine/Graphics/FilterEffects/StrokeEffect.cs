@@ -35,21 +35,21 @@ public partial class StrokeEffect : FilterEffect
     {
         var r = (Resource)resource;
         context.CustomEffect(
-            (r.Offset, Pen: context.RegisterPen(r.Pen), r.Style),
+            (r.Offset, r.Pen, r.Style),
             Apply,
             TransformBounds);
     }
 
-    private static Rect TransformBounds((Point Offset, FilterEffectPen Pen, StrokeStyles Style) data, Rect rect)
+    private static Rect TransformBounds((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, Rect rect)
     {
-        Rect borderBounds = PenHelper.GetBounds(rect, data.Pen.Resource);
+        Rect borderBounds = PenHelper.GetBounds(rect, data.Pen);
         // Inflate symmetrically by offset so the source stays centered.
         return borderBounds.Inflate(new Thickness(
             Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y),
             Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y)));
     }
 
-    private static void Apply((Point Offset, FilterEffectPen Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
+    private static void Apply((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
     {
         static SKPath CreateBorderPath(Bitmap src)
         {
@@ -72,7 +72,7 @@ public partial class StrokeEffect : FilterEffect
             return skpath;
         }
 
-        if (!data.Pen.IsEmpty)
+        if (data.Pen is { } pen)
         {
             for (int i = 0; i < context.Targets.Count; i++)
             {
@@ -102,7 +102,7 @@ public partial class StrokeEffect : FilterEffect
 
                     using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
                     {
-                        context.DrawPath(newCanvas, borderPath, true, FilterEffectBrush.Empty, data.Pen);
+                        newCanvas.DrawSKPath(borderPath, true, null, pen);
                     }
 
                     if (data.Style == StrokeStyles.Foreground)

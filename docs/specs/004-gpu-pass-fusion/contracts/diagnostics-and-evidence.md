@@ -1,264 +1,38 @@
-# Diagnostics and Evidence Contract
+# Evidence Contract
 
-Renderer-wide fusion is accepted only with complete-request accounting, provenance-locked visual evidence, failure/lifetime coverage, and paired production-representative benchmarks. Effect-local counters and donor timing percentages cannot establish success.
+Renderer-wide fusion is accepted only with provenance-locked visual evidence, direct plan and execution-shape assertions, failure/lifetime coverage, and paired production-representative benchmarks. Effect-local timing percentages and an implementation-wide telemetry stream are not acceptance evidence.
 
-## Request-wide diagnostics
+## Evidence seams
 
-Diagnostics are an internal renderer/evidence seam in this feature. No public provider, sink, writer, snapshot factory, or telemetry schema is added to `IRenderer` or `RenderNodeRenderer`. Instrumentation must not change planning decisions, retain request resources, or require a GPU. Friend tests and in-tree benchmarks observe immutable completed snapshots through internal test hooks.
+Feature 004 does not add a request-wide diagnostic recorder, completed-request snapshot, event stream, or renderer-owned diagnostic state. It also adds no public provider, sink, writer, or telemetry schema to `IRenderer` or `RenderNodeRenderer`. Correctness invariants remain enforced by the recorder, compiler, executor, request owner, caches, and target pool themselves rather than by a second verification subsystem.
 
-The normative internal shape is:
+Friend tests and in-tree benchmarks may observe only the narrow state already owned by the component under test:
 
-```csharp
-namespace Beutl.Graphics.Rendering;
+- the immutable recorded graph, `CompiledRenderRequest`, `ExecutionIslandPlan`, island boundaries, and compiled shader runs before execution;
+- component-local `StructuralPlanCacheStatistics`, `ProgramCacheStatistics`, and `RenderTargetPoolStatistics`;
+- test-owned target factories, program factories, callback probes, synchronization probes, and failure injectors;
+- rendered outputs, published cache entries, surfaced exceptions, and final disposal state.
 
-internal interface IRenderPipelineDiagnosticsState
-{
-    RenderPipelineDiagnosticSnapshot Latest { get; }
-    RenderPipelineDiagnosticSnapshot LatestFrame { get; }
-    event Action<RenderPipelineDiagnosticSnapshot>? RequestCompleted;
+These observations are read-only and test-scoped. They must not change planning decisions, retain request resources, become cache identity, or be required by production rendering.
 
-    void Reset();
-    void Complete(RenderPipelineDiagnosticSnapshot snapshot);
-}
+### Planning and execution proof
 
-internal sealed class RenderPipelineDiagnosticSnapshot
-{
-    internal static RenderPipelineDiagnosticSnapshot Empty { get; }
+Every execution-shape workload first asserts the compiled topology directly: reachable islands, boundary reasons, shader-run stage order, materialization demands, cache substitutions, and target dependencies. It then executes the request and asserts pixels plus the relevant component statistics or test-owned probe counts. The primary cross-node workload qualifies as one pass only when its plan contains one GPU-pass island with one fused shader run, no prohibited boundary, and execution completes through that island without an extra materialization or synchronization probe.
 
-    internal static RenderPipelineDiagnosticSnapshot Create(
-        long requestId,
-        long? parentRequestId,
-        RenderIntent intent,
-        RenderRequestPurpose purpose,
-        bool succeeded,
-        bool hasOpaqueExternalWork,
-        string rootTargetClass,
-        RenderPipelineFailurePhase? failurePhase,
-        IReadOnlyDictionary<RenderPipelineCounter, long> counters,
-        IEnumerable<RenderPipelineDiagnosticEvent> events,
-        bool hasRuntimeDynamicGpuPassWork = false);
+Exact physical-pass claims apply only to planner-controlled work. A fragment marked as opaque external remains a hard boundary, and a runtime-dynamic callback may determine work only during execution; neither case permits a claim about physical passes or flushes inside the callback. Tests still assert the visible outer boundary, callback-entry behavior, resource lifetime, and output parity without inventing internal counts.
 
-    internal long RequestId { get; }
-    internal long? ParentRequestId { get; }
-    internal RenderIntent Intent { get; }
-    internal RenderRequestPurpose Purpose { get; }
-    internal bool Succeeded { get; }
-    internal bool HasOpaqueExternalWork { get; }
-    internal bool HasRuntimeDynamicGpuPassWork { get; }
-    internal bool HasExactGpuPassCount { get; }
-    internal string RootTargetClass { get; }
-    internal RenderPipelineFailurePhase? FailurePhase { get; }
-    internal IReadOnlyDictionary<RenderPipelineCounter, long> Counters { get; }
-    internal IReadOnlyList<RenderPipelineDiagnosticEvent> Events { get; }
+### Lifetime and failure proof
 
-    internal long this[RenderPipelineCounter counter] { get; }
-}
+Resource and failure evidence is asserted at the owning component:
 
-internal readonly record struct RenderPipelineDiagnosticEvent(
-    long Sequence,
-    RenderPipelineDiagnosticEventKind Kind,
-    long SubjectId,
-    long? RelatedRequestId,
-    RenderPipelineBoundaryReason? BoundaryReason,
-    RenderPipelineOutcome? Outcome,
-    RenderPipelineFailurePhase? FailurePhase);
+- every request-owned acquisition is returned, disposed, or transferred atomically to an accepted cache payload exactly once;
+- target-pool leases reject stale or double release, and renderer disposal releases retained pool/program/plan state;
+- failed or partial outputs are not published to the render cache;
+- cleanup continues after a cleanup fault while preserving the first primary exception;
+- retained contexts, handles, sessions, inputs, canvases, and resource tokens reject use after their scope closes;
+- metadata-only Bounds and HitTest requests stop before pixel execution and do not mutate persistent frame caches or frame render counts.
 
-internal enum RenderPipelineDiagnosticEventKind
-{
-    RequestStarted,
-    FragmentRecorded,
-    BoundaryPlanned,
-    PassPlanned,
-    SynchronizationPlanned,
-    BackendTransitionPlanned,
-    CacheDecision,
-    PassExecuted,
-    SynchronizationExecuted,
-    BackendTransitionExecuted,
-    CacheCapturePublished,
-    OutcomeAssigned,
-    NestedRequest,
-    Failure,
-    CleanupFailure,
-    RequestCompleted,
-}
-
-internal enum RenderPipelineBoundaryReason
-{
-    Opaque,
-    Geometry,
-    CacheInput,
-    CacheCapture,
-    TargetCommand,
-    TargetCapture,
-    TargetScope,
-    Layer,
-    Readback,
-    UnsafeComposite,
-    LegacyRawCanvas,
-    BackendTransition,
-    DynamicTopology,
-    ScaleTransition,
-    BackendLimit,
-    ThreeD,
-    LegacyCustomEffect,
-}
-
-internal enum RenderPipelineOutcome
-{
-    Executed,
-    Cached,
-    Metadata,
-    Skipped,
-    Failed,
-}
-
-internal enum RenderPipelineFailurePhase
-{
-    Recording,
-    Metadata,
-    RegionAnalysis,
-    CacheResolution,
-    Planning,
-    ProgramCompilation,
-    Binding,
-    Allocation,
-    Execution,
-    CachePublication,
-    Cleanup,
-}
-
-internal enum RenderPipelineCounter
-{
-    RecordedFragments,
-    RecordedMaterializableValues,
-    RecordedTargetCommands,
-    RecordedTargetCaptures,
-    RecordedTargetScopes,
-    RecordedLayers,
-    PlannedGpuPasses,
-    ExecutedGpuPasses,
-    FusedStages,
-    ExecutionIslands,
-    IntermediateAcquires,
-    IntermediateCreates,
-    IntermediateDischarges,
-    PoolHits,
-    PoolMisses,
-    PeakLiveIntermediates,
-    FullFrameMaterializations,
-    RoiMaterializations,
-    Synchronizations,
-    PlannedBackendTransitions,
-    ExecutedBackendTransitions,
-    StructuralPlanCompilations,
-    StructuralPlanHits,
-    StructuralPlanMisses,
-    ProgramCreations,
-    ProgramHits,
-    ProgramMisses,
-    RenderCacheResolutionPasses,
-    RenderCacheHits,
-    RenderCacheMisses,
-    RenderCacheCaptures,
-    RejectedRenderCacheCaptures,
-    OpaqueBoundaries,
-    OpaqueExternalExecutions,
-    Opaque3DBoundaries,
-    ExecutedOutcomes,
-    CachedOutcomes,
-    MetadataOutcomes,
-    SkippedOutcomes,
-    FailedOutcomes,
-    Failures,
-    CleanupFailures,
-    ExternalRootResources,
-}
-```
-
-The internal state is thread-safe. `Latest` is the most recently completed request of any purpose; `LatestFrame` is the most recently completed request whose purpose is `Frame`. A new instance exposes `RenderPipelineDiagnosticSnapshot.Empty` from both properties until the corresponding completion. The validating factory copies the counter dictionary and event sequence; it rejects non-positive request IDs, invalid parent IDs, empty target classes, negative counters, non-gap-free event sequences, invalid optional-field/event-kind combinations, outcome or acquire/discharge reconciliation failure, and inconsistent success/failure phase/count/external-work state. Missing counter keys read as zero through the indexer.
-
-`Reset` atomically returns both `Latest` and `LatestFrame` to `Empty` without cancelling or mutating an in-flight request and does not remove internal test subscribers; later completions repopulate them according to purpose. Observer failures are isolated and cannot change or replace the render outcome.
-
-Snapshots, dictionaries, and event lists are immutable and contain numeric/string/enum identity data only. Events use a zero-based, gap-free sequence within one request; `SubjectId == 0` denotes a request-level event. Only `BoundaryPlanned` carries `BoundaryReason`, only `OutcomeAssigned` carries `Outcome`, only failure/cleanup-failure events carry `FailurePhase`, and only `NestedRequest` carries `RelatedRequestId`; other optional fields must be null. Planned events precede corresponding executed events. Each child request also receives its own snapshot and parent ID. No snapshot retains native targets, programs, contexts, resources, callbacks, exceptions, or author objects.
-
-`ScaleTransition` identifies a candidate current-pixel fusion edge whose concrete predecessor and successor effective scales differ. The stages remain ordered but execute in separate runs. An `Unbounded` predecessor may instead adopt its concrete successor density and does not produce this boundary.
-
-### Required counters
-
-| Counter | Definition |
-|---|---|
-| `RecordedFragments` | Every committed execution-relevant fragment. This is the sole denominator for terminal outcome reconciliation. |
-| `RecordedMaterializableValues` | Materializable value records exposed by committed fragments, including ordinary, effect, materialized, opaque, nested, capture, and backend values. This is a non-exclusive classification counter. |
-| `RecordedTargetCommands` | Committed guarded/raw clear/draw/readback/presentation command fragments. Non-exclusive with containing sequence/Layer classifications. |
-| `RecordedTargetCaptures` | Committed target-token-to-value capture fragments. |
-| `RecordedTargetScopes` | Committed guarded typed or raw same-target scope fragments. |
-| `RecordedLayers` | Committed local-target Layer fragments. |
-| `PlannedGpuPasses` | Planner-controlled GPU draw/dispatch work items in the compiled request, including each opaque/Geometry compatibility island but excluding internals of legacy external callbacks. One runtime-dynamic `OpaqueExpand` island is one planned item even though its callback may create multiple physical output-canvas passes. |
-| `ExecutedGpuPasses` | Planner-controlled planned GPU passes that actually execute. Cache/skipped work and legacy callback internals are excluded. |
-| `FusedStages` | Semantic stages executed inside multi-stage compiled runs. |
-| `ExecutionIslands` | Planned cache/backend/lifetime islands. |
-| `IntermediateAcquires` | Planner requests for an intermediate lease. |
-| `IntermediateCreates` | New target allocations, excluding external root/presentation targets. |
-| `IntermediateDischarges` | Planner ownership discharges: return to a pool, direct disposal/eviction, or successful transfer of a staged capture into `RenderNodeCache`. After teardown/publication this equals `IntermediateAcquires` for every request, including failures. |
-| `PoolHits` / `PoolMisses` | Exact-size compatible acquire outcomes. |
-| `PeakLiveIntermediates` | Maximum simultaneous planner-owned intermediate leases. |
-| `FullFrameMaterializations` | Complete-input materializations forced by a barrier/full-input contract. |
-| `RoiMaterializations` | Materializations restricted by resolved requested region. |
-| `Synchronizations` | Actual planner-controlled explicit flush/readback/backend synchronization points; opaque external internals are excluded. |
-| `PlannedBackendTransitions` | Backend ownership/execution transitions present in the compiled schedule. |
-| `ExecutedBackendTransitions` | Planned backend transitions actually performed before completion/failure. |
-| `StructuralPlanCompilations` | New compiled structural request plans. |
-| `StructuralPlanHits` / `Misses` | Structural-plan cache outcomes. |
-| `ProgramCreations` | Native Shader program compilations/creations. |
-| `ProgramHits` / `Misses` | Program-cache outcomes after full-key equality. |
-| `RenderCacheResolutionPasses` | Actual cache-boundary fixed-point evaluations for the request. The ordinary single-candidate cold and warm paths converge within two passes; evaluation is capped at four before conservative uncached fallback. |
-| `RenderCacheHits` / `Misses` | Selected output-cache island outcomes, not merely lookup attempts. |
-| `RenderCacheCaptures` | Successfully published captures. Failed/staged-only captures are separate. |
-| `RejectedRenderCacheCaptures` | Staged captures rejected because the complete request, validation, or cleanup did not succeed. |
-| `OpaqueBoundaries` | Aggregate opaque-island count; `Events.BoundaryReason` supplies per-reason classification. |
-| `OpaqueExternalExecutions` | Invoked `LegacyCustomEffect` or `LegacyRawCanvas` callbacks whose internal raw target/canvas work is not planner-attributable. This increments on callback entry only. |
-| `Opaque3DBoundaries` | 3D-to-2D materialized backend boundaries. |
-| `ExecutedOutcomes` | Committed fragments whose planned work executed successfully. |
-| `CachedOutcomes` | Committed fragments satisfied by a selected render-cache entry. |
-| `MetadataOutcomes` | Committed fragments resolved without pixel execution by a `Bounds` or `HitTest` request. |
-| `SkippedOutcomes` | Committed fragments assigned `Skipped` because no required consumer/region remained, including dependents left unexecuted after another fragment received the primary failure. A fragment assigned `Failed` is not also skipped. |
-| `FailedOutcomes` | Committed fragments assigned `Failed` because the fragment itself is associated with the primary failure. Failure-dependent fragments that never execute are assigned only `Skipped`. |
-| `Failures` | Primary failure count (zero or one); `FailurePhase` and failure events supply phase classification. A cleanup-only first fault becomes the primary `Cleanup` failure. |
-| `CleanupFailures` | Every cleanup fault. With an earlier primary they remain secondary; without one, the first is also represented by `Failures = 1` / `FailurePhase = Cleanup`. |
-| `ExternalRootResources` | Externally owned root/presentation targets, classified separately from intermediates. |
-
-`HasExactGpuPassCount` is true only when both `HasOpaqueExternalWork` and `HasRuntimeDynamicGpuPassWork` are false. Runtime-dynamic `OpaqueExpand` sets the latter because its callback discovers the number of output canvases only during execution; the planned/executed counters continue to describe its one compatibility-island work item, not an exact physical pass count. Existing `FilterEffectContext.CustomEffect` lowers to `LegacyCustomEffect`; every retained raw `IBackdrop`/audio/custom canvas hook plus `RawTargetScope`/`RawTargetCommand` lowers to `LegacyRawCanvas`. Recording any such fragment sets `HasOpaqueExternalWork` even when ROI/failure later skips callback invocation. The planner counts the boundary and every resource/synchronization it controls around it, but cannot claim the callback's internal physical GPU pass or flush count. `OpaqueExternalExecutions` increments only on callback entry. In either inexact case, synchronization, transition, acquire, discharge, and fragment outcome reconciliation remain complete for the planner-controlled request.
-
-### Outcome reconciliation
-
-Every committed execution-relevant fragment receives exactly one terminal outcome:
-
-- executed;
-- satisfied by selected cache;
-- resolved as metadata without pixel execution for a bounds/hit-test request;
-- skipped because no required consumer/region remains, including an unexecuted dependency after another fragment fails; or
-- failed because that fragment is directly assigned the primary failure.
-
-The recorder enforces this exclusivity by accepting only the first terminal `RenderPipelineOutcome` for each fragment and incrementing the counter mapped from that one enum value (`RenderPipelineDiagnosticRecorder.RecordOutcomeCore`, which returns early once the fragment's outcome is already set, and `RenderPipelineDiagnosticRecorder.GetOutcomeCounter`).
-
-For every completed or failed request:
-
-```text
-RecordedFragments
-  == ExecutedOutcomes + CachedOutcomes + MetadataOutcomes
-     + SkippedOutcomes + FailedOutcomes
-```
-
-`RecordedMaterializableValues`, `RecordedTargetCommands`, `RecordedTargetCaptures`, `RecordedTargetScopes`, and `RecordedLayers` are overlapping classifications and never appear on the left side of this equation. A mixed or nested fragment may increment several of them without receiving more than one outcome.
-
-Nested requests are visible both as parent nested-request events and as their own internally reconciled scopes; their fragments are not double-counted in one request total. Externally owned resources never increment intermediate acquire/discharge counters.
-
-After cleanup and any successful cache-publication transfer, `IntermediateAcquires == IntermediateDischarges` for the request scope. A cache transfer discharges request/planner ownership even though `RenderNodeCache` retains the payload afterward. A cleanup fault observed before the atomic cache-publication commit point prevents publication. Failure while disposing superseded storage after the complete replacement set has been committed does not roll that set back; it is reported as a cleanup failure while the replacements remain accepted. If no earlier primary failure exists, the first cleanup fault makes `Succeeded == false`, `Failures == 1`, and `FailurePhase == Cleanup`; every cleanup fault increments `CleanupFailures`. With an earlier primary, that phase remains primary and cleanup faults are secondary events/counters.
-
-### Event ordering
-
-Diagnostics record request ID, parent request ID, purpose, intent, root target identity class, and monotonic event sequence. Planned events precede their execution outcomes. Cache publication follows complete request success. Cleanup/failure events remain available after request disposal without retaining native objects. `Bounds` and `HitTest` requests still publish their own immutable snapshots and completion events, with every committed record assigned `Metadata`; they may replace `Latest` but never `LatestFrame`, persistent frame caches, frame render counts, or the counters stored in a completed frame snapshot.
+There is no universal per-fragment outcome ledger in the final design. Coverage comes from the transaction, planner, cache, executor, pool, and failure-matrix tests that own each invariant, plus the end-to-end visual and benchmark gates below.
 
 ## Baseline provenance
 
@@ -281,7 +55,7 @@ The script creates a temporary clean worktree pinned to the exact baseline SHA, 
 - SHA-256 hashes of the generator patch, generator script, paired visual-evidence driver, intentional-refresh script, and every blob;
 - scene name, dimensions, scale, requested region, seed, and parameter values;
 - an exact evidence fingerprint containing OS and version, architecture, graphics backend/API, device vendor/model/identifier, driver, graphics-stack versions, and .NET runtime version;
-- request-wide counter snapshot;
+- workload shape, compiled-plan summary, and any applicable component-local cache/pool statistics;
 - allocation-failure behavior for preview and delivery paths;
 - benchmark command/environment/raw result reference.
 
@@ -321,7 +95,7 @@ deterministic materialized semitransparent RGBA16F source
   -> root destination
 ```
 
-The source is already coverage-resolved and enters the chain as a materialized value; this proof therefore exercises one fused shader run without claiming that a nonlinear public stage may cross analytic coverage. The stages remain distinct render nodes. A FilterEffectGroup-only chain does not qualify. The Opacity result must expose `CanBeUsedAsValueInput == true` so Shader B is accepted. After warm-up, the eligible run must report `HasOpaqueExternalWork == false`, `OpaqueExternalExecutions == 0`, exactly one planned/executed GPU pass, one compiled fused program selected through a cache hit, no new `ProgramCreations` after frame 1, no illegal boundary, at most one intermediate target, and visual parity.
+The source is already coverage-resolved and enters the chain as a materialized value; this proof therefore exercises one fused shader run without claiming that a nonlinear public stage may cross analytic coverage. The stages remain distinct render nodes. A FilterEffectGroup-only chain does not qualify. The Opacity result must expose `CanBeUsedAsValueInput == true` so Shader B is accepted. After warm-up, the compiled plan must contain exactly one GPU-pass island and one fused program, contain no illegal boundary or opaque-external fragment, and use at most one intermediate target. Program-cache and target-pool statistics must show reuse with no new program or target creation after frame 1, the execution probe must observe no extra synchronization/materialization, and the rendered output must meet the parity gate.
 
 ### Boundary controls
 
@@ -341,14 +115,14 @@ For the same source/tail, insert each boundary independently and require the exa
 
 ### Target-order and scope controls
 
-- Root `[A, Clear, B]`: exact painter result and fragment/token event order; Clear remains in the root scope.
+- Root `[A, Clear, B]`: exact painter result and recorded fragment/token order; Clear remains in the root scope.
 - Public `Layer([A, Clear, B], finiteDomain)`: the same child order on one local target, exactly one outer value, and content bounds clipped to the explicit domain when Clear writes despite empty Clear query bounds.
 - Public `TargetLayerScope([A, Clear, B], Full)`: one transparent isolation target, one ordered replay, and one composite onto the current target; the handle is value-input-ineligible and the target is not elided without an equivalence proof. Existing `PushLayer(default)` records this primitive through ordinary bottom-up `Process`. Test `Transform(+10) -> PushLayer(default) -> Full Clear` and nested transform/clip/finite Layer combinations so Full resolves only after every enclosing scope map is known. Run the root form with a real destination and explicit target-less `TargetDomain`, and require a scope-token-lowering/planning failure for target-less Full with neither. Also cover `TargetLayerScope(..., Empty)`: it remains ordered and value-input-ineligible but allocates no target, runs no pixel work, and composites nothing.
 - Root `Clear(Full)` with empty QueryBounds: `OutputBounds` equals the resolved root domain, `QueryBounds` and HitTest remain empty, Render commits the full write, and Rasterize returns that full logical domain. Repeat with a finite shifted writer and require the raster result to preserve its logical origin; an empty requested region returns a normal empty result with no bitmap.
 - `SnapshotBackdrop -> optional Clear -> DrawBackdrop`: capture once, no implicit capture contribution, then exact later draw under each Blend/transform/filter scope combination. The Clear must lie between the capture and draw.
 - Public `TargetCapture -> Shader -> ContributeValues`: one target read/materialization, optional pure fan-out without a second capture, and one explicit contributing draw. Repeat inside a finite Layer/TargetLayerScope whose concrete density exceeds `OutputScale`: require the declared downsampling result for `TargetCaptureScaleContract.MaterializeAtWorkingScale` and `Custom`, then require `PreserveTargetSupply` (including the built-in backdrop) to retain the resolved enclosing density through the Shader input.
-- `TargetCommand` target readback versus input readback: pre-command target snapshot excludes callback writes; each declared input snapshot is separately scheduled/counted; undeclared `UseSnapshot` throws without synchronization.
-- RawTargetScope/RawTargetCommand: fragment/outcome/resource counters reconcile, `HasOpaqueExternalWork` is true even when execution is skipped, and `OpaqueExternalExecutions` changes only on callback entry.
+- `TargetCommand` target readback versus input readback: pre-command target snapshot excludes callback writes; each declared input snapshot is scheduled only when selected; undeclared `UseSnapshot` throws without synchronization.
+- RawTargetScope/RawTargetCommand: the compiled plan retains an opaque-external boundary, skipped work does not enter the callback, executed work enters it exactly once, and request-owned resources are discharged on both paths.
 
 ### Visual/scale/region scenes
 
@@ -374,8 +148,8 @@ For the same source/tail, insert each boundary independently and require the exa
 - child-cache hit with ineligible parent and parent-cache hit superseding descendants;
 - command-bearing parent cache bypass with pure child value hit while clear/backdrop/readback command order and inputs remain intact;
 - cache invalidation for parameter/resource version, bounds, region coverage, density, format, purpose policy, and device recreation;
-- opaque/Geometry/target-command/painted immutable state changes invalidate pixels without recompiling; request-local callbacks never hit across requests, while unchanged reusable state may hit; direct Shader uniform values are included automatically, custom uniform/resource binders are request-unique by default, and `ReuseFromSnapshot` accepts only non-capturing binders while deriving identity from copied values or versioned resource tokens;
-- auxiliary/bounds/hit-test request isolation from frame cache, frame render counts, and `LatestFrame`, while bounds/hit-test requests emit independently reconciled metadata snapshots.
+- opaque/Geometry/target-command state changes between recordings invalidate pixels without recompiling; callers keep reusable state stable after recording, request-local callbacks never hit across requests, and unchanged reusable state may hit. Direct Shader uniform values are included automatically, custom uniform/resource binders are request-unique by default, and `ReuseFromSnapshot` accepts only non-capturing binders while deriving identity from copied values or versioned resource tokens;
+- auxiliary/bounds/hit-test request isolation from frame cache and frame render counts, with bounds/hit-test requests stopping before execution.
 
 ### Pool/resource scenes
 
@@ -384,7 +158,7 @@ For the same source/tail, insert each boundary independently and require the exa
 - equivalent 3-stage and 10-stage linear schedules: equal upper bound for peak live intermediates;
 - fan-out/merge lifetime where one producer remains live until its last consumer;
 - context/device recreation evicts incompatible pooled/program resources;
-- `RenderNodeRenderer.Dispose` releases all pooled targets/program/plan/internal-diagnostic state, rejects later calls, and leaves its borrowed root/cache/factory untouched;
+- `RenderNodeRenderer.Dispose` releases all pooled targets/program/plan state, rejects later calls, and leaves its borrowed root/cache/factory untouched;
 - byte-cap/LRU/idle eviction and generation-tag stale/double release detection.
 
 ## Failure matrix
@@ -416,7 +190,7 @@ For every injection:
 - every context/session/input/handle rejects retained use;
 - cleanup continues after one cleanup fault;
 - the first primary planning/render exception remains the surfaced exception;
-- cleanup failures and terminal outcomes reconcile in diagnostics.
+- the owning request, cache, program cache, and target pool expose no leaked or still-active state after cleanup.
 
 ## Public API and migration gates
 
@@ -434,14 +208,14 @@ For every injection:
 - independent `RenderScaleUtilities` plus the absence of forwarding scale helpers on `RenderNodeContext`;
 - every `CanBeUsedAsValueInput` propagation row, including eligible `Shader -> Opacity -> Shader` and ineligible pure-child Blend;
 - `RenderNodeMeasurement.OutputBounds` versus `QueryBounds`, plus non-empty, shifted-origin, and normal empty `RenderNodeRasterization` ownership/disposal;
-- synchronous `FilterEffectContext.Bounds` updates after Shader/Geometry and append/resource rollback on invalid or throwing forward mappings;
+- engine-internal recording-bounds progression after Shader/Geometry, absence of the removed public `FilterEffectContext.Bounds` accessor, and append/resource rollback on invalid or throwing forward mappings;
 - disposable `Own`, non-disposable `Borrow`/`UseResource`, null-key request-local Borrow identity, and explicit-key/version coalescing;
 - transaction rollback and retained-handle/resource rejection;
 - guarded opaque fallback and shared `RenderExecutionInput` capability behavior.
 
 A migration census covers compiled `src/**/*.cs` and `tests/**/*.cs`: all 29 production and 7 test `Process` overrides from the baseline, every executable operation subclass/factory, every raw `ImmediateCanvas` author hook, every `RenderNodeProcessor` pull/rasterize consumer, and every legacy static scale-helper caller. Historical symbol text in `docs/specs/004-gpu-pass-fusion/evidence/target-baseline-generator.patch` is deliberately outside this compiled-source census. The gate fails if a returning override, executable `RenderNodeOperation`, `Pull`/`PullToRoot`, list rasterizer, `OperationWrapperRenderNode.SetOperations`, `EffectTarget.NodeOperation`, `EffectTarget(RenderNodeOperation)`, isolated nested processor, independent cache-generation pull, unclassified `CreateLambda`/raw callback, or reference to `RenderNodeContext.MaxBufferDimension`, `RenderNodeContext.SanitizeMaxWorkingScale`, `RenderNodeContext.ResolveWorkingScale`, or `RenderNodeContext.ClampWorkingScaleToBufferBudget` remains in the compiled scope.
 
-Friend Engine tests—not the non-friend public-contract project—assert `HasOpaqueExternalWork`, `OpaqueExternalExecutions`, terminal reconciliation, and every other internal diagnostic property for the raw forms.
+Friend Engine tests—not the non-friend public-contract project—assert the raw forms' opaque-external plan boundary, callback-entry probe, cache bypass, and resource cleanup directly.
 
 ## Benchmark contract
 
@@ -454,7 +228,7 @@ The starting SHA does not contain the final 11-case harness. Benchmark provenanc
 - `docs/specs/004-gpu-pass-fusion/evidence/target-benchmark-harness/TargetEvidenceFingerprint.cs`;
 - `docs/specs/004-gpu-pass-fusion/evidence/target-benchmark-harness/TargetRenderPipelineBenchmarks.cs`.
 
-The external harness takes a read-only project reference to `src/Beutl.Engine/Beutl.Engine.csproj` in the clean starting-SHA worktree. It must not copy, patch, or generate source or build files inside that worktree or the feature worktree. Restore, build, and BenchmarkDotNet-generated executable outputs live only under a runner-owned temporary directory and are removed after the paired run. The paired manifest records the SHA-256 hash of the runner and of every external harness file, in addition to both code SHAs, Engine assembly provenance, commands, raw results, counters, and the exact environment fingerprint. These benchmark-tool hashes are independent of the visual generator patch/script/runner hashes and must not be substituted for them.
+The external harness takes a read-only project reference to `src/Beutl.Engine/Beutl.Engine.csproj` in the clean starting-SHA worktree. It must not copy, patch, or generate source or build files inside that worktree or the feature worktree. Restore, build, and BenchmarkDotNet-generated executable outputs live only under a runner-owned temporary directory and are removed after the paired run. The paired manifest records the SHA-256 hash of the runner and of every external harness file, in addition to both code SHAs, Engine assembly provenance, commands, raw results, workload-shape observations, applicable component statistics, and the exact environment fingerprint. These benchmark-tool hashes are independent of the visual generator patch/script/runner hashes and must not be substituted for them.
 
 Required cases:
 
@@ -470,7 +244,7 @@ Required cases:
 - small-object/fixed-overhead scene;
 - multiple top-level drawables with target dependencies.
 
-Compare pinned baseline and feature worktrees in the same machine/session with identical runtime, backend/device, dimensions, warm-up, renderer lifetime, scene, and output verification. Every setup and final measured output contract for every feature workload must match the independently executed starting-SHA baseline; a second feature replay supplies repeatability evidence but is not the semantic oracle. Preserve raw BenchmarkDotNet results and every counter each unmodified engine can expose. The external starting-SHA harness records observational legacy request counters derived from pulled operations and immutable scene declarations (`LegacyOperationExecutions`, semantic stages, top-level drawables, target dependencies, cache hits, completion, and failure), and explicitly records final structural-plan/program-cache/target-pool statistics as unavailable on that SHA. The feature harness records its native request-wide planning, execution, synchronization, cache, program, and pool counters. It applies the same scene-specific workload-shape invariants to both the setup snapshot and the replay of the final measured request. A feature-only counter is not fabricated for the baseline and is not treated as a cross-version numeric pair; the paired manifest preserves both baseline snapshots independently, while feature counter invariants are validated against the feature engine.
+Compare pinned baseline and feature worktrees in the same machine/session with identical runtime, backend/device, dimensions, warm-up, renderer lifetime, scene, and output verification. Every setup and final measured output contract for every feature workload must match the independently executed starting-SHA baseline; a second feature replay supplies repeatability evidence but is not the semantic oracle. Preserve raw BenchmarkDotNet results and every observation each unmodified engine can expose. The external starting-SHA harness records legacy workload shape derived from pulled operations and immutable scene declarations, and explicitly records final structural-plan/program-cache/target-pool statistics as unavailable on that SHA. The feature harness records compiled-plan shape plus component-local structural-plan, program-cache, and target-pool statistics. It applies the same scene-specific workload-shape invariants to both setup and the replay of the final measured request. A feature-only statistic is not fabricated for the baseline or treated as a cross-version numeric pair; the paired manifest preserves the two native evidence shapes independently and validates each against its own engine.
 
 Acceptance for the primary warmed cross-node workload is a post/pre median frame-time ratio whose 95% confidence interval lies entirely below 1.0. Controls and barrier cases must remain within the measurement tolerance established by repeated baseline runs. No absolute milliseconds or historical donor percentage is normative.
 

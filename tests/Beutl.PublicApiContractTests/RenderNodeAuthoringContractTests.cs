@@ -152,6 +152,14 @@ public sealed class RenderNodeAuthoringContractTests
 
         using var node = new DelegateNode(context =>
         {
+            RenderResource<Brush.Resource> whiteMask = context.Borrow(
+                (Brush.Resource)Brushes.Resource.White,
+                EngineResourceIdentity.Of(Brushes.Resource.White),
+                Brushes.Resource.White.Version);
+            RenderResource<Brush.Resource> fallbackMaskToken = context.Borrow(
+                fallbackMask,
+                EngineResourceIdentity.Of(fallbackMask),
+                fallbackMask.Version);
             RenderFragmentHandle source = context.OpaqueSource(SourceDescription(bounds));
             RenderFragmentHandle command = context.TargetCommand(
                 [],
@@ -166,15 +174,15 @@ public sealed class RenderNodeAuthoringContractTests
             RenderFragmentHandle opacityCommand = context.Opacity(command, 0.5f);
             RenderFragmentHandle maskValue = context.OpacityMask(
                 source,
-                Brushes.Resource.White,
+                whiteMask,
                 bounds);
             RenderFragmentHandle maskCommand = context.OpacityMask(
                 command,
-                Brushes.Resource.White,
+                whiteMask,
                 bounds);
             RenderFragmentHandle maskFallback = context.OpacityMask(
                 source,
-                fallbackMask,
+                fallbackMaskToken,
                 bounds);
             RenderFragmentHandle blend = context.Blend(source, BlendMode.SrcOver);
             RenderFragmentHandle targetScope = context.TargetScope(
@@ -235,7 +243,7 @@ public sealed class RenderNodeAuthoringContractTests
             Assert.That(observed["opacity-command"].CanBeUsedAsValueInput, Is.False);
             Assert.That(observed["mask-value"].CanBeUsedAsValueInput, Is.True);
             Assert.That(observed["mask-command"].CanBeUsedAsValueInput, Is.False);
-            Assert.That(observed["mask-fallback"].CanBeUsedAsValueInput, Is.False);
+            Assert.That(observed["mask-fallback"].CanBeUsedAsValueInput, Is.True);
             Assert.That(observed["blend"].CanBeUsedAsValueInput, Is.False);
             Assert.That(observed["target-scope"].CanBeUsedAsValueInput, Is.False);
             Assert.That(observed["raw-scope"].CanBeUsedAsValueInput, Is.False);

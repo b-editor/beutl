@@ -33,20 +33,20 @@ Do not cherry-pick the abandoned GPU-pass branch. Extract only reviewed leaf alg
 
 ## 2. Freeze evidence before changing scheduling
 
-First add only test/provenance tooling and observational counters:
+First add only test/provenance tooling and test-owned observations:
 
 1. raw linear premultiplied RGBA16F golden storage;
 2. SSIM, RGB MAE, alpha MAE, edge-band local MAE, and maximum-channel-error assertions;
 3. fail-on-missing immutable references and non-vacuity controls;
 4. target-baseline provenance patch/scripts/hashes under `docs/specs/004-gpu-pass-fusion/evidence/`, including `run-paired-visual-evidence.sh` and `refresh-intentional-visual-baselines.sh`;
-5. request-wide counters that do not alter decisions;
+5. baseline workload-shape probes plus feature compiled-plan and component-statistics assertions that do not alter decisions;
 6. persistent-lifetime BenchmarkDotNet scenes.
 
 `generate-target-baseline.sh` must create a temporary worktree pinned to the starting SHA, apply `target-baseline-generator.patch` there, and copy back only immutable RGBA16F artifacts plus a manifest. Do not compile the historical generator in the feature branch. `run-paired-visual-evidence.sh` runs both worktrees and rejects missing or mismatched fingerprint fields before comparison. Record SHA-256 hashes for every artifact, the generator patch and script, the paired runner, and `refresh-intentional-visual-baselines.sh`, plus exact OS, architecture, backend, device, driver, graphics-library, and runtime fingerprints. Normal CI instead compares fusion-disabled and fusion-enabled output on the same process/device through the internal request `FusionMode`, uses a fixed per-channel AA edge maximum error of `0.02`, and always verifies manifest integrity; the paired workflow may use a tighter edge bound only from its exact matching fingerprinted manifest. The mode is inherited and included in structural-plan identity but is not exposed in public renderer options. CI never selects a foreign-device blob, and this A/B check does not replace the starting-SHA proof.
 
 Capture current behavior for the primary chain, barriers, antialiased thin paths, multiple roots, ROI/scale, cache hit/miss, nested/query, 3D, fallback, and preview/delivery allocation failures. Commit the evidence separately before changing `Process` or execution order.
 
-The donor's eight independently reproducible `004-parity-strong` files may be copied as supplemental regressions only after their historical verification script reproduces their hashes. Do not use donor timing/counter values as target baselines.
+The donor's eight independently reproducible `004-parity-strong` files may be copied as supplemental regressions only after their historical verification script reproduces their hashes. Do not use donor timing or workload-shape observations as target baselines.
 
 ## 3. Introduce one request recorder
 
@@ -107,7 +107,7 @@ Apply the public invariants at the same checkpoint:
 - keep `RootOutputExtent` (contributing values plus potentially pixel-writing target effects) separate from query bounds; a null `RequestedRegion` selects the former, while Measure and HitTest retain the latter.
 - choose the public `TargetCapture` scale policy deliberately. `MaterializeAtWorkingScale` and `Custom` are concrete output-derived resampling boundaries; the custom resolver receives empty `InputSupplies` and may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale`. Use the public `PreserveTargetSupply` policy when the captured value must retain a denser enclosing root, finite Layer, or `TargetLayerScope` supply before later Shader/replay work. The built-in backdrop uses that same public preserving policy and adds only an internal request-local identity binding; there is no engine-only density mode.
 
-At this checkpoint, all visual/counter baselines must still match with fusion disabled.
+At this checkpoint, all visual and native workload-shape baselines must still match with fusion disabled.
 
 ## 5. Make Renderer record all roots
 
@@ -125,7 +125,7 @@ update every tree
 
 Record one ordered fragment DAG across top-level roots, then lower a separate target-token chain inside each root, finite Layer, and non-empty symbolic TargetLayerScope. Resolve `TargetLayerScope(Full)` only after every enclosing transform/clip/scope map is known. An empty TargetLayerScope remains ordered but creates no local target or pixel work. Do not append commands to an early global side list: it loses `[A, Clear, B]`, lets child commands escape Layers, and breaks Snapshot/Clear/DrawBackdrop ordering.
 
-Convert bounds and hit testing to metadata-only request purposes. They perform no GPU/media execution or persistent frame-cache mutation, emit their own internal `Metadata` diagnostic snapshots, and never replace internal `LatestFrame` or frame render counts.
+Convert bounds and hit testing to metadata-only request purposes. They perform no GPU/media execution or persistent frame-cache mutation, stop before pixel execution, and do not alter frame render counts or create completed-request telemetry state.
 
 ## 6. Add post-record ROI and cache resolution
 
@@ -222,7 +222,7 @@ stable target sizes  -> 0 new targets, 0 pool misses
 
 Record 3D as an opaque backend source and render it later into one materialized 2D value. Record separate-target nested work before GPU execution and inherit the parent request owner/options. Provide an unfused supported path for every public Shader description.
 
-Run failure injection around transactions, analysis, cache, materialization, Shader compile/bind, Geometry/target/input readback, opaque dynamic outputs, nested/3D, target commands/captures/scopes, raw callbacks, brush-mask lowering, cache publication, and cleanup. Every acquisition must be discharged exactly once by release/disposal or successful cache ownership transfer; every run rejects retained facade use, publishes no partial cache, and preserves the primary exception.
+Run failure injection around transactions, analysis, cache, materialization, Shader compile/bind, Geometry/target/input readback, opaque dynamic outputs, nested/3D, target commands/captures/scopes, raw callbacks, brush-mask resource acquisition and execution-time materialization, cache publication, and cleanup. Every acquisition must be discharged exactly once by release/disposal or successful cache ownership transfer; every run rejects retained facade use, publishes no partial cache, and preserves the primary exception.
 
 ## 11. Run final validation
 
@@ -259,6 +259,6 @@ docs/specs/004-gpu-pass-fusion/evidence/run-paired-benchmarks.sh \
   /absolute/path/to/new-empty-output-directory
 ```
 
-The runner records raw results, SHAs, environment, controls, confidence intervals, and request counters. The primary warmed post/pre median ratio's 95% confidence interval must lie below 1.0; donor percentages are not acceptance thresholds.
+The runner records raw results, SHAs, environment, controls, confidence intervals, each engine's native workload-shape observations, and applicable feature component statistics. The primary warmed post/pre median ratio's 95% confidence interval must lie below 1.0; donor percentages are not acceptance thresholds.
 
 Finally run the public-design and repository boundary reviews. The public migration commit must use a `refactor!:` or `feat!:` Conventional Commit prefix and name `Beutl.Engine`, `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and downstream custom render-node authors in its `BREAKING CHANGE:` footer.

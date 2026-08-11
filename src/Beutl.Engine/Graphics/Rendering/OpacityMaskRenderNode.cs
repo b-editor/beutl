@@ -49,9 +49,13 @@ public sealed class OpacityMaskRenderNode(Brush.Resource mask, Rect maskBounds, 
 
         Rect maskBounds = MaskBounds;
         bool invert = Invert;
+        RenderResource<Brush.Resource> maskResource = context.Borrow(
+            mask.Resource,
+            EngineResourceIdentity.Of(mask.Resource),
+            mask.Version);
         foreach (RenderFragmentHandle input in context.Inputs)
         {
-            context.Publish(context.OpacityMask(input, mask.Resource, maskBounds, invert));
+            context.Publish(context.OpacityMask(input, maskResource, maskBounds, invert));
         }
     }
 

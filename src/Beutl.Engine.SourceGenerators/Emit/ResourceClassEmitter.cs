@@ -131,17 +131,7 @@ public static class ResourceClassEmitter
                     .Append(property.Name)
                     .AppendLine(" did not contain an owned resource.\");");
             }
-            sb.Append(innerIndent).AppendLine("    set");
-            sb.Append(innerIndent).AppendLine("    {");
-            if (!isNullable)
-            {
-                sb.Append(innerIndent).AppendLine("        global::System.ArgumentNullException.ThrowIfNull(value);");
-            }
-            sb.Append(innerIndent)
-                .Append("        SetOwnedResource(ref ")
-                .Append(fieldName)
-                .AppendLine(", value);");
-            sb.Append(innerIndent).AppendLine("    }");
+            sb.Append(innerIndent).AppendLine($"    set => {fieldName} = value;");
             sb.Append(innerIndent).AppendLine("}");
             sb.AppendLine();
         }
@@ -306,10 +296,7 @@ public static class ResourceClassEmitter
             if (property.ExcludeFromResource) continue;
 
             string fieldName = EmitHelpers.ToFieldName(property.Name);
-            sb.Append(innerIndent)
-                .Append("        SetOwnedResource(ref ")
-                .Append(fieldName)
-                .AppendLine(", default);");
+            sb.Append(innerIndent).AppendLine($"        {fieldName}?.Dispose();");
         }
 
         foreach (ListPropertyInfo property in info.ListProperties)

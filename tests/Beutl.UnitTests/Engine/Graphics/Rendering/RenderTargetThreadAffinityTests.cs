@@ -207,40 +207,6 @@ public class RenderTargetThreadAffinityTests
     }
 
     [Test]
-    public void ReplayClipTo_preserves_transformed_path_clip_for_expanded_execution()
-    {
-        using var sourceTarget = RenderTarget.CreateNull(32, 32);
-        using RenderTarget executionTarget = RenderTarget.Create(32, 32)!;
-        using var source = new ImmediateCanvas(sourceTarget, 1, 1, new Size(32, 32));
-        using var execution = new ImmediateCanvas(executionTarget, 1, 1, new Size(32, 32));
-        var geometry = new EllipseGeometry
-        {
-            Width = { CurrentValue = 8 },
-            Height = { CurrentValue = 8 },
-        };
-        using Geometry.Resource resource = geometry.ToResource(CompositionContext.Default);
-
-        using (source.PushTransform(Matrix.CreateTranslation(5, 7)))
-        using (source.PushClip(resource))
-        {
-            source.ReplayClipTo(execution);
-            execution.Canvas.DrawColor(SKColors.White);
-            execution.Canvas.Flush();
-            using Bitmap snapshot = executionTarget.Snapshot();
-            SKColor outside = snapshot.SKBitmap.GetPixel(5, 7);
-            SKColor inside = snapshot.SKBitmap.GetPixel(9, 11);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(execution.Canvas.DeviceClipBounds, Is.EqualTo(source.Canvas.DeviceClipBounds));
-                Assert.That(outside.Alpha, Is.Zero,
-                    "the ellipse corner is inside its bounds but outside the exact path clip");
-                Assert.That(inside.Alpha, Is.GreaterThan(0));
-            });
-        }
-    }
-
-    [Test]
     public void A_release_that_throws_after_the_wait_was_given_up_leaves_the_dispatcher_usable()
     {
         using var occupied = new ManualResetEventSlim(false);

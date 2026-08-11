@@ -243,6 +243,13 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         where T : class
     {
         ArgumentNullException.ThrowIfNull(use);
+        return UseUntyped(resource, value => use((T)value));
+    }
+
+    internal TResult UseUntyped<TResult>(RenderResource resource, Func<object, TResult> use)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(use);
         EnsureCommitted(resource);
 
         RenderResourceSlot slot = resource.Slot;
@@ -255,7 +262,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         slot.State = RenderResourceOwnershipState.LeasedToCallback;
         try
         {
-            return use((T)slot.RawValue);
+            return use(slot.RawValue);
         }
         finally
         {

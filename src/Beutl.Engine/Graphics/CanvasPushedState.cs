@@ -17,16 +17,6 @@ public partial class ImmediateCanvas
 
         internal sealed record LayerPushedState(int Count) : SKCanvasPushedState(Count);
 
-        internal sealed record ClipPushedState(int Count, ClipReplayOperation Operation)
-            : SKCanvasPushedState(Count)
-        {
-            public override void Pop(ImmediateCanvas canvas)
-            {
-                base.Pop(canvas);
-                canvas.PopClipReplay(Operation);
-            }
-        }
-
         // No-op pop for PushDeviceSpace when the canvas is already in device space.
         internal sealed record NoOpPushedState : CanvasPushedState
         {

@@ -260,7 +260,7 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                using var canvas = CreateExecutorCanvas(
                     capture.Target,
                     capture.EffectiveScale.Value,
                     _options.MaxWorkingScale,

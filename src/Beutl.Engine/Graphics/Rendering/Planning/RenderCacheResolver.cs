@@ -1729,11 +1729,9 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
                 components.Add(blend.BlendMode);
                 return;
             case OpacityMaskRenderFragmentPayload mask:
-                components.Add(mask.Mask.Kind);
-                components.Add(mask.Mask.DependencyIndex);
                 components.Add(mask.BrushBounds);
                 components.Add(mask.Invert);
-                AddResources(mask.Resources, components);
+                AddResources([mask.Mask], components);
                 return;
             case ShaderRenderFragmentPayload shader:
                 components.Add(shader.Description.StructuralIdentity);
@@ -1770,7 +1768,6 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
                 return;
             case LegacyFilterEffectRenderFragmentPayload legacy:
                 components.Add(legacy.Context.CacheIdentity);
-                AddResources(legacy.BrushResources, components);
                 return;
             case MaterializedInputRenderFragmentPayload input:
                 components.Add(input.Description.Target.CacheIdentity);

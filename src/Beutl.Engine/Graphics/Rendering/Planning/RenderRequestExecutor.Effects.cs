@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Runtime.ExceptionServices;
+﻿using System.Runtime.ExceptionServices;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -15,50 +14,18 @@ internal sealed partial class RenderRequestExecutor
             RenderFragmentReference fragment,
             ImmediateCanvas destination)
         {
-            if (fragment.Inputs.Length == 0)
-                throw new InvalidOperationException("An opacity mask requires a primary input.");
+            if (fragment.Inputs.Length != 1)
+                throw new InvalidOperationException("An opacity mask requires exactly one input.");
 
             var payload = (OpacityMaskRenderFragmentPayload)fragment.Payload!;
-            var values = new List<CompatibilityRenderValue>();
-            for (int index = 1; index < fragment.Inputs.Length; index++)
-            {
-                values.AddRange(Materialize(
-                    fragment.Inputs[index],
-                    destination,
-                    EffectiveScale.At(destination.Density)));
-            }
-
-            var images = new List<SKImage>();
-            var token = new RenderExecutionSessionToken();
-            try
-            {
-                token.RunAndComplete(
-                    () =>
-                    {
-                        IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
-                            token,
-                            values,
-                            requiresReadback: false,
-                            images);
-                        BrushExecutionResolver.UseBrush(
-                            token,
-                            payload.Resources,
-                            inputs,
-                            payload.Mask,
-                            mask =>
-                            {
-                                using (destination.PushOpacityMask(mask, payload.BrushBounds, payload.Invert))
-                                    Replay(fragment.Inputs[0], destination);
-                            });
-                    });
-            }
-            finally
-            {
-                foreach (SKImage image in images)
-                    image.Dispose();
-                for (int index = 1; index < fragment.Inputs.Length; index++)
-                    CompleteFragmentUse(fragment.Inputs[index]);
-            }
+            _ = payload.Mask.Registry.Use(
+                payload.Mask,
+                mask =>
+                {
+                    using (destination.PushOpacityMask(mask, payload.BrushBounds, payload.Invert))
+                        Replay(fragment.Inputs[0], destination);
+                    return true;
+                });
         }
 
         private IReadOnlyList<CompatibilityRenderValue> MaterializeOpacity(
@@ -96,7 +63,7 @@ internal sealed partial class RenderRequestExecutor
                         value.DeviceBounds,
                         value.DeviceGridOffset,
                         scale.Value);
-                    using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                    using var canvas = CreateExecutorCanvas(
                         value.Target,
                         scale.Value,
                         _options.MaxWorkingScale,
@@ -128,12 +95,11 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
-            if (fragment.Inputs.Length == 0)
-                throw new InvalidOperationException("An opacity mask requires a primary input.");
+            if (fragment.Inputs.Length != 1)
+                throw new InvalidOperationException("An opacity mask requires exactly one input.");
             if (fragment.Bounds.Width == 0 || fragment.Bounds.Height == 0)
             {
-                foreach (RenderFragmentReference input in fragment.Inputs)
-                    CompleteFragmentUse(input);
+                CompleteFragmentUse(fragment.Inputs[0]);
                 MarkExecutionSkipped(fragment);
                 return [];
             }
@@ -141,27 +107,13 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale scale = ClampToActiveDeviceGrid(
                 fragment.Bounds,
                 requestedScale ?? ResolveConcreteScale(fragment));
-            var maskValues = new List<CompatibilityRenderValue>();
-            int materializedDependencyCount = 0;
-            bool primaryMaterialized = false;
+            RenderFragmentReference primary = fragment.Inputs[0];
+            IReadOnlyList<CompatibilityRenderValue> primaryValues = Materialize(
+                primary,
+                currentTarget,
+                primary.EffectiveScale.IsUnbounded ? scale : null);
             try
             {
-                for (int index = 1; index < fragment.Inputs.Length; index++)
-                {
-                    RenderFragmentReference dependency = fragment.Inputs[index];
-                    maskValues.AddRange(Materialize(
-                        dependency,
-                        currentTarget,
-                        dependency.EffectiveScale.IsUnbounded ? scale : null));
-                    materializedDependencyCount++;
-                }
-
-                RenderFragmentReference primary = fragment.Inputs[0];
-                IReadOnlyList<CompatibilityRenderValue> primaryValues = Materialize(
-                    primary,
-                    currentTarget,
-                    primary.EffectiveScale.IsUnbounded ? scale : null);
-                primaryMaterialized = true;
                 CompatibilityRenderValue value = CreateOwnedValue(
                     fragment.Bounds,
                     scale,
@@ -173,7 +125,7 @@ internal sealed partial class RenderRequestExecutor
                         value.DeviceBounds,
                         value.DeviceGridOffset,
                         scale.Value);
-                    using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                    using var canvas = CreateExecutorCanvas(
                         value.Target,
                         scale.Value,
                         _options.MaxWorkingScale,
@@ -185,40 +137,19 @@ internal sealed partial class RenderRequestExecutor
                                rasterTranslation.Y)))
                     {
                         var payload = (OpacityMaskRenderFragmentPayload)fragment.Payload!;
-                        var images = new List<SKImage>();
-                        var token = new RenderExecutionSessionToken();
-                        try
-                        {
-                            token.RunAndComplete(
-                                () =>
+                        _ = payload.Mask.Registry.Use(
+                            payload.Mask,
+                            mask =>
+                            {
+                                using (canvas.PushOpacityMask(
+                                           mask,
+                                           payload.BrushBounds,
+                                           payload.Invert))
                                 {
-                                    IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
-                                        token,
-                                        maskValues,
-                                        requiresReadback: false,
-                                        images);
-                                    BrushExecutionResolver.UseBrush(
-                                        token,
-                                        payload.Resources,
-                                        inputs,
-                                        payload.Mask,
-                                        mask =>
-                                        {
-                                            using (canvas.PushOpacityMask(
-                                                       mask,
-                                                       payload.BrushBounds,
-                                                       payload.Invert))
-                                            {
-                                                DrawValues(primaryValues, canvas);
-                                            }
-                                        });
-                                });
-                        }
-                        finally
-                        {
-                            foreach (SKImage image in images)
-                                image.Dispose();
-                        }
+                                    DrawValues(primaryValues, canvas);
+                                }
+                                return true;
+                            });
                     }
 
                     succeeded = true;
@@ -232,10 +163,7 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                if (primaryMaterialized)
-                    CompleteFragmentUse(fragment.Inputs[0]);
-                for (int index = 1; index <= materializedDependencyCount; index++)
-                    CompleteFragmentUse(fragment.Inputs[index]);
+                CompleteFragmentUse(primary);
             }
         }
 
@@ -355,16 +283,13 @@ internal sealed partial class RenderRequestExecutor
             Rect requiredRegion = ResolveFragmentRequirement(fragment, fragment.Bounds);
             var payload = (LegacyFilterEffectRenderFragmentPayload)fragment.Payload!;
             var inputs = new List<CompatibilityRenderValue>();
-            var brushValues = new List<CompatibilityRenderValue>();
             EffectiveScale inputRequestScale = fragment.EffectiveScale.IsUnbounded
                 ? EffectiveScale.At(currentTarget.Density)
                 : fragment.EffectiveScale;
             for (int index = 0; index < fragment.Inputs.Length; index++)
             {
                 RenderFragmentReference input = fragment.Inputs[index];
-                List<CompatibilityRenderValue> destination =
-                    index < payload.StreamInputCount ? inputs : brushValues;
-                destination.AddRange(Materialize(
+                inputs.AddRange(Materialize(
                     input,
                     currentTarget,
                     input.EffectiveScale.IsUnbounded ? inputRequestScale : null));
@@ -392,74 +317,68 @@ internal sealed partial class RenderRequestExecutor
                         }
 
                         using var builder = new SKImageFilterBuilder();
-                        return RunWithResolvedBrushes(
-                            payload,
-                            brushValues,
-                            brushes =>
+                        using var activator = new FilterEffectActivator(
+                            targets,
+                            builder,
+                            _options.Intent,
+                            _options.Purpose,
+                            _options.OutputScale,
+                            fragment.EffectiveScale.Value,
+                            _options.MaxWorkingScale,
+                            _activeDeviceGridOffset,
+                            (target, source) => AcquireStandaloneProgram(
+                                target,
+                                source),
+                            _drawableBrushMaterializer);
+                        activator.Apply(effectContext);
+                        activator.CompletePolicyBoundary(
+                            payload.WorkingScalePolicy.HasValue);
+
+                        var result = new List<CompatibilityRenderValue>(activator.CurrentTargets.Count);
+                        foreach (EffectTarget target in activator.CurrentTargets)
+                        {
+                            if (target.RenderTarget is not { } renderTarget)
+                                continue;
+
+                            CompatibilityRenderValue value = MaterializeLegacyTarget(
+                                target,
+                                renderTarget,
+                                fragment.Bounds);
+                            _ownedValues.Add(value);
+
+                            // Cropping the input to the backward region leaves the surrounding output
+                            // undefined, so the published value must not claim it.
+                            Rect selectedBounds = value.Bounds.Intersect(requiredRegion);
+                            if (selectedBounds.Width == 0 || selectedBounds.Height == 0)
                             {
-                                using var activator = new FilterEffectActivator(
-                                    targets,
-                                    builder,
-                                    _options.Intent,
-                                    _options.Purpose,
-                                    _options.OutputScale,
-                                    fragment.EffectiveScale.Value,
-                                    _options.MaxWorkingScale,
-                                    _activeDeviceGridOffset,
-                                    (target, source) => AcquireStandaloneProgram(
-                                        target,
-                                        source),
-                                    brushes);
-                                activator.Apply(effectContext);
-                                activator.CompletePolicyBoundary(
-                                    payload.WorkingScalePolicy.HasValue);
+                                ReleaseUnpublished(value);
+                                continue;
+                            }
 
-                                var result = new List<CompatibilityRenderValue>(activator.CurrentTargets.Count);
-                                foreach (EffectTarget target in activator.CurrentTargets)
+                            if (selectedBounds != value.Bounds)
+                            {
+                                if (value.PreserveLegacyRasterPlacement)
                                 {
-                                    if (target.RenderTarget is not { } renderTarget)
-                                        continue;
-
-                                    CompatibilityRenderValue value = MaterializeLegacyTarget(
-                                        target,
-                                        renderTarget,
-                                        fragment.Bounds);
-                                    _ownedValues.Add(value);
-
-                                    // Cropping the input to the backward region leaves the surrounding output
-                                    // undefined, so the published value must not claim it.
-                                    Rect selectedBounds = value.Bounds.Intersect(requiredRegion);
-                                    if (selectedBounds.Width == 0 || selectedBounds.Height == 0)
-                                    {
-                                        ReleaseUnpublished(value);
-                                        continue;
-                                    }
-
-                                    if (selectedBounds != value.Bounds)
-                                    {
-                                        if (value.PreserveLegacyRasterPlacement)
-                                        {
-                                            // A legacy raster-placement value draws from its allocation
-                                            // footprint rather than from Bounds, so narrowing it is a
-                                            // relabel that must not re-allocate or move the placement.
-                                            value.Bounds = selectedBounds;
-                                        }
-                                        else
-                                        {
-                                            CompatibilityRenderValue cropped = CropValue(
-                                                fragment,
-                                                value,
-                                                selectedBounds);
-                                            ReleaseUnpublished(value);
-                                            value = cropped;
-                                        }
-                                    }
-
-                                    result.Add(value);
+                                    // A legacy raster-placement value draws from its allocation
+                                    // footprint rather than from Bounds, so narrowing it is a
+                                    // relabel that must not re-allocate or move the placement.
+                                    value.Bounds = selectedBounds;
                                 }
+                                else
+                                {
+                                    CompatibilityRenderValue cropped = CropValue(
+                                        fragment,
+                                        value,
+                                        selectedBounds);
+                                    ReleaseUnpublished(value);
+                                    value = cropped;
+                                }
+                            }
 
-                                return (IReadOnlyList<CompatibilityRenderValue>)result;
-                            });
+                            result.Add(value);
+                        }
+
+                        return (IReadOnlyList<CompatibilityRenderValue>)result;
                     });
             }
             finally
@@ -467,85 +386,6 @@ internal sealed partial class RenderRequestExecutor
                 foreach (RenderFragmentReference input in fragment.Inputs)
                     CompleteFragmentUse(input);
             }
-        }
-
-        private T RunWithResolvedBrushes<T>(
-            LegacyFilterEffectRenderFragmentPayload payload,
-            IReadOnlyList<CompatibilityRenderValue> brushValues,
-            Func<IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>?, T> use)
-        {
-            if (payload.Brushes.IsDefaultOrEmpty)
-                return use(null);
-
-            var images = new List<SKImage>();
-            var token = new RenderExecutionSessionToken();
-            T result = default!;
-            bool used = false;
-            try
-            {
-                token.RunAndComplete(
-                    () =>
-                    {
-                        IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
-                            token,
-                            brushValues,
-                            requiresReadback: false,
-                            images);
-                        var resolved = new Dictionary<FilterEffectBrush, LoweredBrush>();
-                        ResolveBrush(
-                            token,
-                            payload,
-                            inputs,
-                            resolved,
-                            0,
-                            brushes =>
-                            {
-                                result = use(brushes);
-                                used = true;
-                            });
-                    });
-            }
-            finally
-            {
-                foreach (SKImage image in images)
-                    image.Dispose();
-            }
-
-            if (!used)
-            {
-                throw new InvalidOperationException(
-                    "A legacy filter-effect brush binding never produced a resolved brush, so the effect could "
-                    + "not execute.");
-            }
-
-            return result;
-        }
-
-        private static void ResolveBrush(
-            RenderExecutionSessionToken token,
-            LegacyFilterEffectRenderFragmentPayload payload,
-            IReadOnlyList<RenderExecutionInput> inputs,
-            Dictionary<FilterEffectBrush, LoweredBrush> resolved,
-            int index,
-            Action<IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>?> use)
-        {
-            if (index >= payload.Brushes.Length)
-            {
-                use(resolved);
-                return;
-            }
-
-            LegacyFilterEffectBrushBinding binding = payload.Brushes[index];
-            BrushExecutionResolver.UseBrush(
-                token,
-                payload.BrushResources,
-                inputs,
-                binding.Brush,
-                brush =>
-                {
-                    resolved[binding.Handle] = brush;
-                    ResolveBrush(token, payload, inputs, resolved, index + 1, use);
-                });
         }
 
         private CompatibilityRenderValue MaterializeLegacyTarget(
@@ -606,7 +446,7 @@ internal sealed partial class RenderRequestExecutor
                     normalized.DeviceBounds,
                     normalized.DeviceGridOffset,
                     normalized.EffectiveScale.Value);
-                using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                using var canvas = CreateExecutorCanvas(
                     normalized.Target,
                     normalized.EffectiveScale.Value,
                     _options.MaxWorkingScale,

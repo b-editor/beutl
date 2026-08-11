@@ -14,7 +14,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
     public partial class Resource
     {
         internal abstract void ApplyTo(
-            FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
+            Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context);
     }
 }
@@ -81,7 +81,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
     public partial class Resource
     {
         internal override void ApplyTo(
-            FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
+            Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
             if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
@@ -96,11 +96,11 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                         var renderTarget = effectTarget.RenderTarget!;
                         // Use the clamped density so uniforms / map brush match the buffer.
                         float w = c.ResolveTargetDensity(effectTarget.Bounds);
-                        using var displacementMapShaderRaw = c.CreateBrushShader(
-                            map,
+                        using var displacementMapShaderRaw = c.CreateBrushConstructor(
                             new Rect(effectTarget.Bounds.Size),
+                            map,
                             BlendMode.SrcOver,
-                            w);
+                            w).CreateShader();
                         // Scale the map's local matrix by w so it cross-samples at device-px coords.
                         using SKShader? displacementMapShaderScaled =
                             w != 1f && displacementMapShaderRaw is { } rawShader
@@ -201,7 +201,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
     public partial class Resource
     {
         internal override void ApplyTo(
-            FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
+            Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
             if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
@@ -218,11 +218,11 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                         var renderTarget = effectTarget.RenderTarget!;
                         // Use the clamped density so uniforms / map brush match the buffer.
                         float w = c.ResolveTargetDensity(effectTarget.Bounds);
-                        using var displacementMapShaderRaw = c.CreateBrushShader(
-                            map,
+                        using var displacementMapShaderRaw = c.CreateBrushConstructor(
                             new Rect(effectTarget.Bounds.Size),
+                            map,
                             BlendMode.SrcOver,
-                            w);
+                            w).CreateShader();
                         // Scale the map's local matrix by w so it cross-samples at device-px coords.
                         using SKShader? displacementMapShaderScaled =
                             w != 1f && displacementMapShaderRaw is { } rawShader
@@ -323,7 +323,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
     public partial class Resource
     {
         internal override void ApplyTo(
-            FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
+            Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
             if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
@@ -339,11 +339,11 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                         var renderTarget = effectTarget.RenderTarget!;
                         // Use the clamped density so uniforms / map brush match the buffer.
                         float w = c.ResolveTargetDensity(effectTarget.Bounds);
-                        using var displacementMapShaderRaw = c.CreateBrushShader(
-                            map,
+                        using var displacementMapShaderRaw = c.CreateBrushConstructor(
                             new Rect(effectTarget.Bounds.Size),
+                            map,
                             BlendMode.SrcOver,
-                            w);
+                            w).CreateShader();
                         // Scale the map's local matrix by w so it cross-samples at device-px coords.
                         using SKShader? displacementMapShaderScaled =
                             w != 1f && displacementMapShaderRaw is { } rawShader

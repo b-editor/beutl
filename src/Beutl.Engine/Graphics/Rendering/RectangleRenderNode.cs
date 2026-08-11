@@ -47,17 +47,18 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
             pen?.StrokeAlignment ?? StrokeAlignment.Inside,
             pen?.Thickness ?? 0);
 
+        var state = (rect, hitTestState);
         context.Publish(context.PaintedSource(
-            state: (rect, hitTestState),
-            draw: static (session, state) =>
-                session.Canvas.DrawRectangle(state.rect, session.Fill, session.Pen),
+            state,
+            draw: static (canvas, fill, pen, state) =>
+                canvas.DrawRectangle(state.rect, fill, pen),
             fill: fillSnapshot,
             pen: penSnapshot,
-            brushBounds: bounds,
             outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom((_, point) => hitTestState.HitTest(point)),
             scale: RenderScaleContract.Vector,
-            structuralKey: typeof(RectangleRenderNode)));
+            structuralKey: typeof(RectangleRenderNode),
+            runtimeIdentity: new RenderRuntimeIdentity(state)));
     }
 
     private readonly record struct RectangleHitTestState(

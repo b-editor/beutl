@@ -39,7 +39,7 @@ internal sealed partial class RenderRequestExecutor
 
             var images = new List<SKImage>(values.Count);
             Bitmap? targetSnapshot = null;
-            var token = new RenderExecutionSessionToken();
+            RenderExecutionSessionToken token = CreateExecutionSessionToken();
             try
             {
                 token.RunAndComplete(
@@ -114,7 +114,7 @@ internal sealed partial class RenderRequestExecutor
             RawTargetCommandDescription description =
                 ((RawTargetCommandRenderFragmentPayload)fragment.Payload!).Description;
             using ImmediateCanvas view = destination.CreateExecutionView();
-            var token = new RenderExecutionSessionToken();
+            RenderExecutionSessionToken token = CreateExecutionSessionToken();
             token.RunAndComplete(
                 () =>
                 {
@@ -139,7 +139,7 @@ internal sealed partial class RenderRequestExecutor
             TargetScopeDescription description =
                 ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
             RenderFragmentReference input = fragment.Inputs.Single();
-            var token = new RenderExecutionSessionToken();
+            RenderExecutionSessionToken token = CreateExecutionSessionToken();
             token.RunAndComplete(
                 () =>
                 {
@@ -217,7 +217,7 @@ internal sealed partial class RenderRequestExecutor
                     output.DeviceBounds,
                     output.DeviceGridOffset,
                     density);
-                using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                using var canvas = CreateExecutorCanvas(
                     output.Target,
                     density,
                     _options.MaxWorkingScale,
@@ -250,7 +250,7 @@ internal sealed partial class RenderRequestExecutor
                 ((RawTargetScopeRenderFragmentPayload)fragment.Payload!).Description;
             RenderFragmentReference input = fragment.Inputs.Single();
             using ImmediateCanvas view = destination.CreateExecutionView();
-            var token = new RenderExecutionSessionToken();
+            RenderExecutionSessionToken token = CreateExecutionSessionToken();
             token.RunAndComplete(
                 () =>
                 {
@@ -427,7 +427,7 @@ internal sealed partial class RenderRequestExecutor
                     value.DeviceBounds,
                     value.DeviceGridOffset,
                     scale.Value);
-                using (var canvas = ImmediateCanvas.CreateExecutorManaged(
+                using (var canvas = CreateExecutorCanvas(
                            value.Target,
                            scale.Value,
                            _options.MaxWorkingScale,
@@ -490,7 +490,7 @@ internal sealed partial class RenderRequestExecutor
                     value.DeviceBounds,
                     value.DeviceGridOffset,
                     scale.Value);
-                using (var canvas = ImmediateCanvas.CreateExecutorManaged(
+                using (var canvas = CreateExecutorCanvas(
                            value.Target,
                            scale.Value,
                            _options.MaxWorkingScale,
@@ -554,7 +554,7 @@ internal sealed partial class RenderRequestExecutor
                     value.DeviceBounds,
                     value.DeviceGridOffset,
                     scale.Value);
-                using (var canvas = ImmediateCanvas.CreateExecutorManaged(
+                using (var canvas = CreateExecutorCanvas(
                            value.Target,
                            scale.Value,
                            _options.MaxWorkingScale,

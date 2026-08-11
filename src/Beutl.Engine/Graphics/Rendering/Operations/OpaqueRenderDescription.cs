@@ -1378,7 +1378,7 @@ internal static class RenderDescriptionValidation
     }
 
     /// <summary>
-    /// Enforces the state-passing rule: the callback carries no captured value and the state is a valid
+    /// Enforces the state-passing rule: the callback carries no captured value and the state is the
     /// output-cache runtime identity.
     /// </summary>
     public static void ValidateStatePassingCallback<TState>(
@@ -1406,11 +1406,9 @@ internal static class RenderDescriptionValidation
                 $"A state-passing execution callback must not capture: '{stateParameterName}' is the only "
                 + "channel a per-frame value may reach it through, and is the output-cache runtime identity. "
                 + $"Move the captured value into '{stateParameterName}' and declare the callback static, or "
-                + "record through CreateRequestLocal when the value cannot be copied, deeply immutable state.",
+                + "record through CreateRequestLocal when the value cannot be represented as copied state.",
                 executeParameterName);
         }
-
-        RenderIdentityKeyValidator.ThrowIfInvalidState(state, stateParameterName);
     }
 
     public static RenderExecutionChannel<TSession> CreateRequestLocalChannel<TSession>(
@@ -1586,10 +1584,6 @@ internal static class RenderDescriptionValidation
             or RenderCallbackCanvas
             or OpaqueRenderSession
             or OpaqueRenderOutput
-            or PaintedRenderCanvas
-            or PaintedRenderSession
-            or LoweredBrush
-            or LoweredPen
             or GeometrySession
             or ShaderExecutionContext
             or ShaderUniformWriter

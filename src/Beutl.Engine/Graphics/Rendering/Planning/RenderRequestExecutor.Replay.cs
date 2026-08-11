@@ -51,7 +51,7 @@ internal sealed partial class RenderRequestExecutor
                     () =>
                     {
                         var images = new List<SKImage>();
-                        var token = new RenderExecutionSessionToken();
+                        RenderExecutionSessionToken token = CreateExecutionSessionToken();
                         try
                         {
                             token.RunAndComplete(

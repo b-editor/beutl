@@ -26,8 +26,6 @@ public class EngineObject
 
     public class Resource : IDisposable
     {
-        private readonly object _resourceOwnershipGate = new();
-        private int _disposeState;
         private EngineObject _original = null!;
 
         public int Version { get; protected set; }
@@ -41,41 +39,11 @@ public class EngineObject
 
         public void Dispose()
         {
-            lock (_resourceOwnershipGate)
-            {
-                if (System.Threading.Volatile.Read(ref _disposeState) != 0)
-                {
-                    return;
-                }
-
-                Dispose(true);
-                System.Threading.Volatile.Write(ref _disposeState, 1);
-            }
+            Dispose(true);
         }
 
         protected virtual void Dispose(bool disposing)
         {
-        }
-
-        protected void SetOwnedResource<TResource>(
-            ref TResource? location,
-            TResource? value)
-            where TResource : Resource
-        {
-            lock (_resourceOwnershipGate)
-            {
-                if (System.Threading.Volatile.Read(ref _disposeState) != 0)
-                {
-                    throw new ObjectDisposedException(GetType().FullName);
-                }
-
-                TResource? current = location;
-                if (ReferenceEquals(current, value))
-                    return;
-
-                current?.Dispose();
-                System.Threading.Interlocked.Exchange(ref location, value);
-            }
         }
 
         protected void CompareAndUpdate<TValue>(CompositionContext context, IProperty<TValue> prop, ref TValue field, ref bool updateOnly)
@@ -136,56 +104,52 @@ public class EngineObject
                 field.RemoveAt(field.Count - 1);
             }
         }
-        protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop, ref TResource field, ref bool updateOnly) where TObject : EngineObject where TResource : Resource
+        protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop, ref TResource? field, ref bool updateOnly) where TObject : EngineObject? where TResource : Resource
         {
-            lock (_resourceOwnershipGate)
+            var value = context.Get(prop);
+            if (value is null)
             {
-                if (System.Threading.Volatile.Read(ref _disposeState) != 0)
+                if (field is not null)
                 {
-                    throw new ObjectDisposedException(GetType().FullName);
-                }
-
-                var value = context.Get(prop);
-                if (value is null)
-                {
-                    if (field is not null)
+                    field.Dispose();
+                    field = null;
+                    if (!updateOnly)
                     {
-                        SetOwnedResource(ref field, default);
-                        if (!updateOnly)
-                        {
-                            Version++;
-                            updateOnly = true;
-                        }
+                        Version++;
+                        updateOnly = true;
+                    }
+                }
+            }
+            else
+            {
+                if (field is null)
+                {
+                    field = (TResource)value.ToResource(context);
+                    if (!updateOnly)
+                    {
+                        Version++;
+                        updateOnly = true;
                     }
                 }
                 else
                 {
-                    if (field is null)
+                    if (field.GetOriginal() != value)
                     {
-                        SetOwnedResource(ref field, (TResource)value.ToResource(context));
-                        if (!updateOnly)
-                        {
-                            Version++;
-                            updateOnly = true;
-                        }
+                        var oldField = field;
+                        field = (TResource)value.ToResource(context);
+                        Version++;
+                        updateOnly = true;
+                        oldField.Dispose();
                     }
                     else
                     {
-                        if (field.GetOriginal() != value)
+                        var oldVersion = field.Version;
+                        var _ = false;
+                        field.Update(value, context, ref _);
+                        if (!updateOnly && oldVersion != field.Version)
                         {
-                            SetOwnedResource(ref field, (TResource)value.ToResource(context));
                             Version++;
                             updateOnly = true;
-                        }
-                        else
-                        {
-                            var oldVersion = value.Version;
-                            field.Update(value, context, ref updateOnly);
-                            if (!updateOnly && oldVersion != field.Version)
-                            {
-                                Version++;
-                                updateOnly = true;
-                            }
                         }
                     }
                 }

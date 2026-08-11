@@ -321,10 +321,17 @@ public sealed class RenderExecutionInput
 internal sealed class RenderExecutionSessionToken
 {
     private readonly Dictionary<object, int> _authorizedResources = new(ReferenceEqualityComparer.Instance);
+    private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
     private IDisposable? _callbackGuard = RenderExecutionCallbackGuard.Enter();
     private bool _active = true;
     private ImmediateCanvas? _activeCanvas;
     private RenderCallbackCanvas? _activeFacade;
+    private DrawableBrushMaterializer? _previousDrawableBrushMaterializer;
+
+    public RenderExecutionSessionToken(DrawableBrushMaterializer? drawableBrushMaterializer = null)
+    {
+        _drawableBrushMaterializer = drawableBrushMaterializer;
+    }
 
     public void ThrowIfInactive()
     {
@@ -336,6 +343,7 @@ internal sealed class RenderExecutionSessionToken
     {
         ThrowIfInactive();
         bool hasActiveCanvas = _activeCanvas is not null;
+        RestoreDrawableBrushMaterializer();
         _active = false;
         _activeCanvas = null;
         _activeFacade = null;
@@ -394,6 +402,9 @@ internal sealed class RenderExecutionSessionToken
 
         _activeCanvas = canvas;
         _activeFacade = facade;
+        _previousDrawableBrushMaterializer = canvas.DrawableBrushMaterializer;
+        if (_drawableBrushMaterializer is not null)
+            canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
     }
 
     public void UseRawCanvas(ImmediateCanvas canvas, Action<ImmediateCanvas> use)
@@ -425,6 +436,7 @@ internal sealed class RenderExecutionSessionToken
         if (!ReferenceEquals(_activeCanvas, canvas))
             throw new InvalidOperationException("The supplied canvas is not the active execution canvas.");
 
+        RestoreDrawableBrushMaterializer();
         _activeCanvas = null;
         _activeFacade = null;
     }
@@ -505,6 +517,34 @@ internal sealed class RenderExecutionSessionToken
             });
     }
 
+    public void UseResources(
+        IReadOnlyList<RenderResource> resources,
+        Action use)
+    {
+        ThrowIfInactive();
+        ArgumentNullException.ThrowIfNull(resources);
+        ArgumentNullException.ThrowIfNull(use);
+        UseResourceAt(0);
+
+        void UseResourceAt(int index)
+        {
+            if (index == resources.Count)
+            {
+                use();
+                return;
+            }
+
+            RenderResource resource = resources[index];
+            resource.Registry.UseUntyped(
+                resource,
+                value =>
+                {
+                    AuthorizeResource(value, () => UseResourceAt(index + 1));
+                    return true;
+                });
+        }
+    }
+
     public void UseDeclaredResource<T>(
         string name,
         IReadOnlyList<RenderResourceBinding> declaredResources,
@@ -537,6 +577,13 @@ internal sealed class RenderExecutionSessionToken
 
     public bool IsResourceAuthorized(object resource)
         => _active && _authorizedResources.ContainsKey(resource);
+
+    private void RestoreDrawableBrushMaterializer()
+    {
+        if (_activeCanvas is { IsDisposed: false } canvas)
+            canvas.DrawableBrushMaterializer = _previousDrawableBrushMaterializer;
+        _previousDrawableBrushMaterializer = null;
+    }
 
     // Nested resource types are all named "Resource", so the declaring type has to be part of the name for the
     // message to distinguish two declared resources.

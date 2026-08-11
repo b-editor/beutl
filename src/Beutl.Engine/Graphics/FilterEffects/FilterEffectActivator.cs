@@ -15,7 +15,7 @@ public sealed class FilterEffectActivator : IDisposable
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectActivator");
     private readonly SkRuntimeEffectProgramAcquirer? _injectedProgramAcquirer;
     private readonly Vector? _deviceGridOffset;
-    private readonly IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>? _brushes;
+    private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
     private bool _customEffectBoundaryMaterialized;
@@ -51,7 +51,7 @@ public sealed class FilterEffectActivator : IDisposable
         float workingScale,
         float maxWorkingScale,
         Vector deviceGridOffset,
-        IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>? brushes)
+        DrawableBrushMaterializer? drawableBrushMaterializer = null)
         : this(
             targets,
             builder,
@@ -63,7 +63,7 @@ public sealed class FilterEffectActivator : IDisposable
             acquireProgram: null,
             deviceGridOffset,
             ownsProgramCache: true,
-            brushes)
+            drawableBrushMaterializer)
     {
     }
 
@@ -77,7 +77,7 @@ public sealed class FilterEffectActivator : IDisposable
         float maxWorkingScale,
         Vector deviceGridOffset,
         SkRuntimeEffectProgramAcquirer acquireProgram,
-        IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>? brushes = null)
+        DrawableBrushMaterializer? drawableBrushMaterializer = null)
         : this(
             targets,
             builder,
@@ -89,7 +89,7 @@ public sealed class FilterEffectActivator : IDisposable
             acquireProgram ?? throw new ArgumentNullException(nameof(acquireProgram)),
             deviceGridOffset,
             ownsProgramCache: false,
-            brushes)
+            drawableBrushMaterializer)
     {
     }
 
@@ -104,9 +104,8 @@ public sealed class FilterEffectActivator : IDisposable
         SkRuntimeEffectProgramAcquirer? acquireProgram,
         Vector? deviceGridOffset,
         bool ownsProgramCache,
-        IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>? brushes = null)
+        DrawableBrushMaterializer? drawableBrushMaterializer = null)
     {
-        _brushes = brushes;
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
         if (!Enum.IsDefined(intent))
@@ -122,6 +121,7 @@ public sealed class FilterEffectActivator : IDisposable
         Intent = intent;
         Purpose = purpose;
         _deviceGridOffset = deviceGridOffset;
+        _drawableBrushMaterializer = drawableBrushMaterializer;
         if (!ownsProgramCache)
         {
             _injectedProgramAcquirer = acquireProgram
@@ -329,6 +329,7 @@ public sealed class FilterEffectActivator : IDisposable
                 using (var canvas = new ImmediateCanvas(surface, w, MaxWorkingScale,
                            logicalSize: rasterBounds.Size, intent: Intent))
                 {
+                    canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
                     canvas.Clear();
                     using (canvas.PushTransform(
                                Matrix.CreateTranslation(
@@ -513,24 +514,6 @@ public sealed class FilterEffectActivator : IDisposable
     public void Apply(FilterEffectContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        try
-        {
-            ApplyCore(context);
-        }
-        // A swallowed pre-lowering failure usually surfaces here as the unlowered-DrawableBrush guard, which names
-        // neither the nested effect nor the real cause.
-        catch (Exception ex) when (context.NestedBrushLoweringFailure is { } loweringFailure
-                                   && !ReferenceEquals(
-                                       ex.Data[FilterEffectContext.NestedBrushLoweringFailureKey],
-                                       loweringFailure))
-        {
-            ex.Data[FilterEffectContext.NestedBrushLoweringFailureKey] = loweringFailure;
-            throw;
-        }
-    }
-
-    private void ApplyCore(FilterEffectContext context)
-    {
         if (CurrentTargets.Count == 0) return;
         context.PrepareStandaloneResourcesForExecution();
 
@@ -592,7 +575,7 @@ public sealed class FilterEffectActivator : IDisposable
                             WorkingScale,
                             MaxWorkingScale,
                             _deviceGridOffset,
-                            _brushes);
+                            _drawableBrushMaterializer);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -670,7 +653,7 @@ public sealed class FilterEffectActivator : IDisposable
             _deviceGridOffset
                 ?? (cloned.Count > 0 ? cloned[0].DeviceGridOffset : default),
             GetProgramAcquirer(),
-            _brushes);
+            _drawableBrushMaterializer);
 
         activator.Apply(context);
         activator.Flush(false);

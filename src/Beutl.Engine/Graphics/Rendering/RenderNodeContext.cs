@@ -5,6 +5,12 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
+internal delegate void PaintedSourceDraw<TState>(
+    ImmediateCanvas canvas,
+    Brush.Resource? fill,
+    Pen.Resource? pen,
+    TState state);
+
 /// <summary>
 /// Records declarative render fragments for one active <see cref="RenderNode.Process(RenderNodeContext)"/> call.
 /// </summary>
@@ -269,7 +275,7 @@ public sealed class RenderNodeContext
     /// <returns>A new transaction-scoped mask fragment. The result is not published automatically.</returns>
     public RenderFragmentHandle OpacityMask(
         RenderFragmentHandle input,
-        Brush.Resource mask,
+        RenderResource<Brush.Resource> mask,
         Rect brushBounds,
         bool invert = false)
     {
@@ -277,29 +283,21 @@ public sealed class RenderNodeContext
         RenderRectValidation.ThrowIfInvalidInput(brushBounds, nameof(brushBounds));
         NodeRecordingTransaction transaction = GetTransaction();
         RenderFragmentReference reference = transaction.GetReference(input);
-        RecordedBrushPlan maskPlan = BrushRecorder.RecordStandaloneBrush(this, mask, mask.Version, brushBounds);
-        ImmutableArray<RenderFragmentReference> dependencies =
-            transaction.GetReferences(maskPlan.Dependencies, nameof(mask));
-        var inputs = ImmutableArray.CreateBuilder<RenderFragmentReference>(1 + dependencies.Length);
-        inputs.Add(reference);
-        inputs.AddRange(dependencies);
+        RenderDescriptionValidation.ThrowIfUndeclarable(mask, nameof(mask));
         return transaction.CreateFragment(
             RenderFragmentKind.OpacityMask,
             reference.Bounds,
             reference.EffectiveScale,
             reference.ValueCardinality,
             reference.ContributesValuesToTarget,
-            reference.CanBeUsedAsValueInput && maskPlan.CanBeUsedAsValueInput,
-            reference.HasTargetEffects
-                || dependencies.Any(static dependency => dependency.HasTargetEffects),
-            reference.HasOpaqueExternalWork || maskPlan.IsRawExternal,
-            inputs,
+            reference.CanBeUsedAsValueInput,
+            reference.HasTargetEffects,
+            reference.HasOpaqueExternalWork,
+            [reference],
             new OpacityMaskRenderFragmentPayload(
-                maskPlan.Brush,
-                maskPlan.Resources,
+                mask,
                 brushBounds,
-                invert,
-                maskPlan.IsRawExternal),
+                invert),
             reference.HitTest);
     }
 
@@ -440,114 +438,16 @@ public sealed class RenderNodeContext
             hitTest);
     }
 
-    /// <summary>
-    /// Records one drawing performed under a lowered fill and pen, including any nested
-    /// <see cref="DrawableBrush"/> content.
-    /// </summary>
-    /// <param name="state">
-    /// Every pixel-affecting value the callback reads besides the paint, and the produced value's output-cache
-    /// runtime identity. Its complete field graph must be deeply immutable; the engine compares that graph
-    /// without invoking author-defined equality members.
-    /// </param>
-    /// <param name="draw">
-    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
-    /// shape the output without reaching <paramref name="state"/>, and is rejected.
-    /// </param>
-    /// <param name="fill">The fill brush and the version it was snapshotted at, or <see langword="null"/>.</param>
-    /// <param name="pen">The pen and the version it was snapshotted at, or <see langword="null"/>.</param>
-    /// <param name="brushBounds">
-    /// The finite coordinate frame the brushes map onto. It is the rectangle gradient stops, tile stretching,
-    /// and brush transforms resolve against, and is independent of <paramref name="outputBounds"/>.
-    /// </param>
-    /// <param name="outputBounds">The finite non-empty logical bounds of the produced value.</param>
-    /// <param name="hitTest">The CPU-only hit-test contract for the produced value.</param>
-    /// <param name="scale">The density contract for the produced value.</param>
-    /// <param name="structuralKey">
-    /// A required equality-stable key. The execution callback is assembled by a shared recorder helper, so its
-    /// method identity would name that helper rather than this source.
-    /// </param>
-    /// <param name="deviceGridSensitivity">
-    /// The declared dependency of the produced pixels on the device-grid phase.
-    /// </param>
-    /// <param name="resources">
-    /// The named resources the callback reaches through
-    /// <see cref="PaintedRenderSession.UseDeclaredResource"/>.
-    /// </param>
-    /// <returns>A new transaction-scoped value fragment. The result is not published automatically.</returns>
-    /// <remarks>
-    /// Lowering nested drawable content is part of recording: the content is recorded as ordinary fragments of
-    /// this request and its identity therefore reaches the output-cache key. A brush the recorder cannot lower
-    /// declaratively remains executable but disables render caching for this result.
-    /// </remarks>
-    public RenderFragmentHandle PaintedSource<TState>(
+    internal RenderFragmentHandle PaintedSource<TState>(
         TState state,
-        Action<PaintedRenderSession, TState> draw,
+        PaintedSourceDraw<TState> draw,
         (Brush.Resource Resource, int Version)? fill,
         (Pen.Resource Resource, int Version)? pen,
-        Rect brushBounds,
         Rect outputBounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         object structuralKey,
-        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
-        IEnumerable<RenderResourceBinding>? resources = null)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(structuralKey);
-        RenderDescriptionValidation.ValidateStatePassingCallback(
-            state,
-            draw,
-            nameof(state),
-            nameof(draw));
-        RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
-        hitTest.ThrowIfUninitialized(nameof(hitTest));
-        scale.ThrowIfUninitialized(nameof(scale));
-        RenderRectValidation.ThrowIfInvalidInput(brushBounds, nameof(brushBounds));
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
-        GetTransaction();
-
-        IReadOnlyList<RenderResourceBinding> callbackResources =
-            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources));
-        RecordedPaint paint = BrushRecorder.RecordPaint(
-            this,
-            fill?.Resource,
-            fill?.Version ?? 0,
-            pen?.Resource,
-            pen?.Version ?? 0,
-            brushBounds);
-        OpaqueRenderDescription description = BrushRecorder.CreatePaintedSource(
-            state,
-            draw,
-            paint,
-            callbackResources,
-            BrushRecorder.CreateSourceBounds(paint, outputBounds, structuralKey),
-            hitTest,
-            scale,
-            deviceGridSensitivity,
-            structuralKey,
-            new RenderRuntimeIdentity(new RenderStateIdentity<TState>(state)));
-        return BrushRecorder.RecordSource(this, paint, description);
-    }
-
-    /// <summary>
-    /// Records a request-local drawing under a lowered fill and pen, including any nested
-    /// <see cref="DrawableBrush"/> content.
-    /// </summary>
-    /// <remarks>
-    /// Use this form when the callback's complete pixel-affecting state cannot be copied into a deeply immutable
-    /// snapshot. The callback may capture, and each recording receives a fresh identity that prevents
-    /// cross-request output-cache reuse. Direct replay within the active request remains available when
-    /// <paramref name="scale"/> declares no supply density.
-    /// </remarks>
-    public RenderFragmentHandle PaintedSourceRequestLocal(
-        Action<PaintedRenderSession> draw,
-        (Brush.Resource Resource, int Version)? fill,
-        (Pen.Resource Resource, int Version)? pen,
-        Rect brushBounds,
-        Rect outputBounds,
-        RenderHitTestContract hitTest,
-        RenderScaleContract scale,
-        object structuralKey,
+        RenderRuntimeIdentity? runtimeIdentity,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderResourceBinding>? resources = null)
     {
@@ -556,183 +456,63 @@ public sealed class RenderNodeContext
         RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         scale.ThrowIfUninitialized(nameof(scale));
-        RenderRectValidation.ThrowIfInvalidInput(brushBounds, nameof(brushBounds));
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
         GetTransaction();
 
-        IReadOnlyList<RenderResourceBinding> callbackResources =
-            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources));
-        RecordedPaint paint = BrushRecorder.RecordPaint(
-            this,
-            fill?.Resource,
-            fill?.Version ?? 0,
-            pen?.Resource,
-            pen?.Version ?? 0,
-            brushBounds);
-        OpaqueRenderDescription description = BrushRecorder.CreateRequestLocalPaintedSource(
-            draw,
-            paint,
-            callbackResources,
-            BrushRecorder.CreateSourceBounds(paint, outputBounds, structuralKey),
-            hitTest,
-            scale,
-            deviceGridSensitivity,
-            structuralKey);
-        return BrushRecorder.RecordSource(this, paint, description);
-    }
+        var declaredResources = new List<RenderResourceBinding>(
+            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
+        RenderResource<Brush.Resource>? fillResource = null;
+        RenderResource<Pen.Resource>? penResource = null;
+        if (fill is { } fillSnapshot)
+        {
+            fillResource = Borrow(fillSnapshot);
+            declaredResources.Add(fillResource.Bind("__fill"));
+        }
+        if (pen is { } penSnapshot)
+        {
+            penResource = Borrow(penSnapshot);
+            declaredResources.Add(penResource.Bind("__pen"));
+        }
 
-    /// <summary>
-    /// Records one drawing performed under a lowered fill and pen, with one resource declared by the recorder
-    /// and handed to the callback already leased.
-    /// </summary>
-    /// <param name="primary">
-    /// The one resource the drawing is of. The recorder declares it as the first element of the source's
-    /// resource list and leases it for the duration of <paramref name="draw"/>.
-    /// </param>
-    /// <param name="state">
-    /// Every pixel-affecting value the callback reads besides the paint and <paramref name="primary"/>, and the
-    /// produced value's output-cache runtime identity. Its complete field graph must be deeply immutable; the
-    /// engine compares that graph without invoking author-defined equality members.
-    /// </param>
-    /// <param name="draw">
-    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
-    /// shape the output without reaching <paramref name="state"/>, and is rejected.
-    /// </param>
-    /// <param name="fill">The fill brush and the version it was snapshotted at, or <see langword="null"/>.</param>
-    /// <param name="pen">The pen and the version it was snapshotted at, or <see langword="null"/>.</param>
-    /// <param name="brushBounds">
-    /// The finite coordinate frame the brushes map onto. It is the rectangle gradient stops, tile stretching,
-    /// and brush transforms resolve against, and is independent of <paramref name="outputBounds"/>.
-    /// </param>
-    /// <param name="outputBounds">The finite non-empty logical bounds of the produced value.</param>
-    /// <param name="hitTest">The CPU-only hit-test contract for the produced value.</param>
-    /// <param name="scale">The density contract for the produced value.</param>
-    /// <param name="structuralKey">
-    /// A required equality-stable key. The execution callback is assembled by a shared recorder helper, so its
-    /// method identity would name that helper rather than this source.
-    /// </param>
-    /// <param name="deviceGridSensitivity">
-    /// The declared dependency of the produced pixels on the device-grid phase.
-    /// </param>
-    /// <param name="resources">
-    /// Any further named resources the callback reaches through
-    /// <see cref="PaintedRenderSession.UseDeclaredResource"/>. The primary and lowered paint slots remain in
-    /// the recorder-owned namespace.
-    /// </param>
-    /// <returns>A new transaction-scoped value fragment. The result is not published automatically.</returns>
-    /// <remarks>
-    /// The form to reach for whenever a painted source draws one resource, which is every in-tree one: the
-    /// <paramref name="primary"/> argument arrives type-checked at compile time instead of requiring a named
-    /// lookup. A callback that needs a second resource addresses it by name.
-    /// </remarks>
-    public RenderFragmentHandle PaintedSource<TResource, TState>(
-        RenderResource<TResource> primary,
-        TState state,
-        Action<PaintedRenderSession, TResource, TState> draw,
-        (Brush.Resource Resource, int Version)? fill,
-        (Pen.Resource Resource, int Version)? pen,
-        Rect brushBounds,
-        Rect outputBounds,
-        RenderHitTestContract hitTest,
-        RenderScaleContract scale,
-        object structuralKey,
-        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
-        IEnumerable<RenderResourceBinding>? resources = null)
-        where TResource : class
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(primary);
-        ArgumentNullException.ThrowIfNull(structuralKey);
-        RenderDescriptionValidation.ValidateStatePassingCallback(
+        var source = new PlainPaintedSource<TState>(
             state,
             draw,
-            nameof(state),
-            nameof(draw));
-        RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
-        hitTest.ThrowIfUninitialized(nameof(hitTest));
-        scale.ThrowIfUninitialized(nameof(scale));
-        RenderRectValidation.ThrowIfInvalidInput(brushBounds, nameof(brushBounds));
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
-        GetTransaction();
-
-        RenderDescriptionValidation.ThrowIfUndeclarable(primary, nameof(primary));
-        IReadOnlyList<RenderResourceBinding> authorResources =
-            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources));
-        RecordedPaint paint = BrushRecorder.RecordPaint(
-            this,
             fill?.Resource,
-            fill?.Version ?? 0,
             pen?.Resource,
-            pen?.Version ?? 0,
-            brushBounds);
-        OpaqueRenderDescription description = BrushRecorder.CreatePrimaryPaintedSource(
-            primary,
-            state,
-            draw,
-            paint,
-            authorResources,
-            BrushRecorder.CreateSourceBounds(paint, outputBounds, structuralKey),
-            hitTest,
-            scale,
-            deviceGridSensitivity,
-            structuralKey,
-            new RenderRuntimeIdentity(new RenderStateIdentity<TState>(state)));
-        return BrushRecorder.RecordSource(this, paint, description);
+            declaredResources
+                .Select(static binding => binding.Resource)
+                .DistinctBy(static resource => resource.SlotIdentity)
+                .ToArray());
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
+            execute: source.Execute,
+            directReplay: scale.DeclaresNoSupplyDensity && !ContainsDrawableBrush(fill?.Resource, pen?.Resource)
+                ? source.ExecuteDirect
+                : null,
+            bounds: OpaqueRenderBoundsContract.Source(outputBounds),
+            hitTest: hitTest,
+            scale: scale,
+            deviceGridSensitivity: deviceGridSensitivity,
+            structuralKey: structuralKey,
+            runtimeIdentity: runtimeIdentity,
+            resources: declaredResources);
+        return OpaqueSource(description);
     }
 
-    /// <summary>
-    /// Records a request-local drawing with one typed primary resource under a lowered fill and pen.
-    /// </summary>
-    /// <remarks>
-    /// The callback may capture mutable or otherwise unsnapshotable state. Each recording receives a fresh
-    /// identity, so its output is never reused by a later request. The primary is declared and leased by the
-    /// recorder and remains outside the callback's named resource namespace.
-    /// </remarks>
-    public RenderFragmentHandle PaintedSourceRequestLocal<TResource>(
-        RenderResource<TResource> primary,
-        Action<PaintedRenderSession, TResource> draw,
-        (Brush.Resource Resource, int Version)? fill,
-        (Pen.Resource Resource, int Version)? pen,
-        Rect brushBounds,
-        Rect outputBounds,
-        RenderHitTestContract hitTest,
-        RenderScaleContract scale,
-        object structuralKey,
-        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
-        IEnumerable<RenderResourceBinding>? resources = null)
-        where TResource : class
-    {
-        ArgumentNullException.ThrowIfNull(primary);
-        ArgumentNullException.ThrowIfNull(draw);
-        ArgumentNullException.ThrowIfNull(structuralKey);
-        RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
-        hitTest.ThrowIfUninitialized(nameof(hitTest));
-        scale.ThrowIfUninitialized(nameof(scale));
-        RenderRectValidation.ThrowIfInvalidInput(brushBounds, nameof(brushBounds));
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
-        GetTransaction();
+    private static bool ContainsDrawableBrush(Brush.Resource? fill, Pen.Resource? pen)
+        => ContainsDrawableBrush(fill) || ContainsDrawableBrush(pen?.Brush);
 
-        RenderDescriptionValidation.ThrowIfUndeclarable(primary, nameof(primary));
-        IReadOnlyList<RenderResourceBinding> authorResources =
-            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources));
-        RecordedPaint paint = BrushRecorder.RecordPaint(
-            this,
-            fill?.Resource,
-            fill?.Version ?? 0,
-            pen?.Resource,
-            pen?.Version ?? 0,
-            brushBounds);
-        OpaqueRenderDescription description = BrushRecorder.CreateRequestLocalPrimaryPaintedSource(
-            primary,
-            draw,
-            paint,
-            authorResources,
-            BrushRecorder.CreateSourceBounds(paint, outputBounds, structuralKey),
-            hitTest,
-            scale,
-            deviceGridSensitivity,
-            structuralKey);
-        return BrushRecorder.RecordSource(this, paint, description);
+    private static bool ContainsDrawableBrush(Brush.Resource? brush)
+    {
+        var visited = new HashSet<Brush.Resource>(ReferenceEqualityComparer.Instance);
+        while (brush is BrushPresenter.Resource presenter)
+        {
+            if (!visited.Add(brush))
+                return true;
+
+            brush = presenter.Target;
+        }
+
+        return brush is DrawableBrush.Resource;
     }
 
     /// <summary>Records an opaque value source whose callback runs only during execution.</summary>
@@ -842,8 +622,7 @@ public sealed class RenderNodeContext
         Rect outputBounds,
         bool requiresOwningTargetDomain = false,
         IReadOnlyList<IFEItem>? boundsItems = null,
-        FilterEffectWorkingScalePolicy? workingScalePolicy = null,
-        IReadOnlyList<RegisteredEffectBrush>? brushes = null)
+        FilterEffectWorkingScalePolicy? workingScalePolicy = null)
     {
         ArgumentNullException.ThrowIfNull(effectContext);
         NodeRecordingTransaction transaction = GetTransaction();
@@ -852,22 +631,6 @@ public sealed class RenderNodeContext
         foreach (RenderFragmentReference reference in references)
             EnsureValueInput(reference, nameof(inputs));
         ValidateDescriptionResources([effectContext], nameof(effectContext));
-
-        var brushBindings = ImmutableArray.CreateBuilder<LegacyFilterEffectBrushBinding>();
-        var brushDependencies = ImmutableArray.CreateBuilder<RenderFragmentReference>();
-        var brushResources = new List<RenderResource>();
-        foreach (RegisteredEffectBrush brush in brushes ?? [])
-        {
-            int dependencyOffset = brushDependencies.Count;
-            brushDependencies.AddRange(
-                transaction.GetReferences(brush.Dependencies, nameof(brushes)));
-            brushResources.AddRange(brush.Resources);
-            brushBindings.Add(new LegacyFilterEffectBrushBinding(
-                brush.Handle,
-                brush.Brush.HasDependency
-                    ? brush.Brush with { DependencyIndex = dependencyOffset + brush.Brush.DependencyIndex }
-                    : brush.Brush));
-        }
 
         RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(effectContext));
         IReadOnlyList<IFEItem> recordedBoundsItems = boundsItems ?? [];
@@ -894,7 +657,6 @@ public sealed class RenderNodeContext
                 MaxWorkingScale);
         }
 
-        ImmutableArray<RenderFragmentReference> dependencies = brushDependencies.ToImmutable();
         return transaction.CreateFragment(
             RenderFragmentKind.LegacyFilterEffect,
             outputBounds,
@@ -902,17 +664,14 @@ public sealed class RenderNodeContext
             RenderValueCardinality.Dynamic,
             references.Any(static item => item.ContributesValuesToTarget),
             canBeUsedAsValueInput: true,
-            references.Any(static item => item.HasTargetEffects)
-            || dependencies.Any(static item => item.HasTargetEffects),
+            references.Any(static item => item.HasTargetEffects),
             hasOpaqueExternalWork: true,
-            [.. references, .. dependencies],
+            references,
             new LegacyFilterEffectRenderFragmentPayload(
                 effectContext,
                 [.. recordedBoundsItems],
                 workingScalePolicy,
-                references.Length,
-                brushBindings.ToImmutable(),
-                brushResources),
+                references.Length),
             outputBounds.Contains,
             requiresOwningTargetDomain
                 ? RenderFragmentBoundsRequirement.OwningTargetDomain
@@ -1606,6 +1365,29 @@ public sealed class RenderNodeContext
         return RenderValueCardinality.Range(minimum, maximum);
     }
 
+    private sealed class PlainPaintedSource<TState>(
+        TState state,
+        PaintedSourceDraw<TState> draw,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
+        IReadOnlyList<RenderResource> declaredResources)
+    {
+        public void Execute(OpaqueRenderSession session)
+        {
+            using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+            output.Canvas.Use(canvas => Draw(session.Token, canvas));
+            session.Publish(output);
+        }
+
+        public void ExecuteDirect(EngineDirectRenderSession session)
+            => Draw(session.Token, session.Canvas);
+
+        private void Draw(RenderExecutionSessionToken token, ImmediateCanvas canvas)
+            => token.UseResources(
+                declaredResources,
+                () => draw(canvas, fill, pen, state));
+    }
+
 }
 
 
@@ -1616,11 +1398,9 @@ internal sealed record OpacityRenderFragmentPayload(
 internal sealed record BlendRenderFragmentPayload(BlendMode BlendMode);
 
 internal sealed record OpacityMaskRenderFragmentPayload(
-    RecordedBrush Mask,
-    IReadOnlyList<RenderResource> Resources,
+    RenderResource<Brush.Resource> Mask,
     Rect BrushBounds,
-    bool Invert,
-    bool IsRawFallback);
+    bool Invert);
 
 internal sealed record ShaderRenderFragmentPayload(
     ShaderDescription Description,
@@ -1641,17 +1421,11 @@ internal sealed record OpaqueRenderFragmentPayload(
     OpaqueRenderDescription Description,
     IReadOnlyList<RenderInputReadback> InputReadbacks);
 
-internal sealed record LegacyFilterEffectBrushBinding(
-    FilterEffectBrush Handle,
-    RecordedBrush Brush);
-
 internal sealed record LegacyFilterEffectRenderFragmentPayload(
     RenderResource<FilterEffectContext> Context,
     ImmutableArray<IFEItem> BoundsItems,
     FilterEffectWorkingScalePolicy? WorkingScalePolicy,
-    int StreamInputCount,
-    ImmutableArray<LegacyFilterEffectBrushBinding> Brushes,
-    IReadOnlyList<RenderResource> BrushResources);
+    int StreamInputCount);
 
 internal sealed record MaterializedInputRenderFragmentPayload(
     MaterializedInputDescription Description);

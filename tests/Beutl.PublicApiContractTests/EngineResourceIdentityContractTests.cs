@@ -137,19 +137,20 @@ public sealed class EngineResourceIdentityContractTests
                 resource.Version);
             var state = new PluginHitTestState(s_bounds);
 
-            context.Publish(context.PaintedSource(
-                state: s_bounds,
-                draw: static (session, state) =>
-                    session.Canvas.DrawRectangle(state, session.Fill, session.Pen),
-                fill: (Brushes.Resource.Red, Brushes.Resource.Red.Version),
-                pen: null,
-                brushBounds: s_bounds,
-                outputBounds: s_bounds,
-                hitTest: RenderHitTestContract.Custom(
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                s_bounds,
+                static (session, _) =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    output.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.Custom(
                     (_, point) => state.HitTest(point),
                     structuralKey: (typeof(PluginHitTestNode), "hit-test", identity)),
-                scale: RenderScaleContract.Vector,
-                structuralKey: (typeof(PluginHitTestNode), identity)));
+                RenderValueCardinality.Single,
+                RenderScaleContract.Vector)));
         }
     }
 

@@ -49,15 +49,14 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             ? null
             : context.Borrow(textPen, EngineResourceIdentity.Of(textPen), textPen.Version);
         bool hasFill = fill is not null;
+        TextRuntimeIdentity runtimeIdentity = CreateRuntimeIdentity(text, bounds);
 
         context.Publish(context.PaintedSource(
-            primary: textResource,
-            state: CreateRuntimeIdentity(text, bounds),
-            draw: static (session, currentText, _) =>
-                session.Canvas.DrawText(currentText, session.Fill, session.Pen),
+            state: (text, runtimeIdentity),
+            draw: static (canvas, fill, pen, state) =>
+                canvas.DrawText(state.text, fill, pen),
             fill: fillSnapshot,
             pen: penSnapshot,
-            brushBounds: bounds,
             outputBounds: rasterBounds,
             hitTest: RenderHitTestContract.FromResource(
                 textResource,
@@ -65,8 +64,10 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
                 typeof(TextRenderNode)),
             scale: RenderScaleContract.Vector,
             structuralKey: typeof(TextRenderNode),
+            runtimeIdentity: new RenderRuntimeIdentity(runtimeIdentity),
             deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
             resources: DeferredOpaqueSource.Resources(
+                ("text", textResource),
                 ("textBrush", textBrushResource),
                 ("textPen", textPenResource))));
     }

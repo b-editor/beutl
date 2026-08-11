@@ -340,7 +340,6 @@ public sealed class RenderNodeRenderer : IDisposable
             executionCanvas.Transform = destination.Transform;
             executionCanvas.Opacity = destination.Opacity;
             executionCanvas.BlendMode = destination.BlendMode;
-            destination.ReplayClipTo(executionCanvas);
             executor.Execute(
                 request,
                 executionCanvas,

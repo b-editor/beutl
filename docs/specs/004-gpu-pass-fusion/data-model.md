@@ -22,7 +22,7 @@ flowchart LR
     S --> L["ResourcePlan"]
     U --> E["RenderRequestExecutor"]
     L --> E
-    E --> X["Output + cache captures + diagnostics"]
+    E --> X["Output + cache captures"]
 ```
 
 ## Public authoring entities
@@ -55,7 +55,6 @@ A disposable high-level owner for repeated requests over one borrowed root node.
 | options snapshot | Sanitized request defaults and borrowed target-factory reference. |
 | structural/program caches | Persistent reusable compiled state owned by this renderer. |
 | target pool | Owns every target accepted from `IRenderTargetFactory` while pooled/request-leased; successful cache publication transfers its payload to `RenderNodeCache`. |
-| internal diagnostic state | Renderer-owned evidence state; it is not exposed as a public provider, sink, or snapshot schema. |
 | state | `Active` or `Disposed`; disposal is idempotent and later calls fail. |
 
 The caller owns the disposable `RenderNodeRasterization` returned by `Rasterize`; that result in turn owns its optional bitmap. Render destinations, the root and its existing cache, and the factory remain borrowed. One renderer instance does not support concurrent requests; separate instances own independent persistent state. There is no list-returning rasterizer because a fragment stream denotes one painter-ordered result.
@@ -75,7 +74,7 @@ Disposal is idempotent and disposes the owned bitmap exactly once. Empty output 
 
 ### RenderNodeMeasurement
 
-An immutable metadata-only result containing execution-facing `OutputBounds` (`RootOutputExtent`), query-facing `QueryBounds`, aggregate `EffectiveScale`, materializable `ValueCardinality`, and the independent flags `HasFragments`, `HasContributingValues`, and `HasTargetEffects`. A command-only result can therefore report `HasFragments == true`, `ValueCardinality.None`, and `HasTargetEffects == true`; a published non-contributing capture reports a value without claiming a visible contribution. Measurement never executes deferred work and is distinct from internal request diagnostics.
+An immutable metadata-only result containing execution-facing `OutputBounds` (`RootOutputExtent`), query-facing `QueryBounds`, aggregate `EffectiveScale`, materializable `ValueCardinality`, and the independent flags `HasFragments`, `HasContributingValues`, and `HasTargetEffects`. A command-only result can therefore report `HasFragments == true`, `ValueCardinality.None`, and `HasTargetEffects == true`; a published non-contributing capture reports a value without claiming a visible contribution. Measurement never executes deferred work.
 
 ### RenderNodeContext
 
@@ -129,7 +128,7 @@ Invariants:
 - A finite `Layer` is the explicit concrete-metadata barrier. With only concrete inputs it keeps tight child-derived bounds and hit testing. If any input is symbolic it publishes the complete finite Layer domain as conservative bounds and domain containment as hit testing, while retaining the internal symbolic dependencies for graph-wide resolution and fan-out analysis. It always publishes `EffectiveScale.Unbounded`; lowering chooses its materialization density from downstream demand, child supplies, `OutputScale`, and `MaxWorkingScale` (`src/Beutl.Engine/Graphics/Rendering/RenderNodeContext.cs:703-752`, `src/Beutl.Engine/Graphics/Rendering/RenderScaleUtilities.cs:19-35`).
 - Public `OwningTargetLayer` is available to plugin nodes and semantic engine consumers such as `FilterEffectRenderNode` when a value-input-ineligible Full/raw target stream cannot yet name a finite local domain. It stays publicly symbolic, inherits its domain through parent scope lowering, then follows the same one-value Layer lowering/execution path. Graph finalization rejects it when no single finite owning domain exists. Owner-independent finite target-write metadata uses an ordinary finite Layer instead.
 
-`CanBeUsedAsValueInput` propagation is fixed by the public contract rather than inferred by the planner: Shader, Geometry, and opaque maps require an eligible input and return eligible values; combine/expand require every input eligible and return eligible values; Opacity preserves eligibility only for an eligible child; OpacityMask additionally requires every lowered mask dependency eligible and no raw fallback; Blend, public TargetScope, `TargetLayerScope`, RawTargetScope, and both command forms return false; source/materialized/capture/finite Layer return true; and `ContributeValues` requires/preserves true. An engine-owned TargetScope may use an internal value-replay descriptor and conditionally preserve eligibility only when its mechanically restricted callback, single contributing input, cardinality, and target dependencies prove that replay self-contained. Nested recording preserves each child handle's recorded result. Public contract tests cover every public rule and the primary `Shader -> Opacity -> Shader` proof.
+`CanBeUsedAsValueInput` propagation is fixed by the public contract rather than inferred by the planner: Shader, Geometry, and opaque maps require an eligible input and return eligible values; combine/expand require every input eligible and return eligible values; Opacity and OpacityMask preserve the primary child's eligibility, with the mask represented as a declared resource dependency rather than another value input; Blend, public TargetScope, `TargetLayerScope`, RawTargetScope, and both command forms return false; source/materialized/capture/finite Layer return true; and `ContributeValues` requires/preserves true. An engine-owned TargetScope may use an internal value-replay descriptor and conditionally preserve eligibility only when its mechanically restricted callback, single contributing input, cardinality, and target dependencies prove that replay self-contained. Nested recording preserves each child handle's recorded result. Public contract tests cover every public rule and the primary `Shader -> Opacity -> Shader` proof.
 
 ### RenderValueCardinality
 
@@ -161,21 +160,13 @@ A request-scoped token returned when a context accepts an owned disposable or an
 
 `Own<T>` requires `T : class, IDisposable`; `Borrow<T>` and `RenderResource<T>` require only `T : class`. The request-family raw-reference table rejects duplicate Own and any Own/Borrow conflict. Repeated Borrow with an explicit non-null key coalesces only with the same key/version; an explicit mismatch is rejected, while each null-key registration gets a distinct request-local identity and cannot reuse output cache across requests. The raw value is exposed only inside an authorized execution callback. Every consuming description lists its token, causing key/version to enter output-cache identity; undeclared use is rejected. An owned slot is discharged exactly once by rollback/teardown disposal or by an atomic ownership transfer into an accepted persistent cache payload; the request then holds no lease to it. Borrowed teardown invalidates only the token; both owner and callback keep pixel-affecting state read-only throughout the request. Metadata-only requests never access the raw value. Keys retained by caches are lightweight immutable equality-stable CPU IDs, never resource/context/native objects or large payloads.
 
-### EngineObject.Resource terminal disposal
+### Existing EngineObject.Resource lifecycle
 
-Generated nested object/list properties are owning slots. The containing resource has a two-part lifecycle:
-
-```text
-Active --first Dispose()--> Terminal + AuthorCleanupComplete
-                               | generated children pending
-                               +--later Dispose()--> retry generated children only
-```
-
-The active-to-terminal transition linearizes under the ownership gate before callbacks, so `IsDisposed` is true and update/assignment/detach/replace reject from the first attempt onward. The most-derived author `Dispose(bool)` entry is invoked once. Generated implementations pass each `PreDispose`/`PostDispose` failure to the base-owned author collector and continue through their base phase; a hand-written override uses the reserved capture helper and the same finally-equivalent base-call discipline because the orchestrator cannot resume a skipped virtual base phase. A separate generator-reserved hook processes object slots and list entries in declaration order, then base types in derived-to-base order. Successful children are removed exactly once; failed children stay owned in stable order. Generated and hand-written list state is visible only through a cached read-only view; owner-gated add, dispose-remove, clear, detach-at, replace-at, move, and whole replacement are the only public mutations and all reject after terminal transition. Flow-backed manual lists additionally preserve a non-owned reconciler prefix that cannot cross the ownership transfer boundary; `DelayAnimationEffect` keeps its delayed-resource cache non-public. A single failure preserves its type/stack and multiple failures form one flat aggregate of reached author phases first, followed by generated cleanup order. Reentrant/concurrent calls cannot re-enter reached author code. Finalization invokes neither retryable hook.
+Feature 004 does not add a new engine-object resource entity or lifecycle. Generated nested-resource properties keep their existing plain assignment, `Update`, and `Dispose(bool)` behavior; no renderer-specific assignment gate, terminal-disposal protocol, or generated replacement helper participates in the request data model.
 
 ### Callback state identity
 
-Reusable opaque, Geometry, target-scope, target-command, and painted factories copy and validate complete deeply immutable callback state, then derive its render-output cache identity without exposing a separate author-supplied key. Their request-local execution forms may capture mutable or otherwise unsnapshotable state and receive a fresh identity for every recording, safely disabling cross-request pixel-cache reuse. Custom bounds, multi-input bounds, scale, and hit-test factories have no request-local form: each stores one deeply immutable `TState` and non-capturing state-first callbacks, and paired phases share that exact state. The callback method and optional explicit key form structural identity; engine-owned recursive state equality/hashing forms runtime metadata/output-cache identity. There is no overlapping explicit runtime-key channel. Built-in semantic descriptors include their scalar values automatically, and Shader uniforms contribute their canonical validated values automatically. Callback-state identity participates in render-output cache identity but never structural plan/program identity.
+Reusable opaque, Geometry, target-scope, and target-command factories store the supplied callback state and derive render-output cache identity from its complete engine-owned field-wise equality/hash representation without exposing a separate author-supplied key. Their request-local execution forms may capture state that cannot remain stable and receive a fresh identity for every recording, safely disabling cross-request pixel-cache reuse. Custom bounds, multi-input bounds, scale, and hit-test factories have no request-local form: each stores one `TState` with non-capturing state-first callbacks, and paired phases receive that same state. Authors are responsible for keeping reusable state stable across metadata and cache use; production does not recursively validate or reject a state type for mutability. The callback method and optional explicit key form structural identity. There is no overlapping explicit runtime-key channel. Built-in semantic descriptors include their scalar values automatically, and Shader uniforms contribute their canonical validated values automatically. Callback-state identity participates in render-output cache identity but never structural plan/program identity.
 
 ## Shared effect descriptions
 
@@ -188,8 +179,8 @@ Describes coordinate behavior independently of execution.
 | forward map | Complete logical output bounds from complete logical input bounds. |
 | backward map | Required logical input region for a requested logical output region. |
 | `RequiresFullInput` | Conservative alternative when a tight backward map cannot be proven. |
-| structural identity | Stable static callback method/kind identity excluding immutable runtime state values. |
-| runtime metadata identity | Engine-owned deep identity of the stored immutable state shared by forward/backward phases. |
+| structural identity | Stable static callback method/kind identity excluding runtime state values. |
+| runtime metadata identity | Engine-owned complete field-wise identity of the stored author-stable state shared by forward/backward phases. |
 
 Kinds:
 
@@ -232,7 +223,7 @@ Immutable deferred one-input/zero-or-one-output operation.
 | bounds contract | Mandatory forward/backward behavior. |
 | hit-test contract | Mandatory CPU-only conservative metadata behavior. |
 | structural key | Stable geometry-kind identity; excludes animated captured values. |
-| callback state | A complete copied deeply immutable snapshot used to derive output-cache identity, or request-local capture with no cross-request reuse. |
+| callback state | Author-stable state whose complete field-wise identity contributes to output-cache identity, or request-local capture with no cross-request reuse. |
 | `RequiresReadback` | Schedules an explicit input synchronization before callback execution. |
 | resources | Explicit request-owned tokens whose key/version enters output-cache identity. |
 
@@ -255,7 +246,7 @@ All methods validate the shared active token. `UseSnapshot` additionally require
 ### TargetCapture, TargetScope, TargetLayerScope, Layer, and TargetCommand descriptions
 
 - `TargetCapture` consumes the preceding scope-local token and produces a non-contributing request-owned value. Its finite content bounds, Full/finite source region, hit test, and target-specific scale contract are pure metadata. `MaterializeAtWorkingScale` is output-derived; `Custom` always receives an empty `InputSupplies` list and may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale`. Both are explicit materialization/resampling boundaries and may downsample a denser finite Layer or TargetLayerScope. `PreserveTargetSupply` instead remains publicly `EffectiveScale.Unbounded` during recording and late-binds during execution: affine transforms use their linear part's maximum singular value, while perspective is rejected because its scale is position-dependent. The built-in backdrop uses the same public mode. `ContributeValues` explicitly enables later automatic compositing; unary transforms preserve the flag.
-- `TargetScope` is a same-target per-fragment map restricted to mechanically allocation-free transform/clip state plus exactly one replay. Opacity and Blend are planner-visible typed layer scopes. OpacityMask snapshots a `Brush.Resource` declaratively during recording, lowers known brushes to internal shader/value dependencies, and records DrawableBrush content as inherited nested work; it never calls `BrushConstructor` during execution.
+- `TargetScope` is a same-target per-fragment map restricted to mechanically allocation-free transform/clip state plus exactly one replay. Opacity and Blend are planner-visible typed layer scopes. OpacityMask stores a declared `RenderResource<Brush.Resource>` dependency recorded through `Own` or `Borrow`; after the execution session is active, the ordinary `BrushConstructor` resolves the mask, and an executor-installed materializer handles nested `DrawableBrush` content without introducing a feature-only paint lifecycle.
 - Public `TargetLayerScope(inputs, TargetRegion)` is a scope-relative offscreen-isolation effect recorded through the same normal bottom-up `Process` path as every other node. A non-empty resolved region replays the ordered input stream into one transient local target and composites that target back into the current painter target; `Empty` preserves order without allocating a target or executing pixel work. A `Full` region remains symbolic during recording and becomes finite only during scope-token dependency lowering, after enclosing transforms, clips, external-root domains, and finite Layers are known. The scope preserves declared cardinality for dependency accounting but has `ContributesValuesToTarget == false` and `CanBeUsedAsValueInput == false`; non-empty offscreen materialization remains required unless the planner proves an equivalent removal. Existing `LayerRenderNode` default/`PushLayer(default)` records this typed public shape with `TargetRegion.Full`.
 - `RawTargetScope` is the marked opaque-external decorator escape and `RawTargetCommand` is its zero-input painter-target counterpart. Both conservatively access `TargetRegion.Full` as read/write because raw callback bounds are query metadata, not enforceable access limits.
 - Public `Layer(inputs, Rect domain)` is the distinct reusable-value constructor. It replays an arbitrary mixed fragment sequence into one finite non-empty local target and emits exactly one outer value, so nested commands consume that local token. It always publishes `EffectiveScale.Unbounded`; lowering selects its actual materialization density from downstream demand, child supplies, `OutputScale`, and `MaxWorkingScale`. Invalid/empty domains are rejected and Layer never accepts Full. With concrete inputs, its content bounds union contributing child values with potentially pixel-writing target-effect regions after scope transforms and clip to the explicit domain; read/order-only accesses do not add content and hit testing remains based on query metadata. With any symbolic input, author-readable bounds/hit testing conservatively become the entire domain and domain containment, while internal final resolution still follows the symbolic children (`src/Beutl.Engine/Graphics/Rendering/RenderNodeContext.cs:703-752`, `src/Beutl.Engine/Graphics/Rendering/RenderScaleUtilities.cs:19-35`).
@@ -279,7 +270,7 @@ Immutable options carried by each request. Nested requests inherit classificatio
 | `MaxWorkingScale` | Intermediate quality ceiling. |
 | `CachePolicy` | Effective persistent/transient cache permissions. |
 | internal `FusionMode` | `Enabled` for production; friend evidence tests may select `Disabled` compatibility partitioning. It is inherited by nested requests and participates in structural-plan identity, but is not exposed through public renderer options. |
-| allocator/failure owner/internal diagnostics | Shared resource owner, cleanup/failure aggregation, and internal evidence state inherited by nested requests; none is a public completion sink. |
+| target-factory/failure owner | Shared allocation policy plus cleanup/failure aggregation inherited by nested requests. |
 | target/backend identity | Externally owned destination and backend capabilities. |
 
 ### RecordedRenderGraph
@@ -336,9 +327,9 @@ One typed value-producing IR record.
 
 An opaque record remains typed with respect to topology, bounds, density, per-authored-input readback selection, and ownership, but its pixel semantics are unknown and it is never fused. Each runtime output may select an independent finite positive density; the executor caps and clamps it against that output's own bounds, cached values retain their individual effective scales, and cache publication applies the pixel rule to the actual aggregate device-pixel area.
 
-`RenderScaleContract` is vector/unbounded, input-supply preserving, one-input supply mapping, standard supply-driven materialization, or a pure CPU custom resolver. `MapInputSupply<TState>(TState state, Func<TState, EffectiveScale, EffectiveScale> map, object? structuralKey)` is valid only for an element-wise one-input map. It applies `map` and the stored immutable state to that input's resolved supply, may preserve `EffectiveScale.Unbounded`, and uses the callback/key as structural identity; Transform and DrawableGroup use it for their density transform. If the input is symbolic, any recording-time result is only an internal hint and the map is evaluated again from the resolved supply with the exact same state during forward resolution.
+`RenderScaleContract` is vector/unbounded, input-supply preserving, one-input supply mapping, standard supply-driven materialization, or a pure CPU custom resolver. `MapInputSupply<TState>(TState state, Func<TState, EffectiveScale, EffectiveScale> map, object? structuralKey)` is valid only for an element-wise one-input map. It applies `map` and the stored author-stable state to that input's resolved supply, may preserve `EffectiveScale.Unbounded`, and uses the callback/key as structural identity; Transform and DrawableGroup use it for their density transform. If the input is symbolic, any recording-time result is only an internal hint and the map is evaluated again from the resolved supply with the same state during forward resolution.
 
-A custom resolver uses its stored immutable state, input supplies, and complete conservative output bounds and cannot observe the later requested region. With concrete inputs it establishes the recording-time result; with symbolic inputs any provisional result remains internal and the resolver is reevaluated with the same state after graph-wide bounds/supply resolution. It must return a finite value greater than zero; a throw or invalid result fails rather than selecting a fallback. A valid finite result is capped by `MaxWorkingScale` plus the per-buffer dimension clamp against the complete resolved output bounds. Only a concrete recording result is available through `TryGetMetadata`; later ROI crops logical allocation bounds without changing the final density. The callback/key identity is structural, while state and resolved density are runtime metadata.
+A custom resolver uses its stored author-stable state, input supplies, and complete conservative output bounds and cannot observe the later requested region. With concrete inputs it establishes the recording-time result; with symbolic inputs any provisional result remains internal and the resolver is reevaluated with the same state after graph-wide bounds/supply resolution. It must return a finite value greater than zero; a throw or invalid result fails rather than selecting a fallback. A valid finite result is capped by `MaxWorkingScale` plus the per-buffer dimension clamp against the complete resolved output bounds. Only a concrete recording result is available through `TryGetMetadata`; later ROI crops logical allocation bounds without changing the final density. The callback/key identity is structural, while complete field-wise state identity and resolved density are runtime metadata.
 
 ### TargetCommand, TargetCapture, and TargetToken
 
@@ -410,7 +401,7 @@ Island boundaries include:
 - runtime-dynamic topology where downstream scheduling cannot be static;
 - backend Shader resource limit split.
 
-Legacy `FilterEffectContext.CustomEffect` is `LegacyCustomEffect` opaque external work. When the render-node input metadata is symbolic, the legacy `FilterEffectContext` no longer exposes `Bounds` publicly (engine-internal recording tracker only); bounds-dependent parameters are resolved from execution-time target bounds. A custom item without a bounds transformer carries a symbolic owning-target-domain bound through recording. Scope lowering resolves it only after enclosing transforms, clips, and finite target scopes are known, then forward analysis reevaluates the retained bounds-transforming items from the resolved input bounds. Every subsequent legacy Skia/custom/Shader/Geometry item stays in the same opaque island and derives its mapping from actual runtime targets. The executor crops only the final semantic outputs to the resolved local domain; internal allocations and passes remain opaque. Retained raw author canvases such as arbitrary `IBackdrop.Draw`, audio-visualizer callbacks, `RawTargetScope`, and `RawTargetCommand` are `LegacyRawCanvas`. Surrounding fragment/outcome/resource ownership is planned, but internal raw-callback passes/synchronizations are intentionally unknown and diagnostics mark the limitation.
+Legacy `FilterEffectContext.CustomEffect` is `LegacyCustomEffect` opaque external work. When the render-node input metadata is symbolic, the legacy `FilterEffectContext` no longer exposes `Bounds` publicly (engine-internal recording tracker only); bounds-dependent parameters are resolved from execution-time target bounds. A custom item without a bounds transformer carries a symbolic owning-target-domain bound through recording. Scope lowering resolves it only after enclosing transforms, clips, and finite target scopes are known, then forward analysis reevaluates the retained bounds-transforming items from the resolved input bounds. Every subsequent legacy Skia/custom/Shader/Geometry item stays in the same opaque island and derives its mapping from actual runtime targets. The executor crops only the final semantic outputs to the resolved local domain; internal allocations and passes remain opaque. Retained raw author canvases such as arbitrary `IBackdrop.Draw`, audio-visualizer callbacks, `RawTargetScope`, and `RawTargetCommand` are `LegacyRawCanvas`. Surrounding fragment/resource ownership is planned, but internal raw-callback passes/synchronizations are intentionally unknown and the compiled plan retains the opaque-external boundary.
 
 An island contains ordered stages, inputs/outputs, backend, required synchronization, materializations, and a structural identity.
 
@@ -460,25 +451,10 @@ Any non-terminal state
   -> Disposed
 ```
 
-Failure from any non-terminal state transitions to `Failed`, runs the same request-owner cleanup, preserves the primary exception, rejects any cache publication that has not reached its atomic commit point, produces one failure diagnostic, and then transitions to `Disposed` (`src/Beutl.Engine/Graphics/Rendering/Planning/RenderRequest.cs:95-151`). If the complete replacement set was already committed, a later failure disposing superseded cache storage remains a cleanup failure and does not roll back the accepted replacements.
+Failure from any non-terminal state transitions to `Failed`, runs the same request-owner cleanup, preserves the primary exception, rejects any cache publication that has not reached its atomic commit point, and then transitions to `Disposed` (`src/Beutl.Engine/Graphics/Rendering/Planning/RenderRequest.cs:95-151`). If the complete replacement set was already committed, a later failure disposing superseded cache storage remains a cleanup failure and does not roll back the accepted replacements.
 
-Only Frame/allowed CacheWarmup requests may mutate persistent render caches. HitTest and Bounds stop after metadata/provenance, emit their own metadata-outcome snapshots, and do not replace `LatestFrame`. Nested separate-target requests have their own lifecycle/islands but share parent allocator/diagnostic/failure ownership.
+Only Frame/allowed CacheWarmup requests may mutate persistent render caches. HitTest and Bounds stop after metadata/provenance and never enter pixel execution. Nested separate-target requests have their own lifecycle/islands but share parent target-factory policy and failure ownership.
 
-## Internal diagnostic snapshot
+## Evidence is not request state
 
-One immutable engine-internal request-wide snapshot records:
-
-- recorded execution-relevant fragments plus value/target-command/capture/scope classification counters;
-- planned/executed/fused passes and stages;
-- island counts and boundary reasons;
-- target acquires, creations, reuses, misses, releases, and peak live;
-- full-frame/ROI materializations;
-- synchronization and backend transitions;
-- structural plan and program cache events;
-- output/cache-island hits, misses, captures, and rejected captures;
-- opaque and 3D boundaries;
-- executed, cached, metadata-only, skipped, and failed fragment outcomes;
-- externally owned root/presentation resources separately;
-- primary failure phase and cleanup-failure count.
-
-Every recorded execution-relevant fragment reaches exactly one terminal outcome, enabling 100% reconciliation without double-counting value/command subset counters.
+The final request model has no completed-request snapshot or event stream. Friend tests inspect immutable recorded/compiled plans, component-local plan/program/pool statistics, test-owned execution probes, rendered output, exceptions, and final resource state directly. Evidence observations do not participate in request lifecycle, planning decisions, cache identity, or ownership.

@@ -181,6 +181,8 @@ internal sealed partial class RenderRequestExecutor
             _afterCaptureAllocation);
         var frame = new FamilyExecutionFrame(request, state);
         frames.Add(frame);
+        using IDisposable materializerScope = destination.PushDrawableBrushMaterializer(
+            state.DrawableBrushMaterializer);
         ExceptionDispatchInfo? bodyFailure = null;
         try
         {

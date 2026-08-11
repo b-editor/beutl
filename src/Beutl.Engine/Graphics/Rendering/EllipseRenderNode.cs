@@ -47,17 +47,18 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
             pen?.StrokeAlignment ?? StrokeAlignment.Center,
             pen?.Thickness ?? 0);
 
+        var state = (rect, hitTestState);
         context.Publish(context.PaintedSource(
-            state: (rect, hitTestState),
-            draw: static (session, state) =>
-                session.Canvas.DrawEllipse(state.rect, session.Fill, session.Pen),
+            state,
+            draw: static (canvas, fill, pen, state) =>
+                canvas.DrawEllipse(state.rect, fill, pen),
             fill: fillSnapshot,
             pen: penSnapshot,
-            brushBounds: bounds,
             outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom((_, point) => hitTestState.HitTest(point)),
             scale: RenderScaleContract.Vector,
-            structuralKey: typeof(EllipseRenderNode)));
+            structuralKey: typeof(EllipseRenderNode),
+            runtimeIdentity: new RenderRuntimeIdentity(state)));
     }
 
     //https://github.com/AvaloniaUI/Avalonia/blob/release/0.10.21/src/Avalonia.Visuals/Rendering/SceneGraph/EllipseNode.cs

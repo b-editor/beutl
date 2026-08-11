@@ -52,8 +52,7 @@ public partial class DisplacementMapEffect : FilterEffect
 
         if (r.ShowDisplacementMap)
         {
-            FilterEffectBrush mapBrush = context.RegisterBrush(displacementMap);
-            context.CustomEffect(mapBrush,
+            context.CustomEffect(displacementMap,
                 static (brush, effectContext) =>
                 {
                     for (int i = 0; i < effectContext.Targets.Count; i++)
@@ -62,11 +61,11 @@ public partial class DisplacementMapEffect : FilterEffect
                         // Create target first so the map brush uses the buffer's post-clamp density.
                         var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
                         float w = newTarget.Scale.Value;
-                        using var displacementMapShader = effectContext.CreateBrushShader(
-                            brush,
+                        using var displacementMapShader = effectContext.CreateBrushConstructor(
                             new Rect(effectTarget.Bounds.Size),
+                            brush,
                             BlendMode.SrcOver,
-                            w);
+                            w).CreateShader();
 
                         using (var paint = new SKPaint())
                         using (var canvas = effectContext.Open(newTarget))
@@ -88,8 +87,7 @@ public partial class DisplacementMapEffect : FilterEffect
         }
         else if (r.Transform is { } transform)
         {
-            transform.ApplyTo(
-                context.RegisterBrush(displacementMap), r.SpreadMethod, r.Channel, r.Signed, context);
+            transform.ApplyTo(displacementMap, r.SpreadMethod, r.Channel, r.Signed, context);
         }
     }
 }

@@ -219,31 +219,4 @@ public class MaxWorkingScaleSanitizationTests
         Assert.That(activator.MaxWorkingScale, Is.EqualTo(3f));
     }
 
-    [Test]
-    public void NestedActivator_InheritsTheCustomEffectDeviceGridOffset()
-    {
-        var expected = new Vector(0.25f, 0.5f);
-        using var target = RenderTarget.CreateNull(4, 4);
-        using var targets = new EffectTargets
-        {
-            new EffectTarget(target, new Rect(0, 0, 4, 4), EffectiveScale.At(1)),
-        };
-        var outer = new CustomFilterEffectContext(
-            targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            deviceGridOffset: expected);
-        using var builder = new SKImageFilterBuilder();
-        using FilterEffectActivator nested = outer.CreateNestedActivator(targets, builder);
-        using var effect = new FilterEffectContext(new Rect(0, 0, 4, 4));
-        Vector? observed = null;
-        effect.CustomEffect(
-            0,
-            (_, execution) => observed = execution.DeviceGridOffset,
-            static (_, bounds) => bounds);
-
-        nested.Apply(effect);
-
-        Assert.That(observed, Is.EqualTo(expected));
-    }
 }

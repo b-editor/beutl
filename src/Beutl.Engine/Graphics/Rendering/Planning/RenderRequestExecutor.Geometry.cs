@@ -116,7 +116,7 @@ internal sealed partial class RenderRequestExecutor
             Rect requiredRegion)
         {
             using SKImage inputImage = input.Target.Value.Snapshot();
-            var token = new RenderExecutionSessionToken();
+            RenderExecutionSessionToken token = CreateExecutionSessionToken();
             return token.RunAndComplete<Rect?>(
                 () =>
                 {
@@ -137,7 +137,7 @@ internal sealed partial class RenderRequestExecutor
                         output.EffectiveScale.Value,
                         requiredRegion,
                         output.DeviceBounds,
-                        () => ImmediateCanvas.CreateExecutorManaged(
+                        () => CreateExecutorCanvas(
                             output.Target,
                             output.EffectiveScale.Value,
                             _options.MaxWorkingScale,
@@ -194,7 +194,7 @@ internal sealed partial class RenderRequestExecutor
                     cropped.DeviceBounds,
                     cropped.DeviceGridOffset,
                     cropped.EffectiveScale.Value);
-                using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                using var canvas = CreateExecutorCanvas(
                     cropped.Target,
                     cropped.EffectiveScale.Value,
                     _options.MaxWorkingScale,
@@ -241,7 +241,7 @@ internal sealed partial class RenderRequestExecutor
             var published = new List<CompatibilityRenderValue>();
             bool succeeded = false;
             bool callbackWasInvoked = false;
-            var token = new RenderExecutionSessionToken();
+            RenderExecutionSessionToken token = CreateExecutionSessionToken();
             try
             {
                 IReadOnlyList<CompatibilityRenderValue> result = token.RunAndComplete(
@@ -337,7 +337,7 @@ internal sealed partial class RenderRequestExecutor
                                     outputDensity,
                                     logicalBounds,
                                     value.DeviceBounds,
-                                    () => ImmediateCanvas.CreateExecutorManaged(
+                                    () => CreateExecutorCanvas(
                                         value.Target,
                                         outputDensity,
                                         _options.MaxWorkingScale,

@@ -52,20 +52,21 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             fill is not null,
             pen?.StrokeAlignment ?? StrokeAlignment.Inside,
             pen?.Thickness ?? 0);
+        var runtimeIdentity = (bounds, hitTestState);
 
         context.Publish(context.PaintedSource(
-            primary: sourceResource,
-            state: (bounds, hitTestState),
-            draw: static (session, currentSource, _) =>
-                session.Canvas.DrawImageSource(currentSource, session.Fill, session.Pen),
+            state: (source, runtimeIdentity),
+            draw: static (canvas, fill, pen, state) =>
+                canvas.DrawImageSource(state.source, fill, pen),
             fill: fillSnapshot,
             pen: penSnapshot,
-            brushBounds: bounds,
             outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
             // Bitmap at native 1:1 density; downstream transforms re-scale accordingly.
             scale: RenderScaleContract.Custom(static _ => 1f),
-            structuralKey: typeof(ImageSourceRenderNode)));
+            structuralKey: typeof(ImageSourceRenderNode),
+            runtimeIdentity: new RenderRuntimeIdentity(runtimeIdentity),
+            resources: [sourceResource.Bind("source")]));
     }
 
     private readonly record struct ImageHitTestState(

@@ -108,7 +108,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
 
         FilterEffectContext recordingContext = new(
             hasConcreteInputMetadata ? inputBounds : Rect.Invalid,
-            recordedInputBounds,
             context.OutputScale,
             () => ResolveWorkingScale(
                 authorInputMetadata,
@@ -129,7 +128,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                 return;
             }
 
-            IReadOnlyList<RegisteredEffectBrush> registeredBrushes = recordingContext.RegisteredBrushes;
             FilterEffectWorkingScalePolicy resolvedWorkingScalePolicy = GetOrCreateWorkingScalePolicy();
             if (requiresInputIsolation)
             {
@@ -145,7 +143,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             Rect legacyBounds = default;
             bool legacyBoundsInitialized = false;
             bool opaqueTail = false;
-            int legacyLastItemIndex = -1;
 
             void AppendLegacyItem(IFEItem item, int itemIndex)
             {
@@ -156,7 +153,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                 }
 
                 legacyItems.Add(item);
-                legacyLastItemIndex = itemIndex;
                 // A deferred-bound item resolves at execution time; authoring it against the
                 // provisional hint would freeze the wrong matrix, so the segment stays symbolic.
                 if (!legacyBounds.IsInvalid && item is not IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
@@ -186,8 +182,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                         outputScale,
                         maxWorkingScale,
                         pendingWorkingScalePolicy),
-                    legacyItems,
-                    recordingContext.NestedBrushLoweringFailure);
+                    legacyItems);
                 try
                 {
                     Rect segmentOutputBounds = segment.Bounds;
@@ -210,8 +205,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                             segmentOutputBounds,
                             requiresOwningTargetDomain,
                             legacyItems,
-                            pendingWorkingScalePolicy,
-                            SelectSegmentBrushes(registeredBrushes, legacyLastItemIndex)),
+                            pendingWorkingScalePolicy),
                     ];
                     pendingWorkingScalePolicy = null;
                 }
@@ -219,7 +213,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                 {
                     segment?.Dispose();
                     legacyItems.Clear();
-                    legacyLastItemIndex = -1;
                     legacyBounds = default;
                     legacyBoundsInitialized = false;
                     opaqueTail = false;
@@ -265,22 +258,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         {
             recordingContext.Dispose();
         }
-    }
-
-    // A segment fragment takes a hard dependency on every brush it is given. A handle stays usable from every
-    // operation authored after it was registered — the recorder cannot see which of them actually paints with it —
-    // so a segment takes exactly the brushes registered before its own last operation, and no later one.
-    // The selection therefore over-approximates: a segment may resolve a brush it never dereferences. It cannot be
-    // narrowed to the operations a segment appears to orphan, because RegisterBrush dedupes by identity, so one
-    // handle can be painted by operations on both sides of a typed operation.
-    private static IReadOnlyList<RegisteredEffectBrush> SelectSegmentBrushes(
-        IReadOnlyList<RegisteredEffectBrush> registeredBrushes,
-        int lastItemIndex)
-    {
-        if (registeredBrushes.Count == 0)
-            return registeredBrushes;
-
-        return registeredBrushes.Where(brush => brush.FirstUsableItemIndex <= lastItemIndex).ToArray();
     }
 
     private static Rect CalculateRecordedBoundsHint(

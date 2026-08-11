@@ -267,6 +267,7 @@ internal sealed partial class RenderRequestExecutor
         private readonly RenderTargetLeaseSession _targets;
         private readonly RenderCacheDeviceContextIdentity _programCacheContext;
         private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
+        private readonly DrawableBrushMaterializer _drawableBrushMaterializer;
         private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
         private readonly HashSet<ExecutionIslandId> _regionEmptyIslands;
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedScopeDomains = [];
@@ -332,6 +333,7 @@ internal sealed partial class RenderRequestExecutor
             _targets = targets;
             _programCacheContext = targets.CacheDeviceContextIdentity;
             _programCache = programCache;
+            _drawableBrushMaterializer = MaterializeDrawableBrush;
             _afterCaptureAllocation = afterCaptureAllocation;
             _cacheHits = cacheResolution.Hits.ToDictionary(static item => item.OriginalProducerId);
             _cacheMisses = cacheResolution.MissCaptures

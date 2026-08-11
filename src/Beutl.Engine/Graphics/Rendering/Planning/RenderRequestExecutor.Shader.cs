@@ -194,7 +194,7 @@ internal sealed partial class RenderRequestExecutor
                 shader =>
                 {
                     using var paint = new SKPaint { Shader = shader };
-                    using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                    using var canvas = CreateExecutorCanvas(
                         output.Target,
                         output.EffectiveScale.Value,
                         _options.MaxWorkingScale,
@@ -226,7 +226,7 @@ internal sealed partial class RenderRequestExecutor
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
             var children = new List<SKShader>();
-            var bindingToken = new RenderExecutionSessionToken();
+            RenderExecutionSessionToken bindingToken = CreateExecutionSessionToken();
             try
             {
                 bindingToken.RunAndComplete(
@@ -447,7 +447,7 @@ internal sealed partial class RenderRequestExecutor
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
             var children = new List<SKShader>();
-            var bindingToken = new RenderExecutionSessionToken();
+            RenderExecutionSessionToken bindingToken = CreateExecutionSessionToken();
             try
             {
                 bindingToken.RunAndComplete(
@@ -503,7 +503,7 @@ internal sealed partial class RenderRequestExecutor
 
                 using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
                 using var paint = new SKPaint { Shader = shader };
-                using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                using var canvas = CreateExecutorCanvas(
                     output.Target,
                     output.EffectiveScale.Value,
                     _options.MaxWorkingScale,
