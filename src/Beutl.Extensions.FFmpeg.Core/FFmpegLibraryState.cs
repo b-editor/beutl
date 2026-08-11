@@ -85,8 +85,22 @@ public static class FFmpegLibraryState
     // log a first discovery as an error and an already-known short-circuit quietly.
     public static bool RecordMissingObserved()
     {
+        bool wasKnownMissing = RecordMissingObservedCore(out PendingNotification? notification);
+        DrainNotifications(notification);
+        return wasKnownMissing;
+    }
+
+    internal static bool RecordMissingObservedDeferred(out Action dispatchNotifications)
+    {
+        bool wasKnownMissing = RecordMissingObservedCore(out PendingNotification? notification);
+        dispatchNotifications = () => DrainNotifications(notification);
+        return wasKnownMissing;
+    }
+
+    private static bool RecordMissingObservedCore(out PendingNotification? notification)
+    {
         bool wasKnownMissing;
-        PendingNotification? notification = null;
+        notification = null;
         lock (s_stateGate)
         {
             bool shouldNotify;
@@ -97,7 +111,6 @@ public static class FFmpegLibraryState
                 notification = QueueNotificationCore(NotificationKind.AvailabilityChanged, isLibrariesMissing: true);
         }
 
-        DrainNotifications(notification);
         return wasKnownMissing;
     }
 
@@ -167,7 +180,8 @@ public static class FFmpegLibraryState
 
         if (becameDispatcher)
         {
-            DrainAsDispatcher(notifications);
+            DrainAsDispatcher();
+            AwaitOwnedNotifications(notifications);
             return;
         }
 
@@ -200,9 +214,8 @@ public static class FFmpegLibraryState
         }
     }
 
-    private static void DrainAsDispatcher(PendingNotification?[] ownerNotifications)
+    private static void DrainAsDispatcher()
     {
-        Exception? firstException = null;
         while (true)
         {
             PendingNotification notification;
@@ -220,15 +233,25 @@ public static class FFmpegLibraryState
                 notification.IsClaimed = true;
             }
 
+            InvokeNotification(notification, rethrow: false);
+        }
+    }
+
+    private static void AwaitOwnedNotifications(PendingNotification?[] notifications)
+    {
+        Exception? firstException = null;
+        foreach (PendingNotification? notification in notifications)
+        {
+            if (notification is null)
+                continue;
+
             try
             {
-                bool belongsToDispatcher = Array.IndexOf(ownerNotifications, notification) >= 0;
-                InvokeNotification(notification, rethrow: belongsToDispatcher);
+                notification.Completion.Task.GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
                 firstException ??= ex;
-                _ = notification.Completion.Task.Exception;
             }
         }
 
