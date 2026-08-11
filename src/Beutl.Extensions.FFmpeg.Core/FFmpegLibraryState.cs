@@ -2,6 +2,12 @@
 
 public static class FFmpegLibraryState
 {
+    private enum NotificationKind
+    {
+        AvailabilityChanged,
+        LibrariesMissing,
+    }
+
     // After libraries are reported missing, skip fresh worker-start probes for this long, then allow
     // a probe so a transient failure (momentary file lock, crashed worker) can self-recover without
     // the user re-running the install wizard. A genuinely-missing install just re-arms the cooldown.
@@ -9,7 +15,12 @@ public static class FFmpegLibraryState
     // "libraries not found" stdout error does not repeat on every frame/thumbnail request.
     private const long ReprobeCooldownMs = 30_000;
     private static readonly object s_stateGate = new();
+    // This gate protects only the pending notification queue. It is never held while invoking
+    // subscribers, so callbacks can synchronously dispatch another state transition without a
+    // cross-thread lock cycle.
     private static readonly object s_notificationGate = new();
+    private static readonly Queue<NotificationKind> s_pendingNotifications = new();
+    private static bool s_isDispatchingNotifications;
     private static volatile bool s_librariesMissing;
     private static long s_missingSinceTicks;
 
@@ -25,39 +36,36 @@ public static class FFmpegLibraryState
 
     public static void NotifyMissing()
     {
-        lock (s_notificationGate)
+        lock (s_stateGate)
         {
-            bool shouldNotify;
-            lock (s_stateGate)
-                shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
+            bool shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
 
             if (shouldNotify)
-                AvailabilityChanged?.Invoke(null, EventArgs.Empty);
-
-            LibrariesMissing?.Invoke(null, EventArgs.Empty);
+                QueueNotificationCore(NotificationKind.AvailabilityChanged);
+            QueueNotificationCore(NotificationKind.LibrariesMissing);
         }
+
+        DrainNotifications();
     }
 
     public static void MarkInstalled() => SetLibrariesMissing(false, notifyWhenUnchanged: true);
 
     public static void MarkMissing()
     {
-        lock (s_notificationGate)
+        lock (s_stateGate)
         {
             bool shouldNotify;
-            lock (s_stateGate)
-            {
-                // Arm the cooldown before notifying: SetLibrariesMissing raises AvailabilityChanged,
-                // and a listener that reacts synchronously must already see ShouldSkipStartProbe ==
-                // true, otherwise it can immediately re-probe the worker before the cooldown is in
-                // effect.
-                ArmReprobeCooldownCore();
-                shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
-            }
+            // Arm the cooldown before notifying: SetLibrariesMissing raises AvailabilityChanged, and
+            // a listener that reacts synchronously must already see ShouldSkipStartProbe == true,
+            // otherwise it can immediately re-probe the worker before the cooldown is in effect.
+            ArmReprobeCooldownCore();
+            shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
 
             if (shouldNotify)
-                AvailabilityChanged?.Invoke(null, EventArgs.Empty);
+                QueueNotificationCore(NotificationKind.AvailabilityChanged);
         }
+
+        DrainNotifications();
     }
 
     // Record the missing latch observed by a decode attempt WITHOUT re-arming the cooldown (a real
@@ -66,21 +74,19 @@ public static class FFmpegLibraryState
     // log a first discovery as an error and an already-known short-circuit quietly.
     public static bool RecordMissingObserved()
     {
-        lock (s_notificationGate)
+        bool wasKnownMissing;
+        lock (s_stateGate)
         {
-            bool wasKnownMissing;
             bool shouldNotify;
-            lock (s_stateGate)
-            {
-                wasKnownMissing = s_librariesMissing;
-                shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
-            }
+            wasKnownMissing = s_librariesMissing;
+            shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
 
             if (shouldNotify)
-                AvailabilityChanged?.Invoke(null, EventArgs.Empty);
-
-            return wasKnownMissing;
+                QueueNotificationCore(NotificationKind.AvailabilityChanged);
         }
+
+        DrainNotifications();
+        return wasKnownMissing;
     }
 
     // A worker process handshaked successfully, so FFmpeg loaded: clear any missing latch. This is
@@ -96,11 +102,8 @@ public static class FFmpegLibraryState
     // window forward and re-latch the queue.
     public static void ArmReprobeCooldown()
     {
-        lock (s_notificationGate)
-        {
-            lock (s_stateGate)
-                ArmReprobeCooldownCore();
-        }
+        lock (s_stateGate)
+            ArmReprobeCooldownCore();
     }
 
     // True while a fresh worker-start probe should be skipped (libraries reported missing and the
@@ -117,18 +120,68 @@ public static class FFmpegLibraryState
 
     private static void SetLibrariesMissing(bool value, bool notify = true, bool notifyWhenUnchanged = false)
     {
+        lock (s_stateGate)
+        {
+            bool shouldNotify = SetLibrariesMissingCore(value, notify, notifyWhenUnchanged);
+            if (notify && shouldNotify)
+                QueueNotificationCore(NotificationKind.AvailabilityChanged);
+        }
+
+        if (notify)
+            DrainNotifications();
+    }
+
+    private static void QueueNotificationCore(NotificationKind notification)
+    {
+        lock (s_notificationGate)
+            s_pendingNotifications.Enqueue(notification);
+    }
+
+    private static void DrainNotifications()
+    {
         lock (s_notificationGate)
         {
-            bool shouldNotify;
-            lock (s_stateGate)
-                shouldNotify = SetLibrariesMissingCore(value, notify, notifyWhenUnchanged);
-
-            if (!notify)
+            if (s_isDispatchingNotifications)
                 return;
 
-            if (shouldNotify)
-                AvailabilityChanged?.Invoke(null, EventArgs.Empty);
+            s_isDispatchingNotifications = true;
         }
+
+        Exception? firstException = null;
+        while (true)
+        {
+            NotificationKind notification;
+            lock (s_notificationGate)
+            {
+                if (s_pendingNotifications.Count == 0)
+                {
+                    s_isDispatchingNotifications = false;
+                    break;
+                }
+
+                notification = s_pendingNotifications.Dequeue();
+            }
+
+            try
+            {
+                switch (notification)
+                {
+                    case NotificationKind.AvailabilityChanged:
+                        AvailabilityChanged?.Invoke(null, EventArgs.Empty);
+                        break;
+                    case NotificationKind.LibrariesMissing:
+                        LibrariesMissing?.Invoke(null, EventArgs.Empty);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                firstException ??= ex;
+            }
+        }
+
+        if (firstException is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstException).Throw();
     }
 
     private static bool SetLibrariesMissingCore(bool value, bool notify, bool notifyWhenUnchanged)

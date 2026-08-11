@@ -182,19 +182,21 @@ public class FFmpegInstallNotifierTests
     }
 
     [Test]
-    public void AvailabilityChanged_SerializesTransitionsUntilNotificationCompletes()
+    public void AvailabilityChanged_DoesNotDeadlockWhenSubscriberDispatchesTransition()
     {
         FFmpegInstallNotifier.MarkInstalled();
         using var firstNotificationEntered = new ManualResetEventSlim();
-        using var releaseFirstNotification = new ManualResetEventSlim();
         int callbackCount = 0;
+        int deadlocked = 0;
 
         void OnAvailabilityChanged(object? sender, EventArgs e)
         {
             if (Interlocked.Increment(ref callbackCount) == 1)
             {
                 firstNotificationEntered.Set();
-                releaseFirstNotification.Wait();
+                Task dispatchedTransition = Task.Run(FFmpegInstallNotifier.MarkInstalled);
+                if (!dispatchedTransition.Wait(TimeSpan.FromSeconds(2)))
+                    Interlocked.Exchange(ref deadlocked, 1);
             }
         }
 
@@ -205,22 +207,19 @@ public class FFmpegInstallNotifierTests
             Assert.That(firstNotificationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the first availability notification did not start");
 
-            Task second = Task.Run(FFmpegInstallNotifier.MarkInstalled);
+            Assert.That(first.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the state transition must complete while its subscriber is dispatching another transition");
             Assert.Multiple(() =>
             {
-                Assert.That(second.Wait(TimeSpan.FromMilliseconds(100)), Is.False,
-                    "the next transition must wait for the in-flight notification");
-                Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.True,
-                    "the next transition must not mutate state before its notification turn");
+                Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+                Assert.That(Volatile.Read(ref callbackCount), Is.EqualTo(2),
+                    "both transitions must raise AvailabilityChanged");
+                Assert.That(Volatile.Read(ref deadlocked), Is.Zero,
+                    "a subscriber-dispatched transition must not deadlock on the notification gate");
             });
-
-            releaseFirstNotification.Set();
-            Task.WaitAll(first, second);
-            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
         }
         finally
         {
-            releaseFirstNotification.Set();
             FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }
