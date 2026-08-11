@@ -1,9 +1,12 @@
-﻿using Beutl.Api;
+﻿using System.Net;
+using System.Text;
+using Beutl.Api;
 using Beutl.Api.Services;
 
 namespace Beutl.UnitTests.Api;
 
 [TestFixture]
+[NonParallelizable]
 public sealed class BeutlApiApplicationTests
 {
     [Test]
@@ -34,5 +37,84 @@ public sealed class BeutlApiApplicationTests
         using var httpClient = new HttpClient();
 
         Assert.Throws<ArgumentNullException>(() => _ = new BeutlApiApplication(httpClient, null!));
+    }
+
+    [Test]
+    public void ToServerType_Flatpak_MapsToZip()
+    {
+        Assert.That(BeutlApiApplication.ToServerType("flatpak"), Is.EqualTo("zip"));
+    }
+
+    [TestCase("zip")]
+    [TestCase("debian")]
+    [TestCase("installer")]
+    [TestCase("app")]
+    public void ToServerType_KnownType_PassesThrough(string type)
+    {
+        Assert.That(BeutlApiApplication.ToServerType(type), Is.EqualTo(type));
+    }
+
+    [Test]
+    public async Task CheckForUpdatesAsync_WithFlatpakMetadata_SendsZipType()
+    {
+        // LoadMetadata reads asset_metadata.json from AppContext.BaseDirectory (cached per process).
+        string metadataPath = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
+        string? originalContent = File.Exists(metadataPath) ? File.ReadAllText(metadataPath) : null;
+        try
+        {
+            File.WriteAllText(metadataPath, """
+                {
+                  "id": "test-id",
+                  "os": "linux",
+                  "arch": "x64",
+                  "version": "2.0.0-preview.6",
+                  "standalone": "true",
+                  "type": "flatpak"
+                }
+                """);
+            var handler = new CapturingHandler();
+            using var httpClient = new HttpClient(handler);
+            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+
+            var (v1, v3) = await app.CheckForUpdatesAsync("2.0.0-preview.6");
+
+            Assert.That(handler.LastRequestUri, Is.Not.Null);
+            Assert.That(handler.LastRequestUri!.Query, Does.Contain("type=zip"));
+            Assert.That(handler.LastRequestUri!.Query, Does.Not.Contain("type=flatpak"));
+            Assert.That(v3, Is.Not.Null);
+            Assert.That(v1, Is.Null);
+        }
+        finally
+        {
+            if (originalContent != null)
+            {
+                File.WriteAllText(metadataPath, originalContent);
+            }
+            else
+            {
+                File.Delete(metadataPath);
+            }
+        }
+    }
+
+    private sealed class CapturingHandler : HttpMessageHandler
+    {
+        public Uri? LastRequestUri { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            LastRequestUri = request.RequestUri;
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {"latestVersion":"2.0.0-preview.7","url":"https://github.com/b-editor/beutl/releases/tag/v2.0.0-preview.7","downloadUrl":null,"isLatest":false,"mustLatest":false}
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+            return Task.FromResult(response);
+        }
     }
 }
