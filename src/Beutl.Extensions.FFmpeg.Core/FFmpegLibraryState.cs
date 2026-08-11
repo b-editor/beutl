@@ -21,12 +21,12 @@ public static class FFmpegLibraryState
     private const long ReprobeCooldownMs = 30_000;
     private static readonly object s_stateGate = new();
     // This gate protects only the pending notification queue. It is never held while invoking
-    // subscribers, so callbacks can synchronously dispatch another state transition without a
-    // cross-thread lock cycle.
+    // subscribers, so callbacks can synchronously dispatch another state transition on the
+    // dispatcher thread without a cross-thread lock cycle.
     private static readonly object s_notificationGate = new();
     private static readonly LinkedList<PendingNotification> s_pendingNotifications = new();
-    private static readonly AsyncLocal<NotificationDispatchContext?> s_notificationContext = new();
     private static bool s_isDispatchingNotifications;
+    private static int s_dispatcherThreadId;
     private static volatile bool s_librariesMissing;
     private static long s_missingSinceTicks;
 
@@ -159,12 +159,15 @@ public static class FFmpegLibraryState
         {
             becameDispatcher = !s_isDispatchingNotifications;
             if (becameDispatcher)
+            {
                 s_isDispatchingNotifications = true;
+                s_dispatcherThreadId = Environment.CurrentManagedThreadId;
+            }
         }
 
         if (becameDispatcher)
         {
-            DrainAsDispatcher();
+            DrainAsDispatcher(notifications);
             return;
         }
 
@@ -176,8 +179,7 @@ public static class FFmpegLibraryState
             bool invokeDirectly;
             lock (s_notificationGate)
             {
-                NotificationDispatchContext? context = s_notificationContext.Value;
-                invokeDirectly = context is { IsActive: true }
+                invokeDirectly = Environment.CurrentManagedThreadId == s_dispatcherThreadId
                     && TryClaimNotificationCore(notification);
             }
 
@@ -198,7 +200,7 @@ public static class FFmpegLibraryState
         }
     }
 
-    private static void DrainAsDispatcher()
+    private static void DrainAsDispatcher(PendingNotification?[] ownerNotifications)
     {
         Exception? firstException = null;
         while (true)
@@ -209,6 +211,7 @@ public static class FFmpegLibraryState
                 if (s_pendingNotifications.Count == 0)
                 {
                     s_isDispatchingNotifications = false;
+                    s_dispatcherThreadId = 0;
                     break;
                 }
 
@@ -219,7 +222,8 @@ public static class FFmpegLibraryState
 
             try
             {
-                InvokeNotification(notification, rethrow: true);
+                bool belongsToDispatcher = Array.IndexOf(ownerNotifications, notification) >= 0;
+                InvokeNotification(notification, rethrow: belongsToDispatcher);
             }
             catch (Exception ex)
             {
@@ -248,11 +252,6 @@ public static class FFmpegLibraryState
 
     private static void InvokeNotification(PendingNotification notification, bool rethrow)
     {
-        NotificationDispatchContext? previousContext = s_notificationContext.Value;
-        var context = new NotificationDispatchContext();
-        s_notificationContext.Value = context;
-        lock (s_notificationGate)
-            context.IsActive = true;
         try
         {
             switch (notification.Kind)
@@ -275,17 +274,6 @@ public static class FFmpegLibraryState
             if (rethrow)
                 throw;
         }
-        finally
-        {
-            lock (s_notificationGate)
-                context.IsActive = false;
-            s_notificationContext.Value = previousContext;
-        }
-    }
-
-    private sealed class NotificationDispatchContext
-    {
-        public bool IsActive { get; set; }
     }
 
     private sealed class PendingNotification(NotificationKind kind, bool isLibrariesMissing)

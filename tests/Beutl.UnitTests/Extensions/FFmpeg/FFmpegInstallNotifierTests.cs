@@ -187,17 +187,16 @@ public class FFmpegInstallNotifierTests
     {
         FFmpegInstallNotifier.MarkInstalled();
         using var firstNotificationEntered = new ManualResetEventSlim();
+        var observedStates = new List<bool>();
         int callbackCount = 0;
-        int deadlocked = 0;
 
         void OnAvailabilityChanged(object? sender, EventArgs e)
         {
+            observedStates.Add(((FFmpegLibraryAvailabilityChangedEventArgs)e).IsLibrariesMissing);
             if (Interlocked.Increment(ref callbackCount) == 1)
             {
                 firstNotificationEntered.Set();
-                Task dispatchedTransition = Task.Run(FFmpegInstallNotifier.MarkInstalled);
-                if (!dispatchedTransition.Wait(TimeSpan.FromSeconds(2)))
-                    Interlocked.Exchange(ref deadlocked, 1);
+                FFmpegInstallNotifier.MarkInstalled();
             }
         }
 
@@ -215,12 +214,67 @@ public class FFmpegInstallNotifierTests
                 Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
                 Assert.That(Volatile.Read(ref callbackCount), Is.EqualTo(2),
                     "both transitions must raise AvailabilityChanged");
-                Assert.That(Volatile.Read(ref deadlocked), Is.Zero,
-                    "a subscriber-dispatched transition must not deadlock on the notification gate");
+                Assert.That(observedStates, Is.EqualTo(new[] { true, false }),
+                    "reentrant transitions must be delivered in callback order");
             });
         }
         finally
         {
+            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+    }
+
+    [Test]
+    public void AvailabilityChanged_PropagatesExceptionToOwningTransition()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+        using var firstNotificationEntered = new ManualResetEventSlim();
+        using var releaseFirstNotification = new ManualResetEventSlim();
+        using var secondTransitionStarted = new ManualResetEventSlim();
+        var expected = new InvalidOperationException("installed callback failed");
+
+        void OnAvailabilityChanged(object? sender, EventArgs e)
+        {
+            if (((FFmpegLibraryAvailabilityChangedEventArgs)e).IsLibrariesMissing)
+            {
+                firstNotificationEntered.Set();
+                releaseFirstNotification.Wait();
+            }
+            else
+            {
+                throw expected;
+            }
+        }
+
+        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        try
+        {
+            Task first = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Assert.That(firstNotificationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the first availability notification did not start");
+
+            Task second = Task.Run(() =>
+            {
+                secondTransitionStarted.Set();
+                FFmpegInstallNotifier.MarkInstalled();
+            });
+            Assert.That(secondTransitionStarted.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the second transition did not start");
+            Assert.That(second.Wait(TimeSpan.FromMilliseconds(100)), Is.False,
+                "the second transition should wait for its queued notification");
+
+            releaseFirstNotification.Set();
+            Assert.That(first.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the dispatcher must not receive another caller's subscriber exception");
+            Assert.That(SpinWait.SpinUntil(() => second.IsCompleted, TimeSpan.FromSeconds(5)), Is.True,
+                "the owning transition did not complete");
+            Assert.That(second.IsFaulted, Is.True);
+            Assert.That(second.Exception!.GetBaseException(), Is.SameAs(expected));
+        }
+        finally
+        {
+            releaseFirstNotification.Set();
             FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }
