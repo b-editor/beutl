@@ -1570,5 +1570,4 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="NoMaterialsInstalled" xml:space="preserve">
     <value>素材がインストールされていません。ストアから素材パッケージをインストールしてください。</value>
   </data>
-  </data>
 </root>
