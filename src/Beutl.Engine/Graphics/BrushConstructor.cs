@@ -16,6 +16,20 @@ public readonly struct BrushConstructor(
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
     private static readonly IRenderTargetFactory s_legacyRasterTargetFactory = new LegacyRasterTargetFactory();
     private readonly BrushTileContent? _tileContent;
+    private readonly Func<DrawableBrush.Resource, Rect, float, SKImage>? _drawableBrushMaterializer;
+
+    internal BrushConstructor(
+        Rect bounds,
+        Brush.Resource? brush,
+        BlendMode blendMode,
+        float scale,
+        float maxWorkingScale,
+        RenderIntent intent,
+        Func<DrawableBrush.Resource, Rect, float, SKImage>? drawableBrushMaterializer)
+        : this(bounds, brush, blendMode, scale, maxWorkingScale, intent)
+    {
+        _drawableBrushMaterializer = drawableBrushMaterializer;
+    }
 
     internal BrushConstructor(
         Rect bounds,
@@ -23,10 +37,12 @@ public readonly struct BrushConstructor(
         BlendMode blendMode,
         float scale = 1f,
         float maxWorkingScale = float.PositiveInfinity,
-        RenderIntent intent = RenderIntent.Preview)
+        RenderIntent intent = RenderIntent.Preview,
+        Func<DrawableBrush.Resource, Rect, float, SKImage>? drawableBrushMaterializer = null)
         : this(bounds, brush.Resource, blendMode, scale, maxWorkingScale, intent)
     {
         _tileContent = brush.TileContent;
+        _drawableBrushMaterializer = drawableBrushMaterializer;
     }
 
     public Rect Bounds { get; } = bounds;
@@ -255,28 +271,43 @@ public readonly struct BrushConstructor(
 
     private SKShader? CreateTileShader(TileBrush.Resource tileBrush)
     {
+        float s = Scale;
+        SKImage? skImage;
+        Size contentSize;      // logical content size (drives TileBrushCalculator)
+        float contentDensity;  // skImage device px per logical content unit
+
         if (tileBrush is DrawableBrush.Resource drawableBrush)
         {
             if (_tileContent is { } content)
                 return CreateDrawableTileShader(tileBrush, content);
 
-            // Restoring in-execution materialization is tracked separately: the nested
-            // renderer inside an in-flight legacy island has unresolved GPU-lifetime
-            // interactions, so unlowered content fails explicitly instead of silently
-            // rendering transparent.
-            throw CreateUnloweredDrawableBrushException();
+            // Unlowered content with no materializer hook degrades to transparent.
+            if (_drawableBrushMaterializer is not { } materializer)
+            {
+                s_logger.LogWarning(
+                    "DrawableBrush '{Brush}' has no lowered content and no materializer hook; the fill degrades to transparent.",
+                    drawableBrush);
+                return null;
+            }
+
+            skImage = materializer(drawableBrush, Bounds, s);
+            if (skImage is null)
+            {
+                s_logger.LogWarning(
+                    "The drawable-brush materializer returned no image for '{Brush}'; the fill degrades to transparent.",
+                    drawableBrush);
+                return null;
+            }
+
+            // The materialized image covers the brush bounds at the canvas density.
+            contentSize = Bounds.Size;
+            contentDensity = s;
         }
-
-        float s = Scale;
-        SKImage? skImage;
-        PixelSize pixelSize;     // logical content size (drives TileBrushCalculator)
-        float contentDensity;    // skImage device px per logical content unit
-
-        if (tileBrush is ImageBrush.Resource imageBrush
+        else if (tileBrush is ImageBrush.Resource imageBrush
             && imageBrush.Source?.Bitmap is { } bitmap)
         {
             skImage = SKImage.FromBitmap(bitmap.SKBitmap);
-            pixelSize = new(bitmap.Width, bitmap.Height);
+            contentSize = new Size(bitmap.Width, bitmap.Height);
             contentDensity = 1f; // the bitmap's native pixels ARE the logical content (1:1)
         }
         else
@@ -289,7 +320,7 @@ public readonly struct BrushConstructor(
         {
             if (skImage == null) return null;
 
-            var calc = new TileBrushCalculator(tileBrush, pixelSize.ToSize(1), Bounds.Size);
+            var calc = new TileBrushCalculator(tileBrush, contentSize, Bounds.Size);
 
             int iw = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Width * s));
             int ih = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Height * s));
@@ -459,11 +490,6 @@ public readonly struct BrushConstructor(
             SKColorType.RgbaF16,
             SKAlphaType.Premul,
             SKColorSpace.CreateSrgbLinear()));
-
-    private static InvalidOperationException CreateUnloweredDrawableBrushException()
-        => new(
-            "DrawableBrush content must be lowered by BrushRecorder before execution; "
-            + "a direct BrushConstructor cannot resolve nested drawable content.");
 
     private (SKShaderTileMode X, SKShaderTileMode Y) ResolveTileModes(TileMode tileMode)
     {

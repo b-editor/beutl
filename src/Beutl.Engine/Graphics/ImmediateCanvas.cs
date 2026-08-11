@@ -125,6 +125,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _productRectangleCoverage = parent._productRectangleCoverage;
         MaxWorkingScale = parent.MaxWorkingScale;
         Intent = parent.Intent;
+        DrawableBrushMaterializer = parent.DrawableBrushMaterializer;
         _baseTransform = parent._currentBaseTransform;
         _currentBaseTransform = parent._currentBaseTransform;
         _baseSaveCount = Canvas.Save();
@@ -184,6 +185,14 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public RenderIntent Intent { get; }
 
     /// <summary>
+    /// Runtime hook that materializes a <see cref="DrawableBrush.Resource"/>'s nested content into an
+    /// <see cref="SKImage"/> covering <paramref name="bounds"/> at <paramref name="scale"/> device px per
+    /// logical unit. The executor sets it while a canvas is open and clears it when the canvas closes;
+    /// a null hook degrades an unlowered DrawableBrush fill to transparent.
+    /// </summary>
+    internal Func<DrawableBrush.Resource, Rect, float, SKImage>? DrawableBrushMaterializer { get; set; }
+
+    /// <summary>
     /// Creates a brush constructor bound to this canvas's current density, working-scale ceiling and
     /// render intent, so a caller painting onto this canvas never has to restate them.
     /// </summary>
@@ -191,7 +200,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// <param name="brush">The brush to paint with, or <see langword="null"/> for no paint.</param>
     /// <param name="blendMode">The blend mode to configure.</param>
     public BrushConstructor CreateBrushConstructor(Rect bounds, Brush.Resource? brush, BlendMode blendMode)
-        => new(bounds, brush, blendMode, _currentDensity, MaxWorkingScale, Intent);
+        => new(bounds, brush, blendMode, _currentDensity, MaxWorkingScale, Intent, DrawableBrushMaterializer);
 
     public Matrix Transform
     {
@@ -1265,8 +1274,14 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         RecordPixelOperation();
         int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, _currentDensity, MaxWorkingScale, Intent)
-            .ConfigurePaint(paint);
+        new BrushConstructor(
+            bounds,
+            mask,
+            (BlendMode)paint.BlendMode,
+            _currentDensity,
+            MaxWorkingScale,
+            Intent,
+            DrawableBrushMaterializer).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -1291,7 +1306,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             (BlendMode)paint.BlendMode,
             _currentDensity,
             MaxWorkingScale,
-            Intent).ConfigurePaint(paint);
+            Intent,
+            DrawableBrushMaterializer).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -1823,7 +1839,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 ResolvePaintBlendMode(blendMode),
                 scale ?? _currentDensity,
                 MaxWorkingScale,
-                Intent).ConfigurePaint(_sharedStrokePaint);
+                Intent,
+                DrawableBrushMaterializer).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
@@ -1843,7 +1860,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 ResolvePaintBlendMode(blendMode),
                 scale ?? _currentDensity,
                 MaxWorkingScale,
-                Intent).ConfigurePaint(_sharedStrokePaint);
+                Intent,
+                DrawableBrushMaterializer).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
@@ -1856,7 +1874,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             ResolvePaintBlendMode(blendMode),
             scale ?? _currentDensity,
             MaxWorkingScale,
-            Intent).ConfigurePaint(_sharedFillPaint);
+            Intent,
+            DrawableBrushMaterializer).ConfigurePaint(_sharedFillPaint);
     }
 
     private void ConfigureFillPaint(
@@ -1872,7 +1891,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             ResolvePaintBlendMode(blendMode),
             scale ?? _currentDensity,
             MaxWorkingScale,
-            Intent).ConfigurePaint(_sharedFillPaint);
+            Intent,
+            DrawableBrushMaterializer).ConfigurePaint(_sharedFillPaint);
     }
 
     private BlendMode ResolvePaintBlendMode(BlendMode fallback)
