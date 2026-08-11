@@ -152,4 +152,7 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="PackageKind_Template" xml:space="preserve">
     <value>テンプレート</value>
   </data>
+  <data name="PackageKind_Both" xml:space="preserve">
+    <value>素材 + テンプレート</value>
+  </data>
 </root>

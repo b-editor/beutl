@@ -63,11 +63,11 @@ public class PackageInstallerDataTests
     }
 
     [Test]
-    public void GetPackageKind_PrefersMaterial_WhenBothReservedTagsArePresent()
+    public void GetPackageKind_ReturnsBoth_WhenBothReservedTagsArePresent()
     {
         Assert.That(
             new[] { PackageKinds.TemplateTag, PackageKinds.MaterialTag }.GetPackageKind(),
-            Is.EqualTo(PackageKind.Material));
+            Is.EqualTo(PackageKind.Both));
     }
 
     [Test]
@@ -130,6 +130,24 @@ public class PackageInstallerDataTests
             Assert.That(
                 Directory.Exists(TemplatesDirectoryOf(package.Name)), Is.False,
                 "a material package must not create a templates directory");
+        });
+    }
+
+    [Test]
+    public void InstallDataPackage_CopiesBothPayloads_WhenBothKindsAreTagged()
+    {
+        LocalPackage package = CreateDataPackage(
+            "Beutl.Package.DataTest.Both",
+            [PackageKinds.MaterialTag, PackageKinds.TemplateTag],
+            "1.0.0",
+            [("materials/logo.png", "png"), ("templates/title.json", "{}")]);
+
+        _installer.InstallDataPackage(package);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(Path.Combine(MaterialsDirectoryOf(package.Name), "logo.png")), Is.True);
+            Assert.That(File.Exists(Path.Combine(TemplatesDirectoryOf(package.Name), "title.json")), Is.True);
         });
     }
 
@@ -272,6 +290,15 @@ public class PackageInstallerDataTests
         string version,
         (string RelativePath, string Content)[] files)
     {
+        return CreateDataPackage(name, [tag], version, files);
+    }
+
+    private LocalPackage CreateDataPackage(
+        string name,
+        string[] tags,
+        string version,
+        (string RelativePath, string Content)[] files)
+    {
         string directory = Path.Combine(Helper.InstallPath, $"{name}.{version}");
         Directory.CreateDirectory(directory);
         Track(directory);
@@ -289,7 +316,7 @@ public class PackageInstallerDataTests
         {
             Name = name,
             Version = version,
-            Tags = [tag],
+            Tags = [.. tags],
             InstalledPath = directory
         };
     }

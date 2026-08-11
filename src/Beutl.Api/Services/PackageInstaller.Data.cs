@@ -15,14 +15,6 @@ public partial class PackageInstaller
     /// </summary>
     public void InstallDataPackage(LocalPackage package)
     {
-        PackageKind kind = package.Tags.GetPackageKind();
-        if (kind == PackageKind.Extension)
-        {
-            throw new ArgumentException(
-                $"'{package.Name}' is an extension package and has no data payload.",
-                nameof(package));
-        }
-
         if (string.IsNullOrEmpty(package.InstalledPath))
         {
             throw new ArgumentException(
@@ -31,11 +23,29 @@ public partial class PackageInstaller
         }
 
         string name = ValidatePackageName(package.Name);
-        (string contentDirectory, string root) = kind == PackageKind.Material
-            ? (MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath())
-            : (TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath());
+        bool hasMaterial = package.Tags.Contains(PackageKinds.MaterialTag);
+        bool hasTemplate = package.Tags.Contains(PackageKinds.TemplateTag);
+        if (!hasMaterial && !hasTemplate)
+        {
+            throw new ArgumentException(
+                $"'{package.Name}' is an extension package and has no data payload.",
+                nameof(package));
+        }
 
-        string source = Path.Combine(package.InstalledPath, contentDirectory);
+        if (hasMaterial)
+        {
+            InstallPayload(package, name, MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath());
+        }
+
+        if (hasTemplate)
+        {
+            InstallPayload(package, name, TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath());
+        }
+    }
+
+    private void InstallPayload(LocalPackage package, string name, string contentDirectory, string root)
+    {
+        string source = Path.Combine(package.InstalledPath!, contentDirectory);
         string destination = Path.Combine(root, name);
 
         // An update lands here too, and a file the new version dropped would otherwise
@@ -49,14 +59,14 @@ public partial class PackageInstaller
         {
             _logger.LogWarning(
                 "Package {PackageName} is tagged {PackageKind} but ships no {ContentDirectory} directory.",
-                package.Name, kind, contentDirectory);
+                package.Name, package.Tags.GetPackageKind(), contentDirectory);
             return;
         }
 
         CopyDirectory(source, destination);
         _logger.LogInformation(
-            "Installed the {PackageKind} payload of {PackageName} into {Destination}.",
-            kind, package.Name, destination);
+            "Installed the {ContentDirectory} payload of {PackageName} into {Destination}.",
+            contentDirectory, package.Name, destination);
     }
 
     /// <summary>

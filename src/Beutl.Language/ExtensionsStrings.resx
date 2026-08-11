@@ -157,4 +157,7 @@ To force installation, use the CLI tool.</value>
   <data name="PackageKind_Template" xml:space="preserve">
     <value>Template</value>
   </data>
+  <data name="PackageKind_Both" xml:space="preserve">
+    <value>Material + Template</value>
+  </data>
 </root>

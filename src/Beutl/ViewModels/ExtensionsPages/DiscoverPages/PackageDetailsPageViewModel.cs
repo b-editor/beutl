@@ -420,6 +420,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         {
             PackageKind.Material => ExtensionsStrings.PackageKind_Material,
             PackageKind.Template => ExtensionsStrings.PackageKind_Template,
+            PackageKind.Both => ExtensionsStrings.PackageKind_Both,
             _ => ExtensionsStrings.PackageKind_Extension
         };
     }

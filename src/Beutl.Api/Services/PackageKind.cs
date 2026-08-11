@@ -20,7 +20,10 @@ public enum PackageKind
     Material,
 
     /// <summary>Ships object templates under <c>templates/</c>.</summary>
-    Template
+    Template,
+
+    /// <summary>Ships both a <c>materials/</c> and a <c>templates/</c> payload.</summary>
+    Both
 }
 
 /// <summary>
@@ -57,20 +60,28 @@ public static class PackageKinds
             return PackageKind.Extension;
         }
 
+        bool material = false;
         bool template = false;
         foreach (string tag in tags)
         {
-            // Material wins over template so a package carrying both still lands in the
-            // single bucket the server's filter puts it in.
             if (tag == MaterialTag)
             {
-                return PackageKind.Material;
+                material = true;
             }
-
-            if (tag == TemplateTag)
+            else if (tag == TemplateTag)
             {
                 template = true;
             }
+        }
+
+        if (material && template)
+        {
+            return PackageKind.Both;
+        }
+
+        if (material)
+        {
+            return PackageKind.Material;
         }
 
         return template ? PackageKind.Template : PackageKind.Extension;

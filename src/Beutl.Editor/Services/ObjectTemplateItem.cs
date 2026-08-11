@@ -34,8 +34,14 @@ public sealed class ObjectTemplateItem(
     {
         try
         {
+            // A template may reference files (e.g. a material bundled in the same package)
+            // with a URI relative to the template file; resolve them against it.
+            CoreSerializerOptions? options = FilePath != null
+                ? new CoreSerializerOptions { BaseUri = new Uri(FilePath) }
+                : null;
+
             return CoreSerializer.DeserializeFromJsonObject(
-                (JsonObject)Json.DeepClone(), BaseType) as ICoreSerializable;
+                (JsonObject)Json.DeepClone(), BaseType, options) as ICoreSerializable;
         }
         catch
         {
