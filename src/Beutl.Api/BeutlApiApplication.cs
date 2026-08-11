@@ -109,8 +109,11 @@ public class BeutlApiApplication
     {
         var metadata = await LoadMetadata();
         if (metadata == null) return (await App.CheckForUpdates(version), null);
+        // The server's /api/v3/app/updates endpoint only accepts zip/debian/installer/app.
+        // Flatpak bundles are built from the standalone zip, so report them as zip.
+        string type = metadata.Type == "flatpak" ? "zip" : metadata.Type;
         var update = await App.GetUpdate(
-            version, metadata.Type, metadata.OS, metadata.Arch,
+            version, type, metadata.OS, metadata.Arch,
             metadata.Standalone, "false");
         return (null, update);
     }
