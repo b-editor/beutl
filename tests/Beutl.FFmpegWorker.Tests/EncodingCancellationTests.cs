@@ -10,9 +10,6 @@ using FFmpegSharp;
 
 namespace Beutl.FFmpegWorker.Tests;
 
-// A cancelled Encode must throw OperationCanceledException. FFmpeg runs wherever its native
-// libraries are present, so this fixture guards on native availability (Assert.Ignore) rather than
-// a fixed [Platform].
 [TestFixture]
 public class EncodingCancellationTests
 {
@@ -23,6 +20,16 @@ public class EncodingCancellationTests
         string path = Path.Combine(home, "ffmpeg", "native");
 
         Assert.That(FFmpegLoaderWorker.RedactPath(path), Is.EqualTo("~" + path[home.Length..]));
+    }
+
+    [Test]
+    public void RedactPath_ReplacesUserProfilePrefix()
+    {
+        string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        Assume.That(profile, Is.Not.Null.And.Not.Empty);
+        string path = Path.Combine(profile, "private", "ffmpeg");
+
+        Assert.That(FFmpegLoaderWorker.RedactPath(path), Is.EqualTo("~" + path[profile.Length..]));
     }
 
     // FFmpegLoaderWorker.Initialize() throws FFmpegLibrariesNotFoundException (or another native-load
@@ -82,6 +89,8 @@ public class EncodingCancellationTests
         catch { /* best-effort cleanup */ }
     }
 
+    // A cancelled Encode must throw OperationCanceledException. FFmpeg runs wherever its native
+    // libraries are present, so this test self-skips when the native path is unavailable.
     [Test]
     public void EncodeSurfacesCancellationAsOperationCanceledException()
     {

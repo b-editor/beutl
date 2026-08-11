@@ -1,5 +1,10 @@
 ﻿namespace Beutl.Extensions.FFmpeg;
 
+public sealed class FFmpegLibraryAvailabilityChangedEventArgs(bool isLibrariesMissing) : EventArgs
+{
+    public bool IsLibrariesMissing { get; } = isLibrariesMissing;
+}
+
 public static class FFmpegLibraryState
 {
     private enum NotificationKind
@@ -19,7 +24,8 @@ public static class FFmpegLibraryState
     // subscribers, so callbacks can synchronously dispatch another state transition without a
     // cross-thread lock cycle.
     private static readonly object s_notificationGate = new();
-    private static readonly Queue<NotificationKind> s_pendingNotifications = new();
+    private static readonly LinkedList<PendingNotification> s_pendingNotifications = new();
+    private static readonly AsyncLocal<NotificationDispatchContext?> s_notificationContext = new();
     private static bool s_isDispatchingNotifications;
     private static volatile bool s_librariesMissing;
     private static long s_missingSinceTicks;
@@ -36,22 +42,27 @@ public static class FFmpegLibraryState
 
     public static void NotifyMissing()
     {
+        PendingNotification? availabilityNotification = null;
+        PendingNotification missingNotification;
         lock (s_stateGate)
         {
             bool shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
 
             if (shouldNotify)
-                QueueNotificationCore(NotificationKind.AvailabilityChanged);
-            QueueNotificationCore(NotificationKind.LibrariesMissing);
+                availabilityNotification = QueueNotificationCore(
+                    NotificationKind.AvailabilityChanged,
+                    isLibrariesMissing: true);
+            missingNotification = QueueNotificationCore(NotificationKind.LibrariesMissing, isLibrariesMissing: true);
         }
 
-        DrainNotifications();
+        DrainNotifications(availabilityNotification, missingNotification);
     }
 
     public static void MarkInstalled() => SetLibrariesMissing(false, notifyWhenUnchanged: true);
 
     public static void MarkMissing()
     {
+        PendingNotification? notification = null;
         lock (s_stateGate)
         {
             bool shouldNotify;
@@ -62,10 +73,10 @@ public static class FFmpegLibraryState
             shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
 
             if (shouldNotify)
-                QueueNotificationCore(NotificationKind.AvailabilityChanged);
+                notification = QueueNotificationCore(NotificationKind.AvailabilityChanged, isLibrariesMissing: true);
         }
 
-        DrainNotifications();
+        DrainNotifications(notification);
     }
 
     // Record the missing latch observed by a decode attempt WITHOUT re-arming the cooldown (a real
@@ -75,6 +86,7 @@ public static class FFmpegLibraryState
     public static bool RecordMissingObserved()
     {
         bool wasKnownMissing;
+        PendingNotification? notification = null;
         lock (s_stateGate)
         {
             bool shouldNotify;
@@ -82,10 +94,10 @@ public static class FFmpegLibraryState
             shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
 
             if (shouldNotify)
-                QueueNotificationCore(NotificationKind.AvailabilityChanged);
+                notification = QueueNotificationCore(NotificationKind.AvailabilityChanged, isLibrariesMissing: true);
         }
 
-        DrainNotifications();
+        DrainNotifications(notification);
         return wasKnownMissing;
     }
 
@@ -120,37 +132,78 @@ public static class FFmpegLibraryState
 
     private static void SetLibrariesMissing(bool value, bool notify = true, bool notifyWhenUnchanged = false)
     {
+        PendingNotification? notification = null;
         lock (s_stateGate)
         {
             bool shouldNotify = SetLibrariesMissingCore(value, notify, notifyWhenUnchanged);
             if (notify && shouldNotify)
-                QueueNotificationCore(NotificationKind.AvailabilityChanged);
+                notification = QueueNotificationCore(NotificationKind.AvailabilityChanged, value);
         }
 
         if (notify)
-            DrainNotifications();
+            DrainNotifications(notification);
     }
 
-    private static void QueueNotificationCore(NotificationKind notification)
+    private static PendingNotification QueueNotificationCore(NotificationKind kind, bool isLibrariesMissing)
     {
+        var notification = new PendingNotification(kind, isLibrariesMissing);
         lock (s_notificationGate)
-            s_pendingNotifications.Enqueue(notification);
+            s_pendingNotifications.AddLast(notification);
+        return notification;
     }
 
-    private static void DrainNotifications()
+    private static void DrainNotifications(params PendingNotification?[] notifications)
     {
+        bool becameDispatcher;
         lock (s_notificationGate)
         {
-            if (s_isDispatchingNotifications)
-                return;
-
-            s_isDispatchingNotifications = true;
+            becameDispatcher = !s_isDispatchingNotifications;
+            if (becameDispatcher)
+                s_isDispatchingNotifications = true;
         }
 
+        if (becameDispatcher)
+        {
+            DrainAsDispatcher();
+            return;
+        }
+
+        foreach (PendingNotification? notification in notifications)
+        {
+            if (notification is null)
+                continue;
+
+            bool invokeDirectly;
+            lock (s_notificationGate)
+            {
+                NotificationDispatchContext? context = s_notificationContext.Value;
+                invokeDirectly = context is { IsActive: true }
+                    && TryClaimNotificationCore(notification);
+            }
+
+            if (invokeDirectly)
+            {
+                try
+                {
+                    InvokeNotification(notification, rethrow: true);
+                }
+                catch
+                {
+                    _ = notification.Completion.Task.Exception;
+                    throw;
+                }
+            }
+            else
+                notification.Completion.Task.GetAwaiter().GetResult();
+        }
+    }
+
+    private static void DrainAsDispatcher()
+    {
         Exception? firstException = null;
         while (true)
         {
-            NotificationKind notification;
+            PendingNotification notification;
             lock (s_notificationGate)
             {
                 if (s_pendingNotifications.Count == 0)
@@ -159,29 +212,92 @@ public static class FFmpegLibraryState
                     break;
                 }
 
-                notification = s_pendingNotifications.Dequeue();
+                notification = s_pendingNotifications.First!.Value;
+                s_pendingNotifications.RemoveFirst();
+                notification.IsClaimed = true;
             }
 
             try
             {
-                switch (notification)
-                {
-                    case NotificationKind.AvailabilityChanged:
-                        AvailabilityChanged?.Invoke(null, EventArgs.Empty);
-                        break;
-                    case NotificationKind.LibrariesMissing:
-                        LibrariesMissing?.Invoke(null, EventArgs.Empty);
-                        break;
-                }
+                InvokeNotification(notification, rethrow: true);
             }
             catch (Exception ex)
             {
                 firstException ??= ex;
+                _ = notification.Completion.Task.Exception;
             }
         }
 
         if (firstException is not null)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstException).Throw();
+    }
+
+    private static bool TryClaimNotificationCore(PendingNotification notification)
+    {
+        if (notification.IsClaimed)
+            return false;
+
+        LinkedListNode<PendingNotification>? node = s_pendingNotifications.Find(notification);
+        if (node is null)
+            return false;
+
+        s_pendingNotifications.Remove(node);
+        notification.IsClaimed = true;
+        return true;
+    }
+
+    private static void InvokeNotification(PendingNotification notification, bool rethrow)
+    {
+        NotificationDispatchContext? previousContext = s_notificationContext.Value;
+        var context = new NotificationDispatchContext();
+        s_notificationContext.Value = context;
+        lock (s_notificationGate)
+            context.IsActive = true;
+        try
+        {
+            switch (notification.Kind)
+            {
+                case NotificationKind.AvailabilityChanged:
+                    AvailabilityChanged?.Invoke(
+                        null,
+                        new FFmpegLibraryAvailabilityChangedEventArgs(notification.IsLibrariesMissing));
+                    break;
+                case NotificationKind.LibrariesMissing:
+                    LibrariesMissing?.Invoke(null, EventArgs.Empty);
+                    break;
+            }
+
+            notification.Completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            notification.Completion.TrySetException(ex);
+            if (rethrow)
+                throw;
+        }
+        finally
+        {
+            lock (s_notificationGate)
+                context.IsActive = false;
+            s_notificationContext.Value = previousContext;
+        }
+    }
+
+    private sealed class NotificationDispatchContext
+    {
+        public bool IsActive { get; set; }
+    }
+
+    private sealed class PendingNotification(NotificationKind kind, bool isLibrariesMissing)
+    {
+        public NotificationKind Kind { get; } = kind;
+
+        public bool IsLibrariesMissing { get; } = isLibrariesMissing;
+
+        public TaskCompletionSource Completion { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool IsClaimed { get; set; }
     }
 
     private static bool SetLibrariesMissingCore(bool value, bool notify, bool notifyWhenUnchanged)

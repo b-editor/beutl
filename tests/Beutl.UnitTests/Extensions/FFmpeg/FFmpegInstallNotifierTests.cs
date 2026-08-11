@@ -1,4 +1,5 @@
-﻿using Beutl.Extensions.FFmpeg;
+﻿using System.Collections.Concurrent;
+using Beutl.Extensions.FFmpeg;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
 
@@ -220,6 +221,74 @@ public class FFmpegInstallNotifierTests
         }
         finally
         {
+            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+    }
+
+    [Test]
+    public void AvailabilityChanged_PropagatesSubscriberException()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+        var expected = new InvalidOperationException("availability callback failed");
+
+        void OnAvailabilityChanged(object? sender, EventArgs e) => throw expected;
+
+        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        try
+        {
+            InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
+                FFmpegInstallNotifier.MarkMissing);
+            Assert.That(actual, Is.SameAs(expected));
+        }
+        finally
+        {
+            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+    }
+
+    [Test]
+    public void AvailabilityChanged_ReportsQueuedTransitionSnapshot()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+        using var firstNotificationEntered = new ManualResetEventSlim();
+        using var releaseFirstNotification = new ManualResetEventSlim();
+        var observedStates = new ConcurrentQueue<bool>();
+        int callbackCount = 0;
+
+        void OnAvailabilityChanged(object? sender, EventArgs e)
+        {
+            observedStates.Enqueue(((FFmpegLibraryAvailabilityChangedEventArgs)e).IsLibrariesMissing);
+            if (Interlocked.Increment(ref callbackCount) == 1)
+            {
+                firstNotificationEntered.Set();
+                releaseFirstNotification.Wait();
+            }
+        }
+
+        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        try
+        {
+            Task first = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Assert.That(firstNotificationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the first availability notification did not start");
+
+            Task second = Task.Run(FFmpegInstallNotifier.MarkInstalled);
+            Assert.That(second.Wait(TimeSpan.FromMilliseconds(100)), Is.False,
+                "an unrelated transition must wait for the active callback to finish");
+
+            releaseFirstNotification.Set();
+            Assert.That(first.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the first transition did not complete after its callback was released");
+            Assert.That(second.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the queued transition did not complete after the first callback was released");
+            Assert.That(observedStates.ToArray(), Is.EqualTo(new[] { true, false }),
+                "each callback must receive the state snapshot for its queued transition");
+        }
+        finally
+        {
+            releaseFirstNotification.Set();
             FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }

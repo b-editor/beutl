@@ -103,15 +103,26 @@ internal static class FFmpegLoaderWorker
 
     internal static string RedactPath(string path)
     {
-        string home = BeutlEnvironment.GetHomeDirectoryPath();
-        if (path.Equals(home, StringComparison.OrdinalIgnoreCase))
-            return "~";
+        string[] privateRoots =
+        [
+            BeutlEnvironment.GetHomeDirectoryPath(),
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ];
 
-        string homePrefix = home.EndsWith(Path.DirectorySeparatorChar)
-            ? home
-            : home + Path.DirectorySeparatorChar;
-        if (path.StartsWith(homePrefix, StringComparison.OrdinalIgnoreCase))
-            return "~" + path[home.Length..];
+        foreach (string root in privateRoots
+            .Where(static x => !string.IsNullOrEmpty(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(static x => x.Length))
+        {
+            if (path.Equals(root, StringComparison.OrdinalIgnoreCase))
+                return "~";
+
+            string rootPrefix = root.EndsWith(Path.DirectorySeparatorChar)
+                ? root
+                : root + Path.DirectorySeparatorChar;
+            if (path.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                return "~" + path[root.Length..];
+        }
 
         return path;
     }
