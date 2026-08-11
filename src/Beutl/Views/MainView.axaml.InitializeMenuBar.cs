@@ -6,13 +6,13 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
-using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
@@ -66,6 +66,11 @@ public partial class MainView
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
 
         InitializeDockLayoutPresetMenu(viewModel);
+        viewModel.MenuBar.ShowAiJobs.Subscribe(viewModel.OpenAiJobCenter).AddTo(_disposables);
+        viewModel.MenuBar.GenerateImage.Subscribe(viewModel.OpenAiImageGeneration).AddTo(_disposables);
+        viewModel.MenuBar.GenerateSubtitles.Subscribe(() => viewModel.OpenAiSubtitle()).AddTo(_disposables);
+        viewModel.MenuBar.EditImage.Subscribe(viewModel.OpenAiImageEdit).AddTo(_disposables);
+        viewModel.MenuBar.GenerateVideo.Subscribe(viewModel.OpenAiVideoGeneration).AddTo(_disposables);
     }
 
     private void InitializeDockLayoutPresetMenu(MainViewModel viewModel)

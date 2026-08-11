@@ -21,7 +21,7 @@ public record LoadedPackageInfo(LocalPackage Package, PluginLoadContext? LoadCon
 
 public sealed class PackageManager(
     InstalledPackageRepository installedPackageRepository,
-    ExtensionProvider extensionProvider,
+    IExtensionRegistry extensionRegistry,
     ContextCommandManager commandManager,
     BeutlApiApplication apiApplication,
     ILoadContextUnloadDiagnostics? unloadDiagnostics = null) : PackageLoader
@@ -32,7 +32,7 @@ public sealed class PackageManager(
 
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackages.Values.Select(x => x.Package);
 
-    public ExtensionProvider ExtensionProvider => extensionProvider;
+    public IExtensionRegistry ExtensionRegistry => extensionRegistry;
 
     public ContextCommandManager ContextCommandManager => commandManager;
 
@@ -65,96 +65,34 @@ public sealed class PackageManager(
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        // Resolve the resource and link the lifetime token under one dispose-gate hold so a
-        // concurrent DisposeAsync cannot invalidate the resource between admission and use.
-        DiscoverService discover = apiApplication.GetResourceWithLifetime<DiscoverService>(
-            cancellationToken, out CancellationTokenSource operationCts);
-        using (operationCts)
+        using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken operationToken = operationCts.Token;
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
-            CancellationToken operationToken = operationCts.Token;
-            using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
+            PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
+
+            var updates = new List<PackageUpdate>(packages.Length);
+            DiscoverService discover = apiApplication.GetResource<DiscoverService>();
+
+            for (int i = 0; i < packages.Length; i++)
             {
-                PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
-
-                var updates = new List<PackageUpdate>(packages.Length);
-
-                for (int i = 0; i < packages.Length; i++)
-                {
-                    operationToken.ThrowIfCancellationRequested();
-                    PackageIdentity pkg = packages[i];
-                    NuGetVersion version = pkg.Version;
-                    string versionStr = version.ToString();
-                    try
-                    {
-                        activity?.AddEvent(new("Checking updates"));
-                        activity?.SetTag("PackageId", pkg.Id);
-                        activity?.SetTag("Version", versionStr);
-                        Package remotePackage = await discover.GetPackage(pkg.Id, operationToken).ConfigureAwait(false);
-                        activity?.AddEvent(new("Checked updates"));
-
-                        Release[] releases = await remotePackage.GetReleasesAsync(operationToken).ConfigureAwait(false);
-
-                        foreach (Release? item in releases)
-                        {
-                            operationToken.ThrowIfCancellationRequested();
-                            // 降順
-                            if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
-                            {
-                                Release? oldRelease = await Helper
-                                    .TryGetOrDefault(
-                                        () => remotePackage.GetReleaseAsync(versionStr, operationToken),
-                                        operationToken)
-                                    .ConfigureAwait(false);
-                                updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
-                                _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
-                                break;
-                            }
-                        }
-                    }
-                    catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex,
-                            "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
-                    }
-                }
-
                 operationToken.ThrowIfCancellationRequested();
-                return updates;
-            }
-        }
-    }
-
-    public async Task<PackageUpdate?> CheckUpdate(string name, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        // See the other CheckUpdate overload: resolve the resource and link the lifetime
-        // token under one dispose-gate hold.
-        DiscoverService discover = apiApplication.GetResourceWithLifetime<DiscoverService>(
-            cancellationToken, out CancellationTokenSource operationCts);
-        using (operationCts)
-        {
-            CancellationToken operationToken = operationCts.Token;
-            using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
-            {
-                LocalPackage? pkg = _loadedPackages.Values
-                    .Select(x => x.Package)
-                    .FirstOrDefault(v =>
-                        !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
-                if (pkg != null)
+                PackageIdentity pkg = packages[i];
+                NuGetVersion version = pkg.Version;
+                string versionStr = version.ToString();
+                try
                 {
-                    string versionStr = pkg.Version;
-                    var version = new NuGetVersion(versionStr);
                     activity?.AddEvent(new("Checking updates"));
-                    activity?.SetTag("PackageName", pkg.Name);
+                    activity?.SetTag("PackageId", pkg.Id);
                     activity?.SetTag("Version", versionStr);
-                    Package remotePackage = await discover.GetPackage(pkg.Name, operationToken).ConfigureAwait(false);
+                    Package remotePackage = await discover
+                        .GetPackage(pkg.Id, operationToken)
+                        .ConfigureAwait(false);
                     activity?.AddEvent(new("Checked updates"));
 
-                    Release[] releases = await remotePackage.GetReleasesAsync(operationToken).ConfigureAwait(false);
+                    Release[] releases = await remotePackage
+                        .GetReleasesAsync(operationToken)
+                        .ConfigureAwait(false);
 
                     foreach (Release? item in releases)
                     {
@@ -162,21 +100,100 @@ public sealed class PackageManager(
                         // 降順
                         if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                         {
-                            Release? oldRelease = await Helper
-                                .TryGetOrDefault(
-                                    () => remotePackage.GetReleaseAsync(pkg.Version, operationToken),
+                            Release? oldRelease = await TryGetReleaseAsync(
+                                    remotePackage,
+                                    versionStr,
                                     operationToken)
                                 .ConfigureAwait(false);
-                            operationToken.ThrowIfCancellationRequested();
-                            _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
-                            return new PackageUpdate(remotePackage, oldRelease, item);
+                            updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
+                            _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
+                            break;
                         }
                     }
                 }
-
-                operationToken.ThrowIfCancellationRequested();
-                return null;
+                catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
+                }
             }
+
+            operationToken.ThrowIfCancellationRequested();
+            return updates;
+        }
+    }
+
+    public async Task<PackageUpdate?> CheckUpdate(string name, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken operationToken = operationCts.Token;
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
+        {
+            DiscoverService discover = apiApplication.GetResource<DiscoverService>();
+
+            LocalPackage? pkg = _loadedPackages.Values
+                .Select(x => x.Package)
+                .FirstOrDefault(v =>
+                    !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
+            if (pkg != null)
+            {
+                string versionStr = pkg.Version;
+                var version = new NuGetVersion(versionStr);
+                activity?.AddEvent(new("Checking updates"));
+                activity?.SetTag("PackageName", pkg.Name);
+                activity?.SetTag("Version", versionStr);
+                Package remotePackage = await discover
+                    .GetPackage(pkg.Name, operationToken)
+                    .ConfigureAwait(false);
+                activity?.AddEvent(new("Checked updates"));
+
+                Release[] releases = await remotePackage
+                    .GetReleasesAsync(operationToken)
+                    .ConfigureAwait(false);
+
+                foreach (Release? item in releases)
+                {
+                    operationToken.ThrowIfCancellationRequested();
+                    // 降順
+                    if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
+                    {
+                        Release? oldRelease = await TryGetReleaseAsync(
+                                remotePackage,
+                                pkg.Version,
+                                operationToken)
+                            .ConfigureAwait(false);
+                        _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
+                        return new PackageUpdate(remotePackage, oldRelease, item);
+                    }
+                }
+            }
+
+            operationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+    }
+
+    private static async Task<Release?> TryGetReleaseAsync(
+        Package package,
+        string version,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await package.GetReleaseAsync(version, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -323,7 +340,7 @@ public sealed class PackageManager(
             return false;
         }
 
-        Extension[] extensions = extensionProvider.RemoveExtensions(package.LocalId);
+        IReadOnlyList<Extension> extensions = extensionRegistry.RemoveExtensions(package.LocalId);
         foreach (Extension ext in extensions)
         {
             try
@@ -468,7 +485,7 @@ public sealed class PackageManager(
             activity?.AddEvent(new ActivityEvent("Extensions loaded"));
             activity?.SetTag("ExtensionCount", extensions.Count);
 
-            ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
+            ExtensionRegistry.AddExtensions(package.LocalId, extensions);
             addedToProvider = true;
 
             if (!_loadedPackages.TryAdd(package.LocalId, new LoadedPackageInfo(package, loadContext)))
@@ -482,7 +499,7 @@ public sealed class PackageManager(
         {
             if (addedToProvider)
             {
-                ExtensionProvider.RemoveExtensions(package.LocalId);
+                ExtensionRegistry.RemoveExtensions(package.LocalId);
             }
 
             // LoadPackageExtensions already rolls back on failure, so extensions is non-empty

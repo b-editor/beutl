@@ -18,7 +18,7 @@ public sealed class MainViewModelLifetimeTests
         int cancelRequestsCount = 0;
         int disposeResourcesCount = 0;
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
         var viewModel = CreateViewModel(
             httpClient,
             app,
@@ -31,11 +31,7 @@ public sealed class MainViewModelLifetimeTests
                     releaseInitialization);
             },
             () => Interlocked.Increment(ref cancelRequestsCount),
-            () =>
-            {
-                Interlocked.Increment(ref disposeResourcesCount);
-                return ValueTask.CompletedTask;
-            });
+            () => Interlocked.Increment(ref disposeResourcesCount));
 
         try
         {
@@ -82,17 +78,13 @@ public sealed class MainViewModelLifetimeTests
         int disposeResourcesCount = 0;
         int navigationCount = 0;
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
         var viewModel = CreateViewModel(
             httpClient,
             app,
             static _ => Task.CompletedTask,
             () => Interlocked.Increment(ref cancelRequestsCount),
-            () =>
-            {
-                Interlocked.Increment(ref disposeResourcesCount);
-                return ValueTask.CompletedTask;
-            });
+            () => Interlocked.Increment(ref disposeResourcesCount));
 
         try
         {
@@ -161,7 +153,7 @@ public sealed class MainViewModelLifetimeTests
         BeutlApiApplication app,
         Func<CancellationToken, Task> initialize,
         Action cancelPendingRequests,
-        Func<ValueTask> disposeResources)
+        Action disposeResources)
     {
         return new PackageToolsMainViewModel(
             httpClient,

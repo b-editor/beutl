@@ -8,22 +8,17 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     private readonly object _gate = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly Action _cancelPendingRequests;
-    private readonly Func<ValueTask> _disposeResources;
-    private readonly long _drainDeadlineMilliseconds;
+    private readonly Action _disposeResources;
     private readonly HashSet<Task> _operations = [];
     private Task? _disposeTask;
     private bool _stopping;
 
-    public AsyncOperationLifetime(
-        Action cancelPendingRequests,
-        Func<ValueTask> disposeResources,
-        long drainDeadlineMilliseconds = 30_000)
+    public AsyncOperationLifetime(Action cancelPendingRequests, Action disposeResources)
     {
         _cancelPendingRequests = cancelPendingRequests
             ?? throw new ArgumentNullException(nameof(cancelPendingRequests));
         _disposeResources = disposeResources
             ?? throw new ArgumentNullException(nameof(disposeResources));
-        _drainDeadlineMilliseconds = drainDeadlineMilliseconds;
     }
 
     public Task RunAsync(
@@ -56,39 +51,10 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
-        TaskCompletionSource? proxy = null;
-        Task disposeTask;
         lock (_gate)
         {
             _stopping = true;
-            // Publish the disposal task before cancellation so re-entrant callbacks
-            // observe the original teardown.
-            if (_disposeTask == null)
-            {
-                proxy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                _disposeTask = proxy.Task;
-            }
-            disposeTask = _disposeTask;
-        }
-
-        if (proxy != null)
-        {
-            _ = RunDisposeCoreAsync(proxy);
-        }
-
-        return new ValueTask(disposeTask);
-    }
-
-    private async Task RunDisposeCoreAsync(TaskCompletionSource proxy)
-    {
-        try
-        {
-            await DisposeCoreAsync().ConfigureAwait(false);
-            proxy.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            proxy.TrySetException(ex);
+            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
         }
     }
 
@@ -97,6 +63,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         Action? completion,
         CancellationTokenSource linkedCancellation)
     {
+        // Ensure the task is registered before a synchronously completing operation can remove it.
         await Task.Yield();
         try
         {
@@ -105,7 +72,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             {
                 lock (_gate)
                 {
-                    if (!_stopping)
+                    if (!_stopping && !linkedCancellation.IsCancellationRequested)
                     {
                         completion();
                     }
@@ -120,30 +87,12 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
-        long deadline = Environment.TickCount64 + _drainDeadlineMilliseconds;
-        Exception? cancellationFailure = null;
-        try
-        {
-            _lifetimeCancellation.Cancel();
-        }
-        catch (Exception ex)
-        {
-            cancellationFailure = ex;
-        }
+        _lifetimeCancellation.Cancel();
+        _cancelPendingRequests();
 
         try
         {
-            // Run independently so a throwing callback cannot skip cancelling pending requests.
-            _cancelPendingRequests();
-        }
-        catch (Exception ex)
-        {
-            cancellationFailure ??= ex;
-        }
-
-        try
-        {
-            while (Environment.TickCount64 < deadline)
+            while (true)
             {
                 Task[] operations;
                 lock (_gate)
@@ -156,11 +105,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
                 try
                 {
-                    long remaining = deadline - Environment.TickCount64;
-                    if (remaining <= 0)
-                        break;
-
-                    await Task.WhenAll(operations).WaitAsync(TimeSpan.FromMilliseconds(remaining)).ConfigureAwait(false);
+                    await Task.WhenAll(operations).ConfigureAwait(false);
                 }
                 catch
                 {
@@ -178,18 +123,12 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         {
             try
             {
-                await _disposeResources();
+                _disposeResources();
             }
             finally
             {
                 _lifetimeCancellation.Dispose();
             }
         }
-
-        if (cancellationFailure != null)
-        {
-            throw cancellationFailure;
-        }
     }
-
 }

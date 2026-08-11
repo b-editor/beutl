@@ -1,0 +1,209 @@
+<UserControl x:Class="Beutl.Views.Tools.AiImageEditView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:btl="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.Dialogs"
+             d:DesignHeight="640"
+             d:DesignWidth="480"
+             x:CompileBindings="True"
+             x:DataType="vm:AiImageEditDialogViewModel"
+             mc:Ignorable="d">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="12" Spacing="12">
+        <ui:InfoBar IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Static lang:Strings.AiDataDisclosure}"
+                    Severity="Informational"
+                    Title="{x:Static lang:Strings.AiDataDisclosureTitle}" />
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiEditSelectSource}"
+                     IsReadOnly="True"
+                     Text="{CompiledBinding SourceFilePath.Value}"
+                     Watermark="{x:Static lang:Strings.AiEditSelectSource}" />
+            <Button Grid.Column="1"
+                    Margin="8,0,0,0"
+                    AutomationProperties.Name="{x:Static lang:Strings.AiEditBrowse}"
+                    Command="{CompiledBinding SelectSourceFileCommand}"
+                    Content="{x:Static lang:Strings.AiEditBrowse}"
+                    ToolTip.Tip="{x:Static lang:Strings.AiEditBrowse}" />
+        </Grid>
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="{x:Static lang:Strings.AiEditTask}" />
+            <ComboBox HorizontalAlignment="Stretch"
+                      AutomationProperties.Name="{x:Static lang:Strings.AiEditTask}"
+                      ItemsSource="{CompiledBinding Tasks}"
+                      SelectedItem="{CompiledBinding SelectedTask.Value}" />
+        </StackPanel>
+
+        <StackPanel IsVisible="{CompiledBinding RequiresPrompt.Value}" Spacing="4">
+            <TextBlock Text="{x:Static lang:Strings.AiPrompt}" />
+            <TextBox AcceptsReturn="True"
+                     AutomationProperties.Name="{x:Static lang:Strings.AiPrompt}"
+                     Height="72"
+                     MaxLength="1000"
+                     Text="{CompiledBinding Prompt.Value}"
+                     TextWrapping="Wrap"
+                     Watermark="{CompiledBinding PromptWatermark.Value}" />
+            <StackPanel IsVisible="{CompiledBinding ShowOutpaintExpansion.Value}" Spacing="4">
+                <TextBlock Text="{x:Static lang:Strings.AiEditOutpaintExpansion}" />
+                <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiEditOutpaintExpansion}"
+                          ItemsSource="{CompiledBinding OutpaintExpansionOptions}"
+                          SelectedItem="{CompiledBinding SelectedOutpaintExpansion.Value}" />
+            </StackPanel>
+            <Expander Header="{x:Static lang:Strings.AiPromptLibrary}">
+                <StackPanel Margin="0,8,0,0" Spacing="8">
+                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{CompiledBinding PromptLibrary.PrivacyText}"
+                               TextWrapping="Wrap" />
+                    <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptLibrary}"
+                              ItemsSource="{CompiledBinding PromptLibrary.Choices}"
+                              SelectedItem="{CompiledBinding PromptLibrary.SelectedChoice.Value}" />
+                    <Grid ColumnDefinitions="*,4,*,4,*">
+                        <Button Grid.Column="0"
+                                Command="{CompiledBinding PromptLibrary.ApplySelected}"
+                                Content="{x:Static lang:Strings.AiPromptApply}" />
+                        <Button Grid.Column="2"
+                                Command="{CompiledBinding PromptLibrary.TogglePinSelected}"
+                                Content="{x:Static lang:Strings.AiPromptPin}" />
+                        <Button Grid.Column="4"
+                                Command="{CompiledBinding PromptLibrary.DeleteSelected}"
+                                Content="{x:Static lang:Strings.Delete}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,4,Auto">
+                        <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptTemplateName}"
+                                 Text="{CompiledBinding PromptLibrary.TemplateName.Value}"
+                                 Watermark="{x:Static lang:Strings.AiPromptTemplateName}" />
+                        <Button Grid.Column="2"
+                                Command="{CompiledBinding PromptLibrary.SaveTemplate}"
+                                Content="{x:Static lang:Strings.AiPromptSaveTemplate}" />
+                    </Grid>
+                    <TextBlock AutomationProperties.LiveSetting="Assertive"
+                               AutomationProperties.Name="{CompiledBinding PromptLibrary.Error.Value}"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               IsVisible="{CompiledBinding PromptLibrary.Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                               Text="{CompiledBinding PromptLibrary.Error.Value}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Expander>
+        </StackPanel>
+
+        <StackPanel IsVisible="{CompiledBinding ResultImage.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    Spacing="4">
+            <TextBlock Text="{x:Static lang:Strings.AiPreviewMode}" />
+            <ComboBox HorizontalAlignment="Stretch"
+                      AutomationProperties.Name="{x:Static lang:Strings.AiPreviewMode}"
+                      ItemsSource="{CompiledBinding ComparisonModes}"
+                      SelectedItem="{CompiledBinding SelectedComparisonMode.Value}" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center"
+                        IsVisible="{CompiledBinding Usage.HasSnapshot.Value}"
+                        Spacing="2">
+                <TextBlock Text="{CompiledBinding Usage.MonthlyUsageText.Value}" />
+                <ProgressBar Maximum="100"
+                             Minimum="0"
+                             AutomationProperties.Name="{CompiledBinding Usage.MonthlyUsageText.Value}"
+                             Value="{CompiledBinding Usage.UsagePercent.Value}" />
+                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{CompiledBinding Usage.MonthlyRemainingText.Value}"
+                           TextWrapping="Wrap" />
+                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           IsVisible="{CompiledBinding Usage.HasAdditionalCredits.Value}"
+                           Text="{CompiledBinding Usage.AdditionalCreditsText.Value}"
+                           TextWrapping="Wrap" />
+                <TextBlock IsVisible="{CompiledBinding Usage.HasAdditionalCreditDebt.Value}"
+                           Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                           Text="{CompiledBinding Usage.AdditionalCreditDebtText.Value}"
+                           TextWrapping="Wrap" />
+                <TextBlock FontWeight="SemiBold"
+                           IsVisible="{CompiledBinding EstimatedUsage.HasSummary.Value}"
+                           Text="{CompiledBinding EstimatedUsage.Summary.Value}"
+                           TextWrapping="Wrap" />
+                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           IsVisible="{CompiledBinding EstimatedUsage.HasExplanation.Value}"
+                           Text="{CompiledBinding EstimatedUsage.Explanation.Value}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Spacing="8">
+                <Button Command="{CompiledBinding Edit}"
+                        AutomationProperties.Name="{x:Static lang:Strings.AiEditRun}"
+                        Content="{x:Static lang:Strings.AiEditRun}"
+                        IsEnabled="{CompiledBinding CanEdit.Value}"
+                        ToolTip.Tip="{x:Static lang:Strings.AiEditRun}" />
+                <Button Command="{CompiledBinding OpenAiPlan}"
+                        Content="{x:Static lang:Strings.AiManageAndTopUp}"
+                        IsVisible="{CompiledBinding Usage.CanUseAi.Value}" />
+            </StackPanel>
+        </Grid>
+
+        <Border Height="320"
+                Background="{DynamicResource ControlFillColorDefaultBrush}"
+                CornerRadius="8">
+            <Grid>
+                <btl:BitmapView Stretch="Uniform"
+                                IsVisible="{CompiledBinding ShowOriginalPreview.Value}"
+                                Source="{CompiledBinding OriginalImage.Value}" />
+                <btl:BitmapView Stretch="Uniform"
+                                IsVisible="{CompiledBinding ShowResultPreview.Value}"
+                                Source="{CompiledBinding ResultImage.Value}" />
+                <Grid ColumnDefinitions="*,8,*"
+                      IsVisible="{CompiledBinding ShowSideBySidePreview.Value}">
+                    <Border Grid.Column="0"
+                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                        <btl:BitmapView Stretch="Uniform"
+                                        Source="{CompiledBinding OriginalImage.Value}" />
+                    </Border>
+                    <Border Grid.Column="2"
+                            BorderBrush="{DynamicResource AccentFillColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                        <btl:BitmapView Stretch="Uniform"
+                                        Source="{CompiledBinding ResultImage.Value}" />
+                    </Border>
+                </Grid>
+                <TextBlock HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           IsVisible="{CompiledBinding ShowPreviewPlaceholder.Value}"
+                           Opacity="0.6"
+                           Text="{x:Static lang:Strings.AiImageEdit}" />
+            </Grid>
+        </Border>
+
+        <TextBlock AutomationProperties.LiveSetting="Assertive"
+                   AutomationProperties.Name="{CompiledBinding Error.Value}"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Text="{CompiledBinding Error.Value}"
+                   TextWrapping="Wrap" />
+
+        <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}"
+                    Orientation="Horizontal"
+                    Spacing="8">
+            <TextBlock VerticalAlignment="Center"
+                       Text="{x:Static lang:Strings.AiProRequired}"
+                       TextWrapping="Wrap" />
+            <Button Command="{CompiledBinding OpenAiPlan}" Content="{x:Static lang:Strings.AiJoinPro}" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,8,*">
+            <Button Grid.Column="0"
+                    Command="{CompiledBinding AddToScene}"
+                    Content="{x:Static lang:Strings.AiAddToScene}" />
+            <Button Grid.Column="2"
+                    Command="{CompiledBinding SaveToFile}"
+                    Content="{x:Static lang:Strings.AiSaveToFile}" />
+        </Grid>
+    </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
 using Beutl.Api.Clients;
+using Beutl.Api.Services;
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -9,24 +10,36 @@ public class Profile
 {
     private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<ProfileResponse> _response;
+    private readonly ReadOnlyReactivePropertySlim<ProfileResponse> _readOnlyResponse;
+    private readonly object _stateGate = new();
+    private string _name;
+    private long _refreshVersion;
 
     public Profile(ProfileResponse response, BeutlApiApplication clients)
     {
         _clients = clients;
         _response = new ReactivePropertySlim<ProfileResponse>(response);
+        _readOnlyResponse = _response.ToReadOnlyReactivePropertySlim(response);
 
         Id = response.Id;
-        Name = response.Name;
+        _name = response.Name;
         Biography = Response.Select(x => x.Bio).ToReadOnlyReactivePropertySlim()!;
         DisplayName = Response.Select(x => x.DisplayName).ToReadOnlyReactivePropertySlim()!;
         AvatarUrl = Response.Select(x => x.IconUrl).ToReadOnlyReactivePropertySlim();
     }
 
-    public IReadOnlyReactiveProperty<ProfileResponse> Response => _response;
+    public IReadOnlyReactiveProperty<ProfileResponse> Response => _readOnlyResponse;
 
     public string Id { get; }
 
-    public string Name { get; private set; }
+    public string Name
+    {
+        get
+        {
+            lock (_stateGate)
+                return _name;
+        }
+    }
 
     public IReadOnlyReactiveProperty<string> Biography { get; }
 
@@ -40,20 +53,50 @@ public class Profile
     {
         using CancellationTokenSource lifetimeCts = _clients.CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = lifetimeCts.Token;
+        token.ThrowIfCancellationRequested();
+        long refreshVersion = Interlocked.Increment(ref _refreshVersion);
         using Activity? activity = _clients.ActivitySource.StartActivity("Profile.Refresh", ActivityKind.Client);
 
+        ProfileResponse response;
+        AuthenticatedUser? authenticatedUser = null;
         if (self)
         {
-            ProfileResponse response = await _clients.Users.GetSelf(token);
-            token.ThrowIfCancellationRequested();
-            _response.Value = response;
-            Name = _response.Value.Name;
+            authenticatedUser = _clients.AuthenticatedUser.Value
+                ?? throw new AuthenticationRequiredException();
+            if (!ReferenceEquals(authenticatedUser.Profile, this))
+                throw new AuthenticationRequiredException();
+            AuthenticatedApiResult<ProfileResponse> result = await _clients.SendAuthenticatedAsync(
+                (authorization, requestToken) => _clients.Users.GetSelf(authorization, requestToken),
+                token,
+                authenticatedUser);
+            response = result.Value;
         }
         else
         {
-            ProfileResponse response = await _clients.Users.GetUser(Name, token);
-            token.ThrowIfCancellationRequested();
-            _response.Value = response;
+            string name = Name;
+            response = await _clients.Users.GetUser(name, token);
+        }
+
+        token.ThrowIfCancellationRequested();
+        void CommitResponse()
+        {
+            lock (_stateGate)
+            {
+                if (refreshVersion != Volatile.Read(ref _refreshVersion))
+                    return;
+
+                _response.Value = response;
+                _name = response.Name;
+            }
+        }
+
+        if (authenticatedUser is null)
+        {
+            CommitResponse();
+        }
+        else
+        {
+            _clients.CommitForAuthenticatedUser(authenticatedUser, CommitResponse, token);
         }
     }
 
@@ -64,21 +107,20 @@ public class Profile
     {
         using CancellationTokenSource lifetimeCts = _clients.CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = lifetimeCts.Token;
+        token.ThrowIfCancellationRequested();
         using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetPackages", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
-        // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
-        SimplePackageResponse[] packages = await _clients.Users.GetUserPackages(Name, token, start, count);
+        string name = Name;
+        SimplePackageResponse[] packages = await _clients.Users.GetUserPackages(
+            name,
+            token,
+            start,
+            count);
+        PackageResponse[] responses = await Task.WhenAll(
+            packages.Select(package => _clients.Packages.GetPackage(package.Name, token)));
         token.ThrowIfCancellationRequested();
-        // Await all requests so a fault in one does not sever the others from the lifetime token.
-        Package[] result = await Task.WhenAll(
-            packages.Select(async x =>
-            {
-                PackageResponse response = await _clients.Packages.GetPackage(x.Name, token);
-                return new Package(this, response, _clients);
-            }));
-        token.ThrowIfCancellationRequested();
-        return result;
+        return responses.Select(response => new Package(this, response, _clients)).ToArray();
     }
 }

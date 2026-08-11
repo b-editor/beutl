@@ -1,6 +1,8 @@
 ﻿using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -87,7 +89,6 @@ public partial class PlayerView
                 return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
             }
 
-            var adder = editViewModel.GetRequiredService<IElementAdder>();
             if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
                 && TypeFormat.ToType(typeName) is { } type)
             {
@@ -95,21 +96,38 @@ public partial class PlayerView
 
                 int zindex = CalculateZIndex(scene);
 
-                adder.AddElement(new ElementDescription(
+                await AddElement(editViewModel, new ElementDescription(
                     frame, TimeSpan.FromSeconds(5), zindex,
-                    EngineObjectFactory: () => (EngineObject)Activator.CreateInstance(type)!,
+                    new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!),
                     Position: centeredPosition));
             }
             else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
             {
                 int zindex = CalculateZIndex(scene);
 
-                adder.AddElement(new ElementDescription(
-                    frame, TimeSpan.FromSeconds(5), zindex, FileName: fileName, Position: centeredPosition));
+                await AddElement(editViewModel, new ElementDescription(
+                    frame,
+                    TimeSpan.FromSeconds(5),
+                    zindex,
+                    new ElementSource.File(fileName),
+                    Position: centeredPosition));
 
                 e.Handled = true;
             }
         }
+    }
+
+    private static async Task AddElement(EditViewModel editViewModel, ElementDescription description)
+    {
+        if (editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
+        {
+            timeline.AddElement.Execute(description);
+            return;
+        }
+
+        await editViewModel.GetRequiredService<IElementAdder>().AddAsync(
+            [description],
+            CancellationToken.None);
     }
 
     private void OnFrameDragOver(object? sender, DragEventArgs e)

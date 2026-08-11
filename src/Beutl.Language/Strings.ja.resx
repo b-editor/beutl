@@ -1567,6 +1567,522 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ClickBrowse" xml:space="preserve">
     <value>参照をクリック...</value>
   </data>
+  <data name="Ai" xml:space="preserve">
+    <value>AI</value>
+  </data>
+  <data name="AiGenerateImage" xml:space="preserve">
+    <value>画像を生成</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>AI 画像生成</value>
+  </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>プロンプト</value>
+  </data>
+  <data name="AiPrompt_Placeholder" xml:space="preserve">
+    <value>生成したい画像の説明を入力...</value>
+  </data>
+  <data name="AiSize" xml:space="preserve">
+    <value>サイズ</value>
+  </data>
+  <data name="AiGenerate" xml:space="preserve">
+    <value>生成</value>
+  </data>
+  <data name="AiGenerating" xml:space="preserve">
+    <value>生成中...</value>
+  </data>
+  <data name="AiAddToScene" xml:space="preserve">
+    <value>シーンに追加</value>
+  </data>
+  <data name="AiSaveToFile" xml:space="preserve">
+    <value>ファイルに保存</value>
+  </data>
+  <data name="AiMonthlyUsage" xml:space="preserve">
+    <value>今月の使用量: {0}%</value>
+  </data>
+  <data name="AiMonthlyUsageRemaining" xml:space="preserve">
+    <value>今月の利用枠はあと{0}%です</value>
+  </data>
+  <data name="AiAdditionalCredits" xml:space="preserve">
+    <value>購入済みクレジット: {0}</value>
+  </data>
+  <data name="AiAdditionalCreditDebt" xml:space="preserve">
+    <value>返金または異議申立てにより、使用済みのクレジット分が未精算です。次のクレジット購入分が充当されます。</value>
+  </data>
+  <data name="AiProRequired" xml:space="preserve">
+    <value>AI 機能を利用するには有効な Pro プランが必要です。</value>
+  </data>
+  <data name="AiJoinPro" xml:space="preserve">
+    <value>Pro に加入</value>
+  </data>
+  <data name="AiManageAndTopUp" xml:space="preserve">
+    <value>管理 / 追加購入</value>
+  </data>
+  <data name="AiUsageLimitExceeded" xml:space="preserve">
+    <value>このリクエストに必要な使用量が、今月の残り利用枠と追加クレジットの合計を超えています。続行するには追加クレジットを購入してください。</value>
+  </data>
+  <data name="AiFileTooLarge" xml:space="preserve">
+    <value>選択したファイルが大きすぎます。小さいファイルを選ぶか、短いシーン範囲を文字起こししてください。</value>
+  </data>
+  <data name="AiProviderError" xml:space="preserve">
+    <value>AIプロバイダーが処理を完了できませんでした。確保した利用量は返却済みのため、安全に再実行できます。</value>
+  </data>
+  <data name="AiAuthenticationRequired" xml:space="preserve">
+    <value>AI 機能を利用するにはサインインが必要です。</value>
+  </data>
+  <data name="AiUnexpectedError" xml:space="preserve">
+    <value>リクエストが中断されました。再実行する前に、AIジョブに完了済みの結果がないか確認してください。</value>
+  </data>
+  <data name="AiImageSaved" xml:space="preserve">
+    <value>画像を保存しました。</value>
+  </data>
+  <data name="AiImageAddedToScene" xml:space="preserve">
+    <value>画像をシーンに追加しました。</value>
+  </data>
+  <data name="AiGenerateSubtitles" xml:space="preserve">
+    <value>字幕を生成</value>
+  </data>
+  <data name="AiSubtitle" xml:space="preserve">
+    <value>AI字幕</value>
+  </data>
+  <data name="AiSubtitle_AudioSource" xml:space="preserve">
+    <value>音声ソース</value>
+  </data>
+  <data name="AiSubtitle_Template" xml:space="preserve">
+    <value>テキストテンプレート</value>
+  </data>
+  <data name="AiSubtitle_DefaultTemplate" xml:space="preserve">
+    <value>既定</value>
+  </data>
+  <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
+    <value>保存済みのTextBlockテンプレートが表示されます。書式、エフェクト、アニメーション、配置がすべての字幕に適用されます。</value>
+  </data>
+  <data name="AiSubtitle_Transcribe" xml:space="preserve">
+    <value>文字起こし</value>
+  </data>
+  <data name="AiSubtitle_AddToScene" xml:space="preserve">
+    <value>字幕をシーンに追加</value>
+  </data>
+  <data name="AiSubtitle_HistoryOverwritePrompt" xml:space="preserve">
+    <value>このタブの字幕を選択した履歴の結果で置き換えますか？現在の字幕はまだ保存されていません。</value>
+  </data>
+  <data name="AiSubtitle_HistoryOverwriteApply" xml:space="preserve">
+    <value>字幕を置き換える</value>
+  </data>
+  <data name="AiSubtitleAddedToScene" xml:space="preserve">
+    <value>字幕をシーンに追加しました。</value>
+  </data>
+  <data name="AiEditImage" xml:space="preserve">
+    <value>画像を編集</value>
+  </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>AI画像編集</value>
+  </data>
+  <data name="AiEditTask" xml:space="preserve">
+    <value>タスク</value>
+  </data>
+  <data name="AiEditRemoveBackground" xml:space="preserve">
+    <value>背景除去</value>
+  </data>
+  <data name="AiEditUpscale" xml:space="preserve">
+    <value>アップスケール</value>
+  </data>
+  <data name="AiEditBrowse" xml:space="preserve">
+    <value>参照...</value>
+  </data>
+  <data name="AiEditRun" xml:space="preserve">
+    <value>実行</value>
+  </data>
+  <data name="AiEditSelectSource" xml:space="preserve">
+    <value>先に画像ファイルを選択してください。</value>
+  </data>
+  <data name="AiGenerateVideo" xml:space="preserve">
+    <value>動画を生成</value>
+  </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>AI動画生成</value>
+  </data>
+  <data name="AiVideoPrompt_Placeholder" xml:space="preserve">
+    <value>生成したい動画を説明してください...</value>
+  </data>
+  <data name="AiVideoDuration" xml:space="preserve">
+    <value>長さ</value>
+  </data>
+  <data name="AiVideoResolution" xml:space="preserve">
+    <value>解像度</value>
+  </data>
+  <data name="AiVideoSeconds" xml:space="preserve">
+    <value>秒</value>
+  </data>
+  <data name="AiVideoSubmitting" xml:space="preserve">
+    <value>動画生成ジョブを送信中...</value>
+  </data>
+  <data name="AiVideoIdle" xml:space="preserve">
+    <value>動画の説明を入力して「生成」をクリックしてください。</value>
+  </data>
+  <data name="AiVideoProcessing" xml:space="preserve">
+    <value>動画を生成中... 数分かかる場合があります。</value>
+  </data>
+  <data name="AiVideoCompleted" xml:space="preserve">
+    <value>動画が生成されました。</value>
+  </data>
+  <data name="AiVideoFailed" xml:space="preserve">
+    <value>動画の生成に失敗しました。</value>
+  </data>
+  <data name="AiVideoJobLimitReached" xml:space="preserve">
+    <value>進行中の動画生成ジョブがあります。完了するまでお待ちください。</value>
+  </data>
+  <data name="AiVideoAddedToScene" xml:space="preserve">
+    <value>動画をシーンに追加しました。</value>
+  </data>
+  <data name="AiVideoSaved" xml:space="preserve">
+    <value>動画を保存しました。</value>
+  </data>
+  <data name="AiClearFrame" xml:space="preserve">
+    <value>フレームを解除</value>
+  </data>
+  <data name="AiJobCenter" xml:space="preserve">
+    <value>AIジョブ</value>
+  </data>
+  <data name="AiJobCenter_Description" xml:space="preserve">
+    <value>編集を止めずに生成状況を確認し、結果の再利用やシーンへの追加ができます。</value>
+  </data>
+  <data name="AiJobCenter_Empty" xml:space="preserve">
+    <value>AIジョブはまだありません。生成した画像、字幕、動画がここに表示されます。</value>
+  </data>
+  <data name="AiJobCenter_LoadFailed" xml:space="preserve">
+    <value>AIジョブ履歴を読み込めませんでした。</value>
+  </data>
+  <data name="AiJobCenter_LoadMore" xml:space="preserve">
+    <value>さらに読み込む</value>
+  </data>
+  <data name="AiJobCenter_StatusQueued" xml:space="preserve">
+    <value>待機中</value>
+  </data>
+  <data name="AiJobCenter_StatusRunning" xml:space="preserve">
+    <value>処理中</value>
+  </data>
+  <data name="AiJobCenter_StatusSucceeded" xml:space="preserve">
+    <value>完了</value>
+  </data>
+  <data name="AiJobCenter_StatusFailed" xml:space="preserve">
+    <value>失敗・利用量返却済み</value>
+  </data>
+  <data name="AiJobCenter_StatusCanceled" xml:space="preserve">
+    <value>キャンセル済み</value>
+  </data>
+  <data name="AiJobCenter_NoDescription" xml:space="preserve">
+    <value>説明なし</value>
+  </data>
+  <data name="AiJobCenter_TranslationSummary" xml:space="preserve">
+    <value>{0}への字幕翻訳</value>
+  </data>
+  <data name="AiJobCenter_UsageFormat" xml:space="preserve">
+    <value>利用量 {0}</value>
+  </data>
+  <data name="AiJobCenter_Retry" xml:space="preserve">
+    <value>再実行</value>
+  </data>
+  <data name="AiJobCenter_RetryTitle" xml:space="preserve">
+    <value>AIジョブを再実行しますか？</value>
+  </data>
+  <data name="AiJobCenter_CheckingRetryCost" xml:space="preserve">
+    <value>現在の利用量見積もりを確認しています…</value>
+  </data>
+  <data name="AiJobCenter_RetryConfirmation" xml:space="preserve">
+    <value>新しいジョブを作成し、利用枠を再度使用します。元の結果は保持されます。</value>
+  </data>
+  <data name="AiJobCenter_RetryFailed" xml:space="preserve">
+    <value>AIジョブを再実行できませんでした。元の設定は保持されています。</value>
+  </data>
+  <data name="AiJobCenter_DeleteTitle" xml:space="preserve">
+    <value>このAI履歴を削除しますか？</value>
+  </data>
+  <data name="AiJobCenter_DeleteConfirmation" xml:space="preserve">
+    <value>サーバー上のコピー、プロンプト、生成結果を削除します。すでにプロジェクトへ追加した素材は残ります。</value>
+  </data>
+  <data name="AiJobCenter_DeleteFailed" xml:space="preserve">
+    <value>AI履歴を削除できませんでした。</value>
+  </data>
+  <data name="AiJobCenter_AddFailed" xml:space="preserve">
+    <value>生成結果をシーンに追加できませんでした。</value>
+  </data>
+  <data name="AiJobCenter_AddedToScene" xml:space="preserve">
+    <value>生成結果をシーンに追加しました。</value>
+  </data>
+  <data name="AiJobCenter_CompletedNotification" xml:space="preserve">
+    <value>{0}が完了しました。AIジョブで結果を確認・追加できます。</value>
+  </data>
+  <data name="AiJobCenter_FailedNotification" xml:space="preserve">
+    <value>{0}に失敗しました。確保した利用量は返却済みで、AIジョブから再実行できます。</value>
+  </data>
+  <data name="AiJobCenter_CanceledNotification" xml:space="preserve">
+    <value>{0}はキャンセルされました。結果は作成されていません。</value>
+  </data>
+  <data name="AiEstimatedUsage" xml:space="preserve">
+    <value>月間利用枠を使用します</value>
+  </data>
+  <data name="AiPricingUnavailable" xml:space="preserve">
+    <value>正式な料金情報を取得できません。有料操作を始める前に再接続してください。</value>
+  </data>
+  <data name="AiEstimatedUsageMonthly" xml:space="preserve">
+    <value>月間利用枠の範囲内です。</value>
+  </data>
+  <data name="AiEstimatedUsageTopUp" xml:space="preserve">
+    <value>月間利用枠を使い切っているため、購入済みのクレジットを使用します。</value>
+  </data>
+  <data name="AiEstimatedUsageInsufficient" xml:space="preserve">
+    <value>利用枠とクレジットが不足しています。開始前にクレジットを追加してください。</value>
+  </data>
+  <data name="AiSubtitle_SceneMix" xml:space="preserve">
+    <value>シーン全体の音声（指定範囲）</value>
+  </data>
+  <data name="AiSubtitle_Range" xml:space="preserve">
+    <value>シーン範囲</value>
+  </data>
+  <data name="AiSubtitle_RangeStart" xml:space="preserve">
+    <value>開始位置</value>
+  </data>
+  <data name="AiSubtitle_RangeEnd" xml:space="preserve">
+    <value>終了位置</value>
+  </data>
+  <data name="AiSubtitle_SourceLanguage" xml:space="preserve">
+    <value>音声の言語</value>
+  </data>
+  <data name="AiSubtitle_TargetLanguage" xml:space="preserve">
+    <value>翻訳先</value>
+  </data>
+  <data name="AiLanguageAuto" xml:space="preserve">
+    <value>自動検出</value>
+  </data>
+  <data name="AiSubtitle_DetectedLanguage" xml:space="preserve">
+    <value>検出された言語: {0}</value>
+  </data>
+  <data name="AiSubtitle_NoAudioInRange" xml:space="preserve">
+    <value>選択したシーン範囲に音声がありません。</value>
+  </data>
+  <data name="AiSubtitle_InvalidRange" xml:space="preserve">
+    <value>終了位置が開始位置より後になるよう、有効なシーン範囲を入力してください。</value>
+  </data>
+  <data name="AiSubtitle_Import" xml:space="preserve">
+    <value>字幕を読み込む</value>
+  </data>
+  <data name="AiSubtitle_Export" xml:space="preserve">
+    <value>字幕を書き出す</value>
+  </data>
+  <data name="AiSubtitle_ImportFailed" xml:space="preserve">
+    <value>字幕ファイルを読み込めませんでした。</value>
+  </data>
+  <data name="AiSubtitle_ExportFailed" xml:space="preserve">
+    <value>字幕ファイルを書き出せませんでした。</value>
+  </data>
+  <data name="AiSubtitle_Exported" xml:space="preserve">
+    <value>字幕ファイルを書き出しました。</value>
+  </data>
+  <data name="AiSubtitle_CaptionFiles" xml:space="preserve">
+    <value>字幕ファイル（SRT、WebVTT、ASS）</value>
+  </data>
+  <data name="AiSubtitle_AddCue" xml:space="preserve">
+    <value>字幕を追加</value>
+  </data>
+  <data name="AiSubtitle_DeleteCue" xml:space="preserve">
+    <value>字幕を削除</value>
+  </data>
+  <data name="AiSubtitle_SplitCue" xml:space="preserve">
+    <value>再生位置で分割</value>
+  </data>
+  <data name="AiSubtitle_MergeCue" xml:space="preserve">
+    <value>次と結合</value>
+  </data>
+  <data name="AiSubtitle_WrapCues" xml:space="preserve">
+    <value>行を折り返す</value>
+  </data>
+  <data name="AiSubtitle_MaxLineLength" xml:space="preserve">
+    <value>1行の文字数</value>
+  </data>
+  <data name="AiSubtitle_MaxLineCount" xml:space="preserve">
+    <value>字幕ごとの行数</value>
+  </data>
+  <data name="AiSubtitle_CueStart" xml:space="preserve">
+    <value>開始</value>
+  </data>
+  <data name="AiSubtitle_CueEnd" xml:space="preserve">
+    <value>終了</value>
+  </data>
+  <data name="AiSubtitle_Speaker" xml:space="preserve">
+    <value>話者</value>
+  </data>
+  <data name="AiSubtitle_Language" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="AiSubtitle_Text" xml:space="preserve">
+    <value>字幕テキスト</value>
+  </data>
+  <data name="AiSubtitle_InvalidTiming" xml:space="preserve">
+    <value>開始・終了時刻が無効な字幕があります。</value>
+  </data>
+  <data name="AiSubtitle_ValidationIssues" xml:space="preserve">
+    <value>修正が必要な字幕の問題が{0}件あります。時刻、順序、行数を確認してください。</value>
+  </data>
+  <data name="AiSubtitle_OverlapWarning" xml:space="preserve">
+    <value>重なっている字幕があります。追加はできますが、同時に表示される場合があります。</value>
+  </data>
+  <data name="AiSubtitle_Translate" xml:space="preserve">
+    <value>字幕を翻訳</value>
+  </data>
+  <data name="AiSubtitle_TemplatePreview" xml:space="preserve">
+    <value>テンプレートのプレビュー（簡易表示）</value>
+  </data>
+  <data name="AiSubtitle_PreviewSample" xml:space="preserve">
+    <value>字幕のプレビュー</value>
+  </data>
+  <data name="AiPreviewMode" xml:space="preserve">
+    <value>プレビュー</value>
+  </data>
+  <data name="AiPreviewResult" xml:space="preserve">
+    <value>生成結果</value>
+  </data>
+  <data name="AiPreviewOriginal" xml:space="preserve">
+    <value>元画像</value>
+  </data>
+  <data name="AiPreviewSideBySide" xml:space="preserve">
+    <value>並べて比較</value>
+  </data>
+  <data name="AiEditSourcePreviewFailed" xml:space="preserve">
+    <value>選択した画像をプレビューできませんでした。対応している別の画像を選択してください。</value>
+  </data>
+  <data name="AiPromptDetails" xml:space="preserve">
+    <value>プロンプトの詳細</value>
+  </data>
+  <data name="AiPromptStyle" xml:space="preserve">
+    <value>スタイル</value>
+  </data>
+  <data name="AiPromptStylePlaceholder" xml:space="preserve">
+    <value>例：映画風、水彩、フォトリアル</value>
+  </data>
+  <data name="AiPromptComposition" xml:space="preserve">
+    <value>構図・カメラ</value>
+  </data>
+  <data name="AiPromptCompositionPlaceholder" xml:space="preserve">
+    <value>例：クローズアップ、広角、柔らかな逆光</value>
+  </data>
+  <data name="AiPromptMotion" xml:space="preserve">
+    <value>動き</value>
+  </data>
+  <data name="AiPromptMotionPlaceholder" xml:space="preserve">
+    <value>例：ゆっくり寄るカメラ、自然な被写体の動き</value>
+  </data>
+  <data name="AiPromptAvoid" xml:space="preserve">
+    <value>避けたい要素</value>
+  </data>
+  <data name="AiPromptAvoidPlaceholder" xml:space="preserve">
+    <value>例：文字、ロゴ、ちらつき、手ぶれ</value>
+  </data>
+  <data name="AiVideoFrameGuidance" xml:space="preserve">
+    <value>フレーム指定</value>
+  </data>
+  <data name="AiVideoFrameGuidanceDescription" xml:space="preserve">
+    <value>最初のフレームから既存の構図を動かしたり、最後のフレームも指定してトランジションを生成できます。画像は生成を実行したときだけアップロードされます。</value>
+  </data>
+  <data name="AiVideoUseCurrentFrame" xml:space="preserve">
+    <value>現在のシーンフレームを使用</value>
+  </data>
+  <data name="AiVideoFirstFrame" xml:space="preserve">
+    <value>最初のフレーム</value>
+  </data>
+  <data name="AiVideoLastFrame" xml:space="preserve">
+    <value>最後のフレーム</value>
+  </data>
+  <data name="AiVideoBrowseFirstFrame" xml:space="preserve">
+    <value>最初のフレームを選択</value>
+  </data>
+  <data name="AiVideoClearFirstFrame" xml:space="preserve">
+    <value>最初のフレームをクリア</value>
+  </data>
+  <data name="AiVideoBrowseLastFrame" xml:space="preserve">
+    <value>最後のフレームを選択</value>
+  </data>
+  <data name="AiVideoClearLastFrame" xml:space="preserve">
+    <value>最後のフレームをクリア</value>
+  </data>
+  <data name="AiVideoOptional" xml:space="preserve">
+    <value>任意</value>
+  </data>
+  <data name="AiVideoFrameCaptureFailed" xml:space="preserve">
+    <value>現在のシーンフレームを取得できませんでした。プレビューのエラーを解消するか、画像ファイルを選択してください。</value>
+  </data>
+  <data name="AiVideoOpenPreview" xml:space="preserve">
+    <value>プレビューを開く</value>
+  </data>
+  <data name="AiVideoPreviewOpenFailed" xml:space="preserve">
+    <value>生成した動画を既定のメディアプレイヤーで開けませんでした。</value>
+  </data>
+  <data name="AiPromptLibrary" xml:space="preserve">
+    <value>プロンプト履歴とテンプレート</value>
+  </data>
+  <data name="AiPromptLibraryPrivacy" xml:space="preserve">
+    <value>最近のプロンプトはこのセッション中だけメモリに保持します。名前を付けたテンプレートとピン留めしたプロンプトだけをローカルに保存します。</value>
+  </data>
+  <data name="AiPromptApply" xml:space="preserve">
+    <value>適用</value>
+  </data>
+  <data name="AiPromptPin" xml:space="preserve">
+    <value>ピン留め／解除</value>
+  </data>
+  <data name="AiPromptTemplateName" xml:space="preserve">
+    <value>テンプレート名</value>
+  </data>
+  <data name="AiPromptSaveTemplate" xml:space="preserve">
+    <value>テンプレートを保存</value>
+  </data>
+  <data name="AiPromptClearRecent" xml:space="preserve">
+    <value>最近のプロンプトを消去</value>
+  </data>
+  <data name="AiPromptTemplateInvalid" xml:space="preserve">
+    <value>テンプレート名とプロンプトの両方を入力してから保存してください。</value>
+  </data>
+  <data name="AiEditRestyle" xml:space="preserve">
+    <value>参照画像からスタイル変更</value>
+  </data>
+  <data name="AiEditRemoveObject" xml:space="preserve">
+    <value>オブジェクトを削除</value>
+  </data>
+  <data name="AiEditOutpaint" xml:space="preserve">
+    <value>キャンバスを拡張（アウトペイント）</value>
+  </data>
+  <data name="AiEditRestylePrompt" xml:space="preserve">
+    <value>変更後のスタイルと、維持したい要素を記述してください。</value>
+  </data>
+  <data name="AiEditRemoveObjectPrompt" xml:space="preserve">
+    <value>削除する対象と、削除後の領域をどう埋めるか記述してください。</value>
+  </data>
+  <data name="AiEditOutpaintPrompt" xml:space="preserve">
+    <value>元画像の外側へどのような風景や内容を続けるか記述してください。</value>
+  </data>
+  <data name="AiEditOutpaintExpansion" xml:space="preserve">
+    <value>各辺の拡張量</value>
+  </data>
+  <data name="AiDataDisclosureTitle" xml:space="preserve">
+    <value>サーバーAIとデータの取り扱い</value>
+  </data>
+  <data name="AiDataDisclosure" xml:space="preserve">
+    <value>機能を実行したときだけ、プロンプトと選択したメディアをBeutlのサーバーおよび設定されたAIプロバイダーへ送信します。結果と利用履歴は「AIジョブ」で削除するまで確認できます。復旧可能な字幕の途中結果は、完了または破棄するまでローカルにも保存されます。機密情報や秘密の素材は送信しないでください。</value>
+  </data>
+  <data name="AiSubtitle_PartialTranslationAvailable" xml:space="preserve">
+    <value>翻訳は{1}バッチ中{0}バッチまで完了しています。課金済みの途中結果を今すぐ使用するか、もう一度「翻訳」を実行すると完了済みバッチを再処理せずに続行できます。</value>
+  </data>
+  <data name="AiSubtitle_PartialTranscriptionAvailable" xml:space="preserve">
+    <value>文字起こしは{1}チャンク中{0}チャンクまで完了しています。課金済みの途中結果を今すぐ使用するか、もう一度「文字起こし」を実行すると完了済みチャンクを再処理せずに続行できます。</value>
+  </data>
+  <data name="AiSubtitle_UsePartialResult" xml:space="preserve">
+    <value>途中結果を使用</value>
+  </data>
+  <data name="AiSubtitle_DiscardPartialResult" xml:space="preserve">
+    <value>途中結果を破棄</value>
+  </data>
+  <data name="AiSubtitle_CompletedResultAvailable" xml:space="preserve">
+    <value>処理中に入力元または字幕が変更されましたが、課金済みのAI結果は完了しています。内容を確認し、準備ができたら復旧可能な結果を適用してください。</value>
+  </data>
   <data name="Materials" xml:space="preserve">
     <value>素材</value>
   </data>

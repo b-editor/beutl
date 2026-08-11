@@ -35,11 +35,13 @@ public class ExportTests
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromMilliseconds(200),
             Layer: 0,
-            EngineObjectFactory: () => new RectShape { Width = { CurrentValue = 200 }, Height = { CurrentValue = 150 } }));
+            Source: new ElementSource.EngineObject(
+                () => new RectShape { Width = { CurrentValue = 200 }, Height = { CurrentValue = 150 } }))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
         return editor;
     }

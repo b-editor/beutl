@@ -4,11 +4,17 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Editor.Services.AI;
+using Beutl.Editor.Services.Captions;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
+using Beutl.Services.AI;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.StartupTasks;
+using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.ExtensionsPages;
+using Beutl.ViewModels.Tools;
 using DynamicData;
 using DynamicData.Binding;
 using Microsoft.Extensions.Logging;
@@ -24,20 +30,60 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
     private readonly ExtensionProvider _extensionProvider;
+    private readonly CaptionCatalog _captionCatalog;
+    private readonly AiJobResultHandlerRegistry _aiJobResultHandlers;
     private readonly AgentHostEndpoint _agentHostEndpoint;
+    private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
+    private readonly AiJobCompletionNotifier _aiJobCompletionNotifier;
+    private readonly Action<BeutlApiApplication> _shutdownHandoff;
+    private int _disposeRequested;
+    private int _apiClientsDisposed;
+    private int _shutdownCompleted;
+    private bool _disposeClientsOnExit;
 
     public MainViewModel()
+        : this(null)
     {
+    }
+
+    internal MainViewModel(Action<BeutlApiApplication>? shutdownHandoff)
+    {
+        _shutdownHandoff = shutdownHandoff ?? PerformShutdownHandoff;
         _authHttpClient = new HttpClient();
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
         _extensionProvider = new ExtensionProvider();
         _projectService = new ProjectService();
         _editorService = new EditorService(_extensionProvider);
+        _captionCatalog = CaptionCatalog.Compose(
+            Beutl.Language.Strings.AiSubtitle_DefaultTemplate,
+            Beutl.Editor.Services.ObjectTemplateService.Instance.FindByBaseType(
+                typeof(Beutl.Graphics.Drawable)),
+            _extensionProvider,
+            failure => _logger.LogWarning(
+                failure.Exception,
+                "Ignoring invalid caption {ContributionKind} contribution from {ExtensionName}.",
+                failure.Kind,
+                failure.ExtensionName));
+        _aiJobResultHandlers = new AiJobResultHandlerRegistry(
+            BuiltInAiJobResultHandlers.Create(),
+            _extensionProvider,
+            failure => _logger.LogWarning(
+                failure.Exception,
+                "Ignoring invalid AI job result contribution from {ExtensionType}.",
+                failure.ExtensionType));
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
-        _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
+        _beutlClients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(_authHttpClient, _extensionProvider));
+        _aiPlanCoordinator = new AiPlanCoordinator(
+            _beutlClients,
+            _beutlClients.GetResource<IAiEntitlementService>());
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
+        _aiJobCompletionNotifier = new AiJobCompletionNotifier(
+            _beutlClients.GetResource<IAiJobMonitor>().Snapshot,
+            _beutlClients.GetResource<IAiJobKindRegistry>(),
+            _aiJobResultHandlers,
+            OpenAiJobCenter);
 
         MenuBar = new MenuBarViewModel(_projectService, _editorService);
 
@@ -124,8 +170,62 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public SettingsDialogViewModel CreateSettingsDialog()
     {
-        return new SettingsDialogViewModel(_beutlClients, _extensionProvider, _agentHostEndpoint);
+        return new SettingsDialogViewModel(
+            _beutlClients,
+            _extensionProvider,
+            _agentHostEndpoint,
+            _aiPlanCoordinator);
     }
+
+    internal AiImageGenerationDialogViewModel CreateAiImageGenerationToolViewModel(EditViewModel editViewModel)
+        => new(
+            _beutlClients.GetResource<IAiEntitlementService>(),
+            _aiPlanCoordinator,
+            _beutlClients.GetResource<IAiImageGenerationService>(),
+            _beutlClients.GetResource<IAuthenticatedContentService>(),
+            editViewModel);
+
+    internal AiImageEditDialogViewModel CreateAiImageEditToolViewModel(EditViewModel editViewModel)
+        => new(
+            _beutlClients.GetResource<IAiEntitlementService>(),
+            _aiPlanCoordinator,
+            _beutlClients.GetResource<IAiImageEditingService>(),
+            _beutlClients.GetResource<IAuthenticatedContentService>(),
+            editViewModel);
+
+    internal AiSubtitleDialogViewModel CreateAiSubtitleToolViewModel(EditViewModel? editViewModel)
+    {
+        _captionCatalog.RefreshObjectTemplates(
+            Beutl.Editor.Services.ObjectTemplateService.Instance.FindByBaseType(
+                typeof(Beutl.Graphics.Drawable)));
+        return new AiSubtitleDialogViewModel(
+            _beutlClients.GetResource<IAiEntitlementService>(),
+            _aiPlanCoordinator,
+            _beutlClients.GetResource<IAiTranscriptionService>(),
+            _beutlClients.GetResource<IAiCaptionTranslationService>(),
+            _captionCatalog,
+            CaptionDraftStoreProvider.Current,
+            CreateCaptionDraftScopes(editViewModel),
+            editViewModel);
+    }
+
+    private IObservable<CaptionDraftScope?> CreateCaptionDraftScopes(EditViewModel? editViewModel)
+        => _beutlClients.AuthenticatedUser.Select(user =>
+        {
+            Project? project = BeutlApplication.Current.Project;
+            return user is null || project is null || editViewModel is null
+                ? null
+                : new CaptionDraftScope(user.Profile.Id, project.Id, editViewModel.Scene.Id);
+        });
+
+    internal AiVideoGenerationDialogViewModel CreateAiVideoGenerationToolViewModel(EditViewModel editViewModel)
+        => new(
+            _beutlClients.GetResource<IAiEntitlementService>(),
+            _aiPlanCoordinator,
+            _beutlClients.GetResource<IAiVideoService>(),
+            _beutlClients.GetResource<IAuthenticatedContentService>(),
+            _beutlClients.GetResource<IAiJobKindRegistry>(),
+            editViewModel);
 
     public Startup RunStartupTask()
     {
@@ -140,7 +240,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
         if (Application.Current is { ApplicationLifetime: IControlledApplicationLifetime lifetime })
         {
-            lifetime.Exit += OnExit;
+            RegisterExitHandler(lifetime);
         }
 
         _agentHostEndpoint.StartInBackground();
@@ -148,15 +248,115 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public override void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposeRequested, 1) != 0)
+            return;
+
+        _aiJobCompletionNotifier.Dispose();
         CommandPalette.Dispose();
         _agentHostEndpoint.RequestStop();
         _projectService.CloseProject();
+        _aiJobResultHandlers.Dispose();
+        _captionCatalog.Dispose();
         BeutlApplication.Current.Items.Clear();
+
+        if (!_disposeClientsOnExit)
+        {
+            DisposeApiClients();
+        }
     }
+
+    internal void OpenAiJobCenter()
+        => OpenAiToolTab(CreateAiJobCenterViewModel);
+
+    internal void OpenAiImageGeneration()
+        => OpenAiToolTab(CreateAiImageGenerationToolViewModel);
+
+    internal void OpenAiImageEdit()
+        => OpenAiToolTab(CreateAiImageEditToolViewModel);
+
+    internal void OpenAiSubtitle(AiCaptionHistoryResult? historyResult = null)
+    {
+        AiSubtitleDialogViewModel? viewModel = OpenAiToolTab(CreateAiSubtitleToolViewModel);
+        if (historyResult is not null)
+        {
+            viewModel?.LoadHistoryResult(historyResult);
+        }
+    }
+
+    internal void OpenAiVideoGeneration()
+        => OpenAiToolTab(CreateAiVideoGenerationToolViewModel);
+
+    private T? OpenAiToolTab<T>(Func<EditViewModel, T> create)
+        where T : class, IToolContext
+    {
+        if (_editorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editorContext)
+        {
+            return null;
+        }
+
+        if (editorContext.FindToolTab<T>() is { } existing)
+        {
+            editorContext.OpenToolTab(existing);
+            return existing;
+        }
+
+        T toolContext = create(editorContext);
+        if (!editorContext.OpenToolTab(toolContext))
+        {
+            toolContext.Dispose();
+            return null;
+        }
+
+        return toolContext;
+    }
+
+    internal AiJobCenterViewModel CreateAiJobCenterViewModel(EditViewModel editViewModel)
+        => new(
+            editViewModel,
+            _beutlClients.GetResource<IAiEntitlementService>(),
+            _beutlClients.GetResource<IAuthenticatedContentService>(),
+            _beutlClients.GetResource<IAiJobClient>(),
+            _beutlClients.GetResource<IAiJobMonitor>(),
+            _beutlClients.GetResource<IAiJobKindRegistry>(),
+            _aiJobResultHandlers,
+            OpenAiSubtitle);
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
+        if (sender is IControlledApplicationLifetime lifetime)
+        {
+            lifetime.Exit -= OnExit;
+        }
+
+        CompleteShutdown();
+    }
+
+    internal void RegisterExitHandler(IControlledApplicationLifetime lifetime)
+    {
+        ArgumentNullException.ThrowIfNull(lifetime);
+        _disposeClientsOnExit = true;
+        lifetime.Exit -= OnExit;
+        lifetime.Exit += OnExit;
+    }
+
+    internal void CompleteShutdown()
+    {
+        if (Interlocked.Exchange(ref _shutdownCompleted, 1) != 0)
+            return;
+
         _agentHostEndpoint.RequestStop();
+        try
+        {
+            _shutdownHandoff(_beutlClients);
+        }
+        finally
+        {
+            DisposeApiClients();
+        }
+    }
+
+    private void PerformShutdownHandoff(BeutlApiApplication clients)
+    {
         try
         {
             ProxyMediaServices.Current?.DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -166,96 +366,49 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
         }
 
-        // Drain installs first so fallback queueing is reflected in the snapshot below.
-        try
-        {
-            if (_beutlClients.TryGetCreatedResource<PackageInstaller>() is { } installer)
-            {
-                Task drain = installer.DisposeAsync().AsTask();
-                // Pump UI jobs while draining so the queued activation can complete.
-                long deadline = Environment.TickCount64 + 30_000;
-                while (!drain.IsCompleted && Environment.TickCount64 < deadline)
-                {
-                    Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-                    Thread.Sleep(10);
-                }
-
-                if (drain.IsCompleted)
-                {
-                    drain.GetAwaiter().GetResult();
-                }
-                else
-                {
-                    _logger.LogWarning("Package installer did not drain within the shutdown deadline.");
-                    // Disposal keeps installer resources alive until the tracked work
-                    // stops, so fallback queueing for a still-running install/update can
-                    // still happen after the deadline. Wait for actual idleness so the
-                    // snapshot below reflects every queued recovery, while continuing to
-                    // pump UI jobs so queued activations keep progressing. The extra wait
-                    // is bounded so shutdown never hangs behind a non-cooperative install.
-                    Task idle = installer.WaitUntilIdleAsync(TimeSpan.FromSeconds(30));
-                    long idleDeadline = Environment.TickCount64 + 30_000;
-                    while (!idle.IsCompleted && Environment.TickCount64 < idleDeadline)
-                    {
-                        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-                        Thread.Sleep(10);
-                    }
-
-                    if (!idle.IsCompleted)
-                    {
-                        _logger.LogWarning("Package installer did not become idle within the shutdown deadline.");
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Package installer failed to drain during shutdown.");
-        }
-
-        PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
+        PackageChangesQueue queue = clients.GetResource<PackageChangesQueue>();
         PackageIdentity[] installs = queue.GetInstalls().ToArray();
         PackageIdentity[] uninstalls = queue.GetUninstalls().ToArray();
 
-        if (installs.Length > 0 || uninstalls.Length > 0)
-        {
-            var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
-            DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
+        if (installs.Length == 0 && uninstalls.Length == 0)
+            return;
 
-            if (installs.Length > 0)
+        var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
+        DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
+
+        if (installs.Length > 0)
+        {
+            startInfo.ArgumentList.Add("--installs");
+            foreach (PackageIdentity? item in installs)
             {
-                startInfo.ArgumentList.Add("--installs");
-                foreach (PackageIdentity? item in installs)
-                {
-                    startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
-                }
+                startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
             }
+        }
 
-            if (uninstalls.Length > 0)
+        if (uninstalls.Length > 0)
+        {
+            startInfo.ArgumentList.Add("--uninstalls");
+            foreach (PackageIdentity? item in uninstalls)
             {
-                startInfo.ArgumentList.Add("--uninstalls");
-                foreach (PackageIdentity? item in uninstalls)
-                {
-                    startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
-                }
+                startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
             }
-
-            startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
-
-            if (Debugger.IsAttached)
-                startInfo.ArgumentList.Add("--launch-debugger");
-
-            Process.Start(startInfo);
         }
 
-        try
-        {
-            _beutlClients.DisposeAsync().AsTask().GetAwaiter().GetResult();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Beutl API application failed to dispose during shutdown.");
-        }
+        startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
+
+        if (Debugger.IsAttached)
+            startInfo.ArgumentList.Add("--launch-debugger");
+
+        Process.Start(startInfo);
+    }
+
+    private void DisposeApiClients()
+    {
+        if (Interlocked.Exchange(ref _apiClientsDisposed, 1) != 0)
+            return;
+
+        _beutlClients.Dispose();
+        _authHttpClient.Dispose();
     }
 
     public void Execute(ContextCommandExecution execution)

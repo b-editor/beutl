@@ -18,20 +18,14 @@ public class PackageReleaseRefreshCoordinatorTests
     public PackageReleaseRefreshCoordinatorTests()
     {
         _httpClient = new HttpClient();
-        _clients = new BeutlApiApplication(_httpClient, new ExtensionProvider());
+        _clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(_httpClient, new ExtensionProvider()));
     }
 
     [OneTimeTearDown]
-    public async Task OneTimeTearDown()
+    public void OneTimeTearDown()
     {
-        try
-        {
-            await _clients.DisposeAsync();
-        }
-        finally
-        {
-            _httpClient.Dispose();
-        }
+        _clients.Dispose();
+        _httpClient.Dispose();
     }
 
     [TestCase(true)]

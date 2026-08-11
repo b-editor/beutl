@@ -627,4 +627,80 @@
     <value>Reinstall</value>
     <comment/>
   </data>
+  <data name="AiPlan" xml:space="preserve">
+    <value>AI plan</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_Plan" xml:space="preserve">
+    <value>Plan</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_Pro" xml:space="preserve">
+    <value>Pro</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_Free" xml:space="preserve">
+    <value>Free</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_SubscriptionStatus" xml:space="preserve">
+    <value>Subscription status</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_Active" xml:space="preserve">
+    <value>Active</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_Canceled" xml:space="preserve">
+    <value>Canceled</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_CancelScheduled" xml:space="preserve">
+    <value>Cancels at period end</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_CancelScheduledNotice" xml:space="preserve">
+    <value>Your cancellation is scheduled. Pro features stay available until {0}.</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_ActionRequired" xml:space="preserve">
+    <value>Payment action required</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_MonthlyUsage" xml:space="preserve">
+    <value>Monthly usage</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_MonthlyRemaining" xml:space="preserve">
+    <value>Monthly remaining</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_AdditionalCredits" xml:space="preserve">
+    <value>Additional credits</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_AdditionalCreditDebt" xml:space="preserve">
+    <value>Credit reversal debt</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_ManageAndTopUp" xml:space="preserve">
+    <value>Manage / top up</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_JoinPro" xml:space="preserve">
+    <value>Join Pro</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_Manage_Description" xml:space="preserve">
+    <value>View monthly AI usage and manage your plan or additional credits.</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_LoadFailed" xml:space="preserve">
+    <value>Failed to load the AI plan information.</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_Loading" xml:space="preserve">
+    <value>Loading AI plan…</value>
+    <comment/>
+  </data>
 </root>

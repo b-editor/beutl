@@ -46,6 +46,8 @@
   <Project Path="sdk\Beutl.Extensibility.Sdk\Beutl.Extensibility.Sdk.csproj" />
   <Project Path="src\Beutl.AgentToolkit\Beutl.AgentToolkit.csproj" />
   <Project Path="src\Beutl.AgentToolkit.Mcp\Beutl.AgentToolkit.Mcp.csproj" />
+  <Project Path="src/Beutl.Api.Abstractions/Beutl.Api.Abstractions.csproj" />
+  <Project Path="src/Beutl.Editor.Abstractions/Beutl.Editor.Abstractions.csproj" />
   <Project Path="src/Beutl.Editor/Beutl.Editor.csproj" />
   <Project Path="src\Beutl.Api\Beutl.Api.csproj" />
   <Project Path="src\Beutl.Configuration\Beutl.Configuration.csproj" />

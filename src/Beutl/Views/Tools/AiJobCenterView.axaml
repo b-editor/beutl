@@ -1,0 +1,250 @@
+<UserControl x:Class="Beutl.Views.Tools.AiJobCenterView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModels="using:Beutl.ViewModels.Tools"
+             d:DesignHeight="640"
+             d:DesignWidth="340"
+             x:CompileBindings="True"
+             x:DataType="viewModels:AiJobCenterViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+        <Grid Grid.Row="0"
+              Margin="8"
+              ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2">
+                <TextBlock FontSize="16"
+                           FontWeight="SemiBold"
+                           Text="{x:Static lang:Strings.AiJobCenter}" />
+                <TextBlock FontSize="11"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{x:Static lang:Strings.AiJobCenter_Description}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+            <Button x:Name="RefreshButton"
+                    Grid.Column="1"
+                    Padding="7"
+                    AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                    Command="{CompiledBinding Refresh}"
+                    Theme="{StaticResource TransparentButton}"
+                    ToolTip.Tip="{x:Static lang:Strings.Refresh}">
+                <icons:FluentIcon Icon="ArrowSync" />
+            </Button>
+        </Grid>
+
+        <Border Grid.Row="1"
+                Margin="8,0"
+                Padding="8"
+                Background="{DynamicResource ControlFillColorDefaultBrush}"
+                CornerRadius="6"
+                IsVisible="{CompiledBinding Usage.HasSnapshot.Value}">
+            <StackPanel Spacing="3">
+                <TextBlock FontSize="11"
+                           Text="{CompiledBinding Usage.MonthlyUsageText.Value}" />
+                <ProgressBar Maximum="100"
+                             Minimum="0"
+                             AutomationProperties.Name="{CompiledBinding Usage.MonthlyUsageText.Value}"
+                             Value="{CompiledBinding Usage.UsagePercent.Value}" />
+                <TextBlock FontSize="11"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{CompiledBinding Usage.MonthlyRemainingText.Value}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="2"
+                   Margin="8"
+                   AutomationProperties.LiveSetting="Assertive"
+                   AutomationProperties.Name="{CompiledBinding Error.Value}"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Text="{CompiledBinding Error.Value}"
+                   TextWrapping="Wrap" />
+
+        <Border Grid.Row="3"
+                Margin="8,0,8,8"
+                Padding="10"
+                BorderBrush="{DynamicResource AccentFillColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="7"
+                IsVisible="{CompiledBinding IsConfirmationOpen.Value}">
+            <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold"
+                           Text="{CompiledBinding ConfirmationTitle.Value}" />
+                <TextBlock AutomationProperties.LiveSetting="Polite"
+                           AutomationProperties.Name="{CompiledBinding ConfirmationMessage.Value}"
+                           Text="{CompiledBinding ConfirmationMessage.Value}"
+                           TextWrapping="Wrap" />
+                <StackPanel HorizontalAlignment="Right"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                    <ui:ProgressRing Width="18"
+                                     Height="18"
+                                     AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_CheckingRetryCost}"
+                                     IsIndeterminate="True"
+                                     IsVisible="{CompiledBinding IsConfirmationLoading.Value}" />
+                    <Button x:Name="ConfirmationCancelButton"
+                            AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                            Click="OnCancelConfirmationClick"
+                            Content="{x:Static lang:Strings.Cancel}" />
+                    <Button x:Name="ConfirmationConfirmButton"
+                            AutomationProperties.Name="{CompiledBinding ConfirmationActionText.Value}"
+                            Click="OnConfirmClick"
+                            Content="{CompiledBinding ConfirmationActionText.Value}"
+                            IsEnabled="{CompiledBinding CanConfirm.Value}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="4">
+            <TextBlock Margin="16"
+                       AutomationProperties.LiveSetting="Polite"
+                       AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_Empty}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       IsVisible="{CompiledBinding ShowEmptyState.Value}"
+                       Text="{x:Static lang:Strings.AiJobCenter_Empty}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+
+            <Grid RowDefinitions="*,Auto"
+                  IsVisible="{CompiledBinding HasJobs.Value}">
+                <ListBox x:Name="JobList"
+                         Grid.Row="0"
+                         Margin="4"
+                         AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ItemsSource="{CompiledBinding Jobs}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:AiJobItemViewModel">
+                            <Border Margin="4,0,4,8"
+                                    Padding="10"
+                                    AutomationProperties.Name="{CompiledBinding Summary}"
+                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="7">
+                                <StackPanel Spacing="7">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock FontWeight="SemiBold"
+                                                   Text="{CompiledBinding KindDisplayName}" />
+                                        <Border Grid.Column="1"
+                                                Padding="6,2"
+                                                Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                                                CornerRadius="8">
+                                            <TextBlock AutomationProperties.LiveSetting="Polite"
+                                                       AutomationProperties.Name="{CompiledBinding StatusDisplayName}"
+                                                       FontSize="10"
+                                                       Text="{CompiledBinding StatusDisplayName}" />
+                                        </Border>
+                                    </Grid>
+                                    <TextBlock MaxLines="3"
+                                               Text="{CompiledBinding Summary}"
+                                               TextTrimming="CharacterEllipsis"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock FontSize="11"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               IsVisible="{CompiledBinding HasDetails}"
+                                               Text="{CompiledBinding Details}"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock FontSize="10"
+                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                               Text="{CompiledBinding CreatedAtText}" />
+                                    <TextBlock AutomationProperties.LiveSetting="Assertive"
+                                               AutomationProperties.Name="{CompiledBinding Error}"
+                                               Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                               IsVisible="{CompiledBinding IsFailed}"
+                                               Text="{CompiledBinding Error}"
+                                               TextWrapping="Wrap" />
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+                                        <Button Grid.Column="0"
+                                                Margin="0,0,6,0"
+                                                AutomationProperties.Name="{x:Static lang:Strings.AiAddToScene}"
+                                                Click="OnAddToSceneClick"
+                                                Content="{x:Static lang:Strings.AiAddToScene}"
+                                                IsEnabled="{CompiledBinding !IsBusy.Value}"
+                                                IsVisible="{CompiledBinding CanAddToScene}"
+                                                Tag="{Binding}"
+                                                ToolTip.Tip="{x:Static lang:Strings.AiAddToScene}" />
+                                        <Button Grid.Column="1"
+                                                Margin="0,0,6,0"
+                                                AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_Retry}"
+                                                Click="OnRetryClick"
+                                                Content="{x:Static lang:Strings.AiJobCenter_Retry}"
+                                                IsEnabled="{CompiledBinding !IsBusy.Value}"
+                                                IsVisible="{CompiledBinding CanRetry}"
+                                                Tag="{Binding}"
+                                                ToolTip.Tip="{x:Static lang:Strings.AiJobCenter_Retry}" />
+                                        <Button Grid.Column="2"
+                                                AutomationProperties.Name="{x:Static lang:Strings.Delete}"
+                                                Click="OnDeleteClick"
+                                                Content="{x:Static lang:Strings.Delete}"
+                                                IsEnabled="{CompiledBinding !IsBusy.Value}"
+                                                IsVisible="{CompiledBinding CanDelete}"
+                                                Tag="{Binding}"
+                                                ToolTip.Tip="{x:Static lang:Strings.Delete}" />
+                                        <ui:ProgressRing Grid.Column="4"
+                                                         Width="18"
+                                                         Height="18"
+                                                         AutomationProperties.Name="{CompiledBinding StatusDisplayName}"
+                                                         IsIndeterminate="True"
+                                                         IsVisible="{CompiledBinding ShouldPoll}" />
+                                        <ui:ProgressRing Grid.Column="4"
+                                                         Width="18"
+                                                         Height="18"
+                                                         AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_StatusRunning}"
+                                                         IsIndeterminate="True"
+                                                         IsVisible="{CompiledBinding IsBusy.Value}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Grid.Row="1"
+                            Margin="8,0,8,8"
+                            HorizontalAlignment="Center"
+                            IsVisible="{CompiledBinding ShowListFooter.Value}"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                    <Button x:Name="LoadMoreButton"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_LoadMore}"
+                            Command="{CompiledBinding LoadMore}"
+                            Content="{x:Static lang:Strings.AiJobCenter_LoadMore}"
+                            IsVisible="{CompiledBinding HasMore.Value}"
+                            ToolTip.Tip="{x:Static lang:Strings.AiJobCenter_LoadMore}" />
+                    <ui:ProgressRing Width="18"
+                                     Height="18"
+                                     AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                                     IsIndeterminate="True"
+                                     IsVisible="{CompiledBinding IsListLoading.Value}" />
+                </StackPanel>
+            </Grid>
+
+            <ui:ProgressRing Width="28"
+                             Height="28"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                             IsIndeterminate="True"
+                             IsVisible="{CompiledBinding IsInitialLoading.Value}" />
+        </Grid>
+    </Grid>
+</UserControl>

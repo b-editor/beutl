@@ -35,6 +35,8 @@
     <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
     <ProjectReference Include="..\..\src\Beutl.NodeGraph\Beutl.NodeGraph.csproj" />
     <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Api.Abstractions\Beutl.Api.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Editor.Abstractions\Beutl.Editor.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Editor.Components\Beutl.Editor.Components.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
@@ -53,6 +55,7 @@
     <Compile Include="..\..\src\Beutl\Helpers\CancellationTokenSourceHelper.cs" Link="Helpers\Linked\CancellationTokenSourceHelper.cs" />
     <Compile Include="..\..\src\Beutl\Helpers\HistoryMutationPlaybackGuard.cs" Link="Helpers\Linked\HistoryMutationPlaybackGuard.cs" />
     <Compile Include="..\..\src\Beutl\Models\BufferedPlayerWaitGate.cs" Link="Models\Linked\BufferedPlayerWaitGate.cs" />
+    <Compile Include="..\..\src\Beutl\Services\AI\CaptionDraftStore.cs" Link="Services\AI\Linked\CaptionDraftStore.cs" />
   </ItemGroup>
 
   <ItemGroup>

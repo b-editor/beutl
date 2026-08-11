@@ -53,13 +53,14 @@ public static class AnimationEditTutorial
                 if (adder == null) return false;
 
                 // 楕円要素を追加
-                adder.AddElement(new ElementDescription(
+                ElementAddResult addResult = await adder.AddAsync([new ElementDescription(
                     Start: TimeSpan.Zero,
                     Length: TimeSpan.FromSeconds(5),
                     Layer: 0,
-                    EngineObjectFactory: () => new EllipseShape()));
+                    Source: new ElementSource.EngineObject(() => new EllipseShape()))],
+                    CancellationToken.None);
 
-                return true;
+                return addResult.IsSuccess;
             },
             Steps =
             [

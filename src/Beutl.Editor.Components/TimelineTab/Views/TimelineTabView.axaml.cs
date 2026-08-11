@@ -544,15 +544,13 @@ public sealed partial class TimelineTabView : UserControl
 
         if (template != null)
         {
-            if (viewModel.EditorContext.GetService<IElementAdder>() is { } adder
-                && (template.BaseType == typeof(Element)
-                    || template.BaseType.IsAssignableTo(typeof(EngineObject))))
+            if (typeof(Element).IsAssignableFrom(template.ActualType)
+                || typeof(EngineObject).IsAssignableFrom(template.ActualType))
             {
-                // Element テンプレート、もしくは EngineObject テンプレート → 新しい Element を作って配置
-                adder.AddElementFromTemplate(
+                viewModel.AddElement.Execute(ElementTemplateResolver.CreateDescription(
                     template,
                     viewModel.ClickedFrame,
-                    viewModel.CalculateClickedLayer());
+                    viewModel.CalculateClickedLayer()));
             }
 
             e.Handled = true;
@@ -562,7 +560,7 @@ public sealed partial class TimelineTabView : UserControl
         {
             viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
-                EngineObjectFactory: () => (EngineObject)Activator.CreateInstance(type)!));
+                new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!)));
 
             e.Handled = true;
         }
@@ -570,7 +568,7 @@ public sealed partial class TimelineTabView : UserControl
         {
             viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
-                FileName: fileName));
+                new ElementSource.File(fileName)));
 
             e.Handled = true;
         }
@@ -653,7 +651,7 @@ public sealed partial class TimelineTabView : UserControl
             ViewModel.ClickedFrame,
             TimeSpan.FromSeconds(5),
             ViewModel.CalculateClickedLayer(),
-            EngineObjectFactory: () => (EngineObject)Activator.CreateInstance(operatorType)!));
+            new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(operatorType)!)));
     }
 
     private void AddAdjustmentLayerClick(object? sender, RoutedEventArgs e)
@@ -664,8 +662,9 @@ public sealed partial class TimelineTabView : UserControl
             ViewModel.ClickedFrame,
             TimeSpan.FromSeconds(5),
             ViewModel.CalculateClickedLayer(),
-            Name: Strings.AdjustmentLayer,
-            EngineObjectFactory: () => new Beutl.Graphics.SourceBackdrop { Clear = { CurrentValue = true } }));
+            new ElementSource.EngineObject(
+                () => new Beutl.Graphics.SourceBackdrop { Clear = { CurrentValue = true } }),
+            Name: Strings.AdjustmentLayer));
     }
 
     private void PopulateAddFromTemplateSubMenu()
@@ -687,14 +686,10 @@ public sealed partial class TimelineTabView : UserControl
         if (ViewModel == null) return;
         if (sender is not MenuFlyoutItem { Tag: ObjectTemplateItem template }) return;
 
-        if (ViewModel.EditorContext.GetService(typeof(IElementAdder))
-            is IElementAdder adder)
-        {
-            adder.AddElementFromTemplate(
-                template,
-                ViewModel.ClickedFrame,
-                ViewModel.CalculateClickedLayer());
-        }
+        ViewModel.AddElement.Execute(ElementTemplateResolver.CreateDescription(
+            template,
+            ViewModel.ClickedFrame,
+            ViewModel.CalculateClickedLayer()));
     }
 
     private void ShowSceneSettings(object? sender, RoutedEventArgs e)

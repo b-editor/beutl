@@ -84,4 +84,26 @@ public static class SharedFilePickerOptions
             ]
         };
     }
+
+    public static FilePickerSaveOptions SaveVideo()
+    {
+        return new()
+        {
+            FileTypeChoices =
+            [
+                new FilePickerFileType("All Videos")
+                {
+                    Patterns =
+                    [
+                        "*.mp4",
+                        "*.mov",
+                        "*.webm",
+                        "*.mkv"
+                    ],
+                    AppleUniformTypeIdentifiers = ["public.movie"],
+                    MimeTypes = ["video/*"]
+                }
+            ]
+        };
+    }
 }

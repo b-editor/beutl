@@ -61,4 +61,14 @@ public enum ApiErrorCode
     VirtualAssetCannotBeDownloaded,
 
     CannotDeleteReleaseAssets,
+
+    AiPlanRequired,
+
+    AiUsageLimitExceeded,
+
+    AiProviderError,
+
+    AiJobNotFound,
+
+    AiJobLimitReached,
 }

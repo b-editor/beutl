@@ -1,0 +1,648 @@
+﻿using System.Reactive.Disposables;
+using Avalonia;
+using System.Text.Json.Nodes;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
+using Beutl.Api;
+using Beutl.Api.Services;
+using Beutl.Editor.Services;
+using Beutl.Graphics;
+using Beutl.Language;
+using Beutl.Logging;
+using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.ProjectSystem;
+using Beutl.Services;
+using Beutl.Services.AI;
+using Beutl.Services.PrimitiveImpls;
+using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Reactive.Bindings;
+
+namespace Beutl.ViewModels.Dialogs;
+
+public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
+{
+    private readonly CompositeDisposable _disposables = [];
+    private readonly AsyncOperationLifetime _operations = new();
+    private readonly object _disposeGate = new();
+    private readonly ILogger _logger = Log.CreateLogger<AiImageEditDialogViewModel>();
+    private readonly IAiEntitlementService _entitlements;
+    private readonly IAiPlanCoordinator _aiPlanCoordinator;
+    private readonly IAiImageEditingService _images;
+    private readonly IAuthenticatedContentService _content;
+    private readonly EditViewModel? _editViewModel;
+    private string? _sourceElementId;
+    private AiImageEditResultSnapshot? _resultSnapshot;
+    private Task? _disposeTask;
+
+    public AiImageEditDialogViewModel(
+        IAiEntitlementService entitlements,
+        IAiPlanCoordinator aiPlanCoordinator,
+        IAiImageEditingService images,
+        IAuthenticatedContentService content,
+        EditViewModel? editViewModel = null)
+    {
+        _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
+        _aiPlanCoordinator = aiPlanCoordinator
+            ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
+        _images = images ?? throw new ArgumentNullException(nameof(images));
+        _content = content ?? throw new ArgumentNullException(nameof(content));
+        _editViewModel = editViewModel;
+        Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
+        PromptLibrary = new AiPromptLibraryViewModel(
+                PromptTaskKind.ImageEdit,
+                () => Prompt.Value,
+                prompt => Prompt.Value = prompt)
+            .DisposeWith(_disposables);
+
+        Tasks =
+        [
+            new AiImageEditTaskOption("remove_background", Strings.AiEditRemoveBackground),
+            new AiImageEditTaskOption("upscale", Strings.AiEditUpscale),
+            new AiImageEditTaskOption("restyle", Strings.AiEditRestyle),
+            new AiImageEditTaskOption("remove_object", Strings.AiEditRemoveObject),
+            new AiImageEditTaskOption("outpaint", Strings.AiEditOutpaint),
+        ];
+        SelectedTask = new ReactivePropertySlim<AiImageEditTaskOption>(Tasks[0])
+            .DisposeWith(_disposables);
+        EstimatedUsage = new AiUsageEstimateViewModel(
+                Usage,
+                SelectedTask.CombineLatest(
+                    _entitlements.Entitlements,
+                    (task, entitlements) => entitlements?.Availability.CanStart(
+                        AiOperations.ImageEdit(new AiImageEditTaskId(task.Value))) ?? false))
+            .DisposeWith(_disposables);
+
+        ComparisonModes =
+        [
+            new AiImageComparisonMode("result", Strings.AiPreviewResult, false, true),
+            new AiImageComparisonMode("original", Strings.AiPreviewOriginal, true, false),
+            new AiImageComparisonMode("side_by_side", Strings.AiPreviewSideBySide, true, true),
+        ];
+        SelectedComparisonMode = new ReactivePropertySlim<AiImageComparisonMode>(ComparisonModes[0])
+            .DisposeWith(_disposables);
+
+        OutpaintExpansionOptions =
+        [
+            new AiOutpaintExpansionOption(10),
+            new AiOutpaintExpansionOption(25),
+            new AiOutpaintExpansionOption(50),
+        ];
+        SelectedOutpaintExpansion = new ReactivePropertySlim<AiOutpaintExpansionOption>(OutpaintExpansionOptions[1])
+            .DisposeWith(_disposables);
+        RequiresPrompt = SelectedTask
+            .Select(task => task.Value is "restyle" or "remove_object" or "outpaint")
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        ShowOutpaintExpansion = SelectedTask
+            .Select(task => task.Value == "outpaint")
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        PromptWatermark = SelectedTask
+            .Select(task => task.Value switch
+            {
+                "restyle" => Strings.AiEditRestylePrompt,
+                "remove_object" => Strings.AiEditRemoveObjectPrompt,
+                "outpaint" => Strings.AiEditOutpaintPrompt,
+                _ => Strings.AiPrompt_Placeholder,
+            })
+            .ToReadOnlyReactivePropertySlim(Strings.AiPrompt_Placeholder)
+            .DisposeWith(_disposables);
+
+        IsEditing = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
+
+        SelectSourceFileCommand = new AsyncReactiveCommand()
+            .WithSubscribe(SelectSourceFileAsync);
+
+        SourceFilePath.Subscribe(LoadOriginalPreview).DisposeWith(_disposables);
+
+        CanEdit = SourceFilePath
+            .Select(x => !string.IsNullOrEmpty(x))
+            .CombineLatest(IsEditing, (hasSource, editing) => hasSource && !editing)
+            .CombineLatest(
+                RequiresPrompt,
+                Prompt,
+                (canEdit, requiresPrompt, prompt) =>
+                    canEdit && (!requiresPrompt || !string.IsNullOrWhiteSpace(prompt)))
+            .CombineLatest(EstimatedUsage.CanAfford, (canEdit, canAfford) => canEdit && canAfford)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Edit = new AsyncReactiveCommand(CanEdit)
+            .WithSubscribe(EditCore);
+
+        CanAddToScene = ResultImage
+            .Select(x => x != null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        AddToScene = new AsyncReactiveCommand(CanAddToScene)
+            .WithSubscribe(AddToSceneCore);
+
+        SaveToFile = new AsyncReactiveCommand(CanAddToScene)
+            .WithSubscribe(SaveToFileCore);
+
+        OpenAiPlan = new ReactiveCommand();
+        OpenAiPlan.Subscribe(aiPlanCoordinator.OpenAiPlan).DisposeWith(_disposables);
+
+        ShowJoinPro = Usage.HasSnapshot
+            .CombineLatest(Usage.CanUseAi, (hasSnapshot, canUseAi) => hasSnapshot && !canUseAi)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        ShowOriginalPreview = SelectedComparisonMode
+            .CombineLatest(OriginalImage, (mode, image) => mode.Value == "original" && image is not null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        ShowResultPreview = SelectedComparisonMode
+            .CombineLatest(ResultImage, (mode, image) => mode.Value == "result" && image is not null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        ShowSideBySidePreview = SelectedComparisonMode
+            .CombineLatest(
+                OriginalImage,
+                ResultImage,
+                (mode, original, result) => mode.Value == "side_by_side" && original is not null && result is not null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        ShowPreviewPlaceholder = OriginalImage
+            .CombineLatest(ResultImage, (original, result) => original is null && result is null)
+            .ToReadOnlyReactivePropertySlim(true)
+            .DisposeWith(_disposables);
+
+        CoreObject? selectedObject = editViewModel?.GetService<IEditorSelection>()?.SelectedObject.Value;
+        SourceFilePath.Value = GetSelectedImageSourcePath(selectedObject);
+        _sourceElementId = selectedObject is Element selectedElement
+            ? selectedElement.Id.ToString("N")
+            : null;
+
+        _ = LoadEntitlementsAsync();
+    }
+
+    public ToolTabExtension Extension => AiImageEditTabExtension.Instance;
+
+    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.AiImageEdit);
+
+    public IReadOnlyList<AiImageEditTaskOption> Tasks { get; }
+
+    public ReactivePropertySlim<AiImageEditTaskOption> SelectedTask { get; }
+
+    public IReadOnlyList<AiImageComparisonMode> ComparisonModes { get; }
+
+    public ReactivePropertySlim<AiImageComparisonMode> SelectedComparisonMode { get; }
+
+    public IReadOnlyList<AiOutpaintExpansionOption> OutpaintExpansionOptions { get; }
+
+    public ReactivePropertySlim<AiOutpaintExpansionOption> SelectedOutpaintExpansion { get; }
+
+    public ReactivePropertySlim<string> Prompt { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> RequiresPrompt { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> ShowOutpaintExpansion { get; }
+
+    public ReadOnlyReactivePropertySlim<string> PromptWatermark { get; }
+
+    public ReactivePropertySlim<string?> SourceFilePath { get; } = new();
+
+    public AsyncReactiveCommand SelectSourceFileCommand { get; }
+
+    public ReactivePropertySlim<bool> IsEditing { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
+
+    public AsyncReactiveCommand Edit { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanAddToScene { get; }
+
+    public AsyncReactiveCommand AddToScene { get; }
+
+    public AsyncReactiveCommand SaveToFile { get; }
+
+    public ReactiveCommand OpenAiPlan { get; }
+
+    internal IAiPlanCoordinator AiPlanCoordinator => _aiPlanCoordinator;
+
+    public ReactivePropertySlim<Ref<Bitmap>?> ResultImage { get; } = new();
+
+    public ReactivePropertySlim<Ref<Bitmap>?> OriginalImage { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> ShowOriginalPreview { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> ShowResultPreview { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> ShowSideBySidePreview { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> ShowPreviewPlaceholder { get; }
+
+    internal AiUsageViewModel Usage { get; }
+
+    internal AiUsageEstimateViewModel EstimatedUsage { get; }
+
+    internal AiPromptLibraryViewModel PromptLibrary { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> ShowJoinPro { get; }
+
+    public ReactivePropertySlim<string?> Error { get; } = new();
+
+    public object? GetService(Type serviceType) => _editViewModel?.GetService(serviceType);
+
+    public void ReadFromJson(JsonObject json)
+    {
+        // Source images, prompts, and results are intentionally scoped to the current editor session.
+    }
+
+    public void WriteToJson(JsonObject json)
+    {
+        // Source images, prompts, and results are intentionally scoped to the current editor session.
+    }
+
+    public void Dispose() => _ = BeginDisposeAsync();
+
+    public ValueTask DisposeAsync() => new(BeginDisposeAsync());
+
+    private Task BeginDisposeAsync()
+    {
+        lock (_disposeGate)
+        {
+            return _disposeTask ??= DisposeCoreAsync();
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        await _operations.DisposeAsync();
+        ResultImage.Value?.Dispose();
+        ResultImage.Dispose();
+        OriginalImage.Value?.Dispose();
+        OriginalImage.Dispose();
+        SourceFilePath.Dispose();
+        Prompt.Dispose();
+        Error.Dispose();
+        IsSelected.Dispose();
+        _disposables.Dispose();
+    }
+
+    internal static string? GetSelectedImageSourcePath(CoreObject? selectedObject)
+    {
+        if (selectedObject is not Element element)
+            return null;
+
+        return element.Objects
+            .OfType<SourceImage>()
+            .Select(source => source.Source.CurrentValue)
+            .Where(source => source is { HasUri: true } && source.Uri.IsFile)
+            .Select(source => source!.Uri.LocalPath)
+            .FirstOrDefault(File.Exists);
+    }
+
+    private async Task LoadEntitlementsAsync()
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        try
+        {
+            await _entitlements.RefreshAsync(operation.CancellationToken);
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load AI entitlements.");
+        }
+    }
+
+    public async Task SelectSourceFileAsync()
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+            { MainWindow: { } window })
+            return;
+
+        if (TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+            return;
+
+        FilePickerOpenOptions options = SharedFilePickerOptions.OpenImage();
+        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(options);
+        if (files.Count > 0)
+        {
+            operation.TryPublish(() =>
+            {
+                _sourceElementId = null;
+                SourceFilePath.Value = files[0].Path.LocalPath;
+            });
+        }
+    }
+
+    private void LoadOriginalPreview(string? filePath)
+    {
+        OriginalImage.Value?.Dispose();
+        OriginalImage.Value = null;
+        ResultImage.Value?.Dispose();
+        ResultImage.Value = null;
+        _resultSnapshot = null;
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            return;
+
+        try
+        {
+            OriginalImage.Value = Ref<Bitmap>.Create(Bitmap.FromFile(filePath));
+            SelectedComparisonMode.Value = ComparisonModes[1];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load the selected image preview.");
+            Error.Value = Strings.AiEditSourcePreviewFailed;
+        }
+    }
+
+    private async Task EditCore()
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        if (SourceFilePath.Value is not { } filePath)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiEditSelectSource);
+            return;
+        }
+
+        if (!operation.TryPublish(() =>
+            {
+                Error.Value = null;
+                IsEditing.Value = true;
+            }))
+        {
+            return;
+        }
+        string? preparedFilePath = null;
+        try
+        {
+            string task = SelectedTask.Value.Value;
+            string? prompt = RequiresPrompt.Value ? Prompt.Value.Trim() : null;
+            int? outpaintExpansionPercent = task == "outpaint"
+                ? SelectedOutpaintExpansion.Value.Percent
+                : null;
+            string uploadPath = filePath;
+            if (task == "outpaint")
+            {
+                preparedFilePath = PrepareOutpaintSource(
+                    filePath,
+                    outpaintExpansionPercent!.Value);
+                uploadPath = preparedFilePath;
+                prompt = $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt}";
+            }
+
+            AiImageResult response = await _images.EditAsync(
+                new AiImageEditRequest(
+                    AiUploadSource.FromFile(uploadPath),
+                    new AiImageEditTaskId(task),
+                    prompt),
+                operation.CancellationToken);
+
+            using var stream = new MemoryStream();
+            await _content.CopyToAsync(response.ContentUri, stream, operation.CancellationToken);
+            operation.CancellationToken.ThrowIfCancellationRequested();
+            stream.Position = 0;
+            var resultImage = Ref<Bitmap>.Create(Bitmap.FromStream(stream));
+            var snapshot = new AiImageEditResultSnapshot(
+                response.JobId,
+                response.FileId,
+                task,
+                prompt,
+                _sourceElementId,
+                outpaintExpansionPercent,
+                DateTimeOffset.UtcNow);
+            if (!operation.TryPublish(() =>
+                {
+                    ResultImage.Value?.Dispose();
+                    ResultImage.Value = resultImage;
+                    _resultSnapshot = snapshot;
+                    SelectedComparisonMode.Value = ComparisonModes[0];
+                    if (prompt is not null)
+                    {
+                        PromptLibrary.Record(Prompt.Value.Trim());
+                    }
+                }))
+            {
+                resultImage.Dispose();
+            }
+        }
+        catch (AuthenticationRequiredException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiAuthenticationRequired);
+        }
+        catch (AiPlanRequiredException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiProRequired);
+        }
+        catch (AiUsageLimitExceededException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
+        }
+        catch (AiFileTooLargeException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
+        }
+        catch (AiProviderErrorException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiProviderError);
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to edit AI image.");
+            operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
+        }
+        finally
+        {
+            operation.TryPublish(() => IsEditing.Value = false);
+            if (preparedFilePath is not null)
+            {
+                try
+                {
+                    File.Delete(preparedFilePath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to remove temporary outpaint input {Path}", preparedFilePath);
+                }
+            }
+        }
+    }
+
+    internal static string PrepareOutpaintSource(string filePath, int expansionPercent)
+    {
+        if (expansionPercent is < 1 or > 100)
+            throw new ArgumentOutOfRangeException(nameof(expansionPercent));
+
+        using Bitmap source = Bitmap.FromFile(filePath);
+        int horizontal = Math.Max(1, (int)Math.Round(source.Width * expansionPercent / 100d));
+        int vertical = Math.Max(1, (int)Math.Round(source.Height * expansionPercent / 100d));
+        using Bitmap expanded = source.MakeBorder(vertical, vertical, horizontal, horizontal);
+        string directory = Path.Combine(Path.GetTempPath(), "Beutl", "AI", "Inputs");
+        Directory.CreateDirectory(directory);
+        string result = Path.Combine(directory, $"outpaint-{Guid.NewGuid():N}.png");
+        expanded.Save(result, EncodedImageFormat.Png);
+        return result;
+    }
+
+    private async Task AddToSceneCore()
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        if (_editViewModel == null || ResultImage.Value?.Value is not { } bitmap)
+            return;
+
+        try
+        {
+            TimeSpan start = _editViewModel.Player.CurrentFrame.Value;
+            int layer = _editViewModel.Scene.Children
+                .Where(item => item.Start <= start && start < item.Range.End)
+                .Select(item => item.ZIndex)
+                .DefaultIfEmpty(-1)
+                .Max() + 1;
+            AiImageEditResultSnapshot snapshot = _resultSnapshot
+                ?? new AiImageEditResultSnapshot(
+                    null,
+                    null,
+                    SelectedTask.Value.Value,
+                    null,
+                    _sourceElementId,
+                    null,
+                    DateTimeOffset.UtcNow);
+            GenerationProvenance provenance = AiProvenanceFactory.ImageEdit(
+                snapshot.Task,
+                snapshot.SourceElementId,
+                snapshot.OutpaintExpansionPercent,
+                snapshot.GeneratedAt);
+            var importer = new AiResultImporter(_editViewModel);
+            ElementAddResult result = await importer.ImportImageAsync(
+                bitmap,
+                new AiResultImportOptions(
+                    start,
+                    TimeSpan.FromSeconds(5),
+                    layer,
+                    Strings.AiImageEdit,
+                    provenance),
+                operation.CancellationToken);
+
+            if (result.Failure is LockedElementLayerFailure)
+            {
+                operation.TryPublish(() =>
+                    NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked));
+                return;
+            }
+            EnsureImportSucceeded(result);
+            if (result.IsSuccess)
+            {
+                operation.TryPublish(() =>
+                    NotificationService.ShowSuccess(Strings.AiImageEdit, Strings.AiImageAddedToScene));
+            }
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to add the AI edited image to the scene.");
+            operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
+        }
+
+    }
+
+    private static void EnsureImportSucceeded(ElementAddResult result)
+    {
+        if (result.IsSuccess)
+            return;
+        throw new InvalidOperationException(
+            $"Failed to add the edited image: {result.Failure?.Id}.",
+            result.Failure?.Exception);
+    }
+
+    private async Task SaveToFileCore()
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        using Ref<Bitmap>? resultImage = AiResultImageLease.Acquire(ResultImage.Value);
+        if (resultImage?.Value is not { } bitmap)
+            return;
+
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+            { MainWindow: { } window })
+            return;
+
+        if (TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+            return;
+
+        FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+        options.SuggestedFileName = $"AI Edit {DateTime.Now:yyyy-MM-dd HHmmss}";
+        options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
+        options.DefaultExtension = "png";
+
+        IStorageFile? file = await storage.SaveFilePickerAsync(options);
+        if (file == null)
+            return;
+
+        try
+        {
+            await using Stream stream = await file.OpenWriteAsync();
+            operation.CancellationToken.ThrowIfCancellationRequested();
+            stream.SetLength(0);
+            bitmap.Save(stream, EncodedImageFormat.Png);
+            operation.TryPublish(() =>
+                NotificationService.ShowSuccess(Strings.AiImageEdit, Strings.AiImageSaved));
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save the AI edited image.");
+            operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
+        }
+    }
+
+    private sealed record AiImageEditResultSnapshot(
+        AiJobId? JobId,
+        AiContentId? FileId,
+        string Task,
+        string? Prompt,
+        string? SourceElementId,
+        int? OutpaintExpansionPercent,
+        DateTimeOffset GeneratedAt);
+
+}
+
+public sealed record AiImageEditTaskOption(string Value, string DisplayName)
+{
+    public override string ToString() => DisplayName;
+}
+
+public sealed record AiImageComparisonMode(
+    string Value,
+    string DisplayName,
+    bool ShowOriginal,
+    bool ShowResult)
+{
+    public override string ToString() => DisplayName;
+}
+
+public sealed record AiOutpaintExpansionOption(int Percent)
+{
+    public override string ToString() => $"{Percent}%";
+}

@@ -11,10 +11,11 @@ public sealed class ExtensionProviderTests
     private sealed class OtherStubExtension : Extension;
 
     [Test]
-    public void ExtensionProvider_ImplementsIExtensionProvider()
+    public void ExtensionProvider_ImplementsMutableRegistryAbstraction()
     {
         var provider = new ExtensionProvider();
 
+        Assert.That(provider, Is.InstanceOf<IExtensionRegistry>());
         Assert.That(provider, Is.InstanceOf<IExtensionProvider>());
     }
 

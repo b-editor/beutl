@@ -68,6 +68,7 @@ internal static class CoreLibraries
                         {
                             case "Beutl":
                             case "Beutl.Api":
+                            case "Beutl.Api.Abstractions":
                             case "Beutl.Configuration":
                             case "Beutl.Controls":
                             case "Beutl.Core":
@@ -85,6 +86,7 @@ internal static class CoreLibraries
                             case "Beutl.PackageTools.UI":
                             case "Beutl.ExceptionHandler":
                             case "Beutl.Editor":
+                            case "Beutl.Editor.Abstractions":
                             case "Beutl.Editor.Components":
                             case "Beutl.Engine.SourceGenerators":
                                 version = BeutlApplication.Version;

@@ -1,30 +1,152 @@
-﻿using System.Net;
-using System.Net.Http.Json;
-using System.Text;
+﻿using System.Reflection;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
-using Beutl.Testing.Headless;
+using Beutl.Extensibility;
+using Moq;
+using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Api;
 
 [TestFixture]
-[NonParallelizable]
 public sealed class BeutlApiApplicationTests
 {
     [Test]
-    public void Constructor_RegistersProvidedExtensionProvider()
+    public void Constructor_RegistersProvidedExtensionRegistryAbstraction()
     {
         using var httpClient = new HttpClient();
-        var extensionProvider = new ExtensionProvider();
-        var app = new BeutlApiApplication(httpClient, extensionProvider);
+        IExtensionRegistry extensionRegistry = new Mock<IExtensionRegistry>().Object;
+        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, extensionRegistry));
 
-        ExtensionProvider registeredProvider = app.GetResource<ExtensionProvider>();
+        IExtensionRegistry registeredRegistry = app.GetResource<IExtensionRegistry>();
         PackageManager packageManager = app.GetResource<PackageManager>();
 
-        Assert.That(registeredProvider, Is.SameAs(extensionProvider));
-        Assert.That(packageManager.ExtensionProvider, Is.SameAs(extensionProvider));
+        Assert.That(registeredRegistry, Is.SameAs(extensionRegistry));
+        Assert.That(packageManager.ExtensionRegistry, Is.SameAs(extensionRegistry));
+        Assert.That(
+            app.AuthenticatedUser,
+            Is.Not.InstanceOf<global::Reactive.Bindings.ReactivePropertySlim<
+                Beutl.Api.Objects.AuthenticatedUser?>>());
+    }
+
+    [Test]
+    public void Create_DefaultsToProductionOrigins()
+    {
+        using var httpClient = new HttpClient();
+
+        using var app = BeutlApiApplication.Create(
+            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(app.ApiBaseUri, Is.EqualTo(new Uri("https://beutl.beditor.net/")));
+            Assert.That(app.PortalBaseUri, Is.EqualTo(new Uri("https://beutl.beditor.net/")));
+            Assert.That(httpClient.BaseAddress, Is.EqualTo(app.ApiBaseUri));
+            Assert.That(
+                app.AccountSettingsUri,
+                Is.EqualTo(new Uri("https://beutl.beditor.net/account/manage")));
+            Assert.That(
+                app.GetAiPlanUri("ja"),
+                Is.EqualTo(new Uri("https://beutl.beditor.net/ja/account/manage/ai-plan")));
+        }
+    }
+
+    [Test]
+    public void Create_RegistersBuiltInJobKindsThroughTheDescriptorRegistry()
+    {
+        using var httpClient = new HttpClient();
+        using var app = BeutlApiApplication.Create(
+            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        IAiJobKindRegistry registry = app.GetResource<IAiJobKindRegistry>();
+        var runningVideo = new AiJob(
+            new AiJobId("job-1"),
+            AiJobKinds.Video,
+            AiJobStatuses.Running,
+            null,
+            null,
+            null,
+            null,
+            false,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
+
+        AiJobStatusSemantics status = registry.GetStatus(runningVideo);
+        Assert.That(registry.TryAcquire(AiJobKinds.Video, out IAiJobKindLease? lease), Is.True);
+        using (lease)
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(status.IsTerminal, Is.False);
+            Assert.That(status.ShouldPoll, Is.True);
+            Assert.That(status.Outcome, Is.Null);
+            Assert.That(lease!.Descriptor.RefreshHandler, Is.Not.Null);
+            Assert.That(lease.Descriptor.RetryHandler, Is.Not.Null);
+        }
+    }
+
+    [Test]
+    public void Create_PreservesCallerApiOriginAndAllowsIndependentPortalOrigin()
+    {
+        using var httpClient = new HttpClient
+        {
+            BaseAddress = new Uri("http://localhost:4100/"),
+        };
+        var options = new BeutlApiApplicationOptions(httpClient, new ExtensionProvider())
+        {
+            PortalBaseUri = new Uri("http://localhost:4200/portal/"),
+            AuthenticationStateFileName = "user.local.json",
+        };
+
+        using var app = BeutlApiApplication.Create(options);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(app.ApiBaseUri, Is.EqualTo(new Uri("http://localhost:4100/")));
+            Assert.That(app.PortalBaseUri, Is.EqualTo(new Uri("http://localhost:4200/portal/")));
+            Assert.That(
+                app.AccountSettingsUri,
+                Is.EqualTo(new Uri("http://localhost:4200/portal/account/manage")));
+        }
+    }
+
+    [Test]
+    public void Create_ExplicitApiOriginOverridesCallerBaseAddress()
+    {
+        using var httpClient = new HttpClient
+        {
+            BaseAddress = new Uri("https://old.example.test/"),
+        };
+        var options = new BeutlApiApplicationOptions(httpClient, new ExtensionProvider())
+        {
+            ApiBaseUri = new Uri("https://api.example.test/"),
+        };
+
+        using var app = BeutlApiApplication.Create(options);
+
+        Assert.That(app.ApiBaseUri, Is.EqualTo(new Uri("https://api.example.test/")));
+        Assert.That(httpClient.BaseAddress, Is.EqualTo(app.ApiBaseUri));
+    }
+
+    [Test]
+    public void Create_RejectsUnsafeOriginsAndAuthenticationStatePaths()
+    {
+        using var httpClient = new HttpClient();
+
+        Assert.Throws<ArgumentException>(() => BeutlApiApplication.Create(
+            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider())
+            {
+                ApiBaseUri = new Uri("file:///tmp/api"),
+            }));
+        Assert.Throws<ArgumentException>(() => BeutlApiApplication.Create(
+            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider())
+            {
+                ApiBaseUri = new Uri("https://api.example.test/prefix/"),
+            }));
+        Assert.Throws<ArgumentException>(() => BeutlApiApplication.Create(
+            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider())
+            {
+                AuthenticationStateFileName = "../user.json",
+            }));
     }
 
     [Test]
@@ -32,426 +154,91 @@ public sealed class BeutlApiApplicationTests
     {
         var extensionProvider = new ExtensionProvider();
 
-        Assert.Throws<ArgumentNullException>(() => _ = new BeutlApiApplication(null!, extensionProvider));
+        Assert.Throws<ArgumentNullException>(() => _ = BeutlApiApplication.Create(new BeutlApiApplicationOptions(null!, extensionProvider)));
     }
 
     [Test]
-    public void Constructor_NullExtensionProvider_Throws()
+    public void Constructor_NullExtensionRegistry_Throws()
     {
         using var httpClient = new HttpClient();
 
-        Assert.Throws<ArgumentNullException>(() => _ = new BeutlApiApplication(httpClient, null!));
+        Assert.Throws<ArgumentNullException>(() => _ = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, null!)));
     }
 
     [Test]
-    public void ToServerType_Flatpak_MapsToZip()
-    {
-        Assert.That(BeutlApiApplication.ToServerType("flatpak"), Is.EqualTo("zip"));
-    }
-
-    [TestCase("zip")]
-    [TestCase("debian")]
-    [TestCase("installer")]
-    [TestCase("app")]
-    public void ToServerType_KnownType_PassesThrough(string type)
-    {
-        Assert.That(BeutlApiApplication.ToServerType(type), Is.EqualTo(type));
-    }
-
-    [Test]
-    public async Task CheckForUpdatesAsync_WithFlatpakMetadata_SendsZipType()
-    {
-        // LoadMetadata reads asset_metadata.json from AppContext.BaseDirectory (cached per process).
-        string metadataPath = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
-        string? originalContent = File.Exists(metadataPath) ? File.ReadAllText(metadataPath) : null;
-        try
-        {
-            File.WriteAllText(metadataPath, """
-                {
-                  "id": "test-id",
-                  "os": "linux",
-                  "arch": "x64",
-                  "version": "2.0.0-preview.6",
-                  "standalone": "true",
-                  "type": "flatpak"
-                }
-                """);
-            var handler = new CapturingHandler();
-            using var httpClient = new HttpClient(handler);
-            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-
-            var (v1, v3) = await app.CheckForUpdatesAsync("2.0.0-preview.6", CancellationToken.None);
-
-            Assert.That(handler.LastRequestUri, Is.Not.Null);
-            Assert.That(handler.LastRequestUri!.Query, Does.Contain("type=zip"));
-            Assert.That(handler.LastRequestUri!.Query, Does.Not.Contain("type=flatpak"));
-            Assert.That(v3, Is.Not.Null);
-            Assert.That(v1, Is.Null);
-        }
-        finally
-        {
-            if (originalContent != null)
-            {
-                File.WriteAllText(metadataPath, originalContent);
-            }
-            else
-            {
-                File.Delete(metadataPath);
-            }
-        }
-    }
-
-    [Test]
-    public async Task CheckForUpdatesAsync_PreCanceledTokenStopsBeforeMetadataRead()
-    {
-        // LoadMetadata reads asset_metadata.json from AppContext.BaseDirectory (cached per process).
-        string metadataPath = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
-        string? originalContent = File.Exists(metadataPath) ? File.ReadAllText(metadataPath) : null;
-        try
-        {
-            File.WriteAllText(metadataPath, """
-                {
-                  "id": "test-id",
-                  "os": "linux",
-                  "arch": "x64",
-                  "version": "2.0.0-preview.6",
-                  "standalone": "true",
-                  "type": "flatpak"
-                }
-                """);
-            using var httpClient = new HttpClient();
-            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-            using var cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.Cancel();
-
-            Assert.CatchAsync<OperationCanceledException>(async () =>
-                await app.CheckForUpdatesAsync("2.0.0-preview.6", cancellationTokenSource.Token));
-        }
-        finally
-        {
-            if (originalContent != null)
-            {
-                File.WriteAllText(metadataPath, originalContent);
-            }
-            else
-            {
-                File.Delete(metadataPath);
-            }
-        }
-    }
-
-    [Test]
-    public async Task CompleteSignInAsync_RestoresAuthorization_WhenGetSelfIsCanceled()
-    {
-        using var cancellationTokenSource = new CancellationTokenSource();
-        using var handler = new DelegateHandler((request, cancellationToken) =>
-        {
-            cancellationTokenSource.Cancel();
-            throw new OperationCanceledException(cancellationToken);
-        });
-        using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var authResponse = new AuthResponse
-        {
-            Token = "new-token",
-            RefreshToken = "new-refresh",
-            Expiration = DateTime.UtcNow.AddHours(1)
-        };
-
-        Assert.CatchAsync<OperationCanceledException>(async () =>
-            await app.CompleteSignInAsync(authResponse, cancellationTokenSource.Token));
-
-        Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
-            "the new bearer token must not remain after a canceled sign-in");
-    }
-
-    [Test]
-    public async Task CompleteSignInAsync_RestoresAuthenticatedUser_WhenPersistenceFails()
-    {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-        string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
-        Directory.CreateDirectory(userFile); // SaveUser's File.Create fails on a directory.
-        try
-        {
-            using var handler = new DelegateHandler((request, cancellationToken) =>
-                Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = JsonContent.Create(new ProfileResponse
-                    {
-                        Id = "new-profile",
-                        Name = "new-name",
-                        DisplayName = "New Name",
-                        Bio = null,
-                        IconId = null,
-                        IconUrl = null,
-                    })
-                }));
-            using var httpClient = new HttpClient(handler);
-            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-            var authResponse = new AuthResponse
-            {
-                Token = "new-token",
-                RefreshToken = "new-refresh",
-                Expiration = DateTime.UtcNow.AddHours(1)
-            };
-
-            Assert.CatchAsync<Exception>(async () =>
-                await app.CompleteSignInAsync(authResponse, CancellationToken.None));
-
-            Assert.That(app.AuthenticatedUser.Value, Is.Null,
-                "the failed sign-in must not leave a signed-in user");
-            Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
-                "the new bearer token must not remain after a failed sign-in");
-        }
-        finally
-        {
-            Directory.Delete(userFile, recursive: true);
-        }
-    }
-
-    [Test]
-    public async Task CompleteSignInAsync_DoesNotResurrectUser_WhenSignedOutDuringGetSelf()
-    {
-        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new DelegateHandler(async (request, cancellationToken) =>
-        {
-            requestStarted.TrySetResult();
-            await releaseRequest.Task;
-            throw new HttpRequestException("request failed");
-        });
-        using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var authResponse = new AuthResponse
-        {
-            Token = "new-token",
-            RefreshToken = "new-refresh",
-            Expiration = DateTime.UtcNow.AddHours(1)
-        };
-
-        Task<AuthenticatedUser> signIn = app.CompleteSignInAsync(authResponse, CancellationToken.None);
-        await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        // SignOut while GetSelf is pending; the failing attempt must not resurrect the user.
-        app.SignOut(false);
-        releaseRequest.TrySetResult();
-
-        Assert.CatchAsync<Exception>(async () =>
-            await signIn.WaitAsync(TimeSpan.FromSeconds(5)));
-        Assert.That(app.AuthenticatedUser.Value, Is.Null,
-            "SignOut must not be undone by the failing sign-in");
-    }
-
-    [Test]
-    public async Task CompleteSignInAsync_RestoresAuthorization_WhenCancelledAfterGetSelf()
-    {
-        var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var cancellation = new CancellationTokenSource();
-        using var handler = new DelegateHandler((request, cancellationToken) =>
-        {
-            requestCompleted.TrySetResult();
-            // Cancel while the response is being processed, so the recheck after GetSelf
-            // throws before the new token is committed.
-            cancellation.Cancel();
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = JsonContent.Create(new ProfileResponse
-                {
-                    Id = "new-profile",
-                    Name = "new-name",
-                    DisplayName = "New Name",
-                    Bio = null,
-                    IconId = null,
-                    IconUrl = null,
-                })
-            });
-        });
-        using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var authResponse = new AuthResponse
-        {
-            Token = "new-token",
-            RefreshToken = "new-refresh",
-            Expiration = DateTime.UtcNow.AddHours(1)
-        };
-
-        Task<AuthenticatedUser> signIn = app.CompleteSignInAsync(authResponse, cancellation.Token);
-        await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.CatchAsync<OperationCanceledException>(async () =>
-            await signIn.WaitAsync(TimeSpan.FromSeconds(5)));
-        Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
-            "the uncommitted new token must not remain after a canceled re-sign-in");
-    }
-
-    [Test]
-    public async Task RestoreUserAsync_RestoresAuthorization_WhenProfileRefreshIsCanceled()
-    {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-        string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
-        string original = """
-            {
-              "token": "restored-token",
-              "refresh_token": "restored-refresh",
-              "expiration": "2027-01-01T00:00:00Z",
-              "profile": {
-                "id": "restored-profile",
-                "name": "restored-name",
-                "displayName": "Restored Name",
-                "bio": null,
-                "iconId": null,
-                "iconUrl": null
-              }
-            }
-            """;
-        File.WriteAllText(userFile, original);
-        try
-        {
-            using var cancellationTokenSource = new CancellationTokenSource();
-            using var handler = new DelegateHandler((request, cancellationToken) =>
-            {
-                if (request.RequestUri!.PathAndQuery.StartsWith("/api/v3/user"))
-                {
-                    cancellationTokenSource.Cancel();
-                    throw new OperationCanceledException(cancellationToken);
-                }
-
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = JsonContent.Create(new ProfileResponse
-                    {
-                        Id = "restored-profile",
-                        Name = "restored-name",
-                        DisplayName = "Restored Name",
-                        Bio = null,
-                        IconId = null,
-                        IconUrl = null,
-                    })
-                });
-            });
-            using var httpClient = new HttpClient(handler);
-            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-
-            Assert.CatchAsync<OperationCanceledException>(async () =>
-                await app.RestoreUserAsync(null, cancellationTokenSource.Token));
-
-            Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
-                "the restored bearer token must not remain after a canceled restoration");
-            Assert.That(app.AuthenticatedUser.Value, Is.Null,
-                "the restored user must not remain after a canceled restoration");
-        }
-        finally
-        {
-            File.Delete(userFile);
-        }
-    }
-
-    [Test]
-    public async Task RestoreUserAsync_Rethrows_WhenCancelledAfterProfileRefresh()
-    {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-        string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
-        File.WriteAllText(userFile, """
-            {
-              "token": "restored-token",
-              "refresh_token": "restored-refresh",
-              "expiration": "2027-01-01T00:00:00Z",
-              "profile": {
-                "id": "restored-profile",
-                "name": "restored-name",
-                "displayName": "Restored Name",
-                "bio": null,
-                "iconId": null,
-                "iconUrl": null
-              }
-            }
-            """);
-        try
-        {
-            var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            BeutlApiApplication? appRef = null;
-            using var handler = new DelegateHandler((request, cancellationToken) =>
-            {
-                requestCompleted.TrySetResult();
-                // Dispose while the profile response is being processed, so the lifetime
-                // token is cancelled before RestoreUserAsync publishes the restored state.
-                appRef?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = JsonContent.Create(new ProfileResponse
-                    {
-                        Id = "restored-profile",
-                        Name = "restored-name",
-                        DisplayName = "Restored Name",
-                        Bio = null,
-                        IconId = null,
-                        IconUrl = null,
-                    })
-                });
-            });
-            using var httpClient = new HttpClient(handler);
-            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-            appRef = app;
-
-            Task restore = app.RestoreUserAsync(null, CancellationToken.None);
-            await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.CatchAsync<OperationCanceledException>(async () =>
-                await restore.WaitAsync(TimeSpan.FromSeconds(5)));
-        }
-        finally
-        {
-            File.Delete(userFile);
-        }
-    }
-
-    [Test]
-    public async Task CompleteSignInAsync_Rethrows_WhenCancelledAfterProfileResponse()
-    {
-        var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        BeutlApiApplication? appRef = null;
-        using var handler = new DelegateHandler((request, cancellationToken) =>
-        {
-            requestCompleted.TrySetResult();
-            // Dispose while the profile response is being processed, so the lifetime token
-            // is cancelled before CompleteSignInAsync publishes the signed-in state.
-            appRef?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = JsonContent.Create(new ProfileResponse
-                {
-                    Id = "new-profile",
-                    Name = "new-name",
-                    DisplayName = "New Name",
-                    Bio = null,
-                    IconId = null,
-                    IconUrl = null,
-                })
-            });
-        });
-        using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        appRef = app;
-        var authResponse = new AuthResponse
-        {
-            Token = "new-token",
-            RefreshToken = "new-refresh",
-            Expiration = DateTime.UtcNow.AddHours(1)
-        };
-
-        using CancellationTokenSource lifetimeCts = app.CreateLifetimeLinkedTokenSource(CancellationToken.None);
-        Task<AuthenticatedUser> signIn = app.CompleteSignInAsync(authResponse, lifetimeCts.Token);
-        await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.CatchAsync<OperationCanceledException>(async () =>
-            await signIn.WaitAsync(TimeSpan.FromSeconds(5)));
-    }
-
-    [Test]
-    public async Task ReadUserAsync_PreCanceledRequestStopsBeforeFileAccess()
+    public void Create_OverridesCapabilitiesIndependentlyBeforeResolution()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var replacement = new StubTranslationService();
+        var options = new BeutlApiApplicationOptions(httpClient, new ExtensionProvider());
+        options.Resources.Replace<IAiCaptionTranslationService>(_ => replacement);
+
+        using BeutlApiApplication app = BeutlApiApplication.Create(options);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(app.GetResource<IAiCaptionTranslationService>(), Is.SameAs(replacement));
+            Assert.That(app.GetResource<IAiTranscriptionService>(), Is.Not.SameAs(replacement));
+        }
+    }
+
+    [Test]
+    public void Create_OverridesImageGenerationWithoutReplacingImageEditing()
+    {
+        using var httpClient = new HttpClient();
+        var replacement = new StubImageGenerationService();
+        var options = new BeutlApiApplicationOptions(httpClient, new ExtensionProvider());
+        options.Resources.Replace<IAiImageGenerationService>(_ => replacement);
+
+        using BeutlApiApplication app = BeutlApiApplication.Create(options);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(app.GetResource<IAiImageGenerationService>(), Is.SameAs(replacement));
+            Assert.That(app.GetResource<IAiImageEditingService>(), Is.Not.SameAs(replacement));
+        }
+    }
+
+    [Test]
+    public void Create_UsesEffectiveExtensionRegistryAcrossRuntimeResources()
+    {
+        using var httpClient = new HttpClient();
+        var configuredRegistry = new ExtensionProvider();
+        var effectiveRegistry = new ExtensionProvider();
+        var options = new BeutlApiApplicationOptions(httpClient, configuredRegistry);
+        options.Resources.Replace<IExtensionRegistry>(_ => effectiveRegistry);
+
+        using BeutlApiApplication app = BeutlApiApplication.Create(options);
+        PackageManager packageManager = app.GetResource<PackageManager>();
+        IAiJobKindRegistry jobKinds = app.GetResource<IAiJobKindRegistry>();
+        var descriptor = new AiJobKindDescriptor(
+            new AiJobKindId("tests.effective-registry"),
+            new AiJobStatusMap([]));
+        effectiveRegistry.AddExtensions(
+            -10_001,
+            [new TestAiJobKindExtension(descriptor)]);
+
+        try
+        {
+            Assert.That(app.GetResource<IExtensionRegistry>(), Is.SameAs(effectiveRegistry));
+            Assert.That(packageManager.ExtensionRegistry, Is.SameAs(effectiveRegistry));
+            Assert.That(jobKinds.TryAcquire(descriptor.Kind, out IAiJobKindLease? lease), Is.True);
+            using (lease)
+            {
+                Assert.That(lease!.Descriptor, Is.SameAs(descriptor));
+            }
+        }
+        finally
+        {
+            effectiveRegistry.RemoveExtensions(-10_001);
+        }
+    }
+
+    [Test]
+    public void ReadUserAsync_PreCanceledRequestStopsBeforeFileAccess()
+    {
+        using var httpClient = new HttpClient();
+        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -460,216 +247,117 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
-    public async Task Dispose_IsIdempotentAndRejectsFurtherResourceResolution()
+    public void Dispose_IsIdempotentAndRejectsFurtherResourceResolution()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        _ = app.GetResource<PackageManager>();
+        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        _ = app.GetResource<IAiJobMonitor>();
 
-        Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
-        Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
-        Assert.Throws<ObjectDisposedException>(() => app.GetResource<DiscoverService>());
+        Assert.DoesNotThrow(() => app.Dispose());
+        Assert.DoesNotThrow(() => app.Dispose());
+        Assert.Throws<ObjectDisposedException>(() => app.GetResource<IAiImageGenerationService>());
     }
 
     [Test]
-    public async Task CheckForUpdatesAsync_Rethrows_WhenCancelledAfterResponse()
+    public async Task AuthenticatedRequest_KeepsCapturedBearerAndEndsWithItsSession()
     {
-        // LoadMetadata reads asset_metadata.json from AppContext.BaseDirectory (cached per process).
-        string metadataPath = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
-        string? originalContent = File.Exists(metadataPath) ? File.ReadAllText(metadataPath) : null;
-        try
-        {
-            File.WriteAllText(metadataPath, """
-                {
-                  "id": "test-id",
-                  "os": "linux",
-                  "arch": "x64",
-                  "version": "2.0.0-preview.6",
-                  "standalone": "true",
-                  "type": "zip"
-                }
-                """);
-            var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var releaseResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var handler = new DelegateHandler(async (request, cancellationToken) =>
+        using var httpClient = new HttpClient();
+        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        SetAuthenticatedUser(app, "first-user", "first-token");
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        string? authorization = null;
+
+        Task operation = app.SendAuthenticatedAsync(
+            async (capturedAuthorization, cancellationToken) =>
+            {
+                authorization = capturedAuthorization;
+                requestStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return 1;
+            },
+            CancellationToken.None);
+        await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        SetAuthenticatedUser(app, "second-user", "second-token");
+
+        Assert.ThrowsAsync<AuthenticationRequiredException>(async () => await operation);
+        Assert.That(authorization, Is.EqualTo("Bearer first-token"));
+    }
+
+    [Test]
+    public async Task Dispose_CancelsActiveAuthenticatedRequestAndDisposesAiCapabilities()
+    {
+        using var httpClient = new HttpClient();
+        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        SetAuthenticatedUser(app, "test-user", "token");
+        IAiEntitlementService service = app.GetResource<IAiEntitlementService>();
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task operation = app.SendAuthenticatedAsync(
+            async (_, cancellationToken) =>
             {
                 requestStarted.TrySetResult();
-                await releaseResponse.Task.WaitAsync(cancellationToken);
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent(
-                        """{"latestVersion":"2.0.0-preview.7","url":"https://example.com","downloadUrl":null,"isLatest":false,"mustLatest":false}""",
-                        Encoding.UTF8,
-                        "application/json")
-                };
-            });
-            using var httpClient = new HttpClient(handler);
-            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return 1;
+            },
+            CancellationToken.None);
+        await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            // Dispose after the response completes but before the continuation runs: the
-            // lifetime token is cancelled, so the method must recheck it before returning.
-            Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> check
-                = app.CheckForUpdatesAsync("2.0.0-preview.6", CancellationToken.None);
-            await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await app.DisposeAsync().AsTask();
-            releaseResponse.TrySetResult();
+        app.Dispose();
 
-            Assert.CatchAsync<OperationCanceledException>(async () =>
-                await check.WaitAsync(TimeSpan.FromSeconds(5)));
-        }
-        finally
+        Assert.CatchAsync<OperationCanceledException>(async () => await operation);
+        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+            await service.RefreshAsync(CancellationToken.None));
+    }
+
+    private static void SetAuthenticatedUser(
+        BeutlApiApplication app,
+        string userId,
+        string token)
+    {
+        var profile = new Profile(new ProfileResponse
         {
-            if (originalContent != null)
-            {
-                File.WriteAllText(metadataPath, originalContent);
-            }
-            else
-            {
-                File.Delete(metadataPath);
-            }
-        }
-    }
-
-    private sealed class CapturingHandler : HttpMessageHandler
-    {
-        public Uri? LastRequestUri { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            LastRequestUri = request.RequestUri;
-            var response = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(
-                    """
-                    {"latestVersion":"2.0.0-preview.7","url":"https://github.com/b-editor/beutl/releases/tag/v2.0.0-preview.7","downloadUrl":null,"isLatest":false,"mustLatest":false}
-                    """,
-                    Encoding.UTF8,
-                    "application/json")
-            };
-            return Task.FromResult(response);
-        }
-    }
-
-    [Test]
-    public async Task RemovePackage_Rethrows_WhenCancelledAfterDelete()
-    {
-        var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        BeutlApiApplication? appRef = null;
-        using var handler = new DelegateHandler((request, cancellationToken) =>
-        {
-            requestCompleted.TrySetResult();
-            // Dispose while the delete response is being processed, so the lifetime token
-            // is cancelled before RemovePackage returns.
-            appRef?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}")
-            });
-        });
-        using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        appRef = app;
-        var library = app.GetResource<LibraryService>();
-        var owner = new Profile(CreateProfileResponse(), app);
-        var package = new Package(owner, CreatePackageResponse(), app);
-
-        Task remove = library.RemovePackage(package, CancellationToken.None);
-        await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.CatchAsync<OperationCanceledException>(async () =>
-            await remove.WaitAsync(TimeSpan.FromSeconds(5)));
-    }
-
-    [Test]
-    public async Task DisposeAsync_ReentrantCallback_ObservesTheOriginalTeardown()
-    {
-        using var httpClient = new HttpClient();
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        _ = app.GetResource<PackageManager>();
-
-        Task? reentrantTask = null;
-        using CancellationTokenSource linked = app.CreateLifetimeLinkedTokenSource(CancellationToken.None);
-        using var registration = linked.Token.Register(() =>
-        {
-            // A cancellation callback that re-enters DisposeAsync must observe the
-            // original disposal task instead of starting a second pipeline.
-            reentrantTask = app.DisposeAsync().AsTask();
-        });
-
-        Task outer = app.DisposeAsync().AsTask();
-        await outer.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.That(reentrantTask, Is.Not.Null);
-        Assert.That(reentrantTask, Is.SameAs(outer),
-            "the reentrant call must observe the original disposal task");
-    }
-
-    [Test]
-    public void Subclass_CanAdmitWorkThroughTheLifetimePrimitive()
-    {
-        using var httpClient = new HttpClient();
-        var app = new LifetimeAdmissionSubclass(httpClient, new ExtensionProvider());
-
-        using CancellationTokenSource linked = app.AdmitOperation();
-        Assert.That(app.IsDisposed, Is.False);
-
-        app.DisposeAsync().AsTask().GetAwaiter().GetResult();
-        Assert.That(app.IsDisposed, Is.True);
-    }
-
-    private sealed class DelegateHandler(
-        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
-        : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-            => handler(request, cancellationToken);
-    }
-
-    private sealed class LifetimeAdmissionSubclass : BeutlApiApplication
-    {
-        public LifetimeAdmissionSubclass(HttpClient httpClient, ExtensionProvider extensionProvider)
-            : base(httpClient, extensionProvider)
-        {
-        }
-
-        public CancellationTokenSource AdmitOperation()
-            => CreateLifetimeLinkedTokenSource(CancellationToken.None);
-    }
-
-    private static ProfileResponse CreateProfileResponse()
-    {
-        return new ProfileResponse
-        {
-            Id = "profile-id",
-            Name = "profile-name",
-            DisplayName = "Profile Name",
+            Id = userId,
+            Name = userId,
+            DisplayName = userId,
             Bio = null,
             IconId = null,
             IconUrl = null,
-        };
+        }, app);
+        var user = new AuthenticatedUser(profile, new AuthResponse
+        {
+            Token = token,
+            RefreshToken = $"{token}-refresh",
+            Expiration = DateTime.UtcNow.AddHours(1),
+        }, app, DateTime.UtcNow);
+        FieldInfo field = typeof(BeutlApiApplication).GetField(
+            "_authenticatedUser",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
     }
 
-    private static PackageResponse CreatePackageResponse()
+    private sealed class StubTranslationService : IAiCaptionTranslationService
     {
-        return new PackageResponse
-        {
-            Id = "package-id",
-            Owner = CreateProfileResponse(),
-            Name = "package-name",
-            DisplayName = "Package Name",
-            Description = "Description",
-            ShortDescription = "Short description",
-            WebSite = null,
-            Tags = [],
-            LogoId = null,
-            LogoUrl = null,
-            Screenshots = [],
-            Currency = null,
-            Price = null,
-            Paid = false,
-            Owned = false,
-        };
+        public Task<AiCaptionTranslationResponse> TranslateAsync(
+            AiCaptionTranslationRequest request,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
     }
+
+    private sealed class StubImageGenerationService : IAiImageGenerationService
+    {
+        public Task<AiImageResult> GenerateAsync(
+            AiImageGenerationRequest request,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+    }
+
+    private sealed class TestAiJobKindExtension(AiJobKindDescriptor descriptor) : AiJobKindExtension
+    {
+        public override AiJobKindDescriptor Descriptor { get; } = descriptor;
+
+        public override AiJobKindRegistrationMode RegistrationMode
+            => AiJobKindRegistrationMode.Add;
+    }
+
 }
