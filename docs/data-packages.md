@@ -9,6 +9,18 @@ code, and Beutl never loads an assembly from them:
 | Material | `beutl-material` | images, audio, video, fonts |
 | Template | `beutl-template` | object templates (`.json`) |
 
+## Publishing without a nupkg
+
+Most data-package authors are not developers and never build a nupkg. The store's
+**Publish materials or templates** page (`/developer/upload`) takes a folder of files
+and does the packaging for them: pick a type, a name, a title and a description, select
+the folder, and the server builds the package, creates a `1.0.0` release and publishes
+it. The package id is namespaced as `Beutl.Materials.<username>.<name>` or
+`Beutl.Templates.<username>.<name>`, so the author only chooses the short name.
+
+The rest of this document describes the nupkg layout for authors who do build the
+package themselves (or want to know what the upload page produces).
+
 ## Declaring the kind
 
 The kind lives in the package's tags, not in a field of its own. Add exactly one reserved
