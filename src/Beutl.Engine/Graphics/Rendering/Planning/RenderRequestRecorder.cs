@@ -9,7 +9,6 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
     private static readonly ConditionalWeakTable<RenderNode, RenderNodeCacheIdentity> s_cacheIdentities = new();
     private readonly RecordedRenderGraphBuilder _builder;
     private readonly List<PendingRenderCacheCandidate> _pendingCacheCandidates = [];
-    private RenderPipelineDiagnosticRecorder? _diagnostics;
     private bool _recorded;
 
     public RenderRequestRecorder(RenderRequest request)
@@ -32,9 +31,6 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
             throw new InvalidOperationException("A render request must be newly created before recording.");
 
         _recorded = true;
-        _diagnostics = RenderRequestDiagnostics.Start(
-            Request,
-            root.GetType().FullName ?? root.GetType().Name);
         Request.TransitionTo(RenderRequestState.Recording);
         try
         {
@@ -52,12 +48,8 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         }
         catch (Exception ex)
         {
-            _diagnostics?.RecordFailure(RenderPipelineFailurePhase.Recording);
             if (Request.State is not (RenderRequestState.Failed or RenderRequestState.Disposed))
                 Request.Fail(ex);
-            foreach (Exception cleanupFailure in Request.Options.Owner.CleanupFailures)
-                _diagnostics?.RecordCleanupFailure();
-            RenderRequestDiagnostics.Complete(Request);
             Request.Options.Owner.ThrowIfFailed();
             throw;
         }
@@ -81,7 +73,6 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
     {
         ArgumentNullException.ThrowIfNull(commit);
         _builder.Append(commit);
-        _diagnostics?.RecordCommittedFragments(commit.Fragments);
         foreach (RenderResource resource in commit.Resources)
         {
             Request.Options.Owner.ResourceRegistry.Commit(resource);
@@ -104,7 +95,6 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         {
             var recorder = new RenderRequestRecorder(nestedRequest);
             RecordedRenderGraph graph = recorder.Record(root);
-            _diagnostics?.RecordNestedRequest(nestedRequest.Id);
             return new RecordedNestedRenderRequest(nestedRequest, graph);
         }
         catch

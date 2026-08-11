@@ -29,11 +29,9 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
 
     public RenderTargetLeaseSession BeginSession(
         RenderIntent intent,
-        RenderAllocationBudget allocationBudget,
         RenderTarget? externalTarget = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        ArgumentNullException.ThrowIfNull(allocationBudget);
         if (_activeSession is not null)
         {
             throw new InvalidOperationException(
@@ -45,7 +43,6 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
             this,
             request,
             intent,
-            allocationBudget,
             externalTarget);
         _activeSession = session;
         return session;
@@ -107,35 +104,7 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
     internal RenderTargetLease? TryAcquire(RenderTargetLeaseSession session, PixelSize deviceSize)
     {
         VerifyActive(session);
-        if (!session.TryReserve(deviceSize, out long byteSize))
-        {
-            s_logger.LogWarning(
-                "Intermediate render-target budget was exceeded ({Width}x{Height} px); preview drops this target, delivery render fails fast.",
-                deviceSize.Width,
-                deviceSize.Height);
-            if (session.Intent == RenderIntent.Delivery)
-                throw CreateBudgetFailure(deviceSize, session.AllocationBudget);
-            return null;
-        }
-
-        PooledRenderTargetLease? pooled;
-        try
-        {
-            if (session.Request.TryAcquire(deviceSize, out pooled))
-            {
-                var lease = new RenderTargetLease(session, pooled, byteSize);
-                session.Register(lease);
-                return lease;
-            }
-        }
-        catch
-        {
-            session.CancelReservation(byteSize);
-            throw;
-        }
-
-        session.CancelReservation(byteSize);
-        if (pooled is null)
+        if (!session.Request.TryAcquire(deviceSize, out PooledRenderTargetLease? pooled))
         {
             s_logger.LogWarning(
                 "Intermediate render-target allocation failed ({Width}x{Height} px); preview drops this target, delivery render fails fast.",
@@ -146,7 +115,9 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
             return null;
         }
 
-        throw new InvalidOperationException("The render-target pool returned an invalid acquisition result.");
+        var lease = new RenderTargetLease(session, pooled);
+        session.Register(lease);
+        return lease;
     }
 
     internal void Release(RenderTargetLease lease)
@@ -156,7 +127,6 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
             return;
 
         lease.IsReleased = true;
-        lease.Session.Discharge(lease.ByteSize);
         try
         {
             lease.PooledLease.Dispose();
@@ -176,7 +146,6 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
 
         RenderTarget target = lease.PooledLease.TransferToAcceptedCache();
         lease.IsReleased = true;
-        lease.Session.Discharge(lease.ByteSize);
         return target;
     }
 
@@ -201,13 +170,6 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
         else
             failures.Add(failure);
     }
-
-    private static InvalidOperationException CreateBudgetFailure(
-        PixelSize deviceSize,
-        RenderAllocationBudget budget)
-        => new(
-            $"The {deviceSize.Width}x{deviceSize.Height} RGBA16F render target exceeds the request-family "
-            + $"allocation budget ({budget.MaximumLiveBytes} bytes, {budget.MaximumLiveTargets} targets).");
 }
 
 internal sealed class RenderTargetLeaseSession : IDisposable
@@ -220,29 +182,21 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         RenderTargetLeaseRegistry registry,
         RenderTargetPoolRequest request,
         RenderIntent intent,
-        RenderAllocationBudget allocationBudget,
         RenderTarget? externalTarget)
     {
         _registry = registry;
         Request = request;
         Intent = intent;
-        AllocationBudget = allocationBudget;
         ExternalTarget = externalTarget;
     }
 
     public RenderIntent Intent { get; }
-
-    internal RenderAllocationBudget AllocationBudget { get; }
 
     public bool IsDisposed { get; private set; }
 
     internal RenderTargetPoolRequest Request { get; }
 
     internal RenderTarget? ExternalTarget { get; }
-
-    internal long LiveBytes { get; private set; }
-
-    internal int LiveTargets { get; private set; }
 
     internal IReadOnlyList<Exception> CleanupFailures
         => _cleanupFailures.Concat(Request.CleanupFailures).ToArray();
@@ -328,139 +282,6 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         _leases.Add(lease);
     }
 
-    internal bool TryReserve(PixelSize deviceSize, out long byteSize)
-    {
-        byteSize = GetValidatedByteSize(deviceSize);
-
-        if (byteSize > AllocationBudget.MaximumLiveBytes - LiveBytes
-            || LiveTargets >= AllocationBudget.MaximumLiveTargets)
-        {
-            return false;
-        }
-
-        LiveBytes += byteSize;
-        LiveTargets++;
-        return true;
-    }
-
-    internal void ValidatePlannedAllocations(
-        IReadOnlyList<PlannedRenderTargetLifetime> lifetimes)
-    {
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-        ArgumentNullException.ThrowIfNull(lifetimes);
-        if (lifetimes.Count == 0)
-            return;
-
-        var starts = new Dictionary<int, List<long>>();
-        var ends = new Dictionary<int, List<long>>();
-        foreach (PlannedRenderTargetLifetime lifetime in lifetimes)
-        {
-            if (lifetime.AcquisitionPosition < 0
-                || lifetime.LastUsePosition < lifetime.AcquisitionPosition)
-            {
-                throw new ArgumentException(
-                    "A planned render-target lifetime must have a non-negative ordered interval.",
-                    nameof(lifetimes));
-            }
-
-            long byteSize = GetValidatedByteSize(lifetime.DeviceSize);
-            AddEvent(starts, lifetime.AcquisitionPosition, byteSize);
-            AddEvent(ends, lifetime.LastUsePosition, byteSize);
-        }
-
-        long plannedBytes = LiveBytes;
-        int plannedTargets = LiveTargets;
-        int[] positions = [.. starts.Keys.Concat(ends.Keys).Distinct().Order()];
-        foreach (int position in positions)
-        {
-            if (starts.TryGetValue(position, out List<long>? acquired))
-            {
-                foreach (long byteSize in acquired)
-                {
-                    if (byteSize > AllocationBudget.MaximumLiveBytes - plannedBytes
-                        || plannedTargets >= AllocationBudget.MaximumLiveTargets)
-                    {
-                        throw new InvalidOperationException(
-                            $"The planned render-target lifetime schedule exceeds the request-family "
-                            + $"allocation budget ({AllocationBudget.MaximumLiveBytes} bytes, "
-                            + $"{AllocationBudget.MaximumLiveTargets} targets).");
-                    }
-
-                    plannedBytes += byteSize;
-                    plannedTargets++;
-                }
-            }
-
-            // A consumer allocates its output before releasing its inputs, so intervals ending and
-            // starting at the same schedule position overlap for the peak calculation.
-            if (ends.TryGetValue(position, out List<long>? released))
-            {
-                foreach (long byteSize in released)
-                {
-                    plannedBytes -= byteSize;
-                    plannedTargets--;
-                }
-            }
-        }
-
-        if (plannedBytes != LiveBytes || plannedTargets != LiveTargets)
-            throw new InvalidOperationException("The planned render-target lifetime schedule is unbalanced.");
-    }
-
-    internal long GetValidatedByteSize(PixelSize deviceSize)
-    {
-        if (deviceSize.Width <= 0 || deviceSize.Height <= 0)
-            throw new ArgumentOutOfRangeException(nameof(deviceSize));
-
-        long byteSize;
-        try
-        {
-            byteSize = checked((long)deviceSize.Width * deviceSize.Height * 8L);
-        }
-        catch (OverflowException ex)
-        {
-            throw new InvalidOperationException(
-                "The RGBA16F render-target byte footprint overflowed 64-bit arithmetic.",
-                ex);
-        }
-
-        int maximumDimension = Request.GetMaximumDimension(deviceSize);
-
-        if (deviceSize.Width > maximumDimension || deviceSize.Height > maximumDimension)
-        {
-            throw new InvalidOperationException(
-                $"The render target {deviceSize.Width}x{deviceSize.Height} exceeds the active "
-                + $"{maximumDimension}-pixel dimension limit.");
-        }
-
-        return byteSize;
-    }
-
-    private static void AddEvent(
-        IDictionary<int, List<long>> events,
-        int position,
-        long byteSize)
-    {
-        if (!events.TryGetValue(position, out List<long>? values))
-        {
-            values = [];
-            events.Add(position, values);
-        }
-
-        values.Add(byteSize);
-    }
-
-    internal void CancelReservation(long byteSize) => Discharge(byteSize);
-
-    internal void Discharge(long byteSize)
-    {
-        if (byteSize <= 0 || LiveTargets <= 0 || LiveBytes < byteSize)
-            throw new InvalidOperationException("The render-target allocation ledger is corrupted.");
-
-        LiveBytes -= byteSize;
-        LiveTargets--;
-    }
-
     internal void RecordCleanupFailure(Exception exception)
     {
         _cleanupFailures.Add(exception);
@@ -488,21 +309,14 @@ internal readonly record struct RenderTargetCleanupFailureCheckpoint(
     int SessionFailureCount,
     int RequestFailureCount);
 
-internal readonly record struct PlannedRenderTargetLifetime(
-    PixelSize DeviceSize,
-    int AcquisitionPosition,
-    int LastUsePosition);
-
 internal sealed class RenderTargetLease : IDisposable
 {
     internal RenderTargetLease(
         RenderTargetLeaseSession session,
-        PooledRenderTargetLease pooledLease,
-        long byteSize)
+        PooledRenderTargetLease pooledLease)
     {
         Session = session;
         PooledLease = pooledLease;
-        ByteSize = byteSize;
     }
 
     public RenderTarget Target => PooledLease.Target;
@@ -514,8 +328,6 @@ internal sealed class RenderTargetLease : IDisposable
     internal RenderTargetLeaseSession Session { get; }
 
     internal PooledRenderTargetLease PooledLease { get; }
-
-    internal long ByteSize { get; }
 
     public void Dispose()
     {

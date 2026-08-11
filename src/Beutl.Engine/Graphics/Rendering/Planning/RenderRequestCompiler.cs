@@ -25,19 +25,18 @@ internal sealed class RenderRequestCompiler
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(graph);
-        var context = new FamilyCompilationContext();
         try
         {
             var measurements = new Dictionary<RenderRequest, RenderNodeMeasurement>(
                 ReferenceEqualityComparer.Instance);
-            ResolveMetadataFamily(request, graph, measurements, context);
+            ResolveMetadataFamily(request, graph, measurements);
             if (request.Options.Purpose is RenderRequestPurpose.Bounds or RenderRequestPurpose.HitTest)
                 CompleteMetadataFamily(request, graph);
             return measurements[request];
         }
         catch (Exception ex)
         {
-            FailFamily(request, graph, ex, context.FailurePhase);
+            FailFamily(request, graph, ex);
             throw;
         }
     }
@@ -55,26 +54,24 @@ internal sealed class RenderRequestCompiler
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(shaderBudget);
-        var context = new FamilyCompilationContext();
         try
         {
             var measurements = new Dictionary<RenderRequest, RenderNodeMeasurement>(
                 ReferenceEqualityComparer.Instance);
-            ResolveMetadataFamily(request, graph, measurements, context);
+            ResolveMetadataFamily(request, graph, measurements);
             int nextStructuralPlanSlot = 0;
             CompiledRenderRequest compiled = CompileFamily(
                 request,
                 graph,
                 measurements,
                 shaderBudget,
-                context,
                 ref nextStructuralPlanSlot);
             _structuralPlanCache?.RetainFamilySlots(nextStructuralPlanSlot);
             return compiled;
         }
         catch (Exception ex)
         {
-            FailFamily(request, graph, ex, context.FailurePhase);
+            FailFamily(request, graph, ex);
             throw;
         }
     }
@@ -104,7 +101,6 @@ internal sealed class RenderRequestCompiler
                 "A render request can be compiled only after metadata resolution.");
         }
 
-        var context = new FamilyCompilationContext();
         try
         {
             var measurements = new Dictionary<RenderRequest, RenderNodeMeasurement>(
@@ -112,21 +108,20 @@ internal sealed class RenderRequestCompiler
             {
                 [request] = measurement,
             };
-            CollectNestedMetadata(graph, measurements, context);
+            CollectNestedMetadata(graph, measurements);
             int nextStructuralPlanSlot = 0;
             CompiledRenderRequest compiled = CompileFamily(
                 request,
                 graph,
                 measurements,
                 shaderBudget,
-                context,
                 ref nextStructuralPlanSlot);
             _structuralPlanCache?.RetainFamilySlots(nextStructuralPlanSlot);
             return compiled;
         }
         catch (Exception ex)
         {
-            FailFamily(request, graph, ex, context.FailurePhase);
+            FailFamily(request, graph, ex);
             throw;
         }
     }
@@ -134,13 +129,11 @@ internal sealed class RenderRequestCompiler
     private void ResolveMetadataFamily(
         RenderRequest request,
         RecordedRenderGraph graph,
-        IDictionary<RenderRequest, RenderNodeMeasurement> measurements,
-        FamilyCompilationContext context)
+        IDictionary<RenderRequest, RenderNodeMeasurement> measurements)
     {
         foreach (RecordedNestedRenderRequest nested in graph.NestedRequests)
-            ResolveMetadataFamily(nested.Request, nested.Graph, measurements, context);
+            ResolveMetadataFamily(nested.Request, nested.Graph, measurements);
 
-        context.Set(request, RenderPipelineFailurePhase.Metadata);
         if (request.State != RenderRequestState.Recorded)
         {
             throw new InvalidOperationException(
@@ -152,7 +145,6 @@ internal sealed class RenderRequestCompiler
         TargetDependencyPlan targetDependencies = TargetDependencyLowerer.Lower(
             roots,
             request.Options.TargetDomain);
-        context.Set(request, RenderPipelineFailurePhase.RegionAnalysis);
         RenderNodeMeasurement measurement = new RegionAnalyzer()
             .Analyze(request.Options, roots, targetDependencies)
             .Measurement;
@@ -162,19 +154,17 @@ internal sealed class RenderRequestCompiler
 
     private void CollectNestedMetadata(
         RecordedRenderGraph graph,
-        IDictionary<RenderRequest, RenderNodeMeasurement> measurements,
-        FamilyCompilationContext context)
+        IDictionary<RenderRequest, RenderNodeMeasurement> measurements)
     {
         foreach (RecordedNestedRenderRequest nested in graph.NestedRequests)
         {
             if (nested.Request.State == RenderRequestState.Recorded)
             {
-                ResolveMetadataFamily(nested.Request, nested.Graph, measurements, context);
+                ResolveMetadataFamily(nested.Request, nested.Graph, measurements);
             }
             else if (nested.Request.State == RenderRequestState.MetadataResolved)
             {
-                CollectNestedMetadata(nested.Graph, measurements, context);
-                context.Set(nested.Request, RenderPipelineFailurePhase.RegionAnalysis);
+                CollectNestedMetadata(nested.Graph, measurements);
                 ImmutableArray<RenderFragmentReference> roots = ResolveRoots(nested.Graph);
                 TargetDependencyPlan targetDependencies = TargetDependencyLowerer.Lower(
                     roots,
@@ -185,7 +175,6 @@ internal sealed class RenderRequestCompiler
             }
             else
             {
-                context.Set(nested.Request, RenderPipelineFailurePhase.Metadata);
                 throw new InvalidOperationException(
                     "A nested render request must be recorded or metadata-resolved before family compilation.");
             }
@@ -197,7 +186,6 @@ internal sealed class RenderRequestCompiler
         RecordedRenderGraph graph,
         IReadOnlyDictionary<RenderRequest, RenderNodeMeasurement> measurements,
         SkslBackendBudget shaderBudget,
-        FamilyCompilationContext context,
         ref int nextStructuralPlanSlot)
     {
         var nested = ImmutableArray.CreateBuilder<CompiledRenderRequest>(graph.NestedRequests.Length);
@@ -208,7 +196,6 @@ internal sealed class RenderRequestCompiler
                 recordedNested.Graph,
                 measurements,
                 shaderBudget,
-                context,
                 ref nextStructuralPlanSlot));
         }
 
@@ -219,7 +206,6 @@ internal sealed class RenderRequestCompiler
             measurements[request],
             shaderBudget,
             nested.MoveToImmutable(),
-            context,
             structuralPlanSlot);
     }
 
@@ -229,17 +215,14 @@ internal sealed class RenderRequestCompiler
         RenderNodeMeasurement measurement,
         SkslBackendBudget shaderBudget,
         ImmutableArray<CompiledRenderRequest> nestedRequests,
-        FamilyCompilationContext context,
         int structuralPlanSlot)
     {
-        context.Set(request, RenderPipelineFailurePhase.RegionAnalysis);
         if (request.State != RenderRequestState.MetadataResolved)
         {
             throw new InvalidOperationException(
                 "A render request can be compiled only after metadata resolution.");
         }
 
-        RenderPipelineDiagnosticRecorder? diagnostics = RenderRequestDiagnostics.TryGet(request);
         ImmutableArray<RenderFragmentReference> roots = ResolveRoots(graph);
         // Metadata resolution mutates symbolic fragment bounds used by target-scope lowering.
         // Re-lower here so the final plan uses those resolved owning domains; the preliminary
@@ -258,7 +241,6 @@ internal sealed class RenderRequestCompiler
         }
 
         request.TransitionTo(RenderRequestState.RegionsResolved);
-        context.Set(request, RenderPipelineFailurePhase.CacheResolution);
         RenderCacheResolutionContext cacheContext = _renderCacheContext
             ?? new RenderCacheResolutionContext(
                 RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
@@ -277,14 +259,10 @@ internal sealed class RenderRequestCompiler
         IReadOnlySet<RenderFragmentReference> previewDropEligibleMaterializations =
             cachePlanning.PreviewDropEligibleMaterializations;
         RenderCacheResolution cacheResolution = cachePlanning.Resolution;
-        diagnostics?.RecordRenderCacheResolutionPasses(cachePlanning.ResolutionPasses);
-        RecordCacheDecisions(diagnostics, cacheResolution);
         request.TransitionTo(RenderRequestState.CachesResolved);
-        context.Set(request, RenderPipelineFailurePhase.Planning);
         ExecutionIslandPlan executionPlan;
         if (_structuralPlanCache is not null)
         {
-            StructuralPlanCacheStatistics before = _structuralPlanCache.Statistics;
             StructuralPlanIdentity structuralIdentity = StructuralPlanIdentity.Create(
                 request.Options.PlanIdentity,
                 graph,
@@ -300,10 +278,6 @@ internal sealed class RenderRequestCompiler
                     request.Options.FusionMode,
                     shaderBudget),
                 familySlot: structuralPlanSlot);
-            StructuralPlanCacheStatistics after = _structuralPlanCache.Statistics;
-            diagnostics?.RecordStructuralPlanDecision(
-                cacheHit: after.Hits > before.Hits,
-                compiled: after.Compilations > before.Compilations);
         }
         else
         {
@@ -313,10 +287,8 @@ internal sealed class RenderRequestCompiler
                 cacheResolution,
                 request.Options.FusionMode,
                 shaderBudget);
-            diagnostics?.RecordStructuralPlanDecision(cacheHit: false, compiled: true);
         }
 
-        diagnostics?.RecordPlan(executionPlan);
         request.TransitionTo(RenderRequestState.Planned);
         return new CompiledRenderRequest(
             request,
@@ -330,27 +302,6 @@ internal sealed class RenderRequestCompiler
             cacheResolution,
             executionPlan,
             nestedRequests);
-    }
-
-    private static void RecordCacheDecisions(
-        RenderPipelineDiagnosticRecorder? diagnostics,
-        RenderCacheResolution resolution)
-    {
-        if (diagnostics is null)
-            return;
-
-        foreach (RenderCacheDecision decision in resolution.Decisions)
-        {
-            switch (decision.Kind)
-            {
-                case RenderCacheResolutionKind.Hit:
-                    diagnostics.RecordCacheDecision(decision.Candidate.FragmentId.Value, cacheHit: true);
-                    break;
-                case RenderCacheResolutionKind.MissCapture:
-                    diagnostics.RecordCacheDecision(decision.Candidate.FragmentId.Value, cacheHit: false);
-                    break;
-            }
-        }
     }
 
     internal static ImmutableArray<RenderFragmentReference> ResolveRoots(
@@ -386,19 +337,13 @@ internal sealed class RenderRequestCompiler
     private static void CompleteMetadataFamily(RenderRequest root, RecordedRenderGraph graph)
     {
         foreach ((RenderRequest request, _) in EnumerateFamilyDepthFirst(root, graph))
-        {
-            RenderPipelineDiagnosticRecorder? diagnostics = RenderRequestDiagnostics.TryGet(request);
-            diagnostics?.RecordAllOutcomes(RenderPipelineOutcome.Metadata);
             request.CompleteMetadataOnly();
-            RenderRequestDiagnostics.Complete(request);
-        }
     }
 
     private static void FailFamily(
         RenderRequest root,
         RecordedRenderGraph graph,
-        Exception exception,
-        RenderPipelineFailurePhase failurePhase)
+        Exception exception)
     {
         RenderRequestOwner owner = root.Options.Owner;
         if (owner.PrimaryFailure is null)
@@ -406,14 +351,7 @@ internal sealed class RenderRequestCompiler
         owner.Cleanup();
 
         foreach ((RenderRequest request, _) in EnumerateFamilyDepthFirst(root, graph))
-        {
-            RenderPipelineDiagnosticRecorder? diagnostics = RenderRequestDiagnostics.TryGet(request);
-            diagnostics?.RecordFailure(failurePhase);
-            foreach (Exception cleanupFailure in owner.CleanupFailures)
-                diagnostics?.RecordCleanupFailure();
             request.FailFamilyMember();
-            RenderRequestDiagnostics.Complete(request);
-        }
     }
 
     private static IEnumerable<(RenderRequest Request, RecordedRenderGraph Graph)> EnumerateFamilyDepthFirst(
@@ -430,17 +368,6 @@ internal sealed class RenderRequestCompiler
         }
 
         yield return (root, graph);
-    }
-
-    private sealed class FamilyCompilationContext
-    {
-        public RenderPipelineFailurePhase FailurePhase { get; private set; }
-
-        public void Set(RenderRequest request, RenderPipelineFailurePhase failurePhase)
-        {
-            ArgumentNullException.ThrowIfNull(request);
-            FailurePhase = failurePhase;
-        }
     }
 }
 

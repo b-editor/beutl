@@ -154,7 +154,6 @@ internal sealed class RenderRequest : IDisposable
     {
         return ReferenceEquals(nested.NestedPolicyParent, parent)
                && ReferenceEquals(nested.Owner, parent.Owner)
-               && ReferenceEquals(nested.Diagnostics, parent.Diagnostics)
                && nested.Intent == parent.Intent
                && nested.Purpose == parent.Purpose
                && nested.CachePolicy == parent.CachePolicy

@@ -45,25 +45,26 @@ public sealed class RecordingAndPlanningFailureTests
         var cleanupFailure = new InvalidOperationException("recording-cleanup");
         var resource = new FailureTestDisposable(cleanupFailure);
         var primaryFailure = new InvalidOperationException("recording-primary");
-        var diagnostics = new RenderPipelineDiagnosticsState();
-        var factory = new FailureTestTargetFactory();
+        using var owner = new RenderRequestOwner();
         using var node = new RecordingFailureNode(resource, primaryFailure);
-        using var renderer = FailureTestSupport.CreateRenderer(
-            node,
-            factory,
-            diagnostics: diagnostics);
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            targetDomain: s_bounds,
+            requestedRegion: s_bounds,
+            cachePolicy: RenderCacheOptions.Disabled,
+            owner: owner));
 
         InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(
-            () => renderer.Rasterize());
+            () => new RenderRequestRecorder(request).Record(node));
 
-        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
         Assert.Multiple(() =>
         {
             Assert.That(thrown, Is.SameAs(primaryFailure));
             Assert.That(resource.DisposeCalls, Is.EqualTo(1));
-            Assert.That(factory.CreateCalls, Is.Zero);
-            Assert.That(snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Recording));
-            Assert.That(snapshot[RenderPipelineCounter.CleanupFailures], Is.EqualTo(1));
+            Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(primaryFailure));
+            Assert.That(owner.CleanupFailures, Has.Exactly(1).SameAs(cleanupFailure));
+            Assert.That(owner.SecondaryFailures, Has.Exactly(1).SameAs(cleanupFailure));
         });
     }
 
@@ -245,7 +246,6 @@ public sealed class RecordingAndPlanningFailureTests
         using var registry = new RenderTargetLeaseRegistry(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
-            RenderAllocationBudget.Default,
             destination);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
@@ -277,7 +277,6 @@ public sealed class RecordingAndPlanningFailureTests
         using var registry = new RenderTargetLeaseRegistry(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
-            RenderAllocationBudget.Default,
             destination);
 
         Assert.That(
@@ -290,64 +289,6 @@ public sealed class RecordingAndPlanningFailureTests
             Assert.That(node.Cache.IsCached, Is.False);
             Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
         });
-    }
-
-    [Test]
-    public void AllocationBudget_IsSharedByEveryLiveLeaseAndReleasedTransactionally()
-    {
-        var factory = new FailureTestTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
-        using RenderTargetLeaseSession session = registry.BeginSession(
-            RenderIntent.Preview,
-            new RenderAllocationBudget(maximumLiveBytes: 8 * 8 * 8, maximumLiveTargets: 1));
-
-        using RenderTargetLease first = session.Acquire(new PixelSize(8, 8));
-        Assert.Multiple(() =>
-        {
-            Assert.That(session.LiveBytes, Is.EqualTo(8 * 8 * 8));
-            Assert.That(session.LiveTargets, Is.EqualTo(1));
-            Assert.That(session.TryAcquire(new PixelSize(1, 1)), Is.Null);
-            Assert.That(factory.CreateCalls, Is.EqualTo(1));
-        });
-
-        first.Dispose();
-        using RenderTargetLease replacement = session.Acquire(new PixelSize(8, 8));
-        Assert.Multiple(() =>
-        {
-            Assert.That(session.LiveBytes, Is.EqualTo(8 * 8 * 8));
-            Assert.That(session.LiveTargets, Is.EqualTo(1));
-            Assert.That(replacement.WasReused, Is.True);
-        });
-    }
-
-    [Test]
-    public void AllocationBudget_DeliveryNeverDegradesAnOverBudgetLease()
-    {
-        var factory = new FailureTestTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
-        using RenderTargetLeaseSession session = registry.BeginSession(
-            RenderIntent.Delivery,
-            new RenderAllocationBudget(maximumLiveBytes: 7, maximumLiveTargets: 1));
-
-        Assert.That(
-            () => session.TryAcquire(new PixelSize(1, 1)),
-            Throws.TypeOf<InvalidOperationException>().With.Message.Contains("allocation budget"));
-        Assert.That(factory.CreateCalls, Is.Zero);
-    }
-
-    [Test]
-    public void AllocationBudget_RejectsTheFactoryDimensionBeforeAllocation()
-    {
-        var factory = new FailureTestTargetFactory(maximumDimension: 4);
-        using var registry = new RenderTargetLeaseRegistry(factory);
-        using RenderTargetLeaseSession session = registry.BeginSession(
-            RenderIntent.Preview,
-            RenderAllocationBudget.Default);
-
-        Assert.That(
-            () => session.TryAcquire(new PixelSize(5, 1)),
-            Throws.TypeOf<InvalidOperationException>().With.Message.Contains("4-pixel dimension limit"));
-        Assert.That(factory.CreateCalls, Is.Zero);
     }
 
     private static Rect ThrowForward(Rect _)
@@ -576,7 +517,6 @@ internal static class FailureTestSupport
         IRenderTargetFactory? factory = null,
         bool useRenderCache = false,
         RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary,
-        IRenderPipelineDiagnosticsState? diagnostics = null,
         RenderIntent intent = RenderIntent.Preview)
         => new(
             node,
@@ -590,7 +530,6 @@ internal static class FailureTestSupport
                     MaxWorkingScale = 1,
                     CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
                     Purpose = purpose,
-                    Diagnostics = diagnostics,
                 },
                 TargetFactory = factory,
             });

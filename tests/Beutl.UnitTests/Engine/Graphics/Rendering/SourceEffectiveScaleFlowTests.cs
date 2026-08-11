@@ -749,12 +749,12 @@ public class SourceEffectiveScaleFlowTests
     {
         Rect bounds = new(2, 3, 12, 8);
         Rect targetDomain = new(0, 0, 24, 16);
-        RenderPipelineDiagnosticSnapshot baseline = RasterizeWithDiagnostics(
+        RenderExecutionStatistics baseline = Rasterize(
             new TargetCommandSourceRenderNode(bounds, owningTargetDomain),
             targetDomain);
         var owned = new TrackingDisposable();
         var noOp = new WorkingScaleProbeEffect(context => _ = context.Own(owned));
-        RenderPipelineDiagnosticSnapshot filtered = RasterizeWithDiagnostics(
+        RenderExecutionStatistics filtered = Rasterize(
             ScaleRecordingTestHelper.Pipeline(
                 new TargetCommandSourceRenderNode(bounds, owningTargetDomain),
                 new FilterEffectRenderNode(noOp.ToResource(CompositionContext.Default))),
@@ -762,17 +762,14 @@ public class SourceEffectiveScaleFlowTests
 
         Assert.Multiple(() =>
         {
-            foreach (RenderPipelineCounter counter in new[]
-                     {
-                         RenderPipelineCounter.RecordedFragments,
-                         RenderPipelineCounter.RecordedLayers,
-                         RenderPipelineCounter.PlannedGpuPasses,
-                         RenderPipelineCounter.ExecutionIslands,
-                         RenderPipelineCounter.OpaqueBoundaries,
-                     })
-            {
-                Assert.That(filtered[counter], Is.EqualTo(baseline[counter]), counter.ToString());
-            }
+            Assert.That(
+                filtered.IntermediateTargetAcquisitions,
+                Is.EqualTo(baseline.IntermediateTargetAcquisitions),
+                "a no-op effect must not commit an extra GPU pass");
+            Assert.That(
+                filtered.ShaderRunExecutions,
+                Is.EqualTo(baseline.ShaderRunExecutions),
+                "a no-op effect must not commit an extra shader run");
             Assert.That(owned.DisposeCount, Is.EqualTo(1),
                 "a no-op effect must roll back resources that never enter the committed request");
         });
@@ -902,7 +899,6 @@ public class SourceEffectiveScaleFlowTests
         RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
         layer.Cache.ReportRenderCount(RenderNodeCache.Count);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
-        var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = new RenderNodeRenderer(
             pipeline,
             new RenderNodeRendererOptions
@@ -914,7 +910,6 @@ public class SourceEffectiveScaleFlowTests
                     MaxWorkingScale = requestedDensity,
                     TargetDomain = childBounds,
                     Purpose = RenderRequestPurpose.Frame,
-                    Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -931,9 +926,6 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(observedWorkingScales.Single(), Is.EqualTo(expectedDensity).Within(1e-4));
             Assert.That(layer.Cache.IsCached, Is.True);
             Assert.That(layer.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
-            Assert.That(
-                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
-                Is.EqualTo(1));
         });
     }
 
@@ -952,7 +944,6 @@ public class SourceEffectiveScaleFlowTests
         RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
         layer.Cache.ReportRenderCount(RenderNodeCache.Count);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
-        var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = new RenderNodeRenderer(
             pipeline,
             new RenderNodeRendererOptions
@@ -967,7 +958,6 @@ public class SourceEffectiveScaleFlowTests
                     TargetDomain = childBounds,
                     RequestedRegion = requestedRegion,
                     Purpose = RenderRequestPurpose.Frame,
-                    Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -987,9 +977,6 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(second.Bounds, Is.EqualTo(requestedRegion));
             Assert.That(executeCount, Is.EqualTo(2));
             Assert.That(layer.Cache.IsCached, Is.False);
-            Assert.That(
-                diagnostics.Latest[RenderPipelineCounter.RenderCacheCaptures],
-                Is.Zero);
         });
     }
 
@@ -1004,7 +991,6 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
-        var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = new RenderNodeRenderer(
             node,
             new RenderNodeRendererOptions
@@ -1016,7 +1002,6 @@ public class SourceEffectiveScaleFlowTests
                     MaxWorkingScale = 4,
                     TargetDomain = bounds,
                     Purpose = RenderRequestPurpose.Frame,
-                    Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -1031,9 +1016,6 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(node.Cache.IsCached, Is.True);
             Assert.That(node.Cache.IdentityDensity, Is.EqualTo(sourceScale.Value));
-            Assert.That(
-                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
-                Is.EqualTo(1));
             Assert.That(
                 warm.Bitmap!.GetPixelSpan().SequenceEqual(cold.Bitmap!.GetPixelSpan()),
                 Is.True);
@@ -1056,7 +1038,6 @@ public class SourceEffectiveScaleFlowTests
         var opacity = new OpacityRenderNode(2);
         opacity.Cache.ReportRenderCount(RenderNodeCache.Count);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(materializedInput, opacity);
-        var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = new RenderNodeRenderer(
             pipeline,
             new RenderNodeRendererOptions
@@ -1068,7 +1049,6 @@ public class SourceEffectiveScaleFlowTests
                     MaxWorkingScale = 4,
                     TargetDomain = bounds,
                     Purpose = RenderRequestPurpose.Frame,
-                    Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -1084,9 +1064,6 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(opacity.Cache.IsCached, Is.True);
             Assert.That(opacity.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
-            Assert.That(
-                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
-                Is.EqualTo(1));
             Assert.That(
                 warm.Bitmap!.GetPixelSpan().SequenceEqual(cold.Bitmap!.GetPixelSpan()),
                 Is.True);
@@ -1104,7 +1081,6 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
-        var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = new RenderNodeRenderer(
             node,
             new RenderNodeRendererOptions
@@ -1116,7 +1092,6 @@ public class SourceEffectiveScaleFlowTests
                     MaxWorkingScale = 4,
                     TargetDomain = bounds,
                     Purpose = RenderRequestPurpose.Frame,
-                    Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -1130,12 +1105,6 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(first.IsEmpty, Is.False);
             Assert.That(second.IsEmpty, Is.False);
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(
-                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
-                Is.Zero);
-            Assert.That(
-                diagnostics.Latest[RenderPipelineCounter.RenderCacheCaptures],
-                Is.Zero);
             Assert.That(
                 second.Bitmap!.GetPixelSpan().SequenceEqual(first.Bitmap!.GetPixelSpan()),
                 Is.True);
@@ -1154,7 +1123,6 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
-        var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = new RenderNodeRenderer(
             node,
             new RenderNodeRendererOptions
@@ -1169,7 +1137,6 @@ public class SourceEffectiveScaleFlowTests
                     TargetDomain = bounds,
                     RequestedRegion = requestedRegion,
                     Purpose = RenderRequestPurpose.Frame,
-                    Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -1184,9 +1151,6 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(first.Bounds, Is.EqualTo(requestedRegion));
             Assert.That(second.Bounds, Is.EqualTo(requestedRegion));
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(
-                diagnostics.Latest[RenderPipelineCounter.RenderCacheCaptures],
-                Is.Zero);
         });
     }
 
@@ -1346,9 +1310,9 @@ public class SourceEffectiveScaleFlowTests
     [Test]
     public void CustomWorkingScale_NoOp_DoesNotRecordOrPlanAnExtraBoundary()
     {
-        RenderPipelineDiagnosticSnapshot baseline = RasterizeWithDiagnostics(
+        RenderExecutionStatistics baseline = Rasterize(
             ScaleRecordingTestHelper.Source(EffectiveScale.At(2)));
-        RenderPipelineDiagnosticSnapshot filtered = RasterizeWithDiagnostics(
+        RenderExecutionStatistics filtered = Rasterize(
             ScaleRecordingTestHelper.Pipeline(
                 ScaleRecordingTestHelper.Source(EffectiveScale.At(2)),
                 new ClampToOutputRenderNode(
@@ -1357,17 +1321,13 @@ public class SourceEffectiveScaleFlowTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                filtered[RenderPipelineCounter.RecordedFragments],
-                Is.EqualTo(baseline[RenderPipelineCounter.RecordedFragments]));
+                filtered.IntermediateTargetAcquisitions,
+                Is.EqualTo(baseline.IntermediateTargetAcquisitions),
+                "a no-op clamp must not commit an extra GPU pass");
             Assert.That(
-                filtered[RenderPipelineCounter.PlannedGpuPasses],
-                Is.EqualTo(baseline[RenderPipelineCounter.PlannedGpuPasses]));
-            Assert.That(
-                filtered[RenderPipelineCounter.ExecutionIslands],
-                Is.EqualTo(baseline[RenderPipelineCounter.ExecutionIslands]));
-            Assert.That(
-                filtered[RenderPipelineCounter.OpaqueBoundaries],
-                Is.EqualTo(baseline[RenderPipelineCounter.OpaqueBoundaries]));
+                filtered.ShaderRunExecutions,
+                Is.EqualTo(baseline.ShaderRunExecutions),
+                "a no-op clamp must not commit an extra shader run");
         });
     }
 
@@ -1375,13 +1335,13 @@ public class SourceEffectiveScaleFlowTests
     public void CustomWorkingScale_CurrentPixelShader_DoesNotAddAnOpaqueMapPass()
     {
         var baselineEffect = CreateIdentityShaderEffect();
-        RenderPipelineDiagnosticSnapshot baseline = RasterizeWithDiagnostics(
+        RenderExecutionStatistics baseline = Rasterize(
             ScaleRecordingTestHelper.Pipeline(
                 ScaleRecordingTestHelper.Source(EffectiveScale.At(1)),
                 new FilterEffectRenderNode(
                     baselineEffect.ToResource(CompositionContext.Default))));
         var effect = CreateIdentityShaderEffect();
-        RenderPipelineDiagnosticSnapshot snapshot = RasterizeWithDiagnostics(
+        RenderExecutionStatistics snapshot = Rasterize(
             ScaleRecordingTestHelper.Pipeline(
                 ScaleRecordingTestHelper.Source(EffectiveScale.At(1)),
                 new FixedWorkingScaleRenderNode(
@@ -1389,22 +1349,14 @@ public class SourceEffectiveScaleFlowTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(snapshot[RenderPipelineCounter.RecordedFragments], Is.EqualTo(2));
-            Assert.That(snapshot[RenderPipelineCounter.PlannedGpuPasses], Is.EqualTo(2));
-            Assert.That(snapshot[RenderPipelineCounter.ExecutionIslands], Is.EqualTo(2));
             Assert.That(
-                snapshot[RenderPipelineCounter.RecordedFragments],
-                Is.EqualTo(baseline[RenderPipelineCounter.RecordedFragments]));
+                snapshot.ShaderRunExecutions,
+                Is.EqualTo(baseline.ShaderRunExecutions),
+                "the working-scale hook must not add an opaque identity-map pass");
             Assert.That(
-                snapshot[RenderPipelineCounter.PlannedGpuPasses],
-                Is.EqualTo(baseline[RenderPipelineCounter.PlannedGpuPasses]));
-            Assert.That(
-                snapshot[RenderPipelineCounter.ExecutionIslands],
-                Is.EqualTo(baseline[RenderPipelineCounter.ExecutionIslands]));
-            Assert.That(
-                snapshot[RenderPipelineCounter.OpaqueBoundaries],
-                Is.EqualTo(baseline[RenderPipelineCounter.OpaqueBoundaries]),
-                "the working-scale hook must not add an opaque identity-map boundary");
+                snapshot.FusedShaderRunExecutions,
+                Is.EqualTo(baseline.FusedShaderRunExecutions),
+                "the working-scale hook must not add an opaque identity-map pass");
         });
     }
 
@@ -1642,11 +1594,11 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
-    private static RenderPipelineDiagnosticSnapshot RasterizeWithDiagnostics(
+    private static RenderExecutionStatistics Rasterize(
         RenderNode root,
         Rect? targetDomain = null)
     {
-        var diagnostics = new RenderPipelineDiagnosticsState();
+        RenderExecutionStatistics statistics = default;
         using (root)
         using (var renderer = new RenderNodeRenderer(
                    root,
@@ -1656,15 +1608,15 @@ public class SourceEffectiveScaleFlowTests
                        {
                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                            TargetDomain = targetDomain,
-                           Diagnostics = diagnostics,
                        },
                        TargetFactory = new CpuTargetFactory(),
                    }))
         using (renderer.Rasterize())
         {
+            statistics = renderer.LastExecutionStatistics;
         }
 
-        return diagnostics.Latest;
+        return statistics;
     }
 
     private static WorkingScaleProbeEffect CreateIdentityShaderEffect()

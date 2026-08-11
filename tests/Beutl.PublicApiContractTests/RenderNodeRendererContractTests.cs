@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -10,68 +9,6 @@ namespace Beutl.PublicApiContractTests;
 [TestFixture]
 public sealed class RenderNodeRendererContractTests
 {
-    [Test]
-    public void AllocationBudget_PublicContractIsFiniteAndValidated()
-    {
-        RenderAllocationBudget budget = RenderAllocationBudget.Default;
-        Assert.Multiple(() =>
-        {
-            Assert.That(budget.MaximumLiveBytes, Is.EqualTo(1L * 1024 * 1024 * 1024));
-            Assert.That(budget.MaximumLiveTargets, Is.EqualTo(256));
-            Assert.That(() => new RenderAllocationBudget(0, 1), Throws.TypeOf<ArgumentOutOfRangeException>());
-            Assert.That(() => new RenderAllocationBudget(-1, 1), Throws.TypeOf<ArgumentOutOfRangeException>());
-            Assert.That(
-                () => new RenderAllocationBudget((1L * 1024 * 1024 * 1024 * 1024) + 1, 1),
-                Throws.TypeOf<ArgumentOutOfRangeException>());
-            Assert.That(() => new RenderAllocationBudget(1, 0), Throws.TypeOf<ArgumentOutOfRangeException>());
-            Assert.That(() => new RenderAllocationBudget(1, -1), Throws.TypeOf<ArgumentOutOfRangeException>());
-            Assert.That(() => new RenderAllocationBudget(1, 65_537), Throws.TypeOf<ArgumentOutOfRangeException>());
-            Assert.That(
-                typeof(RenderAllocationBudget).GetConstructors().Single().GetParameters(),
-                Has.All.Matches<ParameterInfo>(static parameter => !parameter.HasDefaultValue));
-        });
-
-        using var root = new DelegateNode(static _ => { });
-        Assert.That(
-            () => new RenderNodeRenderer(
-                root,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest { AllocationBudget = null! },
-                }),
-            Throws.TypeOf<ArgumentNullException>());
-    }
-
-    [Test]
-    public void FactoryMaximumDimension_IsValidatedForTheActiveAllocationDescriptor()
-    {
-        var bounds = new Rect(0, 0, 8, 8);
-        using var root = new DelegateNode(context =>
-            context.Publish(context.OpaqueSource(ExecutingSource(bounds, null, "factory-limit"))));
-        var factory = new TrackingTargetFactory(static _ => null)
-        {
-            MaximumDimensionResolver = static _ => 0,
-        };
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest { TargetDomain = bounds },
-                TargetFactory = factory,
-            });
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => renderer.Rasterize());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure!.Message, Does.Contain("positive maximum dimension"));
-            Assert.That(factory.DimensionQueries, Has.Count.EqualTo(1));
-            Assert.That(factory.DimensionQueries.Single().DeviceSize, Is.EqualTo(new PixelSize(8, 8)));
-            Assert.That(factory.Requests, Is.Empty);
-        });
-    }
-
     [Test]
     public void RenderNodeCache_PublicSurfaceDoesNotExposeRendererOwnedPayloads()
     {
@@ -997,22 +934,14 @@ public sealed class RenderNodeRendererContractTests
 
     private sealed class TrackingTargetFactory(Func<PixelSize, RenderTarget?> create) : IRenderTargetFactory
     {
-        public Func<RenderTargetAllocationDescriptor, int> MaximumDimensionResolver { get; init; }
-            = static _ => RenderScaleUtilities.MaxBufferDimension;
-
         public List<PixelSize> Requests { get; } = [];
 
         public List<RenderTargetAllocationDescriptor> Allocations { get; } = [];
 
-        public List<RenderTargetAllocationDescriptor> DimensionQueries { get; } = [];
-
         public List<TrackingRenderTarget> Targets { get; } = [];
 
         public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation)
-        {
-            DimensionQueries.Add(allocation);
-            return MaximumDimensionResolver(allocation);
-        }
+            => RenderScaleUtilities.MaxBufferDimension;
 
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {

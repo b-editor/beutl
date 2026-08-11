@@ -31,7 +31,6 @@ internal sealed partial class RenderRequestExecutor
         foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
             member.Request.TransitionTo(RenderRequestState.Executing);
 
-        RenderPipelineDiagnosticRecorder? rootDiagnostics = RenderRequestDiagnostics.TryGet(request.Request);
         var cleanupFailures = new List<Exception>();
         RejectNestedBindings(request);
 
@@ -39,7 +38,7 @@ internal sealed partial class RenderRequestExecutor
         int ownerCleanupStart = owner.CleanupFailures.Length;
         owner.Cleanup();
         foreach (Exception failure in owner.CleanupFailures.Skip(ownerCleanupStart))
-            AppendCleanupFailures(cleanupFailures, rootDiagnostics, failure);
+            AppendCleanupFailures(cleanupFailures, failure);
 
         try
         {
@@ -50,7 +49,7 @@ internal sealed partial class RenderRequestExecutor
         }
         catch (Exception ex)
         {
-            AppendCleanupFailures(cleanupFailures, rootDiagnostics, ex);
+            AppendCleanupFailures(cleanupFailures, ex);
         }
 
         if (cleanupFailures.Count != 0)
@@ -58,7 +57,7 @@ internal sealed partial class RenderRequestExecutor
             Exception primaryFailure = cleanupFailures[0];
             EnsureOwnerPrimary(owner, primaryFailure);
             RecordAdditionalFailures(owner, cleanupFailures);
-            FailFamily(request, RenderPipelineFailurePhase.Cleanup);
+            FailFamily(request);
             ExceptionDispatchInfo.Capture(primaryFailure).Throw();
         }
 

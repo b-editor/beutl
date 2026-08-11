@@ -46,8 +46,6 @@ internal sealed partial class RenderRequestExecutor
         ObjectDisposedException.ThrowIf(destination.IsDisposed, destination);
         ValidateFamilyForExecution(request);
 
-        RenderPipelineDiagnosticRecorder? rootDiagnostics = RenderRequestDiagnostics.TryGet(request.Request);
-        rootDiagnostics?.RecordExternalRootResource();
         ProgramCache<CachedSkRuntimeEffect>? localProgramCache = _programCache is null
             ? SkRuntimeEffectProgramCache.Create()
             : null;
@@ -55,7 +53,6 @@ internal sealed partial class RenderRequestExecutor
         var frames = new List<FamilyExecutionFrame>();
         var cleanupFailures = new List<Exception>();
         ExceptionDispatchInfo? primaryFailure = null;
-        RenderPipelineFailurePhase failurePhase = RenderPipelineFailurePhase.Execution;
         int nestedRootAcquisitions = 0;
         RenderRequestOwner owner = request.Request.Options.Owner;
         try
@@ -75,11 +72,9 @@ internal sealed partial class RenderRequestExecutor
             catch (FamilyExecutionException ex)
             {
                 primaryFailure = ex.Failure;
-                failurePhase = ex.FailurePhase;
             }
             catch (Exception ex)
             {
-                rootDiagnostics?.RecordFailure(RenderPipelineFailurePhase.Execution);
                 primaryFailure = ExceptionDispatchInfo.Capture(ex);
             }
 
@@ -101,7 +96,7 @@ internal sealed partial class RenderRequestExecutor
                         firstExternalCleanupFailure ??= failure;
                         bool alreadyRecorded = cleanupFailures.Any(
                             existing => ReferenceEquals(existing, failure));
-                        AddCleanupFailure(cleanupFailures, rootDiagnostics, failure);
+                        AddCleanupFailure(cleanupFailures, failure);
                         if (!alreadyRecorded)
                             owner.RecordCleanupFailure(failure);
                     }
@@ -109,7 +104,6 @@ internal sealed partial class RenderRequestExecutor
                     if (primaryFailure is null && firstExternalCleanupFailure is not null)
                     {
                         primaryFailure = ExceptionDispatchInfo.Capture(firstExternalCleanupFailure);
-                        failurePhase = RenderPipelineFailurePhase.Cleanup;
                     }
                 }
             }
@@ -122,14 +116,13 @@ internal sealed partial class RenderRequestExecutor
                 }
                 catch (Exception ex)
                 {
-                    AppendCleanupFailures(cleanupFailures, rootDiagnostics, ex);
+                    AppendCleanupFailures(cleanupFailures, ex);
                 }
             }
 
             if (primaryFailure is null && cleanupFailures.Count != 0)
             {
                 primaryFailure = ExceptionDispatchInfo.Capture(cleanupFailures[0]);
-                failurePhase = RenderPipelineFailurePhase.Cleanup;
             }
 
             if (primaryFailure is not null)
@@ -141,11 +134,9 @@ internal sealed partial class RenderRequestExecutor
             foreach (Exception failure in owner.CleanupFailures.Skip(ownerCleanupStart))
             {
                 cleanupFailures.Add(failure);
-                rootDiagnostics?.RecordCleanupFailure();
                 if (primaryFailure is null)
                 {
                     primaryFailure = ExceptionDispatchInfo.Capture(failure);
-                    failurePhase = RenderPipelineFailurePhase.Cleanup;
                 }
             }
 
@@ -155,14 +146,13 @@ internal sealed partial class RenderRequestExecutor
             }
             catch (Exception ex)
             {
-                AppendCleanupFailures(cleanupFailures, rootDiagnostics, ex);
+                AppendCleanupFailures(cleanupFailures, ex);
                 if (primaryFailure is null)
                 {
                     primaryFailure = ExceptionDispatchInfo.Capture(
                         ex is AggregateException aggregate
                             ? aggregate.Flatten().InnerExceptions[0]
                             : ex);
-                    failurePhase = RenderPipelineFailurePhase.Cleanup;
                 }
             }
 
@@ -176,7 +166,6 @@ internal sealed partial class RenderRequestExecutor
                 catch (Exception ex)
                 {
                     primaryFailure = ExceptionDispatchInfo.Capture(ex);
-                    failurePhase = RenderPipelineFailurePhase.Execution;
                 }
             }
 
@@ -189,27 +178,21 @@ internal sealed partial class RenderRequestExecutor
                     foreach (Exception failure in publicationCleanupFailures)
                     {
                         cleanupFailures.Add(failure);
-                        rootDiagnostics?.RecordCleanupFailure();
                     }
                     if (publicationCleanupFailures.Count != 0)
                     {
                         primaryFailure = ExceptionDispatchInfo.Capture(publicationCleanupFailures[0]);
-                        failurePhase = RenderPipelineFailurePhase.Cleanup;
                     }
                 }
                 catch (FamilyCachePublicationException ex)
                 {
-                    rootDiagnostics?.RecordFailure(RenderPipelineFailurePhase.CachePublication);
                     foreach (Exception cleanupFailure in ex.CleanupFailures)
-                        AppendCleanupFailures(cleanupFailures, rootDiagnostics, cleanupFailure);
+                        AppendCleanupFailures(cleanupFailures, cleanupFailure);
                     primaryFailure = ex.Failure;
-                    failurePhase = RenderPipelineFailurePhase.CachePublication;
                 }
                 catch (Exception ex)
                 {
-                    rootDiagnostics?.RecordFailure(RenderPipelineFailurePhase.CachePublication);
                     primaryFailure = ExceptionDispatchInfo.Capture(ex);
-                    failurePhase = RenderPipelineFailurePhase.CachePublication;
                 }
             }
 
@@ -222,14 +205,13 @@ internal sealed partial class RenderRequestExecutor
                 }
                 catch (Exception ex)
                 {
-                    AppendCleanupFailures(cleanupFailures, frame.Diagnostics, ex);
+                    AppendCleanupFailures(cleanupFailures, ex);
                     if (primaryFailure is null)
                     {
                         primaryFailure = ExceptionDispatchInfo.Capture(
                             ex is AggregateException aggregate
                                 ? aggregate.Flatten().InnerExceptions[0]
                                 : ex);
-                        failurePhase = RenderPipelineFailurePhase.Cleanup;
                     }
                 }
             }
@@ -248,14 +230,13 @@ internal sealed partial class RenderRequestExecutor
                 }
                 catch (Exception ex)
                 {
-                    AppendCleanupFailures(cleanupFailures, frame.Diagnostics, ex);
+                    AppendCleanupFailures(cleanupFailures, ex);
                     if (primaryFailure is null)
                     {
                         primaryFailure = ExceptionDispatchInfo.Capture(
                             ex is AggregateException aggregate
                                 ? aggregate.Flatten().InnerExceptions[0]
                                 : ex);
-                        failurePhase = RenderPipelineFailurePhase.Cleanup;
                     }
                 }
             }
@@ -265,7 +246,7 @@ internal sealed partial class RenderRequestExecutor
         {
             EnsureOwnerPrimary(request.Request.Options.Owner, primaryFailure.SourceException);
             RecordAdditionalFailures(request.Request.Options.Owner, cleanupFailures);
-            FailFamily(request, failurePhase);
+            FailFamily(request);
             primaryFailure.Throw();
         }
 
@@ -282,12 +263,10 @@ internal sealed partial class RenderRequestExecutor
         private readonly RenderCacheResolution _cacheResolution;
         private readonly IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> _materializationDemands;
         private readonly IReadOnlySet<RenderFragmentReference> _previewDropEligibleMaterializations;
-        private readonly IReadOnlySet<RenderFragmentReference> _plannedPreviewDrops;
         private readonly HashSet<RenderFragmentReference> _roots;
         private readonly RenderTargetLeaseSession _targets;
         private readonly RenderCacheDeviceContextIdentity _programCacheContext;
         private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
-        private readonly RenderPipelineDiagnosticRecorder? _diagnostics;
         private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
         private readonly HashSet<ExecutionIslandId> _regionEmptyIslands;
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedScopeDomains = [];
@@ -296,8 +275,6 @@ internal sealed partial class RenderRequestExecutor
         private readonly Dictionary<RenderFragmentReference, IReadOnlyList<CompatibilityRenderValue>> _values =
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<CompatibilityRenderValue> _ownedValues =
-            new(ReferenceEqualityComparer.Instance);
-        private readonly HashSet<CompatibilityRenderValue> _diagnosticIntermediates =
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<CompatibilityRenderValue> _cacheCaptureValues =
             new(ReferenceEqualityComparer.Instance);
@@ -318,12 +295,7 @@ internal sealed partial class RenderRequestExecutor
         private int _synchronizations;
         private int _replayDepth;
         private bool _previewAllocationDropObserved;
-        private bool _verificationExecutionAbandoned;
         private Vector _activeDeviceGridOffset;
-
-        public long? ActiveSubjectId { get; private set; }
-
-        public RenderPipelineFailurePhase? FailurePhase { get; private set; }
 
         public CompatibilityExecutionState(
             RenderRequestOptions options,
@@ -334,11 +306,9 @@ internal sealed partial class RenderRequestExecutor
             ImmutableArray<RenderFragmentReference> roots,
             IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
             IReadOnlySet<RenderFragmentReference> previewDropEligibleMaterializations,
-            IReadOnlySet<RenderFragmentReference> plannedPreviewDrops,
             RenderCacheResolution cacheResolution,
             RenderTargetLeaseSession targets,
             ProgramCache<CachedSkRuntimeEffect> programCache,
-            RenderPipelineDiagnosticRecorder? diagnostics,
             Action<RenderFragmentKind>? afterCaptureAllocation)
         {
             _options = options;
@@ -356,15 +326,12 @@ internal sealed partial class RenderRequestExecutor
                 ?? throw new ArgumentNullException(nameof(materializationDemands));
             _previewDropEligibleMaterializations = previewDropEligibleMaterializations
                 ?? throw new ArgumentNullException(nameof(previewDropEligibleMaterializations));
-            _plannedPreviewDrops = plannedPreviewDrops
-                ?? throw new ArgumentNullException(nameof(plannedPreviewDrops));
             _roots = new HashSet<RenderFragmentReference>(
                 roots,
                 ReferenceEqualityComparer.Instance);
             _targets = targets;
             _programCacheContext = targets.CacheDeviceContextIdentity;
             _programCache = programCache;
-            _diagnostics = diagnostics;
             _afterCaptureAllocation = afterCaptureAllocation;
             _cacheHits = cacheResolution.Hits.ToDictionary(static item => item.OriginalProducerId);
             _cacheMisses = cacheResolution.MissCaptures
@@ -396,17 +363,9 @@ internal sealed partial class RenderRequestExecutor
         public void Replay(RenderFragmentReference fragment, ImmediateCanvas destination)
         {
             _replayDepth++;
-            long? previous = ActiveSubjectId;
-            ActiveSubjectId = fragment.Id?.Value;
             try
             {
                 ReplayCore(fragment, destination);
-                if (fragment.Id is { } id
-                    && !_cacheHits.ContainsKey(id)
-                    && !_skippedExecutionSubjects.Contains(id))
-                {
-                    _diagnostics?.RecordFragmentExecuted(id.Value);
-                }
                 CompleteFragmentUse(fragment);
             }
             catch (PreviewAllocationDropException) when (_replayDepth == 1)
@@ -420,14 +379,8 @@ internal sealed partial class RenderRequestExecutor
             {
                 throw;
             }
-            catch
-            {
-                RecordFailure(RenderPipelineFailurePhase.Execution, fragment.Id?.Value);
-                throw;
-            }
             finally
             {
-                ActiveSubjectId = previous;
                 _replayDepth--;
             }
         }
@@ -479,7 +432,6 @@ internal sealed partial class RenderRequestExecutor
                         fragment,
                         () =>
                         {
-                            using (ObserveGpuPass(fragment))
                             using (destination.PushOpacity(((OpacityRenderFragmentPayload)fragment.Payload!).Opacity))
                                 Replay(fragment.Inputs.Single(), destination);
                         });
@@ -491,7 +443,6 @@ internal sealed partial class RenderRequestExecutor
                         {
                             BlendMode blendMode =
                                 ((BlendRenderFragmentPayload)fragment.Payload!).BlendMode;
-                            using (ObserveGpuPass(fragment))
                             // DstOut leaves the destination unchanged for a transparent source,
                             // so a replay-safe source can erase directly without a coverage-changing
                             // intermediate layer. Other destructive modes still require the scope layer.

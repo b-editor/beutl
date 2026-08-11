@@ -55,14 +55,11 @@ public class FilterEffectRenderNodeTest
     [Test]
     public void CurrentPixelEffects_ExecuteAsOneFusedShaderRun()
     {
-        var diagnostics = new RenderPipelineDiagnosticsState();
         using Bitmap disabled = RenderCurrentPixelEffects(
             FusionMode.Disabled,
-            diagnostics: null,
             out _);
         using Bitmap enabled = RenderCurrentPixelEffects(
             FusionMode.Enabled,
-            diagnostics,
             out RenderExecutionStatistics statistics);
 
         Assert.Multiple(() =>
@@ -72,7 +69,6 @@ public class FilterEffectRenderNodeTest
             Assert.That(statistics.ShaderRunExecutions, Is.EqualTo(1));
             Assert.That(statistics.ShaderStageExecutions, Is.EqualTo(2));
             Assert.That(statistics.FusedShaderRunExecutions, Is.EqualTo(1));
-            Assert.That(diagnostics.Latest.HasOpaqueExternalWork, Is.False);
         });
     }
 
@@ -129,7 +125,6 @@ public class FilterEffectRenderNodeTest
 
     private static Bitmap RenderCurrentPixelEffects(
         FusionMode fusionMode,
-        RenderPipelineDiagnosticsState? diagnostics,
         out RenderExecutionStatistics statistics)
     {
         var group = new FilterEffectGroup
@@ -152,7 +147,6 @@ public class FilterEffectRenderNodeTest
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = fusionMode,
                     Purpose = RenderRequestPurpose.Frame,
-                    Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });

@@ -48,12 +48,6 @@ internal sealed class ExecutionIslandPlanner
         [
             .. cacheResolution.MissCaptures.Select(static capture => capture.ProducerId),
         ];
-        // A verified hit still executes, but it must materialize standalone so its output stays comparable.
-        foreach (RenderCacheHitSubstitution hit in cacheResolution.Hits)
-        {
-            if (hit.Verify)
-                cacheCaptureIds.Add(hit.OriginalProducerId);
-        }
         RenderFragmentReference[] references = GetOrderedReferences(graph, roots, cacheHitIds);
         var referenceSet = new HashSet<RenderFragmentReference>(
             references,

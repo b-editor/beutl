@@ -53,16 +53,6 @@ internal sealed partial class RenderRequestExecutor
                 _skippedExecutionSubjects.Add(id);
         }
 
-        private IDisposable? ObserveGpuPass(RenderFragmentReference fragment)
-        {
-            if (_diagnostics is not { } diagnostics)
-                return null;
-
-            long subjectId = fragment.Id?.Value ?? 0;
-            return ImmediateCanvas.ObservePixelOperations(
-                () => diagnostics.RecordGpuPassExecuted(subjectId));
-        }
-
         private static void AddResolvedDomain(
             Dictionary<RenderFragmentId, Rect> domains,
             RenderFragmentId fragmentId,
@@ -139,35 +129,12 @@ internal sealed partial class RenderRequestExecutor
                     "An allocated render value's physical device bounds must contain its semantic bounds.",
                     nameof(physicalDeviceBounds));
             }
-            RenderTargetLease? lease;
-            RenderTargetPoolStatistics beforeAcquire = _targets.PoolStatistics;
-            try
-            {
-                lease = allowPreviewDrop
-                    ? _targets.TryAcquire(deviceBounds.Size)
-                    : _targets.Acquire(deviceBounds.Size);
-            }
-            catch
-            {
-                RenderTargetPoolStatistics afterFailure = _targets.PoolStatistics;
-                _diagnostics?.RecordPoolMissWithoutAcquisition(
-                    afterFailure.Misses - beforeAcquire.Misses);
-                RecordFailure(RenderPipelineFailurePhase.Allocation, ActiveSubjectId);
-                throw;
-            }
+            RenderTargetLease? lease = allowPreviewDrop
+                ? _targets.TryAcquire(deviceBounds.Size)
+                : _targets.Acquire(deviceBounds.Size);
             if (lease is null)
-            {
-                RenderTargetPoolStatistics afterFailure = _targets.PoolStatistics;
-                _diagnostics?.RecordPoolMissWithoutAcquisition(
-                    afterFailure.Misses - beforeAcquire.Misses);
-                _diagnostics?.RecordPreviewAllocationDrop();
                 throw new PreviewAllocationDropException();
-            }
             _intermediateTargetAcquisitions++;
-            _diagnostics?.RecordIntermediateAcquired(
-                created: !lease.WasReused,
-                poolHit: lease.WasReused);
-            _diagnostics?.RecordMaterialization(fullFrame: _options.RequestedRegion is null);
             bool succeeded = false;
             try
             {
@@ -180,22 +147,13 @@ internal sealed partial class RenderRequestExecutor
                     gridOffset,
                     completeBounds);
                 _ownedValues.Add(value);
-                _diagnosticIntermediates.Add(value);
                 succeeded = true;
                 return value;
-            }
-            catch
-            {
-                RecordFailure(RenderPipelineFailurePhase.Allocation, ActiveSubjectId);
-                throw;
             }
             finally
             {
                 if (!succeeded)
-                {
                     lease.Dispose();
-                    _diagnostics?.RecordIntermediateDischarged();
-                }
             }
         }
 
@@ -207,15 +165,7 @@ internal sealed partial class RenderRequestExecutor
 
         private void DisposeOwnedValue(CompatibilityRenderValue value)
         {
-            try
-            {
-                value.Dispose();
-            }
-            finally
-            {
-                if (_diagnosticIntermediates.Remove(value))
-                    _diagnostics?.RecordIntermediateDischarged();
-            }
+            value.Dispose();
         }
 
         private EffectiveScale ResolveConcreteScale(RenderFragmentReference fragment)

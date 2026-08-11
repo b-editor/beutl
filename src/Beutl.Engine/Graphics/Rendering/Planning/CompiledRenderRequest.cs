@@ -57,9 +57,6 @@ internal sealed class CompiledRenderRequest : IDisposable
 
     public IReadOnlySet<RenderFragmentReference> PreviewDropEligibleMaterializations { get; }
 
-    public IReadOnlySet<RenderFragmentReference> PlannedPreviewDrops { get; private set; }
-        = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
-
     public TargetDependencyPlan TargetDependencies { get; }
 
     public RenderCacheResolution CacheResolution { get; }
@@ -69,26 +66,6 @@ internal sealed class CompiledRenderRequest : IDisposable
     public ImmutableArray<CompiledRenderRequest> NestedRequests { get; }
 
     public bool IsDisposed { get; private set; }
-
-    internal void ApplyPreviewAllocationPlan(IEnumerable<RenderFragmentReference> dropped)
-    {
-        ArgumentNullException.ThrowIfNull(dropped);
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-        var plan = new HashSet<RenderFragmentReference>(dropped, ReferenceEqualityComparer.Instance);
-        if (Request.Options.Intent != RenderIntent.Preview && plan.Count != 0)
-        {
-            throw new InvalidOperationException(
-                "Only a preview request can carry planned allocation drops.");
-        }
-
-        if (!plan.IsSubsetOf(PreviewDropEligibleMaterializations))
-        {
-            throw new InvalidOperationException(
-                "A planned preview drop must be one of the compiler-approved materializations.");
-        }
-
-        PlannedPreviewDrops = plan;
-    }
 
     private static Rect ResolveExecutionTargetBounds(
         RecordedRenderGraph graph,

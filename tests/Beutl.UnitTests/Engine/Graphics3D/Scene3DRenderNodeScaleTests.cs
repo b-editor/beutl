@@ -105,7 +105,6 @@ public class Scene3DRenderNodeScaleTests
         resource.Objects.Add((Object3D.Resource)cube.ToResource(CompositionContext.Default));
         using var node = new Scene3DRenderNode(resource);
         using var owner = new RenderRequestOwner();
-        var diagnostics = new RenderPipelineDiagnosticsState();
         var options = new RenderRequestOptions(
             RenderIntent.Delivery,
             RenderRequestPurpose.Frame,
@@ -115,8 +114,7 @@ public class Scene3DRenderNodeScaleTests
             maxWorkingScale: 0.75f,
             cachePolicy: RenderCacheOptions.Disabled,
             fusionMode: FusionMode.Disabled,
-            owner: owner,
-            diagnostics: diagnostics);
+            owner: owner);
         using var request = new RenderRequest(options);
 
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
@@ -135,7 +133,6 @@ public class Scene3DRenderNodeScaleTests
             Assert.That(nested.Request.Options.CachePolicy, Is.EqualTo(options.CachePolicy));
             Assert.That(nested.Request.Options.FusionMode, Is.EqualTo(options.FusionMode));
             Assert.That(nested.Request.Options.Owner, Is.SameAs(owner));
-            Assert.That(nested.Request.Options.Diagnostics, Is.SameAs(diagnostics));
             Assert.That(nested.Request.Options.TargetBinding, Is.Not.Null);
             Assert.That(nested.Request.Options.TargetBinding!.IsReady, Is.False,
                 "CPU recording must not allocate, execute, or prepare the nested target.");

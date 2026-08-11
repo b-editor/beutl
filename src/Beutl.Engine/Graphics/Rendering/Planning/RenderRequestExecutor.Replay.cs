@@ -11,18 +11,9 @@ internal sealed partial class RenderRequestExecutor
 {
     private sealed partial class CompatibilityExecutionState
     {
-        private void RecordFailure(RenderPipelineFailurePhase phase, long? subjectId)
+        private void RecordSynchronization()
         {
-            FailurePhase ??= phase;
-            _diagnostics?.RecordFailure(phase, subjectId);
-        }
-
-        private void RecordSynchronization(RenderFragmentReference fragment)
-        {
-            RenderFragmentId id = fragment.Id
-                ?? throw new InvalidOperationException("A synchronizing fragment is not committed.");
             _synchronizations = checked(_synchronizations + 1);
-            _diagnostics?.RecordSynchronizationExecuted(id.Value);
         }
 
         private bool TryReplayEngineSourceDirect(
@@ -70,9 +61,7 @@ internal sealed partial class RenderRequestExecutor
                                         token,
                                         inputs,
                                         requiresReadback: false,
-                                        readbackOwner: null,
                                         images);
-                                    using (ObserveGpuPass(fragment))
                                     using (destination.BeginDirectExecution(token))
                                     {
                                         replay(new EngineDirectRenderSession(
@@ -293,8 +282,6 @@ internal sealed partial class RenderRequestExecutor
                     });
                     _ownedValues.Remove(value);
                     _cacheCaptureValues.Remove(value);
-                    if (_diagnosticIntermediates.Remove(value))
-                        _diagnostics?.RecordIntermediateDischarged();
                 }
 
                 publications.Add(new RenderNodeCachePublication(
@@ -314,7 +301,6 @@ internal sealed partial class RenderRequestExecutor
 
             _pendingCacheCaptures.Clear();
             _suppressedCacheCaptures.Clear();
-            _diagnostics?.CommitAcceptedCacheCaptures();
         }
 
         public void Dispose()
@@ -397,7 +383,7 @@ internal sealed partial class RenderRequestExecutor
 
         public void ValidateExecutionCompleted(bool allowSkippedIslands)
             => _executionLedger.ValidateCompleted(
-                allowSkippedIslands || _previewAllocationDropObserved || _verificationExecutionAbandoned,
+                allowSkippedIslands || _previewAllocationDropObserved,
                 _regionEmptyIslands);
 
         private static bool IsRegionEmpty(ExecutionIsland island, RegionAnalysis regions)

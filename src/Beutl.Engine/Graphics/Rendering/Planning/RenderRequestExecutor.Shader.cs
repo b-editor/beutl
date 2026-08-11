@@ -67,7 +67,6 @@ internal sealed partial class RenderRequestExecutor
                     try
                     {
                         ExecuteShaderElement(
-                            fragment.Id?.Value ?? 0,
                             description,
                             input,
                             output,
@@ -230,73 +229,63 @@ internal sealed partial class RenderRequestExecutor
             var bindingToken = new RenderExecutionSessionToken();
             try
             {
-                try
-                {
-                    bindingToken.RunAndComplete(
-                        () =>
+                bindingToken.RunAndComplete(
+                    () =>
+                    {
+                        SKShader inputShader = inputImage.ToShader(
+                            SKShaderTileMode.Decal,
+                            SKShaderTileMode.Decal,
+                            RasterShaderMapping.CreateLocalMatrix(
+                                outputScale,
+                                input.EffectiveScale.Value,
+                                outputRasterBounds,
+                                input.RasterBounds));
+                        children.Add(inputShader);
+                        runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
+
+                        var stagesByMergedIndex = new Dictionary<int, CompiledShaderStage>();
+                        var contextsByMergedIndex = new Dictionary<int, ShaderExecutionContext>();
+                        for (int index = 0; index < run.Program.Stages.Count; index++)
                         {
-                            SKShader inputShader = inputImage.ToShader(
-                                SKShaderTileMode.Decal,
-                                SKShaderTileMode.Decal,
-                                RasterShaderMapping.CreateLocalMatrix(
-                                    outputScale,
-                                    input.EffectiveScale.Value,
+                            int mergedIndex = run.Program.Stages[index].StageIndex;
+                            CompiledShaderStage stage = run.Stages[index];
+                            stagesByMergedIndex.Add(mergedIndex, stage);
+                            contextsByMergedIndex.Add(
+                                mergedIndex,
+                                CreateCompiledShaderStageContext(
+                                    run,
+                                    stage,
+                                    index,
+                                    bindingToken,
+                                    input,
+                                    outputBounds,
+                                    requiredRegion,
+                                    outputDeviceBounds,
                                     outputRasterBounds,
-                                    input.RasterBounds));
-                            children.Add(inputShader);
-                            runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
+                                    outputScale));
+                        }
 
-                            var stagesByMergedIndex = new Dictionary<int, CompiledShaderStage>();
-                            var contextsByMergedIndex = new Dictionary<int, ShaderExecutionContext>();
-                            for (int index = 0; index < run.Program.Stages.Count; index++)
+                        foreach (SkslMergedBindingLayout layout in run.Program.Bindings)
+                        {
+                            CompiledShaderStage stage = stagesByMergedIndex[layout.StageIndex];
+                            ShaderExecutionContext context = contextsByMergedIndex[layout.StageIndex];
+                            ShaderDescription description = stage.Description;
+                            if (layout.Kind == SkslBindingKind.Uniform)
                             {
-                                int mergedIndex = run.Program.Stages[index].StageIndex;
-                                CompiledShaderStage stage = run.Stages[index];
-                                stagesByMergedIndex.Add(mergedIndex, stage);
-                                contextsByMergedIndex.Add(
-                                    mergedIndex,
-                                    CreateCompiledShaderStageContext(
-                                        run,
-                                        stage,
-                                        index,
-                                        bindingToken,
-                                        input,
-                                        outputBounds,
-                                        requiredRegion,
-                                        outputDeviceBounds,
-                                        outputRasterBounds,
-                                        outputScale));
+                                ShaderUniformBinding binding = description.Uniforms[layout.BindingIndex];
+                                SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
+                                ShaderUniformValue value = binding.Bind(declaration, context);
+                                SetUniform(uniforms, layout.MergedName, declaration, value);
                             }
-
-                            foreach (SkslMergedBindingLayout layout in run.Program.Bindings)
+                            else
                             {
-                                CompiledShaderStage stage = stagesByMergedIndex[layout.StageIndex];
-                                ShaderExecutionContext context = contextsByMergedIndex[layout.StageIndex];
-                                ShaderDescription description = stage.Description;
-                                if (layout.Kind == SkslBindingKind.Uniform)
-                                {
-                                    ShaderUniformBinding binding = description.Uniforms[layout.BindingIndex];
-                                    SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
-                                    ShaderUniformValue value = binding.Bind(declaration, context);
-                                    SetUniform(uniforms, layout.MergedName, declaration, value);
-                                }
-                                else
-                                {
-                                    ShaderResourceBinding binding = description.Resources[layout.BindingIndex];
-                                    SKShader child = binding.Bind(context);
-                                    children.Add(child);
-                                    runtimeChildren[layout.MergedName] = child;
-                                }
+                                ShaderResourceBinding binding = description.Resources[layout.BindingIndex];
+                                SKShader child = binding.Bind(context);
+                                children.Add(child);
+                                runtimeChildren[layout.MergedName] = child;
                             }
-                        });
-                }
-                catch
-                {
-                    RecordFailure(
-                        RenderPipelineFailurePhase.Binding,
-                        run.Output.Id?.Value);
-                    throw;
-                }
+                        }
+                    });
 
                 using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
                 draw(shader);
@@ -307,7 +296,6 @@ internal sealed partial class RenderRequestExecutor
                     _fusedShaderRunExecutions++;
                 if (lease.IsCacheHit)
                     _programCacheHits++;
-                _diagnostics?.RecordGpuPassExecuted(run.Output.Id?.Value ?? 0);
             }
             finally
             {
@@ -373,31 +361,16 @@ internal sealed partial class RenderRequestExecutor
             CompiledShaderRun run,
             ProgramCacheContextKey contextKey)
         {
-            try
-            {
-                ProgramCacheLease<CachedSkRuntimeEffect> lease = _programCache.GetOrCreate(
-                    run.Program,
-                    contextKey,
-                    CachedSkRuntimeEffect.Create);
-                _diagnostics?.RecordProgramCacheDecision(
-                    run.Output.Id?.Value ?? 0,
-                    lease.IsCacheHit);
-                return lease;
-            }
-            catch
-            {
-                RecordFailure(
-                    RenderPipelineFailurePhase.ProgramCompilation,
-                    run.Output.Id?.Value);
-                throw;
-            }
+            return _programCache.GetOrCreate(
+                run.Program,
+                contextKey,
+                CachedSkRuntimeEffect.Create);
         }
 
         private ProgramCacheContextKey CreateProgramContextKey(SkslBackendBudget budget)
             => SkRuntimeEffectProgramCache.CreateContextKey(_programCacheContext, budget);
 
         private ProgramCacheLease<CachedSkRuntimeEffect> AcquireStandaloneProgram(
-            long subjectId,
             EffectTarget target,
             string source)
         {
@@ -405,31 +378,21 @@ internal sealed partial class RenderRequestExecutor
             RenderTarget renderTarget = target.RenderTarget
                 ?? throw new InvalidOperationException(
                     "A legacy shader program requires a materialized execution destination.");
-            return AcquireStandaloneProgram(subjectId, renderTarget, source);
+            return AcquireStandaloneProgram(renderTarget, source);
         }
 
         private ProgramCacheLease<CachedSkRuntimeEffect> AcquireStandaloneProgram(
-            long subjectId,
             RenderTarget target,
             string source)
         {
-            try
-            {
-                ProgramCacheLease<CachedSkRuntimeEffect> lease =
-                    SkRuntimeEffectProgramCache.AcquireForDestination(
-                        _programCache,
-                        target,
-                        source);
-                _diagnostics?.RecordProgramCacheDecision(subjectId, lease.IsCacheHit);
-                if (lease.IsCacheHit)
-                    _programCacheHits++;
-                return lease;
-            }
-            catch
-            {
-                RecordFailure(RenderPipelineFailurePhase.ProgramCompilation, subjectId);
-                throw;
-            }
+            ProgramCacheLease<CachedSkRuntimeEffect> lease =
+                SkRuntimeEffectProgramCache.AcquireForDestination(
+                    _programCache,
+                    target,
+                    source);
+            if (lease.IsCacheHit)
+                _programCacheHits++;
+            return lease;
         }
 
         private static void SetUniform(
@@ -455,7 +418,6 @@ internal sealed partial class RenderRequestExecutor
         }
 
         private void ExecuteShaderElement(
-            long subjectId,
             ShaderDescription description,
             CompatibilityRenderValue input,
             CompatibilityRenderValue output,
@@ -481,71 +443,63 @@ internal sealed partial class RenderRequestExecutor
             }
 
             using ProgramCacheLease<CachedSkRuntimeEffect> lease =
-                AcquireStandaloneProgram(subjectId, output.Target, programSource);
+                AcquireStandaloneProgram(output.Target, programSource);
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
             var children = new List<SKShader>();
             var bindingToken = new RenderExecutionSessionToken();
             try
             {
-                try
-                {
-                    bindingToken.RunAndComplete(
-                        () =>
+                bindingToken.RunAndComplete(
+                    () =>
+                    {
+                        var context = new ShaderExecutionContext(
+                            bindingToken,
+                            input.Bounds,
+                            outputBounds,
+                            requiredRegion,
+                            output.DeviceBounds,
+                            output.RasterBounds,
+                            input.EffectiveScale,
+                            _options.OutputScale,
+                            output.EffectiveScale.Value,
+                            _options.MaxWorkingScale,
+                            _options.Intent,
+                            _options.Purpose);
+                        foreach (ShaderUniformBinding binding in description.Uniforms)
                         {
-                            var context = new ShaderExecutionContext(
-                                bindingToken,
-                                input.Bounds,
-                                outputBounds,
-                                requiredRegion,
-                                output.DeviceBounds,
-                                output.RasterBounds,
-                                input.EffectiveScale,
-                                _options.OutputScale,
-                                output.EffectiveScale.Value,
-                                _options.MaxWorkingScale,
-                                _options.Intent,
-                                _options.Purpose);
-                            foreach (ShaderUniformBinding binding in description.Uniforms)
+                            if (!description.Source.Uniforms.TryGetValue(
+                                    binding.Name,
+                                    out SkslUniformDeclaration declaration))
                             {
-                                if (!description.Source.Uniforms.TryGetValue(
-                                        binding.Name,
-                                        out SkslUniformDeclaration declaration))
-                                {
-                                    throw new InvalidOperationException(
-                                        $"Shader uniform '{binding.Name}' was not declared.");
-                                }
-
-                                ShaderUniformValue value = binding.Bind(declaration, context);
-                                SetUniform(uniforms, binding.Name, declaration, value);
+                                throw new InvalidOperationException(
+                                    $"Shader uniform '{binding.Name}' was not declared.");
                             }
 
-                            SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
-                                inputImage,
-                                input.Target.Value.Context,
-                                input.Bounds,
-                                input.EffectiveScale.Value,
-                                input.DeviceBounds,
-                                input.RasterBounds,
-                                output.EffectiveScale.Value,
-                                output.RasterBounds,
-                                tileMode);
-                            children.Add(inputShader);
-                            runtimeChildren[childName] = inputShader;
+                            ShaderUniformValue value = binding.Bind(declaration, context);
+                            SetUniform(uniforms, binding.Name, declaration, value);
+                        }
 
-                            foreach (ShaderResourceBinding binding in description.Resources)
-                            {
-                                SKShader child = binding.Bind(context);
-                                children.Add(child);
-                                runtimeChildren[binding.Name] = child;
-                            }
-                        });
-                }
-                catch
-                {
-                    RecordFailure(RenderPipelineFailurePhase.Binding, subjectId);
-                    throw;
-                }
+                        SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
+                            inputImage,
+                            input.Target.Value.Context,
+                            input.Bounds,
+                            input.EffectiveScale.Value,
+                            input.DeviceBounds,
+                            input.RasterBounds,
+                            output.EffectiveScale.Value,
+                            output.RasterBounds,
+                            tileMode);
+                        children.Add(inputShader);
+                        runtimeChildren[childName] = inputShader;
+
+                        foreach (ShaderResourceBinding binding in description.Resources)
+                        {
+                            SKShader child = binding.Bind(context);
+                            children.Add(child);
+                            runtimeChildren[binding.Name] = child;
+                        }
+                    });
 
                 using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
                 using var paint = new SKPaint { Shader = shader };
@@ -563,7 +517,6 @@ internal sealed partial class RenderRequestExecutor
                         SKRect.Create(output.Target.Width, output.Target.Height),
                         paint);
                 }
-                _diagnostics?.RecordGpuPassExecuted(subjectId);
             }
             finally
             {

@@ -48,7 +48,6 @@ internal sealed partial class RenderRequestExecutor
         ICollection<Exception> cleanupFailures,
         ref int nestedRootAcquisitions)
     {
-        RenderPipelineDiagnosticRecorder? diagnostics = RenderRequestDiagnostics.TryGet(request.Request);
         NestedRenderTargetBinding binding = request.Request.Options.TargetBinding
             ?? throw new InvalidOperationException("A nested request has no separate-target binding.");
         bool needsTarget = request.Measurement.HasContributingValues
@@ -74,7 +73,6 @@ internal sealed partial class RenderRequestExecutor
         RenderTargetLease? lease = null;
         ImmediateCanvas? canvas = null;
         FamilyExecutionException? failure = null;
-        bool recordedAcquisition = false;
         RenderTargetCleanupFailureCheckpoint cleanupCheckpoint =
             _targets.CaptureCleanupFailureCheckpoint();
         try
@@ -85,16 +83,8 @@ internal sealed partial class RenderRequestExecutor
             {
                 lease = _targets.Acquire(deviceBounds.Size);
                 nestedRootAcquisitions++;
-                diagnostics?.RecordIntermediateAcquired(
-                    created: !lease.WasReused,
-                    poolHit: lease.WasReused);
-                recordedAcquisition = true;
                 RenderTarget target = lease.Target;
-                binding.Stage(
-                    lease,
-                    bounds,
-                    request.Request.Options.OutputScale,
-                    diagnostics);
+                binding.Stage(lease, bounds, request.Request.Options.OutputScale);
                 lease = null;
                 canvas = ImmediateCanvas.CreateExecutorManaged(
                     target,
@@ -107,10 +97,8 @@ internal sealed partial class RenderRequestExecutor
             }
             catch (Exception ex)
             {
-                diagnostics?.RecordFailure(RenderPipelineFailurePhase.Allocation);
                 failure = new FamilyExecutionException(
-                    ExceptionDispatchInfo.Capture(ex),
-                    RenderPipelineFailurePhase.Allocation);
+                    ExceptionDispatchInfo.Capture(ex));
             }
 
             if (failure is null)
@@ -150,21 +138,17 @@ internal sealed partial class RenderRequestExecutor
             }
             catch (Exception ex)
             {
-                AppendCleanupFailures(cleanupFailures, diagnostics, ex);
+                AppendCleanupFailures(cleanupFailures, ex);
                 failure ??= new FamilyExecutionException(
-                    ExceptionDispatchInfo.Capture(ex),
-                    RenderPipelineFailurePhase.Cleanup);
+                    ExceptionDispatchInfo.Capture(ex));
             }
 
             lease?.Dispose();
-            if (lease is not null && recordedAcquisition)
-                diagnostics?.RecordIntermediateDischarged();
             foreach (Exception cleanupFailure in _targets.GetCleanupFailuresSince(cleanupCheckpoint))
             {
-                AppendCleanupFailures(cleanupFailures, diagnostics, cleanupFailure);
+                AppendCleanupFailures(cleanupFailures, cleanupFailure);
                 failure ??= new FamilyExecutionException(
-                    ExceptionDispatchInfo.Capture(cleanupFailure),
-                    RenderPipelineFailurePhase.Cleanup);
+                    ExceptionDispatchInfo.Capture(cleanupFailure));
             }
         }
 
@@ -181,7 +165,6 @@ internal sealed partial class RenderRequestExecutor
         ICollection<FamilyExecutionFrame> frames,
         ICollection<Exception> cleanupFailures)
     {
-        RenderPipelineDiagnosticRecorder? diagnostics = RenderRequestDiagnostics.TryGet(request.Request);
         request.Request.TransitionTo(RenderRequestState.Executing);
         var state = new CompatibilityExecutionState(
             request.Request.Options,
@@ -192,16 +175,13 @@ internal sealed partial class RenderRequestExecutor
             request.Roots,
             request.MaterializationDemands,
             request.PreviewDropEligibleMaterializations,
-            request.PlannedPreviewDrops,
             request.CacheResolution,
             _targets,
             programCache,
-            diagnostics,
             _afterCaptureAllocation);
-        var frame = new FamilyExecutionFrame(request, state, diagnostics);
+        var frame = new FamilyExecutionFrame(request, state);
         frames.Add(frame);
         ExceptionDispatchInfo? bodyFailure = null;
-        RenderPipelineFailurePhase bodyFailurePhase = RenderPipelineFailurePhase.Execution;
         try
         {
             if (replayBounds.Width != 0 && replayBounds.Height != 0)
@@ -231,8 +211,6 @@ internal sealed partial class RenderRequestExecutor
         }
         catch (Exception ex)
         {
-            bodyFailurePhase = state.FailurePhase ?? RenderPipelineFailurePhase.Execution;
-            diagnostics?.RecordFailure(bodyFailurePhase, state.ActiveSubjectId);
             bodyFailure = ExceptionDispatchInfo.Capture(ex);
         }
 
@@ -243,7 +221,7 @@ internal sealed partial class RenderRequestExecutor
         }
         catch (Exception ex)
         {
-            AppendCleanupFailures(cleanupFailures, diagnostics, ex);
+            AppendCleanupFailures(cleanupFailures, ex);
             cleanupFailure = ExceptionDispatchInfo.Capture(
                 ex is AggregateException aggregate
                     ? aggregate.Flatten().InnerExceptions[0]
@@ -251,9 +229,9 @@ internal sealed partial class RenderRequestExecutor
         }
 
         if (bodyFailure is not null)
-            throw new FamilyExecutionException(bodyFailure, bodyFailurePhase);
+            throw new FamilyExecutionException(bodyFailure);
         if (cleanupFailure is not null)
-            throw new FamilyExecutionException(cleanupFailure, RenderPipelineFailurePhase.Cleanup);
+            throw new FamilyExecutionException(cleanupFailure);
     }
 
     private static void ValidateFamilyForExecution(CompiledRenderRequest request)
@@ -268,10 +246,7 @@ internal sealed partial class RenderRequestExecutor
     private static void CompleteFamily(CompiledRenderRequest request)
     {
         foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
-        {
             member.Request.TransitionTo(RenderRequestState.Completed);
-            RenderRequestDiagnostics.Complete(member.Request);
-        }
     }
 
     private static void RejectNestedBindings(CompiledRenderRequest request)
@@ -280,17 +255,10 @@ internal sealed partial class RenderRequestExecutor
             member.Request.Options.TargetBinding?.Reject();
     }
 
-    private static void FailFamily(
-        CompiledRenderRequest request,
-        RenderPipelineFailurePhase failurePhase)
+    private static void FailFamily(CompiledRenderRequest request)
     {
         foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
-        {
-            RenderPipelineDiagnosticRecorder? diagnostics = RenderRequestDiagnostics.TryGet(member.Request);
-            diagnostics?.RecordFamilyFailure(failurePhase);
             member.Request.FailFamilyMember();
-            RenderRequestDiagnostics.Complete(member.Request);
-        }
     }
 
     private static IEnumerable<CompiledRenderRequest> EnumerateFamilyDepthFirst(
@@ -313,16 +281,12 @@ internal sealed partial class RenderRequestExecutor
 
     private sealed record FamilyExecutionFrame(
         CompiledRenderRequest Request,
-        CompatibilityExecutionState State,
-        RenderPipelineDiagnosticRecorder? Diagnostics);
+        CompatibilityExecutionState State);
 
     private sealed class FamilyExecutionException(
-        ExceptionDispatchInfo failure,
-        RenderPipelineFailurePhase failurePhase) : Exception
+        ExceptionDispatchInfo failure) : Exception
     {
         public ExceptionDispatchInfo Failure { get; } = failure;
-
-        public RenderPipelineFailurePhase FailurePhase { get; } = failurePhase;
     }
 
     private sealed class FamilyCachePublicationException(
@@ -340,31 +304,28 @@ internal sealed partial class RenderRequestExecutor
 
     private static void AppendCleanupFailures(
         ICollection<Exception> failures,
-        RenderPipelineDiagnosticRecorder? diagnostics,
         Exception exception)
     {
         if (exception is AggregateException aggregate)
         {
             foreach (Exception inner in aggregate.Flatten().InnerExceptions)
             {
-                AddCleanupFailure(failures, diagnostics, inner);
+                AddCleanupFailure(failures, inner);
             }
         }
         else
         {
-            AddCleanupFailure(failures, diagnostics, exception);
+            AddCleanupFailure(failures, exception);
         }
     }
 
     private static void AddCleanupFailure(
         ICollection<Exception> failures,
-        RenderPipelineDiagnosticRecorder? diagnostics,
         Exception exception)
     {
         if (failures.Any(existing => ReferenceEquals(existing, exception)))
             return;
         failures.Add(exception);
-        diagnostics?.RecordCleanupFailure();
     }
 
     private static void RecordAdditionalFailures(

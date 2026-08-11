@@ -123,13 +123,11 @@ public class NodeCacheScaleTests
             RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1);
         using var node = new RasterApronSourceNode(bounds);
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
-        var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = CreateFrameRenderer(
             node,
             outputScale: 1,
             maxWorkingScale: 1,
-            targetDomain: bounds,
-            diagnostics: diagnostics);
+            targetDomain: bounds);
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         using RenderNodeRasterization warm = renderer.Rasterize();
@@ -142,9 +140,6 @@ public class NodeCacheScaleTests
             Assert.That(node.Cache.IsCached, Is.True);
             Assert.That(node.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
             Assert.That(node.ExecuteCount, Is.EqualTo(1));
-            Assert.That(
-                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
-                Is.EqualTo(1));
         });
     }
 
@@ -161,14 +156,12 @@ public class NodeCacheScaleTests
             RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1);
         using var node = new BoundedValueReplayNode(bounds);
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
-        var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = CreateFrameRenderer(
             node,
             outputScale: 1,
             maxWorkingScale: 1,
             targetDomain: bounds,
-            requestedRegion: requestedRegion,
-            diagnostics: diagnostics);
+            requestedRegion: requestedRegion);
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         using RenderNodeRasterization warm = renderer.Rasterize();
@@ -181,9 +174,6 @@ public class NodeCacheScaleTests
             Assert.That(node.Cache.IsCached, Is.True);
             Assert.That(node.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
             Assert.That(node.ExecuteCount, Is.EqualTo(1));
-            Assert.That(
-                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
-                Is.EqualTo(1));
         });
     }
 
@@ -193,8 +183,7 @@ public class NodeCacheScaleTests
         float maxWorkingScale,
         RenderCacheRules? cacheRules = null,
         Rect? targetDomain = null,
-        Rect? requestedRegion = null,
-        IRenderPipelineDiagnosticsState? diagnostics = null)
+        Rect? requestedRegion = null)
         => new(
             node,
             new RenderNodeRendererOptions
@@ -209,7 +198,6 @@ public class NodeCacheScaleTests
                         true,
                         cacheRules ?? RenderCacheRules.Default),
                     Purpose = RenderRequestPurpose.Frame,
-                    Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });

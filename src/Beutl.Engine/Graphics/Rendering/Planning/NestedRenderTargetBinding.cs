@@ -12,7 +12,6 @@ namespace Beutl.Graphics.Rendering;
 internal sealed class NestedRenderTargetBinding : IDisposable
 {
     private RenderTargetLease? _lease;
-    private RenderPipelineDiagnosticRecorder? _diagnostics;
     private NestedRenderTargetBindingState _state;
 
     public Rect LogicalBounds { get; private set; }
@@ -28,8 +27,7 @@ internal sealed class NestedRenderTargetBinding : IDisposable
     public void Stage(
         RenderTargetLease lease,
         Rect logicalBounds,
-        float density,
-        RenderPipelineDiagnosticRecorder? diagnostics)
+        float density)
     {
         ArgumentNullException.ThrowIfNull(lease);
         ObjectDisposedException.ThrowIf(IsDisposed, this);
@@ -48,7 +46,6 @@ internal sealed class NestedRenderTargetBinding : IDisposable
         }
 
         _lease = lease;
-        _diagnostics = diagnostics;
         LogicalBounds = logicalBounds;
         Density = density;
         DeviceBounds = deviceBounds;
@@ -119,16 +116,7 @@ internal sealed class NestedRenderTargetBinding : IDisposable
 
         RenderTargetLease? lease = Interlocked.Exchange(ref _lease, null);
         _state = NestedRenderTargetBindingState.Disposed;
-        try
-        {
-            lease?.Dispose();
-        }
-        finally
-        {
-            if (lease is not null)
-                _diagnostics?.RecordIntermediateDischarged();
-            _diagnostics = null;
-        }
+        lease?.Dispose();
     }
 }
 

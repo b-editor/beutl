@@ -39,7 +39,6 @@ internal sealed partial class RenderRequestExecutor
                             token,
                             values,
                             requiresReadback: false,
-                            readbackOwner: null,
                             images);
                         BrushExecutionResolver.UseBrush(
                             token,
@@ -48,7 +47,6 @@ internal sealed partial class RenderRequestExecutor
                             payload.Mask,
                             mask =>
                             {
-                                using (ObserveGpuPass(fragment))
                                 using (destination.PushOpacityMask(mask, payload.BrushBounds, payload.Invert))
                                     Replay(fragment.Inputs[0], destination);
                             });
@@ -91,7 +89,6 @@ internal sealed partial class RenderRequestExecutor
                     fragment.Bounds,
                     scale,
                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
-                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                 bool succeeded = false;
                 try
                 {
@@ -169,7 +166,6 @@ internal sealed partial class RenderRequestExecutor
                     fragment.Bounds,
                     scale,
                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
-                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                 bool succeeded = false;
                 try
                 {
@@ -200,7 +196,6 @@ internal sealed partial class RenderRequestExecutor
                                         token,
                                         maskValues,
                                         requiresReadback: false,
-                                        readbackOwner: null,
                                         images);
                                     BrushExecutionResolver.UseBrush(
                                         token,
@@ -381,7 +376,6 @@ internal sealed partial class RenderRequestExecutor
                     payload.Context,
                     effectContext =>
                     {
-                        _diagnostics?.RecordOpaqueExecution(fragment.Id?.Value ?? 0);
                         using var targets = new EffectTargets();
                         foreach (CompatibilityRenderValue input in inputs)
                         {
@@ -413,7 +407,6 @@ internal sealed partial class RenderRequestExecutor
                                     _options.MaxWorkingScale,
                                     _activeDeviceGridOffset,
                                     (target, source) => AcquireStandaloneProgram(
-                                        fragment.Id?.Value ?? 0,
                                         target,
                                         source),
                                     brushes);
@@ -497,7 +490,6 @@ internal sealed partial class RenderRequestExecutor
                             token,
                             brushValues,
                             requiresReadback: false,
-                            readbackOwner: null,
                             images);
                         var resolved = new Dictionary<FilterEffectBrush, LoweredBrush>();
                         ResolveBrush(

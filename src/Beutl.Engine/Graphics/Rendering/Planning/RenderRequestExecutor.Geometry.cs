@@ -57,7 +57,6 @@ internal sealed partial class RenderRequestExecutor
                         outputScale,
                         outputBounds,
                         allowPreviewDrop: true);
-                    _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                     bool keepOutput = false;
                     try
                     {
@@ -122,7 +121,7 @@ internal sealed partial class RenderRequestExecutor
                 () =>
                 {
                     Func<Bitmap>? createSnapshot = description.RequiresReadback
-                        ? () => SnapshotInputForReadback(fragment, input)
+                        ? () => SnapshotInputForReadback(input)
                         : null;
                     var executionInput = new RenderExecutionInput(
                         token,
@@ -255,7 +254,7 @@ internal sealed partial class RenderRequestExecutor
                             SKImage image = input.Target.Value.Snapshot();
                             inputImages.Add(image);
                             Func<Bitmap>? createSnapshot = requiresReadback
-                                ? () => SnapshotInputForReadback(fragment, input)
+                                ? () => SnapshotInputForReadback(input)
                                 : null;
                             executionInputs.Add(new RenderExecutionInput(
                                 token,
@@ -333,7 +332,6 @@ internal sealed partial class RenderRequestExecutor
                                     outputBounds,
                                     physicalDeviceBounds,
                                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
-                                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                                 var canvas = new RenderCallbackCanvas(
                                     token,
                                     outputDensity,
@@ -379,8 +377,7 @@ internal sealed partial class RenderRequestExecutor
                         ValidateOutputCount(cardinality, published.Count);
                         if (description.BackendBoundary != RenderBackendBoundary.None && published.Count != 0)
                         {
-                            RecordSynchronization(fragment);
-                            _diagnostics?.RecordBackendTransitionExecuted(fragment.Id?.Value ?? 0);
+                            RecordSynchronization();
                         }
                         return published.ToArray();
                     });

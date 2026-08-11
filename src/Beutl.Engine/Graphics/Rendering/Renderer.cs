@@ -16,7 +16,6 @@ public class Renderer : IRenderer
     private readonly ImmediateCanvas _immediateCanvas;
     private readonly RenderTarget _surface;
     private readonly Dispatcher _dispatcher;
-    private readonly IRenderPipelineDiagnosticsState? _diagnostics;
     private readonly ConditionalWeakTable<Drawable, Entry> _nodeCache = new();
     private readonly List<Entry> _allCurrentEntries = [];
 
@@ -118,7 +117,6 @@ public class Renderer : IRenderer
             height,
             renderScale,
             maxWorkingScale,
-            diagnostics: null,
             surface: null,
             intent: intent)
     {
@@ -129,7 +127,6 @@ public class Renderer : IRenderer
         int height,
         float renderScale,
         float maxWorkingScale,
-        IRenderPipelineDiagnosticsState? diagnostics,
         RenderTarget? surface,
         RenderIntent intent = RenderIntent.Preview,
         Dispatcher? dispatcher = null)
@@ -164,13 +161,11 @@ public class Renderer : IRenderer
         DeviceSize = new PixelSize(
             (int)MathF.Ceiling(width * outputScale),
             (int)MathF.Ceiling(height * outputScale));
-        _diagnostics = diagnostics;
         _frameClear = new ClearRenderNode(default);
         _completeTarget = new CompleteTargetRenderNode(_frameClear, []);
         _frameRenderer = CreateEntryRenderer(
             _completeTarget,
-            RenderRequestPurpose.Frame,
-            _diagnostics);
+            RenderRequestPurpose.Frame);
         try
         {
             (_immediateCanvas, _surface) = _dispatcher.Invoke(() =>
@@ -289,8 +284,6 @@ public class Renderer : IRenderer
     internal long RetainedRenderTargetBytes
         => _frameRenderer.TargetPoolStatistics.RetainedBytes
            + _nodeCache.Sum(static pair => pair.Value.Renderer.TargetPoolStatistics.RetainedBytes);
-
-    internal IRenderPipelineDiagnosticsState? Diagnostics => _diagnostics;
 
     public void Dispose()
     {
@@ -489,7 +482,6 @@ public class Renderer : IRenderer
     private RenderNodeRenderer CreateEntryRenderer(
         RenderNode node,
         RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary,
-        IRenderPipelineDiagnosticsState? diagnostics = null,
         RenderCacheOptions? cacheOptions = null)
         => new(
             node,
@@ -503,7 +495,6 @@ public class Renderer : IRenderer
                     MaxWorkingScale = MaxWorkingScale,
                     CacheOptions = cacheOptions ?? CacheOptions,
                     Purpose = purpose,
-                    Diagnostics = diagnostics,
                 },
             });
 
@@ -789,7 +780,6 @@ public class Renderer : IRenderer
             replacement = CreateEntryRenderer(
                 _completeTarget,
                 RenderRequestPurpose.Frame,
-                _diagnostics,
                 cacheOptions);
         }
         catch (Exception ex)

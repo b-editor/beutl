@@ -87,17 +87,14 @@ public class DrawableTextureSourceDensityTests
         using var source =
             (DrawableTextureSource.Resource)sourceDefinition.ToResource(CompositionContext.Default);
         using var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
-        using RenderTargetLeaseSession session = registry.BeginSession(
-            RenderIntent.Preview,
-            RenderAllocationBudget.Default);
+        using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
         RenderTargetLease lease = session.Acquire(
             new PixelSize(RenderScaleUtilities.MaxBufferDimension, 2));
         using var binding = new NestedRenderTargetBinding();
         binding.Stage(
             lease,
             source.TextureDomain,
-            density: 2,
-            diagnostics: null);
+            density: 2);
         binding.PrepareForSampling();
         ITexture2D? texture = null;
 

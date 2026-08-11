@@ -256,18 +256,13 @@ internal enum RenderCacheBypassReason : byte
     UnstableBoundaryPlan,
 }
 
-/// <summary>
-/// A selected cache hit. <c>Verify</c> leaves the producer subtree scheduled so the executor can re-run it and
-/// compare against this entry; the substitution itself is identical either way.
-/// </summary>
 internal sealed record RenderCacheHitSubstitution(
     RenderCacheCandidateId CandidateId,
     RenderFragmentId OriginalProducerId,
     ImmutableArray<RenderValueId> OriginalValueIds,
     RenderProvenanceId ProvenanceId,
     RenderOutputCacheIdentity Identity,
-    RenderCacheEntry Entry,
-    bool Verify = false);
+    RenderCacheEntry Entry);
 
 /// <summary>
 /// Describes a capture to insert immediately after the original producer. The executor keeps the actual payload
@@ -646,17 +641,12 @@ internal sealed class RenderCacheResolution
         => Decisions.FirstOrDefault(item => item.Candidate.Id == id)
            ?? throw new KeyNotFoundException("The cache candidate is not part of this resolution.");
 
-    /// <summary>
-    /// Producers removed from planning, scheduling, and execution. A verified hit is excluded: it stays
-    /// scheduled so its fresh output can be compared with the cached one.
-    /// </summary>
     public HashSet<RenderFragmentId> CollectPrunedHitProducers()
     {
         var result = new HashSet<RenderFragmentId>();
         foreach (RenderCacheHitSubstitution hit in Hits)
         {
-            if (!hit.Verify)
-                result.Add(hit.OriginalProducerId);
+            result.Add(hit.OriginalProducerId);
         }
 
         return result;
@@ -967,8 +957,7 @@ internal sealed class RenderCacheResolver
                     recorded.Values,
                     recorded.ProvenanceId,
                     identity,
-                    entry!,
-                    request.Options.VerifyCacheOutputs),
+                    entry!),
                 null,
                 null);
         }

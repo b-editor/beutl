@@ -16,12 +16,6 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale = null)
         {
-            if (_plannedPreviewDrops.Contains(fragment))
-            {
-                _diagnostics?.RecordPreviewAllocationDrop();
-                throw new PreviewAllocationDropException();
-            }
-
             if (fragment.EffectiveScale.IsUnbounded)
             {
                 if (!_materializationDemands.TryGetValue(fragment, out EffectiveScale demand))
@@ -48,35 +42,10 @@ internal sealed partial class RenderRequestExecutor
                 requestedScale = demand;
             }
 
-            long? previous = ActiveSubjectId;
-            ActiveSubjectId = fragment.Id?.Value;
-            try
-            {
-                IReadOnlyList<CompatibilityRenderValue> result = MaterializeCore(
-                    fragment,
-                    currentTarget,
-                    requestedScale);
-                if (fragment.Id is { } id
-                    && !_cacheHits.ContainsKey(id)
-                    && !_skippedExecutionSubjects.Contains(id))
-                {
-                    _diagnostics?.RecordFragmentExecuted(id.Value);
-                }
-                return result;
-            }
-            catch (PreviewAllocationDropException)
-            {
-                throw;
-            }
-            catch
-            {
-                RecordFailure(RenderPipelineFailurePhase.Execution, fragment.Id?.Value);
-                throw;
-            }
-            finally
-            {
-                ActiveSubjectId = previous;
-            }
+            return MaterializeCore(
+                fragment,
+                currentTarget,
+                requestedScale);
         }
 
         private IReadOnlyList<CompatibilityRenderValue> MaterializeCore(
@@ -90,13 +59,10 @@ internal sealed partial class RenderRequestExecutor
             IReadOnlyList<CompatibilityRenderValue> result;
             bool cacheHit = TryMaterializeCacheHit(
                 fragment,
-                out IReadOnlyList<CompatibilityRenderValue>? hitValues,
-                out RenderCacheHitSubstitution? hit);
+                out IReadOnlyList<CompatibilityRenderValue>? hitValues);
             if (cacheHit)
             {
                 result = hitValues!;
-                if (hit!.Verify)
-                    VerifyCacheHit(fragment, hit, result, currentTarget, requestedScale);
             }
             else
             {
@@ -171,11 +137,10 @@ internal sealed partial class RenderRequestExecutor
 
         private bool TryMaterializeCacheHit(
             RenderFragmentReference fragment,
-            out IReadOnlyList<CompatibilityRenderValue>? values,
-            out RenderCacheHitSubstitution? hit)
+            out IReadOnlyList<CompatibilityRenderValue>? values)
         {
-            hit = null;
-            if (fragment.Id is not { } id || !_cacheHits.TryGetValue(id, out hit))
+            if (fragment.Id is not { } id
+                || !_cacheHits.TryGetValue(id, out RenderCacheHitSubstitution? hit))
             {
                 values = null;
                 return false;
@@ -220,7 +185,6 @@ internal sealed partial class RenderRequestExecutor
                 throw;
             }
 
-            _diagnostics?.RecordOutcome(id.Value, RenderPipelineOutcome.Cached);
             values = acquired;
             return true;
         }
@@ -249,7 +213,6 @@ internal sealed partial class RenderRequestExecutor
                 if (!_options.CachePolicy.Rules.Match(actualPixels))
                 {
                     _suppressedCacheCaptures.Add(miss.CandidateId);
-                    _diagnostics?.RecordCacheCaptureRejected();
                     continue;
                 }
 
@@ -272,7 +235,6 @@ internal sealed partial class RenderRequestExecutor
                     }
 
                     _pendingCacheCaptures.Add(new PendingRenderCacheCapture(miss, captures));
-                    _diagnostics?.RecordCacheCaptureStaged(miss.ProducerId.Value);
                 }
                 catch
                 {

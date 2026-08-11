@@ -70,7 +70,6 @@ public class RendererExceptionSafetyTests
                 height: 16,
                 renderScale: 1,
                 maxWorkingScale: float.PositiveInfinity,
-                diagnostics: null,
                 surface: new CpuRenderTarget(16, 16));
             var previous = new FaultingDrawable([new RecordedOperationSpec("previous")]);
             var previousResource = (Drawable.Resource)previous.ToResource(CompositionContext.Default);
@@ -110,7 +109,6 @@ public class RendererExceptionSafetyTests
                 height: 16,
                 renderScale: 1,
                 maxWorkingScale: float.PositiveInfinity,
-                diagnostics: null,
                 surface: new CpuRenderTarget(16, 16));
             var first = new RecordingFailureDrawable(failures: 0);
             var faulting = new RecordingFailureDrawable(failures: 1);

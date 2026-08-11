@@ -52,40 +52,7 @@ public sealed record RenderNodeRenderRequest
     /// </remarks>
     public RenderRequestPurpose Purpose { get; init; } = RenderRequestPurpose.Auxiliary;
 
-    /// <summary>Gets the live planner-owned target budget shared by this request family.</summary>
-    public RenderAllocationBudget AllocationBudget { get; init; } = RenderAllocationBudget.Default;
-
     internal FusionMode FusionMode { get; init; } = FusionMode.Enabled;
-
-    internal IRenderPipelineDiagnosticsState? Diagnostics { get; init; }
-
-    internal bool VerifyCacheOutputs { get; init; }
-}
-
-/// <summary>Limits simultaneously live planner-owned RGBA16F targets in one request family.</summary>
-public sealed record RenderAllocationBudget
-{
-    private const long MaximumSupportedLiveBytes = 1L * 1024 * 1024 * 1024 * 1024;
-    private const int MaximumSupportedLiveTargets = 65_536;
-
-    public RenderAllocationBudget(long maximumLiveBytes, int maximumLiveTargets)
-    {
-        if (maximumLiveBytes is <= 0 or > MaximumSupportedLiveBytes)
-            throw new ArgumentOutOfRangeException(nameof(maximumLiveBytes));
-        if (maximumLiveTargets is <= 0 or > MaximumSupportedLiveTargets)
-            throw new ArgumentOutOfRangeException(nameof(maximumLiveTargets));
-
-        MaximumLiveBytes = maximumLiveBytes;
-        MaximumLiveTargets = maximumLiveTargets;
-    }
-
-    public long MaximumLiveBytes { get; }
-
-    public int MaximumLiveTargets { get; }
-
-    public static RenderAllocationBudget Default { get; } = new(
-        1L * 1024 * 1024 * 1024,
-        256);
 }
 
 /// <summary>Configures renderer-lifetime ownership and the request used when an operation omits one.</summary>
@@ -151,9 +118,8 @@ public interface IRenderTargetFactory
 {
     /// <summary>Gets the largest supported width or height for the exact allocation context.</summary>
     /// <remarks>
-    /// This side-effect-free query runs before allocation preflight and must agree with
-    /// <see cref="Create(RenderTargetAllocationDescriptor)"/> for the same descriptor. The borrowed graphics
-    /// context may not be retained.
+    /// This side-effect-free query must agree with <see cref="Create(RenderTargetAllocationDescriptor)"/> for the
+    /// same descriptor. The borrowed graphics context may not be retained.
     /// </remarks>
     int GetMaximumDimension(RenderTargetAllocationDescriptor allocation);
 
@@ -273,15 +239,10 @@ public sealed class RenderNodeRenderer : IDisposable
         float maxWorkingScale = MathF.Min(effectiveRequest.MaxWorkingScale, destination.MaxWorkingScale);
         bool hasInvertibleDestination = TryResolveDestinationTargetDomain(destination, out Rect resolvedTargetDomain);
         Rect? targetDomain = hasInvertibleDestination ? resolvedTargetDomain : null;
-        RenderTargetLeaseSession targets = _targetRegistry.BeginSession(
-            effectiveRequest.Intent,
-            effectiveRequest.AllocationBudget,
-            destination._renderTarget);
+        RenderTargetLeaseSession targets = _targetRegistry.BeginSession(effectiveRequest.Intent, destination._renderTarget);
         CompiledRenderRequest? request = null;
         RenderRequestOwner? owner = null;
         ExceptionDispatchInfo? primary = null;
-        bool completeFailedDiagnostics = false;
-        RenderPipelineFailurePhase preExecutionFailurePhase = RenderPipelineFailurePhase.Allocation;
         try
         {
             request = RecordAndCompile(
@@ -296,23 +257,14 @@ public sealed class RenderNodeRenderer : IDisposable
             var executor = new RenderRequestExecutor(targets, _programCache);
             if (!hasInvertibleDestination && !request.Measurement.HasTargetEffects)
             {
-                preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
                 executor.CompleteNoOp(request);
             }
             else if (hasExplicitEmptySelection)
             {
-                preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
                 executor.CompleteEmptySelection(request);
             }
             else if (request.ExecutionTargetBounds == request.SelectedOutputBounds)
             {
-                preExecutionFailurePhase = RenderPipelineFailurePhase.Planning;
-                RenderAllocationPreflight.Validate(
-                    request,
-                    targets,
-                    deviceGridOffset: DeviceGridAlignment.ResolveLogicalOffset(destination),
-                    directOutputTarget: DirectRenderTargetGeometry.FromCanvas(destination));
-                preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
                 executor.Execute(request, destination);
             }
             else
@@ -328,31 +280,18 @@ public sealed class RenderNodeRenderer : IDisposable
                     destination,
                     targets,
                     executor,
-                    maxWorkingScale,
-                    ref preExecutionFailurePhase);
+                    maxWorkingScale);
             }
             LastExecutionStatistics = executor.Statistics;
         }
         catch (Exception ex)
         {
             primary = ExceptionDispatchInfo.Capture(ex);
-            completeFailedDiagnostics = FailRequestFamilyBeforeExecution(
-                request,
-                ex,
-                preExecutionFailurePhase);
         }
         finally
         {
             DisposeAndCapture(request, ref primary);
             DisposeAndCapture(targets, ref primary);
-        }
-
-        if (request is not null && completeFailedDiagnostics)
-        {
-            CompleteFailedFamilyDiagnostics(
-                request,
-                owner?.CleanupFailures ?? [],
-                targets.CleanupFailures);
         }
 
         ThrowAfterCleanup(primary, owner, targets);
@@ -363,8 +302,7 @@ public sealed class RenderNodeRenderer : IDisposable
         ImmediateCanvas destination,
         RenderTargetLeaseSession targets,
         RenderRequestExecutor executor,
-        float maxWorkingScale,
-        ref RenderPipelineFailurePhase preExecutionFailurePhase)
+        float maxWorkingScale)
     {
         RenderTargetLease? executionLease = null;
         ImmediateCanvas? executionCanvas = null;
@@ -381,14 +319,6 @@ public sealed class RenderNodeRenderer : IDisposable
 
         try
         {
-            preExecutionFailurePhase = RenderPipelineFailurePhase.Planning;
-            RenderAllocationPreflight.Validate(
-                request,
-                targets,
-                destination.DeviceSize,
-                DeviceGridAlignment.ResolveLogicalOffset(destination),
-                DirectRenderTargetGeometry.FromCanvas(destination));
-            preExecutionFailurePhase = RenderPipelineFailurePhase.Allocation;
             executionLease = targets.Acquire(destination.DeviceSize);
             var executionLogicalSize = new Size(
                 destination.DeviceSize.Width / destination.Density,
@@ -411,7 +341,6 @@ public sealed class RenderNodeRenderer : IDisposable
             executionCanvas.Opacity = destination.Opacity;
             executionCanvas.BlendMode = destination.BlendMode;
             destination.ReplayClipTo(executionCanvas);
-            preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
             executor.Execute(
                 request,
                 executionCanvas,
@@ -487,13 +416,9 @@ public sealed class RenderNodeRenderer : IDisposable
         Bitmap? bitmap = null;
         Rect selectedBounds = default;
         ExceptionDispatchInfo? primary = null;
-        bool completeFailedDiagnostics = false;
-        RenderPipelineFailurePhase preExecutionFailurePhase = RenderPipelineFailurePhase.Allocation;
         try
         {
-            targets = _targetRegistry.BeginSession(
-                effectiveRequest.Intent,
-                effectiveRequest.AllocationBudget);
+            targets = _targetRegistry.BeginSession(effectiveRequest.Intent);
             request = RecordAndCompile(
                 effectiveRequest.Purpose,
                 effectiveRequest.OutputScale,
@@ -511,15 +436,6 @@ public sealed class RenderNodeRenderer : IDisposable
                 PixelRect selectedDeviceBounds = PixelRect.FromRect(selectedBounds, effectiveRequest.OutputScale);
                 selectedBounds = selectedDeviceBounds.ToRect(effectiveRequest.OutputScale);
                 Rect rasterBounds = deviceBounds.ToRect(effectiveRequest.OutputScale);
-                preExecutionFailurePhase = RenderPipelineFailurePhase.Planning;
-                RenderAllocationPreflight.Validate(
-                    request,
-                    targets,
-                    deviceBounds.Size,
-                    directOutputTarget: DirectRenderTargetGeometry.FromRasterBounds(
-                        rasterBounds,
-                        effectiveRequest.OutputScale));
-                preExecutionFailurePhase = RenderPipelineFailurePhase.Allocation;
                 rootLease = targets.Acquire(deviceBounds.Size);
                 canvas = ImmediateCanvas.CreateExecutorManaged(
                     rootLease.Target,
@@ -557,7 +473,6 @@ public sealed class RenderNodeRenderer : IDisposable
                 try
                 {
                     var executor = new RenderRequestExecutor(targets, _programCache);
-                    preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
                     executor.Execute(
                         request,
                         canvas,
@@ -592,7 +507,6 @@ public sealed class RenderNodeRenderer : IDisposable
             else
             {
                 var executor = new RenderRequestExecutor(targets, _programCache);
-                preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
                 executor.CompleteEmptySelection(request);
                 LastExecutionStatistics = executor.Statistics;
             }
@@ -600,10 +514,6 @@ public sealed class RenderNodeRenderer : IDisposable
         catch (Exception ex)
         {
             primary = ExceptionDispatchInfo.Capture(ex);
-            completeFailedDiagnostics = FailRequestFamilyBeforeExecution(
-                request,
-                ex,
-                preExecutionFailurePhase);
         }
         finally
         {
@@ -618,14 +528,6 @@ public sealed class RenderNodeRenderer : IDisposable
             }
             DisposeAndCapture(request, ref primary);
             DisposeAndCapture(targets, ref primary);
-        }
-
-        if (request is not null && completeFailedDiagnostics)
-        {
-            CompleteFailedFamilyDiagnostics(
-                request,
-                owner?.CleanupFailures ?? [],
-                targets?.CleanupFailures ?? []);
         }
 
         try
@@ -879,9 +781,7 @@ public sealed class RenderNodeRenderer : IDisposable
             outputScale,
             maxWorkingScale,
             renderRequest.CacheOptions,
-            renderRequest.FusionMode,
-            diagnostics: renderRequest.Diagnostics,
-            verifyCacheOutputs: renderRequest.VerifyCacheOutputs || RenderCacheVerification.IsEnabled));
+            renderRequest.FusionMode));
 
     private RenderNodeRenderRequest ResolveRequest(RenderNodeRenderRequest? request)
         => request is null
@@ -892,7 +792,6 @@ public sealed class RenderNodeRenderer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.CacheOptions);
-        ArgumentNullException.ThrowIfNull(request.AllocationBudget);
         if (!Enum.IsDefined(request.Intent))
         {
             throw new ArgumentOutOfRangeException(
@@ -1012,50 +911,6 @@ public sealed class RenderNodeRenderer : IDisposable
             ExceptionDispatchInfo.Capture(failure).Throw();
         if (failures is { Count: > 1 })
             throw new AggregateException(failures);
-    }
-
-    internal static bool FailRequestFamilyBeforeExecution(
-        CompiledRenderRequest? request,
-        Exception exception,
-        RenderPipelineFailurePhase failurePhase)
-    {
-        ArgumentNullException.ThrowIfNull(exception);
-        if (request is null || request.Request.State != RenderRequestState.Planned)
-            return false;
-
-        bool completeDiagnostics = RenderRequestDiagnostics.TryGet(request.Request) is not null;
-        RenderRequestOwner owner = request.Request.Options.Owner;
-        if (owner.PrimaryFailure is null)
-            owner.RecordPrimaryFailure(exception);
-        MarkFamilyFailedBeforeExecution(request, failurePhase);
-        return completeDiagnostics;
-    }
-
-    private static void MarkFamilyFailedBeforeExecution(
-        CompiledRenderRequest request,
-        RenderPipelineFailurePhase failurePhase)
-    {
-        foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
-        {
-            RenderRequestDiagnostics.TryGet(member.Request)?.RecordFamilyFailure(failurePhase);
-            member.Request.FailFamilyMember();
-        }
-    }
-
-    private static void CompleteFailedFamilyDiagnostics(
-        CompiledRenderRequest request,
-        IReadOnlyList<Exception> ownerCleanupFailures,
-        IReadOnlyList<Exception> targetCleanupFailures)
-    {
-        foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
-        {
-            RenderPipelineDiagnosticRecorder? diagnostics = RenderRequestDiagnostics.TryGet(member.Request);
-            foreach (Exception _ in ownerCleanupFailures)
-                diagnostics?.RecordCleanupFailure();
-            foreach (Exception _ in targetCleanupFailures)
-                diagnostics?.RecordCleanupFailure();
-            RenderRequestDiagnostics.Complete(member.Request);
-        }
     }
 
     private static IEnumerable<CompiledRenderRequest> EnumerateFamilyDepthFirst(

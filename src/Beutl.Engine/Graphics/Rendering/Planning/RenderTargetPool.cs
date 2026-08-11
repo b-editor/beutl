@@ -708,22 +708,6 @@ internal sealed class RenderTargetPool : IDisposable
             ? CreateDefaultTarget(deviceSize, request)
             : _factory.Create(GetAllocationDescriptor(deviceSize, request));
 
-    internal int GetMaximumDimension(
-        RenderTargetAllocationDescriptor allocation,
-        RenderTargetPoolRequest request)
-    {
-        VerifyActive(request);
-        int maximumDimension = _factory?.GetMaximumDimension(allocation)
-            ?? RenderScaleUtilities.MaxBufferDimension;
-        if (maximumDimension <= 0)
-        {
-            throw new InvalidOperationException(
-                "A render-target factory must report a positive maximum dimension for the active allocation context.");
-        }
-
-        return Math.Min(RenderScaleUtilities.MaxBufferDimension, maximumDimension);
-    }
-
     internal RenderTargetAllocationDescriptor GetAllocationDescriptor(
         PixelSize deviceSize,
         RenderTargetPoolRequest request)
@@ -808,7 +792,6 @@ internal sealed class RenderTargetPoolRequest : IDisposable
     private readonly RenderTargetPool _pool;
     private readonly List<PooledRenderTargetLease> _leases = [];
     private readonly List<Exception> _cleanupFailures = [];
-    private readonly Dictionary<RenderTargetAllocationDescriptor, int> _maximumDimensions = [];
 
     internal RenderTargetPoolRequest(
         RenderTargetPool pool,
@@ -849,19 +832,6 @@ internal sealed class RenderTargetPoolRequest : IDisposable
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         return _pool.TryAcquire(this, deviceSize, out lease);
-    }
-
-    internal int GetMaximumDimension(PixelSize deviceSize)
-    {
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-        RenderTargetAllocationDescriptor allocation = _pool.GetAllocationDescriptor(deviceSize, this);
-        if (!_maximumDimensions.TryGetValue(allocation, out int maximumDimension))
-        {
-            maximumDimension = _pool.GetMaximumDimension(allocation, this);
-            _maximumDimensions.Add(allocation, maximumDimension);
-        }
-
-        return maximumDimension;
     }
 
     public void Dispose()

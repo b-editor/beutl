@@ -49,7 +49,6 @@ internal sealed partial class RenderRequestExecutor
                             token,
                             values,
                             inputReadbacks,
-                            fragment,
                             images);
                         Rect affectedBounds = ResolveTargetRegion(
                             description.AffectedRegion,
@@ -91,14 +90,11 @@ internal sealed partial class RenderRequestExecutor
                                 : null);
                         if (description.Access == TargetAccess.Readback)
                         {
-                            RecordSynchronization(fragment);
+                            RecordSynchronization();
                             targetSnapshot = SnapshotTarget(destination, requiredRegion);
                         }
-                        using (ObserveGpuPass(fragment))
-                        {
-                            description.Execute(session);
-                            session.ValidateCompletion();
-                        }
+                        description.Execute(session);
+                        session.ValidateCompletion();
                     });
             }
             finally
@@ -126,7 +122,6 @@ internal sealed partial class RenderRequestExecutor
                         view,
                         canvas =>
                         {
-                            _diagnostics?.RecordOpaqueExecution(fragment.Id?.Value ?? 0);
                             description.Execute(new RawTargetCommandSession(
                                 token,
                                 canvas,
@@ -215,7 +210,6 @@ internal sealed partial class RenderRequestExecutor
                 fragment.Bounds,
                 deviceBounds,
                 allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
-            _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
             bool succeeded = false;
             try
             {
@@ -264,7 +258,6 @@ internal sealed partial class RenderRequestExecutor
                         view,
                         canvas =>
                         {
-                            _diagnostics?.RecordOpaqueExecution(fragment.Id?.Value ?? 0);
                             var session = new RawTargetScopeSession(
                                 token,
                                 canvas,
@@ -284,7 +277,6 @@ internal sealed partial class RenderRequestExecutor
             RenderExecutionSessionToken token,
             IReadOnlyList<CompatibilityRenderValue> values,
             bool requiresReadback,
-            RenderFragmentReference? readbackOwner,
             List<SKImage> images)
         {
             var inputs = new List<RenderExecutionInput>(values.Count);
@@ -293,7 +285,7 @@ internal sealed partial class RenderRequestExecutor
                 SKImage image = value.Target.Value.Snapshot();
                 images.Add(image);
                 Func<Bitmap>? createSnapshot = requiresReadback
-                    ? () => SnapshotInputForReadback(readbackOwner!, value)
+                    ? () => SnapshotInputForReadback(value)
                     : null;
                 inputs.Add(new RenderExecutionInput(
                     token,
@@ -313,7 +305,6 @@ internal sealed partial class RenderRequestExecutor
             RenderExecutionSessionToken token,
             IReadOnlyList<CompatibilityRenderValue> values,
             IReadOnlyList<bool> inputReadbacks,
-            RenderFragmentReference readbackOwner,
             List<SKImage> images)
         {
             if (inputReadbacks.Count != values.Count)
@@ -327,7 +318,7 @@ internal sealed partial class RenderRequestExecutor
                 images.Add(image);
                 bool requiresReadback = inputReadbacks[index];
                 Func<Bitmap>? createSnapshot = requiresReadback
-                    ? () => SnapshotInputForReadback(readbackOwner, value)
+                    ? () => SnapshotInputForReadback(value)
                     : null;
                 inputs.Add(new RenderExecutionInput(
                     token,
@@ -343,11 +334,9 @@ internal sealed partial class RenderRequestExecutor
             return inputs;
         }
 
-        private Bitmap SnapshotInputForReadback(
-            RenderFragmentReference owner,
-            CompatibilityRenderValue value)
+        private Bitmap SnapshotInputForReadback(CompatibilityRenderValue value)
         {
-            RecordSynchronization(owner);
+            RecordSynchronization();
             return value.Target.Snapshot();
         }
 
@@ -434,7 +423,6 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                 Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
                     value.DeviceBounds,
                     value.DeviceGridOffset,
@@ -498,7 +486,6 @@ internal sealed partial class RenderRequestExecutor
             try
             {
                 _afterCaptureAllocation?.Invoke(fragment.Kind);
-                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                 Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
                     value.DeviceBounds,
                     value.DeviceGridOffset,
@@ -563,7 +550,6 @@ internal sealed partial class RenderRequestExecutor
                 deviceGridOffset: deviceGridOffset);
             try
             {
-                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                 Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
                     value.DeviceBounds,
                     value.DeviceGridOffset,
