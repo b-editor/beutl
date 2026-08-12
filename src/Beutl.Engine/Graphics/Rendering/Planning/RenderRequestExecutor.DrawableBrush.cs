@@ -164,27 +164,38 @@ internal sealed partial class RenderRequestExecutor
             return new DrawableBrushCycleScope(active, identity);
         }
 
+        // Crop the raster copy rather than taking a subset surface snapshot, which would allocate a
+        // backend image per fill on the device.
         private static SKImage CreateIndependentImage(SKSurface surface, PixelRect subset)
         {
-            SKImage snapshot = surface.Snapshot(
-                    new SKRectI(subset.X, subset.Y, subset.Right, subset.Bottom))
-                ?? throw new InvalidOperationException(
-                    "The drawable-brush surface could not be cropped to its content bounds.");
+            SKImage? owned = surface.Snapshot();
             try
             {
-                SKImage raster = snapshot.ToRasterImage()
+                SKImage raster = owned.ToRasterImage()
                     ?? throw new InvalidOperationException(
                         "The drawable-brush surface could not be copied to an independent image.");
-                if (ReferenceEquals(snapshot, raster))
-                    return snapshot;
+                if (!ReferenceEquals(owned, raster))
+                {
+                    owned.Dispose();
+                    owned = raster;
+                }
 
-                snapshot.Dispose();
-                return raster;
+                if (subset.X == 0
+                    && subset.Y == 0
+                    && subset.Width == raster.Width
+                    && subset.Height == raster.Height)
+                {
+                    owned = null;
+                    return raster;
+                }
+
+                return raster.Subset(new SKRectI(subset.X, subset.Y, subset.Right, subset.Bottom))
+                       ?? throw new InvalidOperationException(
+                           "The drawable-brush image could not be cropped to its content bounds.");
             }
-            catch
+            finally
             {
-                snapshot.Dispose();
-                throw;
+                owned?.Dispose();
             }
         }
 
