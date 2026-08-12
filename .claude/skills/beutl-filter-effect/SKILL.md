@@ -1,4 +1,4 @@
----
+﻿---
 name: beutl-filter-effect
 description: |
   Implementation guide for Beutl's FilterEffect. Use when authoring a new filter effect (blur, color
@@ -234,6 +234,12 @@ Create your own resource files inside the extension project, or pass a literal s
 ## Shader-based implementations
 
 ### SKSL (SkiaShaderLanguage) pattern
+
+> **Prefer `context.Shader(...)` for per-pixel work.** A `ShaderDefinition<TState>` recorded through
+> `FilterEffectContext.Shader` is a typed fragment the planner can fuse with neighbouring shader stages
+> into one GPU pass. The `CustomEffect` form below stays supported and is the right tool when the effect
+> needs the raw target — allocating, sampling, or drawing itself — but it is opaque to the planner, so it
+> ends the fusion island and every later item in that effect executes through the fallback path.
 
 Compile the shader in the static constructor and apply it through `CustomEffect`:
 
