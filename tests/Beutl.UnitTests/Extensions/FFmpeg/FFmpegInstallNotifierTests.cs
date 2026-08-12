@@ -260,6 +260,133 @@ public class FFmpegInstallNotifierTests
     }
 
     [Test]
+    public void AvailabilityChanged_CallbackCanWaitForCrossThreadTransition()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+
+        void OnAvailabilityChanged(object? sender, EventArgs e)
+        {
+            if (((FFmpegLibraryAvailabilityChangedEventArgs)e).IsLibrariesMissing)
+            {
+                Task descendant = Task.Run(FFmpegInstallNotifier.MarkInstalled);
+                if (!descendant.Wait(TimeSpan.FromSeconds(1)))
+                    throw new TimeoutException("a callback-dispatched transition must not wait for the active dispatcher");
+            }
+        }
+
+        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        try
+        {
+            Task transition = Task.Run(FFmpegInstallNotifier.MarkMissing);
+
+            Assert.That(transition.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the callback and its cross-thread transition must both complete");
+            transition.GetAwaiter().GetResult();
+            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+        }
+        finally
+        {
+            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+    }
+
+    [Test]
+    public void AvailabilityChanged_ReentrantTransitionPreservesFifoOrder()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+        using var firstNotificationEntered = new ManualResetEventSlim();
+        using var allowReentrantTransition = new ManualResetEventSlim();
+        var observedStates = new ConcurrentQueue<bool>();
+        int missingNotifications = 0;
+
+        void OnAvailabilityChanged(object? sender, EventArgs e)
+        {
+            bool isMissing = ((FFmpegLibraryAvailabilityChangedEventArgs)e).IsLibrariesMissing;
+            observedStates.Enqueue(isMissing);
+            if (isMissing && Interlocked.Increment(ref missingNotifications) == 1)
+            {
+                firstNotificationEntered.Set();
+                if (!allowReentrantTransition.Wait(TimeSpan.FromSeconds(5)))
+                    throw new TimeoutException("the reentrant transition was not released");
+
+                FFmpegInstallNotifier.MarkMissing();
+            }
+        }
+
+        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        try
+        {
+            Task first = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Assert.That(firstNotificationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the first availability notification did not start");
+
+            using var installedStarted = new ManualResetEventSlim();
+            Task installed = Task.Run(() =>
+            {
+                installedStarted.Set();
+                FFmpegInstallNotifier.MarkInstalled();
+            });
+            Assert.That(installedStarted.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the installed transition did not start");
+            Assert.That(installed.Wait(TimeSpan.FromMilliseconds(100)), Is.False,
+                "the installed transition should remain queued while the first callback is blocked");
+
+            allowReentrantTransition.Set();
+            Assert.That(first.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(installed.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            first.GetAwaiter().GetResult();
+            installed.GetAwaiter().GetResult();
+
+            Assert.That(observedStates.ToArray(), Is.EqualTo(new[] { true, false, true }),
+                "reentrant notifications must remain behind already queued transitions");
+        }
+        finally
+        {
+            allowReentrantTransition.Set();
+            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+    }
+
+    [Test]
+    public void AvailabilityChanged_NestedSubscriberExceptionDoesNotFaultOwningTransition()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+        var expected = new InvalidOperationException("nested availability callback failed");
+
+        void QueueInstalledTransition(object? sender, EventArgs e)
+        {
+            if (((FFmpegLibraryAvailabilityChangedEventArgs)e).IsLibrariesMissing)
+                FFmpegInstallNotifier.MarkInstalled();
+        }
+
+        void ThrowForInstalledTransition(object? sender, EventArgs e)
+        {
+            if (!((FFmpegLibraryAvailabilityChangedEventArgs)e).IsLibrariesMissing)
+                throw expected;
+        }
+
+        FFmpegInstallNotifier.AvailabilityChanged += QueueInstalledTransition;
+        FFmpegInstallNotifier.AvailabilityChanged += ThrowForInstalledTransition;
+        try
+        {
+            Task transition = Task.Run(FFmpegInstallNotifier.MarkMissing);
+
+            Assert.That(transition.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the owning transition must not receive a nested transition's exception");
+            transition.GetAwaiter().GetResult();
+            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+        }
+        finally
+        {
+            FFmpegInstallNotifier.AvailabilityChanged -= QueueInstalledTransition;
+            FFmpegInstallNotifier.AvailabilityChanged -= ThrowForInstalledTransition;
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+    }
+
+    [Test]
     public void AvailabilityChanged_PropagatesExceptionToOwningTransition()
     {
         FFmpegInstallNotifier.MarkInstalled();

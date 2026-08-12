@@ -25,8 +25,11 @@ public static class FFmpegLibraryState
     // dispatcher thread without a cross-thread lock cycle.
     private static readonly object s_notificationGate = new();
     private static readonly LinkedList<PendingNotification> s_pendingNotifications = new();
+    // This marker flows into callback-created tasks. Those descendants enqueue their transition and
+    // return instead of waiting for the dispatcher that is still executing their originating callback.
+    // They never claim queue entries; FIFO delivery remains exclusively owned by DrainAsDispatcher.
+    private static readonly AsyncLocal<NotificationDispatchContext?> s_dispatchContext = new();
     private static bool s_isDispatchingNotifications;
-    private static int s_dispatcherThreadId;
     private static volatile bool s_librariesMissing;
     private static long s_missingSinceTicks;
 
@@ -173,7 +176,7 @@ public static class FFmpegLibraryState
 
     private static PendingNotification QueueNotificationCore(NotificationKind kind, bool isLibrariesMissing)
     {
-        var notification = new PendingNotification(kind, isLibrariesMissing);
+        var notification = new PendingNotification(kind, isLibrariesMissing, hasOwner: s_dispatchContext.Value is null);
         lock (s_notificationGate)
             s_pendingNotifications.AddLast(notification);
         return notification;
@@ -188,7 +191,6 @@ public static class FFmpegLibraryState
             if (becameDispatcher)
             {
                 s_isDispatchingNotifications = true;
-                s_dispatcherThreadId = Environment.CurrentManagedThreadId;
             }
         }
 
@@ -199,32 +201,15 @@ public static class FFmpegLibraryState
             return;
         }
 
+        if (s_dispatchContext.Value is not null)
+            return;
+
         foreach (PendingNotification? notification in notifications)
         {
             if (notification is null)
                 continue;
 
-            bool invokeDirectly;
-            lock (s_notificationGate)
-            {
-                invokeDirectly = Environment.CurrentManagedThreadId == s_dispatcherThreadId
-                    && TryClaimNotificationCore(notification);
-            }
-
-            if (invokeDirectly)
-            {
-                try
-                {
-                    InvokeNotification(notification, rethrow: true);
-                }
-                catch
-                {
-                    _ = notification.Completion.Task.Exception;
-                    throw;
-                }
-            }
-            else
-                notification.Completion.Task.GetAwaiter().GetResult();
+            notification.Completion.Task.GetAwaiter().GetResult();
         }
     }
 
@@ -238,16 +223,14 @@ public static class FFmpegLibraryState
                 if (s_pendingNotifications.Count == 0)
                 {
                     s_isDispatchingNotifications = false;
-                    s_dispatcherThreadId = 0;
                     break;
                 }
 
                 notification = s_pendingNotifications.First!.Value;
                 s_pendingNotifications.RemoveFirst();
-                notification.IsClaimed = true;
             }
 
-            InvokeNotification(notification, rethrow: false);
+            InvokeNotification(notification);
         }
     }
 
@@ -273,22 +256,10 @@ public static class FFmpegLibraryState
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstException).Throw();
     }
 
-    private static bool TryClaimNotificationCore(PendingNotification notification)
+    private static void InvokeNotification(PendingNotification notification)
     {
-        if (notification.IsClaimed)
-            return false;
-
-        LinkedListNode<PendingNotification>? node = s_pendingNotifications.Find(notification);
-        if (node is null)
-            return false;
-
-        s_pendingNotifications.Remove(node);
-        notification.IsClaimed = true;
-        return true;
-    }
-
-    private static void InvokeNotification(PendingNotification notification, bool rethrow)
-    {
+        NotificationDispatchContext? previousContext = s_dispatchContext.Value;
+        s_dispatchContext.Value = new NotificationDispatchContext();
         try
         {
             switch (notification.Kind)
@@ -308,21 +279,29 @@ public static class FFmpegLibraryState
         catch (Exception ex)
         {
             notification.Completion.TrySetException(ex);
-            if (rethrow)
-                throw;
+            if (!notification.HasOwner)
+                _ = notification.Completion.Task.Exception;
+        }
+        finally
+        {
+            s_dispatchContext.Value = previousContext;
         }
     }
 
-    private sealed class PendingNotification(NotificationKind kind, bool isLibrariesMissing)
+    private sealed class NotificationDispatchContext
+    {
+    }
+
+    private sealed class PendingNotification(NotificationKind kind, bool isLibrariesMissing, bool hasOwner)
     {
         public NotificationKind Kind { get; } = kind;
 
         public bool IsLibrariesMissing { get; } = isLibrariesMissing;
 
+        public bool HasOwner { get; } = hasOwner;
+
         public TaskCompletionSource Completion { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public bool IsClaimed { get; set; }
     }
 
     private static bool SetLibrariesMissingCore(bool value, bool notify, bool notifyWhenUnchanged)
