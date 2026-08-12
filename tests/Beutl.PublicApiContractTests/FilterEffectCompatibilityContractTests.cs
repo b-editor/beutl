@@ -110,6 +110,20 @@ public sealed class FilterEffectCompatibilityContractTests
         Assert.That(observedPurpose, Is.EqualTo(RenderRequestPurpose.CacheWarmup));
     }
 
+    // Once bounds go symbolic the context defers further operations to a second list, but they still
+    // execute, so an authoring decision made from the public count has to see them.
+    [Test]
+    public void CountItems_IncludesOperationsAppendedAfterBoundsBecameSymbolic()
+    {
+        using var context = new FilterEffectContext(s_bounds, outputScale: 1, workingScale: 1);
+
+        context.CustomEffect(0, static (_, _) => { });
+        int beforeDeferral = context.CountItems();
+        context.CustomEffect(0, static (_, _) => { });
+
+        Assert.That(context.CountItems(), Is.EqualTo(beforeDeferral + 1));
+    }
+
     [Test]
     public void ExistingApplyToEffect_RetainsLegacyMembersAndDeferredExecution()
     {

@@ -736,7 +736,7 @@ public sealed class FilterEffectContext : IDisposable
 
     public int CountItems()
     {
-        return _items.Count;
+        return _items.Count + _renderTimeItems.Count;
     }
 
     internal IReadOnlyList<IFEItem> GetOrderedItems()
