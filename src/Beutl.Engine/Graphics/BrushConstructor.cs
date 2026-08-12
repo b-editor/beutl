@@ -9,25 +9,18 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
+/// <remarks>
+/// A <see cref="DrawableBrush"/> can only be painted when <paramref name="drawableBrushMaterializer"/> is
+/// supplied; <see cref="ImmediateCanvas.CreateBrushConstructor"/> passes the canvas's own materializer, while
+/// a directly constructed instance has to be given one or the drawable fill degrades to transparent.
+/// </remarks>
 public readonly struct BrushConstructor(
     Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f,
-    float maxWorkingScale = float.PositiveInfinity, RenderIntent intent = RenderIntent.Preview)
+    float maxWorkingScale = float.PositiveInfinity, RenderIntent intent = RenderIntent.Preview,
+    DrawableBrushMaterializer? drawableBrushMaterializer = null)
 {
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
-    private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
-
-    internal BrushConstructor(
-        Rect bounds,
-        Brush.Resource? brush,
-        BlendMode blendMode,
-        float scale,
-        float maxWorkingScale,
-        RenderIntent intent,
-        DrawableBrushMaterializer? drawableBrushMaterializer)
-        : this(bounds, brush, blendMode, scale, maxWorkingScale, intent)
-    {
-        _drawableBrushMaterializer = drawableBrushMaterializer;
-    }
+    private readonly DrawableBrushMaterializer? _drawableBrushMaterializer = drawableBrushMaterializer;
 
     public Rect Bounds { get; } = bounds;
 

@@ -233,8 +233,6 @@ public sealed class RenderNodeRendererAllocationFailureTests
 
     private class CpuTargetFactory : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public int CreateCalls { get; protected set; }
 
         public virtual RenderTarget? Create(RenderTargetAllocationDescriptor allocation)

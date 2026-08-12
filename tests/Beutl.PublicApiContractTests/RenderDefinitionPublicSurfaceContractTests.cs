@@ -54,6 +54,9 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
         AssertContextCallSurface(typeof(FilterEffectContext), "Shader", typeof(ShaderCall<>));
     }
 
+    // HasChanges stays the only way to invalidate a cached node. DisableRenderCache is not a second
+    // invalidation signal: it opts a recording out of caching altogether, which a node recording a child
+    // it does not list in ChildNodes has to be able to do for itself.
     [Test]
     public void HasChanges_IsTheOnlyPublicNodeInvalidationSignal()
     {
@@ -71,8 +74,18 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
                 typeof(RenderNode).GetMethods(BindingFlags.Public | BindingFlags.Instance)
                     .Any(static method => method.Name is "ClearCache" or "ResetCache" or "ReportRenderCount"),
                 Is.False);
-            Assert.That(typeof(RenderNodeContext).GetMethod("DisableRenderCache"), Is.Null);
         });
+    }
+
+    [Test]
+    public void DisableRenderCache_IsReachableByAnOutOfTreeNode()
+    {
+        MethodInfo? optOut = typeof(RenderNodeContext).GetMethod(
+            "DisableRenderCache",
+            BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.That(optOut, Is.Not.Null,
+            "a node that records an unlisted child must be able to keep itself out of the cache");
     }
 
     private static void AssertDefinitionCallSurface(Type definition, Type call)

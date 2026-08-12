@@ -358,9 +358,6 @@ public class RenderNodeCacheHelperTest
     {
         private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
 
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation)
-            => RenderScaleUtilities.MaxBufferDimension;
-
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
             => new CpuRenderTarget(allocation.DeviceSize);
 

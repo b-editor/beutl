@@ -479,8 +479,6 @@ public sealed class ShaderAndAllocationFailureTests
         int? failAt = null,
         Func<int, Exception?>? disposeFailureAt = null) : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public List<TrackingRenderTarget> Targets { get; } = [];
 
         public int CreateCalls { get; private set; }

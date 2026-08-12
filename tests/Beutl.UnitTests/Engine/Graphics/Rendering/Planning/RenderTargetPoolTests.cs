@@ -910,8 +910,6 @@ public sealed class RenderTargetPoolTests
     private sealed class TrackingTargetFactory(
         Func<PixelSize, int, RenderTarget>? create = null) : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public List<RenderTarget> Created { get; } = [];
 
         public List<RenderTargetAllocationDescriptor> Allocations { get; } = [];
@@ -929,8 +927,6 @@ public sealed class RenderTargetPoolTests
 
     private sealed class SizeRejectingTargetFactory(int rejectedWidth) : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
             => allocation.DeviceSize.Width == rejectedWidth
                 ? null
@@ -939,8 +935,6 @@ public sealed class RenderTargetPoolTests
 
     private sealed class BudgetedTargetFactory(long budgetBytes) : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         private readonly List<TrackingRenderTarget> _live = [];
 
         public int DeclinedRequests { get; private set; }
@@ -965,8 +959,6 @@ public sealed class RenderTargetPoolTests
 
     private sealed class DescriptorTargetFactory : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public GRRecordingContext? ExpectedContext { get; set; }
 
         public List<AllocationObservation> Observations { get; } = [];

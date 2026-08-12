@@ -935,9 +935,6 @@ public sealed class RenderNodeRendererContractTests
 
         public List<TrackingRenderTarget> Targets { get; } = [];
 
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation)
-            => RenderScaleUtilities.MaxBufferDimension;
-
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
             PixelSize deviceSize = allocation.DeviceSize;

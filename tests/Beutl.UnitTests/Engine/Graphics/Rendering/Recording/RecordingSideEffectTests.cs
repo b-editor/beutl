@@ -702,8 +702,6 @@ public sealed class RecordingSideEffectTests
 
     private sealed class CountingTargetFactory : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public int CreateCalls { get; private set; }
 
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)

@@ -148,7 +148,11 @@ public sealed class RenderNodeContext
     }
 
     /// <summary>Monotonically disables persistent render caching for the current node transaction.</summary>
-    internal void DisableRenderCache()
+    /// <remarks>
+    /// A node that records a child it does not list in <see cref="RenderNode.ChildNodes"/> must call this,
+    /// because the cache cannot observe a change reported only by that unlisted child.
+    /// </remarks>
+    public void DisableRenderCache()
     {
         GetTransaction().DisableRenderCache();
     }

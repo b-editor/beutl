@@ -634,8 +634,6 @@ internal sealed class FailureTestTargetFactory(
     Func<int, Exception?>? disposeFailure = null,
     int maximumDimension = RenderScaleUtilities.MaxBufferDimension) : IRenderTargetFactory
 {
-    public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => maximumDimension;
-
     public List<FailureTestRenderTarget> Targets { get; } = [];
 
     public int CreateCalls { get; private set; }

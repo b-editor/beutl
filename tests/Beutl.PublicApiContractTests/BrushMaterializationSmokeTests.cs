@@ -145,6 +145,47 @@ public sealed class BrushMaterializationSmokeTests
         }
     }
 
+    // A directly constructed BrushConstructor inherits no canvas, so without a supplied materializer a
+    // DrawableBrush has nothing to rasterize its content with and the fill silently goes transparent.
+    [Test]
+    public void DirectlyConstructedBrush_PaintsADrawableBrushThroughASuppliedMaterializer()
+    {
+        var content = new EllipseShape();
+        content.Width.CurrentValue = 20;
+        content.Height.CurrentValue = 12;
+        content.Fill.CurrentValue = Brushes.White;
+        var brush = new DrawableBrush(content);
+        using DrawableBrush.Resource brushResource = brush.ToResource(CompositionContext.Default);
+
+        var bounds = new Rect(0, 0, 64, 36);
+        using SKImage materialized = CreateOpaqueImage(20, 12);
+        DrawableBrushMaterializer materializer =
+            (_, _, _) => new MaterializedDrawableBrush(materialized, new Rect(0, 0, 20, 12));
+
+        using var withMaterializer = new SKPaint();
+        new BrushConstructor(bounds, brushResource, BlendMode.SrcOver, drawableBrushMaterializer: materializer)
+            .ConfigurePaint(withMaterializer);
+        using var withoutMaterializer = new SKPaint();
+        new BrushConstructor(bounds, brushResource, BlendMode.SrcOver)
+            .ConfigurePaint(withoutMaterializer);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withMaterializer.Shader, Is.Not.Null,
+                "a supplied materializer must let the public path paint drawable content");
+            Assert.That(withoutMaterializer.Shader, Is.Null);
+        });
+    }
+
+    private static SKImage CreateOpaqueImage(int width, int height)
+    {
+        var info = new SKImageInfo(width, height, SKColorType.RgbaF16, SKAlphaType.Premul);
+        using SKSurface surface = SKSurface.Create(info)
+                                  ?? throw new InvalidOperationException("Could not create the source surface.");
+        surface.Canvas.Clear(SKColors.White);
+        return surface.Snapshot();
+    }
+
     private static float GetAlpha(Bitmap bitmap, int x, int y)
         => (float)bitmap.GetRow<Half>(y)[(x * 4) + 3];
 }

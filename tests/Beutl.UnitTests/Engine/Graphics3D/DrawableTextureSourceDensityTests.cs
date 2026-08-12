@@ -110,9 +110,6 @@ public class DrawableTextureSourceDensityTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation)
-            => RenderScaleUtilities.MaxBufferDimension;
-
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
             => FailureTestSupport.CreateCpuTarget(
                 allocation.DeviceSize.Width,

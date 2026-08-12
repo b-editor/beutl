@@ -1761,8 +1761,6 @@ public sealed class RenderCacheResolutionTests
 
     private sealed class TrackingTargetFactory : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public List<TrackingRenderTarget> Targets { get; } = [];
 
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)

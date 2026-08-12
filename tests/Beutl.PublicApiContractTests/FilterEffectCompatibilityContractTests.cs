@@ -615,9 +615,6 @@ public sealed class FilterEffectCompatibilityContractTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation)
-            => RenderScaleUtilities.MaxBufferDimension;
-
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation) =>
             new CpuRenderTarget(allocation.DeviceSize);
     }

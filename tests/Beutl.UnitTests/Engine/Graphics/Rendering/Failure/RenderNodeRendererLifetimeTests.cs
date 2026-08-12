@@ -230,8 +230,6 @@ public sealed class RenderNodeRendererLifetimeTests
     private sealed class TrackingTargetFactory(
         Func<int, Exception?>? disposeFailureAt = null) : IRenderTargetFactory, IDisposable
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public List<TrackingRenderTarget> Targets { get; } = [];
 
         public bool IsDisposed { get; private set; }

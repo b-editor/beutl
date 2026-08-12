@@ -862,8 +862,6 @@ public sealed class TargetScopeLoweringTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public int AllocationCount { get; private set; }
 
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)

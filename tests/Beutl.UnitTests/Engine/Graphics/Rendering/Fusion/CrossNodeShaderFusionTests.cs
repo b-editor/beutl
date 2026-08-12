@@ -759,8 +759,6 @@ public sealed class CrossNodeShaderFusionTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public RenderTarget CreateCpuTarget(PixelSize deviceSize)
             => CreateCore(deviceSize);
 

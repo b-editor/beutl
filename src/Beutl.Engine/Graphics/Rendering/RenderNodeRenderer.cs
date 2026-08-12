@@ -99,7 +99,7 @@ public readonly record struct RenderTargetAllocationDescriptor
     /// </summary>
     /// <remarks>
     /// The factory may use this value only for the duration of
-    /// <see cref="IRenderTargetFactory.GetMaximumDimension"/> or <see cref="IRenderTargetFactory.Create"/>.
+    /// <see cref="IRenderTargetFactory.Create"/>.
     /// </remarks>
     public GRRecordingContext? GraphicsContext { get; }
 
@@ -116,13 +116,6 @@ public readonly record struct RenderTargetAllocationDescriptor
 /// <summary>Creates fresh linear-premultiplied RGBA16F targets requested by a renderer.</summary>
 public interface IRenderTargetFactory
 {
-    /// <summary>Gets the largest supported width or height for the exact allocation context.</summary>
-    /// <remarks>
-    /// This side-effect-free query must agree with <see cref="Create(RenderTargetAllocationDescriptor)"/> for the
-    /// same descriptor. The borrowed graphics context may not be retained.
-    /// </remarks>
-    int GetMaximumDimension(RenderTargetAllocationDescriptor allocation);
-
     /// <summary>Creates a target satisfying the exact allocation requirements.</summary>
     /// <param name="allocation">The size, format, backend, and device/context requirements.</param>
     /// <returns>A new target, or <see langword="null"/> when allocation cannot be satisfied.</returns>

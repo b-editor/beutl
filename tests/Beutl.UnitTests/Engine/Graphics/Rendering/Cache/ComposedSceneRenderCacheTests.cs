@@ -572,8 +572,6 @@ public sealed class ComposedSceneRenderCacheTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
             => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
     }

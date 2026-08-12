@@ -463,8 +463,6 @@ public class RenderNodeRendererExceptionSafetyTests
         bool throwOnCreate = false,
         bool returnNullOnCreate = false) : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public List<FakeRenderTarget> CreatedTargets { get; } = [];
 
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)

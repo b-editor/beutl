@@ -104,8 +104,6 @@ public sealed class RenderNodeRendererDeviceBoundsTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public int GetMaximumDimension(RenderTargetAllocationDescriptor allocation) => RenderScaleUtilities.MaxBufferDimension;
-
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
             PixelSize deviceSize = allocation.DeviceSize;
