@@ -1,5 +1,6 @@
 ﻿using System.Text;
-using System.Text.Json;
+using System.Text.Json.Nodes;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.IO;
 using Beutl.Serialization;
@@ -30,34 +31,59 @@ public class ObjectTemplateItemTests
     }
 
     [Test]
-    public void FileSourceJsonConverter_ResolvesRelativeUri_AgainstTheParentBaseUri()
+    public void CreateInstance_ResolvesRelativeUri_AgainstTheTemplateFile()
     {
         // A template that references a bundled material stores the reference as a URI
-        // relative to the template file; the converter must resolve it against the
-        // template file's URI, which ObjectTemplateItem.CreateInstance now provides.
-        var context = new JsonSerializationContext(
-            typeof(TestEngineObjectWithFileSource),
-            options: new CoreSerializerOptions
-            {
-                BaseUri = new Uri(Path.Combine(_root, "templates", "pkg", "title.json")),
-            });
+        // relative to the template file; CreateInstance must resolve it against the
+        // template's own location.
+        var obj = new TestEngineObjectWithFileSource(
+            new TestFileSource(new Uri(Path.Combine(_root, "materials", "pkg", "logo.png"))));
+        JsonObject serialized = CoreSerializer.SerializeToJsonObject(obj);
 
-        using (ThreadLocalSerializationContext.Enter(context))
-        {
-            var source = JsonSerializer.Deserialize<IFileSource>(
-                "\"../../materials/pkg/logo.png\"", JsonHelper.SerializerOptions) as BlobFileSource;
+        string json = serialized.ToJsonString()
+            .Replace("file://" + Path.Combine(_root, "materials", "pkg", "logo.png"), "../../materials/pkg/logo.png");
+        JsonObject jsonObj = JsonNode.Parse(json)!.AsObject();
 
-            // A BlobFileSource reads the resolved file, so the bytes prove the
-            // relative URI landed on the bundled material.
-            Assert.That(source, Is.Not.Null);
-            Assert.That(Encoding.UTF8.GetString(source!.Data), Is.EqualTo("png"));
-        }
+        string templatePath = Path.Combine(_root, "templates", "pkg", "title.json");
+        var item = new ObjectTemplateItem(
+            Guid.NewGuid(), typeof(TestEngineObjectWithFileSource), typeof(TestEngineObjectWithFileSource),
+            jsonObj, "title", "", templatePath);
+
+        var instance = item.CreateInstance() as TestEngineObjectWithFileSource;
+
+        Assert.That(instance, Is.Not.Null);
+        Assert.That(
+            (instance!.FileSource.CurrentValue as BlobFileSource)?.Data,
+            Is.EqualTo(Encoding.UTF8.GetBytes("png")));
+    }
+}
+
+public sealed class TestFileSource : IFileSource
+{
+    public TestFileSource()
+    {
+    }
+
+    public TestFileSource(Uri uri)
+    {
+        Uri = uri;
+    }
+
+    public Uri Uri { get; private set; } = null!;
+
+    public void ReadFrom(Uri uri)
+    {
+        Uri = uri;
     }
 }
 
 [SuppressResourceClassGeneration]
 public sealed class TestEngineObjectWithFileSource : EngineObject
 {
+    public TestEngineObjectWithFileSource() : this(null)
+    {
+    }
+
     public TestEngineObjectWithFileSource(IFileSource? fileSource)
     {
         ScanProperties<TestEngineObjectWithFileSource>();

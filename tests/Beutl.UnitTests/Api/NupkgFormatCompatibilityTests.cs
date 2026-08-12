@@ -111,6 +111,7 @@ public class NupkgFormatCompatibilityTests
         Assert.Multiple(() =>
         {
             Assert.That(localPackage.Name, Is.EqualTo(id));
+            Assert.That(localPackage.Version, Is.EqualTo(version));
             Assert.That(localPackage.Tags, Does.Contain("beutl-material"));
             Assert.That(localPackage.Tags.GetPackageKind(), Is.EqualTo(PackageKind.Material));
             Assert.That(File.Exists(Path.Combine(installedPath, "materials", "logo.png")), Is.True);
