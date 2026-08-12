@@ -194,7 +194,7 @@ public sealed partial class GitInstallationLocator
     }
 
     private static StringComparer PathComparer
-        => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        => FileSystemPathComparison.ComparerForCurrentPlatform;
 
     [GeneratedRegex(@"git version (?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)", RegexOptions.CultureInvariant)]
     private static partial Regex GitVersionRegex();

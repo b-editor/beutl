@@ -1,6 +1,7 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -175,7 +176,13 @@ internal class PackageOperationHandler
 
         if (result == ContentDialogResult.Secondary)
         {
-            await SaveAll();
+            // "Save and close" must not close on a failed save: closing would discard exactly the
+            // edits that could not be written.
+            if (!await SaveAll())
+            {
+                return false;
+            }
+
             await _projectService.CloseProject();
             return true;
         }
@@ -189,21 +196,49 @@ internal class PackageOperationHandler
         return false;
     }
 
-    private async Task SaveAll()
+    private async Task<bool> SaveAll()
     {
-        Project? project = _projectService.CurrentProject.Value;
-        if (project != null)
+        using IProjectFileWriteLease fileWrite = await _editorService.BeginProjectFileWriteAsync(
+            CancellationToken.None);
+        if (_projectService.CurrentProject.Value is { } project)
         {
             CoreSerializer.StoreToUri(project, project.Uri!);
         }
 
-        foreach (EditorTabItem item in _editorService.TabItems)
+        // Every editor is saved independently rather than through SaveProjectFilesAsync: the caller
+        // closes the project right after this, so one editor that cannot save must not discard the
+        // edits of the ones that follow it.
+        bool allSaved = true;
+        foreach (EditorTabItem item in _editorService.TabItems.ToArray())
         {
-            if (item.Commands.Value != null)
+            try
             {
-                await item.Commands.Value.OnSave();
+                if (item.Commands.Value is { } commands && !await commands.OnSave())
+                {
+                    allSaved = false;
+                    s_logger.LogWarning(
+                        "{FileName} could not be saved before the package operation closed the project.",
+                        item.FileName.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                allSaved = false;
+                s_logger.LogError(
+                    ex,
+                    "{FileName} threw while being saved before the package operation closed the project.",
+                    item.FileName.Value);
             }
         }
+
+        if (!allSaved)
+        {
+            NotificationService.ShowError(
+                ExtensionsStrings.PackageInstaller,
+                MessageStrings.UnableToSaveFile);
+        }
+
+        return allSaved;
     }
 
     public void Cancel(string packageName)

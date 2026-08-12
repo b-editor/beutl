@@ -151,56 +151,114 @@ public sealed class EditorService : IOutputOperationLeaseProvider
         return TryBeginOutputOperation();
     }
 
-    internal async ValueTask<IDisposable> BeginProjectFileWriteAsync(
+    internal async ValueTask<IProjectFileWriteLease> BeginProjectFileWriteAsync(
         CancellationToken cancellationToken)
     {
-        await _projectFileWriteGate.WaitAsync(cancellationToken);
-        try
+        while (true)
         {
-            while (true)
+            cancellationToken.ThrowIfCancellationRequested();
+            Task waitForWorktreeMutation;
+            lock (_workspaceOperationSync)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                Task waitForWorktreeMutation;
-                lock (_workspaceOperationSync)
-                {
-                    if (!_worktreeMutationActive)
-                    {
-                        _activeProjectFileWrites++;
-                        return new WorkspaceOperationLease(
-                            this,
-                            WorkspaceOperationKind.ProjectFileWrite);
-                    }
-
-                    waitForWorktreeMutation = _worktreeMutationCompletion?.Task
-                                              ?? Task.CompletedTask;
-                }
-
-                await waitForWorktreeMutation.WaitAsync(cancellationToken);
+                waitForWorktreeMutation = _worktreeMutationActive
+                    ? _worktreeMutationCompletion?.Task ?? Task.CompletedTask
+                    : Task.CompletedTask;
             }
-        }
-        catch
-        {
+
+            // The gate is taken only once the workspace already looks free. Waiting for a worktree
+            // mutation while holding it would park auto-save and editor teardown behind this writer.
+            await waitForWorktreeMutation.WaitAsync(cancellationToken);
+            await _projectFileWriteGate.WaitAsync(cancellationToken);
+            lock (_workspaceOperationSync)
+            {
+                if (!_worktreeMutationActive)
+                {
+                    _activeProjectFileWrites++;
+                    return new WorkspaceOperationLease(
+                        this,
+                        WorkspaceOperationKind.ProjectFileWrite);
+                }
+            }
+
             _projectFileWriteGate.Release();
-            throw;
         }
     }
 
-    internal IDisposable? TryBeginWorktreeMutation()
+    internal IProjectFileWriteLease? TryBeginProjectFileWrite()
     {
+        if (!_projectFileWriteGate.Wait(0))
+        {
+            return null;
+        }
+
         lock (_workspaceOperationSync)
         {
-            if (_worktreeMutationActive
-                || _activeOutputOperations > 0
-                || _activeProjectFileWrites > 0)
+            if (!_worktreeMutationActive)
             {
-                return null;
+                _activeProjectFileWrites++;
+                return new WorkspaceOperationLease(
+                    this,
+                    WorkspaceOperationKind.ProjectFileWrite);
+            }
+        }
+
+        _projectFileWriteGate.Release();
+        return null;
+    }
+
+    /// <summary>
+    /// Reserves the workspace for a worktree mutation, optionally taking over a finished
+    /// project-file write so the workspace is never left unreserved between the two.
+    /// </summary>
+    /// <param name="completedWrite">
+    /// A project-file write to fold into this mutation. It is released whether or not the mutation
+    /// starts, so the caller must have finished writing. The caller still owns it and must dispose
+    /// it, which is a no-op once it has been taken over.
+    /// </param>
+    internal IDisposable? TryBeginWorktreeMutation(IProjectFileWriteLease? completedWrite = null)
+    {
+        WorkspaceOperationLease? handoff = null;
+        if (completedWrite is not null)
+        {
+            if (completedWrite is not WorkspaceOperationLease
+                {
+                    Kind: WorkspaceOperationKind.ProjectFileWrite
+                } lease
+                || !ReferenceEquals(lease.Owner, this))
+            {
+                throw new ArgumentException(
+                    "The lease was not issued by this service for a project-file write.",
+                    nameof(completedWrite));
             }
 
-            _worktreeMutationActive = true;
-            _worktreeMutationCompletion = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            return new WorkspaceOperationLease(this, WorkspaceOperationKind.WorktreeMutation);
+            handoff = lease;
         }
+
+        IDisposable? mutation = null;
+        lock (_workspaceOperationSync)
+        {
+            if (handoff is not null && handoff.TryTakeOver())
+            {
+                _activeProjectFileWrites--;
+                // Released under the lock so the count and the gate never disagree about whether the
+                // workspace is reserved.
+                _projectFileWriteGate.Release();
+            }
+
+            if (!_worktreeMutationActive
+                && _activeOutputOperations == 0
+                && _activeProjectFileWrites == 0)
+            {
+                _worktreeMutationActive = true;
+                _worktreeMutationCompletion = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                mutation = new WorkspaceOperationLease(
+                    this,
+                    WorkspaceOperationKind.WorktreeMutation);
+            }
+        }
+
+        return mutation;
     }
 
     internal async Task<bool> SaveProjectFilesAsync(
@@ -216,8 +274,13 @@ public sealed class EditorService : IOutputOperationLeaseProvider
         bool[] enabledStates = new bool[tabItems.Length];
         for (int i = 0; i < tabItems.Length; i++)
         {
-            enabledStates[i] = tabItems[i].Context.Value.IsEnabled.Value;
-            tabItems[i].Context.Value.IsEnabled.Value = false;
+            if (tabItems[i].Context.Value is not { } context)
+            {
+                continue;
+            }
+
+            enabledStates[i] = context.IsEnabled.Value;
+            context.IsEnabled.Value = false;
         }
 
         try
@@ -247,6 +310,55 @@ public sealed class EditorService : IOutputOperationLeaseProvider
                 }
             }
         }
+    }
+
+    internal async Task SwitchEditorExtensionAsync(EditorExtension extension)
+    {
+        ArgumentNullException.ThrowIfNull(extension);
+        // Callers offer the extension only for the selected tab's file type, so the swap must stay
+        // bound to the tab that was selected when it was offered.
+        EditorTabItem? targetTab = SelectedTabItem.Value;
+        if (targetTab is null)
+        {
+            return;
+        }
+
+        // The lease must end before the swap: the outgoing context's teardown takes its own.
+        using (await BeginProjectFileWriteAsync(CancellationToken.None))
+        {
+            if (targetTab.Commands.Value is { } commands)
+            {
+                await commands.OnSave();
+            }
+        }
+
+        // Waiting for the lease can span a version-control transition that disposes every tab.
+        if (!ReferenceEquals(SelectedTabItem.Value, targetTab)
+            || targetTab.Context.Value is not { } currentContext)
+        {
+            return;
+        }
+
+        if (!extension.TryCreateContext(
+                currentContext.Object,
+                new EditorContextServices(this, _extensionProvider),
+                out IEditorContext? context))
+        {
+            NotificationService.ShowInformation(
+                title: MessageStrings.ContextNotCreated,
+                message: string.Format(
+                    format: MessageStrings.FailedToOpenFileWithExtension,
+                    arg0: extension.DisplayName,
+                    arg1: targetTab.FileName.Value));
+            return;
+        }
+
+        // Installed before the outgoing context is torn down, so a failed teardown cannot leave the
+        // tab bound to a half-disposed editor.
+        targetTab.Context.Value = context;
+        // DisposeAsync, not Dispose: IEditorContext.Dispose has an empty default implementation and
+        // EditViewModel overrides only DisposeAsync, so Dispose would leak the outgoing editor.
+        await currentContext.DisposeAsync();
     }
 
     private void EndWorkspaceOperation(WorkspaceOperationKind kind)
@@ -327,9 +439,20 @@ public sealed class EditorService : IOutputOperationLeaseProvider
 
     private sealed class WorkspaceOperationLease(
         EditorService owner,
-        WorkspaceOperationKind kind) : IDisposable
+        WorkspaceOperationKind kind) : IProjectFileWriteLease
     {
         private int _disposed;
+
+        public EditorService Owner => owner;
+
+        public WorkspaceOperationKind Kind => kind;
+
+        // Retires the lease without ending the operation it reserves, so the caller can transfer
+        // that reservation to another lease instead of releasing and racing to reacquire it.
+        public bool TryTakeOver()
+        {
+            return Interlocked.Exchange(ref _disposed, 1) == 0;
+        }
 
         public void Dispose()
         {

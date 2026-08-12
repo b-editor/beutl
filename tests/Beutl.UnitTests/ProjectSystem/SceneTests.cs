@@ -23,6 +23,19 @@ public class SceneTests
     }
 
     [Test]
+    public void Storing_a_scene_persists_every_child_element_file()
+    {
+        string scenePath = Path.Combine(_tempDirectory, "project.scene");
+        string elementPath = Path.Combine(_tempDirectory, "elements", "child.belm");
+        var scene = new Scene { Uri = new Uri(scenePath) };
+        scene.Children.Add(new Element { Uri = new Uri(elementPath), Name = "child" });
+
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+
+        Assert.That(File.Exists(elementPath), Is.True);
+    }
+
+    [Test]
     public void Element_patterns_preserve_unix_backslashes_and_normalize_windows_separators()
     {
         string scenePath = Path.Combine(_tempDirectory, "project.scene");

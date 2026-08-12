@@ -554,9 +554,7 @@ internal sealed class RepositoryWatcher : IDisposable
 
     private static bool PathsEqual(string left, string right)
     {
-        StringComparison comparison = OperatingSystem.IsWindows()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
+        StringComparison comparison = FileSystemPathComparison.ForCurrentPlatform;
         return string.Equals(
             Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
             Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),

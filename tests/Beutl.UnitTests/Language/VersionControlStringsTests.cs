@@ -21,7 +21,7 @@ public class VersionControlStringsTests
         "VersionControl_GitNotInstalled",
         "VersionControl_ConflictGuidance",
         "VersionControl_RestoreConfirmation",
-        "VersionControl_ExportInProgress",
+        "VersionControl_WorkspaceBusy",
         "VersionControl_RecoveryFailed",
         "VersionControl_PullTransitionUncertain",
         "VersionControl_BranchFormat",

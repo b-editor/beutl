@@ -4593,6 +4593,107 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Restore_stops_when_an_open_editor_cannot_save()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-restore-save-failure");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var editorService = new EditorService(new ExtensionProvider());
+            var failedCommands = new FailedSaveCommands();
+            editorService.TabItems.Add(new EditorTabItem(
+                new FailedSaveEditorContext(project, failedCommands)));
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool restored = await coordinator.RestoreAsync(
+                "2222222222222222222222222222222222222222");
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored, Is.False);
+                Assert.That(failedCommands.SaveCalls, Is.EqualTo(1));
+                Assert.That(backend.CommitAllCalls, Is.Zero);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Restore_stops_without_throwing_when_the_repository_has_no_commit_identity()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-restore-no-identity");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                CommitAllResult = new CommitResult.SkippedNoIdentity(),
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool restored = await coordinator.RestoreAsync(
+                "2222222222222222222222222222222222222222");
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored, Is.False);
+                Assert.That(backend.CommitAllCalls, Is.EqualTo(1));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Branch_cycle_saves_dirty_state_reopens_the_selected_branch_and_recovers_from_failure()
     {
         await TestReset.ResetShellAsync();
@@ -9164,6 +9265,8 @@ public class VersionControlRestoreTests
 
         public WorkspaceStatus Status { get; set; } = DirtyStatus;
 
+        public CommitResult CommitAllResult { get; set; } = new CommitResult.NoChanges();
+
         public IReadOnlyList<BranchInfo> Branches { get; init; } =
             [new BranchInfo("main", true, null)];
 
@@ -9549,7 +9652,7 @@ public class VersionControlRestoreTests
                 await CommitAllRelease.WaitAsync(cancellationToken);
             }
 
-            return new CommitResult.NoChanges();
+            return CommitAllResult;
         }
 
         public Task<CommitResult> CommitProjectTreeAsync(

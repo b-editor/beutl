@@ -7953,8 +7953,10 @@ internal sealed class GitCliVersionControlService :
             IsResourceDirectory: false,
             SymbolicLinkDirectory: null,
             NestedRepositoryDirectory: null));
-        var visitedDirectories = new HashSet<string>(
-            OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        // Ordinal, not the platform rule: this dedupes directories the walk actually reached, and
+        // a case-sensitive volume can hold both Assets/ and assets/ as distinct trees. Folding them
+        // together would skip one subtree's symlink and nested-repository validation entirely.
+        var visitedDirectories = new HashSet<string>(StringComparer.Ordinal);
         var options = new EnumerationOptions { AttributesToSkip = 0 };
         while (pending.TryPop(out var item))
         {
@@ -8615,7 +8617,7 @@ internal sealed class GitCliVersionControlService :
     }
 
     private static StringComparison PathComparison
-        => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        => FileSystemPathComparison.ForCurrentPlatform;
 }
 
 internal static class GitRevisionValidator

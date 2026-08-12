@@ -66,12 +66,33 @@ public class VersionControlModelsTests
             upperRoot,
             Path.Combine(upperRoot, "PROJECT"));
 
-        bool expectedEqual = OperatingSystem.IsWindows();
+        bool expectedEqual = !OperatingSystem.IsLinux();
         Assert.That(repository.Equals(upperRepository), Is.EqualTo(expectedEqual));
         if (expectedEqual)
         {
             Assert.That(repository.GetHashCode(), Is.EqualTo(upperRepository.GetHashCode()));
         }
+    }
+
+    [Test]
+    public void RepositoryInfo_treats_a_repository_root_spelled_differently_as_the_same_directory()
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            Assert.Ignore("Linux paths are case-sensitive, so the two spellings name different directories.");
+        }
+
+        string temporaryRoot = Path.Combine(Path.GetTempPath(), "beutl-repository-root-casing");
+
+        var repository = new RepositoryInfo(
+            Path.Combine(temporaryRoot, "Repo"),
+            Path.Combine(temporaryRoot, "repo"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(repository.IsNestedInForeignRepo, Is.False);
+            Assert.That(repository.Pathspec, Is.EqualTo("."));
+        });
     }
 
     [Test]

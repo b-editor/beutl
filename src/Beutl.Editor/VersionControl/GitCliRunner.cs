@@ -901,5 +901,5 @@ internal sealed class GitCliRunner : IGitCliRunner
     }
 
     private static StringComparison PathComparison
-        => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        => FileSystemPathComparison.ForCurrentPlatform;
 }

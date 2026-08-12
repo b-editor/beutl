@@ -1146,7 +1146,6 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         {
             viewModel._logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
             CoreSerializer.StoreToUri(scene, scene.Uri!);
-            Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
             viewModel.SaveState(isExplicitUserSave: true);
             viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
 

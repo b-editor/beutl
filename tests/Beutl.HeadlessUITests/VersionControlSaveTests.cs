@@ -349,11 +349,11 @@ public class VersionControlSaveTests
                 await CreateProjectWithBlockingEditorAsync("save-all-workspace-lease");
 
             Task saveAll = TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
-            await WaitUntilSaveEnteredAsync(blocking);
-
-            IDisposable? blockedMutation = TestShell.Editor.TryBeginWorktreeMutation();
             try
             {
+                await WaitUntilSaveEnteredAsync(blocking);
+
+                using IDisposable? blockedMutation = TestShell.Editor.TryBeginWorktreeMutation();
                 Assert.That(
                     blockedMutation,
                     Is.Null,
@@ -361,10 +361,11 @@ public class VersionControlSaveTests
             }
             finally
             {
-                blockedMutation?.Dispose();
+                // A failed assertion must not leave the extension save parked: it holds the
+                // process-wide write lease, which would wedge every later test in the assembly.
+                blocking.Release();
             }
 
-            blocking.Release();
             await CompleteAsync(saveAll);
 
             using IDisposable? mutationAfterSave = TestShell.Editor.TryBeginWorktreeMutation();
@@ -390,11 +391,11 @@ public class VersionControlSaveTests
                 await CreateProjectWithBlockingEditorAsync("save-workspace-lease");
 
             Task save = TestShell.MainViewModel.MenuBar.Save.ExecuteAsync();
-            await WaitUntilSaveEnteredAsync(blocking);
-
-            IDisposable? blockedMutation = TestShell.Editor.TryBeginWorktreeMutation();
             try
             {
+                await WaitUntilSaveEnteredAsync(blocking);
+
+                using IDisposable? blockedMutation = TestShell.Editor.TryBeginWorktreeMutation();
                 Assert.That(
                     blockedMutation,
                     Is.Null,
@@ -402,10 +403,9 @@ public class VersionControlSaveTests
             }
             finally
             {
-                blockedMutation?.Dispose();
+                blocking.Release();
             }
 
-            blocking.Release();
             await CompleteAsync(save);
 
             using IDisposable? mutationAfterSave = TestShell.Editor.TryBeginWorktreeMutation();
@@ -463,6 +463,9 @@ public class VersionControlSaveTests
             await Task.Delay(10);
         }
 
+        // Awaiting an unbounded pending save would turn a lease deadlock into a hung CI job
+        // instead of a failing test.
+        Assert.That(pending.IsCompleted, Is.True, "The save never completed.");
         await pending;
     }
 

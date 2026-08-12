@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Configuration;
+using Beutl.Editor.VersionControl;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -121,38 +122,38 @@ public partial class MenuBarViewModel
     private async Task OnSaveAll()
     {
         using Activity? activity = Telemetry.StartActivity("SaveAll");
-        Project? project = _projectService.CurrentProject.Value;
         int itemsCount = 0;
         bool allRequestedSavesSucceeded = true;
 
         try
         {
-            using (IDisposable fileWrite = await _editorService.BeginProjectFileWriteAsync(
-                       CancellationToken.None))
+            using IProjectFileWriteLease fileWrite = await _editorService.BeginProjectFileWriteAsync(
+                CancellationToken.None);
+            // Waiting for the lease can span a whole version-control transition, which closes the
+            // project and reopens a new instance, so nothing may be captured before the wait.
+            Project? project = _projectService.CurrentProject.Value;
+            if (project != null)
             {
-                if (project != null)
-                {
-                    CoreSerializer.StoreToUri(project, project.Uri!);
-                }
+                CoreSerializer.StoreToUri(project, project.Uri!);
+            }
 
-                itemsCount++;
+            itemsCount++;
 
-                foreach (EditorTabItem? item in _editorService.TabItems)
+            // Each OnSave yields to the dispatcher, which can close a tab, so the live list is
+            // snapshotted rather than enumerated across the awaits.
+            foreach (EditorTabItem item in _editorService.TabItems.ToArray())
+            {
+                if (item.Commands.Value is { } commands)
                 {
-                    if (item.Commands.Value != null)
+                    if (await commands.OnSave())
                     {
-                        if (await item.Commands.Value.OnSave())
-                        {
-                            itemsCount++;
-                        }
-                        else
-                        {
-                            allRequestedSavesSucceeded = false;
-                            Type type = item.Extension.Value.GetType();
-                            _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
-                                item.FileName.Value);
-                            NotificationService.ShowError(MessageStrings.UnableToSaveFile, item.FileName.Value);
-                        }
+                        itemsCount++;
+                    }
+                    else
+                    {
+                        allRequestedSavesSucceeded = false;
+                        LogFailedSave(item);
+                        NotificationService.ShowError(MessageStrings.UnableToSaveFile, item.FileName.Value);
                     }
                 }
             }
@@ -167,7 +168,7 @@ public partial class MenuBarViewModel
 
             if (allRequestedSavesSucceeded)
             {
-                await _versionControlSession.NotifySavedAsync();
+                await _versionControlSession.NotifySavedAsync(fileWrite);
             }
         }
         catch (Exception ex)
@@ -185,47 +186,59 @@ public partial class MenuBarViewModel
     private async Task OnSave()
     {
         using Activity? activity = Telemetry.StartActivity("Save");
-        EditorTabItem? item = _editorService.SelectedTabItem.Value;
-        if (item != null)
+        if (_editorService.SelectedTabItem.Value == null)
         {
-            try
+            return;
+        }
+
+        EditorTabItem? item = null;
+        try
+        {
+            using IProjectFileWriteLease fileWrite = await _editorService.BeginProjectFileWriteAsync(
+                CancellationToken.None);
+            // The tab captured before the wait may have been disposed by a version-control
+            // transition, so the save targets whichever tab is selected once the lease is held.
+            item = _editorService.SelectedTabItem.Value;
+            if (item == null)
             {
-                bool result;
-                using (IDisposable fileWrite = await _editorService.BeginProjectFileWriteAsync(
-                           CancellationToken.None))
-                {
-                    result = await (item.Commands.Value == null
-                        ? ValueTask.FromResult(false)
-                        : item.Commands.Value.OnSave());
-                }
-
-                if (result)
-                {
-                    NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemSaved, item.FileName));
-
-                    if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
-                        && item.Context.Value is ISupportAutoSaveEditorContext)
-                    {
-                        NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
-                    }
-
-                    await _versionControlSession.NotifySavedAsync();
-                }
-                else
-                {
-                    Type type = item.Extension.Value.GetType();
-                    _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
-                        item.FileName.Value);
-                    NotificationService.ShowInformation(string.Empty, MessageStrings.OperationFailed);
-                }
+                return;
             }
-            catch (Exception ex)
+
+            bool result = item.Commands.Value is { } commands && await commands.OnSave();
+            if (result)
             {
-                activity?.SetStatus(ActivityStatusCode.Error);
-                _logger.LogError(ex, "Failed to save file: {FileName}", item.FileName.Value);
-                NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
+                NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemSaved, item.FileName.Value));
+
+                if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
+                    && item.Context.Value is ISupportAutoSaveEditorContext)
+                {
+                    NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
+                }
+
+                await _versionControlSession.NotifySavedAsync(fileWrite);
+            }
+            else
+            {
+                LogFailedSave(item);
+                NotificationService.ShowInformation(string.Empty, MessageStrings.OperationFailed);
             }
         }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            _logger.LogError(ex, "Failed to save file: {FileName}", item?.FileName.Value);
+            NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
+        }
+    }
+
+    private void LogFailedSave(EditorTabItem item)
+    {
+        // Extension is typed non-nullable but is a projection of Context, which tab teardown nulls.
+        Type? type = item.Extension.Value?.GetType();
+        _logger.LogError(
+            "{Extension} failed to save file: {FileName}",
+            type?.FullName ?? type?.Name ?? "(unknown)",
+            item.FileName.Value);
     }
 
     internal void OpenFileCore(string file)

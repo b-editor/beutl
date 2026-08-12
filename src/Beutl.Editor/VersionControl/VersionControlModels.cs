@@ -7,7 +7,7 @@ internal static class RepositoryPathComparer
     private const int MaxSymbolicLinkHops = 64;
 
     private static StringComparison PathComparison
-        => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        => FileSystemPathComparison.ForCurrentPlatform;
 
     internal static bool AreEquivalent(string left, string right)
     {
@@ -180,7 +180,7 @@ internal static class RepositoryPathComparer
     }
 
     private static StringComparer PathComparer
-        => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        => FileSystemPathComparison.ComparerForCurrentPlatform;
 }
 
 public enum GitAvailabilityState
@@ -232,10 +232,10 @@ public sealed record RepositoryInfo
         => OperatingSystem.IsWindows() ? path.Replace('\\', '/') : path;
 
     private static StringComparison PathComparison
-        => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        => FileSystemPathComparison.ForCurrentPlatform;
 
     private static StringComparer PathComparer
-        => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        => FileSystemPathComparison.ComparerForCurrentPlatform;
 
     public string RepoRoot { get; }
 

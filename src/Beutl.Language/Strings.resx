@@ -1662,13 +1662,13 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>Automatic version-control snapshots are paused because this repository has no commit identity. Create a manual version to set a repository-local name and email, then save again.</value>
   </data>
   <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
-    <value>The project will close and reopen, and the current undo history will be cleared. Continue?</value>
+    <value>The project will close and reopen, and the current undo history will be cleared. Unsaved changes are saved first and recorded in a safety snapshot. Continue?</value>
   </data>
   <data name="VersionControl_RevisionMissingProject" xml:space="preserve">
     <value>The revision {0} does not contain the current project file, so it cannot be restored.</value>
   </data>
-  <data name="VersionControl_ExportInProgress" xml:space="preserve">
-    <value>This version control operation is unavailable while an export is running.</value>
+  <data name="VersionControl_WorkspaceBusy" xml:space="preserve">
+    <value>This version control operation is unavailable while an export or a save is writing to the project.</value>
   </data>
   <data name="VersionControl_RecoveryFailed" xml:space="preserve">
     <value>The operation failed, and the original project state could not be recovered. Operation error: {0} Recovery error: {1}</value>
@@ -1677,7 +1677,7 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>The protected repository transition lost ownership or could not verify recovery. Use Recover Project in Version Control, or reopen the project from Recent Projects to recover it before loading. If Beutl cannot safely change the worktree, it preserves the checkpoint at a durable Git reference.</value>
   </data>
   <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
-    <value>A protected pull for {0} did not finish cleanly at {1:g}. Recover the saved project state before loading the project? Any project state replaced by recovery will be reloaded, clearing its undo history.</value>
+    <value>A protected pull for {0} did not finish cleanly at {1:g}. Recover the saved project state before loading the project? Any project state replaced by recovery will be reloaded, clearing its undo history, and changes that were never saved are discarded.</value>
   </data>
   <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
     <value>A protected pull did not finish cleanly. A saved project state is available for recovery.</value>
@@ -1767,10 +1767,10 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>Switch Branch</value>
   </data>
   <data name="VersionControl_SwitchBranchConfirmation" xml:space="preserve">
-    <value>The project will close and reopen on branch "{0}", and the current undo history will be cleared. Any saved changes will be recorded in a safety snapshot first. Continue?</value>
+    <value>The project will close and reopen on branch "{0}", and the current undo history will be cleared. Unsaved changes are saved first and recorded in a safety snapshot. Continue?</value>
   </data>
   <data name="VersionControl_PullConfirmation" xml:space="preserve">
-    <value>The project will close and reopen after pulling fast-forward updates, and the current undo history will be cleared. Any saved changes will be recorded in a safety snapshot first. Continue?</value>
+    <value>The project will close and reopen after pulling fast-forward updates, and the current undo history will be cleared. Unsaved changes are saved first and recorded in a safety snapshot. Continue?</value>
   </data>
   <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
     <value>Branch and remote operations apply to the enclosing repository: {0}</value>

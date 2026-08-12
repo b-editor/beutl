@@ -1656,13 +1656,13 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>このリポジトリにコミット作成者が設定されていないため、自動スナップショットを一時停止しました。手動バージョンを作成してリポジトリ専用の名前とメールアドレスを設定してから、もう一度保存してください。</value>
   </data>
   <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
-    <value>プロジェクトを閉じて再度開くため、現在の取り消し履歴は消去されます。続行しますか？</value>
+    <value>プロジェクトを閉じて再度開くため、現在の取り消し履歴は消去されます。未保存の変更は先に保存され、安全スナップショットへ記録されます。続行しますか？</value>
   </data>
   <data name="VersionControl_RevisionMissingProject" xml:space="preserve">
     <value>リビジョン {0} には現在のプロジェクトファイルが含まれていないため、復元できません。</value>
   </data>
-  <data name="VersionControl_ExportInProgress" xml:space="preserve">
-    <value>書き出しの実行中は、このバージョン管理操作を実行できません。</value>
+  <data name="VersionControl_WorkspaceBusy" xml:space="preserve">
+    <value>書き出しまたは保存がプロジェクトへ書き込んでいる間は、このバージョン管理操作を実行できません。</value>
   </data>
   <data name="VersionControl_RecoveryFailed" xml:space="preserve">
     <value>操作に失敗し、元のプロジェクト状態も復元できませんでした。操作エラー: {0} 復旧エラー: {1}</value>
@@ -1671,7 +1671,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>保護されたリポジトリ遷移の所有権が失われたか、復旧を検証できませんでした。バージョン管理の「プロジェクトを復旧」を使用するか、「最近使ったプロジェクト」から再度開くと読み込み前に復旧できます。作業ツリーを安全に変更できない場合、Beutl はチェックポイントを永続的な Git 参照に保持します。</value>
   </data>
   <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
-    <value>{0} の保護されたプルが {1:g} に正常終了しませんでした。プロジェクトを読み込む前に保存された状態を復旧しますか？復旧で置き換えられるプロジェクト状態は再読み込みされ、取り消し履歴が消去されます。</value>
+    <value>{0} の保護されたプルが {1:g} に正常終了しませんでした。プロジェクトを読み込む前に保存された状態を復旧しますか？復旧で置き換えられるプロジェクト状態は再読み込みされ、取り消し履歴が消去されます。保存されていない変更は破棄されます。</value>
   </data>
   <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
     <value>保護されたプルが正常終了しませんでした。保存されたプロジェクト状態から復旧できます。</value>
@@ -1761,10 +1761,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>ブランチを切り替え</value>
   </data>
   <data name="VersionControl_SwitchBranchConfirmation" xml:space="preserve">
-    <value>プロジェクトを閉じてブランチ「{0}」で開き直すため、現在の取り消し履歴は消去されます。保存済みの変更は、最初に安全スナップショットへ記録されます。続行しますか？</value>
+    <value>プロジェクトを閉じてブランチ「{0}」で開き直すため、現在の取り消し履歴は消去されます。未保存の変更は先に保存され、安全スナップショットへ記録されます。続行しますか？</value>
   </data>
   <data name="VersionControl_PullConfirmation" xml:space="preserve">
-    <value>fast-forward 更新のプル後にプロジェクトを閉じて開き直すため、現在の取り消し履歴は消去されます。保存済みの変更は、最初に安全スナップショットへ記録されます。続行しますか？</value>
+    <value>fast-forward 更新のプル後にプロジェクトを閉じて開き直すため、現在の取り消し履歴は消去されます。未保存の変更は先に保存され、安全スナップショットへ記録されます。続行しますか？</value>
   </data>
   <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
     <value>ブランチとリモートの操作は親リポジトリ全体に適用されます: {0}</value>

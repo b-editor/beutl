@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
@@ -360,7 +361,9 @@ public sealed class VersionControlCoordinator :
         return true;
     }
 
-    public async Task NotifySavedAsync(CancellationToken cancellationToken = default)
+    public async Task NotifySavedAsync(
+        IProjectFileWriteLease? completedWrite = null,
+        CancellationToken cancellationToken = default)
     {
         using NonTransactionalOperationLease operation =
             await BeginNonTransactionalOperationAsync(cancellationToken);
@@ -368,6 +371,7 @@ public sealed class VersionControlCoordinator :
             _config.AutoCommitOnSave,
             SaveSnapshotMessage,
             SnapshotKind.Save,
+            completedWrite,
             operation.CancellationToken);
     }
 
@@ -512,7 +516,7 @@ public sealed class VersionControlCoordinator :
             if (!snapshotReserved)
             {
                 _logger.LogInformation(
-                    "Skipped the {SnapshotKind} project snapshot because output is active.",
+                    "Skipped the {SnapshotKind} project snapshot because the workspace is reserved.",
                     SnapshotKind.Close);
             }
 
@@ -600,11 +604,18 @@ public sealed class VersionControlCoordinator :
         using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
         if (worktreeMutation is null)
         {
-            throw new InvalidOperationException(Strings.VersionControl_ExportInProgress);
+            throw new InvalidOperationException(Strings.VersionControl_WorkspaceBusy);
         }
 
         CancellationToken operationCancellation = operation.CancellationToken;
         IProjectVersionControlBackend service = GetTrackedBackend();
+        // A manual version has to record what the user sees, so in-memory edits reach disk first.
+        if (_projectService.CurrentProject.Value is { } project
+            && !await TrySaveOpenProjectAsync(project, operationCancellation))
+        {
+            throw new InvalidOperationException(MessageStrings.OperationFailed);
+        }
+
         try
         {
             return await service.CommitAllAsync(
@@ -1060,9 +1071,7 @@ public sealed class VersionControlCoordinator :
                         return false;
                     }
 
-                    if (!await _editorService.SaveProjectFilesAsync(
-                            project,
-                            CancellationToken.None))
+                    if (!await TrySaveOpenProjectAsync(project, CancellationToken.None))
                     {
                         PublishNotification(() =>
                             NotificationService.ShowError(
@@ -1081,11 +1090,15 @@ public sealed class VersionControlCoordinator :
                         CancellationToken.None);
                     if (!status.IsClean)
                     {
-                        CommitResult result = await service.CommitAllAsync(
+                        CommitResult? result = await CommitSafetySnapshotAsync(
+                            service,
                             SwitchSafetySnapshotMessage,
-                            SnapshotKind.Safety,
                             CancellationToken.None);
-                        EnsureAutomaticSnapshotWasNotSkipped(result);
+                        if (result is null)
+                        {
+                            return false;
+                        }
+
                         CheckedOutBranchTip committedTip = await service.GetCheckedOutBranchTipAsync(
                             CancellationToken.None);
                         originalTip = GetExpectedTipAfterCommitAll(
@@ -1339,7 +1352,7 @@ public sealed class VersionControlCoordinator :
             if (worktreeMutation is null)
             {
                 return new PullMutationOutcome(
-                    new RemoteOpResult.Failed(Strings.VersionControl_ExportInProgress),
+                    new RemoteOpResult.Failed(Strings.VersionControl_WorkspaceBusy),
                     null,
                     projectFile);
             }
@@ -1360,9 +1373,7 @@ public sealed class VersionControlCoordinator :
                 RemoteOpResult result = await ownedService.ExecuteExclusiveAsync(
                     async service =>
                     {
-                        if (!await _editorService.SaveProjectFilesAsync(
-                                project,
-                                cancellationToken))
+                        if (!await TrySaveOpenProjectAsync(project, cancellationToken))
                         {
                             return new RemoteOpResult.Failed(
                                 "The open project could not be saved before pulling.");
@@ -2223,9 +2234,7 @@ public sealed class VersionControlCoordinator :
                         return false;
                     }
 
-                    if (!await _editorService.SaveProjectFilesAsync(
-                            project,
-                            CancellationToken.None))
+                    if (!await TrySaveOpenProjectAsync(project, CancellationToken.None))
                     {
                         PublishNotification(() =>
                             NotificationService.ShowError(
@@ -2248,11 +2257,15 @@ public sealed class VersionControlCoordinator :
                         await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
                     if (!status.IsClean)
                     {
-                        CommitResult result = await service.CommitAllAsync(
+                        CommitResult? result = await CommitSafetySnapshotAsync(
+                            service,
                             RestoreSafetySnapshotMessage,
-                            SnapshotKind.Safety,
                             CancellationToken.None);
-                        EnsureAutomaticSnapshotWasNotSkipped(result);
+                        if (result is null)
+                        {
+                            return false;
+                        }
+
                         CheckedOutBranchTip committedTip = await service.GetCheckedOutBranchTipAsync(
                             CancellationToken.None);
                         originalTip = GetExpectedTipAfterCommitAll(
@@ -2479,9 +2492,7 @@ public sealed class VersionControlCoordinator :
         if (!string.Equals(
                 Path.GetFullPath(reopenedPath ?? string.Empty),
                 Path.GetFullPath(projectFile),
-                OperatingSystem.IsWindows()
-                    ? StringComparison.OrdinalIgnoreCase
-                    : StringComparison.Ordinal))
+                PathComparison))
         {
             throw new InvalidOperationException(
                 "The project could not be reopened after restoring files.");
@@ -2543,9 +2554,10 @@ public sealed class VersionControlCoordinator :
                ?? throw new InvalidOperationException("The project has no file path.");
     }
 
-    private IDisposable? TryBeginWorktreeMutation()
+    private IDisposable? TryBeginWorktreeMutation(
+        IProjectFileWriteLease? completedWrite = null)
     {
-        IDisposable? mutation = _editorService.TryBeginWorktreeMutation();
+        IDisposable? mutation = _editorService.TryBeginWorktreeMutation(completedWrite);
         if (mutation is not null)
         {
             return mutation;
@@ -2554,8 +2566,54 @@ public sealed class VersionControlCoordinator :
         PublishNotification(() =>
             NotificationService.ShowWarning(
                 Strings.VersionControl,
-                Strings.VersionControl_ExportInProgress));
+                Strings.VersionControl_WorkspaceBusy));
         return null;
+    }
+
+    private async Task<bool> TrySaveOpenProjectAsync(
+        Project project,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _editorService.SaveProjectFilesAsync(project, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // OnSave runs third-party editor code and real file I/O, and this runs outside the
+            // cycle's own error handling, so a throw here must not escape as a raw message.
+            _logger.LogError(
+                ex,
+                "Failed to save the open project before changing version-controlled files.");
+            return false;
+        }
+    }
+
+    // Returns null when the repository has no commit identity, which is a supported degraded mode:
+    // the caller must abandon the operation rather than proceed without the safety snapshot.
+    private async Task<CommitResult?> CommitSafetySnapshotAsync(
+        IProjectVersionControlTransaction service,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        CommitResult result = await service.CommitAllAsync(
+            message,
+            SnapshotKind.Safety,
+            cancellationToken);
+        if (result is CommitResult.SkippedNoIdentity)
+        {
+            PublishNotification(() =>
+                NotificationService.ShowWarning(
+                    Strings.VersionControl,
+                    Strings.VersionControl_MissingIdentityNotice));
+            return null;
+        }
+
+        return result;
     }
 
     private bool EnsureRepositoryIsNotConflicted(WorkspaceStatus status)
@@ -4021,6 +4079,7 @@ public sealed class VersionControlCoordinator :
         bool enabled,
         string message,
         SnapshotKind kind,
+        IProjectFileWriteLease? completedWrite,
         CancellationToken cancellationToken)
     {
         IProjectVersionControlBackend? service = GetOperationReadyBackend();
@@ -4029,11 +4088,11 @@ public sealed class VersionControlCoordinator :
             return;
         }
 
-        using IDisposable? snapshotMutation = TryBeginWorktreeMutation();
+        using IDisposable? snapshotMutation = TryBeginWorktreeMutation(completedWrite);
         if (snapshotMutation is null)
         {
             _logger.LogInformation(
-                "Skipped the {SnapshotKind} project snapshot because output is active.",
+                "Skipped the {SnapshotKind} project snapshot because the workspace is reserved.",
                 kind);
             return;
         }
@@ -6385,8 +6444,8 @@ public sealed class VersionControlCoordinator :
         => string.IsNullOrWhiteSpace(path) ? null : path;
 
     private static StringComparison PathComparison
-        => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        => FileSystemPathComparison.ForCurrentPlatform;
 
     private static StringComparer PathComparer
-        => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        => FileSystemPathComparison.ComparerForCurrentPlatform;
 }

@@ -14,13 +14,13 @@
 
 | Trigger | Hook point | Kind |
 |---|---|---|
-| Explicit Save / Save All | end of `MenuBarViewModel.OnSave` / `OnSaveAll` → `NotifySavedAsync()` | `Save` |
+| Explicit Save / Save All | end of `MenuBarViewModel.OnSave` / `OnSaveAll`, still holding the project-file write reservation → `NotifySavedAsync(completedWrite)` | `Save` |
 | Project close | start of the close flow, after final save, before `ProjectService.CloseProject()` | `Close` |
 | Before restore / branch switch | inside the cycle, when status is dirty | `Safety` |
 | Dirty pull | durable private checkpoint before pull; promoted after fast-forward | `Safety` |
 | After restore | inside the cycle | `Restore` |
 | Restore recovery after a post-commit failure | inside the recovery path | `Recovery` |
-| Manual commit | tool tab / menu command | `Manual` |
+| Manual commit | tool tab / menu command, after saving the open project inside the exclusive lease so the version records what the user sees | `Manual` |
 
 Autosave ticks never reach the coordinator (FR-015). All triggers no-op silently on a clean tree.
 
@@ -57,7 +57,7 @@ If a restore commit succeeds but reopening fails, recovery restores the captured
 
 Push runs outside the cycle (no work-tree mutation): progress dialog + cancel only.
 
-Guard: standard render exports and project-package exports acquire a shared output lease before reading or writing project files. Restore and branch-switch acquire the corresponding exclusive work-tree lease before confirmation and hold it through close, mutation, recovery, and reopen. Pull and pending-recovery confirmation first release the backend gate, then acquire the exclusive work-tree lease with the project transition before their revalidation/mutation phase. Automatic save and close snapshots also hold the exclusive lease through staging and commit: an already-active output skips only the snapshot (save/close continues and a later save captures the accumulated changes), while an in-progress snapshot refuses a new output. Either side fails immediately when the other is active, so Git never stages a partially written output.
+Guard: standard render exports and project-package exports acquire a shared output lease before reading or writing project files. Restore and branch-switch acquire the corresponding exclusive work-tree lease before confirmation and hold it through close, mutation, recovery, and reopen. Pull and pending-recovery confirmation first release the backend gate, then acquire the exclusive work-tree lease with the project transition before their revalidation/mutation phase. Explicit saves acquire a project-file write reservation before writing and hand that same reservation to the save snapshot, so the workspace is never unreserved between the write and the commit. Automatic save and close snapshots also hold the exclusive lease through staging and commit: an already-active output skips only the snapshot (save/close continues and a later save captures the accumulated changes), while an in-progress snapshot refuses a new output. Either side fails immediately when the other is active, so Git never stages a partially written output.
 
 Application-window shutdown uses the same asynchronous close contract. The first window-closing event is canceled, one shared pipeline awaits the close snapshot, project close, and proxy drain under a single 15-second deadline, and then issues one final `Close()`. Repeated closing events join the same pipeline; timeout or failure is logged before the final close proceeds, and any cleanup that finishes after the deadline remains observed.
 
