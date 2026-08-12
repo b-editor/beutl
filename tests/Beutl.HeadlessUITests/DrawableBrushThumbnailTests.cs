@@ -697,6 +697,55 @@ public class DrawableBrushThumbnailTests
         }
     }
 
+    // Dispose clears the published thumbnail, so a rollback triggered by that same disposal must not
+    // put the previous one back: the handler would be gone while still owning the bitmap it reinstated.
+    [AvaloniaTest]
+    public async Task Disposal_during_stretch_notification_leaves_no_thumbnail_behind()
+    {
+        GpuTestGate.EnsureAvailable();
+        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
+        drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
+        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
+        var imageBrush = new AvaImageBrush();
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+
+        try
+        {
+            handler.Update();
+            await WaitUntilAsync(
+                () => imageBrush.Source is WriteableBitmap bitmap
+                      && bitmap.PixelSize == new AvaPixelSize(40, 24),
+                TimeSpan.FromSeconds(5));
+
+            int disposedOnce = 0;
+            imageBrush.PropertyChanged += (_, args) =>
+            {
+                if (args.Property == AvaImageBrush.StretchProperty
+                    && imageBrush.Stretch == AvaStretch.None
+                    && Interlocked.Exchange(ref disposedOnce, 1) == 0)
+                {
+                    handler.Dispose();
+                }
+            };
+
+            drawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
+            drawableBrush.Stretch.CurrentValue = Stretch.None;
+            UpdateResource(resource, drawableBrush);
+            handler.Update();
+
+            await WaitUntilAsync(() => disposedOnce == 1, TimeSpan.FromSeconds(5));
+            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+
+            Assert.That(imageBrush.Source, Is.Null,
+                "a disposed handler must not leave the previous thumbnail installed");
+        }
+        finally
+        {
+            handler.Dispose();
+            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+        }
+    }
+
     private static RectShape CreateRectangle(float width, float height, Color color)
     {
         return new RectShape

@@ -46,6 +46,63 @@ public class EngineObjectHelperTests
             "the render thread stopped taking work after the failed callback");
     }
 
+    // Teardown releases the resource from a posted render-thread callback, where a throwing Dispose
+    // would unwind the loop just as a throwing factory would.
+    [Test]
+    public void A_throwing_resource_dispose_does_not_take_the_render_thread_down()
+    {
+        var probe = new ProbeObject();
+        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        using var published = new ManualResetEventSlim();
+
+        IDisposable subscription = probe
+            .SubscribeEngineVersionedResource<ProbeObject, EngineObject.Resource>(
+                time,
+                (_, _) => new ThrowingResource())
+            .Subscribe(_ => published.Set());
+        Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
+
+        subscription.Dispose();
+
+        using var stillAlive = new ManualResetEventSlim();
+        RenderThread.Dispatcher.Dispatch(stillAlive.Set);
+        Assert.That(stillAlive.Wait(TimeSpan.FromSeconds(30)), Is.True,
+            "the render thread stopped taking work after the failed teardown");
+    }
+
+    // Rx's default error handler rethrows on the source thread, so the trigger's failure would never
+    // reach the subscriber and the resource would stay held.
+    [Test]
+    public void A_failing_time_stream_reaches_the_observer()
+    {
+        var probe = new ProbeObject();
+        var time = new Subject<TimeSpan>();
+        var failure = new InvalidOperationException("the clock faulted");
+        Exception? reported = null;
+
+        using (probe
+                   .SubscribeEngineVersionedResource<ProbeObject, EngineObject.Resource>(
+                       time,
+                       (o, c) => o.ToResource(c))
+                   .Subscribe(_ => { }, ex => reported = ex))
+        {
+            time.OnError(failure);
+        }
+
+        Assert.That(reported, Is.SameAs(failure));
+    }
+
     [SuppressResourceClassGeneration]
     private sealed class ProbeObject : EngineObject;
+
+    private sealed class ThrowingResource : EngineObject.Resource
+    {
+        // The base finalizer calls Dispose(false); throwing from there would kill the process rather
+        // than exercise the explicit-release path under test.
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                throw new InvalidOperationException("this resource refuses to be released");
+        }
+    }
 }

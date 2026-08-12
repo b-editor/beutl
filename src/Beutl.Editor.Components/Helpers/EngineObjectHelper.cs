@@ -4,12 +4,16 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Threading;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.Helpers;
 
 public static class EngineObjectHelper
 {
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(EngineObjectHelper));
+
     public static IObservable<IExpression<T>?> SubscribeExpressionChange<T>(this IProperty<T> property)
     {
         return Observable.FromEvent<IExpression<T>?>(
@@ -98,7 +102,7 @@ public static class EngineObjectHelper
                     .Select(_ => Unit.Default)
                     .Publish(Unit.Default).RefCount()
                     .CombineLatest(time)
-                    .Subscribe(t =>
+                    .Subscribe(onNext: t =>
                     {
                         if (token.IsCancellationRequested)
                             return;
@@ -143,21 +147,48 @@ public static class EngineObjectHelper
                                 }
                             },
                             DispatchPriority.Low);
+                    },
+                    // Without an explicit handler Rx throws the trigger's failure on the source thread,
+                    // leaving this subscription uninformed and still holding its resource.
+                    onError: ex =>
+                    {
+                        cts.Cancel();
+                        ReleaseOnRenderThread(disposeTokenSource: false);
+                        observer.OnError(ex);
                     });
 
                 return Disposable.Create(() =>
                 {
                     cts.Cancel();
                     trigger.Dispose();
+                    ReleaseOnRenderThread(disposeTokenSource: true);
+                });
+
+                void ReleaseOnRenderThread(bool disposeTokenSource)
+                {
                     RenderThread.Dispatcher.Dispatch(
                         () =>
                         {
-                            resource?.Dispose();
+                            // The render loop installs no unhandled-exception handler, so a throwing
+                            // Dispose here would take the render thread down with it.
+                            try
+                            {
+                                resource?.Dispose();
+                            }
+                            catch (Exception disposeFailure)
+                            {
+                                s_logger.LogWarning(
+                                    disposeFailure,
+                                    "Releasing the versioned resource for '{Object}' failed.",
+                                    obj);
+                            }
+
                             resource = null;
-                            cts.Dispose();
+                            if (disposeTokenSource)
+                                cts.Dispose();
                         },
                         DispatchPriority.Low);
-                });
+                }
             })
             .DistinctUntilChanged(t => t.Version);
     }

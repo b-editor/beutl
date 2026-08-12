@@ -268,7 +268,9 @@ public static class AvaloniaTypeConverter
         private readonly object _gate = new();
         private WriteableBitmap? _bitmap;
         private CancellationTokenSource? _cts;
-        private int _pendingUpdates;
+        private int _queuedUpdates;
+        private int _runningUpdates;
+        private bool _shutdownStarted;
         private bool _disposeRequested;
         private bool _resourceReleased;
 
@@ -301,7 +303,7 @@ public static class AvaloniaTypeConverter
             _renderDispatcher = renderDispatcher;
             _ownsResource = ownsResource;
             // A shutdown drops queued work without running it, so the resource must be released from here too.
-            _shutdownHandler = (_, _) => ReleaseResourceIfSettled(force: true);
+            _shutdownHandler = (_, _) => ReleaseResourceIfSettled(shutdown: true);
             _renderDispatcher.ShutdownStarted += _shutdownHandler;
         }
 
@@ -317,7 +319,7 @@ public static class AvaloniaTypeConverter
             }
 
             ClearPublishedBitmap();
-            ReleaseResourceIfSettled(force: false);
+            ReleaseResourceIfSettled(shutdown: false);
         }
 
         public void Update()
@@ -332,11 +334,17 @@ public static class AvaloniaTypeConverter
                 _cts?.Dispose();
                 _cts = new CancellationTokenSource();
                 token = _cts.Token;
-                _pendingUpdates++;
+                _queuedUpdates++;
             }
 
             _renderDispatcher.Dispatch(async () =>
             {
+                lock (_gate)
+                {
+                    _queuedUpdates--;
+                    _runningUpdates++;
+                }
+
                 try
                 {
                     await RenderAndPublishAsync(token);
@@ -345,10 +353,10 @@ public static class AvaloniaTypeConverter
                 {
                     lock (_gate)
                     {
-                        _pendingUpdates--;
+                        _runningUpdates--;
                     }
 
-                    ReleaseResourceIfSettled(force: false);
+                    ReleaseResourceIfSettled(shutdown: false);
                 }
             }, DispatchPriority.Low);
         }
@@ -374,13 +382,19 @@ public static class AvaloniaTypeConverter
                 Dispatcher.UIThread.Post(Clear, DispatcherPriority.Background);
         }
 
-        private void ReleaseResourceIfSettled(bool force)
+        private void ReleaseResourceIfSettled(bool shutdown)
         {
             lock (_gate)
             {
+                if (shutdown)
+                    _shutdownStarted = true;
                 if (_resourceReleased || !_disposeRequested)
                     return;
-                if (!force && _pendingUpdates > 0)
+                // An update already in flight is still recording from the resource, so it has to settle
+                // first even during shutdown; only work that never starts can be written off.
+                if (_runningUpdates > 0)
+                    return;
+                if (!_shutdownStarted && _queuedUpdates > 0)
                     return;
 
                 _resourceReleased = true;
@@ -454,15 +468,25 @@ public static class AvaloniaTypeConverter
 
                     void Rollback()
                     {
+                        bool disposed;
                         lock (_gate)
                         {
-                            _bitmap = previous;
+                            disposed = _disposeRequested;
+                            _bitmap = disposed ? null : previous;
                         }
 
                         // Restoring either property can raise the same listener that rejected the
                         // publication; a failure there must not leave the new bitmap owned by nobody.
-                        Restore(() => _imageBrush.Source = previous);
+                        Restore(() => _imageBrush.Source = disposed ? null : previous);
                         Restore(() => _imageBrush.Stretch = previousStretch);
+                        if (disposed)
+                        {
+                            // Dispose ran during the notification and already cleared and released the
+                            // publication, so restoring it would reinstate a thumbnail nobody owns.
+                            previous?.Dispose();
+                            return;
+                        }
+
                         published.Dispose();
                     }
 
