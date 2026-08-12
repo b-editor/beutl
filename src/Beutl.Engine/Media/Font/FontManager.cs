@@ -230,13 +230,16 @@ internal static class TypefaceCollection
 {
     public static FrozenDictionary<Typeface, SKTypeface> Create(SKTypeface[] typefaces)
     {
-        var list = new List<KeyValuePair<Typeface, SKTypeface>>(typefaces.Length);
+        // Two files can describe the same family/style/weight — a material package
+        // shipping a font the system already has, say — and ToFrozenDictionary throws on
+        // a duplicate key, which would take out the whole FontManager initializer.
+        var map = new Dictionary<Typeface, SKTypeface>(typefaces.Length);
         foreach (SKTypeface typeface in typefaces)
         {
-            list.Add(new(Typeface.FromSKTypeface(typeface), typeface));
+            map.TryAdd(Typeface.FromSKTypeface(typeface), typeface);
         }
 
-        return list.ToFrozenDictionary();
+        return map.ToFrozenDictionary();
     }
 
     public static SKTypeface Get(this FrozenDictionary<Typeface, SKTypeface> typefaces, Typeface typeface)

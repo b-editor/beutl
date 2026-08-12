@@ -269,6 +269,45 @@ public class PackageInstallerDataTests
     }
 
     [Test]
+    public void Clean_KeepsThePayload_WhenANewerIdentityOfTheSameIdSurvives()
+    {
+        // An update cleans the old identity while the new one keeps the payload
+        // directory, which is keyed by package id alone.
+        const string Name = "Beutl.Package.DataTest.CleanUpdate";
+        var oldIdentity = new PackageIdentity(Name, NuGetVersion.Parse("1.0.0"));
+        var newIdentity = new PackageIdentity(Name, NuGetVersion.Parse("2.0.0"));
+        LocalPackage old = CreateDataPackage(Name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
+        LocalPackage current = CreateDataPackage(Name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
+        _installer.InstallDataPackage(current);
+        _repository.AddPackage(oldIdentity);
+        _repository.AddPackage(newIdentity);
+
+        _installer.Clean(new PackageCleanContext([oldIdentity], 0), new Progress<double>());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.Exists(MaterialsDirectoryOf(Name)), Is.True);
+            Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(Name), "a.png")), Is.EqualTo("new"));
+            Assert.That(Directory.Exists(old.InstalledPath!), Is.False);
+        });
+    }
+
+    [Test]
+    public void Clean_RemovesThePayload_WhenTheLastIdentityGoes()
+    {
+        const string Name = "Beutl.Package.DataTest.CleanLast";
+        LocalPackage package = CreateDataPackage(Name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "x")]);
+        _installer.InstallDataPackage(package);
+        _repository.AddPackage(new PackageIdentity(Name, new NuGetVersion("1.0.0")));
+
+        _installer.Clean(
+            new PackageCleanContext([new PackageIdentity(Name, new NuGetVersion("1.0.0"))], 0),
+            new Progress<double>());
+
+        Assert.That(Directory.Exists(MaterialsDirectoryOf(Name)), Is.False);
+    }
+
+    [Test]
     public void Uninstall_AlsoRemovesThePayloadDirectory()
     {
         var identity = new PackageIdentity("Beutl.Package.DataTest.FullUninstall", NuGetVersion.Parse("1.0.0"));
@@ -357,6 +396,10 @@ public class PackageInstallerDataTests
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
             File.WriteAllText(file, content);
         }
+
+        // GetInstalledPath keys off the package's .nupkg, so InstalledPackageRepository
+        // cannot register the identity without one.
+        File.WriteAllText(Path.Combine(directory, $"{name}.{version}.nupkg"), "");
 
         return new LocalPackage
         {

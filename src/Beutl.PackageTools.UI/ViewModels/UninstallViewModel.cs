@@ -62,6 +62,10 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
                         {Strings.These_packages_were_not_deleted_successfully}
                         - {package.Id}
                         """;
+                    // Falling through would report success and drop the queue, orphaning
+                    // a payload that is still installed.
+                    Failed.Value = true;
+                    return;
                 }
             }
             else

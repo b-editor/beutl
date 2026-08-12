@@ -94,8 +94,11 @@ public partial class PackageInstaller
         foreach (PackageIdentity package in context.UnnecessaryPackages)
         {
             // A data package's payload lives outside the install directory, and it has to
-            // go even when the extracted package itself is already missing.
-            bool dataRemoved = UninstallDataPackage(package.Id);
+            // go even when the extracted package itself is already missing. The payload
+            // directory is keyed by id alone, so an update that leaves a newer identity
+            // installed still owns it — removing it here would strip the live version.
+            bool dataRemoved = KeepsAnotherInstalledIdentity(context, package)
+                               || UninstallDataPackage(package.Id);
 
             string directory = Helper.ResolveInstalledDirectory(package);
             if (!Directory.Exists(directory))
@@ -157,5 +160,13 @@ public partial class PackageInstaller
         {
             _logger.LogInformation("Clean completed successfully. Total size released: {TotalSize} bytes", totalSize);
         }
+    }
+
+    // True when an installed identity sharing this package's id survives the clean, and
+    // therefore still owns the payload directory keyed by that id.
+    private bool KeepsAnotherInstalledIdentity(PackageCleanContext context, PackageIdentity package)
+    {
+        return _installedPackageRepository.GetLocalPackages(package.Id)
+            .Any(other => !other.Equals(package) && !context.UnnecessaryPackages.Contains(other));
     }
 }
