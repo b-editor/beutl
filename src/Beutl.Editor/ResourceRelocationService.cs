@@ -233,7 +233,7 @@ public class ResourceRelocationService
             if (!Directory.Exists(fontDir))
                 continue;
 
-            foreach (string file in Directory.GetFiles(fontDir, "*.*", SearchOption.AllDirectories))
+            foreach (string file in Directory.EnumerateFiles(fontDir, "*.*", SearchOption.AllDirectories))
             {
                 ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
                 if (!ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase) &&
@@ -268,7 +268,7 @@ public class ResourceRelocationService
 
             try
             {
-                foreach (string file in Directory.GetFiles(fontDir, "*.*", SearchOption.AllDirectories))
+                foreach (string file in Directory.EnumerateFiles(fontDir, "*.*", SearchOption.AllDirectories))
                 {
                     ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
                     if (!ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase) &&

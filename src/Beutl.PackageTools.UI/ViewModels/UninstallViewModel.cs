@@ -46,6 +46,10 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
             if (installeds.Length <= 0)
             {
                 _logger.LogWarning("Package {PackageId} has already been uninstalled.", package.Id);
+                // A data package's payload lives outside the install directory, so a
+                // retried uninstall has to remove it even when the extracted package
+                // is already gone.
+                installer.UninstallDataPackage(package.Id);
                 repos.RemovePackages(package.Id);
                 Message.Value = Strings.This_package_has_already_been_uninstalled;
             }

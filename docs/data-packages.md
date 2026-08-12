@@ -74,8 +74,7 @@ both package
 All are copied recursively, so subdirectories are preserved. `{home}` is `$BEUTL_HOME`
 when that directory exists, otherwise `~/.beutl`.
 
-Pack the payload with `<files>` (or `contentFiles`), keeping the directory name at the
-root of the package:
+Pack the payload with `<files>`, keeping the directory name at the root of the package:
 
 ```xml
 <files>

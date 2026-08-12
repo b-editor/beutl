@@ -81,8 +81,7 @@ public sealed class FontManager
 
         foreach (string file in _fontDirs
             .Where(dir => Directory.Exists(dir))
-            .Select(dir => Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories))
-            .SelectMany(files => files)
+            .SelectMany(dir => Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories))
             .Where(file =>
             {
                 ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
