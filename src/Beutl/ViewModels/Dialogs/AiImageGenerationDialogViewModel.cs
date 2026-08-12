@@ -34,7 +34,6 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
     private readonly IAiImageGenerationService _images;
     private readonly IAuthenticatedContentService _content;
     private readonly EditViewModel? _editViewModel;
-    private AiImageResultSnapshot? _resultSnapshot;
     private Task? _disposeTask;
 
     public AiImageGenerationDialogViewModel(
@@ -261,17 +260,10 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
             operation.CancellationToken.ThrowIfCancellationRequested();
             stream.Position = 0;
             var resultImage = Ref<Bitmap>.Create(Bitmap.FromStream(stream));
-            var snapshot = new AiImageResultSnapshot(
-                response.JobId,
-                response.FileId,
-                prompt,
-                size,
-                DateTimeOffset.UtcNow);
             if (!operation.TryPublish(() =>
                 {
                     ResultImage.Value?.Dispose();
                     ResultImage.Value = resultImage;
-                    _resultSnapshot = snapshot;
                     PromptLibrary.Record(prompt);
                 }))
             {
@@ -324,11 +316,6 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
                 .Select(item => item.ZIndex)
                 .DefaultIfEmpty(-1)
                 .Max() + 1;
-            AiImageResultSnapshot snapshot = _resultSnapshot
-                ?? new AiImageResultSnapshot(null, null, string.Empty, SelectedSize.Value.Value, DateTimeOffset.UtcNow);
-            GenerationProvenance provenance = AiProvenanceFactory.ImageGeneration(
-                snapshot.Size,
-                snapshot.GeneratedAt);
             var importer = new AiResultImporter(
                 _editViewModel.Scene,
                 _editViewModel.GetRequiredService<IElementAdder>());
@@ -338,8 +325,7 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
                     start,
                     TimeSpan.FromSeconds(5),
                     layer,
-                    Strings.AiImageGeneration,
-                    provenance),
+                    Strings.AiImageGeneration),
                 operation.CancellationToken);
 
             if (result.Failure is LockedElementLayerFailure)
@@ -423,13 +409,6 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
             $"Failed to add the generated image: {result.Failure?.Id}.",
             result.Failure?.Exception);
     }
-
-    private sealed record AiImageResultSnapshot(
-        AiJobId? JobId,
-        AiContentId? FileId,
-        string Prompt,
-        string Size,
-        DateTimeOffset GeneratedAt);
 
 }
 

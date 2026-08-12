@@ -245,7 +245,6 @@ internal sealed class ElementAdderImpl : IElementAdder, IDisposable
                     element.Uri = RandomFileNameGenerator.GenerateUri(
                         scene.Uri!,
                         EditorConstants.ElementFileExtension);
-                    element.Provenance = plan.Description.ProvenanceUpdate.ApplyTo(element.Provenance);
                     preparedElements.Add(element);
                 }
             }

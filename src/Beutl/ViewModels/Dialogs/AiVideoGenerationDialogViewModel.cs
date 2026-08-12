@@ -490,17 +490,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                     lastFramePath is null ? null : AiUploadSource.FromFile(lastFramePath)),
                 operation.CancellationToken);
 
-            var pendingSnapshot = new AiVideoResultSnapshot(
-                response.JobId,
-                null,
-                prompt,
-                durationSeconds,
-                resolution,
-                !string.IsNullOrEmpty(firstFramePath),
-                !string.IsNullOrEmpty(lastFramePath),
-                firstFrameElementId,
-                lastFrameElementId,
-                DateTimeOffset.UtcNow);
+            var pendingSnapshot = new AiVideoResultSnapshot(durationSeconds);
             if (!operation.TryPublish(() =>
                 {
                     PromptLibrary.Record(prompt);
@@ -582,7 +572,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                         string? previousPath = ResultVideoPath.Value;
                         StatusText.Value = Strings.AiVideoCompleted;
                         ResultVideoPath.Value = localPath;
-                        _resultSnapshot = pendingSnapshot with { FileId = job.FileId };
+                        _resultSnapshot = pendingSnapshot;
                         if (!string.Equals(previousPath, localPath, StringComparison.Ordinal))
                         {
                             RequestTemporaryFileDeletion(previousPath);
@@ -769,26 +759,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                 .Select(item => item.ZIndex)
                 .DefaultIfEmpty(-1)
                 .Max() + 1;
-            AiVideoResultSnapshot snapshot = _resultSnapshot
-                ?? new AiVideoResultSnapshot(
-                    null,
-                    null,
-                    string.Empty,
-                    SelectedDuration.Value.Seconds,
-                    SelectedResolution.Value.Value,
-                    !string.IsNullOrEmpty(FirstFramePath.Value),
-                    !string.IsNullOrEmpty(LastFramePath.Value),
-                    _firstFrameElementId,
-                    _lastFrameElementId,
-                    DateTimeOffset.UtcNow);
-            GenerationProvenance provenance = AiProvenanceFactory.VideoGeneration(
-                snapshot.DurationSeconds,
-                snapshot.Resolution,
-                snapshot.HasFirstFrame,
-                snapshot.HasLastFrame,
-                snapshot.FirstFrameElementId,
-                snapshot.LastFrameElementId,
-                snapshot.GeneratedAt);
+            int durationSeconds = _resultSnapshot?.DurationSeconds ?? SelectedDuration.Value.Seconds;
             var importer = new AiResultImporter(
                 _editViewModel.Scene,
                 _editViewModel.GetRequiredService<IElementAdder>());
@@ -796,10 +767,9 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                 filePath,
                 new AiResultImportOptions(
                     start,
-                    TimeSpan.FromSeconds(snapshot.DurationSeconds),
+                    TimeSpan.FromSeconds(durationSeconds),
                     layer,
-                    Strings.AiVideoGeneration,
-                    provenance),
+                    Strings.AiVideoGeneration),
                 operation.CancellationToken);
 
             if (result.Failure is LockedElementLayerFailure)
@@ -886,17 +856,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         Motion.Value,
         Exclusions.Value));
 
-    private sealed record AiVideoResultSnapshot(
-        AiJobId? JobId,
-        AiContentId? FileId,
-        string Prompt,
-        int DurationSeconds,
-        string Resolution,
-        bool HasFirstFrame,
-        bool HasLastFrame,
-        string? FirstFrameElementId,
-        string? LastFrameElementId,
-        DateTimeOffset GeneratedAt);
+    private sealed record AiVideoResultSnapshot(int DurationSeconds);
 
 }
 

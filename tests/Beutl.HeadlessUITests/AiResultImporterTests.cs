@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using Avalonia.Headless.NUnit;
+﻿using Avalonia.Headless.NUnit;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Media;
@@ -27,19 +26,10 @@ public sealed class AiResultImporterTests
     }
 
     [AvaloniaTest]
-    public async Task ImportImage_StagesProjectResourceAndPersistsProvenance()
+    public async Task ImportImage_StagesProjectResource()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-result-importer");
-        var provenance = new GenerationProvenance(
-            "beutl.ai",
-            "image.generate",
-            1,
-            JsonSerializer.SerializeToElement(new
-            {
-                parameters = new { size = "1024x1024" },
-            }),
-            DateTimeOffset.UtcNow);
         using var bitmap = new Bitmap(2, 2);
         var importer = new AiResultImporter(
             editor.Scene,
@@ -51,8 +41,7 @@ public sealed class AiResultImporterTests
                 TimeSpan.Zero,
                 TimeSpan.FromSeconds(5),
                 0,
-                "AI image",
-                provenance));
+                "AI image"));
         HeadlessTestHelpers.Settle();
 
         IReadOnlyList<Element> elements = result.Elements;
@@ -65,30 +54,17 @@ public sealed class AiResultImporterTests
             Assert.That(resourcePath, Does.Contain(Path.Combine("resources", "ai")));
             Assert.That(File.Exists(resourcePath), Is.True);
             Assert.That(elements[0].Name, Is.EqualTo("AI image"));
-            Assert.That(elements[0].Provenance.Single().Operation, Is.EqualTo("image.generate"));
-            Assert.That(
-                elements[0].Provenance.Single().Payload
-                    .GetProperty("parameters")
-                    .GetProperty("size")
-                    .GetString(),
-                Is.EqualTo("1024x1024"));
             Assert.That(Directory.EnumerateFiles(Path.GetDirectoryName(resourcePath)!, "*.tmp"), Is.Empty);
         });
     }
 
     [AvaloniaTest]
-    public async Task ImportVideoBytes_AppliesProvenanceToEveryProducedElement()
+    public async Task ImportVideoBytes_StagesAndImportsEveryProducedElement()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-video-importer");
         var adder = new CapturingElementAdder(producedElementCount: 2);
         var importer = new AiResultImporter(editor.Scene, adder);
-        var provenance = new GenerationProvenance(
-            "beutl.ai",
-            "video.generate",
-            1,
-            JsonSerializer.SerializeToElement(new { }),
-            DateTimeOffset.UtcNow);
 
         ElementAddResult result = await importer.ImportVideoAsync(
             new byte[] { 1, 2, 3, 4 },
@@ -96,16 +72,13 @@ public sealed class AiResultImporterTests
                 TimeSpan.Zero,
                 TimeSpan.FromSeconds(4),
                 0,
-                "AI video",
-                provenance));
+                "AI video"));
 
         Assert.Multiple(() =>
         {
             Assert.That(adder.StagedPath, Does.EndWith(".mp4"));
             Assert.That(File.ReadAllBytes(adder.StagedPath!), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
             Assert.That(result.Elements, Has.Count.EqualTo(2));
-            Assert.That(result.Elements.All(element =>
-                element.Provenance is [{ Operation: "video.generate" }]), Is.True);
         });
     }
 
@@ -116,12 +89,6 @@ public sealed class AiResultImporterTests
         EditViewModel editor = await OpenEditor("ai-rejected-importer");
         var adder = new CapturingElementAdder(producedElementCount: 0);
         var importer = new AiResultImporter(editor.Scene, adder);
-        var provenance = new GenerationProvenance(
-            "beutl.ai",
-            "video.generate",
-            1,
-            JsonSerializer.SerializeToElement(new { }),
-            DateTimeOffset.UtcNow);
 
         ElementAddResult result = await importer.ImportVideoAsync(
             new byte[] { 1, 2, 3, 4 },
@@ -129,8 +96,7 @@ public sealed class AiResultImporterTests
                 TimeSpan.Zero,
                 TimeSpan.FromSeconds(4),
                 0,
-                "AI video",
-                provenance));
+                "AI video"));
 
         Assert.Multiple(() =>
         {
@@ -157,9 +123,7 @@ public sealed class AiResultImporterTests
             var result = new List<Element>(producedElementCount);
             for (int index = 0; index < producedElementCount; index++)
             {
-                var element = new Element();
-                element.Provenance = description.ProvenanceUpdate.ApplyTo(element.Provenance);
-                result.Add(element);
+                result.Add(new Element());
             }
             ElementAddResult addResult = result.Count == 0
                 ? ElementAddResult.Failed(

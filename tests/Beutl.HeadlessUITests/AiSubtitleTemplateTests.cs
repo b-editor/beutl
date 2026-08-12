@@ -247,13 +247,7 @@ public class AiSubtitleTemplateTests
         => new(
             new AiJobId("caption-history-job"),
             [new AiTranscriptionSegment { Start = 0, End = 1, Text = text }],
-            "en",
-            AiProvenanceFactory.Transcription(
-                "job_history",
-                TimeSpan.FromSeconds(1),
-                "en",
-                1,
-                DateTimeOffset.UnixEpoch));
+            "en");
 
     [AvaloniaTest]
     public async Task AddToScene_WithDefaultTemplate_CreatesPositionedIndependentSubtitles()

@@ -26,7 +26,6 @@ public sealed class ElementDescriptionTests
             Assert.That(description.Layer, Is.EqualTo(3));
             Assert.That(description.Name, Is.EqualTo(string.Empty));
             Assert.That(description.Position, Is.Null);
-            Assert.That(description.ProvenanceUpdate.Kind, Is.EqualTo(GenerationProvenanceUpdateKind.Preserve));
             Assert.That(
                 typeof(ElementDescription).GetProperties().Select(property => property.Name),
                 Does.Not.Contain("FileName")

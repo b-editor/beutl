@@ -1,5 +1,4 @@
 ﻿using System.Collections.Specialized;
-using System.Text.Json;
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
@@ -197,41 +196,6 @@ public class ElementAdderTests
             Assert.That(editor.Scene.Children, Is.Empty);
             Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
             Assert.That(editor.HistoryManager.UndoCount, Is.Zero);
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task AddAsync_AppliesImmutableProvenanceBeforePersistingElement()
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("element-adder-provenance");
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        var provenance = new GenerationProvenance(
-            "beutl.test",
-            "element.add",
-            1,
-            JsonSerializer.SerializeToElement(new { source = "test" }),
-            DateTimeOffset.UtcNow);
-        var description = new ElementDescription(
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromSeconds(2),
-            Layer: 3,
-            Source: new ElementSource.EngineObject(() => new RectShape()),
-            ProvenanceUpdate: GenerationProvenanceUpdate.Append([provenance]));
-
-        ElementAddResult result = await adder.AddAsync([description], CancellationToken.None);
-        HeadlessTestHelpers.Settle();
-
-        Element created = result.Elements.Single();
-        Element restored = CoreSerializer.RestoreFromUri<Element>(created.Uri!);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.IsSuccess, Is.True);
-            Assert.That(created.Provenance, Has.Length.EqualTo(1));
-            Assert.That(created.Provenance[0].Operation, Is.EqualTo("element.add"));
-            Assert.That(restored.Provenance, Has.Length.EqualTo(1));
-            Assert.That(restored.Provenance[0].Operation, Is.EqualTo("element.add"));
-            Assert.That(restored.Objects.OfType<RectShape>(), Has.Exactly(1).Items);
         }
     }
 

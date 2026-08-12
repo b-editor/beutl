@@ -334,17 +334,12 @@ public sealed class AiJobCenterTests
         await WaitUntilAsync(() => viewModel.Jobs.Count == 1);
         HeadlessTestHelpers.Settle();
 
-        Element imported = editor.Scene.Children.Single();
-        GenerationProvenance provenance = imported.Provenance.Single();
         using (Assert.EnterMultipleScope())
         {
             Assert.That(retryRequests, Is.EqualTo(1));
             Assert.That(deleteRequests, Is.EqualTo(1));
             Assert.That(viewModel.Jobs.Single().Id, Is.EqualTo("job-success"));
             Assert.That(viewModel.Error.Value, Is.Null);
-            Assert.That(provenance.Operation, Is.EqualTo("image.generate"));
-            Assert.That(provenance.Payload.GetRawText(), Does.Not.Contain("job-success"));
-            Assert.That(provenance.Payload.GetRawText(), Does.Not.Contain("file-success"));
         }
 
         HttpResponseMessage RetryImage()
@@ -368,7 +363,7 @@ public sealed class AiJobCenterTests
     }
 
     [AvaloniaTest]
-    public async Task AddToScene_RestoresTranscriptionHistoryWithCaptionProvenance()
+    public async Task AddToScene_RestoresTranscriptionHistory()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-job-center-caption-history");
@@ -403,10 +398,6 @@ public sealed class AiJobCenterTests
         await viewModel.AddToSceneAsync(item);
 
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(2), viewModel.Error.Value);
-        Assert.That(
-            editor.Scene.Children.SelectMany(element => element.Provenance)
-                .Select(provenance => provenance.Operation),
-            Is.All.EqualTo("audio.transcribe"));
         Assert.That(viewModel.Error.Value, Is.Null);
     }
 

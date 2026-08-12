@@ -243,14 +243,7 @@ internal sealed class ImageAiJobResultHandler : BuiltInAiJobResultHandler
                 start,
                 TimeSpan.FromSeconds(5),
                 editor.GetNextLayer(start),
-                _getDisplayName(),
-                AiProvenanceFactory.ImportedHistoryResult(
-                    _getOperation(job),
-                    AiJobResultInput.GetString(job, "size"),
-                    null,
-                    null,
-                    AiJobResultInput.GetString(job, "task"),
-                    job.CreatedAt.ToUniversalTime())),
+                _getDisplayName()),
             cancellationToken);
         ShowImportResult(result);
     }
@@ -290,14 +283,7 @@ internal sealed class VideoAiJobResultHandler()
                     start,
                     TimeSpan.FromSeconds(durationSeconds ?? 6),
                     editor.GetNextLayer(start),
-                    Strings.AiVideoGeneration,
-                    AiProvenanceFactory.ImportedHistoryResult(
-                        AiOperations.VideoGeneration.Value,
-                        null,
-                        durationSeconds,
-                        AiJobResultInput.GetString(job, "resolution"),
-                        null,
-                        job.CreatedAt.ToUniversalTime())),
+                    Strings.AiVideoGeneration),
                 cancellationToken);
             ShowImportResult(result);
         }
@@ -351,7 +337,6 @@ internal sealed class CaptionAiJobResultHandler(
             document,
             templates,
             CaptionTemplateIds.DefaultText,
-            recovered.Provenance,
             cancellationToken);
         if (result.IsSuccess)
         {
@@ -380,7 +365,6 @@ internal sealed class CaptionAiJobResultHandler(
                 content.GetBuffer().AsSpan(0, checked((int)content.Length)),
                 job.Kind.Value,
                 job.Id,
-                job.CreatedAt.ToUniversalTime(),
                 out AiCaptionHistoryResult? result)
             || result is null)
         {

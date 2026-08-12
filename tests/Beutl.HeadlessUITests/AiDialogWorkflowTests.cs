@@ -44,7 +44,7 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task ImageGeneration_GeneratesAndImportsProvenance()
+    public async Task ImageGeneration_GeneratesAndImportsResult()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-image-dialog");
@@ -66,15 +66,10 @@ public sealed class AiDialogWorkflowTests
         await viewModel.AddToScene.ExecuteAsync();
         HeadlessTestHelpers.Settle();
 
-        Element element = editor.Scene.Children.Single();
-        GenerationProvenance provenance = element.Provenance.Single();
-        string persistedElement = CoreSerializer.SerializeToJsonObject(element).ToJsonString();
+        string persistedElement = CoreSerializer.SerializeToJsonObject(editor.Scene.Children.Single()).ToJsonString();
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.ResultImage.Value, Is.Not.Null);
-            Assert.That(provenance.ProducerId, Is.EqualTo("beutl.ai"));
-            Assert.That(provenance.Operation, Is.EqualTo("image.generate"));
-            Assert.That(GetParameter(provenance, "size"), Is.EqualTo("1536x1024"));
             Assert.That(persistedElement, Does.Not.Contain("image-job"));
             Assert.That(persistedElement, Does.Not.Contain("image-file"));
             Assert.That(persistedElement, Does.Not.Contain("A calm blue sky"));
@@ -109,13 +104,9 @@ public sealed class AiDialogWorkflowTests
             await viewModel.AddToScene.ExecuteAsync();
             HeadlessTestHelpers.Settle();
 
-            Element element = editor.Scene.Children.Single();
-            GenerationProvenance provenance = element.Provenance.Single();
-            string persistedElement = CoreSerializer.SerializeToJsonObject(element).ToJsonString();
+            string persistedElement = CoreSerializer.SerializeToJsonObject(editor.Scene.Children.Single()).ToJsonString();
             Assert.Multiple(() =>
             {
-                Assert.That(provenance.Operation, Is.EqualTo("image.edit.remove.background"));
-                Assert.That(GetParameter(provenance, "task"), Is.EqualTo("remove_background"));
                 Assert.That(persistedElement, Does.Not.Contain("edit-job"));
                 Assert.That(persistedElement, Does.Not.Contain("edit-file"));
             });
@@ -549,7 +540,7 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task SubtitleTranslation_BatchesAtomicallyAndImportsTranslatedProvenance()
+    public async Task SubtitleTranslation_BatchesAtomicallyAndImportsTranslatedCaptions()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-subtitle-translation");
@@ -598,18 +589,12 @@ public sealed class AiDialogWorkflowTests
         await viewModel.AddToScene.ExecuteAsync();
         HeadlessTestHelpers.Settle();
 
-        Element first = editor.Scene.Children.OrderBy(element => element.Start).First();
-        GenerationProvenance provenance = first.Provenance.Single();
         Assert.Multiple(() =>
         {
             Assert.That(translationRequests, Is.EqualTo(2));
             Assert.That(viewModel.Cues, Has.Count.EqualTo(201));
             Assert.That(viewModel.Cues[0].Text, Is.EqualTo("T-line-0"));
             Assert.That(editor.Scene.Children, Has.Count.EqualTo(201));
-            Assert.That(provenance.Operation, Is.EqualTo("subtitle.translate"));
-            Assert.That(GetParameter(provenance, "batchCount"), Is.EqualTo("2"));
-            Assert.That(provenance.Payload.GetRawText(), Does.Not.Contain("translation-1"));
-            Assert.That(provenance.Payload.GetRawText(), Does.Not.Contain("translation-2"));
         });
     }
 
@@ -655,7 +640,6 @@ public sealed class AiDialogWorkflowTests
             Assert.That(translationRequests, Is.EqualTo(2));
             Assert.That(viewModel.Cues.Select(cue => cue.Text), Is.EqualTo(originalTexts));
             Assert.That(viewModel.IsTranslating.Value, Is.False);
-            Assert.That(GetCaptionProvenance(viewModel), Is.Null);
             Assert.That(viewModel.Error.Value, Is.EqualTo(Beutl.Language.Strings.AiProviderError));
             Assert.That(viewModel.HasPartialResult.Value, Is.True);
             Assert.That(viewModel.PartialResultMessage.Value, Does.Contain("1"));
@@ -666,7 +650,6 @@ public sealed class AiDialogWorkflowTests
         {
             Assert.That(viewModel.Cues[0].Text, Is.EqualTo("T-line-0"));
             Assert.That(viewModel.Cues[^1].Text, Is.EqualTo("line-200"));
-            Assert.That(GetCaptionProvenance(viewModel)?.Operation, Is.EqualTo("subtitle.translate"));
         });
 
         await viewModel.Translate.ExecuteAsync();
@@ -677,12 +660,11 @@ public sealed class AiDialogWorkflowTests
                 "The completed first batch must not be submitted and billed again.");
             Assert.That(viewModel.Cues.All(cue => cue.Text.StartsWith("T-", StringComparison.Ordinal)), Is.True);
             Assert.That(viewModel.HasPartialResult.Value, Is.False);
-            Assert.That(GetParameter(GetCaptionProvenance(viewModel)!, "batchCount"), Is.EqualTo("2"));
         });
     }
 
     [AvaloniaTest]
-    public async Task SubtitleTranslation_SecondBatchCancellationPreservesOriginalCuesAndProvenance()
+    public async Task SubtitleTranslation_SecondBatchCancellationPreservesOriginalCues()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-subtitle-translation-cancel");
@@ -735,7 +717,6 @@ public sealed class AiDialogWorkflowTests
             Assert.That(translationRequests, Is.EqualTo(2));
             Assert.That(viewModel.Cues.Select(cue => cue.Text), Is.EqualTo(originalTexts));
             Assert.That(viewModel.IsTranslating.Value, Is.False);
-            Assert.That(GetCaptionProvenance(viewModel), Is.Null);
             Assert.That(viewModel.Error.Value, Is.Null);
             Assert.That(viewModel.HasPartialResult.Value, Is.True);
         });
@@ -745,7 +726,6 @@ public sealed class AiDialogWorkflowTests
         {
             Assert.That(viewModel.Cues[0].Text, Is.EqualTo("T-line-0"));
             Assert.That(viewModel.Cues[^1].Text, Is.EqualTo("line-200"));
-            Assert.That(GetCaptionProvenance(viewModel)?.Operation, Is.EqualTo("subtitle.translate"));
         });
     }
 
@@ -868,7 +848,6 @@ public sealed class AiDialogWorkflowTests
         {
             Assert.That(viewModel.Cues, Has.Count.EqualTo(1));
             Assert.That(viewModel.Cues[0].Text, Is.EqualTo("user edit while translating"));
-            Assert.That(GetCaptionProvenance(viewModel), Is.Null);
             Assert.That(viewModel.IsTranslating.Value, Is.False);
             Assert.That(viewModel.Error.Value, Is.Null);
             Assert.That(viewModel.HasPartialResult.Value, Is.True,
@@ -879,7 +858,6 @@ public sealed class AiDialogWorkflowTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.Cues[0].Text, Is.EqualTo("T-original caption"));
-            Assert.That(GetCaptionProvenance(viewModel)?.Operation, Is.EqualTo("subtitle.translate"));
         });
     }
 
@@ -1028,7 +1006,6 @@ public sealed class AiDialogWorkflowTests
             Assert.That(viewModel.ResultSegments.Value, Is.SameAs(originalSegments));
             Assert.That(viewModel.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "existing caption" }));
             Assert.That(viewModel.IsTranscribing.Value, Is.False);
-            Assert.That(GetCaptionProvenance(viewModel), Is.Null);
             Assert.That(viewModel.Error.Value, Is.EqualTo(Beutl.Language.Strings.AiProviderError));
             Assert.That(filesAfter, Is.EqualTo(filesBefore));
             Assert.That(viewModel.HasPartialResult.Value, Is.True);
@@ -1038,7 +1015,6 @@ public sealed class AiDialogWorkflowTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "new caption" }));
-            Assert.That(GetCaptionProvenance(viewModel)?.Operation, Is.EqualTo("audio.transcribe"));
         });
 
         await viewModel.Transcribe.ExecuteAsync();
@@ -1051,7 +1027,6 @@ public sealed class AiDialogWorkflowTests
                 "The completed first chunk must not be submitted and billed again.");
             Assert.That(viewModel.Cues, Has.Count.EqualTo(2));
             Assert.That(viewModel.HasPartialResult.Value, Is.False);
-            Assert.That(GetParameter(GetCaptionProvenance(viewModel)!, "chunkCount"), Is.EqualTo("2"));
             Assert.That(filesAfterResume, Is.EqualTo(filesBefore));
         });
     }
@@ -1135,7 +1110,6 @@ public sealed class AiDialogWorkflowTests
             Assert.That(viewModel.ResultSegments.Value, Is.SameAs(originalSegments));
             Assert.That(viewModel.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "existing caption" }));
             Assert.That(viewModel.IsTranscribing.Value, Is.False);
-            Assert.That(GetCaptionProvenance(viewModel), Is.Null);
             Assert.That(viewModel.Error.Value, Is.Null);
             Assert.That(filesAfter, Is.EqualTo(filesBefore));
             Assert.That(viewModel.HasPartialResult.Value, Is.True);
@@ -1145,7 +1119,6 @@ public sealed class AiDialogWorkflowTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "new caption" }));
-            Assert.That(GetCaptionProvenance(viewModel)?.Operation, Is.EqualTo("audio.transcribe"));
         });
     }
 
@@ -1210,7 +1183,6 @@ public sealed class AiDialogWorkflowTests
             Assert.That(transcriptionRequests, Is.EqualTo(2));
             Assert.That(viewModel.Cues.Select(cue => cue.Text),
                 Is.EqualTo(new[] { "user edit while transcribing" }));
-            Assert.That(GetCaptionProvenance(viewModel), Is.Null);
             Assert.That(viewModel.HasPartialResult.Value, Is.True);
         });
 
@@ -1218,7 +1190,6 @@ public sealed class AiDialogWorkflowTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.Cues, Has.Count.EqualTo(2));
-            Assert.That(GetCaptionProvenance(viewModel)?.Operation, Is.EqualTo("audio.transcribe"));
             Assert.That(viewModel.HasPartialResult.Value, Is.False);
         });
     }
@@ -1309,11 +1280,6 @@ public sealed class AiDialogWorkflowTests
     private static IAiPlanCoordinator CreatePlanCoordinator(BeutlApiApplication clients)
         => new AiPlanCoordinator(clients, clients.GetResource<IAiEntitlementService>());
 
-    private static GenerationProvenance? GetCaptionProvenance(AiSubtitleDialogViewModel viewModel)
-        => (GenerationProvenance?)typeof(AiSubtitleDialogViewModel)
-            .GetField("_captionProvenance", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .GetValue(viewModel);
-
     private static void AssertStoredCaptionDraftJob(
         FileCaptionDraftStore store,
         CaptionDraftScope scope,
@@ -1328,12 +1294,6 @@ public sealed class AiDialogWorkflowTests
         => (LifetimeCancellationSource)typeof(AiSubtitleDialogViewModel)
             .GetField("_lifetimeCts", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(viewModel)!;
-
-    private static string? GetParameter(GenerationProvenance provenance, string name)
-        => provenance.Payload
-            .GetProperty("parameters")
-            .GetProperty(name)
-            .GetString();
 
     private static async Task<EditViewModel> OpenEditor(string name)
     {

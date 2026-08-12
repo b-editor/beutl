@@ -1,6 +1,4 @@
-﻿using System.Text.Json;
-using Beutl.Api.Services;
-using Beutl.ProjectSystem;
+﻿using Beutl.Api.Services;
 using Beutl.Services.AI;
 
 namespace Beutl.UnitTests.Services.AI;
@@ -49,7 +47,6 @@ public sealed class CaptionDraftStoreTests
                 Assert.That(restored!.JobId, Is.EqualTo("job-42"));
                 Assert.That(restored.Draft.Version, Is.EqualTo(FileCaptionDraftStore.CurrentVersion));
                 Assert.That(restored.Draft.Cues.Single().Text, Is.EqualTo("paid result"));
-                Assert.That(restored.Draft.Provenance.Operation, Is.EqualTo("audio.transcribe"));
                 Assert.That(restored.Draft.SceneTranscriptionResume?.CompletedChunkCount, Is.EqualTo(1));
                 Assert.That(restored.Draft.Segments?.Single().Text, Is.EqualTo("paid result"));
             });
@@ -177,16 +174,9 @@ public sealed class CaptionDraftStoreTests
             End = 1,
             Text = "paid result",
         };
-        var provenance = new GenerationProvenance(
-            "beutl.ai",
-            "audio.transcribe",
-            1,
-            JsonSerializer.SerializeToElement(new { parameters = new { chunkCount = "1" } }),
-            DateTimeOffset.UtcNow);
         return new CaptionDraft(
             FileCaptionDraftStore.CurrentVersion,
             [cue],
-            provenance,
             "en",
             [segment],
             CaptionDraftKind.Transcription,

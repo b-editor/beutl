@@ -1,4 +1,3 @@
-﻿using System.Collections.Immutable;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
@@ -75,17 +74,13 @@ public sealed record ElementDescription
     /// <param name="Source">The single source from which the element is created.</param>
     /// <param name="Name">An optional element name.</param>
     /// <param name="Position">An optional drawable translation.</param>
-    /// <param name="ProvenanceUpdate">
-    /// The explicit preserve, append, replace, or clear operation applied before persistence.
-    /// </param>
     public ElementDescription(
         TimeSpan Start,
         TimeSpan? Length,
         int Layer,
         ElementSource Source,
         string Name = "",
-        Point? Position = null,
-        GenerationProvenanceUpdate ProvenanceUpdate = default)
+        Point? Position = null)
     {
         ArgumentNullException.ThrowIfNull(Source);
         ArgumentNullException.ThrowIfNull(Name);
@@ -102,7 +97,6 @@ public sealed record ElementDescription
         this.Source = Source;
         this.Name = Name;
         this.Position = Position;
-        this.ProvenanceUpdate = ProvenanceUpdate;
     }
 
     public TimeSpan Start { get; }
@@ -120,8 +114,6 @@ public sealed record ElementDescription
     /// a value of <c>(0, 0)</c> explicitly places the drawable at the origin.
     /// </summary>
     public Point? Position { get; init; }
-
-    public GenerationProvenanceUpdate ProvenanceUpdate { get; init; }
 
     /// <summary>
     /// Resolves the element name: the explicit <see cref="Name"/> when set, otherwise the

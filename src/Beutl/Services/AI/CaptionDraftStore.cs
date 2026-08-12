@@ -45,7 +45,6 @@ internal sealed record CaptionSceneTranscriptionResume(
 internal sealed record CaptionDraft(
     int Version,
     StoredCaptionCue[] Cues,
-    GenerationProvenance Provenance,
     string? Language,
     AiTranscriptionSegment[]? Segments,
     CaptionDraftKind Kind,
@@ -309,7 +308,6 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 || cue.Metadata is null
                 || cue.Metadata.Any(pair =>
                     string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null))
-            || draft.Provenance is null
             || draft.CompletedSteps <= 0
             || draft.TotalSteps < draft.CompletedSteps)
         {

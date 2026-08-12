@@ -8,7 +8,7 @@ namespace Beutl.HeadlessUITests;
 public sealed class AiCaptionHistoryResultParserTests
 {
     [Test]
-    public void TryParse_TranscriptionRestoresTimedSegmentsAndProvenance()
+    public void TryParse_TranscriptionRestoresTimedSegments()
     {
         byte[] bytes = Encoding.UTF8.GetBytes("""
             {
@@ -26,7 +26,6 @@ public sealed class AiCaptionHistoryResultParserTests
             bytes,
             "stt",
             new AiJobId("job-stt"),
-            new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero),
             out AiCaptionHistoryResult? result);
 
         Assert.That(parsed, Is.True);
@@ -38,7 +37,6 @@ public sealed class AiCaptionHistoryResultParserTests
                 Is.EqualTo(new[] { "First", "Second" }));
             Assert.That(result.Segments[0].Start, Is.EqualTo(0.5));
             Assert.That(result.Segments[1].End, Is.EqualTo(3.5));
-            Assert.That(result.Provenance.Operation, Is.EqualTo("audio.transcribe"));
         }
     }
 
@@ -75,7 +73,6 @@ public sealed class AiCaptionHistoryResultParserTests
             bytes,
             "translation",
             new AiJobId("job-translation"),
-            DateTimeOffset.UtcNow,
             out AiCaptionHistoryResult? result);
 
         Assert.That(parsed, Is.True);
@@ -86,7 +83,6 @@ public sealed class AiCaptionHistoryResultParserTests
                 Is.EqualTo(new[] { "Hello world", "Second" }));
             Assert.That(result.Segments.Select(segment => segment.Start),
                 Is.EqualTo(new[] { 1d, 4d }));
-            Assert.That(result.Provenance.Operation, Is.EqualTo("subtitle.translate"));
         }
     }
 
@@ -99,7 +95,6 @@ public sealed class AiCaptionHistoryResultParserTests
             Encoding.UTF8.GetBytes(json),
             kind,
             new AiJobId("job-invalid"),
-            DateTimeOffset.UtcNow,
             out _), Is.False);
     }
 

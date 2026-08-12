@@ -30,7 +30,6 @@ public sealed partial class AiSubtitleDialogViewModel
     private readonly ObservableCollection<EditableCaptionCueViewModel> _editableCues = [];
     private readonly ReactivePropertySlim<long> _transcriptionEstimateRevision = new();
     private readonly ReactivePropertySlim<bool> _canStartTranslation = new();
-    private GenerationProvenance? _captionProvenance;
     private string? _lastCaptionLanguage;
     private TimeSpan _sceneMixChunkDuration = s_sceneMixChunkDuration;
     private long _captionDocumentRevision;
@@ -89,7 +88,6 @@ public sealed partial class AiSubtitleDialogViewModel
         PartialResultMessage.Value = null;
         _lastCaptionLanguage = result.Language;
         DetectedLanguageText.Value = CreateDetectedLanguageText(result.Language);
-        _captionProvenance = result.Provenance;
         ResultSegments.Value = CloneSegments(result.Segments);
         Error.Value = null;
     }
@@ -337,14 +335,8 @@ public sealed partial class AiSubtitleDialogViewModel
                 language,
                 StringComparison.Ordinal))
         {
-            GenerationProvenance partialProvenance = CreateTranscriptionProvenance(
-                "source_file",
-                source.Duration,
-                language,
-                chunkCount: 1);
             if (SetPartialResult(new RecoverableCaptionResult(
                 CreateCaptionDocument(mappedSegments, resultLanguage),
-                partialProvenance,
                 resultLanguage,
                 mappedSegments,
                 PartialResultKind.Transcription,
@@ -359,11 +351,6 @@ public sealed partial class AiSubtitleDialogViewModel
 
         _lastCaptionLanguage = resultLanguage;
         DetectedLanguageText.Value = CreateDetectedLanguageText(_lastCaptionLanguage);
-        _captionProvenance = CreateTranscriptionProvenance(
-            source.IsSceneMix ? "scene_mix" : "source_file",
-            source.Duration,
-            language,
-            chunkCount: 1);
         ResultSegments.Value = mappedSegments;
         ClearPartialResult();
     }
@@ -473,11 +460,6 @@ public sealed partial class AiSubtitleDialogViewModel
 
         _lastCaptionLanguage = operation.DetectedLanguage ?? language;
         DetectedLanguageText.Value = CreateDetectedLanguageText(_lastCaptionLanguage);
-        _captionProvenance = CreateTranscriptionProvenance(
-            "scene_mix",
-            duration,
-            language,
-            chunkCount);
         ResultSegments.Value = CloneSegments(operation.Segments);
         ClearPartialResult();
     }
@@ -558,11 +540,6 @@ public sealed partial class AiSubtitleDialogViewModel
 
             _lastCaptionLanguage = targetLanguage;
             DetectedLanguageText.Value = CreateDetectedLanguageText(targetLanguage);
-            _captionProvenance = AiProvenanceFactory.Translation(
-                operation.SourceLanguage,
-                operation.TargetLanguage,
-                operation.Batches.Count,
-                DateTimeOffset.UtcNow);
             ReplaceCues(BuildTranslationDocument(operation, includeUntranslatedParts: false));
             ClearPartialResult();
         }
@@ -714,14 +691,8 @@ public sealed partial class AiSubtitleDialogViewModel
             return false;
 
         _pendingTranslation = operation;
-        GenerationProvenance provenance = AiProvenanceFactory.Translation(
-            operation.SourceLanguage,
-            operation.TargetLanguage,
-            operation.CompletedBatchCount,
-            DateTimeOffset.UtcNow);
         if (!SetPartialResult(new RecoverableCaptionResult(
             BuildTranslationDocument(operation, includeUntranslatedParts: true),
-            provenance,
             operation.TargetLanguage,
             null,
             PartialResultKind.Translation,
@@ -772,19 +743,10 @@ public sealed partial class AiSubtitleDialogViewModel
             return false;
 
         _pendingSceneTranscription = operation;
-        TimeSpan completedDuration = TimeSpan.FromTicks(Math.Min(
-            operation.Duration.Ticks,
-            operation.CompletedChunkCount * operation.ChunkDuration.Ticks));
         string? detectedLanguage = operation.DetectedLanguage ?? operation.Language;
-        GenerationProvenance provenance = CreateTranscriptionProvenance(
-            "scene_mix",
-            completedDuration,
-            operation.Language,
-            operation.CompletedChunkCount);
         AiTranscriptionSegment[] segments = CloneSegments(operation.Segments);
         if (!SetPartialResult(new RecoverableCaptionResult(
             CreateCaptionDocument(segments, detectedLanguage),
-            provenance,
             detectedLanguage,
             segments,
             PartialResultKind.Transcription,
@@ -885,7 +847,6 @@ public sealed partial class AiSubtitleDialogViewModel
         return new CaptionDraft(
             FileCaptionDraftStore.CurrentVersion,
             StoreCues(result.Document.Cues),
-            result.Provenance,
             result.Language,
             result.Segments is null ? null : CloneSegments(result.Segments),
             result.Kind == PartialResultKind.Translation
@@ -927,7 +888,6 @@ public sealed partial class AiSubtitleDialogViewModel
                 : PartialResultKind.Transcription;
             _partialResult = new RecoverableCaptionResult(
                 document,
-                draft.Provenance,
                 draft.Language,
                 draft.Segments is null ? null : CloneSegments(draft.Segments),
                 kind,
@@ -1090,7 +1050,6 @@ public sealed partial class AiSubtitleDialogViewModel
 
         _lastCaptionLanguage = result.Language;
         DetectedLanguageText.Value = CreateDetectedLanguageText(result.Language);
-        _captionProvenance = result.Provenance;
         if (result.Segments is { } segments)
         {
             ResultSegments.Value = CloneSegments(segments);
@@ -1251,7 +1210,6 @@ public sealed partial class AiSubtitleDialogViewModel
         }
 
         ChangeCaptionDraftJob(null, deleteCurrent: true);
-        _captionProvenance = null;
         _lastCaptionLanguage = null;
         DetectedLanguageText.Value = null;
         ReplaceCues(result.Document);
@@ -1321,7 +1279,6 @@ public sealed partial class AiSubtitleDialogViewModel
         _pendingTranslation = null;
         _pendingSceneTranscription = null;
         _pendingHistoryResult = null;
-        _captionProvenance = null;
         _lastCaptionLanguage = null;
         HasPartialResult.Value = false;
         HasPendingHistoryResult.Value = false;
@@ -1766,18 +1723,6 @@ public sealed partial class AiSubtitleDialogViewModel
         return true;
     }
 
-    private static GenerationProvenance CreateTranscriptionProvenance(
-        string sourceKind,
-        TimeSpan duration,
-        string? language,
-        int chunkCount)
-        => AiProvenanceFactory.Transcription(
-            sourceKind,
-            duration,
-            language,
-            chunkCount,
-            DateTimeOffset.UtcNow);
-
     private static string? CreateDetectedLanguageText(string? language)
         => string.IsNullOrWhiteSpace(language)
             ? null
@@ -2012,7 +1957,6 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private sealed record RecoverableCaptionResult(
         CaptionDocument Document,
-        GenerationProvenance Provenance,
         string? Language,
         AiTranscriptionSegment[]? Segments,
         PartialResultKind Kind,

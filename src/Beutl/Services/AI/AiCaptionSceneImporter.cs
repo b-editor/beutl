@@ -18,7 +18,6 @@ internal static class AiCaptionSceneImporter
         CaptionDocument document,
         CaptionTemplateRegistry templates,
         CaptionTemplateId templateId,
-        GenerationProvenance? provenance,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -42,17 +41,6 @@ internal static class AiCaptionSceneImporter
             cancellationToken.ThrowIfCancellationRequested();
             descriptions.AddRange(template.CreateElements(cue, context));
         }
-        if (provenance is not null)
-        {
-            for (int i = 0; i < descriptions.Count; i++)
-            {
-                descriptions[i] = descriptions[i] with
-                {
-                    ProvenanceUpdate = GenerationProvenanceUpdate.Append([provenance]),
-                };
-            }
-        }
-
         ElementAddResult? result = null;
         try
         {

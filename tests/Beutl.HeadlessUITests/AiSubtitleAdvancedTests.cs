@@ -1,6 +1,5 @@
 ﻿using System.Reactive.Linq;
 using System.Text;
-using System.Text.Json;
 using System.Windows.Input;
 using Beutl.Api;
 using Beutl.Api.Clients;
@@ -270,12 +269,6 @@ public sealed class AiSubtitleAdvancedTests
         return new CaptionDraft(
             FileCaptionDraftStore.CurrentVersion,
             [new StoredCaptionCue(0, TimeSpan.FromSeconds(1).Ticks, text, null, "en", [])],
-            new GenerationProvenance(
-                "beutl.ai",
-                "audio.transcribe",
-                1,
-                JsonSerializer.SerializeToElement(new { parameters = new { } }),
-                DateTimeOffset.UtcNow),
             "en",
             [segment],
             CaptionDraftKind.Transcription,

@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using Avalonia.Headless.NUnit;
 using Beutl.Audio;
 using Beutl.Editor.Models;
@@ -119,19 +118,12 @@ public class VideoFileImportTests
     }
 
     [AvaloniaTest]
-    public async Task ImportVideoWithAudioTrack_AppliesAndPersistsProvenanceToBothProducedElements()
+    public async Task ImportVideoWithAudioTrack_CreatesBothProducedElements()
     {
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("videoaudio-prepare");
         RegisterImportDecoder();
         string path = CreateImportFile("prepared", withAudio: true);
-        var provenance = new GenerationProvenance(
-            "beutl.test",
-            "video.import",
-            1,
-            JsonSerializer.SerializeToElement(new { }),
-            DateTimeOffset.UtcNow);
-
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult result = await adder.AddAsync(
         [
@@ -139,8 +131,7 @@ public class VideoFileImportTests
                 Start: TimeSpan.Zero,
                 Length: TimeSpan.FromSeconds(5),
                 Layer: 0,
-                Source: new ElementSource.File(path),
-                ProvenanceUpdate: GenerationProvenanceUpdate.Append([provenance])),
+                Source: new ElementSource.File(path)),
         ], CancellationToken.None);
         HeadlessTestHelpers.Settle();
 
@@ -154,15 +145,6 @@ public class VideoFileImportTests
             Assert.That(
                 created.Select(element => element.Objects.Single().GetType()),
                 Is.EqualTo(new[] { typeof(SourceVideo), typeof(SourceSound) }));
-            Assert.That(
-                created.Select(element => element.Provenance.Single().Operation),
-                Is.All.EqualTo("video.import"));
-        }
-
-        foreach (Element element in created)
-        {
-            Element restored = CoreSerializer.RestoreFromUri<Element>(element.Uri!);
-            Assert.That(restored.Provenance.Single().Operation, Is.EqualTo("video.import"));
         }
     }
 

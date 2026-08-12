@@ -12,8 +12,7 @@ internal sealed record AiResultImportOptions(
     TimeSpan Start,
     TimeSpan Length,
     int Layer,
-    string Name,
-    GenerationProvenance Provenance);
+    string Name);
 
 internal sealed class AiResultImporter
 {
@@ -116,8 +115,7 @@ internal sealed class AiResultImporter
                     options.Length,
                     options.Layer,
                     new ElementSource.File(path),
-                    options.Name,
-                    ProvenanceUpdate: GenerationProvenanceUpdate.Append([options.Provenance])),
+                    options.Name),
             ], cancellationToken);
 
             if (!result.IsSuccess)

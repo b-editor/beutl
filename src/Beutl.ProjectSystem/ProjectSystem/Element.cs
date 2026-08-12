@@ -1,9 +1,6 @@
-﻿using System.Collections.Immutable;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -22,14 +19,12 @@ public class Element : Hierarchical, INotifyEdited
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<bool> IsLockedProperty;
     public static readonly CoreProperty<ICoreList<EngineObject>> ObjectsProperty;
-    public static readonly CoreProperty<ImmutableArray<GenerationProvenance>> ProvenanceProperty;
     private readonly HierarchicalList<EngineObject> _objects;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
     private bool _isEnabled = true;
     private bool _isLocked;
-    private ImmutableArray<GenerationProvenance> _provenance = [];
 
     static Element()
     {
@@ -62,12 +57,6 @@ public class Element : Hierarchical, INotifyEdited
         ObjectsProperty = ConfigureProperty<ICoreList<EngineObject>, Element>(nameof(Objects))
             .Accessor(o => o.Objects)
             .Register();
-
-        ProvenanceProperty =
-            ConfigureProperty<ImmutableArray<GenerationProvenance>, Element>(nameof(Provenance))
-                .Accessor(o => o.Provenance, (o, v) => o.Provenance = v)
-                .DefaultValue([])
-                .Register();
     }
 
     public Element()
@@ -125,22 +114,6 @@ public class Element : Hierarchical, INotifyEdited
 
     [NotAutoSerialized]
     public ICoreList<EngineObject> Objects => _objects;
-
-    [Browsable(false)]
-    [NotAutoSerialized]
-    public ImmutableArray<GenerationProvenance> Provenance
-    {
-        get => _provenance;
-        set
-        {
-            if (value.IsDefault)
-                value = [];
-            SetAndRaise(
-                ProvenanceProperty,
-                ref _provenance,
-                GenerationProvenanceCollection.Validate(value, nameof(value)));
-        }
-    }
 
     public void AddObject(EngineObject obj)
     {
@@ -205,10 +178,6 @@ public class Element : Hierarchical, INotifyEdited
     {
         base.Serialize(context);
         context.SetValue(nameof(Objects), Objects);
-        if (!Provenance.IsDefaultOrEmpty)
-        {
-            context.SetValue(nameof(Provenance), Provenance.ToArray());
-        }
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -224,51 +193,6 @@ public class Element : Hierarchical, INotifyEdited
             if (migrated.Length > 0)
             {
                 Objects.Replace(migrated);
-            }
-        }
-
-        if (context.Contains(nameof(Provenance)))
-        {
-            if (context is IJsonSerializationContext jsonContext
-                && jsonContext.GetNode(nameof(Provenance)) is JsonArray array)
-            {
-                var provenance = ImmutableArray.CreateBuilder<GenerationProvenance>();
-                foreach (JsonNode? node in array)
-                {
-                    if (provenance.Count == GenerationProvenanceCollection.Capacity)
-                        break;
-
-                    try
-                    {
-                        if (node?.Deserialize<GenerationProvenance>(JsonHelper.SerializerOptions) is { } item)
-                        {
-                            provenance.Add(item);
-                        }
-                    }
-                    catch (Exception ex) when (
-                        ex is JsonException or NotSupportedException or ArgumentException or InvalidOperationException)
-                    {
-                        // Provenance is optional metadata; retain the remaining valid records.
-                    }
-                }
-
-                Provenance = provenance.ToImmutable();
-            }
-            else
-            {
-                try
-                {
-                    GenerationProvenance[]? provenance =
-                        context.GetValue<GenerationProvenance[]>(nameof(Provenance));
-                    Provenance = provenance is null
-                        ? []
-                        : GenerationProvenanceCollection.Validate(provenance, nameof(Provenance));
-                }
-                catch (Exception ex) when (
-                    ex is JsonException or NotSupportedException or ArgumentException or InvalidOperationException)
-                {
-                    Provenance = [];
-                }
             }
         }
     }

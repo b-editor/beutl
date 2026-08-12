@@ -1,14 +1,12 @@
 ﻿using System.Text.Json;
 using Beutl.Api.Services;
-using Beutl.ProjectSystem;
 
 namespace Beutl.Services.AI;
 
 internal sealed record AiCaptionHistoryResult(
     AiJobId JobId,
     AiTranscriptionSegment[] Segments,
-    string? Language,
-    GenerationProvenance Provenance);
+    string? Language);
 
 internal static class AiCaptionHistoryResultParser
 {
@@ -20,7 +18,6 @@ internal static class AiCaptionHistoryResultParser
         ReadOnlySpan<byte> bytes,
         string expectedKind,
         AiJobId jobId,
-        DateTimeOffset generatedAt,
         out AiCaptionHistoryResult? result)
     {
         result = null;
@@ -50,8 +47,8 @@ internal static class AiCaptionHistoryResultParser
 
             return kind switch
             {
-                "stt" => TryParseTranscription(root, segments, jobId, generatedAt, out result),
-                "translation" => TryParseTranslation(root, segments, jobId, generatedAt, out result),
+                "stt" => TryParseTranscription(root, segments, jobId, out result),
+                "translation" => TryParseTranslation(root, segments, jobId, out result),
                 _ => false,
             };
         }
@@ -69,7 +66,6 @@ internal static class AiCaptionHistoryResultParser
         JsonElement root,
         JsonElement segments,
         AiJobId jobId,
-        DateTimeOffset generatedAt,
         out AiCaptionHistoryResult? result)
     {
         result = null;
@@ -92,18 +88,10 @@ internal static class AiCaptionHistoryResultParser
             });
         }
 
-        double duration = parsed.Max(segment => segment.End)
-            - parsed.Min(segment => segment.Start);
         result = new AiCaptionHistoryResult(
             jobId,
             parsed.ToArray(),
-            language,
-            AiProvenanceFactory.Transcription(
-                "job_history",
-                TimeSpan.FromSeconds(duration),
-                language,
-                1,
-                generatedAt));
+            language);
         return true;
     }
 
@@ -111,7 +99,6 @@ internal static class AiCaptionHistoryResultParser
         JsonElement root,
         JsonElement segments,
         AiJobId jobId,
-        DateTimeOffset generatedAt,
         out AiCaptionHistoryResult? result)
     {
         result = null;
@@ -120,7 +107,6 @@ internal static class AiCaptionHistoryResultParser
         {
             return false;
         }
-        string? sourceLanguage = TryGetOptionalString(root, "sourceLanguage");
         var groups = new Dictionary<string, TranslationGroup>(StringComparer.Ordinal);
         int sequence = 0;
         foreach (JsonElement segment in segments.EnumerateArray())
@@ -178,12 +164,7 @@ internal static class AiCaptionHistoryResultParser
         result = new AiCaptionHistoryResult(
             jobId,
             parsed.ToArray(),
-            targetLanguage,
-            AiProvenanceFactory.Translation(
-                sourceLanguage,
-                targetLanguage,
-                1,
-                generatedAt));
+            targetLanguage);
         return true;
     }
 

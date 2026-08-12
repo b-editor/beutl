@@ -322,7 +322,6 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
                 document,
                 _captionTemplates,
                 SelectedCaptionTemplate.Value.Id,
-                _captionProvenance,
                 _lifetimeCts.Token);
 
             if (result.IsSuccess)

@@ -35,7 +35,6 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
     private readonly IAuthenticatedContentService _content;
     private readonly EditViewModel? _editViewModel;
     private string? _sourceElementId;
-    private AiImageEditResultSnapshot? _resultSnapshot;
     private Task? _disposeTask;
 
     public AiImageEditDialogViewModel(
@@ -350,7 +349,6 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         OriginalImage.Value = null;
         ResultImage.Value?.Dispose();
         ResultImage.Value = null;
-        _resultSnapshot = null;
         if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
             return;
 
@@ -415,19 +413,10 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
             operation.CancellationToken.ThrowIfCancellationRequested();
             stream.Position = 0;
             var resultImage = Ref<Bitmap>.Create(Bitmap.FromStream(stream));
-            var snapshot = new AiImageEditResultSnapshot(
-                response.JobId,
-                response.FileId,
-                task,
-                prompt,
-                _sourceElementId,
-                outpaintExpansionPercent,
-                DateTimeOffset.UtcNow);
             if (!operation.TryPublish(() =>
                 {
                     ResultImage.Value?.Dispose();
                     ResultImage.Value = resultImage;
-                    _resultSnapshot = snapshot;
                     SelectedComparisonMode.Value = ComparisonModes[0];
                     if (prompt is not null)
                     {
@@ -515,20 +504,6 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
                 .Select(item => item.ZIndex)
                 .DefaultIfEmpty(-1)
                 .Max() + 1;
-            AiImageEditResultSnapshot snapshot = _resultSnapshot
-                ?? new AiImageEditResultSnapshot(
-                    null,
-                    null,
-                    SelectedTask.Value.Value,
-                    null,
-                    _sourceElementId,
-                    null,
-                    DateTimeOffset.UtcNow);
-            GenerationProvenance provenance = AiProvenanceFactory.ImageEdit(
-                snapshot.Task,
-                snapshot.SourceElementId,
-                snapshot.OutpaintExpansionPercent,
-                snapshot.GeneratedAt);
             var importer = new AiResultImporter(
                 _editViewModel.Scene,
                 _editViewModel.GetRequiredService<IElementAdder>());
@@ -538,8 +513,7 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
                     start,
                     TimeSpan.FromSeconds(5),
                     layer,
-                    Strings.AiImageEdit,
-                    provenance),
+                    Strings.AiImageEdit),
                 operation.CancellationToken);
 
             if (result.Failure is LockedElementLayerFailure)
@@ -618,15 +592,6 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
             operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
         }
     }
-
-    private sealed record AiImageEditResultSnapshot(
-        AiJobId? JobId,
-        AiContentId? FileId,
-        string Task,
-        string? Prompt,
-        string? SourceElementId,
-        int? OutpaintExpansionPercent,
-        DateTimeOffset GeneratedAt);
 
 }
 
