@@ -32,6 +32,14 @@ public partial class PackageInstaller
                 nameof(package));
         }
 
+        // An update may have dropped a kind, so clear both payload directories; the
+        // removed kind's payload would otherwise stay registered.
+        if (!DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name))
+            || !DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name)))
+        {
+            throw new IOException($"Could not clear the existing package data directories for '{name}'.");
+        }
+
         if (hasMaterial)
         {
             InstallPayload(package, name, MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath());
@@ -47,13 +55,6 @@ public partial class PackageInstaller
     {
         string source = Path.Combine(package.InstalledPath!, contentDirectory);
         string destination = Path.Combine(root, name);
-
-        // An update lands here too, and a file the new version dropped would otherwise
-        // stay registered forever.
-        if (!DeleteIfExists(destination))
-        {
-            throw new IOException($"Could not clear the existing package data directory '{destination}'.");
-        }
 
         if (!Directory.Exists(source))
         {

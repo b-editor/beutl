@@ -123,11 +123,15 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
 
         var reader = new PackageFolderReader(directory);
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
+        var installer = app.GetResource<PackageInstaller>();
         if (localPackage.Tags.GetPackageKind() == PackageKind.Extension)
         {
+            // An update may have turned a data package into an extension; the old
+            // payload directories have to go even though nothing is deployed now.
+            installer.UninstallDataPackage(pkg.Id);
             return;
         }
 
-        app.GetResource<PackageInstaller>().InstallDataPackage(localPackage);
+        installer.InstallDataPackage(localPackage);
     }
 }
