@@ -1,0 +1,58 @@
+{
+  "uid": "beutl-diagnostics",
+  "title": "Beutl Safe Diagnostics",
+  "tags": ["beutl", "diagnostics", "loki", "tempo"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "1m",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "traceId",
+        "label": "Sanitized diagnostic trace ID",
+        "type": "textbox",
+        "query": "",
+        "current": { "text": "", "value": "" },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Structured diagnostic errors by component / error code",
+      "datasource": { "uid": "loki" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "sum by (beutl_component, beutl_error_code) (count_over_time({service_name=~\".+\"} | beutl_component=~\".+\" [5m]))", "legendFormat": "{{beutl_component}} / {{beutl_error_code}}", "queryType": "range", "range": true }],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 2,
+      "type": "logs",
+      "title": "Sanitized diagnostic logs",
+      "datasource": { "uid": "loki" },
+      "gridPos": { "h": 14, "w": 12, "x": 12, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "{service_name=~\".+\"} | beutl_component=~\".+\"", "queryType": "range", "range": true }],
+      "options": { "showTime": true, "wrapLogMessage": true, "dedupStrategy": "none", "sortOrder": "Descending", "enableLogDetails": true }
+    },
+    {
+      "id": 3,
+      "type": "traces",
+      "title": "Tempo diagnostic trace by ID",
+      "datasource": { "uid": "tempo" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "targets": [{ "refId": "A", "queryType": "traceId", "query": "$traceId" }],
+      "options": { "showTraceID": true, "showSpanID": false, "showDuration": true }
+    },
+    {
+      "id": 4,
+      "type": "text",
+      "title": "Drill-down boundary",
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 18 },
+      "options": { "mode": "markdown", "content": "Loki stream labels are restricted to low-cardinality resource fields; component, error code, and outcome are fixed structured metadata. Expand a sanitized log and use its **View trace** derived-field link to open the correlated Tempo trace; the textbox remains available for a known trace ID. Installation/session IDs, messages, stack traces, paths, and free-form payloads are not exported." }
+    }
+  ]
+}

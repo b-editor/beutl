@@ -1,0 +1,51 @@
+{
+  "resourceSpans": [{
+    "resource": { "attributes": [
+      { "key": "service.name", "value": { "stringValue": "beutl.desktop" } },
+      { "key": "service.version", "value": { "stringValue": "1.2.3" } },
+      { "key": "beutl.telemetry.stream", "value": { "stringValue": "product" } },
+      { "key": "beutl.analytics.schema", "value": { "stringValue": "v1" } },
+      { "key": "beutl.installation.id", "value": { "stringValue": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } },
+      { "key": "beutl.session.id", "value": { "stringValue": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } },
+      { "key": "beutl.first_seen_month", "value": { "stringValue": "2026-08" } },
+      { "key": "beutl.release.channel", "value": { "stringValue": "stable" } },
+      { "key": "os.type", "value": { "stringValue": "windows" } },
+      { "key": "process.architecture", "value": { "stringValue": "x64" } },
+      { "key": "beutl.renderer", "value": { "stringValue": "unknown" } }
+    ] },
+    "scopeSpans": [{
+      "scope": { "name": "Beutl.ProductAnalytics", "version": "v1" },
+      "spans": [
+        {
+          "traceId": "13131313131313131313131313131313",
+          "spanId": "1313131313131313",
+          "name": "editor.action_summary",
+          "kind": 1,
+          "startTimeUnixNano": "1785542400000000000",
+          "endTimeUnixNano": "1785542400001000000",
+          "attributes": [
+            { "key": "beutl.event.id", "value": { "stringValue": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1" } },
+            { "key": "beutl.outcome", "value": { "stringValue": "success" } },
+            { "key": "beutl.feature.id", "value": { "stringValue": "builtin/editor/trim" } },
+            { "key": "beutl.count.bucket", "value": { "stringValue": "1" } },
+            { "key": "beutl.duration_ms", "value": { "intValue": "1" } }
+          ]
+        },
+        {
+          "traceId": "13131313131313131313131313131313",
+          "spanId": "1414141414141414",
+          "name": "extension.load",
+          "kind": 1,
+          "startTimeUnixNano": "1785542400002000000",
+          "endTimeUnixNano": "1785542400003000000",
+          "attributes": [
+            { "key": "beutl.event.id", "value": { "stringValue": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1" } },
+            { "key": "beutl.outcome", "value": { "stringValue": "success" } },
+            { "key": "beutl.feature.id", "value": { "stringValue": "extension/com.example.editor/editor/trim" } },
+            { "key": "beutl.duration_ms", "value": { "intValue": "1" } }
+          ]
+        }
+      ]
+    }]
+  }]
+}

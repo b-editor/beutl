@@ -22,11 +22,6 @@
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.Avalonia.Fluent" />
     <PackageReference Include="AsyncImageLoader.Avalonia" />
-    <PackageReference Include="OpenTelemetry" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
-    <PackageReference Include="Serilog.Extensions.Logging" />
-    <PackageReference Include="Serilog.Sinks.Async" />
-    <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="System.CommandLine" />
     <PackageReference Include="System.Reactive" />
   </ItemGroup>
@@ -35,6 +30,7 @@
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
+    <ProjectReference Include="..\Beutl.Telemetry\Beutl.Telemetry.csproj" />
   </ItemGroup>
 
   <!--<ItemGroup Condition="'$(Configuration)' == 'Debug'">
@@ -42,12 +38,11 @@
   </ItemGroup>-->
 
   <ItemGroup>
-    <Compile Include="..\Beutl\Services\Telemetry.cs" />
-    <Compile Include="..\Beutl\Services\LinuxDistro.cs" />
+    <EmbeddedResource Update="Resources\Strings.resx" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Update="Resources\Strings.resx" />
+    <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.Async" />
+    <PackageReference Include="Serilog.Sinks.Debug" />
+    <PackageReference Include="Serilog.Sinks.File" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
+    <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Beutl" />
+    <InternalsVisibleTo Include="Beutl.PackageTools.UI" />
+    <InternalsVisibleTo Include="Beutl.UnitTests" />
+    <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
+    <InternalsVisibleTo Include="Beutl.Telemetry.TestHost" />
+  </ItemGroup>
+</Project>

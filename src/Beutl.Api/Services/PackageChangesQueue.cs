@@ -38,16 +38,34 @@ public class PackageChangesQueue : IBeutlApiResource
 
     public void UninstallQueue(PackageIdentity packageIdentity)
     {
+        UninstallQueue(packageIdentity, recordAnalytics: true);
+    }
+
+    internal void UninstallQueue(PackageIdentity packageIdentity, bool recordAnalytics)
+    {
         _installs.Remove(packageIdentity);
         _uninstalls.Add(packageIdentity);
         _subject.OnNext((packageIdentity, EventType.Uninstall));
+        if (recordAnalytics)
+        {
+            Beutl.PackageAnalytics.RecordExtensionManageQueued();
+        }
     }
 
     public void InstallQueue(PackageIdentity packageIdentity)
     {
+        InstallQueue(packageIdentity, recordAnalytics: true);
+    }
+
+    internal void InstallQueue(PackageIdentity packageIdentity, bool recordAnalytics)
+    {
         _uninstalls.Remove(packageIdentity);
         _installs.Add(packageIdentity);
         _subject.OnNext((packageIdentity, EventType.Install));
+        if (recordAnalytics)
+        {
+            Beutl.PackageAnalytics.RecordExtensionManageQueued();
+        }
     }
 
     public void Cancel(PackageIdentity packageIdentity)

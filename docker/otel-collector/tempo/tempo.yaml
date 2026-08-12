@@ -1,0 +1,33 @@
+# Single-node Tempo for the reference stack.  It receives only collector-
+# sanitized diagnostic traces; no host port exposes its OTLP or query APIs.
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          # Tempo 2.7 defaults OTLP receivers to localhost. The collector is
+          # a separate internal-network container, so bind explicitly here;
+          # compose still publishes neither port to the host.
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  max_block_duration: 5m
+
+compactor:
+  compaction:
+    block_retention: 2160h # 90 days
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks

@@ -12,12 +12,20 @@ internal static class StartupNotificationService
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(StartupNotificationService));
 
-    internal const string TelemetryDetailsUrl = "https://beutl.beditor.net/about/telemetry";
+    internal const string TelemetryDetailsUrl = "https://beutl.beditor.net/docs/telemetry";
     internal const int MaxVisibleSideloadPackages = 3;
     internal const int MaxSideloadPackageNameLength = 80;
 
     public static void ShowTelemetryConsent(TelemetryConfig config)
     {
+        if (config.UsageAnalyticsMigratedFromLegacy && !config.UsageAnalyticsMigrationNoticeShown)
+        {
+            config.UsageAnalyticsMigrationNoticeShown = true;
+            NotificationService.ShowInformation(
+                SettingsStrings.Telemetry_UsageAnalytics,
+                SettingsStrings.Telemetry_UsageAnalytics_Migrated);
+        }
+
         if (Telemetry.IsConsentConfigured(config))
         {
             return;
@@ -159,5 +167,6 @@ internal static class StartupNotificationService
         config.Beutl_Application = value;
         config.Beutl_PackageManagement = value;
         config.Beutl_Logging = value;
+        config.UsageAnalytics = value;
     }
 }

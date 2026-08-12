@@ -5,17 +5,38 @@ using NuGet.Packaging;
 
 namespace Beutl.Api.Services;
 
-public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader = null) : AssemblyLoadContext(isCollectible: true)
+public class PluginLoadContext : AssemblyLoadContext
 {
-    private readonly AssemblyDependencyResolver _resolver = new AssemblyDependencyResolver(AppContext.BaseDirectory);
-    private readonly PluginDependencyResolver _pluginResolver = new PluginDependencyResolver(mainDirectory, reader);
+    private readonly AssemblyDependencyResolver _resolver = new(AppContext.BaseDirectory);
+    private readonly PluginDependencyResolver _pluginResolver;
+    private readonly TrustedPackageSnapshot? _trustedSnapshot;
+
+    public PluginLoadContext(string mainDirectory, PackageFolderReader? reader = null)
+        : this(mainDirectory, reader, trustedSnapshot: null)
+    {
+    }
+
+    internal PluginLoadContext(
+        string mainDirectory,
+        PackageFolderReader? reader,
+        TrustedPackageSnapshot? trustedSnapshot)
+        : base(isCollectible: true)
+    {
+        _pluginResolver = new PluginDependencyResolver(mainDirectory, reader);
+        _trustedSnapshot = trustedSnapshot;
+    }
+
+    internal Assembly LoadPackageAssembly(string assemblyPath)
+    {
+        return LoadAssemblyFromPathOrSnapshot(assemblyPath);
+    }
 
     protected override Assembly? Load(AssemblyName name)
     {
         string? assemblyPath = _resolver.ResolveAssemblyToPath(name);
         if (assemblyPath != null)
         {
-            return LoadFromAssemblyPath(assemblyPath);
+            return LoadAssemblyFromPathOrSnapshot(assemblyPath);
         }
 
         if (!CoreLibraries.IncludedInRuntimeDependencies(name.Name!, name.Version))
@@ -23,7 +44,7 @@ public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader
             assemblyPath = _pluginResolver.ResolveAssemblyToPath(name);
             if (assemblyPath != null)
             {
-                return LoadFromAssemblyPath(assemblyPath);
+                return LoadAssemblyFromPathOrSnapshot(assemblyPath);
             }
         }
 
@@ -45,5 +66,23 @@ public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader
         }
 
         return IntPtr.Zero;
+    }
+
+    private Assembly LoadAssemblyFromPathOrSnapshot(string assemblyPath)
+    {
+        if (_trustedSnapshot?.TryGetAssemblyBytes(assemblyPath, out byte[] bytes) == true)
+        {
+            using var stream = new MemoryStream(bytes, writable: false);
+            Assembly assembly = LoadFromStream(stream);
+            _trustedSnapshot.RegisterLoadedAssembly(assembly);
+            return assembly;
+        }
+
+        if (_trustedSnapshot?.IsPathInsidePackage(assemblyPath) == true)
+        {
+            throw new InvalidDataException("Verified package assembly was not present in its immutable snapshot.");
+        }
+
+        return LoadFromAssemblyPath(assemblyPath);
     }
 }

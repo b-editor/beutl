@@ -153,15 +153,10 @@ public class MainViewModel
         {
             Hidden = true
         };
-        var sessionId = new Option<string?>("--session-id")
-        {
-            Hidden = true,
-        };
         command.Add(installs);
         command.Add(uninstalls);
         command.Add(updates);
         command.Add(launchDebugger);
-        command.Add(sessionId);
 
         ParseResult parseResult = command.Parse(Environment.GetCommandLineArgs());
         string[] installItems = parseResult.GetValue(installs) ?? [];

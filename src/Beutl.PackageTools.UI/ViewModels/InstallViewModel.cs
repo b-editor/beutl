@@ -1,5 +1,6 @@
 ﻿using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
+using Beutl.Services;
 
 using NuGet.Packaging.Core;
 
@@ -25,6 +26,7 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
 
     public async Task Run(CancellationToken token)
     {
+        using ExtensionManageProductOperation product = ExtensionManageTelemetry.StartReconcile();
         try
         {
             _logger.LogInformation(
@@ -76,23 +78,34 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
             var pkg = new PackageIdentity(Model.Id, Model.Version);
             repos.AddPackage(pkg);
             repos.UpgradePackages(pkg);
+            string directory = Helper.PackagePathResolver.GetInstalledPath(pkg)
+                               ?? throw new InvalidOperationException(
+                                   $"Package '{pkg}' was not found under the install directory after installation.");
+            if (Download.Value.Context.PersistVerifiedAnalyticsArtifact(directory) is { } provenance)
+            {
+                repos.SetAnalyticsProvenance(pkg, provenance);
+            }
             _logger.LogInformation("Package {PackageId} version {Version} installed successfully.", Model.Id, Model.Version.ToString());
             Succeeded.Value = true;
+            product.CompleteSucceeded();
             return;
 
         Failed:
             _logger.LogError("Installation failed for package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
             Failed.Value = true;
+            product.CompleteFailed();
         }
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Installation canceled for package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
             Canceled.Value = true;
+            product.CompleteCancelled();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception occurred during installation of package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
             Failed.Value = true;
+            product.CompleteFailed();
         }
         finally
         {

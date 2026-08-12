@@ -1,0 +1,81 @@
+{
+  "uid": "beutl-pipeline-health",
+  "title": "Beutl Telemetry Pipeline Health",
+  "tags": ["beutl", "pipeline", "collector"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Accepted / dropped spans by collector pipeline",
+      "datasource": { "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (receiver) (rate(otelcol_receiver_accepted_spans[$__rate_interval]))", "legendFormat": "accepted {{receiver}}", "range": true },
+        { "refId": "B", "expr": "sum by (processor) (rate({__name__=\"otelcol_processor_filter_spans.filtered\"}[$__rate_interval]))", "legendFormat": "dropped {{processor}}", "range": true }
+      ],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Export retry / queue pressure",
+      "datasource": { "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (exporter) (rate(otelcol_exporter_send_failed_spans[$__rate_interval]))", "legendFormat": "failed {{exporter}}", "range": true },
+        { "refId": "B", "expr": "sum by (exporter) (otelcol_exporter_queue_size)", "legendFormat": "queue {{exporter}}", "range": true }
+      ],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Rejected product spans",
+      "datasource": { "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 9 },
+      "targets": [{ "refId": "A", "expr": "sum(increase(beutl_beutl_analytics_rejected_spans_total[$__range]))", "legendFormat": "rejected", "range": true }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Aggregate cells suppressed (<5)",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 9 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, sum(SuppressedCellCount) AS value FROM beutl_analytics.grafana_pipeline_health WHERE $__timeFilter(MetricDate) GROUP BY MetricDate ORDER BY time" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Aggregate recomputation lag (minutes)",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 9 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT now() AS time, dateDiff('minute', max(ComputedAt), now()) AS value FROM beutl_analytics.grafana_pipeline_health" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Duplicate / late product deliveries",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 16 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, MetricName AS metric, Value AS value FROM beutl_analytics.grafana_pipeline_metrics WHERE MetricName IN ('pipeline_duplicate_events', 'pipeline_late_events') AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Ingest p95 lag and trusted feature cardinality",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 16 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, MetricName AS metric, Value AS value FROM beutl_analytics.grafana_pipeline_metrics WHERE MetricName IN ('pipeline_ingest_lag_p95_minutes', 'pipeline_feature_cardinality') AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    }
+  ]
+}

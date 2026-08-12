@@ -52,4 +52,87 @@ public class PackageInstallContext(string packageName, string version, string do
     public IList<(PackageIdentity, LicenseMetadata)> LicensesRequiringApproval { get; } = new List<(PackageIdentity, LicenseMetadata)>();
 
     internal FileResponse? Asset { get; set; }
+
+    internal string? ApprovedAnalyticsManifestSha256 { get; set; }
+
+    internal AnalyticsFeatureManifest? AnalyticsManifest { get; set; }
+
+    internal string? MarketplacePackageId { get; set; }
+
+    internal PackageAnalyticsProvenance? PersistVerifiedAnalyticsArtifact(string installedPath)
+    {
+        if (!HashVerified
+            || AnalyticsManifest is null
+            || Asset is not { Sha256: { } packageSha256 }
+            || PackageAnalyticsProvenance.CreateVerified(
+                MarketplacePackageId,
+                packageSha256,
+                AnalyticsManifest.Sha256) is not { } provenance
+            || PackageAnalyticsProvenance.CanonicalizePackageId(PackageName)
+                != provenance.CanonicalMarketplacePackageId
+            || string.IsNullOrWhiteSpace(NuGetPackageFile)
+            || !File.Exists(NuGetPackageFile)
+            || !Directory.Exists(installedPath))
+        {
+            return null;
+        }
+
+        string destination = PackageAnalyticsProvenance.GetArtifactPath(installedPath);
+        string temporary = destination + $".{Guid.NewGuid():N}.tmp";
+        try
+        {
+            string actualSourceHash;
+            using (FileStream source = File.OpenRead(NuGetPackageFile))
+            {
+                actualSourceHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(source));
+            }
+
+            if (!StringComparer.OrdinalIgnoreCase.Equals(actualSourceHash, provenance.PackageSha256))
+            {
+                return null;
+            }
+
+            if (AnalyticsFeatureManifest.TryLoadFromPackageFile(
+                    NuGetPackageFile,
+                    provenance.ApprovedManifestSha256) is null)
+            {
+                return null;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(NuGetPackageFile, temporary, overwrite: false);
+
+            string persistedHash;
+            using (FileStream persisted = File.OpenRead(temporary))
+            {
+                persistedHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(persisted));
+            }
+
+            if (!StringComparer.OrdinalIgnoreCase.Equals(persistedHash, provenance.PackageSha256))
+            {
+                return null;
+            }
+
+            File.Move(temporary, destination, overwrite: true);
+            return provenance;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(temporary))
+                {
+                    File.Delete(temporary);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A failed cleanup must not turn installation into a telemetry dependency.
+            }
+        }
+    }
 }

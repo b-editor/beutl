@@ -122,7 +122,9 @@ public partial class PackageInstaller : IBeutlApiResource
 
             context = new PackageInstallContext(name, version, asset.DownloadUrl)
             {
-                Asset = asset
+                Asset = asset,
+                MarketplacePackageId = release.Package.Name,
+                ApprovedAnalyticsManifestSha256 = release.ApprovedAnalyticsManifestSha256.Value
             };
             _installingContexts.Add(packageId, context);
             return context;
@@ -269,6 +271,9 @@ public partial class PackageInstaller : IBeutlApiResource
 
                 context.HashVerified = true;
                 context.Phase = PackageInstallPhase.Verified;
+                context.AnalyticsManifest = AnalyticsFeatureManifest.TryLoadFromPackageFile(
+                    context.NuGetPackageFile,
+                    context.ApprovedAnalyticsManifestSha256);
             }
         }
     }

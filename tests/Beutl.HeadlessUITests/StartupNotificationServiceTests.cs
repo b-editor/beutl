@@ -1,9 +1,12 @@
-﻿using Avalonia.Controls;
+﻿using System.Reflection;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Beutl.Configuration;
 using Beutl.Language;
+using Beutl.Serialization;
 using Beutl.Services;
+using Beutl.ViewModels.SettingsPages;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
@@ -62,7 +65,8 @@ public sealed class StartupNotificationServiceTests
             Beutl_Api_Client = true,
             Beutl_Application = false,
             Beutl_PackageManagement = true,
-            Beutl_Logging = false
+            Beutl_Logging = false,
+            UsageAnalytics = false
         };
 
         StartupNotificationService.ShowTelemetryConsent(config);
@@ -84,7 +88,136 @@ public sealed class StartupNotificationServiceTests
 
         config.Beutl_Logging = false;
 
+        Assert.That(Telemetry.IsConsentConfigured(config), Is.False);
+
+        config.UsageAnalytics = false;
+
         Assert.That(Telemetry.IsConsentConfigured(config), Is.True);
+    }
+
+    [TestCase(true, null, null, null)]
+    [TestCase(false, true, null, false)]
+    [TestCase(false, true, true, false)]
+    [TestCase(null, true, false, true)]
+    public void TelemetryConfig_MigratesOnlyTheHistoricalApplicationChoice(
+        bool? application,
+        bool? packageManagement,
+        bool? apiClient,
+        bool? logging)
+    {
+        var config = new TelemetryConfig
+        {
+            Beutl_Application = application,
+            Beutl_PackageManagement = packageManagement,
+            Beutl_Api_Client = apiClient,
+            Beutl_Logging = logging
+        };
+
+        bool migrated = config.MigrateUsageAnalyticsFromLegacy();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(migrated, Is.EqualTo(application.HasValue));
+            Assert.That(config.UsageAnalytics, Is.EqualTo(application));
+            Assert.That(config.UsageAnalyticsMigratedFromLegacy, Is.EqualTo(application.HasValue));
+        });
+    }
+
+    [Test]
+    public void TelemetryConfig_RoundTripsInternalMigrationState()
+    {
+        var source = new TelemetryConfig
+        {
+            UsageAnalytics = true,
+            UsageAnalyticsMigratedFromLegacy = true,
+            UsageAnalyticsMigrationNoticeShown = true
+        };
+
+        var restored = new TelemetryConfig();
+        CoreSerializer.PopulateFromJsonObject(
+            restored,
+            CoreSerializer.SerializeToJsonObject(source));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.UsageAnalytics, Is.True);
+            Assert.That(restored.UsageAnalyticsMigratedFromLegacy, Is.True);
+            Assert.That(restored.UsageAnalyticsMigrationNoticeShown, Is.True);
+        });
+    }
+
+    [Test]
+    public void CrashMarkers_StoreOnlyAtomicPresenceAndNeverExceptionCanaries()
+    {
+        const string crashRecoveryMarkerFileName = "last-unhandled-exeption";
+        const string canary = "C:\\Users\\alice\\private-project.beutl|alice@example.test|at Secret.Method";
+        string home = BeutlEnvironment.GetHomeDirectoryPath();
+        string telemetryMarker = TelemetryUncleanSessionMarker.GetPath(home);
+        string recoveryMarker = Path.Combine(home, crashRecoveryMarkerFileName);
+        try
+        {
+            typeof(UnhandledExceptionHandler)
+                .GetMethod("MarkCrashState", BindingFlags.NonPublic | BindingFlags.Static)!
+                .Invoke(null, null);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.ReadAllBytes(telemetryMarker), Is.Empty);
+                Assert.That(File.ReadAllBytes(recoveryMarker), Is.Empty);
+                Assert.That(File.ReadAllText(telemetryMarker), Does.Not.Contain(canary));
+                Assert.That(File.ReadAllText(recoveryMarker), Does.Not.Contain(canary));
+            });
+        }
+        finally
+        {
+            if (File.Exists(telemetryMarker)) File.Delete(telemetryMarker);
+            if (File.Exists(recoveryMarker)) File.Delete(recoveryMarker);
+        }
+    }
+
+    [Test]
+    public void ShowTelemetryConsent_WhenMigrated_ShowsMigrationNoticeOnlyOnce()
+    {
+        using var scope = new NotificationHandlerScope();
+        var config = new TelemetryConfig
+        {
+            Beutl_Api_Client = true,
+            Beutl_Application = true,
+            Beutl_PackageManagement = true,
+            Beutl_Logging = true
+        };
+        Assert.That(config.MigrateUsageAnalyticsFromLegacy(), Is.True);
+
+        StartupNotificationService.ShowTelemetryConsent(config);
+        StartupNotificationService.ShowTelemetryConsent(config);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Handler.Notifications, Has.Count.EqualTo(1));
+            Assert.That(scope.Handler.Notifications[0].Title,
+                Is.EqualTo(SettingsStrings.Telemetry_UsageAnalytics));
+            Assert.That(config.UsageAnalyticsMigrationNoticeShown, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    public void TelemetrySettings_ResetIdentityRemainsAvailableWhenUsageAnalyticsIsDisabled()
+    {
+        TelemetryConfig config = GlobalConfiguration.Instance.TelemetryConfig;
+        bool? previousUsageAnalytics = config.UsageAnalytics;
+        try
+        {
+            config.UsageAnalytics = false;
+            using var viewModel = new TelemetrySettingsPageViewModel();
+
+            Assert.That(
+                ((System.Windows.Input.ICommand)viewModel.ResetUsageIdentity).CanExecute(null),
+                Is.True);
+        }
+        finally
+        {
+            config.UsageAnalytics = previousUsageAnalytics;
+        }
     }
 
     [TestCase(true)]
@@ -276,6 +409,7 @@ public sealed class StartupNotificationServiceTests
         Assert.That(config.Beutl_Application, Is.EqualTo(expected));
         Assert.That(config.Beutl_PackageManagement, Is.EqualTo(expected));
         Assert.That(config.Beutl_Logging, Is.EqualTo(expected));
+        Assert.That(config.UsageAnalytics, Is.EqualTo(expected));
     }
 
     private sealed class CaptureNotificationHandler : INotificationServiceHandler

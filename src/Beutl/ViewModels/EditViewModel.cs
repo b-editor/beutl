@@ -58,6 +58,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private Services.Adapters.PropertyEditorFactoryAdapter? _propertyEditorFactory;
     private Services.Adapters.PropertiesEditorFactoryImpl? _propertiesEditorFactory;
     private volatile bool _viewStateSaveSuppressed;
+    private readonly FirstEditTelemetryTracker _firstEditTelemetryTracker;
     private readonly HashSet<string> _pendingProxyInvalidations = new(StringComparer.Ordinal);
     private bool _proxyInvalidationScheduled;
     private volatile bool _disposed;
@@ -157,6 +158,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         var observer = new CoreObjectOperationObserver(null, Scene, sequenceGenerator)
             .DisposeWith(_disposables);
         HistoryManager = new HistoryManager(Scene, sequenceGenerator);
+        _firstEditTelemetryTracker = new FirstEditTelemetryTracker(() =>
+            Telemetry.RecordProductEvent(
+                ProductEventNames.EditorFirstEdit,
+                ProductOutcomes.Success,
+                [new(ProductAttributeNames.Trigger, "manual")]));
         HistoryManager.Subscribe(observer)
             .DisposeWith(_disposables);
 
@@ -181,6 +187,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         _autoSaveService.DisposeWith(_disposables);
 
         RestoreState();
+        HistoryManager.SubscribeEntries(_firstEditTelemetryTracker.OnHistoryEntriesChanged).Subscription
+            .DisposeWith(_disposables);
 
         _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
     }
@@ -1041,6 +1049,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     {
         return ExecuteHistoryMutationAsync(
             "Undo",
+            "undo",
             "Undoing last command.",
             "Undo completed.",
             // A pending transaction is flushed onto the undo stack by BeforeMutation
@@ -1053,6 +1062,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     {
         return ExecuteHistoryMutationAsync(
             "Redo",
+            "redo",
             "Redoing last undone command.",
             "Redo completed.",
             // Redo() rolls back a pending transaction before checking the redo stack,
@@ -1065,6 +1075,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     {
         return ExecuteHistoryMutationAsync(
             $"JumpTo({index})",
+            "history-jump",
             null,
             null,
             () => HistoryManager.WouldJumpToMove(index),
@@ -1073,11 +1084,15 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private async ValueTask<bool> ExecuteHistoryMutationAsync(
         string operationName,
+        string analyticsTrigger,
         string? startMessage,
         string? completedMessage,
         Func<bool> shouldPause,
         Func<bool> mutate)
     {
+        using ProductSummaryOperation product = Telemetry.StartProductSummary(
+            ProductEventNames.EditorActionSummary,
+            analyticsTrigger);
         try
         {
             if (startMessage is not null)
@@ -1092,17 +1107,21 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 _logger.LogInformation("{Message}", completedMessage);
             }
 
+            product.Complete(changed ? ProductOutcomes.Success : ProductOutcomes.Blocked,
+                changed ? null : "no-history-change");
             return changed;
         }
         catch (ObjectDisposedException ex)
         {
             _logger.LogDebug(ex, "{OperationName} skipped because the editor is disposed.", operationName);
+            product.Complete(ProductOutcomes.Blocked, "editor-disposed");
             return false;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "{OperationName} failed.", operationName);
             NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
+            product.Complete(ProductOutcomes.Failed, "history-mutation-failed");
             return false;
         }
     }

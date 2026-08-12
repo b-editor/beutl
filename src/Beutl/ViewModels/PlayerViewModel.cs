@@ -67,6 +67,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private readonly ReactivePropertySlim<string?> _previewRenderError = new();
     private long _previewRenderErrorIssuedVersion;
     private long _previewRenderErrorAppliedVersion;
+    private int _firstPreviewFrameRecorded;
+    private int _playbackFailed;
     // Serializes RestoreStoppedPreviewState so PlayInternal's finally and Pause()'s timeout path
     // cannot interleave the dispose/resubscribe and Scene.Edited unhook/hook steps across threads.
     private readonly object _restoreLock = new();
@@ -507,38 +509,66 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         int generation = _sessionGuard.Claim(() =>
         {
             _stopRequested = false;
+            _playbackFailed = 0;
             IsPlaying.Value = true;
         });
 
         _playbackTask = Task.Run(async () =>
         {
-            // ループ再生時は一度の Play() タスク内で再開する。
-            // Post で Play() を再帰呼び出しすると _playbackTask が新しいタスクで上書きされ、
-            // Pause() の `await _playbackTask;` が想定外のタスクを待ってしまうため避ける。
-            bool restart;
-            do
+            using ProductSummaryOperation product = Telemetry.StartProductSummary(
+                ProductEventNames.PreviewPlaybackSummary,
+                "player");
+            try
             {
-                using var playbackCts = new CancellationTokenSource();
-                using IDisposable cancelPlayback = IsPlaying
-                    .Where(static value => !value)
-                    .Take(1)
-                    .Subscribe(_ => playbackCts.Cancel());
-                restart = await PlayInternal(generation, playbackCts.Token);
-                // Stop restarting on a boundary-window pause (_stopRequested set without flipping
-                // IsPlaying), or when a Pause() timeout disowned this task and a newer session took
-                // over — a stale task must not re-arm and stomp the session that replaced it.
-                if (restart && (_stopRequested || !_sessionGuard.Owns(generation)))
+                // ループ再生時は一度の Play() タスク内で再開する。
+                // Post で Play() を再帰呼び出しすると _playbackTask が新しいタスクで上書きされ、
+                // Pause() の `await _playbackTask;` が想定外のタスクを待ってしまうため避ける。
+                bool restart;
+                do
                 {
-                    restart = false;
-                }
+                    using var playbackCts = new CancellationTokenSource();
+                    using IDisposable cancelPlayback = IsPlaying
+                        .Where(static value => !value)
+                        .Take(1)
+                        .Subscribe(_ => playbackCts.Cancel());
+                    restart = await PlayInternal(generation, playbackCts.Token);
+                    // Stop restarting on a boundary-window pause (_stopRequested set without flipping
+                    // IsPlaying), or when a Pause() timeout disowned this task and a newer session took
+                    // over — a stale task must not re-arm and stomp the session that replaced it.
+                    if (restart && (_stopRequested || !_sessionGuard.Owns(generation)))
+                    {
+                        restart = false;
+                    }
 
-                if (restart && !_sessionGuard.TryApply(
-                        generation,
-                        () => IsPlaying.Value = true))
+                    if (restart && !_sessionGuard.TryApply(
+                            generation,
+                            () => IsPlaying.Value = true))
+                    {
+                        restart = false;
+                    }
+                } while (restart);
+
+                if (Volatile.Read(ref _playbackFailed) != 0)
                 {
-                    restart = false;
+                    product.Complete(ProductOutcomes.Failed, "playback-render-failed");
                 }
-            } while (restart);
+                else
+                {
+                    product.Complete(
+                        _stopRequested ? ProductOutcomes.Cancelled : ProductOutcomes.Success,
+                        _stopRequested ? "cancelled" : null);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                product.Complete(ProductOutcomes.Cancelled, "cancelled");
+                throw;
+            }
+            catch
+            {
+                product.Complete(ProductOutcomes.Failed, "playback-failed");
+                throw;
+            }
         });
     }
 
@@ -1645,6 +1675,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _editorClock.CurrentTime.Value = failure.Frame.ToTimeSpan(rate);
         EditViewModel.FrameCacheManager.Value.CurrentFrame = failure.Frame;
         UpdatePreviewRenderError(MessageStrings.FrameDrawingException, isCurrent);
+        Interlocked.Exchange(ref _playbackFailed, 1);
         IsPlaying.Value = false;
         return true;
     }
@@ -1933,6 +1964,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     if (!token.IsCancellationRequested)
                     {
                         AfterRendered.OnNext(Unit.Default);
+                        if (Interlocked.Exchange(ref _firstPreviewFrameRecorded, 1) == 0)
+                        {
+                            Telemetry.RecordProductEvent(
+                                ProductEventNames.PreviewFirstFrame,
+                                ProductOutcomes.Success,
+                                [new(ProductAttributeNames.Trigger, "preview")]);
+                        }
                         ClearPreviewRenderError(token);
                     }
                 }

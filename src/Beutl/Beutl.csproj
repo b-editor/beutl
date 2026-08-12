@@ -66,7 +66,6 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Xaml.Behaviors.Avalonia" />
     <PackageReference Include="Xaml.Behaviors.Interactivity" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="Dotnet.Bundle" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
@@ -76,16 +75,11 @@
          redundant (NU1510). -->
     <PackageReference Include="ModelContextProtocol" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
-    <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="PanelExtension" />
     <PackageReference Include="ReactiveProperty" />
     <PackageReference Include="Dock.Avalonia" />
     <PackageReference Include="Dock.Model.Inpc" />
     <PackageReference Include="Dock.Avalonia.Themes.Fluent" />
-    <PackageReference Include="Serilog.Extensions.Logging" />
-    <PackageReference Include="Serilog.Sinks.Async" />
-    <PackageReference Include="Serilog.Sinks.File" />
-    <PackageReference Include="Serilog.Sinks.Debug" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="System.Interactive" />
     <PackageReference Include="Roslynator.Analyzers">
@@ -104,6 +98,7 @@
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
     <ProjectReference Include="..\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Include="..\Beutl.Editor.Components\Beutl.Editor.Components.csproj" />
+    <ProjectReference Include="..\Beutl.Telemetry\Beutl.Telemetry.csproj" />
     <ProjectReference Condition="'$(NukePublish)'!='True'"
       Include="..\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />
     <ProjectReference Condition="'$(NukePublish)'!='True'"

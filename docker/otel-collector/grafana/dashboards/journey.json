@@ -1,0 +1,48 @@
+{
+  "uid": "beutl-journey",
+  "title": "Beutl Product Journey",
+  "tags": ["beutl", "journey", "funnel"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": { "from": "now-30d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "bargauge",
+      "title": "Same-session journey funnel",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT Dimension1 AS stage, sum(Value) AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'journey_same_session_funnel' AND $__timeFilter(MetricDate) GROUP BY stage ORDER BY multiIf(stage='startup', 1, stage='project', 2, stage='asset', 3, stage='first_edit', 4, stage='preview', 5, stage='save', 6, stage='export', 7, 99)" }],
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Journey stages by UTC day",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, Dimension1 AS metric, Value AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'journey_same_session_funnel' AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Operation outcomes (success, partial, failed, cancelled, blocked, queued)",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT Dimension1 AS operation, Dimension2 AS outcome, sum(Value) AS event_count FROM beutl_analytics.grafana_analytics WHERE MetricName = 'event_outcomes' AND $__timeFilter(MetricDate) GROUP BY operation, outcome ORDER BY event_count DESC" }],
+      "options": { "showHeader": true, "cellHeight": "sm" }
+    },
+    {
+      "id": 4,
+      "type": "bargauge",
+      "title": "First seven-day activation funnel",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT Dimension1 AS stage, sum(Value) AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'activation_7d_funnel' AND $__timeFilter(MetricDate) GROUP BY stage ORDER BY multiIf(stage='startup', 1, stage='project', 2, stage='asset', 3, stage='first_edit', 4, stage='preview', 5, stage='save', 6, stage='export', 7, 99)" }],
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } }
+    }
+  ]
+}

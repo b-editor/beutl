@@ -1,3 +1,6 @@
+# This collector is the sole ingress point for this stack. It has no
+# persistent queue or storage extension: failed/offline telemetry is dropped
+# from memory.
 receivers:
   otlp:
     protocols:
@@ -7,49 +10,462 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
-  batch:
+  memory_limiter/product:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  memory_limiter/diagnostics:
+    check_interval: 1s
+    limit_mib: 192
+    spike_limit_mib: 48
+  memory_limiter/rejected:
+    check_interval: 1s
+    # The limiter observes whole-process RSS. Keep its soft threshold above the
+    # Collector's normal ~50 MiB baseline so the rejection side-pipeline cannot
+    # turn an otherwise valid OTLP request into a transient 503.
+    limit_mib: 128
+    spike_limit_mib: 32
+  memory_limiter/metrics:
+    check_interval: 1s
+    limit_mib: 128
+    spike_limit_mib: 32
+  memory_limiter/logs:
+    check_interval: 1s
+    limit_mib: 128
+    spike_limit_mib: 32
+
+  # The v1 product contract is fail-closed.  Any invalid product span is
+  # dropped before it reaches ClickHouse and is counted by the rejected route.
+  filter/product-contract:
+    error_mode: propagate
+    traces:
+      span:
+        - 'resource.attributes["beutl.telemetry.stream"] != "product"'
+        - 'resource.attributes["beutl.analytics.schema"] != "v1"'
+        - 'instrumentation_scope.name != "Beutl.ProductAnalytics"'
+        - 'instrumentation_scope.version != "v1"'
+        - 'resource.attributes["service.name"] != "beutl.desktop" and resource.attributes["service.name"] != "beutl.package-tools"'
+        - 'resource.attributes["service.version"] == nil or not IsMatch(resource.attributes["service.version"], "^[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4}([-+][0-9A-Za-z][0-9A-Za-z.-]{0,47})?$")'
+        - 'resource.attributes["beutl.installation.id"] == nil or not IsMatch(resource.attributes["beutl.installation.id"], "^[0-9a-f]{32}$")'
+        - 'resource.attributes["beutl.session.id"] == nil or not IsMatch(resource.attributes["beutl.session.id"], "^[0-9a-f]{32}$")'
+        - 'resource.attributes["beutl.first_seen_month"] == nil or not IsMatch(resource.attributes["beutl.first_seen_month"], "^[0-9]{4}-(0[1-9]|1[0-2])$")'
+        - 'resource.attributes["beutl.release.channel"] != "stable" and resource.attributes["beutl.release.channel"] != "beta" and resource.attributes["beutl.release.channel"] != "nightly" and resource.attributes["beutl.release.channel"] != "development"'
+        - 'resource.attributes["os.type"] != "windows" and resource.attributes["os.type"] != "linux" and resource.attributes["os.type"] != "macos" and resource.attributes["os.type"] != "other"'
+        - 'resource.attributes["process.architecture"] != "x86" and resource.attributes["process.architecture"] != "x64" and resource.attributes["process.architecture"] != "arm" and resource.attributes["process.architecture"] != "arm64" and resource.attributes["process.architecture"] != "wasm"'
+        - 'resource.attributes["beutl.renderer"] != "unknown" and resource.attributes["beutl.renderer"] != "software" and resource.attributes["beutl.renderer"] != "opengl" and resource.attributes["beutl.renderer"] != "vulkan" and resource.attributes["beutl.renderer"] != "metal" and resource.attributes["beutl.renderer"] != "direct3d11" and resource.attributes["beutl.renderer"] != "skia"'
+        - 'attributes["beutl.event.id"] == nil or not IsMatch(attributes["beutl.event.id"], "^[0-9a-f]{32}$")'
+        - 'attributes["beutl.outcome"] != "success" and attributes["beutl.outcome"] != "partial" and attributes["beutl.outcome"] != "failed" and attributes["beutl.outcome"] != "cancelled" and attributes["beutl.outcome"] != "blocked" and attributes["beutl.outcome"] != "queued"'
+        - 'attributes["beutl.trigger"] != nil and not IsMatch(attributes["beutl.trigger"], "^(featured|history-jump|manual|marketplace|mcp|menu|more|player|preview|reconcile|settings|startup|undo|redo|unload)$")'
+        - 'attributes["beutl.error_code"] != nil and not IsMatch(attributes["beutl.error_code"], "^(agent-install-failed|agent-root-missing|asset-open-failed|cancelled|catalog-load-failed|cli-registration-partial|create-failed|editor-disposed|encode-failed|extension-install-failed|extension-load-failed|extension-unload-failed|extension-unload-partial|host-already-stopped|host-start-failed|host-stop-requested|history-mutation-failed|invalid-encoder-settings|item-save-failed|missing-controller|missing-source|no-history-change|no-selected-item|open-failed|package-export-failed|playback-failed|playback-render-failed|resource-relocation-partial|save-all-failed|session-attach-failed|supersampling-limit|tool-call-failed|uncompleted-operation|version-mismatch)$")'
+        - 'attributes["beutl.duration_ms"] == nil or attributes["beutl.duration_ms"] < 0 or attributes["beutl.duration_ms"] > 86400000'
+        - 'attributes["beutl.feature.id"] != nil and not IsMatch(attributes["beutl.feature.id"], "^(generic|overflow|builtin/[a-z][a-z0-9-]{0,31}/[a-z][a-z0-9-]{0,63}|extension/[a-z0-9]([a-z0-9.-]{0,98}[a-z0-9])?/[a-z][a-z0-9-]{0,31}/[a-z][a-z0-9-]{0,63})$")'
+        - 'attributes["beutl.count.bucket"] != nil and not IsMatch(attributes["beutl.count.bucket"], "^(1|2-5|6-10|11-50|51[+])$")'
+        - 'attributes["beutl.resolution.bucket"] != nil and not IsMatch(attributes["beutl.resolution.bucket"], "^(sd|hd|uhd|larger)$")'
+        - 'attributes["beutl.project.size.bucket"] != nil and not IsMatch(attributes["beutl.project.size.bucket"], "^(1|2-5|6-10|11-50|51[+])$")'
+        - 'name != "app.session.start" and name != "app.session.end" and name != "project.create" and name != "project.open" and name != "project.save" and name != "asset.add" and name != "editor.first_edit" and name != "editor.action_summary" and name != "preview.first_frame" and name != "preview.playback_summary" and name != "media.export" and name != "project.package_export" and name != "extension.catalog" and name != "extension.manage" and name != "extension.load" and name != "agent.install" and name != "agent.host" and name != "agent.session_attach" and name != "agent.tool_summary"'
+        - 'kind != SPAN_KIND_INTERNAL'
+        - 'end_time < start_time'
+        - '(end_time - start_time) > Duration("24h")'
+        - '(end_time - Now()) > Duration("5m")'
+        - '(start_time - Now()) > Duration("5m")'
+        - '(Now() - start_time) > Duration("168h")'
+      spanevent:
+        - 'true'
+
+  # An independent path sees only malformed product telemetry, exports no
+  # record, and emits a bounded rejection count metric.
+  filter/not-rejected-product:
+    error_mode: ignore
+    traces:
+      span:
+        - 'resource.attributes["beutl.telemetry.stream"] != "product"'
+        - >-
+          resource.attributes["beutl.analytics.schema"] == "v1"
+          and instrumentation_scope.name == "Beutl.ProductAnalytics"
+          and instrumentation_scope.version == "v1"
+          and (resource.attributes["service.name"] == "beutl.desktop" or resource.attributes["service.name"] == "beutl.package-tools")
+          and resource.attributes["service.version"] != nil and IsMatch(resource.attributes["service.version"], "^[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4}([-+][0-9A-Za-z][0-9A-Za-z.-]{0,47})?$")
+          and resource.attributes["beutl.installation.id"] != nil and IsMatch(resource.attributes["beutl.installation.id"], "^[0-9a-f]{32}$")
+          and resource.attributes["beutl.session.id"] != nil and IsMatch(resource.attributes["beutl.session.id"], "^[0-9a-f]{32}$")
+          and resource.attributes["beutl.first_seen_month"] != nil and IsMatch(resource.attributes["beutl.first_seen_month"], "^[0-9]{4}-(0[1-9]|1[0-2])$")
+          and IsMatch(resource.attributes["beutl.release.channel"], "^(stable|beta|nightly|development)$")
+          and IsMatch(resource.attributes["os.type"], "^(windows|linux|macos|other)$")
+          and IsMatch(resource.attributes["process.architecture"], "^(x86|x64|arm|arm64|wasm)$")
+          and IsMatch(resource.attributes["beutl.renderer"], "^(unknown|software|opengl|vulkan|metal|direct3d11|skia)$")
+          and attributes["beutl.event.id"] != nil and IsMatch(attributes["beutl.event.id"], "^[0-9a-f]{32}$")
+          and IsMatch(attributes["beutl.outcome"], "^(success|partial|failed|cancelled|blocked|queued)$")
+          and (attributes["beutl.trigger"] == nil or IsMatch(attributes["beutl.trigger"], "^(featured|history-jump|manual|marketplace|mcp|menu|more|player|preview|reconcile|settings|startup|undo|redo|unload)$"))
+          and (attributes["beutl.error_code"] == nil or IsMatch(attributes["beutl.error_code"], "^(agent-install-failed|agent-root-missing|asset-open-failed|cancelled|catalog-load-failed|cli-registration-partial|create-failed|editor-disposed|encode-failed|extension-install-failed|extension-load-failed|extension-unload-failed|extension-unload-partial|host-already-stopped|host-start-failed|host-stop-requested|history-mutation-failed|invalid-encoder-settings|item-save-failed|missing-controller|missing-source|no-history-change|no-selected-item|open-failed|package-export-failed|playback-failed|playback-render-failed|resource-relocation-partial|save-all-failed|session-attach-failed|supersampling-limit|tool-call-failed|uncompleted-operation|version-mismatch)$"))
+          and attributes["beutl.duration_ms"] != nil and attributes["beutl.duration_ms"] >= 0 and attributes["beutl.duration_ms"] <= 86400000
+          and (attributes["beutl.feature.id"] == nil or IsMatch(attributes["beutl.feature.id"], "^(generic|overflow|builtin/[a-z][a-z0-9-]{0,31}/[a-z][a-z0-9-]{0,63}|extension/[a-z0-9]([a-z0-9.-]{0,98}[a-z0-9])?/[a-z][a-z0-9-]{0,31}/[a-z][a-z0-9-]{0,63})$"))
+          and (attributes["beutl.count.bucket"] == nil or IsMatch(attributes["beutl.count.bucket"], "^(1|2-5|6-10|11-50|51[+])$"))
+          and (attributes["beutl.resolution.bucket"] == nil or IsMatch(attributes["beutl.resolution.bucket"], "^(sd|hd|uhd|larger)$"))
+          and (attributes["beutl.project.size.bucket"] == nil or IsMatch(attributes["beutl.project.size.bucket"], "^(1|2-5|6-10|11-50|51[+])$"))
+          and (name == "app.session.start" or name == "app.session.end" or name == "project.create" or name == "project.open" or name == "project.save" or name == "asset.add" or name == "editor.first_edit" or name == "editor.action_summary" or name == "preview.first_frame" or name == "preview.playback_summary" or name == "media.export" or name == "project.package_export" or name == "extension.catalog" or name == "extension.manage" or name == "extension.load" or name == "agent.install" or name == "agent.host" or name == "agent.session_attach" or name == "agent.tool_summary")
+          and kind == SPAN_KIND_INTERNAL
+          and end_time >= start_time
+          and (end_time - start_time) <= Duration("24h")
+          and (end_time - Now()) <= Duration("5m")
+          and (start_time - Now()) <= Duration("5m")
+          and (Now() - start_time) <= Duration("168h")
+      spanevent:
+        - 'true'
+
+  filter/diagnostic-traces:
+    error_mode: propagate
+    traces:
+      span:
+        - 'resource.attributes["beutl.telemetry.stream"] != "diagnostic"'
+        - 'instrumentation_scope.name != "Beutl.Application" and instrumentation_scope.name != "Beutl.PackageManagement" and instrumentation_scope.name != "Beutl.Api.Client" and instrumentation_scope.name != "Beutl.Diagnostics"'
+        - 'instrumentation_scope.version != "v1" and instrumentation_scope.version != resource.attributes["service.version"]'
+        - 'resource.attributes["service.name"] != "beutl.desktop" and resource.attributes["service.name"] != "beutl.package-tools"'
+        - 'resource.attributes["service.version"] == nil or not IsMatch(resource.attributes["service.version"], "^[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4}([-+][0-9A-Za-z][0-9A-Za-z.-]{0,47})?$")'
+        - 'resource.attributes["beutl.release.channel"] != "stable" and resource.attributes["beutl.release.channel"] != "beta" and resource.attributes["beutl.release.channel"] != "nightly" and resource.attributes["beutl.release.channel"] != "development"'
+        - 'resource.attributes["os.type"] != "windows" and resource.attributes["os.type"] != "linux" and resource.attributes["os.type"] != "macos" and resource.attributes["os.type"] != "other"'
+        - 'resource.attributes["process.architecture"] != "x86" and resource.attributes["process.architecture"] != "x64" and resource.attributes["process.architecture"] != "arm" and resource.attributes["process.architecture"] != "arm64" and resource.attributes["process.architecture"] != "wasm"'
+        - 'resource.attributes["beutl.renderer"] != "unknown" and resource.attributes["beutl.renderer"] != "software" and resource.attributes["beutl.renderer"] != "opengl" and resource.attributes["beutl.renderer"] != "vulkan" and resource.attributes["beutl.renderer"] != "metal" and resource.attributes["beutl.renderer"] != "direct3d11" and resource.attributes["beutl.renderer"] != "skia"'
+        - 'attributes["beutl.component"] == nil or not IsMatch(attributes["beutl.component"], "^(app|project|preview|export|package|extension|agent|telemetry)$")'
+        - 'attributes["beutl.outcome"] != "success" and attributes["beutl.outcome"] != "partial" and attributes["beutl.outcome"] != "failed" and attributes["beutl.outcome"] != "cancelled" and attributes["beutl.outcome"] != "blocked" and attributes["beutl.outcome"] != "queued"'
+        - 'attributes["beutl.error_code"] != nil and not IsMatch(attributes["beutl.error_code"], "^(agent-install-failed|agent-root-missing|asset-open-failed|cancelled|catalog-load-failed|cli-registration-partial|create-failed|editor-disposed|encode-failed|extension-install-failed|extension-load-failed|extension-unload-failed|extension-unload-partial|host-already-stopped|host-start-failed|host-stop-requested|history-mutation-failed|invalid-encoder-settings|item-save-failed|missing-controller|missing-source|no-history-change|no-selected-item|open-failed|package-export-failed|playback-failed|playback-render-failed|resource-relocation-partial|save-all-failed|session-attach-failed|supersampling-limit|tool-call-failed|uncompleted-operation|version-mismatch)$")'
+        - 'attributes["beutl.exception.type"] != nil and attributes["beutl.exception.type"] != "io_error" and attributes["beutl.exception.type"] != "network_error" and attributes["beutl.exception.type"] != "render_error" and attributes["beutl.exception.type"] != "validation_error" and attributes["beutl.exception.type"] != "cancelled" and attributes["beutl.exception.type"] != "unknown"'
+      spanevent:
+        - 'true'
+
+  filter/diagnostic-logs:
+    error_mode: propagate
+    logs:
+      log_record:
+        - 'resource.attributes["beutl.telemetry.stream"] != "diagnostic"'
+        - 'instrumentation_scope.name != "Beutl.SafeDiagnostics"'
+        - 'instrumentation_scope.version != "" and instrumentation_scope.version != "v1" and instrumentation_scope.version != resource.attributes["service.version"]'
+        - 'resource.attributes["service.name"] != "beutl.desktop" and resource.attributes["service.name"] != "beutl.package-tools"'
+        - 'resource.attributes["service.version"] == nil or not IsMatch(resource.attributes["service.version"], "^[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4}([-+][0-9A-Za-z][0-9A-Za-z.-]{0,47})?$")'
+        - 'resource.attributes["beutl.release.channel"] != "stable" and resource.attributes["beutl.release.channel"] != "beta" and resource.attributes["beutl.release.channel"] != "nightly" and resource.attributes["beutl.release.channel"] != "development"'
+        - 'resource.attributes["os.type"] != "windows" and resource.attributes["os.type"] != "linux" and resource.attributes["os.type"] != "macos" and resource.attributes["os.type"] != "other"'
+        - 'resource.attributes["process.architecture"] != "x86" and resource.attributes["process.architecture"] != "x64" and resource.attributes["process.architecture"] != "arm" and resource.attributes["process.architecture"] != "arm64" and resource.attributes["process.architecture"] != "wasm"'
+        - 'resource.attributes["beutl.renderer"] != "unknown" and resource.attributes["beutl.renderer"] != "software" and resource.attributes["beutl.renderer"] != "opengl" and resource.attributes["beutl.renderer"] != "vulkan" and resource.attributes["beutl.renderer"] != "metal" and resource.attributes["beutl.renderer"] != "direct3d11" and resource.attributes["beutl.renderer"] != "skia"'
+        - 'attributes["beutl.component"] == nil or not IsMatch(attributes["beutl.component"], "^(app|project|preview|export|package|extension|agent|telemetry)$")'
+        - 'attributes["beutl.error_code"] == nil or not IsMatch(attributes["beutl.error_code"], "^(agent-install-failed|agent-root-missing|asset-open-failed|cancelled|catalog-load-failed|cli-registration-partial|create-failed|editor-disposed|encode-failed|extension-install-failed|extension-load-failed|extension-unload-failed|extension-unload-partial|host-already-stopped|host-start-failed|host-stop-requested|history-mutation-failed|invalid-encoder-settings|item-save-failed|missing-controller|missing-source|no-history-change|no-selected-item|open-failed|package-export-failed|playback-failed|playback-render-failed|resource-relocation-partial|save-all-failed|session-attach-failed|supersampling-limit|tool-call-failed|uncompleted-operation|version-mismatch)$")'
+        - 'attributes["beutl.outcome"] == nil'
+        - 'attributes["beutl.outcome"] != "success" and attributes["beutl.outcome"] != "partial" and attributes["beutl.outcome"] != "failed" and attributes["beutl.outcome"] != "cancelled" and attributes["beutl.outcome"] != "blocked" and attributes["beutl.outcome"] != "queued"'
+        - 'attributes["beutl.exception.type"] != nil and attributes["beutl.exception.type"] != "io_error" and attributes["beutl.exception.type"] != "network_error" and attributes["beutl.exception.type"] != "render_error" and attributes["beutl.exception.type"] != "validation_error" and attributes["beutl.exception.type"] != "cancelled" and attributes["beutl.exception.type"] != "unknown"'
+
+  # Prometheus receives only the low-cardinality quality contract and the
+  # collector-generated rejection count.  Resource attributes are removed
+  # later and resource-to-label conversion is disabled on the exporter.
+  filter/quality-metrics:
+    error_mode: propagate
+    metrics:
+      metric:
+        - 'name != "beutl.quality.operation.duration" and name != "beutl.quality.operation.total" and name != "beutl.quality.unclean_session.total"'
+        - 'resource.attributes["beutl.telemetry.stream"] != "product"'
+        - 'resource.attributes["beutl.analytics.schema"] != "v1"'
+        - 'instrumentation_scope.name != "Beutl.Quality"'
+        - 'instrumentation_scope.version != "v1"'
+        - 'resource.attributes["service.name"] != "beutl.desktop" and resource.attributes["service.name"] != "beutl.package-tools"'
+        - 'resource.attributes["service.version"] == nil or not IsMatch(resource.attributes["service.version"], "^[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4}([-+][0-9A-Za-z][0-9A-Za-z.-]{0,47})?$")'
+        - 'resource.attributes["beutl.release.channel"] != "stable" and resource.attributes["beutl.release.channel"] != "beta" and resource.attributes["beutl.release.channel"] != "nightly" and resource.attributes["beutl.release.channel"] != "development"'
+        - 'resource.attributes["os.type"] != "windows" and resource.attributes["os.type"] != "linux" and resource.attributes["os.type"] != "macos" and resource.attributes["os.type"] != "other"'
+        - 'resource.attributes["process.architecture"] != "x86" and resource.attributes["process.architecture"] != "x64" and resource.attributes["process.architecture"] != "arm" and resource.attributes["process.architecture"] != "arm64" and resource.attributes["process.architecture"] != "wasm"'
+        - 'resource.attributes["beutl.renderer"] != "unknown" and resource.attributes["beutl.renderer"] != "software" and resource.attributes["beutl.renderer"] != "opengl" and resource.attributes["beutl.renderer"] != "vulkan" and resource.attributes["beutl.renderer"] != "metal" and resource.attributes["beutl.renderer"] != "direct3d11" and resource.attributes["beutl.renderer"] != "skia"'
+        - 'name == "beutl.quality.operation.duration" and type != METRIC_DATA_TYPE_HISTOGRAM'
+        - 'name == "beutl.quality.operation.duration" and unit != "ms"'
+        - '(name == "beutl.quality.operation.total" or name == "beutl.quality.unclean_session.total") and type != METRIC_DATA_TYPE_SUM'
+        - 'name == "beutl.quality.operation.total" and unit != "{operation}"'
+        - 'name == "beutl.quality.unclean_session.total" and unit != "{session}"'
+        - '(name == "beutl.quality.operation.total" or name == "beutl.quality.unclean_session.total") and aggregation_temporality != AGGREGATION_TEMPORALITY_DELTA'
+        - '(name == "beutl.quality.operation.total" or name == "beutl.quality.unclean_session.total") and is_monotonic != true'
+        - 'name == "beutl.quality.operation.duration" and aggregation_temporality != AGGREGATION_TEMPORALITY_DELTA'
+      datapoint:
+        - '(metric.name == "beutl.quality.operation.duration" or metric.name == "beutl.quality.operation.total") and (Len(attributes) != 2 or attributes["beutl.operation"] == nil or not IsMatch(attributes["beutl.operation"], "^(app[.]session[.]start|project[.]open|preview[.]first_frame|preview[.]playback_summary|media[.]export)$") or attributes["beutl.outcome"] == nil or not IsMatch(attributes["beutl.outcome"], "^(success|partial|failed|cancelled|blocked|queued)$"))'
+        - 'metric.name == "beutl.quality.unclean_session.total" and Len(attributes) != 0'
+        # Counter deltas are positive Int64 values. A NumberDataPoint carrying
+        # asDouble reads as zero through value_int and is rejected as well.
+        - '(metric.name == "beutl.quality.operation.total" or metric.name == "beutl.quality.unclean_session.total") and value_int <= 0'
+        # The desktop exporter uses the OpenTelemetry standard explicit
+        # histogram boundaries. Fixing both length and values prevents public
+        # OTLP clients from creating arbitrary Prometheus `le` label series.
+        - 'metric.name == "beutl.quality.operation.duration" and (count <= 0 or sum == nil or sum != sum or sum < 0 or sum > 86400000 * count or Len(bucket_counts) != 16 or Len(explicit_bounds) != 15 or String(explicit_bounds) != "[0,5,10,25,50,75,100,250,500,750,1000,2500,5000,7500,10000]")'
+        # ParseJSON exposes fixed slice positions to OTTL v0.120. The sum must
+        # equal count; otherwise a client could poison cumulative buckets while
+        # leaving the histogram's reported count apparently valid.
+        - >-
+          metric.name == "beutl.quality.operation.duration"
+          and Len(bucket_counts) == 16
+          and (
+            ParseJSON(String(bucket_counts))[0] + ParseJSON(String(bucket_counts))[1]
+            + ParseJSON(String(bucket_counts))[2] + ParseJSON(String(bucket_counts))[3]
+            + ParseJSON(String(bucket_counts))[4] + ParseJSON(String(bucket_counts))[5]
+            + ParseJSON(String(bucket_counts))[6] + ParseJSON(String(bucket_counts))[7]
+            + ParseJSON(String(bucket_counts))[8] + ParseJSON(String(bucket_counts))[9]
+            + ParseJSON(String(bucket_counts))[10] + ParseJSON(String(bucket_counts))[11]
+            + ParseJSON(String(bucket_counts))[12] + ParseJSON(String(bucket_counts))[13]
+            + ParseJSON(String(bucket_counts))[14] + ParseJSON(String(bucket_counts))[15]
+          ) != count
+        - 'Len(exemplars) > 0'
+
+  # Keep only the declared product fields before the raw ClickHouse exporter.
+  # This removes arbitrary attributes, status messages, span events, and links
+  # rather than relying on application code alone.
+  transform/product-allowlist:
+    error_mode: propagate
+    trace_statements:
+      - context: resource
+        statements:
+          - 'keep_keys(attributes, ["service.name", "service.version", "beutl.telemetry.stream", "beutl.analytics.schema", "beutl.installation.id", "beutl.session.id", "beutl.first_seen_month", "beutl.release.channel", "os.type", "process.architecture", "beutl.renderer"])'
+      - context: scope
+        statements:
+          - 'keep_keys(attributes, [])'
+          - 'set(name, "Beutl.ProductAnalytics")'
+          - 'set(version, "v1")'
+      - context: span
+        statements:
+          - 'keep_keys(attributes, ["beutl.event.id", "beutl.outcome", "beutl.trigger", "beutl.error_code", "beutl.duration_ms", "beutl.feature.id", "beutl.count.bucket", "beutl.resolution.bucket", "beutl.project.size.bucket"])'
+          - 'set(status.message, "")'
+          - 'set(trace_state, "")'
+          - 'set(events, [])'
+          - 'set(links, [])'
+
+  # Tempo and Loki must never receive installation/session IDs or free-form
+  # values.  These transforms are a second defence in addition to the app's
+  # opt-in gates and structured diagnostic API.
+  transform/sanitize-diagnostic-traces:
+    error_mode: propagate
+    trace_statements:
+      - context: resource
+        statements:
+          - 'keep_keys(attributes, ["service.name", "service.version", "beutl.telemetry.stream", "beutl.release.channel", "os.type", "process.architecture", "beutl.renderer"])'
+      - context: scope
+        statements:
+          - 'keep_keys(attributes, [])'
+          - 'set(name, "Beutl.Diagnostics")'
+          - 'set(version, "v1")'
+      - context: span
+        statements:
+          - 'keep_keys(attributes, ["beutl.component", "beutl.error_code", "beutl.outcome", "beutl.exception.type"])'
+          - 'set(name, "beutl.diagnostic")'
+          - 'set(status.message, "")'
+          - 'set(trace_state, "")'
+          - 'set(events, [])'
+          - 'set(links, [])'
+
+  transform/sanitize-diagnostic-logs:
+    error_mode: propagate
+    log_statements:
+      - context: resource
+        statements:
+          - 'keep_keys(attributes, ["service.name", "service.version", "beutl.telemetry.stream", "beutl.release.channel", "os.type", "process.architecture", "beutl.renderer"])'
+      - context: scope
+        statements:
+          - 'keep_keys(attributes, [])'
+          - 'set(name, "Beutl.Diagnostics")'
+          - 'set(version, "v1")'
+      - context: log
+        statements:
+          - 'keep_keys(attributes, ["beutl.component", "beutl.error_code", "beutl.outcome", "beutl.exception.type"])'
+          - 'set(body, "diagnostic")'
+          - 'set(severity_text, "")'
+          - 'set(severity_number, SEVERITY_NUMBER_INFO)'
+
+  # Rejected product spans may contain attacker-controlled resource, scope,
+  # name, and attribute values. Canonicalize the entire signal before the
+  # stateful counter connector so neither its cache nor Prometheus can acquire
+  # an unbounded or privacy-sensitive dimension.
+  transform/sanitize-rejected-product:
+    error_mode: propagate
+    trace_statements:
+      - context: resource
+        statements:
+          - 'keep_keys(attributes, [])'
+          - 'set(attributes["service.name"], "beutl.collector")'
+      - context: scope
+        statements:
+          - 'keep_keys(attributes, [])'
+          - 'set(name, "Beutl.Collector")'
+          - 'set(version, "v1")'
+      - context: span
+        statements:
+          - 'keep_keys(attributes, [])'
+          - 'set(name, "beutl.rejected")'
+          - 'set(status.message, "")'
+          - 'set(trace_state, "")'
+          - 'set(events, [])'
+          - 'set(links, [])'
+
+  # Preserve only the fixed host enum as a datapoint label before the resource
+  # map (including all IDs and version values) is erased. This keeps desktop
+  # and PackageTools compliant with the single-writer rule while dashboards
+  # sum both sources.
+  transform/tag-quality-metrics:
+    error_mode: propagate
+    metric_statements:
+      - context: datapoint
+        statements:
+          - 'set(attributes["beutl.host"], resource.attributes["service.name"])'
+
+  transform/sanitize-quality-metrics:
+    error_mode: propagate
+    metric_statements:
+      - context: resource
+        statements:
+          - 'keep_keys(attributes, [])'
+      - context: scope
+        statements:
+          - 'keep_keys(attributes, [])'
+          - 'set(name, "Beutl.Quality")'
+          - 'set(version, "v1")'
+      - context: metric
+        statements:
+          - 'set(description, "")'
+          - 'set(unit, "")'
+      - context: datapoint
+        statements:
+          - 'keep_keys(attributes, ["beutl.operation", "beutl.outcome", "beutl.host"])'
+
+  transform/sanitize-rejected-metrics:
+    error_mode: propagate
+    metric_statements:
+      - context: resource
+        statements:
+          - 'keep_keys(attributes, [])'
+      - context: scope
+        statements:
+          - 'keep_keys(attributes, [])'
+          - 'set(name, "Beutl.Collector")'
+          - 'set(version, "v1")'
+      - context: metric
+        statements:
+          - 'set(name, "beutl.analytics.rejected.spans")'
+          - 'set(description, "")'
+          - 'set(unit, "")'
+      - context: datapoint
+        statements:
+          - 'keep_keys(attributes, [])'
+
+  batch/product:
     timeout: 1s
     send_batch_size: 1024
+  batch/diagnostics:
+    timeout: 1s
+    send_batch_size: 512
+  batch/rejected:
+    timeout: 1s
+    send_batch_size: 512
+  batch/metrics:
+    timeout: 5s
+    send_batch_size: 1024
+  batch/rejected-metrics:
+    timeout: 5s
+    send_batch_size: 1024
+  batch/logs:
+    timeout: 1s
+    send_batch_size: 512
 
-  # 追加の属性を付与する場合
-  attributes:
-    actions:
-      - key: deployment.environment
-        value: "development"
-        action: insert
+  # Application readers emit delta sums. Convert them in memory before the
+  # Prometheus exporter so desktop and PackageTools contribute to cumulative
+  # scrape-visible series without exposing resource identifiers.
+  deltatocumulative/quality: {}
+
+connectors:
+  spanmetrics/rejected-product:
+    namespace: beutl.analytics.rejected
+    histogram:
+      disable: true
+    exclude_dimensions: [service.name, span.name, span.kind, status.code]
+    aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
+    metrics_flush_interval: 5s
+    metrics_expiration: 0s
 
 exporters:
-  # デバッグ用 - コンソールに出力
-  debug:
-    verbosity: detailed
+  clickhouse/product:
+    endpoint: tcp://clickhouse:9000?dial_timeout=5s
+    database: beutl_analytics
+    username: beutl_ingest
+    create_schema: false
+    async_insert: true
+    compress: lz4
+    traces_table_name: product_spans
+    timeout: 5s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 1000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 30s
 
-  # ファイルに出力する場合
-  file:
-    path: /telemetry-data/telemetry-data.json
+  otlphttp/tempo:
+    traces_endpoint: http://tempo:4318/v1/traces
+    timeout: 5s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 500
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 30s
 
-  # Jaegerに送信
-  otlp/jaeger:
-    endpoint: jaeger:4317
-    tls:
-      insecure: true
+  otlphttp/loki:
+    logs_endpoint: http://loki:3100/otlp/v1/logs
+    timeout: 5s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 500
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 30s
+
+  prometheus/quality:
+    endpoint: 0.0.0.0:8889
+    namespace: beutl
+    send_timestamps: false
+    metric_expiration: 9480h # 395 days; Go durations do not accept d
+    resource_to_telemetry_conversion:
+      enabled: false
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
 
 service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch, attributes]
-      exporters: [debug, file, otlp/jaeger]
-
-    metrics:
-      receivers: [otlp]
-      processors: [batch, attributes]
-      exporters: [debug, file]
-
-    logs:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug, file]
-
+  extensions: [health_check]
   telemetry:
     logs:
-      level: info
+      level: warn
+    metrics:
+      # Internal collector counters power the Pipeline Health dashboard. This
+      # listener is reachable only from the Docker backend network.
+      level: detailed
+      address: 0.0.0.0:8888
+  pipelines:
+    traces/product:
+      receivers: [otlp]
+      processors: [memory_limiter/product, filter/product-contract, transform/product-allowlist, batch/product]
+      exporters: [clickhouse/product]
+    traces/diagnostics:
+      receivers: [otlp]
+      processors: [memory_limiter/diagnostics, filter/diagnostic-traces, transform/sanitize-diagnostic-traces, batch/diagnostics]
+      exporters: [otlphttp/tempo]
+    traces/rejected_product:
+      receivers: [otlp]
+      processors: [memory_limiter/rejected, filter/not-rejected-product, transform/sanitize-rejected-product, batch/rejected]
+      exporters: [spanmetrics/rejected-product]
+    metrics/quality:
+      receivers: [otlp]
+      processors: [memory_limiter/metrics, filter/quality-metrics, transform/tag-quality-metrics, transform/sanitize-quality-metrics, deltatocumulative/quality, batch/metrics]
+      exporters: [prometheus/quality]
+    metrics/rejected_product:
+      receivers: [spanmetrics/rejected-product]
+      processors: [memory_limiter/metrics, transform/sanitize-rejected-metrics, batch/rejected-metrics]
+      exporters: [prometheus/quality]
+    logs/diagnostics:
+      receivers: [otlp]
+      processors: [memory_limiter/logs, filter/diagnostic-logs, transform/sanitize-diagnostic-logs, batch/logs]
+      exporters: [otlphttp/loki]

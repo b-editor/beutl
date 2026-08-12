@@ -1,0 +1,37 @@
+{
+  "uid": "beutl-feature-adoption",
+  "title": "Beutl Feature Adoption",
+  "tags": ["beutl", "features", "extensions"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15m",
+  "time": { "from": "now-30d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Adoption by built-in or verified extension feature ID",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 12, "w": 16, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT Dimension1 AS feature_id, multiIf(Dimension1='generic', 'generic', Dimension1='overflow', 'overflow', startsWith(Dimension1, 'builtin/'), 'built-in', startsWith(Dimension1, 'extension/'), 'verified extension', 'invalid') AS feature_class, sum(Value) AS observed_installations FROM beutl_analytics.grafana_analytics WHERE MetricName = 'feature_adoption' AND $__timeFilter(MetricDate) GROUP BY feature_id ORDER BY observed_installations DESC LIMIT 50" }],
+      "options": { "showHeader": true, "cellHeight": "sm" }
+    },
+    {
+      "id": 2,
+      "type": "piechart",
+      "title": "Built-in / verified extension / generic / overflow ratio",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 12, "w": 8, "x": 16, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT multiIf(Dimension1='generic', 'generic', Dimension1='overflow', 'overflow', startsWith(Dimension1, 'builtin/'), 'built-in', startsWith(Dimension1, 'extension/'), 'verified extension', 'invalid') AS feature_class, sum(Value) AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'feature_adoption' AND $__timeFilter(MetricDate) GROUP BY feature_class" }],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "pieType": "donut" }
+    },
+    {
+      "id": 3,
+      "type": "text",
+      "title": "Trust boundary",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 12 },
+      "options": { "mode": "markdown", "content": "Built-in IDs use `builtin/<kind>/<key>` from the exact-type catalog. Extension IDs use `extension/<canonical-marketplace-package-id>/<kind>/<key>` only when a Marketplace-approved analytics manifest and package digest match; sideloaded, legacy, and invalid values remain `generic`, while capped summaries use `overflow`." }
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "uid": "beutl-overview",
+  "title": "Beutl Usage Overview",
+  "tags": ["beutl", "privacy", "active-installations"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": { "from": "now-30d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "DAU (observed active installations)",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, Value AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'active_installations' AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "WAU (observed active installations)",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 7, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, Value AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'active_installations_7d' AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "MAU (observed active installations)",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, Value AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'active_installations_30d' AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Sessions per active installation",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, sumIf(Value, MetricName = 'sessions') / nullIf(sumIf(Value, MetricName = 'active_installations'), 0) AS value FROM beutl_analytics.grafana_analytics WHERE MetricName IN ('sessions', 'active_installations') AND $__timeFilter(MetricDate) GROUP BY MetricDate ORDER BY time" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Observed active installations and sessions",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 9, "w": 14, "x": 0, "y": 7 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, MetricName AS metric, Value AS value FROM beutl_analytics.grafana_analytics WHERE MetricName IN ('active_installations', 'sessions') AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Version / OS / release channel distribution",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 9, "w": 10, "x": 14, "y": 7 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT Dimension1 AS app_version, Dimension2 AS os_family, Dimension3 AS release_channel, sum(Value) AS observed_installations FROM beutl_analytics.grafana_analytics WHERE MetricName = 'installation_distribution' AND $__timeFilter(MetricDate) GROUP BY app_version, os_family, release_channel ORDER BY observed_installations DESC" }],
+      "options": { "showHeader": true, "cellHeight": "sm" }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "New installations (first observed start)",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 16 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, Value AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'new_installations' AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Returning installations (observed)",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 16 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, Value AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'returning_installations' AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    }
+  ]
+}

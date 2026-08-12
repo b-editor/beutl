@@ -181,18 +181,17 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         Release release = await AcquireRelease();
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
 
-                        try
-                        {
+                        PackageInstallDisposition disposition =
                             await _handler.DownloadAndLoadPackage(release, packageId);
+                        if (disposition == PackageInstallDisposition.Installed)
+                        {
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
                                     packageId.Id));
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
-                            _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledInstallation,
@@ -238,10 +237,19 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                             _handler.DeleteOldVersionFiles(Package.Name);
 
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            PackageInstallDisposition disposition =
+                                await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));
+                                message: string.Format(
+                                    disposition == PackageInstallDisposition.Installed
+                                        ? ExtensionsStrings.PackageInstaller_Updated
+                                        : ExtensionsStrings.PackageInstaller_ScheduledUpdate,
+                                    packageId.Id));
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
                         }
                         catch (Exception ex)
                         {

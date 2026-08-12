@@ -17,6 +17,8 @@ public class InstalledPackageRepository : IBeutlApiResource
     private readonly ILogger _logger = Log.CreateLogger<InstalledPackageRepository>();
     private readonly HashSet<PackageIdentity> _packages = [];
     private readonly Dictionary<string, string?> _resolvedBeutlVersions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<PackageIdentity, PackageAnalyticsProvenance> _analyticsProvenance
+        = new(PackageIdentityComparer.Default);
     private readonly Subject<(PackageIdentity Package, bool Exists)> _subject = new();
     private const string FileName = "installedPackages.json";
 
@@ -38,12 +40,12 @@ public class InstalledPackageRepository : IBeutlApiResource
     public void UpgradePackages(PackageIdentity package)
     {
         _logger.LogInformation("Upgrading package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
-        PackageIdentity[] removedItems = [];
-        if (_subject.HasObservers)
-        {
-            removedItems = GetLocalPackages(package.Id).ToArray();
-        }
+        PackageIdentity[] removedItems = GetLocalPackages(package.Id).ToArray();
         _packages.RemoveWhere(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id));
+        foreach (PackageIdentity removed in removedItems)
+        {
+            _analyticsProvenance.Remove(removed);
+        }
         _packages.Add(package);
         _resolvedBeutlVersions[package.Id] = BeutlApplication.Version;
         Save();
@@ -106,6 +108,7 @@ public class InstalledPackageRepository : IBeutlApiResource
         if (package != null && _packages.Remove(package))
         {
             _resolvedBeutlVersions.Remove(name);
+            _analyticsProvenance.Remove(package);
             Save();
             _subject.OnNext((package, false));
         }
@@ -118,6 +121,7 @@ public class InstalledPackageRepository : IBeutlApiResource
         if (_packages.Remove(package))
         {
             _resolvedBeutlVersions.Remove(package.Id);
+            _analyticsProvenance.Remove(package);
             Save();
             _subject.OnNext((package, false));
         }
@@ -132,7 +136,12 @@ public class InstalledPackageRepository : IBeutlApiResource
         {
             removed = GetLocalPackages(name).ToArray();
         }
+        PackageIdentity[] allRemoved = GetLocalPackages(name).ToArray();
         _packages.RemoveWhere(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
+        foreach (PackageIdentity package in allRemoved)
+        {
+            _analyticsProvenance.Remove(package);
+        }
         _resolvedBeutlVersions.Remove(name);
         Save();
         foreach (PackageIdentity package in removed)
@@ -157,6 +166,41 @@ public class InstalledPackageRepository : IBeutlApiResource
     public bool ExistsPackage(string name)
     {
         return _packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
+    }
+
+    internal void SetAnalyticsProvenance(PackageIdentity package, PackageAnalyticsProvenance provenance)
+    {
+        ArgumentNullException.ThrowIfNull(provenance);
+        if (!_packages.Contains(package))
+        {
+            return;
+        }
+
+        if (provenance.IsVerified)
+        {
+            _analyticsProvenance[package] = provenance;
+        }
+        else
+        {
+            _analyticsProvenance.Remove(package);
+        }
+
+        Save();
+    }
+
+    internal bool TryGetVerifiedAnalyticsProvenance(
+        PackageIdentity package,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out PackageAnalyticsProvenance? provenance)
+    {
+        if (_analyticsProvenance.TryGetValue(package, out PackageAnalyticsProvenance? value)
+            && value.IsVerified)
+        {
+            provenance = value;
+            return true;
+        }
+
+        provenance = null;
+        return false;
     }
 
     public IObservable<bool> GetObservable(string name, string? version = null)
@@ -195,7 +239,8 @@ public class InstalledPackageRepository : IBeutlApiResource
                 .Select(x => new S_Package(
                     x.Id,
                     x.Version.ToString(),
-                    _resolvedBeutlVersions.GetValueOrDefault(x.Id)))
+                    _resolvedBeutlVersions.GetValueOrDefault(x.Id),
+                    _analyticsProvenance.GetValueOrDefault(x)))
                 .ToArray());
         }
         _logger.LogInformation("Saved {Count} packages to file.", _packages.Count);
@@ -215,6 +260,7 @@ public class InstalledPackageRepository : IBeutlApiResource
                     {
                         _packages.Clear();
                         _resolvedBeutlVersions.Clear();
+                        _analyticsProvenance.Clear();
 
                         _packages.AddRange(packages.Select(x => new PackageIdentity(x.Name, new NuGetVersion(x.Version))));
 
@@ -223,6 +269,12 @@ public class InstalledPackageRepository : IBeutlApiResource
                             if (pkg.BeutlVersion is { } beutlVersion)
                             {
                                 _resolvedBeutlVersions[pkg.Name] = beutlVersion;
+                            }
+
+                            var identity = new PackageIdentity(pkg.Name, new NuGetVersion(pkg.Version));
+                            if (pkg.AnalyticsProvenance is { IsVerified: true } provenance)
+                            {
+                                _analyticsProvenance[identity] = provenance;
                             }
                         }
                     }
@@ -242,7 +294,11 @@ public class InstalledPackageRepository : IBeutlApiResource
     }
 
     // Serializable
-    private record S_Package(string Name, string Version, string? BeutlVersion = null);
+    private record S_Package(
+        string Name,
+        string Version,
+        string? BeutlVersion = null,
+        PackageAnalyticsProvenance? AnalyticsProvenance = null);
 
     private sealed class _Observable : LightweightObservableBase<bool>
     {

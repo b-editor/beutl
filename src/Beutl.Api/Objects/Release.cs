@@ -24,6 +24,8 @@ public class Release
         TargetVersion = _response.Select(x => x.TargetVersion).ToReadOnlyReactivePropertySlim();
         AssetId = _response.Select(x => x.FileId).ToReadOnlyReactivePropertySlim();
         AssetUrl = _response.Select(x => x.FileUrl).ToReadOnlyReactivePropertySlim();
+        ApprovedAnalyticsManifestSha256 = _response.Select(x => x.ApprovedAnalyticsManifestSha256)
+            .ToReadOnlyReactivePropertySlim();
     }
 
 
@@ -44,6 +46,8 @@ public class Release
     public IReadOnlyReactiveProperty<string?> AssetId { get; }
 
     public ReadOnlyReactivePropertySlim<string?> AssetUrl { get; set; }
+
+    public ReadOnlyReactivePropertySlim<string?> ApprovedAnalyticsManifestSha256 { get; }
 
     public async Task RefreshAsync()
     {

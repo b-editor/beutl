@@ -53,6 +53,9 @@ public sealed class ProjectService
         await App.WaitLoadingExtensions();
 
         using Activity? activity = Telemetry.StartActivity();
+        using ProductOperation product = Telemetry.StartProductOperation(
+            ProductEventNames.ProjectOpen,
+            [new(ProductAttributeNames.Trigger, "manual")]);
         try
         {
             CloseProject();
@@ -70,6 +73,7 @@ public sealed class ProjectService
                     PrimaryButtonText = Strings.Close
                 };
                 await dialog.ShowAsync();
+                product.Complete(ProductOutcomes.Blocked, "version-mismatch");
                 return;
             }
 
@@ -81,12 +85,14 @@ public sealed class ProjectService
 
             AddToRecentProjects(file);
             _logger.LogInformation("Opened project. File: {File}, AppVersion: {AppVersion}, MinVersion: {MinVersion}", file, appVersion, minVersion);
+            product.Complete();
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to open the project. File: {File}", file);
             NotificationService.ShowInformation(Strings.Project, MessageStrings.FailedToOpenProject);
+            product.Complete(ProductOutcomes.Failed, "open-failed");
         }
     }
 
@@ -107,6 +113,12 @@ public sealed class ProjectService
         await App.WaitLoadingExtensions();
 
         using Activity? activity = Telemetry.StartActivity();
+        using ProductOperation product = Telemetry.StartProductOperation(
+            ProductEventNames.ProjectCreate,
+            [
+                new(ProductAttributeNames.ResolutionBucket, GetResolutionBucket(width, height)),
+                new(ProductAttributeNames.ProjectSizeBucket, "1")
+            ]);
         activity?.SetTag(nameof(width), width);
         activity?.SetTag(nameof(height), height);
         activity?.SetTag(nameof(framerate), framerate);
@@ -155,6 +167,7 @@ public sealed class ProjectService
             AddToRecentProjects(project.Uri.LocalPath);
             _logger.LogInformation("Created new project. Name: {Name}, Location: {Location}, Width: {Width}, Height: {Height}, Framerate: {Framerate}, Samplerate: {Samplerate}", name, location, width, height, framerate, samplerate);
 
+            product.Complete();
             return project;
         }
         catch (Exception ex)
@@ -163,6 +176,7 @@ public sealed class ProjectService
             _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
             // Surface the actual failure (disk full, permission denied, ...) instead of a generic message.
             NotificationService.ShowError(Strings.Error, ex.Message);
+            product.Complete(ProductOutcomes.Failed, "create-failed");
             return null;
         }
     }
@@ -173,5 +187,17 @@ public sealed class ProjectService
         viewConfig.UpdateRecentProject(file);
         viewConfig.UpdateRecentFile(file);
         viewConfig.LastOpenedProjectFile = file;
+    }
+
+    private static string GetResolutionBucket(int width, int height)
+    {
+        long pixels = (long)width * height;
+        return pixels switch
+        {
+            <= 921_600 => "sd",
+            <= 2_073_600 => "hd",
+            <= 8_294_400 => "uhd",
+            _ => "larger"
+        };
     }
 }

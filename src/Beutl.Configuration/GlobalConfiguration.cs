@@ -95,6 +95,7 @@ public sealed class GlobalConfiguration
 
     public void Restore(string file)
     {
+        bool telemetryMigrated = false;
         try
         {
             RemoveHandlers();
@@ -127,7 +128,10 @@ public sealed class GlobalConfiguration
                     Deserialize(BackupConfig, backup);
 
                 if (GetNode("telemetry", "Telemetry") is JsonObject telemetry)
+                {
                     Deserialize(TelemetryConfig, telemetry);
+                    telemetryMigrated = TelemetryConfig.MigrateUsageAnalyticsFromLegacy();
+                }
 
                 if (json["Editor"] is JsonObject editor)
                     Deserialize(EditorConfig, editor);
@@ -154,6 +158,10 @@ public sealed class GlobalConfiguration
         finally
         {
             AddHandlers();
+            if (telemetryMigrated)
+            {
+                Save(file);
+            }
         }
     }
 

@@ -1,0 +1,54 @@
+# Loki accepts native OTLP only from the internal collector network.  Retention
+# applies to chunks and index data, and the configured labels are fixed,
+# low-cardinality diagnostic fields rather than user-provided text.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+common:
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  allow_structured_metadata: true
+  retention_period: 2160h # 90 days
+  otlp_config:
+    resource_attributes:
+      attributes_config:
+        - action: index_label
+          attributes:
+            - service.name
+            - beutl.release.channel
+            - os.type
+    log_attributes:
+      # Loki supports index labels only for resource attributes. Keep the
+      # fixed diagnostic fields searchable as structured metadata instead;
+      # this also prevents an accidental high-cardinality log-label path.
+      - action: structured_metadata
+        attributes:
+          - beutl.component
+          - beutl.error_code
+          - beutl.outcome
+
+compactor:
+  working_directory: /loki/retention
+  retention_enabled: true
+  delete_request_store: filesystem

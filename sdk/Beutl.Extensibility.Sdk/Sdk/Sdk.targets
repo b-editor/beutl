@@ -69,6 +69,29 @@
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
 
+  <!--
+    Analytics declarations are static package metadata. The desktop client treats the
+    resulting file as untrusted unless Marketplace release metadata also approves its
+    SHA-256, so the SDK only provides deterministic placement and no runtime API.
+  -->
+  <PropertyGroup>
+    <BeutlAnalyticsFeaturesManifest
+      Condition="'$(BeutlAnalyticsFeaturesManifest)' == '' and Exists('$(MSBuildProjectDirectory)\beutl.analytics.json')">$(MSBuildProjectDirectory)\beutl.analytics.json</BeutlAnalyticsFeaturesManifest>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(BeutlAnalyticsFeaturesManifest)' != ''">
+    <None Include="$(BeutlAnalyticsFeaturesManifest)"
+          Pack="true"
+          PackagePath="beutl/analytics-features.v1.json" />
+  </ItemGroup>
+
+  <Target Name="ValidateBeutlAnalyticsFeaturesManifest"
+          BeforeTargets="GenerateNuspec"
+          Condition="'$(BeutlAnalyticsFeaturesManifest)' != ''">
+    <Error Condition="!Exists('$(BeutlAnalyticsFeaturesManifest)')"
+           Text="BeutlAnalyticsFeaturesManifest does not exist: $(BeutlAnalyticsFeaturesManifest)" />
+  </Target>
+
   <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
       <ItemGroup>
           <BuildOutputInPackage

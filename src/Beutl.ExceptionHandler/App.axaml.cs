@@ -15,15 +15,7 @@ public class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            string? sessionId = null;
-            string[] args = desktop.Args ?? [];
-            int idx = Array.IndexOf(args, "--session-id");
-            if (idx >= 0 && idx + 1 < args.Length)
-            {
-                sessionId = args[idx + 1];
-            }
-
-            desktop.MainWindow = new MainWindow(sessionId);
+            desktop.MainWindow = new MainWindow();
         }
 
         base.OnFrameworkInitializationCompleted();

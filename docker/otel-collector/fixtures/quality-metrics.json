@@ -1,0 +1,245 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          { "key": "service.name", "value": { "stringValue": "beutl.desktop" } },
+          { "key": "service.version", "value": { "stringValue": "1.2.3" } },
+          { "key": "beutl.telemetry.stream", "value": { "stringValue": "product" } },
+          { "key": "beutl.analytics.schema", "value": { "stringValue": "v1" } },
+          { "key": "beutl.release.channel", "value": { "stringValue": "stable" } },
+          { "key": "os.type", "value": { "stringValue": "windows" } },
+          { "key": "process.architecture", "value": { "stringValue": "x64" } },
+          { "key": "beutl.renderer", "value": { "stringValue": "unknown" } },
+          { "key": "beutl.installation.id", "value": { "stringValue": "privacy-installation-canary" } },
+          { "key": "beutl.session.id", "value": { "stringValue": "privacy-session-canary" } },
+          { "key": "service.instance.id", "value": { "stringValue": "privacy-instance-canary" } }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "Beutl.Quality",
+            "version": "v1",
+            "attributes": [
+              { "key": "scope.path", "value": { "stringValue": "privacy-metric-scope-canary" } }
+            ]
+          },
+          "metrics": [
+            {
+              "name": "beutl.quality.operation.duration",
+              "description": "privacy-metric-description-canary",
+              "unit": "ms",
+              "histogram": {
+                "aggregationTemporality": 1,
+                "dataPoints": [
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "count": "2",
+                    "sum": 120,
+                    "bucketCounts": ["0", "0", "0", "1", "0", "0", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+                    "explicitBounds": [0, 5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000],
+                    "min": 20,
+                    "max": 100,
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "media.export" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "success" } }
+                    ]
+                  },
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "count": "1",
+                    "sum": -1,
+                    "bucketCounts": ["1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+                    "explicitBounds": [0, 5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000],
+                    "min": -1,
+                    "max": -1,
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "project.open" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "failed" } }
+                    ]
+                  },
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "count": "1",
+                    "sum": 20,
+                    "bucketCounts": ["0", "0", "1", "0"],
+                    "explicitBounds": [10, 50, 250],
+                    "min": 20,
+                    "max": 20,
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "preview.first_frame" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "failed" } }
+                    ]
+                  },
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "count": "1",
+                    "sum": 86400001,
+                    "bucketCounts": ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "1"],
+                    "explicitBounds": [0, 5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000],
+                    "min": 86400001,
+                    "max": 86400001,
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "media.export" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "failed" } }
+                    ]
+                  },
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "count": "1",
+                    "sum": 20,
+                    "bucketCounts": ["0", "0", "0", "999999999", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+                    "explicitBounds": [0, 5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000],
+                    "min": 20,
+                    "max": 20,
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "preview.playback_summary" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "failed" } }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "beutl.quality.operation.total",
+              "unit": "{operation}",
+              "sum": {
+                "aggregationTemporality": 1,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "asInt": "2",
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "media.export" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "success" } }
+                    ]
+                  },
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "asInt": "999",
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "media.export" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "success" } },
+                      { "key": "project.path", "value": { "stringValue": "privacy-metric-path-canary" } }
+                    ]
+                  },
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "asInt": "0",
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "media.export" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "success" } }
+                    ]
+                  },
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "asInt": "-100",
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "media.export" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "success" } }
+                    ]
+                  },
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "asDouble": 500.5,
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "media.export" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "success" } }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "beutl.quality.unclean_session.total",
+              "unit": "{session}",
+              "sum": {
+                "aggregationTemporality": 1,
+                "isMonotonic": true,
+                "dataPoints": [
+                  { "timeUnixNano": "1785542400000000000", "asInt": "1" },
+                  { "timeUnixNano": "1785542400000000000", "asInt": "0" },
+                  { "timeUnixNano": "1785542400000000000", "asInt": "-2" }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          { "key": "service.name", "value": { "stringValue": "beutl.package-tools" } },
+          { "key": "service.version", "value": { "stringValue": "1.2.3" } },
+          { "key": "beutl.telemetry.stream", "value": { "stringValue": "product" } },
+          { "key": "beutl.analytics.schema", "value": { "stringValue": "v1" } },
+          { "key": "beutl.release.channel", "value": { "stringValue": "stable" } },
+          { "key": "os.type", "value": { "stringValue": "linux" } },
+          { "key": "process.architecture", "value": { "stringValue": "arm64" } },
+          { "key": "beutl.renderer", "value": { "stringValue": "software" } }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": { "name": "Beutl.Quality", "version": "v1" },
+          "metrics": [
+            {
+              "name": "beutl.quality.operation.duration",
+              "unit": "ms",
+              "histogram": {
+                "aggregationTemporality": 1,
+                "dataPoints": [
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "count": "1",
+                    "sum": 60,
+                    "bucketCounts": ["0", "0", "0", "0", "0", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+                    "explicitBounds": [0, 5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000],
+                    "min": 60,
+                    "max": 60,
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "media.export" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "success" } }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "beutl.quality.operation.total",
+              "unit": "{operation}",
+              "sum": {
+                "aggregationTemporality": 1,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "timeUnixNano": "1785542400000000000",
+                    "asInt": "1",
+                    "attributes": [
+                      { "key": "beutl.operation", "value": { "stringValue": "media.export" } },
+                      { "key": "beutl.outcome", "value": { "stringValue": "success" } }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "beutl.quality.unclean_session.total",
+              "unit": "{session}",
+              "sum": {
+                "aggregationTemporality": 1,
+                "isMonotonic": true,
+                "dataPoints": [
+                  { "timeUnixNano": "1785542400000000000", "asInt": "2" }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

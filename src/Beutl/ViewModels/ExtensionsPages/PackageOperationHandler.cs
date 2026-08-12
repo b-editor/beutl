@@ -11,6 +11,12 @@ using NuGet.Packaging.Core;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
+internal enum PackageInstallDisposition
+{
+    Installed,
+    Queued
+}
+
 internal class PackageOperationHandler
 {
     private static readonly ILogger s_logger = Log.CreateLogger<PackageOperationHandler>();
@@ -37,53 +43,112 @@ internal class PackageOperationHandler
 
     public PackageChangesQueue Queue => _queue;
 
-    public async Task DownloadAndLoadPackage(Release release, PackageIdentity packageId)
+    public async Task<PackageInstallDisposition> DownloadAndLoadPackage(
+        Release release,
+        PackageIdentity packageId)
     {
-        PackageInstallContext context = await _packageInstaller.PrepareForInstall(release, force: true);
-        await _packageInstaller.DownloadPackageFile(context);
-        await _packageInstaller.VerifyPackageFile(context);
-        await _packageInstaller.ResolveDependencies(context, null);
+        using ProductOperation product = Telemetry.StartProductOperation(
+            ProductEventNames.ExtensionManage,
+            [new(ProductAttributeNames.Trigger, "marketplace")]);
+        try
+        {
+            PackageInstallContext context = await _packageInstaller.PrepareForInstall(release, force: true);
+            await _packageInstaller.DownloadPackageFile(context);
+            await _packageInstaller.VerifyPackageFile(context);
+            await _packageInstaller.ResolveDependencies(context, null);
 
-        _installedPackageRepository.UpgradePackages(packageId);
+            string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
+                               ?? throw new InvalidOperationException(
+                                   $"Package '{packageId}' was not found under the install directory after installation.");
+            _installedPackageRepository.UpgradePackages(packageId);
+            if (context.PersistVerifiedAnalyticsArtifact(directory) is { } provenance)
+            {
+                _installedPackageRepository.SetAnalyticsProvenance(packageId, provenance);
+            }
 
-        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
-                           ?? throw new InvalidOperationException(
-                               $"Package '{packageId}' was not found under the install directory after installation.");
-        PackageFolderReader reader = new(directory);
-        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
+            PackageFolderReader reader = new(directory);
+            var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
+            _packageManager.Load(localPackage);
+            product.Complete();
+            return PackageInstallDisposition.Installed;
+        }
+        catch (OperationCanceledException)
+        {
+            product.Complete(ProductOutcomes.Cancelled, "cancelled");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
+            _queue.InstallQueue(packageId, recordAnalytics: false);
+            product.Complete(ProductOutcomes.Queued);
+            return PackageInstallDisposition.Queued;
+        }
     }
 
-    public async Task DownloadAndLoadPackage(PackageIdentity packageId)
+    public async Task<PackageInstallDisposition> DownloadAndLoadPackage(PackageIdentity packageId)
     {
-        PackageInstallContext context = _packageInstaller.PrepareForInstall(packageId.Id, packageId.Version.ToString(), force: true);
-        await _packageInstaller.DownloadPackageFile(context);
-        await _packageInstaller.VerifyPackageFile(context);
-        await _packageInstaller.ResolveDependencies(context, null);
+        using ProductOperation product = Telemetry.StartProductOperation(
+            ProductEventNames.ExtensionManage,
+            [new(ProductAttributeNames.Trigger, "reconcile")]);
+        try
+        {
+            PackageInstallContext context = _packageInstaller.PrepareForInstall(packageId.Id, packageId.Version.ToString(), force: true);
+            await _packageInstaller.DownloadPackageFile(context);
+            await _packageInstaller.VerifyPackageFile(context);
+            await _packageInstaller.ResolveDependencies(context, null);
 
-        _installedPackageRepository.UpgradePackages(packageId);
+            _installedPackageRepository.UpgradePackages(packageId);
 
-        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
-                           ?? throw new InvalidOperationException(
-                               $"Package '{packageId}' was not found under the install directory after installation.");
-        PackageFolderReader reader = new(directory);
-        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
+            string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
+                               ?? throw new InvalidOperationException(
+                                   $"Package '{packageId}' was not found under the install directory after installation.");
+            PackageFolderReader reader = new(directory);
+            var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
+            _packageManager.Load(localPackage);
+            product.Complete();
+            return PackageInstallDisposition.Installed;
+        }
+        catch (OperationCanceledException)
+        {
+            product.Complete(ProductOutcomes.Cancelled, "cancelled");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
+            _queue.InstallQueue(packageId, recordAnalytics: false);
+            product.Complete(ProductOutcomes.Queued);
+            return PackageInstallDisposition.Queued;
+        }
     }
 
     public async ValueTask<bool> UnloadPackages(string packageName)
     {
-        bool result = true;
-        foreach (LocalPackage pkg in _packageManager.FindLoadedPackage(packageName))
+        using ProductOperation product = Telemetry.StartProductOperation(
+            ProductEventNames.ExtensionManage,
+            [new(ProductAttributeNames.Trigger, "unload")]);
+        try
         {
-            result &= await _packageManager.Unload(pkg);
+            bool result = true;
+            foreach (LocalPackage pkg in _packageManager.FindLoadedPackage(packageName))
+            {
+                result &= await _packageManager.Unload(pkg);
+            }
+
+            GC.Collect();
+            GC.WaitForFullGCComplete(-1);
+            GC.WaitForPendingFinalizers();
+
+            product.Complete(result ? ProductOutcomes.Success : ProductOutcomes.Partial,
+                result ? null : "extension-unload-partial");
+            return result;
         }
-
-        GC.Collect();
-        GC.WaitForFullGCComplete(-1);
-        GC.WaitForPendingFinalizers();
-
-        return result;
+        catch
+        {
+            product.Complete(ProductOutcomes.Failed, "extension-unload-failed");
+            throw;
+        }
     }
 
     public void DeleteOldVersionFiles(string packageName)

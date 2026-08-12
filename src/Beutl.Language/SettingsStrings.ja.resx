@@ -133,7 +133,27 @@
     <comment/>
   </data>
   <data name="Telemetry_Description" xml:space="preserve">
-    <value>Beutlを改善するために、匿名の使用状況データを収集します。これらの設定はアプリケーションの再起動後に変更が適用されます。詳しくは以下のページをご覧ください。</value>
+    <value>Beutlが送信するプライバシーに配慮したテレメトリを選択します。変更はすぐに反映されます。詳しくはリンク先のポリシーをご覧ください。</value>
+    <comment/>
+  </data>
+  <data name="Telemetry_UsageAnalytics" xml:space="preserve">
+    <value>使用状況分析</value>
+    <comment/>
+  </data>
+  <data name="Telemetry_Description_UsageAnalytics" xml:space="preserve">
+    <value>仮名化された意味的な操作経路と品質指標を収集します。ファイルパス、プロジェクト内容、入力テキストは送信しません。</value>
+    <comment/>
+  </data>
+  <data name="Telemetry_UsageAnalytics_Migrated" xml:space="preserve">
+    <value>既存のアプリケーションテレメトリの選択は、使用状況分析にも引き継がれました。この設定画面からいつでも変更できます。</value>
+    <comment/>
+  </data>
+  <data name="Telemetry_ResetUsageIdentity" xml:space="preserve">
+    <value>使用状況分析の識別子をリセット</value>
+    <comment/>
+  </data>
+  <data name="Telemetry_ResetUsageIdentity_Description" xml:space="preserve">
+    <value>今後の分析用に新しいランダムな識別子を作成します。保持済みのサーバーデータは削除されません。</value>
     <comment/>
   </data>
   <data name="ShowExactBoundaries_Description" xml:space="preserve">

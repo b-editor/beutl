@@ -10,6 +10,7 @@ using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
+using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -24,8 +25,10 @@ public sealed class PackageManager(
     ExtensionProvider extensionProvider,
     ContextCommandManager commandManager,
     BeutlApiApplication apiApplication,
-    ILoadContextUnloadDiagnostics? unloadDiagnostics = null) : PackageLoader
+    ILoadContextUnloadDiagnostics? unloadDiagnostics = null) : IBeutlApiResource
 {
+    private readonly record struct PackageLoadResult(Assembly[] Assemblies, PluginLoadContext LoadContext);
+
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
     private readonly ExtensionSettingsStore _settingsStore = new();
@@ -206,31 +209,52 @@ public sealed class PackageManager(
     public Assembly[] Load(LocalPackage package)
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("Load"))
+        using (Beutl.PackageAnalyticsOperation product = Beutl.PackageAnalytics.StartExtensionLoad())
         {
-            activity?.SetTag("PackageName", package.Name);
-            activity?.SetTag("PackageVersion", package.Version);
-            if (package.InstalledPath == null)
+            try
             {
-                var packageId = new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version));
-                package.InstalledPath = Helper.PackagePathResolver.GetInstallPath(packageId);
+                activity?.SetTag("PackageName", package.Name);
+                activity?.SetTag("PackageVersion", package.Version);
+                if (package.InstalledPath == null)
+                {
+                    var packageId = new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version));
+                    package.InstalledPath = Helper.PackagePathResolver.GetInstallPath(packageId);
+                }
+
+                TrustedPackageSnapshot? trustedSnapshot = null;
+                PackageLoadResult result;
+                if (package.SideLoad)
+                {
+                    result = LoadSideloadPackage(package.InstalledPath);
+                }
+                else
+                {
+                    PackageLoadLayout layout = CreatePackageLoadLayout(package.InstalledPath);
+                    trustedSnapshot = TryCreateTrustedSnapshot(package, layout);
+                    result = LoadMarketplacePackage(layout, trustedSnapshot);
+                }
+
+                activity?.AddEvent(new ActivityEvent("Assemblies loaded"));
+                activity?.SetTag("AssemblyCount", result.Assemblies.Length);
+
+                // Strict on purpose: GetExportedTypes throws on an unresolvable type so a broken plugin
+                // fails the load and rolls back instead of registering with extensions silently skipped.
+                // Unload stays lenient (GetLoadableTypes) since cleanup must proceed regardless.
+                Assembly[] assemblies = LoadExtensionsAndRegister(
+                    activity,
+                    package,
+                    result.Assemblies,
+                    result.LoadContext,
+                    result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()),
+                    trustedSnapshot);
+                product.Complete();
+                return assemblies;
             }
-
-            PackageLoadResult result = !package.SideLoad
-                ? Load(package.InstalledPath)
-                : SideLoad(package.InstalledPath);
-
-            activity?.AddEvent(new ActivityEvent("Assemblies loaded"));
-            activity?.SetTag("AssemblyCount", result.Assemblies.Length);
-
-            // Strict on purpose: GetExportedTypes throws on an unresolvable type so a broken plugin
-            // fails the load and rolls back instead of registering with extensions silently skipped.
-            // Unload stays lenient (GetLoadableTypes) since cleanup must proceed regardless.
-            return LoadExtensionsAndRegister(
-                activity,
-                package,
-                result.Assemblies,
-                result.LoadContext,
-                result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()));
+            catch
+            {
+                product.Fail();
+                throw;
+            }
         }
     }
 
@@ -289,6 +313,9 @@ public sealed class PackageManager(
         {
             try
             {
+                // The table uses weak keys, but remove trusted IDs eagerly so an unloaded
+                // package can never be attributed by a still-referenced extension instance.
+                Beutl.PackageAnalytics.UnregisterTrustedFeature(ext.GetType());
                 if (ext is ViewExtension viewExtension)
                 {
                     commandManager.Unregister(viewExtension);
@@ -418,13 +445,15 @@ public sealed class PackageManager(
         LocalPackage package,
         Assembly[] assemblies,
         PluginLoadContext? loadContext,
-        IEnumerable<Type> extensionTypes)
+        IEnumerable<Type> extensionTypes,
+        TrustedPackageSnapshot? trustedSnapshot = null)
     {
         List<Extension> extensions = [];
         var addedToProvider = false;
         try
         {
-            extensions = LoadPackageExtensions(extensionTypes);
+            Type[] types = extensionTypes.ToArray();
+            extensions = LoadPackageExtensions(types);
 
             activity?.AddEvent(new ActivityEvent("Extensions loaded"));
             activity?.SetTag("ExtensionCount", extensions.Count);
@@ -435,6 +464,14 @@ public sealed class PackageManager(
             if (!_loadedPackages.TryAdd(package.LocalId, new LoadedPackageInfo(package, loadContext)))
             {
                 throw new InvalidOperationException($"Package {package.Name} is already loaded.");
+            }
+
+            // Register only the concrete extension instances we own and can remove
+            // during unload. This keeps attribution scoped to the package lifecycle.
+            RegisterTrustedFeatures(trustedSnapshot, extensions.Select(static extension => extension.GetType()));
+            foreach (Extension extension in extensions)
+            {
+                Beutl.PackageAnalytics.RecordExtensionLoaded(extension.GetType());
             }
 
             return assemblies;
@@ -510,6 +547,7 @@ public sealed class PackageManager(
     {
         for (int i = extensions.Count - 1; i >= 0; i--)
         {
+            Beutl.PackageAnalytics.UnregisterTrustedFeature(extensions[i].GetType());
             RollbackExtensionLoad(extensions[i], unload: true);
         }
 
@@ -592,6 +630,95 @@ public sealed class PackageManager(
         }
     }
 
+    private TrustedPackageSnapshot? TryCreateTrustedSnapshot(
+        LocalPackage package,
+        PackageLoadLayout layout)
+    {
+        try
+        {
+            return TrustedPackageSnapshot.TryCreate(installedPackageRepository, package, layout);
+        }
+        catch (Exception ex) when (ex is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or InvalidDataException)
+        {
+            // Analytics provenance must never prevent an extension from loading;
+            // the extension remains generic when no immutable trust snapshot exists.
+            _logger.LogDebug(ex, "Ignored unavailable analytics provenance for package {PackageName}.", package.Name);
+            return null;
+        }
+    }
+
+    private static PackageLoadLayout CreatePackageLoadLayout(string installedPath)
+    {
+        NuGetFramework framework = Helper.GetFrameworkName();
+        var reader = new PackageFolderReader(installedPath);
+
+        NuGetFramework nearest = Helper.FrameworkReducer
+            .GetNearest(framework, reader.GetPackageDependencies().Select(static dependency => dependency.TargetFramework))
+            ?? throw new InvalidOperationException("The package has no compatible target framework.");
+
+        string mainDirectory = Path.Combine(installedPath, "lib", nearest.ToString());
+        return new PackageLoadLayout(
+            reader,
+            mainDirectory,
+            Directory.GetFiles(mainDirectory, "*.dll"));
+    }
+
+    private static PackageLoadResult LoadMarketplacePackage(
+        PackageLoadLayout layout,
+        TrustedPackageSnapshot? trustedSnapshot)
+    {
+        var loadContext = new PluginLoadContext(
+            layout.MainDirectory,
+            layout.Reader,
+            trustedSnapshot);
+        Assembly[] assemblies = new Assembly[layout.AssemblyPaths.Length];
+
+        for (int index = 0; index < layout.AssemblyPaths.Length; index++)
+        {
+            assemblies[index] = loadContext.LoadPackageAssembly(layout.AssemblyPaths[index]);
+        }
+
+        return new PackageLoadResult(assemblies, loadContext);
+    }
+
+    private static PackageLoadResult LoadSideloadPackage(string installedPath)
+    {
+        string packageName = Path.GetFileName(installedPath);
+        var loadContext = new PluginLoadContext(installedPath);
+        string assemblyPath = Path.Combine(installedPath, $"{packageName}.dll");
+        return new PackageLoadResult([loadContext.LoadFromAssemblyPath(assemblyPath)], loadContext);
+    }
+
+    private static void RegisterTrustedFeatures(
+        TrustedPackageSnapshot? trustedSnapshot,
+        IEnumerable<Type> types)
+    {
+        if (trustedSnapshot is null)
+        {
+            return;
+        }
+
+        foreach (Type type in types)
+        {
+            string? assemblyName = type.Assembly.GetName().Name;
+            string? typeName = type.FullName;
+            if (assemblyName is null
+                || typeName is null
+                || !trustedSnapshot.IsVerifiedAssembly(type.Assembly)
+                || trustedSnapshot.Manifest.Find(assemblyName, typeName) is not { } feature)
+            {
+                continue;
+            }
+
+            Beutl.PackageAnalytics.RegisterTrustedFeature(
+                type,
+                $"extension/{trustedSnapshot.CanonicalMarketplacePackageId}/{feature.Kind}/{feature.Key}");
+        }
+    }
+
     internal void SetupExtensionSettings(Extension extension)
     {
         if (extension.Settings is { } settings)
@@ -614,3 +741,8 @@ public sealed class PackageManager(
         }
     }
 }
+
+internal readonly record struct PackageLoadLayout(
+    PackageFolderReader Reader,
+    string MainDirectory,
+    string[] AssemblyPaths);

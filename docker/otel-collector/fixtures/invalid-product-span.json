@@ -1,0 +1,43 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          { "key": "service.name", "value": { "stringValue": "beutl.desktop" } },
+          { "key": "service.version", "value": { "stringValue": "1.2.3" } },
+          { "key": "beutl.telemetry.stream", "value": { "stringValue": "product" } },
+          { "key": "beutl.analytics.schema", "value": { "stringValue": "v1" } },
+          { "key": "beutl.installation.id", "value": { "stringValue": "dddddddddddddddddddddddddddddddd" } },
+          { "key": "beutl.session.id", "value": { "stringValue": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" } },
+          { "key": "beutl.first_seen_month", "value": { "stringValue": "2026-08" } },
+          { "key": "beutl.release.channel", "value": { "stringValue": "stable" } },
+          { "key": "os.type", "value": { "stringValue": "windows" } },
+          { "key": "process.architecture", "value": { "stringValue": "x64" } },
+          { "key": "beutl.renderer", "value": { "stringValue": "unknown" } }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "Beutl.ProductAnalytics", "version": "v1" },
+          "spans": [
+            {
+              "traceId": "33333333333333333333333333333333",
+              "spanId": "3333333333333333",
+              "name": "unsafe.free.form.event",
+              "kind": 1,
+              "startTimeUnixNano": "1785542400000000000",
+              "endTimeUnixNano": "1785542400001000000",
+              "status": { "code": 1 },
+              "attributes": [
+                { "key": "beutl.event.id", "value": { "stringValue": "ffffffffffffffffffffffffffffffff" } },
+                { "key": "beutl.outcome", "value": { "stringValue": "success" } },
+                { "key": "beutl.duration_ms", "value": { "intValue": "1" } },
+                { "key": "project.path", "value": { "stringValue": "invalid-product-path-canary" } }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

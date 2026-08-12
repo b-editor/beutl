@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: Beutl Observability
+    orgId: 1
+    folder: Beutl Observability
+    folderUid: beutl-observability
+    type: file
+    disableDeletion: true
+    editable: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

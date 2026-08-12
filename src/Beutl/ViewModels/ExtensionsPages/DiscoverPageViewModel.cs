@@ -27,6 +27,9 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("DiscoverPage.Refresh");
+                using ProductOperation product = Telemetry.StartProductOperation(
+                    ProductEventNames.ExtensionCatalog,
+                    [new(ProductAttributeNames.Trigger, "featured")]);
 
                 try
                 {
@@ -42,12 +45,16 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
                     {
                         Items.Add(new LoadMoreItem());
                     }
+
+                    product.Complete(ProductOutcomes.Success,
+                        errorCode: null);
                 }
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
                     await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
+                    product.Complete(ProductOutcomes.Failed, "catalog-load-failed");
                 }
                 finally
                 {
@@ -60,6 +67,9 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("DiscoverPage.More");
+                using ProductOperation product = Telemetry.StartProductOperation(
+                    ProductEventNames.ExtensionCatalog,
+                    [new(ProductAttributeNames.Trigger, "more")]);
 
                 try
                 {
@@ -72,12 +82,15 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
                     {
                         Items.Add(new LoadMoreItem());
                     }
+
+                    product.Complete();
                 }
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
                     await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
+                    product.Complete(ProductOutcomes.Failed, "catalog-load-failed");
                 }
                 finally
                 {

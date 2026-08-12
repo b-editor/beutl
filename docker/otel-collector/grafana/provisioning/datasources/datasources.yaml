@@ -1,0 +1,70 @@
+apiVersion: 1
+
+deleteDatasources:
+  - name: ClickHouse Aggregates
+    orgId: 1
+  - name: Prometheus
+    orgId: 1
+  - name: Loki
+    orgId: 1
+  - name: Tempo
+    orgId: 1
+
+datasources:
+  - name: ClickHouse Aggregates
+    uid: clickhouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    editable: false
+    jsonData:
+      host: clickhouse
+      port: 9000
+      protocol: native
+      username: beutl_grafana
+      defaultDatabase: beutl_analytics
+      # The v4 ClickHouse plugin reads these provisioned values as strings.
+      # Quoting avoids Grafana YAML decoding them into float64 and crashing
+      # the plugin at datasource initialization.
+      dialTimeout: "10"
+      queryTimeout: "60"
+
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s
+      prometheusType: Prometheus
+      prometheusVersion: 3.1.0
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 500
+      derivedFields:
+        - name: TraceID
+          # Native OTLP stores trace_id as structured metadata. Label matching
+          # makes the link available without copying the high-cardinality ID
+          # into the sanitized log body or the Loki stream index.
+          matcherType: label
+          matcherRegex: trace_id
+          datasourceUid: tempo
+          url: '$${__value.raw}'
+          urlDisplayLabel: View trace
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      httpMethod: GET

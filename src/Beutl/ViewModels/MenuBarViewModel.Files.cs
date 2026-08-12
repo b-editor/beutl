@@ -104,8 +104,10 @@ public partial class MenuBarViewModel
     private async Task OnSaveAll()
     {
         using Activity? activity = Telemetry.StartActivity("SaveAll");
+        using ProductOperation product = Telemetry.StartProductOperation(ProductEventNames.ProjectSave);
         Project? project = _projectService.CurrentProject.Value;
         int itemsCount = 0;
+        bool allSucceeded = true;
 
         try
         {
@@ -126,6 +128,7 @@ public partial class MenuBarViewModel
                     }
                     else
                     {
+                        allSucceeded = false;
                         Type type = item.Extension.Value.GetType();
                         _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
                             item.FileName.Value);
@@ -141,12 +144,16 @@ public partial class MenuBarViewModel
             {
                 NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
             }
+
+            product.Complete(allSucceeded ? ProductOutcomes.Success : ProductOutcomes.Partial,
+                allSucceeded ? null : "item-save-failed");
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Failed to save files");
             NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
+            product.Complete(ProductOutcomes.Failed, "save-all-failed");
         }
         finally
         {
@@ -157,6 +164,7 @@ public partial class MenuBarViewModel
     private async Task OnSave()
     {
         using Activity? activity = Telemetry.StartActivity("Save");
+        using ProductOperation product = Telemetry.StartProductOperation(ProductEventNames.ProjectSave);
         EditorTabItem? item = _editorService.SelectedTabItem.Value;
         if (item != null)
         {
@@ -175,6 +183,8 @@ public partial class MenuBarViewModel
                     {
                         NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
                     }
+
+                    product.Complete();
                 }
                 else
                 {
@@ -182,6 +192,7 @@ public partial class MenuBarViewModel
                     _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
                         item.FileName.Value);
                     NotificationService.ShowInformation(string.Empty, MessageStrings.OperationFailed);
+                    product.Complete(ProductOutcomes.Failed, "item-save-failed");
                 }
             }
             catch (Exception ex)
@@ -189,12 +200,20 @@ public partial class MenuBarViewModel
                 activity?.SetStatus(ActivityStatusCode.Error);
                 _logger.LogError(ex, "Failed to save file: {FileName}", item.FileName.Value);
                 NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
+                product.Complete(ProductOutcomes.Failed, "item-save-failed");
             }
+        }
+        else
+        {
+            product.Complete(ProductOutcomes.Blocked, "no-selected-item");
         }
     }
 
     internal void OpenFileCore(string file)
     {
+        using ProductOperation product = Telemetry.StartProductOperation(
+            ProductEventNames.AssetAdd,
+            [new(ProductAttributeNames.CountBucket, "1")]);
         try
         {
             Project? project = _projectService.CurrentProject.Value;
@@ -212,10 +231,12 @@ public partial class MenuBarViewModel
             }
 
             _editorService.ActivateTabItem(projItem);
+            product.Complete();
         }
         catch (Exception ex)
         {
             _ = ex.Handle();
+            product.Complete(ProductOutcomes.Failed, "asset-open-failed");
         }
     }
 

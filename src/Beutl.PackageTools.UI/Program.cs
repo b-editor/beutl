@@ -11,24 +11,13 @@ internal class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        string? GetSessionId()
-        {
-            int idx = Array.IndexOf(args, "--session-id");
-            if (idx >= 0 && idx + 1 < args.Length)
-            {
-                return args[idx + 1];
-            }
-            else
-            {
-                return null;
-            }
-        }
-
         // Restore config
         GlobalConfiguration config = GlobalConfiguration.Instance;
         config.Restore(GlobalConfiguration.DefaultFilePath);
 
-        using IDisposable _ = Telemetry.GetDisposable(GetSessionId());
+        using IDisposable _ = Telemetry.GetDisposable(
+            GetTelemetrySessionId(config.TelemetryConfig),
+            TelemetryHostKind.PackageTools);
         ILogger<Program> logger = Log.CreateLogger<Program>();
 
         try
@@ -50,4 +39,12 @@ internal class Program
                 DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
             })
             .LogToTrace();
+
+    internal static string? GetTelemetrySessionId(TelemetryConfig configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        return configuration.UsageAnalytics == true
+            ? Telemetry.GetSessionIdFromEnvironment()
+            : null;
+    }
 }

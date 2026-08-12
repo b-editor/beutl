@@ -8,24 +8,18 @@ namespace Beutl.ExceptionHandler;
 
 public class MainWindowViewModel
 {
-    private readonly string? _logFile;
-    private readonly string? _sessionId;
+    internal const string FeedbackUrl = "https://beutl.beditor.net/feedback";
 
-    public MainWindowViewModel(string? sessionId = null)
+    private readonly string? _logFile;
+
+    public MainWindowViewModel()
     {
-        _sessionId = sessionId;
         Header = Resources.ErrorOccurred;
         Content.Value = Resources.Content;
 
-        string path = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "last-unhandled-exeption");
-        if (File.Exists(path))
-        {
-            Footer = File.ReadAllText(path);
-        }
-        else
-        {
-            Footer = "Nothing";
-        }
+        // Crash markers intentionally contain no exception payload. Full details
+        // remain in the local log opened by ShowLog.
+        Footer = "See the local log for details.";
 
         string logFolder = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
 
@@ -54,12 +48,7 @@ public class MainWindowViewModel
         {
             try
             {
-                string url = "https://beutl.beditor.net/feedback";
-                if (!string.IsNullOrEmpty(_sessionId))
-                {
-                    url = $"{url}?traceId={_sessionId}";
-                }
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(FeedbackUrl) { UseShellExecute = true });
             }
             catch
             {

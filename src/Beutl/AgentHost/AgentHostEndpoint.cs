@@ -134,6 +134,11 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             // A stop requested before (or during) startup must win: never start after RequestStop.
             if (_application is not null || _stopRequested)
             {
+                Telemetry.RecordProductEvent(
+                    ProductEventNames.AgentHost,
+                    ProductOutcomes.Blocked,
+                    [new(ProductAttributeNames.Trigger, "startup")],
+                    "host-already-stopped");
                 return;
             }
         }
@@ -175,6 +180,18 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                 if (stopRequested)
                 {
                     await StopAndDisposeAsync(app, cancellationToken).ConfigureAwait(false);
+                    Telemetry.RecordProductEvent(
+                        ProductEventNames.AgentHost,
+                        ProductOutcomes.Blocked,
+                        [new(ProductAttributeNames.Trigger, "startup")],
+                        "host-stop-requested");
+                }
+                else
+                {
+                    Telemetry.RecordProductEvent(
+                        ProductEventNames.AgentHost,
+                        ProductOutcomes.Success,
+                        [new(ProductAttributeNames.Trigger, "startup")]);
                 }
 
                 return;
@@ -189,9 +206,24 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
                 port++;
             }
+            catch (OperationCanceledException)
+            {
+                await app.DisposeAsync().ConfigureAwait(false);
+                Telemetry.RecordProductEvent(
+                    ProductEventNames.AgentHost,
+                    ProductOutcomes.Cancelled,
+                    [new(ProductAttributeNames.Trigger, "startup")],
+                    "cancelled");
+                throw;
+            }
             catch
             {
                 await app.DisposeAsync().ConfigureAwait(false);
+                Telemetry.RecordProductEvent(
+                    ProductEventNames.AgentHost,
+                    ProductOutcomes.Failed,
+                    [new(ProductAttributeNames.Trigger, "startup")],
+                    "host-start-failed");
                 throw;
             }
         }
@@ -274,7 +306,36 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         builder.Services
             .AddMcpServer()
             .WithHttpTransport(options => options.Stateless = true)
-            .WithRequestFilters(filters => filters.AddToolkitCallToolErrorFilter())
+            .WithRequestFilters(filters =>
+            {
+                // Deliberately aggregate every tool call without recording its name,
+                // arguments, result, session, or user workspace details.
+                filters.AddCallToolFilter(next => async (context, cancellationToken) =>
+                {
+                    using ProductSummaryOperation product = Telemetry.StartProductSummary(
+                        ProductEventNames.AgentToolSummary,
+                        "mcp");
+                    try
+                    {
+                        var result = await next(context, cancellationToken).ConfigureAwait(false);
+                        product.Complete(
+                            result.IsError == true ? ProductOutcomes.Failed : ProductOutcomes.Success,
+                            result.IsError == true ? "tool-call-failed" : null);
+                        return result;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        product.Complete(ProductOutcomes.Cancelled, "cancelled");
+                        throw;
+                    }
+                    catch
+                    {
+                        product.Complete(ProductOutcomes.Failed, "tool-call-failed");
+                        throw;
+                    }
+                });
+                filters.AddToolkitCallToolErrorFilter();
+            })
             .WithTools<AgentHostTools>()
             .WithTools<SessionTools>()
             .WithTools<QueryTools>()

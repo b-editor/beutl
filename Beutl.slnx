@@ -36,6 +36,7 @@
     <Project Path="tests\Beutl.UnitTests\Beutl.UnitTests.csproj" />
     <Project Path="tests\Beutl.E2ETests\Beutl.E2ETests.csproj" />
     <Project Path="tests\Beutl.HeadlessUITests\Beutl.HeadlessUITests.csproj" />
+    <Project Path="tests\Beutl.Telemetry.TestHost\Beutl.Telemetry.TestHost.csproj" />
     <Project Path="tests\Beutl.Testing.Headless\Beutl.Testing.Headless.csproj" />
     <Project Path="tests\SourceGeneratorTest\SourceGeneratorTest.csproj" />
     <File Path="tests\ArtifactProvider.cs" />
@@ -65,6 +66,7 @@
   <Project Path="src\Beutl.NodeGraph\Beutl.NodeGraph.csproj" />
   <Project Path="src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
   <Project Path="src\Beutl.Threading\Beutl.Threading.csproj" />
+  <Project Path="src\Beutl.Telemetry\Beutl.Telemetry.csproj" />
   <Project Path="src\Beutl.Utilities\Beutl.Utilities.csproj" />
   <Project Path="src\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
   <Project Path="src\Beutl.Editor.Components\Beutl.Editor.Components.csproj" />

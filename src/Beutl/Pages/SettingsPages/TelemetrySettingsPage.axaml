@@ -9,6 +9,7 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.SettingsPages"
              x:Name="root"
+             x:CompileBindings="True"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="vm:TelemetrySettingsPageViewModel"
@@ -25,7 +26,20 @@
                         Orientation="Vertical"
                         Spacing="4">
                 <SelectableTextBlock Text="{x:Static lang:SettingsStrings.Telemetry_Description}" />
-                <HyperlinkButton Content="{x:Static lang:Strings.ShowDetails}" NavigateUri="https://beutl.beditor.net/about/telemetry" />
+                <HyperlinkButton Content="{x:Static lang:Strings.ShowDetails}" NavigateUri="https://beutl.beditor.net/docs/telemetry" />
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.Telemetry_Description_UsageAnalytics}"
+                                          Header="{x:Static lang:SettingsStrings.Telemetry_UsageAnalytics}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{Binding UsageAnalytics.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <Button HorizontalAlignment="Left"
+                        Command="{Binding ResetUsageIdentity}"
+                        Content="{x:Static lang:SettingsStrings.Telemetry_ResetUsageIdentity}" />
 
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.Telemetry_Description_Beutl_Logging}" Header="{x:Static lang:SettingsStrings.Telemetry_Beutl_Logging}">
                     <ctrls:OptionsDisplayItem.ActionButton>
@@ -36,8 +50,7 @@
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.Telemetry_Description_Beutl_Application}"
-                                          Header="{x:Static lang:SettingsStrings.Telemetry_Beutl_Application}"
-                                          IsEnabled="{Binding !Beutl_Logging.Value}">
+                                          Header="{x:Static lang:SettingsStrings.Telemetry_Beutl_Application}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{Binding Beutl_Application.Value}"
@@ -46,8 +59,7 @@
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.Telemetry_Description_Beutl_PackageManagement}"
-                                          Header="{x:Static lang:SettingsStrings.Telemetry_Beutl_PackageManagement}"
-                                          IsEnabled="{Binding !Beutl_Logging.Value}">
+                                          Header="{x:Static lang:SettingsStrings.Telemetry_Beutl_PackageManagement}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{Binding Beutl_PackageManagement.Value}"
@@ -56,8 +68,7 @@
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.Telemetry_Description_Beutl_Api_Client}"
-                                          Header="{x:Static lang:SettingsStrings.Telemetry_Beutl_Api_Client}"
-                                          IsEnabled="{Binding !Beutl_Logging.Value}">
+                                          Header="{x:Static lang:SettingsStrings.Telemetry_Beutl_Api_Client}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{Binding Beutl_Api_Client.Value}"

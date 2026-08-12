@@ -30,6 +30,8 @@ namespace Beutl.Views;
 
 public sealed partial class MainView : UserControl
 {
+    internal const string FeedbackUrl = "https://beutl.beditor.net/feedback";
+
     private readonly ILogger<MainView> _logger = Log.CreateLogger<MainView>();
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
@@ -573,8 +575,7 @@ public sealed partial class MainView : UserControl
 
     private void OpenFeedbackClick(object? sender, RoutedEventArgs e)
     {
-        string url = $"https://beutl.beditor.net/feedback?traceId={Telemetry.Instance._sessionId}";
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        Process.Start(new ProcessStartInfo(FeedbackUrl) { UseShellExecute = true });
     }
 
     private void OpenNotificationsClick(object? sender, RoutedEventArgs e)

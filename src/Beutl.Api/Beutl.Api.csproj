@@ -38,6 +38,9 @@
     <!-- Allow package lifecycle tests to exercise internal load/rollback seams without
          widening the extension API surface. -->
     <InternalsVisibleTo Include="Beutl.UnitTests" />
+    <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
+    <InternalsVisibleTo Include="Beutl" />
+    <InternalsVisibleTo Include="Beutl.PackageTools.UI" />
   </ItemGroup>
 
 </Project>

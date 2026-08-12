@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  # Collector internals expose accepted/dropped/rejected/queue health. This
+  # endpoint remains internal to Docker and is never a host-published port.
+  - job_name: otel-collector-internal
+    honor_timestamps: false
+    static_configs:
+      - targets: [otel-collector:8888]
+    # Collector-generated metrics carry a process UUID as service.instance.id
+    # by default. It is neither useful for the dashboard nor permitted as a
+    # retained metric label, so remove it before TSDB ingestion.
+    metric_relabel_configs:
+      - action: labeldrop
+        # Prometheus v3 can preserve OpenTelemetry's dotted label spelling,
+        # whereas older exporters normalize it with underscores.
+        regex: 'service[._]instance[._]id'
+
+  # The Prometheus exporter serves the allowlisted quality metric contract.
+  - job_name: beutl-quality
+    honor_timestamps: false
+    static_configs:
+      - targets: [otel-collector:8889]
+    metric_relabel_configs:
+      - action: labeldrop
+        regex: 'service[._]instance[._]id'

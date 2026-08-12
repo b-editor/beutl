@@ -22,6 +22,9 @@
     <Compile Include="..\Beutl.Core\BeutlEnvironment.cs" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
+  </ItemGroup>
+  <ItemGroup>
     <AvaloniaResource Include="..\Beutl.Controls\Assets\Fonts\**" Link="Assets\Fonts\%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>

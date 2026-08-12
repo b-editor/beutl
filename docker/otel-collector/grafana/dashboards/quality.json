@@ -1,0 +1,57 @@
+{
+  "uid": "beutl-quality",
+  "title": "Beutl Quality and Reliability",
+  "tags": ["beutl", "quality", "latency"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": { "from": "now-30d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "p50 / p95 / p99 operation latency (ms)",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 10, "w": 16, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, concat(Dimension1, ' ', Dimension2) AS metric, Value AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'quality_latency_ms' AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Quality metric operation duration",
+      "datasource": { "uid": "prometheus" },
+      "gridPos": { "h": 10, "w": 8, "x": 16, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le, beutl_operation) (rate(beutl_beutl_quality_operation_duration_bucket[$__rate_interval])))", "legendFormat": "{{beutl_operation}} p95", "range": true }],
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 3,
+      "type": "bargauge",
+      "title": "Failed / cancelled outcomes",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 10 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT concat(Dimension1, ' / ', Dimension2) AS metric, sum(Value) AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'event_outcomes' AND Dimension2 IN ('failed', 'cancelled', 'blocked') AND $__timeFilter(MetricDate) GROUP BY metric ORDER BY value DESC LIMIT 20" }],
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Observed unclean sessions",
+      "datasource": { "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 6, "x": 12, "y": 10 },
+      "targets": [{ "refId": "A", "expr": "sum(increase(beutl_beutl_quality_unclean_session_total[$__range]))", "legendFormat": "unclean", "range": true }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "id": 5,
+      "type": "text",
+      "title": "Reliability interpretation",
+      "gridPos": { "h": 9, "w": 6, "x": 18, "y": 10 },
+      "options": { "mode": "markdown", "content": "`cancelled` is deliberately separate from `failed`. Unclean-session counts are observational clean-shutdown-marker signals; they never contain an installation or session ID." }
+    }
+  ]
+}

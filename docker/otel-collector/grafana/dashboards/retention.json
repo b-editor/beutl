@@ -1,0 +1,38 @@
+{
+  "uid": "beutl-retention",
+  "title": "Beutl Retention and Cohorts",
+  "tags": ["beutl", "retention", "cohort"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1h",
+  "time": { "from": "now-90d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "D1 / D7 / D30 continuation rate",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 11, "w": 16, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS time, Dimension1 AS metric, Value * 100 AS value FROM beutl_analytics.grafana_analytics WHERE MetricName = 'retention_rate' AND $__timeFilter(MetricDate) ORDER BY time" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Monthly UTC cohort retention (small cohorts are suppressed)",
+      "datasource": { "uid": "clickhouse" },
+      "gridPos": { "h": 11, "w": 8, "x": 16, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "sql", "format": 1, "rawSql": "SELECT MetricDate AS cohort_month, Dimension1 AS period, round(Value * 100, 1) AS retention_percent, SampleSize AS cohort_size FROM beutl_analytics.grafana_analytics WHERE MetricName = 'retention_monthly_cohort' AND $__timeFilter(MetricDate) ORDER BY cohort_month DESC, period" }],
+      "options": { "showHeader": true, "cellHeight": "sm" }
+    },
+    {
+      "id": 3,
+      "type": "text",
+      "title": "Definition",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 11 },
+      "options": { "mode": "markdown", "content": "An active installation is one that successfully sent `app.session.start` in the selected UTC period. Retention is based on observed telemetry only; offline or opted-out use is not imputed. Cells with fewer than five installations are excluded." }
+    }
+  ]
+}

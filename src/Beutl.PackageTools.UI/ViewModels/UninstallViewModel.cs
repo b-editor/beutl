@@ -1,5 +1,6 @@
 ﻿using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
+using Beutl.Services;
 
 using NuGet.Packaging.Core;
 
@@ -21,6 +22,7 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
 
     public void Run(CancellationToken token)
     {
+        using ExtensionManageProductOperation product = ExtensionManageTelemetry.StartReconcile();
         try
         {
             _logger.LogInformation("Starting uninstallation process for package {PackageId} version {Version}.", Model.Id, Model.Version);
@@ -43,6 +45,7 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
                 installeds = Directory.Exists(installed) ? [installed] : [];
             }
 
+            bool partial = false;
             if (installeds.Length <= 0)
             {
                 _logger.LogWarning("Package {PackageId} has already been uninstalled.", package.Id);
@@ -63,6 +66,7 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
                     Message.Value = string.Format(Strings.Uninstalled_XXX, context.Id);
                     if (context.FailedPackages?.Count > 0)
                     {
+                        partial = true;
                         _logger.LogError("Failed to delete some packages: {FailedPackages}.", string.Join(", ", context.FailedPackages));
                         ErrorMessage.Value = $"""
                             {Strings.These_packages_were_not_deleted_successfully}
@@ -73,18 +77,28 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
             }
 
             _logger.LogInformation("Uninstallation process completed successfully for package {PackageId}.", Model.Id);
+            if (partial)
+            {
+                product.CompletePartial();
+            }
+            else
+            {
+                product.CompleteSucceeded();
+            }
             Succeeded.Value = true;
             return;
         }
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Uninstallation process for package {PackageId} was canceled.", Model.Id);
+            product.CompleteCancelled();
             ErrorMessage.Value = Strings.Operation_canceled;
             Canceled.Value = true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception occurred during the uninstallation process for package {PackageId}.", Model.Id);
+            product.CompleteUninstallFailed();
             ErrorMessage.Value = ex.Message;
             Failed.Value = true;
         }

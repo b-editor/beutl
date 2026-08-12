@@ -224,6 +224,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task StartEncode()
     {
+        using ProductOperation product = Telemetry.StartProductOperation(
+            ProductEventNames.MediaExport,
+            [new(ProductAttributeNames.ResolutionBucket, GetResolutionBucket(Model.FrameSize.Width, Model.FrameSize.Height))]);
+
         // Defensive re-check: reject if supersampled surface cannot be allocated.
         if (SupersampleWarning.Value is { } supersampleWarning)
         {
@@ -231,6 +235,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             _logger.LogWarning(
                 "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
                 SupersampleFactor.Value, Model.FrameSize);
+            product.Complete(ProductOutcomes.Blocked, "supersampling-limit");
             return;
         }
 
@@ -255,11 +260,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
                 missingSources.Count,
                 missingSources[0]);
+            product.Complete(ProductOutcomes.Blocked, "missing-source");
             return;
         }
 
         var stopwatch = new Stopwatch();
         bool succeeded = false;
+        bool encodeCompleted = false;
+        string? blockedCode = null;
         try
         {
             _logger.LogInformation("Starting encoding process.");
@@ -291,6 +299,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 {
                     ProgressText.Value = MessageStrings.UnexpectedError;
                     _logger.LogWarning("Encoder settings are null. (Encoder: {Encoder})", SelectedEncoder.Value);
+                    blockedCode = "invalid-encoder-settings";
                     return;
                 }
 
@@ -308,6 +317,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 if (controller == null)
                 {
                     _logger.LogWarning("Encoding controller is null.");
+                    blockedCode = "missing-controller";
                     return;
                 }
                 else
@@ -356,10 +366,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                            }))
                 {
                     await controller.Encode(frameProvider, sampleProvider, _lastCts.Token);
+                    encodeCompleted = true;
                 }
             });
 
-            succeeded = !(_lastCts?.IsCancellationRequested ?? true);
+            succeeded = encodeCompleted && !(_lastCts?.IsCancellationRequested ?? true);
             if (succeeded)
             {
                 ProgressValue.Value = ProgressMax.Value;
@@ -372,6 +383,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 ProgressSub.Value = string.Empty;
                 Eta.Value = "00:00:00";
                 _logger.LogInformation("Encoding process completed successfully.");
+            }
+            else if (blockedCode is not null)
+            {
+                ProgressText.Value = MessageStrings.UnexpectedError;
+                ProgressMain.Value = MessageStrings.UnexpectedError;
+                _logger.LogWarning("Encoding was blocked: {Code}", blockedCode);
             }
             else
             {
@@ -405,6 +422,22 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             {
                 ShowCompletionNotification(completedPath);
             }
+
+            string outcome = succeeded
+                ? ProductOutcomes.Success
+                : WasCancelled.Value
+                    ? ProductOutcomes.Cancelled
+                    : blockedCode is not null
+                        ? ProductOutcomes.Blocked
+                        : ProductOutcomes.Failed;
+            string? errorCode = outcome switch
+            {
+                ProductOutcomes.Success => null,
+                ProductOutcomes.Cancelled => "cancelled",
+                ProductOutcomes.Blocked => blockedCode,
+                _ => "encode-failed"
+            };
+            product.Complete(outcome, errorCode);
         }
     }
 
@@ -468,6 +501,18 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         if (span < TimeSpan.Zero) span = TimeSpan.Zero;
         if (span.TotalHours >= 100) return @"99:59:59";
         return span.ToString(@"hh\:mm\:ss");
+    }
+
+    private static string GetResolutionBucket(int width, int height)
+    {
+        long pixels = (long)width * height;
+        return pixels switch
+        {
+            <= 921_600 => "sd",
+            <= 2_073_600 => "hd",
+            <= 8_294_400 => "uhd",
+            _ => "larger"
+        };
     }
 
     private static string FormatBytes(long bytes)

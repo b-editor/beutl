@@ -172,33 +172,58 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
         if (installs.Length > 0 || uninstalls.Length > 0)
         {
-            var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
-            DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
+            Telemetry? telemetry = Telemetry.Instance;
+            Process.Start(CreatePackageToolsStartInfo(
+                installs,
+                uninstalls,
+                telemetry?.SessionId,
+                telemetry?.UsageAnalyticsEnabled == true,
+                Debugger.IsAttached));
+        }
+    }
 
-            if (installs.Length > 0)
-            {
-                startInfo.ArgumentList.Add("--installs");
-                foreach (PackageIdentity? item in installs)
-                {
-                    startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
-                }
-            }
+    internal static ProcessStartInfo CreatePackageToolsStartInfo(
+        IEnumerable<PackageIdentity> installs,
+        IEnumerable<PackageIdentity> uninstalls,
+        string? sessionId,
+        bool usageAnalyticsEnabled,
+        bool launchDebugger)
+    {
+        // A ProcessStartInfo environment is honored only without shell execution.
+        // This is intentionally a child-only value, never a command-line argument.
+        var startInfo = new ProcessStartInfo { UseShellExecute = false };
+        DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
+        startInfo.Environment.Remove(Telemetry.SessionIdEnvironmentVariable);
 
-            if (uninstalls.Length > 0)
-            {
-                startInfo.ArgumentList.Add("--uninstalls");
-                foreach (PackageIdentity? item in uninstalls)
-                {
-                    startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
-                }
-            }
+        AddPackageArguments(startInfo.ArgumentList, "--installs", installs);
+        AddPackageArguments(startInfo.ArgumentList, "--uninstalls", uninstalls);
 
-            startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
+        if (usageAnalyticsEnabled && Telemetry.IsSessionId(sessionId))
+        {
+            startInfo.Environment[Telemetry.SessionIdEnvironmentVariable] = sessionId;
+        }
 
-            if (Debugger.IsAttached)
-                startInfo.ArgumentList.Add("--launch-debugger");
+        if (launchDebugger)
+            startInfo.ArgumentList.Add("--launch-debugger");
 
-            Process.Start(startInfo);
+        return startInfo;
+    }
+
+    private static void AddPackageArguments(
+        Collection<string> arguments,
+        string option,
+        IEnumerable<PackageIdentity> packages)
+    {
+        PackageIdentity[] values = packages.ToArray();
+        if (values.Length == 0)
+        {
+            return;
+        }
+
+        arguments.Add(option);
+        foreach (PackageIdentity item in values)
+        {
+            arguments.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
         }
     }
 

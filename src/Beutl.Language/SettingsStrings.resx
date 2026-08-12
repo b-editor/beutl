@@ -137,7 +137,27 @@
     <comment/>
   </data>
   <data name="Telemetry_Description" xml:space="preserve">
-    <value>To improve Beutl, we collect anonymous usage data.These settings will be applied after the application is restarted.For more information, please refer to the following pages.</value>
+    <value>Choose which privacy-preserving telemetry Beutl may send. Changes take effect immediately. For more information, visit the linked policy.</value>
+    <comment/>
+  </data>
+  <data name="Telemetry_UsageAnalytics" xml:space="preserve">
+    <value>Usage analytics</value>
+    <comment/>
+  </data>
+  <data name="Telemetry_Description_UsageAnalytics" xml:space="preserve">
+    <value>Collects pseudonymous, semantic product journeys and quality measurements. File paths, project content, and text input are not sent.</value>
+    <comment/>
+  </data>
+  <data name="Telemetry_UsageAnalytics_Migrated" xml:space="preserve">
+    <value>Your existing application telemetry choice now also controls usage analytics. You can change it at any time in these settings.</value>
+    <comment/>
+  </data>
+  <data name="Telemetry_ResetUsageIdentity" xml:space="preserve">
+    <value>Reset usage analytics identifier</value>
+    <comment/>
+  </data>
+  <data name="Telemetry_ResetUsageIdentity_Description" xml:space="preserve">
+    <value>This creates a new random identifier for future analytics. It does not delete previously retained server data.</value>
     <comment/>
   </data>
   <data name="ShowExactBoundaries_Description" xml:space="preserve">

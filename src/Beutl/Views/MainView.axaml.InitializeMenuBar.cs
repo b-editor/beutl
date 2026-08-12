@@ -319,6 +319,9 @@ public partial class MainView
         IStorageFile? file = await window.StorageProvider.SaveFilePickerAsync(options);
         if (file?.TryGetLocalPath() is string outputPath)
         {
+            using ProductOperation product = Telemetry.StartProductOperation(
+                ProductEventNames.ProjectPackageExport,
+                [new(ProductAttributeNames.Trigger, "menu")]);
             try
             {
                 ExportResult result = await ProjectPackageService.Current.ExportAsync(
@@ -335,6 +338,7 @@ public partial class MainView
                         "Project export failed; partial failures collected before abort: [{Resources}]",
                         string.Join(", ", result.FailedResources));
                     NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+                    product.Complete(ProductOutcomes.Failed, "package-export-failed");
                 }
                 else if (result.FailedResources.Count > 0)
                 {
@@ -344,21 +348,25 @@ public partial class MainView
                     NotificationService.ShowWarning(
                         Strings.ExportProject,
                         string.Format(MessageStrings.ExportProjectPartialFailure, result.FailedResources.Count));
+                    product.Complete(ProductOutcomes.Partial, "resource-relocation-partial");
                 }
                 else
                 {
                     NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
+                    product.Complete();
                 }
             }
             catch (OperationCanceledException)
             {
                 // User-initiated cancellation is not a failure.
+                product.Complete(ProductOutcomes.Cancelled, "cancelled");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception while exporting project to {OutputPath}", outputPath);
                 _ = ex.Handle();
                 NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+                product.Complete(ProductOutcomes.Failed, "package-export-failed");
             }
         }
     }

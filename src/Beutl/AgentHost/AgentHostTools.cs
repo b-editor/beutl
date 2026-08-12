@@ -43,7 +43,10 @@ public sealed class AgentHostTools(
     [Description("Attaches the toolkit to the active editor tab so read_document, apply_edit, render_still, and export_video can operate on the live scene and history.")]
     public ToolResult<AttachActiveEditorResponse> AttachActiveEditor()
     {
-        return Execute(() =>
+        using ProductOperation product = Telemetry.StartProductOperation(
+            ProductEventNames.AgentSessionAttach,
+            [new(ProductAttributeNames.Trigger, "mcp")]);
+        ToolResult<AttachActiveEditorResponse> result = Execute(() =>
         {
             // SelectedTabItem, EditViewModel.Scene, and scene.Children are Avalonia/editor-owned; the
             // Kestrel request thread must not read them or it races a tab switch and trips thread
@@ -74,5 +77,9 @@ public sealed class AgentHostTools(
                         scene.Children.Count));
             });
         });
+
+        product.Complete(result.IsSuccess ? ProductOutcomes.Success : ProductOutcomes.Blocked,
+            result.IsSuccess ? null : "session-attach-failed");
+        return result;
     }
 }

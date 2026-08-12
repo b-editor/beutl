@@ -17,4 +17,11 @@ public sealed class ReleaseResponse
     [JsonPropertyName("fileId")] public required string? FileId { get; init; }
 
     [JsonPropertyName("fileUrl")] public required string? FileUrl { get; init; }
+
+    /// <summary>
+    /// SHA-256 of the Marketplace-approved static analytics manifest packaged with this release.
+    /// Missing values intentionally disable exact extension feature attribution.
+    /// </summary>
+    [JsonPropertyName("approvedAnalyticsManifestSha256")]
+    public string? ApprovedAnalyticsManifestSha256 { get; init; }
 }

@@ -1,0 +1,49 @@
+{
+  "resourceLogs": [
+    {
+      "resource": {
+        "attributes": [
+          { "key": "service.name", "value": { "stringValue": "beutl.desktop" } },
+          { "key": "service.version", "value": { "stringValue": "1.2.3" } },
+          { "key": "beutl.telemetry.stream", "value": { "stringValue": "diagnostic" } },
+          { "key": "beutl.release.channel", "value": { "stringValue": "stable" } },
+          { "key": "os.type", "value": { "stringValue": "windows" } },
+          { "key": "process.architecture", "value": { "stringValue": "x64" } },
+          { "key": "beutl.renderer", "value": { "stringValue": "unknown" } },
+          { "key": "beutl.installation.id", "value": { "stringValue": "privacy-installation-canary" } },
+          { "key": "beutl.session.id", "value": { "stringValue": "privacy-session-canary" } },
+          { "key": "service.instance.id", "value": { "stringValue": "privacy-instance-canary" } }
+        ]
+      },
+      "scopeLogs": [
+        {
+          "scope": {
+            "name": "Beutl.SafeDiagnostics",
+            "version": "v1",
+            "attributes": [
+              { "key": "scope.path", "value": { "stringValue": "privacy-log-scope-canary" } }
+            ]
+          },
+          "logRecords": [
+            {
+              "timeUnixNano": "1785542400000000000",
+              "severityNumber": 17,
+              "severityText": "privacy-log-severity-canary",
+              "body": { "stringValue": "privacy-log-body-canary@example.invalid /secret/path" },
+              "traceId": "22222222222222222222222222222222",
+              "spanId": "2222222222222222",
+              "attributes": [
+                { "key": "beutl.component", "value": { "stringValue": "export" } },
+                { "key": "beutl.error_code", "value": { "stringValue": "encode-failed" } },
+                { "key": "beutl.outcome", "value": { "stringValue": "failed" } },
+                { "key": "beutl.exception.type", "value": { "stringValue": "io_error" } },
+                { "key": "project.path", "value": { "stringValue": "privacy-log-path-canary" } },
+                { "key": "email", "value": { "stringValue": "privacy-email-canary@example.invalid" } }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

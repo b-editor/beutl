@@ -6,6 +6,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
 using Beutl.Language;
+using Beutl.Services;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
@@ -345,6 +346,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
     public async Task InstallAsync()
     {
+        using ProductOperation product = Telemetry.StartProductOperation(
+            ProductEventNames.AgentInstall,
+            [new(ProductAttributeNames.Trigger, "settings")]);
         try
         {
             IsInstalling.Value = true;
@@ -358,6 +362,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             if (string.IsNullOrWhiteSpace(targets.Root))
             {
                 Status.Value = SettingsStrings.AiAgents_ProjectFolderMissing;
+                product.Complete(ProductOutcomes.Blocked, "agent-root-missing");
                 return;
             }
 
@@ -420,11 +425,17 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 Status.Value += Environment.NewLine + string.Format(
                     SettingsStrings.AiAgents_CliFailed,
                     string.Join(Environment.NewLine, cliErrors));
+                product.Complete(ProductOutcomes.Partial, "cli-registration-partial");
+            }
+            else
+            {
+                product.Complete();
             }
         }
         catch (Exception ex)
         {
             Status.Value = ex.Message;
+            product.Complete(ProductOutcomes.Failed, "agent-install-failed");
         }
         finally
         {
