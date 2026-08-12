@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Beutl.Composition;
 using Beutl.Graphics;
@@ -21,6 +22,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private FontMetrics _metrics = default;
     private Rect _bounds = default;
     private Rect _actualBounds;
+    private Rect _rasterBounds;
     private bool _isDirty = false;
     private Pen.Resource? _pen;
     private SKTextBlob? _textBlob;
@@ -53,7 +55,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         (_textBlob, _fillPath, _strokePath).DisposeAll();
         foreach (SKPathGeometry.Resource? resource in _pathList)
         {
-            DisposePathListEntry(resource);
+            resource?.Dispose();
         }
 
         _pathList = [];
@@ -61,14 +63,6 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         _fillPath = null;
         _strokePath = null;
         IsDisposed = true;
-    }
-
-    // Dispose the geometry too: it owns the per-glyph SKPath (set via SetSKPath(..., clone: false)),
-    // which the resource's cached render path does not cover.
-    private static void DisposePathListEntry(SKPathGeometry.Resource? resource)
-    {
-        resource?.GetOriginal().Dispose();
-        resource?.Dispose();
     }
 
     public FontWeight Weight
@@ -157,6 +151,44 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
     }
 
+    /// <summary>
+    /// Bounds of the glyph masks this text rasterizes, which contain <see cref="ActualBounds"/>.
+    /// </summary>
+    /// <remarks>
+    /// Full hinting moves a mask off its unhinted outline, so a renderer must allocate this rather than
+    /// <see cref="ActualBounds"/> or it clips what it draws. Only the allocated footprint may use it:
+    /// brush mapping and layout stay on the semantic bounds.
+    /// </remarks>
+    public Rect RasterBounds
+    {
+        get
+        {
+            MeasureAndSetField();
+            return _rasterBounds;
+        }
+    }
+
+    /// <summary>
+    /// <see cref="RasterBounds"/> widened so that its device footprint at <paramref name="scale"/> still
+    /// clears the glyph masks by a whole device pixel.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="RasterBounds"/> measures the masks hinted for scale 1, and hinting at another scale
+    /// moves them by more than rescaling that rectangle accounts for, so the footprint has to come from
+    /// a measurement at the scale that will actually be drawn. The result never narrows
+    /// <see cref="RasterBounds"/>, so a footprint can only gain room by asking for a scale.
+    /// </remarks>
+    public Rect GetRasterBounds(float scale)
+    {
+        MeasureAndSetField();
+        scale = NormalizeDensity(scale);
+        if (scale == 1f)
+            return _rasterBounds;
+
+        Rect scaled = _scaledCache.Get(scale).RasterBounds;
+        return scaled.IsEmpty ? _rasterBounds : _rasterBounds.Union(scaled);
+    }
+
     // テスト用
     internal Point AddToSKPath(SKPath path, Point point)
     {
@@ -184,9 +216,6 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             positions[i] = p;
         }
 
-        // build
-        using SKTextBlob? textBlob = builder.Build();
-
         for (int i = 0; i < glyphs.Length; i++)
         {
             ushort glyph = glyphs[i];
@@ -197,6 +226,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 path.AddPath(glyphPath, p.X, p.Y);
         }
 
+        using SKTextBlob? textBlob = builder.Build();
         return point;
     }
 
@@ -267,17 +297,17 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     private void Measure()
     {
-        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, FontMetrics metrics, Rect bounds, Rect actualBounds)
+        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, FontMetrics metrics, Rect bounds, Rect actualBounds, Rect rasterBounds)
             = MeasureCore(1f, updatePathList: true);
 
-        (_metrics, _bounds, _actualBounds) = (metrics, bounds, actualBounds);
+        (_metrics, _bounds, _actualBounds, _rasterBounds) = (metrics, bounds, actualBounds, rasterBounds);
 
         (_textBlob, _fillPath, _strokePath).DisposeAll();
         (_textBlob, _fillPath, _strokePath) = (textBlob, fillPath, strokePath);
         _scaledCache.Clear();
     }
 
-    private (SKTextBlob? TextBlob, SKPath FillPath, SKPath? StrokePath, FontMetrics Metrics, Rect Bounds, Rect ActualBounds)
+    private (SKTextBlob? TextBlob, SKPath FillPath, SKPath? StrokePath, FontMetrics Metrics, Rect Bounds, Rect ActualBounds, Rect RasterBounds)
         MeasureCore(float density, bool updatePathList)
     {
         density = NormalizeDensity(density);
@@ -307,7 +337,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             int glyphCount = result.Codepoints.Length;
             for (int i = glyphCount; i < _pathList.Count; i++)
             {
-                DisposePathListEntry(_pathList[i]);
+                _pathList[i]?.Dispose();
             }
 
             CollectionsMarshal.SetCount(_pathList, glyphCount);
@@ -332,18 +362,8 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                     tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
 
                     ref SKPathGeometry.Resource? exist = ref pathList[i]!;
-                    if (exist is null)
-                    {
-                        var geom = new SKPathGeometry();
-                        geom.SetSKPath(tmp, false);
-                        exist = geom.ToResource(CompositionContext.Default);
-                    }
-                    else
-                    {
-                        // SetSKPath reuses the slot without bumping Version, so invalidate the caches explicitly.
-                        exist.GetOriginal().SetSKPath(tmp, false);
-                        exist.InvalidateCachedPaths();
-                    }
+                    exist ??= new SKPathGeometry().ToResource(CompositionContext.Default);
+                    exist.SetSKPath(tmp, false);
                 }
                 else
                 {
@@ -353,25 +373,17 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             else if (updatePathList)
             {
                 ref SKPathGeometry.Resource? exist = ref pathList[i]!;
-                if (exist is null)
-                {
-                    var geom = new SKPathGeometry();
-                    geom.SetSKPath(tmp, false);
-                    exist = geom.ToResource(CompositionContext.Default);
-                }
-                else
-                {
-                    // Empty glyph: invalidate the caches so the reused slot stops serving the old path.
-                    exist.GetOriginal().SetSKPath(tmp, false);
-                    exist.InvalidateCachedPaths();
-                }
+                exist ??= new SKPathGeometry().ToResource(CompositionContext.Default);
+                exist.SetSKPath(tmp, false);
             }
         }
 
         SKPath? strokePath = null;
         // 空白で開始または、終了した場合
-        var bounds = new Rect(0, 0, Math.Max(0, glyphs.Length - 1) * spacing + result.Width, fillPath.TightBounds.Height);
+        float width = MathF.Max(0, (Math.Max(0, glyphs.Length - 1) * spacing) + result.Width);
+        var bounds = new Rect(0, 0, width, fillPath.TightBounds.Height);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
+        Rect rasterBounds = MeasureGlyphMaskBounds(font, glyphs, positions);
         SKTextBlob? textBlob = builder.Build();
 
         if (result.Codepoints.Length > 0)
@@ -383,7 +395,52 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             }
         }
 
-        return (textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds);
+        if (strokePath is not null)
+            rasterBounds = rasterBounds.Union(InflateToRaster(strokePath.TightBounds).ToGraphicsRect());
+        rasterBounds = rasterBounds.IsEmpty ? actualBounds : rasterBounds.Union(actualBounds);
+
+        return (textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds, rasterBounds);
+    }
+
+    private static Rect MeasureGlyphMaskBounds(SKFont font, ReadOnlySpan<ushort> glyphs, ReadOnlySpan<SKPoint> positions)
+    {
+        if (glyphs.Length == 0)
+            return default;
+
+        float[] widths = ArrayPool<float>.Shared.Rent(glyphs.Length);
+        SKRect[] glyphBounds = ArrayPool<SKRect>.Shared.Rent(glyphs.Length);
+        try
+        {
+            font.GetGlyphWidths(glyphs, widths.AsSpan(0, glyphs.Length), glyphBounds.AsSpan(0, glyphs.Length), null);
+
+            var union = SKRect.Empty;
+            bool any = false;
+            for (int i = 0; i < glyphs.Length; i++)
+            {
+                SKRect glyph = glyphBounds[i];
+                if (glyph.IsEmpty)
+                    continue;
+
+                glyph.Offset(positions[i]);
+                union = any ? SKRect.Union(union, glyph) : glyph;
+                any = true;
+            }
+
+            return any ? InflateToRaster(union).ToGraphicsRect() : default;
+        }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(widths);
+            ArrayPool<SKRect>.Shared.Return(glyphBounds);
+        }
+    }
+
+    // A glyph strike is measured at subpixel phase zero but drawn at the phase its position falls in,
+    // and antialiasing samples the pixel an edge touches, so coverage reaches one pixel past the mask.
+    private static SKRect InflateToRaster(SKRect bounds)
+    {
+        bounds.Inflate(1f, 1f);
+        return bounds;
     }
 
     private void SetProperty<T>(ref T field, T value)
@@ -405,12 +462,19 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
     }
 
-    private (SKTextBlob? TextBlob, SKPath? StrokePath) MeasureScaledText(float density)
+    private (SKTextBlob? TextBlob, SKPath? StrokePath, Rect RasterBounds) MeasureScaledText(float density)
     {
-        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _) =
+        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _, Rect rasterBounds) =
             MeasureCore(density, updatePathList: false);
         fillPath.Dispose();
-        return (textBlob, strokePath);
+        return (
+            textBlob,
+            strokePath,
+            new Rect(
+                rasterBounds.X / density,
+                rasterBounds.Y / density,
+                rasterBounds.Width / density,
+                rasterBounds.Height / density));
     }
 
     private static float NormalizeDensity(float density)

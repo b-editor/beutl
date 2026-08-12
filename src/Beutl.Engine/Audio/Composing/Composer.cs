@@ -207,7 +207,7 @@ public class Composer : IComposer
     /// </summary>
     protected void ComposeSound(Sound.Resource resource, TimeRange timeRange)
     {
-        var sound = resource.GetOriginal();
+        Sound sound = resource.GetOriginal();
         // Get or create cache entry
         if (!_audioCache.TryGetValue(sound, out var entry))
         {

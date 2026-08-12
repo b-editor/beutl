@@ -40,19 +40,23 @@ public sealed class OpacityMaskRenderNode(Brush.Resource mask, Rect maskBounds, 
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
+        if (Mask is not { } mask)
         {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
-            {
-                if (!Mask.HasValue) return;
-                using (canvas.PushOpacityMask(Mask.Value.Resource, MaskBounds, Invert))
-                {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+            return;
+        }
+
+        Rect maskBounds = MaskBounds;
+        bool invert = Invert;
+        RenderResource<Brush.Resource> maskResource = context.Borrow(mask.Resource);
+        context.PublishMappedInputs(
+            (maskResource, maskBounds, invert),
+            static (context, input, state) => context.OpacityMask(
+                input,
+                state.maskResource,
+                state.maskBounds,
+                state.invert));
     }
 
     protected override void OnDispose(bool disposing)

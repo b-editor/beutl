@@ -7,8 +7,10 @@ using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Threading;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using Dispatcher = Avalonia.Threading.Dispatcher;
@@ -66,8 +68,7 @@ public static class AvaloniaTypeConverter
             r =>
             {
                 using var context = new GeometryContext();
-                var original = r.GetOriginal();
-                original.ApplyTo(context, r);
+                r.ApplyTo(context);
 
                 string svgPath = context.NativeObject.ToSvgPathData();
                 reactiveProperty.Value = Avalonia.Media.Geometry.Parse(svgPath);
@@ -236,39 +237,175 @@ public static class AvaloniaTypeConverter
                         (o, rc) => o.ToResource(rc),
                         r =>
                         {
-                            handler ??= new DrawableImageBrushHandler(r, imageBrush);
+                            handler ??= new DrawableImageBrushHandler(
+                                r, imageBrush, RenderThread.Dispatcher, ownsResource: false);
                             handler.Update();
                         });
 
-                    return (imageBrush, d, null);
+                    return (
+                        imageBrush,
+                        System.Reactive.Disposables.Disposable.Create(() =>
+                        {
+                            d.Dispose();
+                            handler?.Dispose();
+                        }),
+                        null);
                 }
         }
 
         return default;
     }
 
-    public sealed class DrawableImageBrushHandler
+    public sealed class DrawableImageBrushHandler : IDisposable
     {
-        private WriteableBitmap? _bitmap;
-        private CancellationTokenSource? _cts;
+        private static readonly ILogger s_thumbnailLogger = Log.CreateLogger<DrawableImageBrushHandler>();
+
         private readonly ImageBrush _imageBrush;
         private readonly DrawableBrush.Resource _drawableBrush;
+        private readonly Beutl.Threading.Dispatcher _renderDispatcher;
+        private readonly bool _ownsResource;
+        private readonly EventHandler _shutdownHandler;
+        private readonly object _gate = new();
+        private WriteableBitmap? _bitmap;
+        private CancellationTokenSource? _cts;
+        private int _pendingUpdates;
+        private bool _disposeRequested;
+        private bool _resourceReleased;
 
         public DrawableImageBrushHandler(DrawableBrush.Resource drawableBrush, ImageBrush imageBrush)
+            : this(drawableBrush, imageBrush, RenderThread.Dispatcher)
+        {
+        }
+
+        public DrawableImageBrushHandler(
+            DrawableBrush.Resource drawableBrush,
+            ImageBrush imageBrush,
+            Beutl.Threading.Dispatcher renderDispatcher)
+            : this(drawableBrush, imageBrush, renderDispatcher, ownsResource: true)
+        {
+        }
+
+        /// <summary>Creates a handler with an explicit resource owner.</summary>
+        /// <param name="ownsResource">
+        /// <see langword="false"/> when the caller's subscription already owns <paramref name="drawableBrush"/>
+        /// and disposes it; a second owner would dispose the same resource twice.
+        /// </param>
+        internal DrawableImageBrushHandler(
+            DrawableBrush.Resource drawableBrush,
+            ImageBrush imageBrush,
+            Beutl.Threading.Dispatcher renderDispatcher,
+            bool ownsResource)
         {
             _imageBrush = imageBrush;
             _drawableBrush = drawableBrush;
+            _renderDispatcher = renderDispatcher;
+            _ownsResource = ownsResource;
+            // A shutdown drops queued work without running it, so the resource must be released from here too.
+            _shutdownHandler = (_, _) => ReleaseResourceIfSettled(force: true);
+            _renderDispatcher.ShutdownStarted += _shutdownHandler;
+        }
+
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                if (_disposeRequested)
+                    return;
+
+                _disposeRequested = true;
+                _cts?.Cancel();
+            }
+
+            ClearPublishedBitmap();
+            ReleaseResourceIfSettled(force: false);
         }
 
         public void Update()
         {
-            _cts?.Cancel();
-            _cts = new CancellationTokenSource();
-            var token = _cts.Token;
-
-            RenderThread.Dispatcher.Dispatch(async () =>
+            CancellationToken token;
+            lock (_gate)
             {
-                if (_drawableBrush.Drawable == null) return;
+                if (_disposeRequested)
+                    return;
+
+                _cts?.Cancel();
+                _cts?.Dispose();
+                _cts = new CancellationTokenSource();
+                token = _cts.Token;
+                _pendingUpdates++;
+            }
+
+            _renderDispatcher.Dispatch(async () =>
+            {
+                try
+                {
+                    await RenderAndPublishAsync(token);
+                }
+                finally
+                {
+                    lock (_gate)
+                    {
+                        _pendingUpdates--;
+                    }
+
+                    ReleaseResourceIfSettled(force: false);
+                }
+            }, DispatchPriority.Low);
+        }
+
+        private void ClearPublishedBitmap()
+        {
+            WriteableBitmap? published;
+            lock (_gate)
+            {
+                published = _bitmap;
+                _bitmap = null;
+            }
+
+            void Clear()
+            {
+                _imageBrush.Source = null;
+                published?.Dispose();
+            }
+
+            if (Dispatcher.UIThread.CheckAccess())
+                Clear();
+            else
+                Dispatcher.UIThread.Post(Clear, DispatcherPriority.Background);
+        }
+
+        private void ReleaseResourceIfSettled(bool force)
+        {
+            lock (_gate)
+            {
+                if (_resourceReleased || !_disposeRequested)
+                    return;
+                if (!force && _pendingUpdates > 0)
+                    return;
+
+                _resourceReleased = true;
+                _cts?.Dispose();
+                _cts = null;
+            }
+
+            _renderDispatcher.ShutdownStarted -= _shutdownHandler;
+            if (!_ownsResource)
+                return;
+
+            // A shutting-down dispatcher never runs queued work, so the release has to happen inline there.
+            if (_renderDispatcher.CheckAccess() || _renderDispatcher.HasShutdownStarted)
+                _drawableBrush.Dispose();
+            else
+                _renderDispatcher.Dispatch(_drawableBrush.Dispose, DispatchPriority.Low);
+        }
+
+        private async Task RenderAndPublishAsync(CancellationToken token)
+        {
+            if (token.IsCancellationRequested)
+                return;
+
+            if (_drawableBrush.Drawable == null) return;
+            {
                 var node = new DrawableRenderNode(_drawableBrush.Drawable);
                 // TODO: UI側の物理的なサイズをもとに描画するように変更する
                 using (var context = new GraphicsContext2D(node, new Graphics.Size(1920, 1080)))
@@ -276,27 +413,114 @@ public static class AvaloniaTypeConverter
                     _drawableBrush.Drawable.GetOriginal()!.Render(context, _drawableBrush.Drawable);
                 }
 
-                var processor = new RenderNodeProcessor(node, false);
-                using var bitmap = processor.RasterizeAndConcat();
+                using var renderer = new RenderNodeRenderer(
+                    node,
+                    new RenderNodeRendererOptions
+                    {
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            Intent = RenderIntent.Preview,
+                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                        },
+                    });
+                using RenderNodeRasterization rasterization = renderer.Rasterize();
+                Media.Bitmap? bitmap = rasterization.Bitmap;
+                if (token.IsCancellationRequested || bitmap is null)
+                    return;
 
-                var previous = _bitmap;
-                var pixelSize = new PixelSize(bitmap.Width, bitmap.Height);
-                _bitmap = bitmap.ToAvaWriteableBitmap(null);
+                WriteableBitmap published = bitmap.ToAvaWriteableBitmap(null);
+                Stretch stretch = _drawableBrush.Stretch;
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    _imageBrush.Stretch = _drawableBrush.Stretch switch
+                    WriteableBitmap? previous;
+                    lock (_gate)
                     {
-                        Stretch.Fill => Avalonia.Media.Stretch.Fill,
-                        Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
-                        Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
-                        Stretch.None => Avalonia.Media.Stretch.None,
-                        _ => Avalonia.Media.Stretch.Fill,
-                    };
-                    _imageBrush.Source = _bitmap;
+                        // A superseding update or a disposal must win over work that was already queued here.
+                        if (token.IsCancellationRequested || _disposeRequested)
+                        {
+                            published.Dispose();
+                            return;
+                        }
+
+                        previous = _bitmap;
+                        _bitmap = published;
+                    }
+
+                    Avalonia.Media.Stretch previousStretch = _imageBrush.Stretch;
+
+                    void Rollback()
+                    {
+                        lock (_gate)
+                        {
+                            _bitmap = previous;
+                        }
+
+                        // Restoring either property can raise the same listener that rejected the
+                        // publication; a failure there must not leave the new bitmap owned by nobody.
+                        Restore(() => _imageBrush.Source = previous);
+                        Restore(() => _imageBrush.Stretch = previousStretch);
+                        published.Dispose();
+                    }
+
+                    static void Restore(Action restore)
+                    {
+                        try
+                        {
+                            restore();
+                        }
+                        catch (Exception ex)
+                        {
+                            s_thumbnailLogger.LogWarning(ex, "Failed to roll back a thumbnail publication.");
+                        }
+                    }
+
+                    try
+                    {
+                        _imageBrush.Stretch = stretch switch
+                        {
+                            Stretch.Fill => Avalonia.Media.Stretch.Fill,
+                            Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
+                            Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
+                            Stretch.None => Avalonia.Media.Stretch.None,
+                            _ => Avalonia.Media.Stretch.Fill,
+                        };
+
+                        // Assigning Stretch can notify listeners that start a superseding update or a
+                        // disposal, so the decision to commit has to be re-taken after it.
+                        bool superseded;
+                        lock (_gate)
+                        {
+                            superseded = token.IsCancellationRequested
+                                         || _disposeRequested
+                                         || !ReferenceEquals(_bitmap, published);
+                        }
+
+                        if (superseded)
+                        {
+                            Rollback();
+                            return;
+                        }
+
+                        _imageBrush.Source = published;
+
+                        // A listener can put the previous source back synchronously; that is a rejection.
+                        if (!ReferenceEquals(_imageBrush.Source, published))
+                        {
+                            Rollback();
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        s_thumbnailLogger.LogWarning(ex, "A thumbnail publication callback threw.");
+                        Rollback();
+                        return;
+                    }
+
                     previous?.Dispose();
                 }, DispatcherPriority.Background);
-            }, DispatchPriority.Low, token);
+            }
         }
     }
 }

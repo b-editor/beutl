@@ -122,9 +122,11 @@ public partial class FlatShadow : FilterEffect
                 }
 
                 // SrcIn brush at the buffer's real density (wOut).
-                var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, wOut,
-                    context.MaxWorkingScale);
-                c.ConfigurePaint(brushPaint);
+                context.CreateBrushConstructor(
+                    new Rect(newTarget.Bounds.Size),
+                    brush,
+                    BlendMode.SrcIn,
+                    wOut).ConfigurePaint(brushPaint);
                 newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
 
                 if (!data.ShadowOnly)

@@ -6,141 +6,205 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering.Cache;
 
-public static class RenderNodeCacheHelper
+internal static class RenderNodeCacheHelper
 {
     internal static readonly ILogger _logger = Log.CreateLogger("RenderNodeCache");
 
-    public static bool CanCacheRecursive(RenderNode node)
+    internal static RenderNodeCacheLifecycle BeginLifecycle(RenderNode root)
     {
-        RenderNodeCache cache = node.Cache;
-        if (!cache.CanCache())
-            return false;
-
-        if (node is ContainerRenderNode container)
-        {
-            for (int i = 0; i < container.Children.Count; i++)
-            {
-                RenderNode current = container.Children[i];
-                if (!CanCacheRecursive(current))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
+        ArgumentNullException.ThrowIfNull(root);
+        return RenderNodeCacheLifecycle.Create(root);
     }
 
-    // nodeの子要素だけ調べる。node自体は調べない
-    // MakeCacheで使う
-    public static bool CanCacheRecursiveChildrenOnly(RenderNode node)
+    /// <summary>Resets the cache of <paramref name="node"/> and of every node it owns.</summary>
+    /// <remarks>
+    /// Ownership, not <see cref="RenderNode.ChildNodes"/>: a merely referenced node is shared with other
+    /// live entries, so tearing down one holder must not drop caches the others still rely on.
+    /// </remarks>
+    internal static void ClearOwnedCaches(RenderNode node)
     {
-        if (node is ContainerRenderNode containerNode)
-        {
-            foreach (RenderNode item in containerNode.Children)
-            {
-                if (!CanCacheRecursive(item))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    public static void ClearCache(RenderNode node)
-    {
-        node.Cache.Invalidate();
+        node.Cache.Reset();
 
         if (node is not ContainerRenderNode containerNode) return;
 
         foreach (RenderNode item in containerNode.Children)
         {
-            ClearCache(item);
+            ClearOwnedCaches(item);
+        }
+    }
+}
+
+internal sealed class RenderNodeCacheLifecycle
+{
+    private readonly NodeSnapshot[] _nodes;
+    private bool _completed;
+
+    private RenderNodeCacheLifecycle(NodeSnapshot[] nodes)
+    {
+        _nodes = nodes;
+    }
+
+    internal static RenderNodeCacheLifecycle Create(RenderNode root)
+    {
+        var snapshots = new Dictionary<RenderNode, NodeSnapshot>(ReferenceEqualityComparer.Instance);
+        Collect(root, snapshots);
+
+        var ancestors = new HashSet<NodeSnapshot>();
+        foreach (NodeSnapshot snapshot in snapshots.Values)
+        {
+            if (!snapshot.WasDirty)
+                continue;
+
+            MarkNodeAndAncestors(snapshot, ancestors);
+        }
+
+        foreach (NodeSnapshot snapshot in snapshots.Values)
+        {
+            if (snapshot.IsInvalidated && !snapshot.Node.IsDisposed)
+            {
+                snapshot.Node.Cache.Reset();
+            }
+        }
+
+        return new RenderNodeCacheLifecycle([.. snapshots.Values]);
+    }
+
+    internal void CompleteSuccessfully(bool advanceWarmup)
+    {
+        if (_completed)
+            throw new InvalidOperationException("A render-node cache lifecycle can complete only once.");
+
+        var changedDuringRequest = new List<NodeSnapshot>();
+        foreach (NodeSnapshot snapshot in _nodes)
+        {
+            if (snapshot.Node.HasChanges
+                && (!snapshot.WasDirty || snapshot.Node.ChangeVersion != snapshot.ObservedChangeVersion))
+            {
+                changedDuringRequest.Add(snapshot);
+            }
+        }
+
+        if (changedDuringRequest.Count != 0)
+        {
+            var ancestors = new HashSet<NodeSnapshot>();
+            foreach (NodeSnapshot snapshot in changedDuringRequest)
+            {
+                MarkNodeAndAncestors(snapshot, ancestors);
+            }
+
+            foreach (NodeSnapshot snapshot in ancestors)
+            {
+                if (!snapshot.Node.IsDisposed)
+                {
+                    snapshot.Node.Cache.Reset();
+                }
+            }
+        }
+
+        foreach (NodeSnapshot snapshot in _nodes)
+        {
+            if (snapshot.WasDirty)
+            {
+                snapshot.Node.ClearChanges(snapshot.ObservedChangeVersion);
+            }
+        }
+
+        if (advanceWarmup)
+        {
+            foreach (NodeSnapshot snapshot in _nodes)
+            {
+                if (!snapshot.IsInvalidated
+                    && !snapshot.Node.IsDisposed
+                    && !snapshot.Node.HasChanges
+                    && snapshot.Node.ChangeVersion == snapshot.ObservedChangeVersion)
+                {
+                    snapshot.Node.Cache.RecordSuccessfulStableRequest();
+                }
+            }
+        }
+
+        _completed = true;
+    }
+
+    private static NodeSnapshot Collect(
+        RenderNode node,
+        IDictionary<RenderNode, NodeSnapshot> snapshots)
+    {
+        if (snapshots.TryGetValue(node, out NodeSnapshot? existing))
+        {
+            if (existing.IsVisiting)
+            {
+                throw new InvalidOperationException(
+                    "A render-node ChildNodes cycle was detected while preparing cache lifecycle state.");
+            }
+
+            return existing;
+        }
+
+        var snapshot = new NodeSnapshot(node, node.HasChanges, node.ChangeVersion)
+        {
+            IsVisiting = true,
+        };
+        snapshots.Add(node, snapshot);
+        try
+        {
+            ReadOnlySpan<RenderNode> children = node.ChildNodes;
+            for (int i = 0; i < children.Length; i++)
+            {
+                RenderNode child = children[i];
+                ArgumentNullException.ThrowIfNull(child);
+                NodeSnapshot childSnapshot = Collect(child, snapshots);
+                snapshot.Children.Add(childSnapshot);
+                childSnapshot.Parents.Add(snapshot);
+            }
+        }
+        finally
+        {
+            snapshot.IsVisiting = false;
+        }
+
+        return snapshot;
+    }
+
+    private static void MarkNodeAndAncestors(NodeSnapshot node, ISet<NodeSnapshot> visited)
+    {
+        if (!visited.Add(node))
+            return;
+
+        node.IsInvalidated = true;
+        foreach (NodeSnapshot parent in node.Parents)
+        {
+            MarkNodeAndAncestors(parent, visited);
         }
     }
 
-    // 再帰呼び出し
-    public static void MakeCache(RenderNode node, RenderCacheOptions cacheOptions,
-        float outputScale = 1f, float maxWorkingScale = float.PositiveInfinity)
+    private sealed class NodeSnapshot(
+        RenderNode node,
+        bool wasDirty,
+        long observedChangeVersion)
     {
-        if (!cacheOptions.IsEnabled)
-            return;
+        public RenderNode Node { get; } = node;
 
-        RenderNodeCache cache = node.Cache;
-        // ここでのnodeは途中まで、キャッシュしても良い
-        // CanCacheRecursive内で再帰呼び出ししているのはすべてキャッシュできる必要がある
-        if (CanCacheRecursive(node))
-        {
-            if (!cache.IsCached && !cache.IsCacheRejected)
-            {
-                CreateDefaultCache(node, cacheOptions, outputScale, maxWorkingScale);
-            }
-        }
-        else if (node is ContainerRenderNode containerNode)
-        {
-            cache.Invalidate();
-            foreach (RenderNode item in containerNode.Children)
-            {
-                MakeCache(item, cacheOptions, outputScale, maxWorkingScale);
-            }
-        }
-    }
+        public bool WasDirty { get; } = wasDirty;
 
-    public static void CreateDefaultCache(RenderNode node, RenderCacheOptions cacheOptions,
-        float outputScale = 1f, float maxWorkingScale = float.PositiveInfinity)
-    {
-        // Rasterize the cache at the renderer's density under its working-scale ceiling.
-        var processor = new RenderNodeProcessor(node, false, outputScale, maxWorkingScale);
-        var ops = processor.PullToRoot();
+        public long ObservedChangeVersion { get; } = observedChangeVersion;
 
-        // Refuse to cache a subtree whose supply density exceeds outputScale: caching would
-        // discard the extra detail and silently lower downstream working scales.
-        if (ops.Any(o => !o.EffectiveScale.IsUnbounded && o.EffectiveScale.Value > outputScale))
-        {
-            foreach (var op in ops)
-                op.Dispose();
-            node.Cache.RejectCache();
-            return;
-        }
+        public List<NodeSnapshot> Children { get; } = [];
 
-        var list = processor.RasterizeToRenderTargets(ops);
-        long pixels = list.Sum(i =>
-        {
-            var pr = outputScale == 1f ? PixelRect.FromRect(i.Bounds) : PixelRect.FromRect(i.Bounds, outputScale);
-            return (long)pr.Width * pr.Height;
-        });
-        if (!cacheOptions.Rules.Match(pixels))
-        {
-            // Release rasterized tiles on the reject path to avoid leaking RenderTarget surfaces.
-            foreach (var i in list)
-                i.RenderTarget.Dispose();
-            node.Cache.RejectCache();
-            return;
-        }
+        public List<NodeSnapshot> Parents { get; } = [];
 
-        // nodeの子要素のキャッシュをすべて削除
-        ClearCache(node);
+        public bool IsVisiting { get; set; }
 
-        var arr = list.Select(i => (i.RenderTarget, i.Bounds)).ToArray();
-        node.Cache.StoreCache(arr, outputScale);
-
-        _logger.LogInformation("Created cache for node {Node}.", node);
-
-        // 参照のデクリメント
-        foreach ((RenderTarget target, Rect _) in arr)
-        {
-            target.Dispose();
-        }
+        public bool IsInvalidated { get; set; }
     }
 }
 
 [JsonSerializable(typeof(RenderCacheOptions))]
 public record RenderCacheOptions(bool IsEnabled, RenderCacheRules Rules)
 {
-    public static readonly RenderCacheOptions Default = new(true, RenderCacheRules.Default);
     public static readonly RenderCacheOptions Disabled = new(false, RenderCacheRules.Default);
+    public static readonly RenderCacheOptions Enabled = new(true, RenderCacheRules.Default);
+    public static readonly RenderCacheOptions Default = Disabled;
 
     public static RenderCacheOptions CreateFromGlobalConfiguration()
     {

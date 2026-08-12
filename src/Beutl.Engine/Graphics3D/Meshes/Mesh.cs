@@ -10,14 +10,6 @@ namespace Beutl.Graphics3D.Meshes;
 /// </summary>
 public abstract partial class Mesh : EngineObject
 {
-    /// <summary>
-    /// Applies the mesh geometry to the resource.
-    /// </summary>
-    /// <param name="resource">The resource to apply to.</param>
-    /// <param name="vertices">Output array of vertices.</param>
-    /// <param name="indices">Output array of indices.</param>
-    public abstract void ApplyTo(Resource resource, out Vertex3D[] vertices, out uint[] indices);
-
     public partial class Resource
     {
         private int? _capturedVersion;
@@ -38,6 +30,17 @@ public abstract partial class Mesh : EngineObject
         /// Gets or sets whether the GPU buffers need to be recreated.
         /// </summary>
         internal bool BuffersDirty { get; set; } = true;
+
+        /// <summary>
+        /// Generates this mesh's geometry.
+        /// </summary>
+        /// <param name="vertices">Output array of vertices.</param>
+        /// <param name="indices">Output array of indices.</param>
+        /// <remarks>
+        /// An override reads every parameter it needs from this resource, so it must not reach for
+        /// <see cref="EngineObject.Resource.GetOriginal"/>.
+        /// </remarks>
+        public abstract void ApplyTo(out Vertex3D[] vertices, out uint[] indices);
 
         /// <summary>
         /// Gets the cached vertices, regenerating if needed.
@@ -109,9 +112,11 @@ public abstract partial class Mesh : EngineObject
 
             if (_capturedVersion != Version || _cachedVertices == null)
             {
+                ApplyTo(out Vertex3D[] vertices, out uint[] indices);
+                _cachedVertices = vertices;
+                _cachedIndices = indices;
                 _capturedVersion = Version;
                 BuffersDirty = true;
-                GetOriginal().ApplyTo(this, out _cachedVertices!, out _cachedIndices!);
             }
         }
 

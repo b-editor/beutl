@@ -8,13 +8,7 @@ public class ContainerRenderNode : RenderNode
 
     public IReadOnlyList<RenderNode> Children => _children;
 
-    public override void PrepareForProcess(ImmediateCanvas canvas)
-    {
-        foreach (RenderNode child in _children)
-        {
-            child.PrepareForProcess(canvas);
-        }
-    }
+    public override ReadOnlySpan<RenderNode> ChildNodes => CollectionsMarshal.AsSpan(_children);
 
     public void AddChild(RenderNode item)
     {
@@ -35,8 +29,10 @@ public class ContainerRenderNode : RenderNode
 
     public void SetChild(int index, RenderNode item)
     {
-        _children[index]?.Dispose();
+        ArgumentNullException.ThrowIfNull(item);
+        RenderNode? previous = _children[index];
         _children[index] = item;
+        previous?.Dispose();
     }
 
     public void BringFrom(ContainerRenderNode containerNode)
@@ -47,9 +43,9 @@ public class ContainerRenderNode : RenderNode
         containerNode._children.Clear();
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return context.Input;
+        context.PassThrough();
     }
 
     protected override void OnDispose(bool disposing)

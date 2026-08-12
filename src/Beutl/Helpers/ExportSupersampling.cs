@@ -18,7 +18,7 @@ public static class ExportSupersampling
 
     /// <summary>Whether the supersampled surface fits the per-axis buffer limit on both axes.</summary>
     public static bool FitsBufferLimit(
-        PixelSize frameSize, int factor, int maxDimension = RenderNodeContext.MaxBufferDimension)
+        PixelSize frameSize, int factor, int maxDimension = RenderScaleUtilities.MaxBufferDimension)
     {
         (long width, long height) = GetRenderSize(frameSize, factor);
         return width <= maxDimension && height <= maxDimension;

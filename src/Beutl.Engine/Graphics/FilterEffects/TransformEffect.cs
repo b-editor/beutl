@@ -36,11 +36,15 @@ public sealed partial class TransformEffect : FilterEffect
 
             if (!r.ApplyToTarget)
             {
-                Vector origin = originPoint.ToPixels(context.Bounds.Size) + context.Bounds.Position;
-                Matrix offset = Matrix.CreateTranslation(origin);
-
-                Matrix transform = (-offset) * mat * offset;
-                context.Transform(transform, r.BitmapInterpolationMode);
+                context.Transform(
+                    (mat, originPoint),
+                    static (data, bounds) =>
+                    {
+                        Vector origin = data.originPoint.ToPixels(bounds.Size) + bounds.Position;
+                        Matrix offset = Matrix.CreateTranslation(origin);
+                        return (-offset) * data.mat * offset;
+                    },
+                    r.BitmapInterpolationMode);
             }
             else
             {

@@ -4,6 +4,9 @@ namespace Beutl.Graphics.Rendering;
 
 public abstract class RenderNode : IDisposable
 {
+    private bool _hasChanges;
+    private long _changeVersion;
+
     protected RenderNode()
     {
         Cache = new RenderNodeCache(this);
@@ -20,24 +23,35 @@ public abstract class RenderNode : IDisposable
 
     public bool IsDisposed { get; private set; }
 
-    public bool HasChanges { get; set; }
-
-    public RenderNodeCache Cache { get; }
-
-    /// <summary>
-    /// Runs before <see cref="Process"/> with the canvas the pass is compositing onto, for a node
-    /// whose output depends on that canvas: a filter effect rasterizes its inputs during processing,
-    /// so an operation returned by <see cref="Process"/> can be drawn before an earlier sibling's.
-    /// </summary>
-    /// <remarks>
-    /// Called on the root only, so a node that owns or references other nodes must forward it — see
-    /// <see cref="ContainerRenderNode"/> and <see cref="ReferencesChildRenderNode"/>.
-    /// </remarks>
-    public virtual void PrepareForProcess(ImmediateCanvas canvas)
+    public bool HasChanges
     {
+        get => _hasChanges;
+        set
+        {
+            _hasChanges = value;
+            if (value)
+            {
+                _changeVersion++;
+            }
+        }
     }
 
-    public abstract RenderNodeOperation[] Process(RenderNodeContext context);
+    internal long ChangeVersion => _changeVersion;
+
+    /// <summary>The nodes this node records through, in recording order.</summary>
+    /// <remarks>
+    /// Content dependency, not ownership: a node that only references another node and never disposes it
+    /// still reports it here, because revalidation and cache validity follow what a node's output is built
+    /// from. Disposal and cache teardown follow ownership instead. The relation must be acyclic and the
+    /// span must stay valid while a caller iterates it. A node that discovers what it records through only
+    /// while processing, and so cannot hold a stable span, leaves this empty: both traversals then stop at
+    /// it, so nothing below it is revalidated or render-cached and the node itself must never be cacheable.
+    /// </remarks>
+    public virtual ReadOnlySpan<RenderNode> ChildNodes => default;
+
+    internal RenderNodeCache Cache { get; }
+
+    public abstract void Process(RenderNodeContext context);
 
     public void Dispose()
     {
@@ -47,6 +61,14 @@ public abstract class RenderNode : IDisposable
             Cache.Dispose();
             IsDisposed = true;
             GC.SuppressFinalize(this);
+        }
+    }
+
+    internal void ClearChanges(long observedVersion)
+    {
+        if (_hasChanges && _changeVersion == observedVersion)
+        {
+            _hasChanges = false;
         }
     }
 

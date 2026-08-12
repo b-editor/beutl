@@ -23,7 +23,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     // 先行フェッチ（次の1秒分、バックグラウンド）
     private readonly PrefetchSlot<long, Pcm<Stereo32BitFloat>> _prefetch = new();
-    private volatile bool _disposed;
+    private bool _disposed;
 
     public IpcSampleProvider(IpcConnection connection, SharedMemoryBuffer[] audioBuffers,
         long sampleCount, long sampleRate)

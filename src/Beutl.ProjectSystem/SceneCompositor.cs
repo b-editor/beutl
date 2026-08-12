@@ -5,6 +5,7 @@ using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
@@ -55,6 +56,7 @@ public sealed class SceneCompositor : ICompositor
             PreferProxy = !compositor.ForceOriginalSource
                 && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode == PreviewSourceMode.PreferProxy;
             PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset);
+            TargetDomain = new Rect(default, compositor.Scene.FrameSize.ToSize(1));
         }
 
         public IList<Element> CurrentElements { get; set; }

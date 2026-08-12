@@ -44,11 +44,13 @@ public sealed partial class PlaneMesh : Mesh
     [Range(1, int.MaxValue), NumberStep(1, 1)]
     public IProperty<int> HeightSegments { get; } = Property.CreateAnimatable(1);
 
-    /// <inheritdoc />
-    public override void ApplyTo(Mesh.Resource resource, out Vertex3D[] vertices, out uint[] indices)
+    public partial class Resource
     {
-        var r = (Resource)resource;
-        GeneratePlane(r.Width, r.Height, r.WidthSegments, r.HeightSegments, out vertices, out indices);
+        /// <inheritdoc />
+        public override void ApplyTo(out Vertex3D[] vertices, out uint[] indices)
+        {
+            GeneratePlane(Width, Height, WidthSegments, HeightSegments, out vertices, out indices);
+        }
     }
 
     /// <summary>

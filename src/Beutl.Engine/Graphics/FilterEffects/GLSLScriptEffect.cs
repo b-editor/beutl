@@ -92,8 +92,11 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
         // Push constants report device px at the clamped buffer density.
         data.shader.Apply(c, target =>
         {
-            float w = c.ResolveTargetDensity(target.Bounds);
-            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w);
+            float w = target.Scale.IsUnbounded ? c.ResolveTargetDensity(target.Bounds) : target.Scale.Value;
+            int devW = target.RenderTarget?.Width
+                ?? CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w).Width;
+            int devH = target.RenderTarget?.Height
+                ?? CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w).Height;
             return new PushConstants
             {
                 Progress = data.progress,

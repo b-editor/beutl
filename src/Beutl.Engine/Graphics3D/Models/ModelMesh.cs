@@ -23,11 +23,13 @@ public sealed partial class ModelMesh : Mesh
     [Display(Name = nameof(GraphicsStrings.ModelMesh_Indices), ResourceType = typeof(GraphicsStrings))]
     public IProperty<ImmutableArray<uint>> Indices { get; } = Property.Create<ImmutableArray<uint>>([]);
 
-    /// <inheritdoc />
-    public override void ApplyTo(Mesh.Resource resource, out Vertex3D[] vertices, out uint[] indices)
+    public partial class Resource
     {
-        var r = (Resource)resource;
-        vertices = [.. r.Vertices];
-        indices = [.. r.Indices];
+        /// <inheritdoc />
+        public override void ApplyTo(out Vertex3D[] vertices, out uint[] indices)
+        {
+            vertices = [.. Vertices];
+            indices = [.. Indices];
+        }
     }
 }

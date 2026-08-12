@@ -14,19 +14,28 @@ public partial class FilterEffectInputNode : GraphNode
 
     public partial class Resource
     {
-        internal OperationWrapperRenderNode Wrapper { get; } = new();
+        internal FilterEffectInputRenderNode InputFacade { get; } = new();
 
         public override void Update(GraphCompositionContext context)
         {
-            Output = Wrapper;
+            Output = InputFacade;
         }
 
         partial void PostDispose(bool disposing)
         {
             if (disposing)
             {
-                Wrapper.Dispose();
+                InputFacade.Dispose();
             }
         }
     }
+}
+
+internal sealed class FilterEffectInputRenderNode : RenderNode
+{
+    internal FilterEffectInputBinding Bind(RenderNodeContext context)
+        => new(this, context);
+
+    public override void Process(RenderNodeContext context)
+        => context.PassThrough();
 }
