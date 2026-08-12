@@ -187,10 +187,16 @@ public sealed class FontManager
         }
     }
 
-    // A material package can leave an unreadable subdirectory or a disconnected mount under
-    // the scanned root. FontManager builds its map during static initialization, so letting
-    // that surface would keep the process from starting at all.
-    internal static IEnumerable<string> EnumerateFontCandidates(string root)
+    /// <summary>
+    /// Enumerates the font files under <paramref name="root"/>, skipping entries the
+    /// process cannot read.
+    /// </summary>
+    /// <remarks>
+    /// A material package can leave an unreadable subdirectory or a disconnected mount
+    /// under the scanned root. <see cref="FontManager"/> builds its map during static
+    /// initialization, so letting that surface would keep the process from starting.
+    /// </remarks>
+    public static IEnumerable<string> EnumerateFontCandidates(string root)
     {
         var options = new EnumerationOptions
         {

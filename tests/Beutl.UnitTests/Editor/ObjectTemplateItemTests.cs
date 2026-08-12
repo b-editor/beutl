@@ -56,6 +56,33 @@ public class ObjectTemplateItemTests
             (instance!.FileSource.CurrentValue as BlobFileSource)?.Data,
             Is.EqualTo(Encoding.UTF8.GetBytes("png")));
     }
+
+    // `new Uri(path)` reads a `#` in the file name as a fragment and truncates the base
+    // path, so the relative reference would resolve against the wrong directory.
+    [Test]
+    public void CreateInstance_ResolvesRelativeUri_WhenTheTemplatePathHasAReservedCharacter()
+    {
+        Directory.CreateDirectory(Path.Combine(_root, "templates", "pkg#dark"));
+        var obj = new TestEngineObjectWithFileSource(
+            new TestFileSource(new Uri(Path.Combine(_root, "materials", "pkg", "logo.png"))));
+        JsonObject serialized = CoreSerializer.SerializeToJsonObject(obj);
+
+        string json = serialized.ToJsonString()
+            .Replace("file://" + Path.Combine(_root, "materials", "pkg", "logo.png"), "../../materials/pkg/logo.png");
+        JsonObject jsonObj = JsonNode.Parse(json)!.AsObject();
+
+        string templatePath = Path.Combine(_root, "templates", "pkg#dark", "title.json");
+        var item = new ObjectTemplateItem(
+            Guid.NewGuid(), typeof(TestEngineObjectWithFileSource), typeof(TestEngineObjectWithFileSource),
+            jsonObj, "title", "", templatePath);
+
+        var instance = item.CreateInstance() as TestEngineObjectWithFileSource;
+
+        Assert.That(instance, Is.Not.Null);
+        Assert.That(
+            (instance!.FileSource.CurrentValue as BlobFileSource)?.Data,
+            Is.EqualTo(Encoding.UTF8.GetBytes("png")));
+    }
 }
 
 public sealed class TestFileSource : IFileSource

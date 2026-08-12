@@ -1570,4 +1570,7 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ClickBrowse" xml:space="preserve">
     <value>Haz clic en Examinar...</value>
   </data>
+  <data name="Materials" xml:space="preserve">
+    <value>Materiales</value>
+  </data>
 </root>
