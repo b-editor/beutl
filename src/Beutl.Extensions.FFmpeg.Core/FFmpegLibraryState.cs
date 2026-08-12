@@ -28,6 +28,7 @@ public static class FFmpegLibraryState
     private static bool s_isDispatchingNotifications;
     private static long s_notificationGeneration;
     private static volatile bool s_librariesMissing;
+    private static volatile bool s_verificationInProgress;
     private static long s_missingSinceTicks;
 
     public static event EventHandler? LibrariesMissing;
@@ -37,6 +38,8 @@ public static class FFmpegLibraryState
     public static event EventHandler? AvailabilityChanged;
 
     public static bool IsLibrariesMissing => s_librariesMissing;
+
+    public static bool IsVerificationInProgress => s_verificationInProgress;
 
     public static long MissingSinceTicks => Interlocked.Read(ref s_missingSinceTicks);
 
@@ -58,13 +61,15 @@ public static class FFmpegLibraryState
         DrainNotifications(availabilityNotification, missingNotification);
     }
 
-    public static void MarkInstalled() => SetLibrariesMissing(false, notifyWhenUnchanged: true);
+    public static void MarkInstalled()
+        => SetLibrariesMissing(false, notifyWhenUnchanged: true, clearVerification: true);
 
     public static void MarkMissing()
     {
         PendingNotification? notification = null;
         lock (s_stateGate)
         {
+            s_verificationInProgress = false;
             bool shouldNotify;
             // Arm the cooldown before notifying: SetLibrariesMissing raises AvailabilityChanged, and
             // a listener that reacts synchronously must already see ShouldSkipStartProbe == true,
@@ -86,6 +91,7 @@ public static class FFmpegLibraryState
         PendingNotification? notification = null;
         lock (s_stateGate)
         {
+            s_verificationInProgress = false;
             if (!ShouldSkipStartProbeCore(Environment.TickCount64))
                 ArmReprobeCooldownCore();
 
@@ -134,7 +140,7 @@ public static class FFmpegLibraryState
 
     // A worker process handshaked successfully, so FFmpeg loaded: clear any missing latch. This is
     // the self-recovery path for a transient failure that had latched the queue.
-    public static void NotifyWorkerStarted() => SetLibrariesMissing(false);
+    public static void NotifyWorkerStarted() => SetLibrariesMissing(false, clearVerification: true);
 
     // Clear the missing latch without signaling availability, used while a verification/install run
     // is in progress so consumers do not prematurely resume before the outcome is known.
@@ -143,6 +149,7 @@ public static class FFmpegLibraryState
         lock (s_stateGate)
         {
             SetLibrariesMissingCore(false, notify: false, notifyWhenUnchanged: false);
+            s_verificationInProgress = true;
             s_notificationGeneration++;
         }
     }
@@ -164,11 +171,18 @@ public static class FFmpegLibraryState
         return ShouldSkipStartProbeCore(now);
     }
 
-    private static void SetLibrariesMissing(bool value, bool notify = true, bool notifyWhenUnchanged = false)
+    private static void SetLibrariesMissing(
+        bool value,
+        bool notify = true,
+        bool notifyWhenUnchanged = false,
+        bool clearVerification = false)
     {
         PendingNotification? notification = null;
         lock (s_stateGate)
         {
+            if (clearVerification)
+                s_verificationInProgress = false;
+
             bool shouldNotify = SetLibrariesMissingCore(value, notify, notifyWhenUnchanged);
             if (notify && shouldNotify)
                 notification = QueueNotificationCore(NotificationKind.AvailabilityChanged, value);

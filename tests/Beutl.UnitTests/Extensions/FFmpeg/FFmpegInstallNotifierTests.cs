@@ -70,6 +70,7 @@ public class FFmpegInstallNotifierTests
             Assert.Multiple(() =>
             {
                 Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+                Assert.That(FFmpegInstallNotifier.IsVerificationInProgress, Is.True);
                 Assert.That(changes, Is.EqualTo(0));
             });
 
@@ -81,6 +82,7 @@ public class FFmpegInstallNotifierTests
         }
 
         Assert.That(changes, Is.EqualTo(1));
+        Assert.That(FFmpegInstallNotifier.IsVerificationInProgress, Is.False);
     }
 
     [Test]

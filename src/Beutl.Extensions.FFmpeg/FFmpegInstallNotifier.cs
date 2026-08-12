@@ -13,6 +13,8 @@ internal static class FFmpegInstallNotifier
 
     public static bool IsLibrariesMissing => FFmpegLibraryState.IsLibrariesMissing;
 
+    internal static bool IsVerificationInProgress => FFmpegLibraryState.IsVerificationInProgress;
+
     internal static long MissingSinceTicks => FFmpegLibraryState.MissingSinceTicks;
 
     internal static event EventHandler? AvailabilityChanged
