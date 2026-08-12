@@ -271,45 +271,35 @@ public sealed class EditorService : IOutputOperationLeaseProvider
                          ?? throw new InvalidOperationException(
                              "The project must have a file URI before it can be saved.");
         EditorTabItem[] tabItems = TabItems.ToArray();
-        bool[] enabledStates = new bool[tabItems.Length];
-        for (int i = 0; i < tabItems.Length; i++)
+        using IDisposable suspension = SuspendEditors();
+        await Task.Run(
+            () => _serializeProject(project, projectUri),
+            cancellationToken);
+
+        foreach (EditorTabItem item in tabItems)
         {
-            if (tabItems[i].Context.Value is not { } context)
+            cancellationToken.ThrowIfCancellationRequested();
+            if (item.Commands.Value is { } commands && !await commands.OnSave())
             {
-                continue;
-            }
-
-            enabledStates[i] = context.IsEnabled.Value;
-            context.IsEnabled.Value = false;
-        }
-
-        try
-        {
-            await Task.Run(
-                () => _serializeProject(project, projectUri),
-                cancellationToken);
-
-            foreach (EditorTabItem item in tabItems)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (item.Commands.Value is { } commands && !await commands.OnSave())
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-        finally
-        {
-            for (int i = 0; i < tabItems.Length; i++)
-            {
-                if (tabItems[i].Context.Value is { } context)
-                {
-                    context.IsEnabled.Value = enabledStates[i];
-                }
+                return false;
             }
         }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Disables every open editor until the returned handle is disposed.
+    /// </summary>
+    /// <remarks>
+    /// A version-control transition holds this from before its pre-transition save until the
+    /// project is closed. Releasing it earlier would let the user edit while the cycle awaits Git,
+    /// and those edits would land after the safety snapshot and be discarded by the close.
+    /// Suspensions nest: an inner one records the already-disabled state and restores it.
+    /// </remarks>
+    internal IDisposable SuspendEditors()
+    {
+        return new EditorSuspension(TabItems.ToArray());
     }
 
     internal async Task SwitchEditorExtensionAsync(EditorExtension extension)
@@ -435,6 +425,47 @@ public sealed class EditorService : IOutputOperationLeaseProvider
     {
         TabItems.Remove(item);
         await item.DisposeAsync();
+    }
+
+    private sealed class EditorSuspension : IDisposable
+    {
+        private readonly EditorTabItem[] _tabItems;
+        private readonly bool[] _enabledStates;
+        private int _disposed;
+
+        public EditorSuspension(EditorTabItem[] tabItems)
+        {
+            _tabItems = tabItems;
+            _enabledStates = new bool[tabItems.Length];
+            for (int i = 0; i < tabItems.Length; i++)
+            {
+                if (tabItems[i].Context.Value is not { } context)
+                {
+                    continue;
+                }
+
+                _enabledStates[i] = context.IsEnabled.Value;
+                context.IsEnabled.Value = false;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _tabItems.Length; i++)
+            {
+                // A transition closes the project before releasing its suspension, which nulls the
+                // context of every tab it captured; those tabs no longer exist to re-enable.
+                if (_tabItems[i].Context.Value is { } context)
+                {
+                    context.IsEnabled.Value = _enabledStates[i];
+                }
+            }
+        }
     }
 
     private sealed class WorkspaceOperationLease(

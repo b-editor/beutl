@@ -205,6 +205,9 @@ public sealed record GitAvailability(
 
 public sealed record RepositoryInfo
 {
+    private readonly string _canonicalRepoRoot;
+    private readonly string _canonicalProjectRoot;
+
     public RepositoryInfo(string repoRoot, string projectRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
@@ -212,30 +215,50 @@ public sealed record RepositoryInfo
 
         string normalizedRepoRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repoRoot));
         string normalizedProjectRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectRoot));
-        string relativeProject = Path.GetRelativePath(normalizedRepoRoot, normalizedProjectRoot);
-        if (relativeProject == ".."
-            || relativeProject.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-            || Path.IsPathFullyQualified(relativeProject))
-        {
-            throw new ArgumentException("The project root must be inside the repository root.", nameof(projectRoot));
-        }
 
-        bool nested = !string.Equals(normalizedRepoRoot, normalizedProjectRoot, PathComparison);
+        // Containment and identity are decided on canonical paths compared ordinally.
+        // ResolveCanonicalPath follows symbolic links and rewrites each existing component to its
+        // on-disk casing, so two spellings of one directory converge while two directories that a
+        // case-insensitive rule would merge stay apart on a case-sensitive volume. Comparing the
+        // given paths under a per-platform rule gets one of those two cases wrong either way.
+        string canonicalRepoRoot = Path.TrimEndingDirectorySeparator(
+            RepositoryPathComparer.ResolveCanonicalPath(normalizedRepoRoot));
+        string canonicalProjectRoot = Path.TrimEndingDirectorySeparator(
+            RepositoryPathComparer.ResolveCanonicalPath(normalizedProjectRoot));
+        string relativeProject = GetContainedRelativePath(canonicalRepoRoot, canonicalProjectRoot)
+                                 ?? throw new ArgumentException(
+                                     "The project root must be inside the repository root.",
+                                     nameof(projectRoot));
+        bool nested = relativeProject != ".";
 
         RepoRoot = normalizedRepoRoot;
         ProjectRoot = normalizedProjectRoot;
+        _canonicalRepoRoot = canonicalRepoRoot;
+        _canonicalProjectRoot = canonicalProjectRoot;
         IsNestedInForeignRepo = nested;
         Pathspec = nested ? NormalizePathspec(relativeProject) : ".";
     }
 
+    // Returns null when path is not inside root. Both are fully qualified and trimmed, so an
+    // ordinal prefix test is exact; Path.GetRelativePath cannot be used because it applies the
+    // per-platform casing rule this type deliberately avoids.
+    private static string? GetContainedRelativePath(string root, string path)
+    {
+        if (string.Equals(root, path, StringComparison.Ordinal))
+        {
+            return ".";
+        }
+
+        string prefix = root.EndsWith(Path.DirectorySeparatorChar)
+            ? root
+            : root + Path.DirectorySeparatorChar;
+        return path.StartsWith(prefix, StringComparison.Ordinal)
+            ? path[prefix.Length..]
+            : null;
+    }
+
     private static string NormalizePathspec(string path)
         => OperatingSystem.IsWindows() ? path.Replace('\\', '/') : path;
-
-    private static StringComparison PathComparison
-        => FileSystemPathComparison.ForCurrentPlatform;
-
-    private static StringComparer PathComparer
-        => FileSystemPathComparison.ComparerForCurrentPlatform;
 
     public string RepoRoot { get; }
 
@@ -248,15 +271,15 @@ public sealed record RepositoryInfo
     public bool Equals(RepositoryInfo? other)
     {
         return other is not null
-               && PathComparer.Equals(RepoRoot, other.RepoRoot)
-               && PathComparer.Equals(ProjectRoot, other.ProjectRoot);
+               && string.Equals(_canonicalRepoRoot, other._canonicalRepoRoot, StringComparison.Ordinal)
+               && string.Equals(_canonicalProjectRoot, other._canonicalProjectRoot, StringComparison.Ordinal);
     }
 
     public override int GetHashCode()
     {
         return HashCode.Combine(
-            PathComparer.GetHashCode(RepoRoot),
-            PathComparer.GetHashCode(ProjectRoot));
+            StringComparer.Ordinal.GetHashCode(_canonicalRepoRoot),
+            StringComparer.Ordinal.GetHashCode(_canonicalProjectRoot));
     }
 }
 

@@ -149,6 +149,13 @@ internal interface IProjectVersionControlTransaction
         string startPoint,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Downloads the Git LFS objects the named branch needs, so a later switch does not have to
+    /// reach the network while the project is closed. Best effort: a failure leaves the switch to
+    /// fall back to whatever is already cached.
+    /// </summary>
+    Task PrefetchBranchLfsObjectsAsync(string name, CancellationToken cancellationToken);
+
     Task SwitchBranchAsync(string name, CancellationToken cancellationToken);
 
     Task<FastForwardPullResult> PullFastForwardAsync(

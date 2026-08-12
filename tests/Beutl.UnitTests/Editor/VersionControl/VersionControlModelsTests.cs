@@ -57,42 +57,72 @@ public class VersionControlModelsTests
     }
 
     [Test]
-    public void RepositoryInfo_equality_uses_platform_path_semantics()
+    public void RepositoryInfo_identity_follows_the_on_disk_directory_not_the_spelling()
     {
-        string root = Path.Combine(Path.GetTempPath(), "beutl-repository-equality");
-        string upperRoot = root.ToUpperInvariant();
-        var repository = new RepositoryInfo(root, Path.Combine(root, "project"));
-        var upperRepository = new RepositoryInfo(
-            upperRoot,
-            Path.Combine(upperRoot, "PROJECT"));
-
-        bool expectedEqual = !OperatingSystem.IsLinux();
-        Assert.That(repository.Equals(upperRepository), Is.EqualTo(expectedEqual));
-        if (expectedEqual)
+        string temporaryRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-repository-identity-{Guid.NewGuid():N}");
+        string repositoryRoot = Path.Combine(temporaryRoot, "Repo");
+        Directory.CreateDirectory(repositoryRoot);
+        try
         {
-            Assert.That(repository.GetHashCode(), Is.EqualTo(upperRepository.GetHashCode()));
+            string alias = Path.Combine(temporaryRoot, "repo");
+            var repository = new RepositoryInfo(repositoryRoot, repositoryRoot);
+
+            if (!Directory.Exists(alias))
+            {
+                // A case-sensitive volume: the alias is a different directory, so it is not
+                // contained in the repository root and must be rejected rather than merged.
+                Assert.Throws<ArgumentException>(
+                    () => new RepositoryInfo(repositoryRoot, alias));
+                return;
+            }
+
+            var aliased = new RepositoryInfo(alias, alias);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(aliased, Is.EqualTo(repository));
+                Assert.That(aliased.GetHashCode(), Is.EqualTo(repository.GetHashCode()));
+                Assert.That(aliased.IsNestedInForeignRepo, Is.False);
+                Assert.That(aliased.Pathspec, Is.EqualTo("."));
+            });
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
         }
     }
 
     [Test]
-    public void RepositoryInfo_treats_a_repository_root_spelled_differently_as_the_same_directory()
+    public void RepositoryInfo_identity_resolves_symbolic_link_aliases()
     {
-        if (OperatingSystem.IsLinux())
+        string temporaryRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-repository-symlink-{Guid.NewGuid():N}");
+        string realRoot = Path.Combine(temporaryRoot, "real");
+        string linkRoot = Path.Combine(temporaryRoot, "link");
+        Directory.CreateDirectory(realRoot);
+        try
         {
-            Assert.Ignore("Linux paths are case-sensitive, so the two spellings name different directories.");
+            try
+            {
+                Directory.CreateSymbolicLink(linkRoot, realRoot);
+            }
+            catch (Exception ex)
+                when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+            {
+                Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
+            }
+
+            Assert.That(
+                new RepositoryInfo(linkRoot, linkRoot),
+                Is.EqualTo(new RepositoryInfo(realRoot, realRoot)));
         }
-
-        string temporaryRoot = Path.Combine(Path.GetTempPath(), "beutl-repository-root-casing");
-
-        var repository = new RepositoryInfo(
-            Path.Combine(temporaryRoot, "Repo"),
-            Path.Combine(temporaryRoot, "repo"));
-
-        Assert.Multiple(() =>
+        finally
         {
-            Assert.That(repository.IsNestedInForeignRepo, Is.False);
-            Assert.That(repository.Pathspec, Is.EqualTo("."));
-        });
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
     }
 
     [Test]

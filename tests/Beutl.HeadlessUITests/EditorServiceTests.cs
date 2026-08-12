@@ -209,6 +209,30 @@ public sealed class EditorServiceTests
         });
     }
 
+    [Test]
+    public void SuspendEditors_keeps_editors_disabled_until_the_outermost_handle_is_disposed()
+    {
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+        var context = new StubEditorContext();
+        editorService.TabItems.Add(new EditorTabItem(context));
+
+        using (IDisposable outer = editorService.SuspendEditors())
+        {
+            Assert.That(context.IsEnabled.Value, Is.False);
+
+            // A transition suspends around its pre-transition save, which suspends again; the inner
+            // handle must not re-enable the editor while the transition is still running.
+            using (IDisposable inner = editorService.SuspendEditors())
+            {
+                Assert.That(context.IsEnabled.Value, Is.False);
+            }
+
+            Assert.That(context.IsEnabled.Value, Is.False);
+        }
+
+        Assert.That(context.IsEnabled.Value, Is.True);
+    }
+
     private sealed class ForeignLease : IProjectFileWriteLease
     {
         public void Dispose()

@@ -309,6 +309,15 @@ public sealed class VersionControlCoordinator :
         }
 
         var options = new InitOptions(targetRepository, _config.UseLfsWhenAvailable);
+        // InitializeAsync writes the hygiene files and stages the first revision, so it needs the
+        // same workspace reservation as every later snapshot: without it an export or an auto-save
+        // can still be writing and the initial commit captures a half-written tree.
+        using IDisposable? initializationMutation = TryBeginWorktreeMutation();
+        if (initializationMutation is null)
+        {
+            return false;
+        }
+
         try
         {
             try
@@ -1071,6 +1080,10 @@ public sealed class VersionControlCoordinator :
                         return false;
                     }
 
+                    // Held until the project is closed further down: the awaits between this save
+                    // and the close run real Git commands, and an edit made in that window would
+                    // miss the safety snapshot and be discarded when the editors close.
+                    using IDisposable editorSuspension = _editorService.SuspendEditors();
                     if (!await TrySaveOpenProjectAsync(project, CancellationToken.None))
                     {
                         PublishNotification(() =>
@@ -1128,6 +1141,15 @@ public sealed class VersionControlCoordinator :
                             CancellationToken.None))
                     {
                         return false;
+                    }
+
+                    if (!create)
+                    {
+                        // The switch below runs uncancellable with the project closed, and its LFS
+                        // smudge filter would download missing objects there - a stalled endpoint
+                        // would strand the closed project. Pull them in first, while the operation
+                        // is still cancellable and the project is still open.
+                        await service.PrefetchBranchLfsObjectsAsync(branchName, cancellationToken);
                     }
 
                     CheckedOutBranchTip expectedResultTip = originalTip;
@@ -1373,6 +1395,9 @@ public sealed class VersionControlCoordinator :
                 RemoteOpResult result = await ownedService.ExecuteExclusiveAsync(
                     async service =>
                     {
+                        // Held until the project is closed further down, so an edit made while the
+                        // preflight and checkpoint awaits run cannot miss the safety checkpoint.
+                        using IDisposable editorSuspension = _editorService.SuspendEditors();
                         if (!await TrySaveOpenProjectAsync(project, cancellationToken))
                         {
                             return new RemoteOpResult.Failed(
@@ -2234,6 +2259,10 @@ public sealed class VersionControlCoordinator :
                         return false;
                     }
 
+                    // Held until the project is closed further down: the awaits between this save
+                    // and the close run real Git commands, and an edit made in that window would
+                    // miss the safety snapshot and be discarded when the editors close.
+                    using IDisposable editorSuspension = _editorService.SuspendEditors();
                     if (!await TrySaveOpenProjectAsync(project, CancellationToken.None))
                     {
                         PublishNotification(() =>

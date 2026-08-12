@@ -4593,6 +4593,69 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Branch_switch_prefetches_lfs_objects_while_the_project_is_still_open()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-branch-lfs-prefetch");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [],
+                    HasConflicts: false),
+                Branches =
+                [
+                    new BranchInfo("main", true, null),
+                    new BranchInfo("feature", false, null),
+                ],
+            };
+            bool? projectWasOpenDuringPrefetch = null;
+            backend.PrefetchBranchLfsObserver = () =>
+                projectWasOpenDuringPrefetch = TestShell.Project.CurrentProject.Value is not null;
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            await coordinator.SwitchBranchAsync("feature");
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(backend.PrefetchBranchLfsCalls, Is.EqualTo(1));
+                // The switch itself runs uncancellable with the project closed, so the download has
+                // to have happened before the close.
+                Assert.That(projectWasOpenDuringPrefetch, Is.True);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Restore_stops_when_an_open_editor_cannot_save()
     {
         await TestReset.ResetShellAsync();
@@ -9351,6 +9414,10 @@ public class VersionControlRestoreTests
 
         public int CreateBranchCalls { get; private set; }
 
+        public int PrefetchBranchLfsCalls { get; private set; }
+
+        public Action? PrefetchBranchLfsObserver { get; set; }
+
         public int RetirementCalls => Volatile.Read(ref _retirementCalls);
 
         public int RemoveRecoverableLockCalls { get; private set; }
@@ -9798,6 +9865,13 @@ public class VersionControlRestoreTests
             CancellationToken cancellationToken)
         {
             CreateBranchCalls++;
+            return Task.CompletedTask;
+        }
+
+        public Task PrefetchBranchLfsObjectsAsync(string name, CancellationToken cancellationToken)
+        {
+            PrefetchBranchLfsCalls++;
+            PrefetchBranchLfsObserver?.Invoke();
             return Task.CompletedTask;
         }
 
