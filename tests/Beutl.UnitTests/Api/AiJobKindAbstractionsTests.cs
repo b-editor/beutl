@@ -7,25 +7,20 @@ namespace Beutl.UnitTests.Api;
 public sealed class AiJobKindAbstractionsTests
 {
     [Test]
-    public void PluginContracts_LiveInMinimalAbstractionsAssembly()
+    public void PluginContracts_SeparateServerJobKindsFromEditorResultHandling()
     {
         System.Reflection.Assembly contracts = typeof(AiJobKindExtension).Assembly;
-        string[] dependencies = contracts.GetReferencedAssemblies()
-            .Select(reference => reference.Name)
-            .OfType<string>()
-            .ToArray();
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(contracts.GetName().Name, Is.EqualTo("Beutl.Api.Abstractions"));
+            Assert.That(contracts.GetName().Name, Is.EqualTo("Beutl.Api"));
             Assert.That(typeof(AiJobKindDescriptor).Assembly, Is.SameAs(contracts));
             Assert.That(typeof(AiJobStatusSemantics).Assembly, Is.SameAs(contracts));
             Assert.That(typeof(AiJob).Assembly, Is.SameAs(contracts));
-            Assert.That(typeof(IAiJobResultHandler).Assembly.GetName().Name, Is.EqualTo("Beutl.Editor.Abstractions"));
+            Assert.That(typeof(IAiJobResultHandler).Assembly.GetName().Name, Is.EqualTo("Beutl.Editor"));
             Assert.That(typeof(IAiJobResultContext).Assembly, Is.SameAs(typeof(IAiJobResultHandler).Assembly));
             Assert.That(typeof(IAiJobResultEditorContext).Assembly, Is.SameAs(typeof(IAiJobResultHandler).Assembly));
-            Assert.That(typeof(AiJobKindRegistry).Assembly, Is.Not.SameAs(contracts));
-            Assert.That(dependencies, Does.Not.Contain("Beutl.Api"));
+            Assert.That(typeof(AiJobKindRegistry).Assembly, Is.SameAs(contracts));
             Assert.That(contracts.GetType("Beutl.Api.Services.IAiJobResultHandler"), Is.Null);
             Assert.That(contracts.GetType("Beutl.Api.Services.IAiJobResultDispatcher"), Is.Null);
             Assert.That(contracts.GetType("Beutl.Api.Services.IAiJobPresentationProvider"), Is.Null);

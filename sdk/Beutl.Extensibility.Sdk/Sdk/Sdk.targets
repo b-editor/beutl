@@ -31,21 +31,19 @@
   <!-- Auto-reference opt-out properties -->
   <PropertyGroup>
     <BeutlAutoReferenceAll Condition="'$(BeutlAutoReferenceAll)' == ''">true</BeutlAutoReferenceAll>
-    <BeutlAutoReferenceApiAbstractions Condition="'$(BeutlAutoReferenceApiAbstractions)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceApiAbstractions>
+    <BeutlAutoReferenceApi Condition="'$(BeutlAutoReferenceApi)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceApi>
     <BeutlAutoReferenceExtensibility Condition="'$(BeutlAutoReferenceExtensibility)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceExtensibility>
     <BeutlAutoReferenceProjectSystem Condition="'$(BeutlAutoReferenceProjectSystem)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceProjectSystem>
     <BeutlAutoReferenceNodeGraph Condition="'$(BeutlAutoReferenceNodeGraph)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceNodeGraph>
-    <BeutlAutoReferenceEditorAbstractions Condition="'$(BeutlAutoReferenceEditorAbstractions)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceEditorAbstractions>
-    <BeutlAutoReferenceEditor Condition="'$(BeutlAutoReferenceEditor)' == ''">false</BeutlAutoReferenceEditor>
+    <BeutlAutoReferenceEditor Condition="'$(BeutlAutoReferenceEditor)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceEditor>
     <BeutlAutoReferenceSourceGenerators Condition="'$(BeutlAutoReferenceSourceGenerators)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceSourceGenerators>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(_PreventCopyInternalPackages)' == 'true'">
-    <PackageReference Include="Beutl.Api.Abstractions" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceApiAbstractions)' == 'true'" />
+    <PackageReference Include="Beutl.Api" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceApi)' == 'true'" />
     <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
     <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
     <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
-    <PackageReference Include="Beutl.Editor.Abstractions" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceEditorAbstractions)' == 'true'" />
     <PackageReference Include="Beutl.Editor" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceEditor)' == 'true'" />
     <PackageReference
       Include="Beutl.Engine.SourceGenerators"
@@ -57,11 +55,10 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(_PreventCopyInternalPackages)' != 'true'">
-    <PackageReference Include="Beutl.Api.Abstractions" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceApiAbstractions)' == 'true'" />
+    <PackageReference Include="Beutl.Api" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceApi)' == 'true'" />
     <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
     <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
     <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
-    <PackageReference Include="Beutl.Editor.Abstractions" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceEditorAbstractions)' == 'true'" />
     <PackageReference Include="Beutl.Editor" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceEditor)' == 'true'" />
     <PackageReference
       Include="Beutl.Engine.SourceGenerators"

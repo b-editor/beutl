@@ -325,7 +325,7 @@ class Build : NukeBuild
             [
                 ("Beutl.Configuration", tfm),
                 ("Beutl.Core", tfm),
-                ("Beutl.Api.Abstractions", tfm),
+                ("Beutl.Api", tfm),
                 ("Beutl.Extensibility", tfm),
                 ("Beutl.Engine", tfm),
                 ("Beutl.Engine.SourceGenerators", "netstandard2.0"),
@@ -334,7 +334,6 @@ class Build : NukeBuild
                 ("Beutl.Threading", tfm),
                 ("Beutl.Utilities", tfm),
                 ("Beutl.NodeGraph", tfm),
-                ("Beutl.Editor.Abstractions", tfm),
                 ("Beutl.Editor", tfm),
             ];
 

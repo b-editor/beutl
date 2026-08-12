@@ -473,15 +473,3 @@ internal static class AiModelMapper
                 ? timestamp.ToUniversalTime()
                 : throw new AiException("The AI entitlement response contains an invalid timestamp.");
 }
-
-internal static class AiIdentifier
-{
-    public static string Normalize(string value, string parameterName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(value, parameterName);
-        string normalized = value.Trim();
-        if (normalized.Length > 256)
-            throw new ArgumentException("The identifier is too long.", parameterName);
-        return normalized;
-    }
-}

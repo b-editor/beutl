@@ -12,7 +12,6 @@
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
-    <ProjectReference Include="..\Beutl.Editor.Abstractions\Beutl.Editor.Abstractions.csproj" />
     <ProjectReference Include="..\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
