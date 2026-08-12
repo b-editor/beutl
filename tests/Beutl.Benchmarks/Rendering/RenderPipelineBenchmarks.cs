@@ -326,25 +326,32 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         IReadOnlyDictionary<string, long> counters)
     {
         if (scene.Name == "ShaderOpacityShader"
-            && counters.GetValueOrDefault("FusedStages") < 3)
+            && counters.GetValueOrDefault("FusedShaderRunExecutions") < 1)
         {
             throw new InvalidOperationException("The primary workload did not execute its fused three-stage chain.");
         }
 
-        if (scene.Barrier is RenderPipelineBenchmarkBarrier.WholeSourceShader
-            or RenderPipelineBenchmarkBarrier.SpatialEffect
-            && counters.GetValueOrDefault("ExecutionIslands") < 2)
+        // A whole-source shader barrier splits the shader runs; a spatial barrier leaves the shader path
+        // entirely, so its evidence is the intermediate it is forced to allocate.
+        long barrierEvidence = scene.Barrier switch
+        {
+            RenderPipelineBenchmarkBarrier.WholeSourceShader => counters.GetValueOrDefault("ShaderRunExecutions"),
+            RenderPipelineBenchmarkBarrier.SpatialEffect
+                => counters.GetValueOrDefault("IntermediateTargetAcquisitions"),
+            _ => long.MaxValue,
+        };
+        if (barrierEvidence < 1)
         {
             throw new InvalidOperationException($"Barrier workload '{scene.Name}' did not retain a hard island boundary.");
         }
 
-        if (scene.HasStaticPrefixCache && counters.GetValueOrDefault("RenderCacheHits") < 1)
+        if (scene.HasStaticPrefixCache && counters.GetValueOrDefault("StructuralPlanCacheHits") < 1)
         {
             throw new InvalidOperationException("The static-prefix workload did not reach its persistent render cache.");
         }
 
         if (scene.HasTargetDependencies
-            && counters.GetValueOrDefault("RecordedTargetCommands") < scene.TopLevelDrawableCount)
+            && counters.GetValueOrDefault("TargetPoolCreates") < 1)
         {
             throw new InvalidOperationException("The multi-root workload did not record every target dependency.");
         }
@@ -352,7 +359,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
 
     private static void ValidateRequestCounters(IReadOnlyDictionary<string, long> counters)
     {
-        if (counters.Count == 0 || counters.GetValueOrDefault("RecordedFragments") <= 0)
+        if (counters.Count == 0 || !counters.ContainsKey("ShaderStageExecutions"))
             throw new InvalidOperationException("A benchmark request produced no request-wide diagnostics.");
         if (counters.GetValueOrDefault("Failures") != 0
             || counters.GetValueOrDefault("CleanupFailures") != 0
@@ -624,7 +631,6 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         private readonly RenderPipelineBenchmarkSceneDefinition _scene;
         private readonly RenderNode _root;
         private readonly RenderNodeRenderer _renderer;
-        private readonly object _diagnostics;
         private readonly IReadOnlyList<IFrameStateConsumer> _animatedNodes;
         private readonly IReadOnlyList<IDisposable> _sceneResources;
         private bool _disposed;
@@ -637,9 +643,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             _root = CreateScene(scene, animatedNodes, sceneResources);
             _animatedNodes = animatedNodes.AsReadOnly();
             _sceneResources = sceneResources.AsReadOnly();
-            _diagnostics = RenderPipelineInternalDiagnostics.CreateState();
             RenderNodeRendererOptions options = CreateRendererOptions(scene);
-            RenderPipelineInternalDiagnostics.Attach(options, _diagnostics, RenderRequestPurpose.Frame);
+            RenderPipelineInternalDiagnostics.Attach(options, RenderRequestPurpose.Frame);
             _renderer = new RenderNodeRenderer(_root, options);
         }
 
@@ -725,7 +730,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         private SortedDictionary<string, long> CaptureCounters(int frameIndex, string phase)
         {
             SortedDictionary<string, long> counters =
-                RenderPipelineInternalDiagnostics.CaptureLatestCounters(_diagnostics, out bool succeeded);
+                RenderPipelineInternalDiagnostics.CaptureLatestCounters(_renderer, out bool succeeded);
             if (!succeeded)
             {
                 throw new InvalidOperationException(
@@ -880,42 +885,24 @@ internal static class RenderPipelineInternalDiagnostics
 {
     private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-    public static object CreateState()
-    {
-        Type type = typeof(RenderNode).Assembly.GetType(
-            "Beutl.Graphics.Rendering.RenderPipelineDiagnosticsState",
-            throwOnError: true)!;
-        return Activator.CreateInstance(type, nonPublic: true)
-            ?? throw new InvalidOperationException("Could not create the internal render diagnostics state.");
-    }
-
-    public static void Attach(
-        RenderNodeRendererOptions options,
-        object state,
-        RenderRequestPurpose purpose)
-    {
-        // Diagnostics and Purpose live on the default request record; its init-only
-        // accessors remain reflection-settable before the renderer copies the request.
-        object request = GetProperty(options, "DefaultRequest");
-        SetProperty(request, "Diagnostics", state);
-        SetProperty(request, "Purpose", purpose);
-    }
+    // Feature 004 removed the request-wide diagnostics recorder, so counters come from the component
+    // statistics the renderer still publishes rather than from a per-request snapshot.
+    public static void Attach(RenderNodeRendererOptions options, RenderRequestPurpose purpose)
+        => SetPurpose(options, purpose);
 
     public static void SetPurpose(RenderNodeRendererOptions options, RenderRequestPurpose purpose)
         => SetProperty(GetProperty(options, "DefaultRequest"), "Purpose", purpose);
 
-    public static SortedDictionary<string, long> CaptureLatestCounters(object state, out bool succeeded)
+    public static SortedDictionary<string, long> CaptureLatestCounters(object renderer, out bool succeeded)
     {
-        object snapshot = GetProperty(state, "Latest");
-        succeeded = (bool)GetProperty(snapshot, "Succeeded");
-        object counters = GetProperty(snapshot, "Counters");
-        var result = new SortedDictionary<string, long>(StringComparer.Ordinal);
-        foreach (object item in (IEnumerable)counters)
-        {
-            object key = GetProperty(item, "Key");
-            object value = GetProperty(item, "Value");
-            result.Add(key.ToString()!, Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture));
-        }
+        SortedDictionary<string, long> result = CaptureNumericProperties(renderer, "LastExecutionStatistics");
+        foreach (KeyValuePair<string, long> pair in CaptureNumericProperties(renderer, "TargetPoolStatistics"))
+            result[$"TargetPool{pair.Key}"] = pair.Value;
+        foreach (KeyValuePair<string, long> pair in CaptureNumericProperties(renderer, "ProgramCacheStatistics"))
+            result[$"ProgramCache{pair.Key}"] = pair.Value;
+        foreach (KeyValuePair<string, long> pair in CaptureNumericProperties(renderer, "StructuralPlanCacheStatistics"))
+            result[$"StructuralPlanCache{pair.Key}"] = pair.Value;
+        succeeded = true;
         return result;
     }
 
