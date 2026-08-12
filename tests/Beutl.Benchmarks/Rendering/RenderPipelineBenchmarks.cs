@@ -467,6 +467,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             "StructuralToggle" => CreateStructuralToggle(scene, animatedNodes),
             "StaticPrefixAnimatedTail" => CreateStaticPrefix(scene, animatedNodes),
             "MixedSpatialColor" => CreateMixedChain(scene, sceneResources),
+            "SpatialGroupChain" => CreateSpatialGroupChain(scene, sceneResources),
+            "SpatialNodeChain" => CreateSpatialNodeChain(scene, sceneResources),
             "SmallObjectFixedOverhead" => CreateSmallObject(scene),
             "MultipleDrawablesTargetDependencies" => CreateMultipleRoots(scene),
             _ => throw new ArgumentOutOfRangeException(nameof(scene), scene.Name, "Unknown benchmark scene."),
@@ -547,6 +549,41 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         current = WrapShader(current, BenchmarkShader.Invert);
         current = WrapOpacity(current, 0.8f);
         return WrapShader(current, BenchmarkShader.ChannelRotate);
+    }
+
+    // One effect node whose group holds every blur: the recorder keeps them in one segment.
+    private static RenderNode CreateSpatialGroupChain(
+        RenderPipelineBenchmarkSceneDefinition scene,
+        List<IDisposable> sceneResources)
+    {
+        var group = new FilterEffectGroup();
+        for (int index = 0; index < scene.SemanticStageCount; index++)
+            group.Children.Add(new Blur { Sigma = { CurrentValue = new Size(2 + index, 2 + index) } });
+
+        FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
+        sceneResources.Add(resource);
+        FilterEffectRenderNode node = resource.CreateRenderNode();
+        node.AddChild(CreateSource(scene, s_targetDomain));
+        return node;
+    }
+
+    // One effect node per blur: each node records its own segment.
+    private static RenderNode CreateSpatialNodeChain(
+        RenderPipelineBenchmarkSceneDefinition scene,
+        List<IDisposable> sceneResources)
+    {
+        RenderNode current = CreateSource(scene, s_targetDomain);
+        for (int index = 0; index < scene.SemanticStageCount; index++)
+        {
+            var blur = new Blur { Sigma = { CurrentValue = new Size(2 + index, 2 + index) } };
+            FilterEffect.Resource resource = blur.ToResource(CompositionContext.Default);
+            sceneResources.Add(resource);
+            FilterEffectRenderNode node = resource.CreateRenderNode();
+            node.AddChild(current);
+            current = node;
+        }
+
+        return current;
     }
 
     private static Blur CreateMixedSpatialEffect()

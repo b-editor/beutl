@@ -146,6 +146,18 @@ internal static class RenderPipelineBenchmarkScenes
             semanticStageCount: 6,
             animation: RenderPipelineBenchmarkAnimation.ParameterOnly,
             hasStaticPrefixCache: true),
+        // Spatial stages leave the fusible shader path. These two pin how their cost scales with depth,
+        // separating one effect node holding a group from a stack of one-effect nodes.
+        new(
+            "SpatialGroupChain",
+            SourceSeed + 20,
+            semanticStageCount: 3,
+            barrier: RenderPipelineBenchmarkBarrier.SpatialEffect),
+        new(
+            "SpatialNodeChain",
+            SourceSeed + 21,
+            semanticStageCount: 3,
+            barrier: RenderPipelineBenchmarkBarrier.SpatialEffect),
         new(
             "MixedSpatialColor",
             SourceSeed + 8,
