@@ -109,18 +109,38 @@ public static class EngineObjectHelper
                                 if (token.IsCancellationRequested)
                                     return;
 
-                                renderContext.Time = t.Second;
-                                if (resource is null)
+                                try
                                 {
-                                    resource = createResource(obj, renderContext);
-                                }
-                                else
-                                {
-                                    bool updateOnly = false;
-                                    resource.Update(obj, renderContext, ref updateOnly);
-                                }
+                                    renderContext.Time = t.Second;
+                                    if (resource is null)
+                                    {
+                                        resource = createResource(obj, renderContext);
+                                    }
+                                    else
+                                    {
+                                        bool updateOnly = false;
+                                        resource.Update(obj, renderContext, ref updateOnly);
+                                    }
 
-                                observer.OnNext((resource, resource.Version));
+                                    observer.OnNext((resource, resource.Version));
+                                }
+                                catch (Exception ex)
+                                {
+                                    // An escaping exception unwinds the shared render-thread loop, which
+                                    // installs no unhandled-exception handler.
+                                    cts.Cancel();
+                                    try
+                                    {
+                                        resource?.Dispose();
+                                    }
+                                    catch (Exception disposeFailure)
+                                    {
+                                        ex.Data["EngineVersionedResourceDisposeFailure"] = disposeFailure;
+                                    }
+
+                                    resource = null;
+                                    observer.OnError(ex);
+                                }
                             },
                             DispatchPriority.Low);
                     });
