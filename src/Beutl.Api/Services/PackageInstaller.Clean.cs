@@ -101,20 +101,25 @@ public partial class PackageInstaller
                                || UninstallDataPackage(package.Id);
 
             string directory = Helper.ResolveInstalledDirectory(package);
+            if (!dataRemoved)
+            {
+                // PrepareForClean rediscovers candidates from extracted package directories,
+                // so dropping this one would strand the payload with nothing left to retry
+                // from. Keep both the directory and the repository entry for the next run.
+                _logger.LogError("Failed to delete the data payload of package: {PackageId}", package.Id);
+                failedPackages.Add(directory);
+                continue;
+            }
+
             if (!Directory.Exists(directory))
             {
                 // The files are already gone, so the repository entry would outlive them.
                 _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
                 _installedPackageRepository.RemovePackage(package);
-                if (!dataRemoved)
-                {
-                    failedPackages.Add(directory);
-                }
-
                 continue;
             }
 
-            bool hasAnyFailures = !dataRemoved;
+            bool hasAnyFailures = false;
             foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             {
                 try

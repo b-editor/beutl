@@ -293,6 +293,43 @@ public class PackageInstallerDataTests
     }
 
     [Test]
+    public void Clean_KeepsTheExtractedPackage_WhenThePayloadCannotBeRemoved()
+    {
+        // PrepareForClean rediscovers candidates from extracted package directories, so
+        // dropping the directory or the repository entry on a failed payload deletion
+        // would leave nothing to retry from.
+        const string Name = "Beutl.Package.DataTest.CleanRetry";
+        var identity = new PackageIdentity(Name, NuGetVersion.Parse("1.0.0"));
+        LocalPackage package = CreateDataPackage(Name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "x")]);
+        _installer.InstallDataPackage(package);
+        _repository.AddPackage(identity);
+
+        var context = new PackageCleanContext([identity], 0);
+        using (BlockDeletion(MaterialsDirectoryOf(Name)))
+        {
+            _installer.Clean(context, new Progress<double>());
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.FailedPackages, Is.Not.Empty);
+            Assert.That(Directory.Exists(package.InstalledPath), Is.True);
+            Assert.That(_repository.ExistsPackage(identity), Is.True);
+            Assert.That(Directory.Exists(MaterialsDirectoryOf(Name)), Is.True);
+        });
+
+        // The retry now succeeds and takes everything with it.
+        _installer.Clean(new PackageCleanContext([identity], 0), new Progress<double>());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.Exists(MaterialsDirectoryOf(Name)), Is.False);
+            Assert.That(Directory.Exists(package.InstalledPath), Is.False);
+            Assert.That(_repository.ExistsPackage(identity), Is.False);
+        });
+    }
+
+    [Test]
     public void Clean_RemovesThePayload_WhenTheLastIdentityGoes()
     {
         const string Name = "Beutl.Package.DataTest.CleanLast";
