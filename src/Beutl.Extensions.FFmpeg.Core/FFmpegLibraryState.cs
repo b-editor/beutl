@@ -21,15 +21,12 @@ public static class FFmpegLibraryState
     private const long ReprobeCooldownMs = 30_000;
     private static readonly object s_stateGate = new();
     // This gate protects only the pending notification queue. It is never held while invoking
-    // subscribers, so callbacks can synchronously dispatch another state transition on the
-    // dispatcher thread without a cross-thread lock cycle.
+    // subscribers, so callback-dispatched transitions can be queued without a cross-thread lock
+    // cycle. The dispatcher exclusively drains the queue in FIFO order.
     private static readonly object s_notificationGate = new();
     private static readonly LinkedList<PendingNotification> s_pendingNotifications = new();
-    // This marker flows into callback-created tasks. Those descendants enqueue their transition and
-    // return instead of waiting for the dispatcher that is still executing their originating callback.
-    // They never claim queue entries; FIFO delivery remains exclusively owned by DrainAsDispatcher.
-    private static readonly AsyncLocal<NotificationDispatchContext?> s_dispatchContext = new();
     private static bool s_isDispatchingNotifications;
+    private static long s_notificationGeneration;
     private static volatile bool s_librariesMissing;
     private static long s_missingSinceTicks;
 
@@ -141,7 +138,14 @@ public static class FFmpegLibraryState
 
     // Clear the missing latch without signaling availability, used while a verification/install run
     // is in progress so consumers do not prematurely resume before the outcome is known.
-    public static void MarkVerificationStarted() => SetLibrariesMissing(false, notify: false);
+    public static void MarkVerificationStarted()
+    {
+        lock (s_stateGate)
+        {
+            SetLibrariesMissingCore(false, notify: false, notifyWhenUnchanged: false);
+            s_notificationGeneration++;
+        }
+    }
 
     // Start the re-probe throttle window. Called only when a real worker-start attempt observed the
     // libraries missing, so gate short-circuits (which never start a worker) cannot keep pushing the
@@ -176,7 +180,7 @@ public static class FFmpegLibraryState
 
     private static PendingNotification QueueNotificationCore(NotificationKind kind, bool isLibrariesMissing)
     {
-        var notification = new PendingNotification(kind, isLibrariesMissing, hasOwner: s_dispatchContext.Value is null);
+        var notification = new PendingNotification(kind, isLibrariesMissing, s_notificationGeneration);
         lock (s_notificationGate)
             s_pendingNotifications.AddLast(notification);
         return notification;
@@ -201,16 +205,9 @@ public static class FFmpegLibraryState
             return;
         }
 
-        if (s_dispatchContext.Value is not null)
-            return;
-
-        foreach (PendingNotification? notification in notifications)
-        {
-            if (notification is null)
-                continue;
-
-            notification.Completion.Task.GetAwaiter().GetResult();
-        }
+        // Never wait while another callback owns the dispatcher. The callback may synchronously wait
+        // for this transition even when ExecutionContext flow is suppressed, so waiting here would
+        // deadlock the callback and the worker that is trying to enqueue its notification.
     }
 
     private static void DrainAsDispatcher()
@@ -230,8 +227,20 @@ public static class FFmpegLibraryState
                 s_pendingNotifications.RemoveFirst();
             }
 
+            if (!IsNotificationCurrent(notification))
+            {
+                notification.Completion.TrySetResult();
+                continue;
+            }
+
             InvokeNotification(notification);
         }
+    }
+
+    private static bool IsNotificationCurrent(PendingNotification notification)
+    {
+        lock (s_stateGate)
+            return notification.Generation == s_notificationGeneration;
     }
 
     private static void AwaitOwnedNotifications(PendingNotification?[] notifications)
@@ -258,8 +267,6 @@ public static class FFmpegLibraryState
 
     private static void InvokeNotification(PendingNotification notification)
     {
-        NotificationDispatchContext? previousContext = s_dispatchContext.Value;
-        s_dispatchContext.Value = new NotificationDispatchContext();
         try
         {
             switch (notification.Kind)
@@ -279,26 +286,17 @@ public static class FFmpegLibraryState
         catch (Exception ex)
         {
             notification.Completion.TrySetException(ex);
-            if (!notification.HasOwner)
-                _ = notification.Completion.Task.Exception;
-        }
-        finally
-        {
-            s_dispatchContext.Value = previousContext;
+            _ = notification.Completion.Task.Exception;
         }
     }
 
-    private sealed class NotificationDispatchContext
-    {
-    }
-
-    private sealed class PendingNotification(NotificationKind kind, bool isLibrariesMissing, bool hasOwner)
+    private sealed class PendingNotification(NotificationKind kind, bool isLibrariesMissing, long generation)
     {
         public NotificationKind Kind { get; } = kind;
 
         public bool IsLibrariesMissing { get; } = isLibrariesMissing;
 
-        public bool HasOwner { get; } = hasOwner;
+        public long Generation { get; } = generation;
 
         public TaskCompletionSource Completion { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);

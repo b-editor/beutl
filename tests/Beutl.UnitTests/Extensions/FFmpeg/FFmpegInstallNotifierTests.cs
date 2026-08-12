@@ -84,6 +84,58 @@ public class FFmpegInstallNotifierTests
     }
 
     [Test]
+    public void MarkVerificationStarted_DropsQueuedAvailabilityNotifications()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+        using var firstNotificationEntered = new ManualResetEventSlim();
+        using var releaseFirstNotification = new ManualResetEventSlim();
+        var observedStates = new ConcurrentQueue<bool>();
+        int callbackCount = 0;
+
+        void OnAvailabilityChanged(object? sender, EventArgs e)
+        {
+            observedStates.Enqueue(((FFmpegLibraryAvailabilityChangedEventArgs)e).IsLibrariesMissing);
+            if (Interlocked.Increment(ref callbackCount) == 1)
+            {
+                firstNotificationEntered.Set();
+                releaseFirstNotification.Wait();
+            }
+        }
+
+        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        try
+        {
+            Task blocker = Task.Run(FFmpegInstallNotifier.MarkInstalled);
+            Assert.That(firstNotificationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the first availability notification did not start");
+
+            Task missing = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Assert.That(SpinWait.SpinUntil(
+                () => FFmpegInstallNotifier.IsLibrariesMissing,
+                TimeSpan.FromSeconds(5)), Is.True,
+                "the missing transition did not update state");
+
+            FFmpegInstallNotifier.MarkVerificationStarted();
+            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+
+            releaseFirstNotification.Set();
+            Assert.That(blocker.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(missing.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            blocker.GetAwaiter().GetResult();
+            missing.GetAwaiter().GetResult();
+
+            Assert.That(observedStates.ToArray(), Is.EqualTo(new[] { false }),
+                "verification must invalidate a queued missing snapshot");
+        }
+        finally
+        {
+            releaseFirstNotification.Set();
+            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+    }
+
+    [Test]
     public void ShouldSkipStartProbe_SkipsWithinCooldownThenAllowsAfterElapsed()
     {
         const long cooldownMs = 30_000; // mirrors FFmpegLibraryState.ReprobeCooldownMs
@@ -292,6 +344,41 @@ public class FFmpegInstallNotifierTests
     }
 
     [Test]
+    public void AvailabilityChanged_CallbackCanWaitForSuppressedFlowTransition()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+
+        void OnAvailabilityChanged(object? sender, EventArgs e)
+        {
+            if (((FFmpegLibraryAvailabilityChangedEventArgs)e).IsLibrariesMissing)
+            {
+                Task descendant;
+                using (ExecutionContext.SuppressFlow())
+                    descendant = Task.Run(FFmpegInstallNotifier.MarkInstalled);
+
+                if (!descendant.Wait(TimeSpan.FromSeconds(1)))
+                    throw new TimeoutException("a suppressed-flow transition must not wait for the active dispatcher");
+            }
+        }
+
+        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        try
+        {
+            Task transition = Task.Run(FFmpegInstallNotifier.MarkMissing);
+
+            Assert.That(transition.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "the callback and its suppressed-flow transition must both complete");
+            transition.GetAwaiter().GetResult();
+            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+        }
+        finally
+        {
+            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegInstallNotifier.MarkInstalled();
+        }
+    }
+
+    [Test]
     public void AvailabilityChanged_ReentrantTransitionPreservesFifoOrder()
     {
         FFmpegInstallNotifier.MarkInstalled();
@@ -329,8 +416,8 @@ public class FFmpegInstallNotifierTests
             });
             Assert.That(installedStarted.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the installed transition did not start");
-            Assert.That(installed.Wait(TimeSpan.FromMilliseconds(100)), Is.False,
-                "the installed transition should remain queued while the first callback is blocked");
+            Assert.That(installed.Wait(TimeSpan.FromSeconds(1)), Is.True,
+                "a transition racing an active callback must enqueue without waiting");
 
             allowReentrantTransition.Set();
             Assert.That(first.Wait(TimeSpan.FromSeconds(5)), Is.True);
@@ -387,7 +474,7 @@ public class FFmpegInstallNotifierTests
     }
 
     [Test]
-    public void AvailabilityChanged_PropagatesExceptionToOwningTransition()
+    public void AvailabilityChanged_ConcurrentTransitionDoesNotBlockOnForeignCallbackException()
     {
         FFmpegInstallNotifier.MarkInstalled();
         using var firstNotificationEntered = new ManualResetEventSlim();
@@ -422,16 +509,16 @@ public class FFmpegInstallNotifierTests
             });
             Assert.That(secondTransitionStarted.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the second transition did not start");
-            Assert.That(second.Wait(TimeSpan.FromMilliseconds(100)), Is.False,
-                "the second transition should wait for its queued notification");
+            Assert.That(second.Wait(TimeSpan.FromSeconds(1)), Is.True,
+                "a transition racing an active callback must not wait for its notification");
 
             releaseFirstNotification.Set();
             Assert.That(first.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the dispatcher must not receive another caller's subscriber exception");
-            Assert.That(SpinWait.SpinUntil(() => second.IsCompleted, TimeSpan.FromSeconds(5)), Is.True,
-                "the owning transition did not complete");
-            Assert.That(second.IsFaulted, Is.True);
-            Assert.That(second.Exception!.GetBaseException(), Is.SameAs(expected));
+            first.GetAwaiter().GetResult();
+            second.GetAwaiter().GetResult();
+            Assert.That(second.IsFaulted, Is.False,
+                "a foreign subscriber exception must remain isolated from a non-blocking transition");
         }
         finally
         {
@@ -490,14 +577,15 @@ public class FFmpegInstallNotifierTests
                 "the first availability notification did not start");
 
             Task second = Task.Run(FFmpegInstallNotifier.MarkInstalled);
-            Assert.That(second.Wait(TimeSpan.FromMilliseconds(100)), Is.False,
-                "an unrelated transition must wait for the active callback to finish");
+            Assert.That(second.Wait(TimeSpan.FromSeconds(1)), Is.True,
+                "an unrelated transition must enqueue without waiting for the active callback");
 
             releaseFirstNotification.Set();
             Assert.That(first.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the first transition did not complete after its callback was released");
             Assert.That(second.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the queued transition did not complete after the first callback was released");
+            second.GetAwaiter().GetResult();
             Assert.That(observedStates.ToArray(), Is.EqualTo(new[] { true, false }),
                 "each callback must receive the state snapshot for its queued transition");
         }
