@@ -74,9 +74,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 "Ignoring invalid AI job result contribution from {ExtensionType}.",
                 failure.ExtensionType));
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
-        _beutlClients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(_authHttpClient, _extensionProvider));
+        _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
         _aiPlanCoordinator = new AiPlanCoordinator(
-            _beutlClients,
             _beutlClients.GetResource<IAiEntitlementService>());
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         _aiJobCompletionNotifier = new AiJobCompletionNotifier(

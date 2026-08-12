@@ -1,6 +1,5 @@
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -13,20 +12,11 @@ namespace Beutl.HeadlessUITests;
 public sealed class AiPlanCoordinatorTests
 {
     [Test]
-    public async Task OpenConfiguredPages_RefreshesOnlyOnceAfterReturn()
+    public async Task OpenPages_RefreshesOnlyOnceAfterReturn()
     {
-        using var httpClient = new HttpClient();
-        using var application = BeutlApiApplication.Create(new BeutlApiApplicationOptions(
-            httpClient,
-            new ExtensionProvider())
-        {
-            ApiBaseUri = new Uri("https://api.example.test/"),
-            PortalBaseUri = new Uri("https://portal.example.test/root/"),
-        });
         var entitlements = new StubEntitlementService();
         var opened = new List<Uri>();
         var coordinator = new AiPlanCoordinator(
-            application,
             entitlements,
             opened.Add,
             () => "ja");
@@ -40,8 +30,8 @@ public sealed class AiPlanCoordinatorTests
         {
             Assert.That(opened, Is.EqualTo(new[]
             {
-                new Uri("https://portal.example.test/root/ja/account/manage/ai-plan"),
-                new Uri("https://portal.example.test/root/account/manage"),
+                new Uri("https://beutl.beditor.net/ja/account/manage/ai-plan"),
+                new Uri("https://beutl.beditor.net/account/manage"),
             }));
             Assert.That(entitlements.RefreshCount, Is.EqualTo(1));
         }
@@ -50,16 +40,11 @@ public sealed class AiPlanCoordinatorTests
     [Test]
     public void FailedRefresh_RemainsPendingForTheNextActivation()
     {
-        using var httpClient = new HttpClient();
-        using var application = BeutlApiApplication.Create(new BeutlApiApplicationOptions(
-            httpClient,
-            new ExtensionProvider()));
         var entitlements = new StubEntitlementService
         {
             Failure = new InvalidOperationException("offline"),
         };
         var coordinator = new AiPlanCoordinator(
-            application,
             entitlements,
             _ => { },
             () => "en");

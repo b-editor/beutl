@@ -274,7 +274,7 @@ public class PackageReleaseResolverTests
     private static Release CreateRelease(string version)
     {
         using var httpClient = new HttpClient();
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var ownerResponse = new ProfileResponse
         {
             Id = "owner",

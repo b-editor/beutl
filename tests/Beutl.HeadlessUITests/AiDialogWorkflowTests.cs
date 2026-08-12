@@ -56,7 +56,7 @@ public sealed class AiDialogWorkflowTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateImageGenerationDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
@@ -93,7 +93,7 @@ public sealed class AiDialogWorkflowTests
                 _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
             });
             using var httpClient = new HttpClient(handler);
-            using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+            using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
             SetAuthenticatedUser(clients, httpClient);
             using var viewModel = CreateImageEditDialog(clients, editor);
             viewModel.SourceFilePath.Value = sourcePath;
@@ -144,7 +144,7 @@ public sealed class AiDialogWorkflowTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         var viewModel = CreateVideoGenerationDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
@@ -200,8 +200,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(
-            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
@@ -236,7 +235,7 @@ public sealed class AiDialogWorkflowTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
@@ -276,7 +275,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
@@ -317,7 +316,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         var viewModel = CreateImageGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
@@ -373,7 +372,7 @@ public sealed class AiDialogWorkflowTests
                 return JsonResponse(HttpStatusCode.NotFound, "{}");
             });
             using var httpClient = new HttpClient(handler);
-            using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+            using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
             SetAuthenticatedUser(clients, httpClient);
             var viewModel = CreateImageEditDialog(clients);
             viewModel.SourceFilePath.Value = sourcePath;
@@ -437,7 +436,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
@@ -474,7 +473,7 @@ public sealed class AiDialogWorkflowTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         var viewModel = CreateVideoGenerationDialog(clients, editor);
         viewModel.CurrentFrameRenderer = async _ =>
@@ -517,8 +516,7 @@ public sealed class AiDialogWorkflowTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(
-            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         await using var viewModel = CreateVideoGenerationDialog(clients, editor);
         viewModel.CurrentFrameRenderer = _ => Task.FromResult(new Bitmap(2, 2));
@@ -571,7 +569,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateSubtitleDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
@@ -625,7 +623,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateSubtitleDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
@@ -698,7 +696,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateSubtitleDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
@@ -761,7 +759,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
 
         using (var firstDialog = CreateSubtitleDialog(
@@ -823,7 +821,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateSubtitleDialog(
             clients,
@@ -885,8 +883,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(
-            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateSubtitleDialog(
             clients,
@@ -965,7 +962,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateSubtitleDialog(
             clients,
@@ -1070,7 +1067,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateSubtitleDialog(clients, editor);
         viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
@@ -1148,7 +1145,7 @@ public sealed class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateSubtitleDialog(clients, editor);
         viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
@@ -1278,7 +1275,7 @@ public sealed class AiDialogWorkflowTests
             editor);
 
     private static IAiPlanCoordinator CreatePlanCoordinator(BeutlApiApplication clients)
-        => new AiPlanCoordinator(clients, clients.GetResource<IAiEntitlementService>());
+        => new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>());
 
     private static void AssertStoredCaptionDraftJob(
         FileCaptionDraftStore store,

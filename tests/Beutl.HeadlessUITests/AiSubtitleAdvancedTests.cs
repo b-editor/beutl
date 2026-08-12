@@ -80,7 +80,7 @@ public sealed class AiSubtitleAdvancedTests
     public void CueCommands_SplitMergeAndWrapEditableDocument()
     {
         using var httpClient = new HttpClient();
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var viewModel = CreateViewModel(clients);
         viewModel.MaximumLineLength.Value = 5;
         viewModel.MaximumLineCount.Value = 10;
@@ -110,7 +110,7 @@ public sealed class AiSubtitleAdvancedTests
     public void CaptionBytes_ImportExportAndMalformedInputAreHandled()
     {
         using var httpClient = new HttpClient();
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var viewModel = CreateViewModel(clients);
         byte[] srt = Encoding.UTF8.GetBytes("""
             1
@@ -159,8 +159,7 @@ public sealed class AiSubtitleAdvancedTests
             }
 
             using var httpClient = new HttpClient();
-            using var clients = BeutlApiApplication.Create(
-                new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+            using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
             var recreatedStore = new FileCaptionDraftStore(directory);
             using AiSubtitleDialogViewModel viewModel = CreateViewModel(
                 clients,
@@ -194,8 +193,7 @@ public sealed class AiSubtitleAdvancedTests
             SaveDraft(store, userB, "job-b", "B paid caption");
 
             using var httpClient = new HttpClient();
-            using var clients = BeutlApiApplication.Create(
-                new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+            using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
             using var scopes = new ReactivePropertySlim<CaptionDraftScope?>(userA);
             using AiSubtitleDialogViewModel viewModel = CreateViewModel(clients, store, scopes);
             viewModel.ResultSegments.Value =
@@ -243,7 +241,7 @@ public sealed class AiSubtitleAdvancedTests
         IObservable<CaptionDraftScope?>? scopes = null)
         => new(
             clients.GetResource<IAiEntitlementService>(),
-            new AiPlanCoordinator(clients, clients.GetResource<IAiEntitlementService>()),
+            new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
             clients.GetResource<IAiTranscriptionService>(),
             clients.GetResource<IAiCaptionTranslationService>(),
             CaptionCatalog.CreateDefault("Default"),

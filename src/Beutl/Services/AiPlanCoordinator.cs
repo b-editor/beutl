@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 
@@ -16,19 +15,17 @@ public interface IAiPlanCoordinator
 
 internal sealed class AiPlanCoordinator : IAiPlanCoordinator
 {
-    private readonly BeutlApiApplication _application;
+    private static readonly Uri s_portalBaseUri = new("https://beutl.beditor.net/");
     private readonly IAiEntitlementService _entitlements;
     private readonly Action<Uri> _openUri;
     private readonly Func<string> _language;
     private int _refreshPending;
 
     public AiPlanCoordinator(
-        BeutlApiApplication application,
         IAiEntitlementService entitlements,
         Action<Uri>? openUri = null,
         Func<string>? language = null)
     {
-        _application = application ?? throw new ArgumentNullException(nameof(application));
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _openUri = openUri ?? OpenWithShell;
         _language = language ?? (() =>
@@ -37,7 +34,7 @@ internal sealed class AiPlanCoordinator : IAiPlanCoordinator
 
     public void OpenAccountSettings()
     {
-        _openUri(_application.AccountSettingsUri);
+        _openUri(new Uri(s_portalBaseUri, "account/manage"));
         Interlocked.Exchange(ref _refreshPending, 1);
     }
 
@@ -47,7 +44,9 @@ internal sealed class AiPlanCoordinator : IAiPlanCoordinator
         if (string.IsNullOrWhiteSpace(language))
             throw new InvalidOperationException("The UI language is unavailable.");
 
-        _openUri(_application.GetAiPlanUri(language));
+        _openUri(new Uri(
+            s_portalBaseUri,
+            $"{Uri.EscapeDataString(language)}/account/manage/ai-plan"));
         Interlocked.Exchange(ref _refreshPending, 1);
     }
 

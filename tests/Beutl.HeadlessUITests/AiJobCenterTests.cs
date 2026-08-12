@@ -317,7 +317,7 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateJobCenter(editor, clients);
 
@@ -387,7 +387,7 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateJobCenter(editor, clients);
         using var item = CreateItem(CreateJob(
@@ -420,7 +420,7 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateJobCenter(editor, clients);
         using var item = CreateItem(CreateJob(
@@ -477,8 +477,7 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = BeutlApiApplication.Create(
-            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
 
         IAiJobKindRegistry jobKinds = clients.GetResource<IAiJobKindRegistry>();

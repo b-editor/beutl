@@ -31,7 +31,7 @@ public sealed class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
 
         object[] services =
         [
@@ -68,7 +68,7 @@ public sealed class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
 
         AiEntitlements? result = await app.GetResource<IAiEntitlementService>()
             .RefreshAsync(CancellationToken.None);
@@ -98,7 +98,7 @@ public sealed class AiCapabilityServiceTests
             }
             """));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAiEntitlementService service = app.GetResource<IAiEntitlementService>();
 
@@ -135,7 +135,7 @@ public sealed class AiCapabilityServiceTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAiEntitlementService entitlements = app.GetResource<IAiEntitlementService>();
         await entitlements.RefreshAsync(CancellationToken.None);
@@ -177,8 +177,7 @@ public sealed class AiCapabilityServiceTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(
-            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAiEntitlementService entitlements = app.GetResource<IAiEntitlementService>();
         await entitlements.RefreshAsync(CancellationToken.None);
@@ -213,7 +212,7 @@ public sealed class AiCapabilityServiceTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
 
         AiCaptionTranslationResponse result = await app.GetResource<IAiCaptionTranslationService>()
@@ -265,7 +264,7 @@ public sealed class AiCapabilityServiceTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         var stream = new TrackingMemoryStream([1, 2, 3]);
         var source = new AiUploadSource(
@@ -312,7 +311,7 @@ public sealed class AiCapabilityServiceTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAiVideoService service = app.GetResource<IAiVideoService>();
 
@@ -356,7 +355,7 @@ public sealed class AiCapabilityServiceTests
                 }
                 """));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAiJobClient client = app.GetResource<IAiJobClient>();
 
@@ -382,7 +381,7 @@ public sealed class AiCapabilityServiceTests
             Content = new ByteArrayContent([4, 5, 6]),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAuthenticatedContentService service = app.GetResource<IAuthenticatedContentService>();
 

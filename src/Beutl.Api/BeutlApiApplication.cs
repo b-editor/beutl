@@ -24,10 +24,15 @@ namespace Beutl.Api;
 
 public class BeutlApiApplication : IDisposable
 {
-    private const string ProductionBaseUrl = "https://beutl.beditor.net";
+#if false
+    private const string BaseUrl = "http://localhost:3001";
+    public const string UserFileName = "user.local.json";
+#else
+    private const string BaseUrl = "https://beutl.beditor.net";
+    public const string UserFileName = "user.json";
+#endif
     private readonly HttpClient _httpClient;
-    private readonly IExtensionRegistry _extensionRegistry;
-    private readonly string _authenticationStateFileName;
+    private readonly ExtensionProvider _extensionProvider;
     private readonly ReactivePropertySlim<AuthenticatedUser?> _authenticatedUser = new();
     private readonly ReadOnlyReactivePropertySlim<AuthenticatedUser?> _readOnlyAuthenticatedUser;
     private readonly Dictionary<Type, Lazy<object>> _services = [];
@@ -57,26 +62,16 @@ public class BeutlApiApplication : IDisposable
         return metadata;
     });
 
-    private BeutlApiApplication(BeutlApiApplicationOptions options)
+    public BeutlApiApplication(HttpClient httpClient, ExtensionProvider extensionProvider)
     {
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(extensionProvider);
 
-        _httpClient = options.HttpClient;
-        _extensionRegistry = options.ExtensionRegistry;
-        ApiBaseUri = NormalizeBaseUri(
-            options.ApiBaseUri
-            ?? _httpClient.BaseAddress
-            ?? new Uri(ProductionBaseUrl),
-            allowPath: false);
-        PortalBaseUri = NormalizeBaseUri(
-            options.PortalBaseUri
-            ?? new Uri(ProductionBaseUrl),
-            allowPath: true);
-        _authenticationStateFileName = ValidateAuthenticationStateFileName(
-            options.AuthenticationStateFileName);
+        _httpClient = httpClient;
+        _extensionProvider = extensionProvider;
         _authenticationSubscription = _authenticatedUser.Subscribe(HandleAuthenticatedUserChanged);
         _readOnlyAuthenticatedUser = _authenticatedUser.ToReadOnlyReactivePropertySlim();
-        _httpClient.BaseAddress = ApiBaseUri;
+        _httpClient.BaseAddress = new Uri(BaseUrl);
         App = RestService.For<IAppClient>(_httpClient);
         Packages = RestService.For<IPackagesClient>(_httpClient);
         Releases = RestService.For<IReleasesClient>(_httpClient);
@@ -96,67 +91,9 @@ public class BeutlApiApplication : IDisposable
         }
 
         RegisterAll();
-        foreach ((Type resourceType, Func<BeutlApiApplication, IBeutlApiResource> factory)
-                 in options.Resources.Factories)
-        {
-            _services[resourceType] = new Lazy<object>(() => factory(this));
-        }
-    }
-
-    public static BeutlApiApplication Create(BeutlApiApplicationOptions options) => new(options);
-
-    private static Uri NormalizeBaseUri(Uri uri, bool allowPath)
-    {
-        ArgumentNullException.ThrowIfNull(uri);
-        if (!uri.IsAbsoluteUri
-            || uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps
-            || !string.IsNullOrEmpty(uri.UserInfo)
-            || !string.IsNullOrEmpty(uri.Query)
-            || !string.IsNullOrEmpty(uri.Fragment)
-            || !allowPath && uri.AbsolutePath is not ("" or "/"))
-        {
-            throw new ArgumentException(
-                allowPath
-                    ? "A base URI must be an absolute HTTP(S) URI without credentials, a query, or a fragment."
-                    : "An API origin must be an absolute HTTP(S) origin without credentials, a path, a query, or a fragment.",
-                nameof(uri));
-        }
-
-        var builder = new UriBuilder(uri)
-        {
-            Path = $"{uri.AbsolutePath.TrimEnd('/')}/",
-        };
-        return builder.Uri;
-    }
-
-    private static string ValidateAuthenticationStateFileName(string fileName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
-        if (fileName is "." or ".."
-            || !string.Equals(Path.GetFileName(fileName), fileName, StringComparison.Ordinal)
-            || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-        {
-            throw new ArgumentException(
-                "The authentication state path must be a plain file name.",
-                nameof(fileName));
-        }
-
-        return fileName;
     }
 
     public ActivitySource ActivitySource { get; } = new("Beutl.Api.Client", BeutlApplication.Version);
-
-    public Uri ApiBaseUri { get; }
-
-    public Uri PortalBaseUri { get; }
-
-    public Uri AccountSettingsUri => new(PortalBaseUri, "account/manage");
-
-    public Uri GetAiPlanUri(string language)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(language);
-        return new Uri(PortalBaseUri, $"{Uri.EscapeDataString(language)}/account/manage/ai-plan");
-    }
 
     public IPackagesClient Packages { get; }
 
@@ -280,7 +217,7 @@ public class BeutlApiApplication : IDisposable
     private void RegisterAll()
     {
         Register(() => new DiscoverService(this));
-        Register(() => _extensionRegistry);
+        Register(() => _extensionProvider);
         Register(() => new ContextCommandSettingsStore());
         Register(() => new ContextCommandHandlerRegistry());
         Register(() => new ContextCommandManager(
@@ -333,7 +270,7 @@ public class BeutlApiApplication : IDisposable
             unloadDiagnostics = new ClrmdLoadContextUnloadDiagnostics();
 #endif
             return new PackageManager(
-                GetResource<InstalledPackageRepository>(), GetResource<IExtensionRegistry>(),
+                GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
                 GetResource<ContextCommandManager>(), this, unloadDiagnostics);
         });
     }
@@ -530,7 +467,7 @@ public class BeutlApiApplication : IDisposable
         }
         if (deleteFile)
         {
-            string fileName = Path.Combine(Helper.AppRoot, _authenticationStateFileName);
+            string fileName = Path.Combine(Helper.AppRoot, UserFileName);
             if (File.Exists(fileName))
             {
                 File.Delete(fileName);
@@ -564,10 +501,8 @@ public class BeutlApiApplication : IDisposable
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
-            string uri = new Uri(
-                PortalBaseUri,
-                $"api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}")
-                .AbsoluteUri;
+            string uri =
+                $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
 
             Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
@@ -612,10 +547,7 @@ public class BeutlApiApplication : IDisposable
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
-            string uri = new Uri(
-                PortalBaseUri,
-                $"account/signIn?returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}")
-                .AbsoluteUri;
+            string uri = $"{BaseUrl}/account/signIn?returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
 
             Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
@@ -642,6 +574,15 @@ public class BeutlApiApplication : IDisposable
             activity?.AddEvent(new("Saved_User"));
             return user;
         }
+    }
+
+    public static void OpenAccountSettings()
+    {
+        Process.Start(new ProcessStartInfo($"{BaseUrl}/account/manage")
+        {
+            UseShellExecute = true,
+            Verb = "open",
+        });
     }
 
     internal async ValueTask RefreshAuthenticatedUserAsync(
@@ -691,7 +632,7 @@ public class BeutlApiApplication : IDisposable
                     "AuthenticatedUser.Refresh",
                     ActivityKind.Client);
                 (AuthResponse response, DateTime writeTime) = user.GetAuthenticationState();
-                string fileName = Path.Combine(Helper.AppRoot, _authenticationStateFileName);
+                string fileName = Path.Combine(Helper.AppRoot, UserFileName);
                 if (File.Exists(fileName))
                 {
                     DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
@@ -794,7 +735,7 @@ public class BeutlApiApplication : IDisposable
                 return;
 
             (AuthResponse response, DateTime _) = user.GetAuthenticationState();
-            string fileName = Path.Combine(Helper.AppRoot, _authenticationStateFileName);
+            string fileName = Path.Combine(Helper.AppRoot, UserFileName);
             using (FileStream stream = File.Create(fileName))
             {
                 var obj = new JsonObject
@@ -847,7 +788,7 @@ public class BeutlApiApplication : IDisposable
         using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = lifetimeCts.Token;
         token.ThrowIfCancellationRequested();
-        string fileName = Path.Combine(Helper.AppRoot, _authenticationStateFileName);
+        string fileName = Path.Combine(Helper.AppRoot, UserFileName);
         if (File.Exists(fileName))
         {
             JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName, token));

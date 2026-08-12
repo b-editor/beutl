@@ -18,7 +18,7 @@ public sealed class MainViewModelLifetimeTests
         int cancelRequestsCount = 0;
         int disposeResourcesCount = 0;
         using var httpClient = new HttpClient();
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var viewModel = CreateViewModel(
             httpClient,
             app,
@@ -78,7 +78,7 @@ public sealed class MainViewModelLifetimeTests
         int disposeResourcesCount = 0;
         int navigationCount = 0;
         using var httpClient = new HttpClient();
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var viewModel = CreateViewModel(
             httpClient,
             app,

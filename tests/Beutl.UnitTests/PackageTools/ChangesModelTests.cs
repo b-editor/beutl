@@ -17,7 +17,7 @@ public sealed class ChangesModelTests
         using var handler = new DelegateHandler((request, _) =>
             Task.FromResult(CreatePackageResponse(request)));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var model = new ChangesModel();
 
         await model.Load(
@@ -70,7 +70,7 @@ public sealed class ChangesModelTests
             return CreatePackageResponse(request);
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var cancellation = new CancellationTokenSource();
         var model = new ChangesModel();
 

@@ -68,7 +68,7 @@ public class SearchPageCardLayoutTests
     public void Long_card_text_ellipsizes_wraps_and_stays_bounded()
     {
         using var httpClient = new HttpClient();
-        using var clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var viewModel = new SearchPageViewModel(new DiscoverService(clients), "search");
         viewModel.Packages.Add(CreatePackage(clients));
 

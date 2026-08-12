@@ -3,8 +3,6 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
-using Beutl.Extensibility;
-using Moq;
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Api;
@@ -13,17 +11,17 @@ namespace Beutl.UnitTests.Api;
 public sealed class BeutlApiApplicationTests
 {
     [Test]
-    public void Constructor_RegistersProvidedExtensionRegistryAbstraction()
+    public void Constructor_RegistersProvidedExtensionProvider()
     {
         using var httpClient = new HttpClient();
-        IExtensionRegistry extensionRegistry = new Mock<IExtensionRegistry>().Object;
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, extensionRegistry));
+        var extensionProvider = new ExtensionProvider();
+        using var app = new BeutlApiApplication(httpClient, extensionProvider);
 
-        IExtensionRegistry registeredRegistry = app.GetResource<IExtensionRegistry>();
+        ExtensionProvider registeredProvider = app.GetResource<ExtensionProvider>();
         PackageManager packageManager = app.GetResource<PackageManager>();
 
-        Assert.That(registeredRegistry, Is.SameAs(extensionRegistry));
-        Assert.That(packageManager.ExtensionRegistry, Is.SameAs(extensionRegistry));
+        Assert.That(registeredProvider, Is.SameAs(extensionProvider));
+        Assert.That(packageManager.ExtensionRegistry, Is.SameAs(extensionProvider));
         Assert.That(
             app.AuthenticatedUser,
             Is.Not.InstanceOf<global::Reactive.Bindings.ReactivePropertySlim<
@@ -31,33 +29,24 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
-    public void Create_DefaultsToProductionOrigins()
+    public void Constructor_UsesProductionApiOrigin()
     {
         using var httpClient = new HttpClient();
 
-        using var app = BeutlApiApplication.Create(
-            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(app.ApiBaseUri, Is.EqualTo(new Uri("https://beutl.beditor.net/")));
-            Assert.That(app.PortalBaseUri, Is.EqualTo(new Uri("https://beutl.beditor.net/")));
-            Assert.That(httpClient.BaseAddress, Is.EqualTo(app.ApiBaseUri));
-            Assert.That(
-                app.AccountSettingsUri,
-                Is.EqualTo(new Uri("https://beutl.beditor.net/account/manage")));
-            Assert.That(
-                app.GetAiPlanUri("ja"),
-                Is.EqualTo(new Uri("https://beutl.beditor.net/ja/account/manage/ai-plan")));
+            Assert.That(httpClient.BaseAddress, Is.EqualTo(new Uri("https://beutl.beditor.net/")));
+            Assert.That(BeutlApiApplication.UserFileName, Is.EqualTo("user.json"));
         }
     }
 
     [Test]
-    public void Create_RegistersBuiltInJobKindsThroughTheDescriptorRegistry()
+    public void Constructor_RegistersBuiltInJobKindsThroughTheDescriptorRegistry()
     {
         using var httpClient = new HttpClient();
-        using var app = BeutlApiApplication.Create(
-            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobKindRegistry registry = app.GetResource<IAiJobKindRegistry>();
         var runningVideo = new AiJob(
             new AiJobId("job-1"),
@@ -85,160 +74,26 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
-    public void Create_PreservesCallerApiOriginAndAllowsIndependentPortalOrigin()
-    {
-        using var httpClient = new HttpClient
-        {
-            BaseAddress = new Uri("http://localhost:4100/"),
-        };
-        var options = new BeutlApiApplicationOptions(httpClient, new ExtensionProvider())
-        {
-            PortalBaseUri = new Uri("http://localhost:4200/portal/"),
-            AuthenticationStateFileName = "user.local.json",
-        };
-
-        using var app = BeutlApiApplication.Create(options);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(app.ApiBaseUri, Is.EqualTo(new Uri("http://localhost:4100/")));
-            Assert.That(app.PortalBaseUri, Is.EqualTo(new Uri("http://localhost:4200/portal/")));
-            Assert.That(
-                app.AccountSettingsUri,
-                Is.EqualTo(new Uri("http://localhost:4200/portal/account/manage")));
-        }
-    }
-
-    [Test]
-    public void Create_ExplicitApiOriginOverridesCallerBaseAddress()
-    {
-        using var httpClient = new HttpClient
-        {
-            BaseAddress = new Uri("https://old.example.test/"),
-        };
-        var options = new BeutlApiApplicationOptions(httpClient, new ExtensionProvider())
-        {
-            ApiBaseUri = new Uri("https://api.example.test/"),
-        };
-
-        using var app = BeutlApiApplication.Create(options);
-
-        Assert.That(app.ApiBaseUri, Is.EqualTo(new Uri("https://api.example.test/")));
-        Assert.That(httpClient.BaseAddress, Is.EqualTo(app.ApiBaseUri));
-    }
-
-    [Test]
-    public void Create_RejectsUnsafeOriginsAndAuthenticationStatePaths()
-    {
-        using var httpClient = new HttpClient();
-
-        Assert.Throws<ArgumentException>(() => BeutlApiApplication.Create(
-            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider())
-            {
-                ApiBaseUri = new Uri("file:///tmp/api"),
-            }));
-        Assert.Throws<ArgumentException>(() => BeutlApiApplication.Create(
-            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider())
-            {
-                ApiBaseUri = new Uri("https://api.example.test/prefix/"),
-            }));
-        Assert.Throws<ArgumentException>(() => BeutlApiApplication.Create(
-            new BeutlApiApplicationOptions(httpClient, new ExtensionProvider())
-            {
-                AuthenticationStateFileName = "../user.json",
-            }));
-    }
-
-    [Test]
     public void Constructor_NullHttpClient_Throws()
     {
         var extensionProvider = new ExtensionProvider();
 
-        Assert.Throws<ArgumentNullException>(() => _ = BeutlApiApplication.Create(new BeutlApiApplicationOptions(null!, extensionProvider)));
+        Assert.Throws<ArgumentNullException>(() => _ = new BeutlApiApplication(null!, extensionProvider));
     }
 
     [Test]
-    public void Constructor_NullExtensionRegistry_Throws()
+    public void Constructor_NullExtensionProvider_Throws()
     {
         using var httpClient = new HttpClient();
 
-        Assert.Throws<ArgumentNullException>(() => _ = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, null!)));
-    }
-
-    [Test]
-    public void Create_OverridesCapabilitiesIndependentlyBeforeResolution()
-    {
-        using var httpClient = new HttpClient();
-        var replacement = new StubTranslationService();
-        var options = new BeutlApiApplicationOptions(httpClient, new ExtensionProvider());
-        options.Resources.Replace<IAiCaptionTranslationService>(_ => replacement);
-
-        using BeutlApiApplication app = BeutlApiApplication.Create(options);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(app.GetResource<IAiCaptionTranslationService>(), Is.SameAs(replacement));
-            Assert.That(app.GetResource<IAiTranscriptionService>(), Is.Not.SameAs(replacement));
-        }
-    }
-
-    [Test]
-    public void Create_OverridesImageGenerationWithoutReplacingImageEditing()
-    {
-        using var httpClient = new HttpClient();
-        var replacement = new StubImageGenerationService();
-        var options = new BeutlApiApplicationOptions(httpClient, new ExtensionProvider());
-        options.Resources.Replace<IAiImageGenerationService>(_ => replacement);
-
-        using BeutlApiApplication app = BeutlApiApplication.Create(options);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(app.GetResource<IAiImageGenerationService>(), Is.SameAs(replacement));
-            Assert.That(app.GetResource<IAiImageEditingService>(), Is.Not.SameAs(replacement));
-        }
-    }
-
-    [Test]
-    public void Create_UsesEffectiveExtensionRegistryAcrossRuntimeResources()
-    {
-        using var httpClient = new HttpClient();
-        var configuredRegistry = new ExtensionProvider();
-        var effectiveRegistry = new ExtensionProvider();
-        var options = new BeutlApiApplicationOptions(httpClient, configuredRegistry);
-        options.Resources.Replace<IExtensionRegistry>(_ => effectiveRegistry);
-
-        using BeutlApiApplication app = BeutlApiApplication.Create(options);
-        PackageManager packageManager = app.GetResource<PackageManager>();
-        IAiJobKindRegistry jobKinds = app.GetResource<IAiJobKindRegistry>();
-        var descriptor = new AiJobKindDescriptor(
-            new AiJobKindId("tests.effective-registry"),
-            new AiJobStatusMap([]));
-        effectiveRegistry.AddExtensions(
-            -10_001,
-            [new TestAiJobKindExtension(descriptor)]);
-
-        try
-        {
-            Assert.That(app.GetResource<IExtensionRegistry>(), Is.SameAs(effectiveRegistry));
-            Assert.That(packageManager.ExtensionRegistry, Is.SameAs(effectiveRegistry));
-            Assert.That(jobKinds.TryAcquire(descriptor.Kind, out IAiJobKindLease? lease), Is.True);
-            using (lease)
-            {
-                Assert.That(lease!.Descriptor, Is.SameAs(descriptor));
-            }
-        }
-        finally
-        {
-            effectiveRegistry.RemoveExtensions(-10_001);
-        }
+        Assert.Throws<ArgumentNullException>(() => _ = new BeutlApiApplication(httpClient, null!));
     }
 
     [Test]
     public void ReadUserAsync_PreCanceledRequestStopsBeforeFileAccess()
     {
         using var httpClient = new HttpClient();
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -250,7 +105,7 @@ public sealed class BeutlApiApplicationTests
     public void Dispose_IsIdempotentAndRejectsFurtherResourceResolution()
     {
         using var httpClient = new HttpClient();
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         _ = app.GetResource<IAiJobMonitor>();
 
         Assert.DoesNotThrow(() => app.Dispose());
@@ -262,7 +117,7 @@ public sealed class BeutlApiApplicationTests
     public async Task AuthenticatedRequest_KeepsCapturedBearerAndEndsWithItsSession()
     {
         using var httpClient = new HttpClient();
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app, "first-user", "first-token");
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         string? authorization = null;
@@ -288,7 +143,7 @@ public sealed class BeutlApiApplicationTests
     public async Task Dispose_CancelsActiveAuthenticatedRequestAndDisposesAiCapabilities()
     {
         using var httpClient = new HttpClient();
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app, "test-user", "token");
         IAiEntitlementService service = app.GetResource<IAiEntitlementService>();
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -334,30 +189,6 @@ public sealed class BeutlApiApplicationTests
             "_authenticatedUser",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
         ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
-    }
-
-    private sealed class StubTranslationService : IAiCaptionTranslationService
-    {
-        public Task<AiCaptionTranslationResponse> TranslateAsync(
-            AiCaptionTranslationRequest request,
-            CancellationToken cancellationToken)
-            => throw new NotSupportedException();
-    }
-
-    private sealed class StubImageGenerationService : IAiImageGenerationService
-    {
-        public Task<AiImageResult> GenerateAsync(
-            AiImageGenerationRequest request,
-            CancellationToken cancellationToken)
-            => throw new NotSupportedException();
-    }
-
-    private sealed class TestAiJobKindExtension(AiJobKindDescriptor descriptor) : AiJobKindExtension
-    {
-        public override AiJobKindDescriptor Descriptor { get; } = descriptor;
-
-        public override AiJobKindRegistrationMode RegistrationMode
-            => AiJobKindRegistrationMode.Add;
     }
 
 }

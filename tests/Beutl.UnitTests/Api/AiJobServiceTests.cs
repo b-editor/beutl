@@ -20,7 +20,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         using (Assert.EnterMultipleScope())
@@ -38,7 +38,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         await service.RefreshAsync(CancellationToken.None);
@@ -75,7 +75,7 @@ public sealed class AiJobMonitorTests
             return JsonResponse(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         SetAuthenticatedUser(app, httpClient);
@@ -153,7 +153,7 @@ public sealed class AiJobMonitorTests
                 """);
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
         SetAuthenticatedUser(app, httpClient);
         await service.RefreshAsync(CancellationToken.None);
@@ -200,7 +200,7 @@ public sealed class AiJobMonitorTests
                 }
                 """));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
         SetAuthenticatedUser(app, httpClient);
         await service.RefreshAsync(CancellationToken.None);
@@ -248,7 +248,7 @@ public sealed class AiJobMonitorTests
                 """);
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         SetAuthenticatedUser(app, httpClient);
@@ -296,7 +296,7 @@ public sealed class AiJobMonitorTests
                 """);
         });
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var service = new AiJobMonitor(
             app,
             app.GetResource<IAiJobClient>(),
@@ -317,7 +317,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var client = new RecordingJobClient
         {
             Page = new AiJobPage(
@@ -360,7 +360,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app, httpClient);
         var client = new RecordingJobClient();
         using var jobKinds = new AiJobKindRegistry();
@@ -387,7 +387,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = BeutlApiApplication.Create(new BeutlApiApplicationOptions(httpClient, new ExtensionProvider()));
+        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app, httpClient);
         var client = new ExtensibleJobClient();
         using var jobKinds = new AiJobKindRegistry();

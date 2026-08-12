@@ -18,7 +18,7 @@ public class PackageReleaseRefreshCoordinatorTests
     public PackageReleaseRefreshCoordinatorTests()
     {
         _httpClient = new HttpClient();
-        _clients = BeutlApiApplication.Create(new BeutlApiApplicationOptions(_httpClient, new ExtensionProvider()));
+        _clients = new BeutlApiApplication(_httpClient, new ExtensionProvider());
     }
 
     [OneTimeTearDown]
