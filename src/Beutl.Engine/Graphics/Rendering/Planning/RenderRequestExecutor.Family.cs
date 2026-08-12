@@ -166,7 +166,7 @@ internal sealed partial class RenderRequestExecutor
         ICollection<Exception> cleanupFailures)
     {
         request.Request.TransitionTo(RenderRequestState.Executing);
-        var state = new CompatibilityExecutionState(
+        var state = new RenderRequestExecutionState(
             request.Request.Options,
             request.Graph,
             request.ExecutionPlan,
@@ -283,7 +283,7 @@ internal sealed partial class RenderRequestExecutor
 
     private sealed record FamilyExecutionFrame(
         CompiledRenderRequest Request,
-        CompatibilityExecutionState State);
+        RenderRequestExecutionState State);
 
     private sealed class FamilyExecutionException(
         ExceptionDispatchInfo failure) : Exception

@@ -458,7 +458,7 @@ internal sealed class RegionAnalyzer
         if (reference.BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain)
         {
             return targetDomain
-                ?? throw new RenderTargetDomainRequiredException(reference.Kind == RenderFragmentKind.LegacyFilterEffect
+                ?? throw new RenderTargetDomainRequiredException(reference.Kind == RenderFragmentKind.FilterEffectSegment
                     ? "A CustomEffect without transformBounds requires a finite owning target domain from a "
                       + "destination, finite Layer, or explicit TargetDomain."
                     : "A symbolic full-target capture requires a finite owning target domain.");
@@ -488,7 +488,7 @@ internal sealed class RegionAnalyzer
                 or RenderFragmentKind.OpaqueExpand
                 => ((OpaqueRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(inputBounds),
-            RenderFragmentKind.LegacyFilterEffect
+            RenderFragmentKind.FilterEffectSegment
                 => ResolveLegacyFilterBounds(reference, inputBounds),
             RenderFragmentKind.Layer
                 => ResolveLayerBounds(
@@ -511,7 +511,7 @@ internal sealed class RegionAnalyzer
         RenderFragmentReference reference,
         IReadOnlyList<Rect> inputBounds)
     {
-        var payload = (LegacyFilterEffectRenderFragmentPayload)reference.Payload!;
+        var payload = (FilterEffectSegmentRenderFragmentPayload)reference.Payload!;
         if (payload.BoundsItems.IsDefaultOrEmpty)
             return reference.RecordedBounds;
 
@@ -567,9 +567,9 @@ internal sealed class RegionAnalyzer
                             options.MaxWorkingScale)
                         : ResolveMaterializedScale(inputScales, resolvedBounds, options);
                 }
-            case RenderFragmentKind.LegacyFilterEffect:
+            case RenderFragmentKind.FilterEffectSegment:
                 {
-                    var payload = (LegacyFilterEffectRenderFragmentPayload)reference.Payload!;
+                    var payload = (FilterEffectSegmentRenderFragmentPayload)reference.Payload!;
                     Rect[] inputBounds = reference.Inputs
                         .Take(payload.StreamInputCount)
                         .Select(static input => input.Bounds)
@@ -657,7 +657,7 @@ internal sealed class RegionAnalyzer
                     ((OpaqueRenderFragmentPayload)reference.Payload!).Description.HitTest,
                     resolvedBounds,
                     reference.Inputs),
-            RenderFragmentKind.LegacyFilterEffect => resolvedBounds.Contains,
+            RenderFragmentKind.FilterEffectSegment => resolvedBounds.Contains,
             RenderFragmentKind.MaterializedInput
                 => CreateResolvedHitTest(
                     ((MaterializedInputRenderFragmentPayload)reference.Payload!).Description.HitTest,
@@ -893,7 +893,7 @@ internal sealed class RegionAnalyzer
                 => MapOpaque(reference, outputRequirement, opaque.Description.Bounds),
             TargetCommandRenderFragmentPayload or RawTargetCommandRenderFragmentPayload
                 => FullInputs(reference),
-            LegacyFilterEffectRenderFragmentPayload legacy
+            FilterEffectSegmentRenderFragmentPayload legacy
                 => MapLegacyFilter(reference, outputRequirement, legacy, targetDomain),
             BlendRenderFragmentPayload blend
                 when BlendModeRenderNode.RequiresFullTargetRegion(blend.BlendMode)
@@ -1046,7 +1046,7 @@ internal sealed class RegionAnalyzer
     private static ImmutableArray<RequiredRegion> MapLegacyFilter(
         RenderFragmentReference reference,
         RequiredRegion outputRequirement,
-        LegacyFilterEffectRenderFragmentPayload payload,
+        FilterEffectSegmentRenderFragmentPayload payload,
         Rect? targetDomain)
     {
         if (outputRequirement.IsFull

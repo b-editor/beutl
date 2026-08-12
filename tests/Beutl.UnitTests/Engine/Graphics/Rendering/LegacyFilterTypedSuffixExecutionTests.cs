@@ -201,7 +201,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         using ProgramCache<CachedSkRuntimeEffect> cache = SkRuntimeEffectProgramCache.Create();
         EffectTarget? observedTarget = null;
 
-        LegacyFilterEffectCompatibilityExecutor.ApplyShader(
+        FilterEffectStageFallbackExecutor.ApplyShader(
             targets,
             ShaderDescription.CurrentPixel(BlueShader),
             outputScale: 1,
@@ -237,7 +237,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         using EffectTargets targets = CreateSolidTargets(bounds, Colors.Red);
         RenderIntent? observedIntent = null;
 
-        LegacyFilterEffectCompatibilityExecutor.ApplyGeometry(
+        FilterEffectStageFallbackExecutor.ApplyGeometry(
             targets,
             GeometryDescription.CreateRequestLocal(
                 session => session.Canvas.Use(canvas => observedIntent = canvas.Intent),

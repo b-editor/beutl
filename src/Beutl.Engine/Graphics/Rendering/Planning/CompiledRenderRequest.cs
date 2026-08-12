@@ -752,6 +752,7 @@ internal enum ExecutionIslandBoundaryReason : byte
     Branching,
     FusionDisabled,
     BackendLimit,
+    FilterEffectSegment,
 }
 
 internal sealed class TargetDependencyPlan

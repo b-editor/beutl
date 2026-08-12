@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed partial class RenderRequestExecutor
 {
-    private sealed partial class CompatibilityExecutionState
+    private sealed partial class RenderRequestExecutionState
     {
         private static readonly AsyncLocal<List<Guid>?> s_activeDrawableBrushes = new();
 

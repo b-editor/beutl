@@ -64,7 +64,7 @@ internal sealed class ExecutionIslandPlanner
             cacheHitIds);
         var stageCandidates = new Dictionary<RenderFragmentReference, StageCandidate>(
             ReferenceEqualityComparer.Instance);
-        var rejectedStageClassifications = new Dictionary<RenderFragmentReference, CompatibilityClassification>(
+        var rejectedStageClassifications = new Dictionary<RenderFragmentReference, ExecutionIslandClassification>(
             ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference reference in references)
         {
@@ -77,7 +77,7 @@ internal sealed class ExecutionIslandPlanner
             {
                 rejectedStageClassifications.Add(
                     reference,
-                    new CompatibilityClassification(ExecutionIslandKind.Compatibility, reason, []));
+                    new ExecutionIslandClassification(ExecutionIslandKind.Compatibility, reason, []));
             }
         }
 
@@ -149,7 +149,7 @@ internal sealed class ExecutionIslandPlanner
                 if (group.Program.RequiresStandaloneExecution)
                 {
                     StageCandidate standalone = group.Stages.Single();
-                    rejectedStageClassifications[standalone.Fragment] = new CompatibilityClassification(
+                    rejectedStageClassifications[standalone.Fragment] = new ExecutionIslandClassification(
                         ExecutionIslandKind.Compatibility,
                         ExecutionIslandBoundaryReason.BackendLimit,
                         [.. group.Program.OverflowReasons]);
@@ -189,10 +189,10 @@ internal sealed class ExecutionIslandPlanner
                 continue;
             }
 
-            if (!TryClassifyCompatibility(
+            if (!TryClassifyExecutionIsland(
                     reference,
                     rejectedStageClassifications,
-                    out CompatibilityClassification item))
+                    out ExecutionIslandClassification item))
                 continue;
 
             bool requiresReadback = RequiresDeclaredReadback(reference);
@@ -594,10 +594,18 @@ internal sealed class ExecutionIslandPlanner
         return true;
     }
 
-    private static bool TryClassifyCompatibility(
+    // A segment also collects Skia items and typed suffixes, so a custom effect is only the reason
+    // the island cannot fuse when the segment actually contains one.
+    private static ExecutionIslandBoundaryReason SegmentBoundaryReason(
+        FilterEffectSegmentRenderFragmentPayload payload)
+        => payload.BoundsItems.Any(static item => item is IFEItem_Custom)
+            ? ExecutionIslandBoundaryReason.LegacyCustomEffect
+            : ExecutionIslandBoundaryReason.FilterEffectSegment;
+
+    private static bool TryClassifyExecutionIsland(
         RenderFragmentReference reference,
-        IReadOnlyDictionary<RenderFragmentReference, CompatibilityClassification> rejectedStageClassifications,
-        out CompatibilityClassification result)
+        IReadOnlyDictionary<RenderFragmentReference, ExecutionIslandClassification> rejectedStageClassifications,
+        out ExecutionIslandClassification result)
     {
         if (rejectedStageClassifications.TryGetValue(reference, out result))
             return true;
@@ -623,8 +631,10 @@ internal sealed class ExecutionIslandPlanner
                 or RenderFragmentKind.OpaqueCombine
                 or RenderFragmentKind.OpaqueExpand => new(ExecutionIslandKind.Compatibility,
                     ExecutionIslandBoundaryReason.Opaque, []),
-            RenderFragmentKind.LegacyFilterEffect => new(ExecutionIslandKind.Compatibility,
-                ExecutionIslandBoundaryReason.LegacyCustomEffect, []),
+            RenderFragmentKind.FilterEffectSegment => new(
+                ExecutionIslandKind.Compatibility,
+                SegmentBoundaryReason((FilterEffectSegmentRenderFragmentPayload)reference.Payload!),
+                []),
             RenderFragmentKind.TargetCapture
                 or RenderFragmentKind.BuiltInBackdropCapture => new(ExecutionIslandKind.Target,
                     ExecutionIslandBoundaryReason.TargetCapture, []),
@@ -758,7 +768,7 @@ internal sealed class ExecutionIslandPlanner
         SkslMergedProgram? Program,
         ShaderRunCoverageSource CoverageSource);
 
-    private readonly record struct CompatibilityClassification(
+    private readonly record struct ExecutionIslandClassification(
         ExecutionIslandKind Kind,
         ExecutionIslandBoundaryReason Reason,
         ImmutableArray<SkslBackendLimit> BackendLimits);

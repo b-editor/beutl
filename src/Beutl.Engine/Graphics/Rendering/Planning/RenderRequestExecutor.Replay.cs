@@ -9,7 +9,7 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed partial class RenderRequestExecutor
 {
-    private sealed partial class CompatibilityExecutionState
+    private sealed partial class RenderRequestExecutionState
     {
         private void RecordSynchronization()
         {
@@ -32,7 +32,7 @@ internal sealed partial class RenderRequestExecutor
                 return false;
             }
 
-            var inputs = new List<CompatibilityRenderValue>();
+            var inputs = new List<MaterializedRenderValue>();
             EffectiveScale outputSupply = fragment.EffectiveScale.IsUnbounded
                 ? EffectiveScale.At(destination.Density)
                 : fragment.EffectiveScale;
@@ -117,7 +117,7 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale inputRequestScale = !run.Output.EffectiveScale.IsUnbounded
                 ? run.Output.EffectiveScale
                 : EffectiveScale.At(destination.Density);
-            IReadOnlyList<CompatibilityRenderValue> inputs = Materialize(
+            IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                 run.Input,
                 destination,
                 run.Input.EffectiveScale.IsUnbounded ? inputRequestScale : null);
@@ -137,7 +137,7 @@ internal sealed partial class RenderRequestExecutor
                         "A directly executed compiled Shader run requires exactly one materialized input.");
                 }
 
-                CompatibilityRenderValue input = inputs[0];
+                MaterializedRenderValue input = inputs[0];
                 ExecuteReplayIsland(
                     fragment,
                     () => ExecuteCompiledShaderRunProgram(
@@ -176,7 +176,7 @@ internal sealed partial class RenderRequestExecutor
             RenderFragmentReference fragment,
             ImmediateCanvas destination)
         {
-            IReadOnlyList<CompatibilityRenderValue> values = Materialize(
+            IReadOnlyList<MaterializedRenderValue> values = Materialize(
                 fragment,
                 destination,
                 fragment.EffectiveScale.IsUnbounded
@@ -267,7 +267,7 @@ internal sealed partial class RenderRequestExecutor
                 PendingRenderCacheCapture pending = byCandidate[descriptor.CandidateId];
                 RenderNodeCache cache = _cacheResolution.GetDecision(descriptor.CandidateId).Candidate.Cache!;
                 var cachedValues = new List<RenderNodeCachedValue>(pending.Values.Count);
-                foreach (CompatibilityRenderValue value in pending.Values)
+                foreach (MaterializedRenderValue value in pending.Values)
                 {
                     RenderTarget target = value.TransferToAcceptedCache();
                     transferredTargets.Add(target);
@@ -344,10 +344,10 @@ internal sealed partial class RenderRequestExecutor
                 throw new AggregateException("One or more execution-state resources failed to dispose.", failures);
         }
 
-        private void DisposeValues(Func<CompatibilityRenderValue, bool, bool> predicate)
+        private void DisposeValues(Func<MaterializedRenderValue, bool, bool> predicate)
         {
             List<Exception>? failures = null;
-            foreach (CompatibilityRenderValue value in _ownedValues.Reverse().ToArray())
+            foreach (MaterializedRenderValue value in _ownedValues.Reverse().ToArray())
             {
                 bool isCapture = _cacheCaptureValues.Contains(value);
                 if (!predicate(value, isCapture))

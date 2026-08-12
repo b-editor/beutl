@@ -253,7 +253,7 @@ internal sealed partial class RenderRequestExecutor
         CompleteFamily(request);
     }
 
-    private sealed partial class CompatibilityExecutionState : IDisposable
+    private sealed partial class RenderRequestExecutionState : IDisposable
     {
         private readonly RenderRequestOptions _options;
         private readonly ExecutionIslandPlan _executionPlan;
@@ -273,20 +273,20 @@ internal sealed partial class RenderRequestExecutor
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedScopeDomains = [];
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedParentScopeDomains = [];
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedAccessDomains = [];
-        private readonly Dictionary<RenderFragmentReference, IReadOnlyList<CompatibilityRenderValue>> _values =
+        private readonly Dictionary<RenderFragmentReference, IReadOnlyList<MaterializedRenderValue>> _values =
             new(ReferenceEqualityComparer.Instance);
-        private readonly HashSet<CompatibilityRenderValue> _ownedValues =
+        private readonly HashSet<MaterializedRenderValue> _ownedValues =
             new(ReferenceEqualityComparer.Instance);
-        private readonly HashSet<CompatibilityRenderValue> _cacheCaptureValues =
+        private readonly HashSet<MaterializedRenderValue> _cacheCaptureValues =
             new(ReferenceEqualityComparer.Instance);
-        private readonly Dictionary<CompatibilityRenderValue, int> _valueReferences =
+        private readonly Dictionary<MaterializedRenderValue, int> _valueReferences =
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<RenderFragmentId, RenderCacheHitSubstitution> _cacheHits;
         private readonly Dictionary<RenderFragmentId, ImmutableArray<RenderCacheMissCapture>> _cacheMisses;
         private readonly HashSet<RenderFragmentId> _skippedExecutionSubjects = [];
         private readonly List<PendingRenderCacheCapture> _pendingCacheCaptures = [];
         private readonly HashSet<RenderCacheCandidateId> _suppressedCacheCaptures = [];
-        private readonly List<(IBuiltInBackdropCaptureSink Sink, CompatibilityRenderValue Value)> _backdropCaptures = [];
+        private readonly List<(IBuiltInBackdropCaptureSink Sink, MaterializedRenderValue Value)> _backdropCaptures = [];
         private readonly List<PendingBackdropPublication> _pendingBackdropPublications = [];
         private int _shaderRunExecutions;
         private int _shaderStageExecutions;
@@ -298,7 +298,7 @@ internal sealed partial class RenderRequestExecutor
         private bool _previewAllocationDropObserved;
         private Vector _activeDeviceGridOffset;
 
-        public CompatibilityExecutionState(
+        public RenderRequestExecutionState(
             RenderRequestOptions options,
             RecordedRenderGraph graph,
             ExecutionIslandPlan executionPlan,
@@ -392,7 +392,7 @@ internal sealed partial class RenderRequestExecutor
             if (fragment.Id is { } boundaryId
                 && (_cacheHits.ContainsKey(boundaryId) || _cacheMisses.ContainsKey(boundaryId)))
             {
-                IReadOnlyList<CompatibilityRenderValue> boundaryValues = Materialize(
+                IReadOnlyList<MaterializedRenderValue> boundaryValues = Materialize(
                     fragment,
                     destination,
                     fragment.EffectiveScale.IsUnbounded
@@ -478,7 +478,7 @@ internal sealed partial class RenderRequestExecutor
                     return;
                 case RenderFragmentKind.OpaqueMap:
                 case RenderFragmentKind.OpaqueExpand:
-                case RenderFragmentKind.LegacyFilterEffect:
+                case RenderFragmentKind.FilterEffectSegment:
                 case RenderFragmentKind.MaterializedInput:
                 case RenderFragmentKind.Shader:
                 case RenderFragmentKind.Geometry:
@@ -494,7 +494,7 @@ internal sealed partial class RenderRequestExecutor
                     return;
                 case RenderFragmentKind.BuiltInBackdropCapture:
                     {
-                        IReadOnlyList<CompatibilityRenderValue> values = Materialize(fragment, destination);
+                        IReadOnlyList<MaterializedRenderValue> values = Materialize(fragment, destination);
                         if (values.Count != 1
                             || ((BuiltInBackdropCaptureRenderFragmentPayload)fragment.Payload!).Identity
                             is not IBuiltInBackdropCaptureSink sink)
@@ -526,7 +526,7 @@ internal sealed partial class RenderRequestExecutor
 
         private sealed record PendingRenderCacheCapture(
             RenderCacheMissCapture Descriptor,
-            IReadOnlyList<CompatibilityRenderValue> Values);
+            IReadOnlyList<MaterializedRenderValue> Values);
 
         private sealed class PendingBackdropPublication(
             IBuiltInBackdropCaptureSink sink,
@@ -541,11 +541,11 @@ internal sealed partial class RenderRequestExecutor
         }
     }
 
-    private sealed class CompatibilityRenderValue : IDisposable
+    private sealed class MaterializedRenderValue : IDisposable
     {
         private readonly RenderTargetLease? _lease;
 
-        public CompatibilityRenderValue(
+        public MaterializedRenderValue(
             RenderTarget target,
             Rect bounds,
             EffectiveScale effectiveScale,
@@ -573,7 +573,7 @@ internal sealed partial class RenderRequestExecutor
             PreserveLegacyRasterPlacement = preserveLegacyRasterPlacement;
         }
 
-        public CompatibilityRenderValue(
+        public MaterializedRenderValue(
             RenderTargetLease lease,
             Rect bounds,
             EffectiveScale effectiveScale,

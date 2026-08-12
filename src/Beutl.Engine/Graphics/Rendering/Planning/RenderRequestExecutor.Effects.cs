@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed partial class RenderRequestExecutor
 {
-    private sealed partial class CompatibilityExecutionState
+    private sealed partial class RenderRequestExecutionState
     {
         private void ReplayOpacityMask(
             RenderFragmentReference fragment,
@@ -28,7 +28,7 @@ internal sealed partial class RenderRequestExecutor
                 });
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> MaterializeOpacity(
+        private IReadOnlyList<MaterializedRenderValue> MaterializeOpacity(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -46,13 +46,13 @@ internal sealed partial class RenderRequestExecutor
                 fragment.Bounds,
                 requestedScale ?? ResolveConcreteScale(fragment));
             RenderFragmentReference input = fragment.Inputs[0];
-            IReadOnlyList<CompatibilityRenderValue> values = Materialize(
+            IReadOnlyList<MaterializedRenderValue> values = Materialize(
                 input,
                 currentTarget,
                 input.EffectiveScale.IsUnbounded ? scale : null);
             try
             {
-                CompatibilityRenderValue value = CreateOwnedValue(
+                MaterializedRenderValue value = CreateOwnedValue(
                     fragment.Bounds,
                     scale,
                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
@@ -90,7 +90,7 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> MaterializeOpacityMask(
+        private IReadOnlyList<MaterializedRenderValue> MaterializeOpacityMask(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -108,13 +108,13 @@ internal sealed partial class RenderRequestExecutor
                 fragment.Bounds,
                 requestedScale ?? ResolveConcreteScale(fragment));
             RenderFragmentReference primary = fragment.Inputs[0];
-            IReadOnlyList<CompatibilityRenderValue> primaryValues = Materialize(
+            IReadOnlyList<MaterializedRenderValue> primaryValues = Materialize(
                 primary,
                 currentTarget,
                 primary.EffectiveScale.IsUnbounded ? scale : null);
             try
             {
-                CompatibilityRenderValue value = CreateOwnedValue(
+                MaterializedRenderValue value = CreateOwnedValue(
                     fragment.Bounds,
                     scale,
                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
@@ -167,7 +167,7 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteOpaque(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteOpaque(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -175,14 +175,14 @@ internal sealed partial class RenderRequestExecutor
                 currentTarget,
                 () => ExecuteOpaqueCore(fragment, currentTarget, requestedScale));
 
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteOpaqueCore(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteOpaqueCore(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
             var payload = (OpaqueRenderFragmentPayload)fragment.Payload!;
             OpaqueRenderDescription description = payload.Description;
-            var flattened = new List<CompatibilityRenderValue>();
+            var flattened = new List<MaterializedRenderValue>();
             var inputReadbacks = new List<bool>();
             var inputRanges = new List<RenderExecutionInputRange>(fragment.Inputs.Length);
             EffectiveScale outputSupply = requestedScale
@@ -192,7 +192,7 @@ internal sealed partial class RenderRequestExecutor
             for (int inputIndex = 0; inputIndex < fragment.Inputs.Length; inputIndex++)
             {
                 RenderFragmentReference input = fragment.Inputs[inputIndex];
-                IReadOnlyList<CompatibilityRenderValue> inputValues = Materialize(
+                IReadOnlyList<MaterializedRenderValue> inputValues = Materialize(
                     input,
                     currentTarget,
                     input.EffectiveScale.IsUnbounded ? outputSupply : null);
@@ -210,11 +210,11 @@ internal sealed partial class RenderRequestExecutor
             {
                 if (payload.Topology == OpaqueRenderTopology.Map)
                 {
-                    var mapped = new List<CompatibilityRenderValue>();
+                    var mapped = new List<MaterializedRenderValue>();
                     bool mapCallbackInvoked = false;
                     for (int inputIndex = 0; inputIndex < flattened.Count; inputIndex++)
                     {
-                        CompatibilityRenderValue input = flattened[inputIndex];
+                        MaterializedRenderValue input = flattened[inputIndex];
                         Rect outputBounds = description.Bounds.TransformBounds([input.CompleteBounds]);
                         EffectiveScale outputScale = requestedScale
                             ?? description.Scale.Resolve(
@@ -248,7 +248,7 @@ internal sealed partial class RenderRequestExecutor
                         declaredBounds,
                         _options.OutputScale,
                         _options.MaxWorkingScale);
-                IReadOnlyList<CompatibilityRenderValue> result = InvokeOpaque(
+                IReadOnlyList<MaterializedRenderValue> result = InvokeOpaque(
                     fragment,
                     description,
                     flattened,
@@ -269,20 +269,20 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteLegacyFilter(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteLegacyFilter(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget)
             => ExecuteOnDeviceGrid(
                 currentTarget,
                 () => ExecuteLegacyFilterCore(fragment, currentTarget));
 
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteLegacyFilterCore(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteLegacyFilterCore(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget)
         {
             Rect requiredRegion = ResolveFragmentRequirement(fragment, fragment.Bounds);
-            var payload = (LegacyFilterEffectRenderFragmentPayload)fragment.Payload!;
-            var inputs = new List<CompatibilityRenderValue>();
+            var payload = (FilterEffectSegmentRenderFragmentPayload)fragment.Payload!;
+            var inputs = new List<MaterializedRenderValue>();
             EffectiveScale inputRequestScale = fragment.EffectiveScale.IsUnbounded
                 ? EffectiveScale.At(currentTarget.Density)
                 : fragment.EffectiveScale;
@@ -302,7 +302,7 @@ internal sealed partial class RenderRequestExecutor
                     effectContext =>
                     {
                         using var targets = new EffectTargets();
-                        foreach (CompatibilityRenderValue input in inputs)
+                        foreach (MaterializedRenderValue input in inputs)
                         {
                             targets.Add(new EffectTarget(
                                 input.Target,
@@ -334,13 +334,13 @@ internal sealed partial class RenderRequestExecutor
                         activator.CompletePolicyBoundary(
                             payload.WorkingScalePolicy.HasValue);
 
-                        var result = new List<CompatibilityRenderValue>(activator.CurrentTargets.Count);
+                        var result = new List<MaterializedRenderValue>(activator.CurrentTargets.Count);
                         foreach (EffectTarget target in activator.CurrentTargets)
                         {
                             if (target.RenderTarget is not { } renderTarget)
                                 continue;
 
-                            CompatibilityRenderValue value = MaterializeLegacyTarget(
+                            MaterializedRenderValue value = MaterializeLegacyTarget(
                                 target,
                                 renderTarget,
                                 fragment.Bounds);
@@ -366,7 +366,7 @@ internal sealed partial class RenderRequestExecutor
                                 }
                                 else
                                 {
-                                    CompatibilityRenderValue cropped = CropValue(
+                                    MaterializedRenderValue cropped = CropValue(
                                         fragment,
                                         value,
                                         selectedBounds);
@@ -378,7 +378,7 @@ internal sealed partial class RenderRequestExecutor
                             result.Add(value);
                         }
 
-                        return (IReadOnlyList<CompatibilityRenderValue>)result;
+                        return (IReadOnlyList<MaterializedRenderValue>)result;
                     });
             }
             finally
@@ -388,7 +388,7 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private CompatibilityRenderValue MaterializeLegacyTarget(
+        private MaterializedRenderValue MaterializeLegacyTarget(
             EffectTarget target,
             RenderTarget renderTarget,
             Rect completeBounds)
@@ -432,7 +432,7 @@ internal sealed partial class RenderRequestExecutor
                 target.Scale.Value);
             EffectiveScale normalizedScale = EffectiveScale.At(density);
             PixelRect normalizedDeviceBounds = PixelRect.FromRect(physicalBounds, density);
-            CompatibilityRenderValue normalized = CreateOwnedValue(
+            MaterializedRenderValue normalized = CreateOwnedValue(
                 target.Bounds,
                 normalizedScale,
                 completeBounds,

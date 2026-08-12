@@ -9,9 +9,9 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed partial class RenderRequestExecutor
 {
-    private sealed partial class CompatibilityExecutionState
+    private sealed partial class RenderRequestExecutionState
     {
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteShader(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteShader(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -19,7 +19,7 @@ internal sealed partial class RenderRequestExecutor
                 currentTarget,
                 () => ExecuteShaderCore(fragment, currentTarget, requestedScale));
 
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteShaderCore(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteShaderCore(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -33,15 +33,15 @@ internal sealed partial class RenderRequestExecutor
                 ?? (!fragment.EffectiveScale.IsUnbounded
                     ? fragment.EffectiveScale
                     : EffectiveScale.At(currentTarget.Density));
-            IReadOnlyList<CompatibilityRenderValue> inputs = Materialize(
+            IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                 fragment.Inputs[0],
                 currentTarget,
                 fragment.Inputs[0].EffectiveScale.IsUnbounded ? inputRequestScale : null);
-            var results = new List<CompatibilityRenderValue>(inputs.Count);
+            var results = new List<MaterializedRenderValue>(inputs.Count);
             bool executed = false;
             try
             {
-                foreach (CompatibilityRenderValue input in inputs)
+                foreach (MaterializedRenderValue input in inputs)
                 {
                     Rect outputBounds = description.Bounds.TransformBounds(input.CompleteBounds);
                     if (outputBounds.Width == 0 || outputBounds.Height == 0)
@@ -58,7 +58,7 @@ internal sealed partial class RenderRequestExecutor
                         outputBounds.Translate(_activeDeviceGridOffset),
                         density);
                     EffectiveScale outputScale = EffectiveScale.At(density);
-                    CompatibilityRenderValue output = CreateOwnedValue(
+                    MaterializedRenderValue output = CreateOwnedValue(
                         requiredRegion,
                         outputScale,
                         outputBounds,
@@ -89,7 +89,7 @@ internal sealed partial class RenderRequestExecutor
             }
             catch
             {
-                foreach (CompatibilityRenderValue value in results)
+                foreach (MaterializedRenderValue value in results)
                     ReleaseUnpublished(value);
                 throw;
             }
@@ -99,7 +99,7 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteCompiledShaderRun(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteCompiledShaderRun(
             CompiledShaderRun run,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -107,7 +107,7 @@ internal sealed partial class RenderRequestExecutor
                 currentTarget,
                 () => ExecuteCompiledShaderRunCore(run, currentTarget, requestedScale));
 
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteCompiledShaderRunCore(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteCompiledShaderRunCore(
             CompiledShaderRun run,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -132,7 +132,7 @@ internal sealed partial class RenderRequestExecutor
                 ? run.Output.EffectiveScale
                 : requestedScale ?? EffectiveScale.At(currentTarget.Density);
             EffectiveScale inputRequestScale = requestedScale ?? outputRequestScale;
-            IReadOnlyList<CompatibilityRenderValue> inputs = Materialize(
+            IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                 run.Input,
                 currentTarget,
                 run.Input.EffectiveScale.IsUnbounded ? inputRequestScale : null);
@@ -148,11 +148,11 @@ internal sealed partial class RenderRequestExecutor
                     "A compiled Shader run requires its declared single input to materialize exactly one value.");
             }
 
-            CompatibilityRenderValue input = inputs[0];
+            MaterializedRenderValue input = inputs[0];
             float density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
                 outputBounds.Translate(_activeDeviceGridOffset),
                 outputRequestScale.Value);
-            CompatibilityRenderValue output = CreateOwnedValue(
+            MaterializedRenderValue output = CreateOwnedValue(
                 requiredRegion,
                 EffectiveScale.At(density),
                 outputBounds,
@@ -179,8 +179,8 @@ internal sealed partial class RenderRequestExecutor
 
         private void ExecuteCompiledShaderRunElement(
             CompiledShaderRun run,
-            CompatibilityRenderValue input,
-            CompatibilityRenderValue output,
+            MaterializedRenderValue input,
+            MaterializedRenderValue output,
             Rect outputBounds,
             Rect requiredRegion)
             => ExecuteCompiledShaderRunProgram(
@@ -212,7 +212,7 @@ internal sealed partial class RenderRequestExecutor
 
         private void ExecuteCompiledShaderRunProgram(
             CompiledShaderRun run,
-            CompatibilityRenderValue input,
+            MaterializedRenderValue input,
             Rect outputBounds,
             Rect requiredRegion,
             PixelRect outputDeviceBounds,
@@ -309,7 +309,7 @@ internal sealed partial class RenderRequestExecutor
             CompiledShaderStage stage,
             int stageIndex,
             RenderExecutionSessionToken bindingToken,
-            CompatibilityRenderValue runInput,
+            MaterializedRenderValue runInput,
             Rect runOutputBounds,
             Rect runRequiredRegion,
             PixelRect runOutputDeviceBounds,
@@ -419,8 +419,8 @@ internal sealed partial class RenderRequestExecutor
 
         private void ExecuteShaderElement(
             ShaderDescription description,
-            CompatibilityRenderValue input,
-            CompatibilityRenderValue output,
+            MaterializedRenderValue input,
+            MaterializedRenderValue output,
             Rect outputBounds,
             Rect requiredRegion)
         {

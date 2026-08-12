@@ -9,16 +9,16 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed partial class RenderRequestExecutor
 {
-    private sealed partial class CompatibilityExecutionState
+    private sealed partial class RenderRequestExecutionState
     {
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteGeometry(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteGeometry(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget)
             => ExecuteOnDeviceGrid(
                 currentTarget,
                 () => ExecuteGeometryCore(fragment, currentTarget));
 
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteGeometryCore(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteGeometryCore(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget)
         {
@@ -29,15 +29,15 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale requestScale = fragment.EffectiveScale.IsUnbounded
                 ? EffectiveScale.At(currentTarget.Density)
                 : fragment.EffectiveScale;
-            IReadOnlyList<CompatibilityRenderValue> inputs = Materialize(
+            IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                 fragment.Inputs[0],
                 currentTarget,
                 fragment.Inputs[0].EffectiveScale.IsUnbounded ? requestScale : null);
-            var results = new List<CompatibilityRenderValue>(inputs.Count);
+            var results = new List<MaterializedRenderValue>(inputs.Count);
             bool executed = false;
             try
             {
-                foreach (CompatibilityRenderValue input in inputs)
+                foreach (MaterializedRenderValue input in inputs)
                 {
                     Rect outputBounds = description.Bounds.TransformBounds(input.CompleteBounds);
                     if (outputBounds.Width == 0 || outputBounds.Height == 0)
@@ -52,7 +52,7 @@ internal sealed partial class RenderRequestExecutor
                         outputBounds.Translate(_activeDeviceGridOffset),
                         density);
                     EffectiveScale outputScale = EffectiveScale.At(density);
-                    CompatibilityRenderValue output = CreateOwnedValue(
+                    MaterializedRenderValue output = CreateOwnedValue(
                         requiredRegion,
                         outputScale,
                         outputBounds,
@@ -73,7 +73,7 @@ internal sealed partial class RenderRequestExecutor
 
                         if (selectedBounds != requiredRegion)
                         {
-                            CompatibilityRenderValue cropped = CropValue(
+                            MaterializedRenderValue cropped = CropValue(
                                 output,
                                 selectedBounds,
                                 allowPreviewDrop: true);
@@ -97,7 +97,7 @@ internal sealed partial class RenderRequestExecutor
             }
             catch
             {
-                foreach (CompatibilityRenderValue value in results)
+                foreach (MaterializedRenderValue value in results)
                     ReleaseUnpublished(value);
                 throw;
             }
@@ -110,8 +110,8 @@ internal sealed partial class RenderRequestExecutor
         private Rect? ExecuteGeometryElement(
             RenderFragmentReference fragment,
             GeometryDescription description,
-            CompatibilityRenderValue input,
-            CompatibilityRenderValue output,
+            MaterializedRenderValue input,
+            MaterializedRenderValue output,
             Rect outputBounds,
             Rect requiredRegion)
         {
@@ -167,21 +167,21 @@ internal sealed partial class RenderRequestExecutor
                 });
         }
 
-        private CompatibilityRenderValue CropValue(
+        private MaterializedRenderValue CropValue(
             RenderFragmentReference fragment,
-            CompatibilityRenderValue source,
+            MaterializedRenderValue source,
             Rect selectedBounds)
             => CropValue(
                 source,
                 selectedBounds,
                 _previewDropEligibleMaterializations.Contains(fragment));
 
-        private CompatibilityRenderValue CropValue(
-            CompatibilityRenderValue source,
+        private MaterializedRenderValue CropValue(
+            MaterializedRenderValue source,
             Rect selectedBounds,
             bool allowPreviewDrop)
         {
-            CompatibilityRenderValue cropped = CreateOwnedValue(
+            MaterializedRenderValue cropped = CreateOwnedValue(
                 selectedBounds,
                 source.EffectiveScale,
                 source.CompleteBounds,
@@ -218,10 +218,10 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> InvokeOpaque(
+        private IReadOnlyList<MaterializedRenderValue> InvokeOpaque(
             RenderFragmentReference fragment,
             OpaqueRenderDescription description,
-            IReadOnlyList<CompatibilityRenderValue> inputs,
+            IReadOnlyList<MaterializedRenderValue> inputs,
             IReadOnlyList<bool> inputReadbacks,
             IReadOnlyList<RenderExecutionInputRange> inputRanges,
             Rect outputBounds,
@@ -236,20 +236,20 @@ internal sealed partial class RenderRequestExecutor
 
             var inputImages = new List<SKImage>();
             var executionInputs = new List<RenderExecutionInput>(inputs.Count);
-            var outputLeases = new Dictionary<OpaqueRenderOutput, CompatibilityRenderValue>(
+            var outputLeases = new Dictionary<OpaqueRenderOutput, MaterializedRenderValue>(
                 ReferenceEqualityComparer.Instance);
-            var published = new List<CompatibilityRenderValue>();
+            var published = new List<MaterializedRenderValue>();
             bool succeeded = false;
             bool callbackWasInvoked = false;
             RenderExecutionSessionToken token = CreateExecutionSessionToken();
             try
             {
-                IReadOnlyList<CompatibilityRenderValue> result = token.RunAndComplete(
+                IReadOnlyList<MaterializedRenderValue> result = token.RunAndComplete(
                     () =>
                     {
                         for (int inputIndex = 0; inputIndex < inputs.Count; inputIndex++)
                         {
-                            CompatibilityRenderValue input = inputs[inputIndex];
+                            MaterializedRenderValue input = inputs[inputIndex];
                             bool requiresReadback = inputReadbacks[inputIndex];
                             SKImage image = input.Target.Value.Snapshot();
                             inputImages.Add(image);
@@ -326,7 +326,7 @@ internal sealed partial class RenderRequestExecutor
                                     ? RenderScaleUtilities.AddRasterApron(
                                         PixelRect.FromRect(logicalBounds, outputDensity))
                                     : null;
-                                CompatibilityRenderValue value = CreateOwnedValue(
+                                MaterializedRenderValue value = CreateOwnedValue(
                                     logicalBounds,
                                     outputScale,
                                     outputBounds,
@@ -358,10 +358,10 @@ internal sealed partial class RenderRequestExecutor
                             },
                             output =>
                             {
-                                CompatibilityRenderValue value = outputLeases[output];
+                                MaterializedRenderValue value = outputLeases[output];
                                 if (value.Bounds != output.Bounds)
                                 {
-                                    CompatibilityRenderValue cropped = CropValue(
+                                    MaterializedRenderValue cropped = CropValue(
                                         value,
                                         output.Bounds,
                                         allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
@@ -390,7 +390,7 @@ internal sealed partial class RenderRequestExecutor
                 foreach (SKImage image in inputImages)
                     image.Dispose();
 
-                foreach (CompatibilityRenderValue value in outputLeases.Values)
+                foreach (MaterializedRenderValue value in outputLeases.Values)
                 {
                     if (!succeeded || !published.Contains(value, ReferenceEqualityComparer.Instance))
                         ReleaseUnpublished(value);
@@ -398,12 +398,12 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> MaterializeExternal(
+        private IReadOnlyList<MaterializedRenderValue> MaterializeExternal(
             RenderFragmentReference fragment)
         {
             var payload = (MaterializedInputRenderFragmentPayload)fragment.Payload!;
             MaterializedInputDescription description = payload.Description;
-            CompatibilityRenderValue value = description.Target.Registry.Use(
+            MaterializedRenderValue value = description.Target.Registry.Use(
                 description.Target,
                 target =>
                 {

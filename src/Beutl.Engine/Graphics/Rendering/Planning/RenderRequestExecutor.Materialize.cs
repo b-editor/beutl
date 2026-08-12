@@ -9,9 +9,9 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed partial class RenderRequestExecutor
 {
-    private sealed partial class CompatibilityExecutionState
+    private sealed partial class RenderRequestExecutionState
     {
-        private IReadOnlyList<CompatibilityRenderValue> Materialize(
+        private IReadOnlyList<MaterializedRenderValue> Materialize(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale = null)
@@ -48,18 +48,18 @@ internal sealed partial class RenderRequestExecutor
                 requestedScale);
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> MaterializeCore(
+        private IReadOnlyList<MaterializedRenderValue> MaterializeCore(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale = null)
         {
-            if (_values.TryGetValue(fragment, out IReadOnlyList<CompatibilityRenderValue>? cached))
+            if (_values.TryGetValue(fragment, out IReadOnlyList<MaterializedRenderValue>? cached))
                 return cached;
 
-            IReadOnlyList<CompatibilityRenderValue> result;
+            IReadOnlyList<MaterializedRenderValue> result;
             bool cacheHit = TryMaterializeCacheHit(
                 fragment,
-                out IReadOnlyList<CompatibilityRenderValue>? hitValues);
+                out IReadOnlyList<MaterializedRenderValue>? hitValues);
             if (cacheHit)
             {
                 result = hitValues!;
@@ -76,7 +76,7 @@ internal sealed partial class RenderRequestExecutor
             return result;
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> ExecuteFragment(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteFragment(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -84,7 +84,7 @@ internal sealed partial class RenderRequestExecutor
             if (_executionPlan.TryGetMembership(fragment, out ExecutionIslandMembership membership))
             {
                 ExecutionIsland island = _executionLedger.Begin(fragment);
-                IReadOnlyList<CompatibilityRenderValue> values = membership.ShaderRun is { } run
+                IReadOnlyList<MaterializedRenderValue> values = membership.ShaderRun is { } run
                     ? ExecuteCompiledShaderRun(run, currentTarget, requestedScale)
                     : MaterializePlannedFragment(fragment, currentTarget, requestedScale);
                 _executionLedger.Complete(island);
@@ -100,7 +100,7 @@ internal sealed partial class RenderRequestExecutor
             };
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> MaterializePlannedFragment(
+        private IReadOnlyList<MaterializedRenderValue> MaterializePlannedFragment(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -110,7 +110,7 @@ internal sealed partial class RenderRequestExecutor
                     or RenderFragmentKind.OpaqueMap
                     or RenderFragmentKind.OpaqueCombine
                     or RenderFragmentKind.OpaqueExpand => ExecuteOpaque(fragment, currentTarget, requestedScale),
-                RenderFragmentKind.LegacyFilterEffect => ExecuteLegacyFilter(fragment, currentTarget),
+                RenderFragmentKind.FilterEffectSegment => ExecuteLegacyFilter(fragment, currentTarget),
                 RenderFragmentKind.Shader => ExecuteShader(fragment, currentTarget, requestedScale),
                 RenderFragmentKind.Geometry => ExecuteGeometry(fragment, currentTarget),
                 RenderFragmentKind.Opacity => MaterializeOpacity(fragment, currentTarget, requestedScale),
@@ -125,7 +125,7 @@ internal sealed partial class RenderRequestExecutor
                     $"The planned fragment '{fragment.Kind}' cannot be materialized as a value."),
             };
 
-        private IReadOnlyList<CompatibilityRenderValue> MaterializeSingleInput(
+        private IReadOnlyList<MaterializedRenderValue> MaterializeSingleInput(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale = null)
@@ -137,7 +137,7 @@ internal sealed partial class RenderRequestExecutor
 
         private bool TryMaterializeCacheHit(
             RenderFragmentReference fragment,
-            out IReadOnlyList<CompatibilityRenderValue>? values)
+            out IReadOnlyList<MaterializedRenderValue>? values)
         {
             if (fragment.Id is not { } id
                 || !_cacheHits.TryGetValue(id, out RenderCacheHitSubstitution? hit))
@@ -152,7 +152,7 @@ internal sealed partial class RenderRequestExecutor
                     "A selected render-cache hit does not contain a node-cache output payload.");
             }
 
-            var acquired = new List<CompatibilityRenderValue>(cachedOutput.Values.Count);
+            var acquired = new List<MaterializedRenderValue>(cachedOutput.Values.Count);
             bool supportsIndependentOutputDensities = fragment.SupportsIndependentOutputDensities;
             try
             {
@@ -167,7 +167,7 @@ internal sealed partial class RenderRequestExecutor
                             "A render-cache hit payload does not match its planned materialization density.");
                     }
 
-                    CompatibilityRenderValue value = CreateOwnedShallowCopy(
+                    MaterializedRenderValue value = CreateOwnedShallowCopy(
                         cached.Target,
                         cached.Bounds,
                         cached.EffectiveScale,
@@ -180,7 +180,7 @@ internal sealed partial class RenderRequestExecutor
             }
             catch
             {
-                foreach (CompatibilityRenderValue value in acquired)
+                foreach (MaterializedRenderValue value in acquired)
                     ReleaseUnpublished(value);
                 throw;
             }
@@ -191,7 +191,7 @@ internal sealed partial class RenderRequestExecutor
 
         private void StageCacheCaptures(
             RenderFragmentReference fragment,
-            IReadOnlyList<CompatibilityRenderValue> values)
+            IReadOnlyList<MaterializedRenderValue> values)
         {
             if (_previewAllocationDropObserved)
                 return;
@@ -200,7 +200,7 @@ internal sealed partial class RenderRequestExecutor
 
             bool supportsIndependentOutputDensities = fragment.SupportsIndependentOutputDensities;
             long actualPixels = 0;
-            foreach (CompatibilityRenderValue value in values)
+            foreach (MaterializedRenderValue value in values)
             {
                 long valuePixels = (long)value.DeviceBounds.Width * value.DeviceBounds.Height;
                 actualPixels = actualPixels > long.MaxValue - valuePixels
@@ -216,10 +216,10 @@ internal sealed partial class RenderRequestExecutor
                     continue;
                 }
 
-                var captures = new List<CompatibilityRenderValue>(values.Count);
+                var captures = new List<MaterializedRenderValue>(values.Count);
                 try
                 {
-                    foreach (CompatibilityRenderValue value in values)
+                    foreach (MaterializedRenderValue value in values)
                     {
                         if (!supportsIndependentOutputDensities
                             && BitConverter.SingleToInt32Bits(value.EffectiveScale.Value)
@@ -229,7 +229,7 @@ internal sealed partial class RenderRequestExecutor
                                 "A render-cache capture does not match its planned materialization density.");
                         }
 
-                        CompatibilityRenderValue capture = CopyForCacheCapture(value);
+                        MaterializedRenderValue capture = CopyForCacheCapture(value);
                         _cacheCaptureValues.Add(capture);
                         captures.Add(capture);
                     }
@@ -238,7 +238,7 @@ internal sealed partial class RenderRequestExecutor
                 }
                 catch
                 {
-                    foreach (CompatibilityRenderValue capture in captures)
+                    foreach (MaterializedRenderValue capture in captures)
                     {
                         _cacheCaptureValues.Remove(capture);
                         ReleaseUnpublished(capture);
@@ -248,9 +248,9 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private CompatibilityRenderValue CopyForCacheCapture(CompatibilityRenderValue source)
+        private MaterializedRenderValue CopyForCacheCapture(MaterializedRenderValue source)
         {
-            CompatibilityRenderValue capture = CreateOwnedValue(
+            MaterializedRenderValue capture = CreateOwnedValue(
                 source.Bounds,
                 source.EffectiveScale,
                 source.CompleteBounds,

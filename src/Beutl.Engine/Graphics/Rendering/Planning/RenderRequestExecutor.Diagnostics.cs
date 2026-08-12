@@ -9,14 +9,14 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed partial class RenderRequestExecutor
 {
-    private sealed partial class CompatibilityExecutionState
+    private sealed partial class RenderRequestExecutionState
     {
         public void PrepareBuiltInBackdropCaptures()
         {
             var prepared = new List<PendingBackdropPublication>(_backdropCaptures.Count);
             try
             {
-                foreach ((IBuiltInBackdropCaptureSink sink, CompatibilityRenderValue value) in _backdropCaptures)
+                foreach ((IBuiltInBackdropCaptureSink sink, MaterializedRenderValue value) in _backdropCaptures)
                 {
                     Bitmap bitmap = value.Target.Snapshot();
                     var publication = new PendingBackdropPublication(
@@ -39,7 +39,7 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                foreach (CompatibilityRenderValue value in _backdropCaptures.Select(static item => item.Value))
+                foreach (MaterializedRenderValue value in _backdropCaptures.Select(static item => item.Value))
                     ReleaseValueReference(value);
                 _backdropCaptures.Clear();
             }

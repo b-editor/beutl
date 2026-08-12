@@ -244,7 +244,7 @@ internal sealed class RenderFragmentReference
     public bool AllowsFanOut => CanBeUsedAsValueInput;
 
     public bool HitTest(Point point)
-        => Kind == RenderFragmentKind.LegacyFilterEffect
+        => Kind == RenderFragmentKind.FilterEffectSegment
            && BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain
             ? Bounds.Contains(point)
             : _hitTest(point);
@@ -601,7 +601,7 @@ internal static class RenderFragmentDeviceGrid
                 or RenderFragmentKind.OpaqueMap
                 or RenderFragmentKind.OpaqueCombine
                 or RenderFragmentKind.OpaqueExpand
-                or RenderFragmentKind.LegacyFilterEffect
+                or RenderFragmentKind.FilterEffectSegment
                 or RenderFragmentKind.MaterializedInput
                 or RenderFragmentKind.TargetCapture
                 or RenderFragmentKind.Layer
@@ -625,7 +625,7 @@ internal enum RenderFragmentKind : byte
     OpaqueMap,
     OpaqueCombine,
     OpaqueExpand,
-    LegacyFilterEffect,
+    FilterEffectSegment,
     MaterializedInput,
     TargetCapture,
     Layer,

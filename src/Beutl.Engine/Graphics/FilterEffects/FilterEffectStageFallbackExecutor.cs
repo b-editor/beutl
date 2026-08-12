@@ -6,9 +6,9 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-internal static class LegacyFilterEffectCompatibilityExecutor
+internal static class FilterEffectStageFallbackExecutor
 {
-    private static readonly ILogger s_logger = Log.CreateLogger("LegacyFilterEffectCompatibilityExecutor");
+    private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectStageFallbackExecutor");
 
     public static void ApplyShader(
         EffectTargets targets,

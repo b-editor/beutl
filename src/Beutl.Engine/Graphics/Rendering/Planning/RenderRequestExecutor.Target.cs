@@ -9,7 +9,7 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed partial class RenderRequestExecutor
 {
-    private sealed partial class CompatibilityExecutionState
+    private sealed partial class RenderRequestExecutionState
     {
         private void ExecuteTargetCommand(
             RenderFragmentReference fragment,
@@ -17,12 +17,12 @@ internal sealed partial class RenderRequestExecutor
         {
             var payload = (TargetCommandRenderFragmentPayload)fragment.Payload!;
             TargetCommandDescription description = payload.Description;
-            var values = new List<CompatibilityRenderValue>();
+            var values = new List<MaterializedRenderValue>();
             var inputReadbacks = new List<bool>();
             var inputRanges = new List<RenderExecutionInputRange>(fragment.Inputs.Length);
             for (int inputIndex = 0; inputIndex < fragment.Inputs.Length; inputIndex++)
             {
-                IReadOnlyList<CompatibilityRenderValue> inputValues = Materialize(
+                IReadOnlyList<MaterializedRenderValue> inputValues = Materialize(
                     fragment.Inputs[inputIndex],
                     destination);
                 RenderInputReadback readback = payload.InputReadbacks[inputIndex];
@@ -169,7 +169,7 @@ internal sealed partial class RenderRequestExecutor
                 });
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> MaterializeValueReplayMap(
+        private IReadOnlyList<MaterializedRenderValue> MaterializeValueReplayMap(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -204,7 +204,7 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale scale = EffectiveScale.At(density);
             PixelRect deviceBounds = RenderScaleUtilities.AddRasterApron(
                 PixelRect.FromRect(requiredRegion, density));
-            CompatibilityRenderValue output = CreateOwnedValue(
+            MaterializedRenderValue output = CreateOwnedValue(
                 requiredRegion,
                 scale,
                 fragment.Bounds,
@@ -275,12 +275,12 @@ internal sealed partial class RenderRequestExecutor
 
         private IReadOnlyList<RenderExecutionInput> CreateExecutionInputs(
             RenderExecutionSessionToken token,
-            IReadOnlyList<CompatibilityRenderValue> values,
+            IReadOnlyList<MaterializedRenderValue> values,
             bool requiresReadback,
             List<SKImage> images)
         {
             var inputs = new List<RenderExecutionInput>(values.Count);
-            foreach (CompatibilityRenderValue value in values)
+            foreach (MaterializedRenderValue value in values)
             {
                 SKImage image = value.Target.Value.Snapshot();
                 images.Add(image);
@@ -303,7 +303,7 @@ internal sealed partial class RenderRequestExecutor
 
         private IReadOnlyList<RenderExecutionInput> CreateTargetCommandExecutionInputs(
             RenderExecutionSessionToken token,
-            IReadOnlyList<CompatibilityRenderValue> values,
+            IReadOnlyList<MaterializedRenderValue> values,
             IReadOnlyList<bool> inputReadbacks,
             List<SKImage> images)
         {
@@ -313,7 +313,7 @@ internal sealed partial class RenderRequestExecutor
             var inputs = new List<RenderExecutionInput>(values.Count);
             for (int index = 0; index < values.Count; index++)
             {
-                CompatibilityRenderValue value = values[index];
+                MaterializedRenderValue value = values[index];
                 SKImage image = value.Target.Value.Snapshot();
                 images.Add(image);
                 bool requiresReadback = inputReadbacks[index];
@@ -334,7 +334,7 @@ internal sealed partial class RenderRequestExecutor
             return inputs;
         }
 
-        private Bitmap SnapshotInputForReadback(CompatibilityRenderValue value)
+        private Bitmap SnapshotInputForReadback(MaterializedRenderValue value)
         {
             RecordSynchronization();
             return value.Target.Snapshot();
@@ -400,11 +400,11 @@ internal sealed partial class RenderRequestExecutor
             return snapshot.ExtractSubset(sourceRegion);
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> MaterializeLayer(
+        private IReadOnlyList<MaterializedRenderValue> MaterializeLayer(
             RenderFragmentReference fragment,
             EffectiveScale? requestedScale)
         {
-            if (_values.TryGetValue(fragment, out IReadOnlyList<CompatibilityRenderValue>? existing))
+            if (_values.TryGetValue(fragment, out IReadOnlyList<MaterializedRenderValue>? existing))
                 return existing;
 
             Rect domain = ((LayerRenderFragmentPayload)fragment.Payload!).Domain
@@ -415,7 +415,7 @@ internal sealed partial class RenderRequestExecutor
             Vector? deviceGridOffset = RequiresLocalDestructiveDeviceGrid(fragment)
                 ? default(Vector)
                 : null;
-            CompatibilityRenderValue value = CreateOwnedValue(
+            MaterializedRenderValue value = CreateOwnedValue(
                 domain,
                 scale,
                 deviceGridOffset: deviceGridOffset,
@@ -461,7 +461,7 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private IReadOnlyList<CompatibilityRenderValue> CaptureTarget(
+        private IReadOnlyList<MaterializedRenderValue> CaptureTarget(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget)
         {
@@ -478,7 +478,7 @@ internal sealed partial class RenderRequestExecutor
                 ? EffectiveScale.At(DeviceGridAlignment.ResolveLocalDensity(currentTarget))
                 : ResolveConcreteScale(fragment);
             scale = ClampToActiveDeviceGrid(bounds, scale);
-            CompatibilityRenderValue value = CreateOwnedValue(
+            MaterializedRenderValue value = CreateOwnedValue(
                 bounds,
                 scale,
                 allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
@@ -544,7 +544,7 @@ internal sealed partial class RenderRequestExecutor
                 ? default
                 : DeviceGridAlignment.ResolveLogicalOffset(destination);
             scale = ClampToDeviceGrid(domain, scale, deviceGridOffset);
-            CompatibilityRenderValue value = CreateOwnedValue(
+            MaterializedRenderValue value = CreateOwnedValue(
                 domain,
                 scale,
                 deviceGridOffset: deviceGridOffset);

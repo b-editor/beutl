@@ -26,7 +26,7 @@ public sealed class NestedEffectBrushLoweringTests
         return delay;
     }
 
-    private static void Record(FilterEffect effect, Action<LegacyFilterEffectRenderFragmentPayload[]> assert)
+    private static void Record(FilterEffect effect, Action<FilterEffectSegmentRenderFragmentPayload[]> assert)
     {
         using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
         root.AddChild(new RectangleRenderNode(new Rect(0, 0, 40, 30), Brushes.Resource.White, null));
@@ -41,8 +41,8 @@ public sealed class NestedEffectBrushLoweringTests
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
         assert(graph.Fragments
             .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
-            .Where(static reference => reference.Kind == RenderFragmentKind.LegacyFilterEffect)
-            .Select(static reference => (LegacyFilterEffectRenderFragmentPayload)reference.Payload!)
+            .Where(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment)
+            .Select(static reference => (FilterEffectSegmentRenderFragmentPayload)reference.Payload!)
             .ToArray());
     }
 

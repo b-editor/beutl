@@ -25,7 +25,7 @@ public sealed class SymbolicOwningDomainTests
 
         using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
         RenderFragmentReference legacy = References(compiled.Graph).Values
-            .Single(static reference => reference.Kind == RenderFragmentKind.LegacyFilterEffect);
+            .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
         RenderFragmentReference transform = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.TargetScope);
 
@@ -51,7 +51,7 @@ public sealed class SymbolicOwningDomainTests
 
         using CompiledRenderRequest compiled = Compile(root, domain, outputScale: 2);
         RenderFragmentReference legacy = References(compiled.Graph).Values
-            .Single(static reference => reference.Kind == RenderFragmentKind.LegacyFilterEffect);
+            .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
         RenderFragmentReference transform = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.TargetScope);
         float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(domain, 2);
@@ -107,7 +107,7 @@ public sealed class SymbolicOwningDomainTests
 
         using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
         RenderFragmentReference legacy = References(compiled.Graph).Values
-            .Single(static reference => reference.Kind == RenderFragmentKind.LegacyFilterEffect);
+            .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
         RenderFragmentReference clipped = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.TargetScope);
 
@@ -128,7 +128,7 @@ public sealed class SymbolicOwningDomainTests
 
         using CompiledRenderRequest compiled = Compile(root, domain);
         RenderFragmentReference legacy = References(compiled.Graph).Values
-            .Single(static reference => reference.Kind == RenderFragmentKind.LegacyFilterEffect);
+            .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
 
         Assert.Multiple(() =>
         {
@@ -194,7 +194,7 @@ public sealed class SymbolicOwningDomainTests
 
         using CompiledRenderRequest compiled = Compile(root, targetDomain: null);
         RenderFragmentReference legacy = References(compiled.Graph).Values
-            .Single(static reference => reference.Kind == RenderFragmentKind.LegacyFilterEffect);
+            .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
 
         Assert.Multiple(() =>
         {
@@ -215,7 +215,7 @@ public sealed class SymbolicOwningDomainTests
         RenderFragmentReference layer = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.Layer);
         RenderFragmentReference legacy = References(compiled.Graph).Values
-            .Single(static reference => reference.Kind == RenderFragmentKind.LegacyFilterEffect);
+            .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
         var layerPayload = (LayerRenderFragmentPayload)layer.Payload!;
 
         Assert.Multiple(() =>
@@ -241,7 +241,7 @@ public sealed class SymbolicOwningDomainTests
 
         using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
         RenderFragmentReference[] legacy = References(compiled.Graph).Values
-            .Where(static reference => reference.Kind == RenderFragmentKind.LegacyFilterEffect)
+            .Where(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment)
             .ToArray();
         RenderFragmentReference unknownFragment = legacy.Single(static reference =>
             reference.BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain);
@@ -270,8 +270,8 @@ public sealed class SymbolicOwningDomainTests
         using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
         RenderFragmentReference[] references = References(compiled.Graph).Values.ToArray();
         RenderFragmentReference legacy = references
-            .Single(static reference => reference.Kind == RenderFragmentKind.LegacyFilterEffect);
-        var payload = (LegacyFilterEffectRenderFragmentPayload)legacy.Payload!;
+            .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
+        var payload = (FilterEffectSegmentRenderFragmentPayload)legacy.Payload!;
         IFEItem[] items = payload.Context.Registry.Use(
             payload.Context,
             static context => context.GetOrderedItems().ToArray());

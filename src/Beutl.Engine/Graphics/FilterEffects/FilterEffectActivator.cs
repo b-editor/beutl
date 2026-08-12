@@ -211,7 +211,7 @@ public sealed class FilterEffectActivator : IDisposable
         // A forced flush without pending Skia work is the legacy CustomEffect compatibility
         // boundary. A forced materialization of a Skia chain must retain its canonical device
         // footprint; otherwise unchanged color effects lose edge coverage at fractional scales.
-        bool legacyCompatibilityBoundary = force && !hasFilter;
+        bool imperativeSegmentBoundary = force && !hasFilter;
 
         var flushTargets = new Dictionary<EffectTarget, FlushTarget>();
         // Re-clamp against the physical runtime footprint. A retained raster can be wider than
@@ -228,10 +228,10 @@ public sealed class FilterEffectActivator : IDisposable
                 continue;
 
             flushTargets.Add(target, flushTarget);
-            Rect budgetBounds = legacyCompatibilityBoundary
+            Rect budgetBounds = imperativeSegmentBoundary
                 ? new Rect(default, target.Bounds.Size)
                 : ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
-            float fit = legacyCompatibilityBoundary
+            float fit = imperativeSegmentBoundary
                 ? RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
                     budgetBounds,
                     WorkingScale)
@@ -279,15 +279,15 @@ public sealed class FilterEffectActivator : IDisposable
 
             float w = WorkingScale;
             if (!hasFilter
-                && legacyCompatibilityBoundary
+                && imperativeSegmentBoundary
                 && CanReuseLegacyTarget(target, w))
                 continue;
 
-            bool preserveLegacyRasterPlacement = legacyCompatibilityBoundary;
+            bool preserveLegacyRasterPlacement = imperativeSegmentBoundary;
             Vector allocationGridOffset = preserveLegacyRasterPlacement
                 ? _deviceGridOffset ?? default
                 : target.DeviceGridOffset;
-            Rect deviceRoundingSource = legacyCompatibilityBoundary
+            Rect deviceRoundingSource = imperativeSegmentBoundary
                 ? target.Bounds
                 : ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
             PixelRect canonicalDeviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
@@ -589,7 +589,7 @@ public sealed class FilterEffectActivator : IDisposable
                     {
                         Flush(false);
                         if (CurrentTargets.Count == 0) return;
-                        LegacyFilterEffectCompatibilityExecutor.ApplyShader(
+                        FilterEffectStageFallbackExecutor.ApplyShader(
                             CurrentTargets,
                             shader.Description,
                             OutputScale,
@@ -604,7 +604,7 @@ public sealed class FilterEffectActivator : IDisposable
                     {
                         Flush(false);
                         if (CurrentTargets.Count == 0) return;
-                        LegacyFilterEffectCompatibilityExecutor.ApplyGeometry(
+                        FilterEffectStageFallbackExecutor.ApplyGeometry(
                             CurrentTargets,
                             geometry.Description,
                             OutputScale,

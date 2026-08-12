@@ -192,7 +192,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                     segment = null;
                     current =
                     [
-                        context.LegacyFilterEffect(
+                        context.FilterEffectSegment(
                             current,
                             segmentResource,
                             segmentOutputBounds,

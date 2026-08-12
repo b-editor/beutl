@@ -716,7 +716,7 @@ public sealed class RenderNodeContext
         return RecordOpaqueMany(inputs, call.Description, OpaqueRenderTopology.Expand);
     }
 
-    internal RenderFragmentHandle LegacyFilterEffect(
+    internal RenderFragmentHandle FilterEffectSegment(
         IReadOnlyList<RenderFragmentHandle> inputs,
         RenderResource<FilterEffectContext> effectContext,
         Rect outputBounds,
@@ -758,7 +758,7 @@ public sealed class RenderNodeContext
         }
 
         return transaction.CreateFragment(
-            RenderFragmentKind.LegacyFilterEffect,
+            RenderFragmentKind.FilterEffectSegment,
             outputBounds,
             scale,
             RenderValueCardinality.Dynamic,
@@ -767,7 +767,7 @@ public sealed class RenderNodeContext
             references.Any(static item => item.HasTargetEffects),
             hasOpaqueExternalWork: true,
             references,
-            new LegacyFilterEffectRenderFragmentPayload(
+            new FilterEffectSegmentRenderFragmentPayload(
                 effectContext,
                 [.. recordedBoundsItems],
                 workingScalePolicy,
@@ -1514,7 +1514,7 @@ internal sealed record OpaqueRenderFragmentPayload(
     OpaqueRenderDescription Description,
     IReadOnlyList<RenderInputReadback> InputReadbacks);
 
-internal sealed record LegacyFilterEffectRenderFragmentPayload(
+internal sealed record FilterEffectSegmentRenderFragmentPayload(
     RenderResource<FilterEffectContext> Context,
     ImmutableArray<IFEItem> BoundsItems,
     FilterEffectWorkingScalePolicy? WorkingScalePolicy,

@@ -613,7 +613,7 @@ internal static class RenderMaterializationDemandResolver
     }
 
     private static bool IsEffectClassConsumer(RenderFragmentReference fragment)
-        => fragment.Payload is LegacyFilterEffectRenderFragmentPayload
+        => fragment.Payload is FilterEffectSegmentRenderFragmentPayload
             or ShaderRenderFragmentPayload
             or GeometryRenderFragmentPayload;
 }
@@ -1176,7 +1176,7 @@ internal sealed class RenderCacheResolver
                 continue;
             if (current.Kind is RenderFragmentKind.RawTargetScope
                 or RenderFragmentKind.RawTargetCommand
-                or RenderFragmentKind.LegacyFilterEffect)
+                or RenderFragmentKind.FilterEffectSegment)
             {
                 return true;
             }
@@ -1332,7 +1332,7 @@ internal sealed class RenderCacheResolver
 
         private static bool IsDeviceGridSensitive(RenderFragmentReference reference)
         {
-            if (reference.Kind is RenderFragmentKind.LegacyFilterEffect
+            if (reference.Kind is RenderFragmentKind.FilterEffectSegment
                 or RenderFragmentKind.Shader
                 or RenderFragmentKind.Geometry)
             {

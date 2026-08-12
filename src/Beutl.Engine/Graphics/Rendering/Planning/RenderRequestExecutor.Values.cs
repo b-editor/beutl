@@ -9,18 +9,18 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed partial class RenderRequestExecutor
 {
-    private sealed partial class CompatibilityExecutionState
+    private sealed partial class RenderRequestExecutionState
     {
-        private void AddValueReferences(IEnumerable<CompatibilityRenderValue> values)
+        private void AddValueReferences(IEnumerable<MaterializedRenderValue> values)
         {
-            foreach (CompatibilityRenderValue value in values)
+            foreach (MaterializedRenderValue value in values)
             {
                 _valueReferences.TryGetValue(value, out int references);
                 _valueReferences[value] = checked(references + 1);
             }
         }
 
-        private void ReleaseValueReference(CompatibilityRenderValue value)
+        private void ReleaseValueReference(MaterializedRenderValue value)
         {
             if (!_valueReferences.TryGetValue(value, out int references) || references <= 0)
                 throw new InvalidOperationException("A render value reference was released more than once.");
@@ -40,10 +40,10 @@ internal sealed partial class RenderRequestExecutor
         {
             if (!_resourceUses.CompleteUse(fragment))
                 return;
-            if (!_values.Remove(fragment, out IReadOnlyList<CompatibilityRenderValue>? values))
+            if (!_values.Remove(fragment, out IReadOnlyList<MaterializedRenderValue>? values))
                 return;
 
-            foreach (CompatibilityRenderValue value in values)
+            foreach (MaterializedRenderValue value in values)
                 ReleaseValueReference(value);
         }
 
@@ -81,7 +81,7 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private CompatibilityRenderValue CreateOwnedValue(
+        private MaterializedRenderValue CreateOwnedValue(
             Rect bounds,
             EffectiveScale scale,
             Rect? completeBounds = null,
@@ -139,7 +139,7 @@ internal sealed partial class RenderRequestExecutor
             try
             {
                 lease.Target.Value.Canvas.Clear(SKColors.Transparent);
-                var value = new CompatibilityRenderValue(
+                var value = new MaterializedRenderValue(
                     lease,
                     bounds,
                     scale,
@@ -157,13 +157,13 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private void ReleaseUnpublished(CompatibilityRenderValue value)
+        private void ReleaseUnpublished(MaterializedRenderValue value)
         {
             if (_ownedValues.Remove(value))
                 DisposeOwnedValue(value);
         }
 
-        private void DisposeOwnedValue(CompatibilityRenderValue value)
+        private void DisposeOwnedValue(MaterializedRenderValue value)
         {
             value.Dispose();
         }
@@ -210,15 +210,15 @@ internal sealed partial class RenderRequestExecutor
         }
 
         private static void DrawValues(
-            IReadOnlyList<CompatibilityRenderValue> values,
+            IReadOnlyList<MaterializedRenderValue> values,
             ImmediateCanvas destination)
         {
-            foreach (CompatibilityRenderValue value in values)
+            foreach (MaterializedRenderValue value in values)
                 DrawValue(value, destination);
         }
 
         private static void DrawValue(
-            CompatibilityRenderValue value,
+            MaterializedRenderValue value,
             ImmediateCanvas destination)
         {
             if (value.PreserveLegacyRasterPlacement
@@ -246,7 +246,7 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private static CompatibilityRenderValue CreateOwnedShallowCopy(
+        private static MaterializedRenderValue CreateOwnedShallowCopy(
             RenderTarget target,
             Rect bounds,
             EffectiveScale effectiveScale,
@@ -258,7 +258,7 @@ internal sealed partial class RenderRequestExecutor
             RenderTarget copy = target.ShallowCopy();
             try
             {
-                return new CompatibilityRenderValue(
+                return new MaterializedRenderValue(
                     copy,
                     bounds,
                     effectiveScale,

@@ -389,7 +389,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 }
                 AddResourceTypes(opaque.Description.Resources, components);
                 return;
-            case LegacyFilterEffectRenderFragmentPayload legacy:
+            case FilterEffectSegmentRenderFragmentPayload legacy:
                 AddWorkingScalePolicy(legacy.WorkingScalePolicy, components);
                 components.Add(legacy.StreamInputCount);
                 return;
