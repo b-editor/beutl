@@ -21,28 +21,38 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
 
-internal sealed class ElementAdderImpl : IElementAdder
+internal sealed class ElementAdderImpl : IElementAdder, IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<ElementAdderImpl>();
     private readonly EditViewModel _context;
-    private readonly ElementSourceHandlerRegistry _sourceHandlers = new();
+    private readonly ElementSourceHandlerRegistry _sourceHandlers;
 
     public ElementAdderImpl(EditViewModel context)
     {
         ArgumentNullException.ThrowIfNull(context);
         _context = context;
-        _sourceHandlers.Register(new ElementSourceHandlerRegistration(
-            new EngineObjectSourceHandler(this),
-            order: 0));
-        _sourceHandlers.Register(new ElementSourceHandlerRegistration(
-            new ElementTemplateSourceHandler(this),
-            order: 10));
-        _sourceHandlers.Register(new ElementSourceHandlerRegistration(
-            new FileSourceHandler(this),
-            order: 20));
+        _sourceHandlers = new ElementSourceHandlerRegistry(
+        [
+            new ElementSourceHandlerRegistration(
+                new EngineObjectSourceHandler(this),
+                order: 0),
+            new ElementSourceHandlerRegistration(
+                new ElementTemplateSourceHandler(this),
+                order: 10),
+            new ElementSourceHandlerRegistration(
+                new FileSourceHandler(this),
+                order: 20),
+        ],
+        context.ExtensionProvider,
+        failure => _logger.LogWarning(
+            failure.Exception,
+            "Ignoring invalid element source-handler contribution from {ExtensionType}.",
+            failure.ExtensionType));
     }
 
     public IElementSourceHandlerRegistry SourceHandlers => _sourceHandlers;
+
+    public void Dispose() => _sourceHandlers.Dispose();
 
     public async ValueTask<ElementAddResult> AddAsync(
         IReadOnlyList<ElementDescription> descriptions,
@@ -66,10 +76,7 @@ internal sealed class ElementAdderImpl : IElementAdder
         {
             try
             {
-                await ReleasePipelineResourcesAsync(
-                    preflightLeases,
-                    materializationResources,
-                    ownershipTransferred: result?.IsSuccess == true);
+                await ReleasePipelineResourcesAsync(preflightLeases, materializationResources);
             }
             finally
             {
@@ -448,19 +455,12 @@ internal sealed class ElementAdderImpl : IElementAdder
 
     private async ValueTask ReleasePipelineResourcesAsync(
         IReadOnlyList<IElementSourcePreflight> preflightLeases,
-        IReadOnlyList<ElementMaterializationResource> materializationResources,
-        bool ownershipTransferred)
+        IReadOnlyList<ElementMaterializationResource> materializationResources)
     {
         List<Exception>? errors = null;
         for (int index = materializationResources.Count - 1; index >= 0; index--)
         {
             ElementMaterializationResource resource = materializationResources[index];
-            if (ownershipTransferred
-                && resource.Ownership == ElementMaterializationResourceOwnership.TransferOnCommit)
-            {
-                continue;
-            }
-
             try
             {
                 await resource.DisposeAsync();

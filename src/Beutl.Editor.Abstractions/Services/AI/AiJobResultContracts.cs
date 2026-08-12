@@ -2,22 +2,36 @@ using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services.AI;
+
+/// <summary>
+/// Provides the scene-editing capabilities required to apply an AI job result without coupling
+/// result handlers to a concrete desktop view model.
+/// </summary>
+public interface IAiJobResultEditorContext : IEditorContext
+{
+    Scene Scene { get; }
+
+    TimeSpan CurrentTime { get; }
+
+    IElementAdder ElementAdder { get; }
+
+    int GetNextLayer(TimeSpan start);
+}
 
 /// <summary>
 /// Provides the editor-specific dependencies needed to apply an AI job result.
 /// </summary>
 public interface IAiJobResultContext
 {
-    IEditorContext Editor { get; }
+    IAiJobResultEditorContext Editor { get; }
 
     Task CopyContentToAsync(
         Uri contentUri,
         Stream destination,
         CancellationToken cancellationToken);
-
-    int GetNextLayer(TimeSpan start);
 }
 
 /// <summary>

@@ -3,8 +3,6 @@ using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
-using Beutl.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.AI;
 
@@ -15,19 +13,20 @@ internal readonly record struct CaptionSceneImportResult(
 internal static class AiCaptionSceneImporter
 {
     public static async Task<CaptionSceneImportResult> AddAsync(
-        EditViewModel editViewModel,
+        Scene scene,
+        IElementAdder adder,
         CaptionDocument document,
         CaptionTemplateRegistry templates,
         CaptionTemplateId templateId,
         GenerationProvenance? provenance,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(editViewModel);
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(adder);
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(templates);
 
         using CaptionTemplateLease template = templates.Acquire(templateId);
-        Scene scene = editViewModel.Scene;
         int layer = scene.Children
             .Select(item => item.ZIndex)
             .DefaultIfEmpty(-1)
@@ -54,7 +53,6 @@ internal static class AiCaptionSceneImporter
             }
         }
 
-        IElementAdder adder = editViewModel.GetRequiredService<IElementAdder>();
         ElementAddResult? result = null;
         try
         {

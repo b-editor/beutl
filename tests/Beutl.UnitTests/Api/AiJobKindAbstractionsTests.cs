@@ -23,6 +23,7 @@ public sealed class AiJobKindAbstractionsTests
             Assert.That(typeof(AiJob).Assembly, Is.SameAs(contracts));
             Assert.That(typeof(IAiJobResultHandler).Assembly.GetName().Name, Is.EqualTo("Beutl.Editor.Abstractions"));
             Assert.That(typeof(IAiJobResultContext).Assembly, Is.SameAs(typeof(IAiJobResultHandler).Assembly));
+            Assert.That(typeof(IAiJobResultEditorContext).Assembly, Is.SameAs(typeof(IAiJobResultHandler).Assembly));
             Assert.That(typeof(AiJobKindRegistry).Assembly, Is.Not.SameAs(contracts));
             Assert.That(dependencies, Does.Not.Contain("Beutl.Api"));
             Assert.That(contracts.GetType("Beutl.Api.Services.IAiJobResultHandler"), Is.Null);

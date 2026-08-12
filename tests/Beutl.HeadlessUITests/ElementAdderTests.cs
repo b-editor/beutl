@@ -488,7 +488,7 @@ public class ElementAdderTests
     }
 
     [AvaloniaTest]
-    public async Task TransferOnCommitResource_IsRetainedOnSuccessAndReleasedOnRollback()
+    public async Task MaterializationResource_IsReleasedAfterSuccessAndRollback()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("element-adder-transfer-ownership");
@@ -509,10 +509,9 @@ public class ElementAdderTests
             {
                 Assert.That(success.IsSuccess, Is.True);
                 Assert.That(successfulHandler.Preflight!.IsDisposed, Is.True);
-                Assert.That(successfulHandler.Resource.IsDisposed, Is.False);
+                Assert.That(successfulHandler.Resource.IsDisposed, Is.True);
             }
         }
-        successfulHandler.Resource.Dispose();
 
         var rollbackHandler = new OwnershipTestSourceHandler();
         using IDisposable rollbackRegistration = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(rollbackHandler));
@@ -545,6 +544,46 @@ public class ElementAdderTests
             Assert.That(rollbackHandler.Preflight!.IsDisposed, Is.True);
             Assert.That(rollbackHandler.Resource.IsDisposed, Is.True);
         }
+    }
+
+    [AvaloniaTest]
+    public async Task ExtensionHandler_IsComposedForOpenEditorAndRetiredOnPackageRemoval()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("element-adder-extension-composition");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        const int packageId = 98_765_432;
+        var extension = new TestSourceHandlerExtension(new GroupedTestSourceHandler());
+
+        editor.ExtensionProvider.AddExtensions(packageId, [extension]);
+        try
+        {
+            ElementAddResult result = await adder.AddAsync(
+            [
+                new ElementDescription(
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(1),
+                    0,
+                    new TestElementSource("extension")),
+            ], CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.True);
+        }
+        finally
+        {
+            editor.ExtensionProvider.RemoveExtensions(packageId);
+        }
+
+        ElementAddResult afterRemoval = await adder.AddAsync(
+        [
+            new ElementDescription(
+                TimeSpan.FromSeconds(2),
+                TimeSpan.FromSeconds(1),
+                0,
+                new TestElementSource("extension-removed")),
+        ], CancellationToken.None);
+
+        Assert.That(afterRemoval.Failure, Is.TypeOf<UnsupportedElementSourceFailure>());
     }
 
     [AvaloniaTest]
@@ -1019,8 +1058,17 @@ public class ElementAdderTests
             return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(
                 new ElementMaterialization(
                     element,
-                    resources: [ElementMaterializationResource.TransferOnCommit(Resource)])));
+                    resources: [ElementMaterializationResource.Temporary(Resource)])));
         }
+    }
+
+    private sealed class TestSourceHandlerExtension(IElementSourceHandler handler)
+        : ElementSourceHandlerExtension
+    {
+        public override IReadOnlyCollection<ElementSourceHandlerRegistration> Registrations { get; } =
+        [
+            new ElementSourceHandlerRegistration(handler),
+        ];
     }
 
     private sealed class FixedIdSourceHandler : IElementSourceHandler

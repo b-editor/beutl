@@ -4,7 +4,6 @@ using Beutl.Graphics;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.ViewModels;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services.AI;
@@ -18,21 +17,13 @@ internal sealed record AiResultImportOptions(
 
 internal sealed class AiResultImporter
 {
-    private readonly EditViewModel _editViewModel;
+    private readonly Scene _scene;
     private readonly IElementAdder _elementAdder;
     private readonly ILogger _logger = Log.CreateLogger<AiResultImporter>();
 
-    public AiResultImporter(EditViewModel editViewModel)
-        : this(
-            editViewModel,
-            (IElementAdder?)editViewModel?.GetService(typeof(IElementAdder))
-                ?? throw new InvalidOperationException("The editor does not provide an element adder."))
+    public AiResultImporter(Scene scene, IElementAdder elementAdder)
     {
-    }
-
-    internal AiResultImporter(EditViewModel editViewModel, IElementAdder elementAdder)
-    {
-        _editViewModel = editViewModel ?? throw new ArgumentNullException(nameof(editViewModel));
+        _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _elementAdder = elementAdder ?? throw new ArgumentNullException(nameof(elementAdder));
     }
 
@@ -169,9 +160,9 @@ internal sealed class AiResultImporter
 
     private string GetResourceDirectory()
     {
-        string projectDirectory = _editViewModel.Scene.Uri?.LocalPath is { } scenePath
+        string projectDirectory = _scene.Uri?.LocalPath is { } scenePath
             ? Path.GetDirectoryName(scenePath)!
-            : Path.Combine(Path.GetTempPath(), "Beutl", "Unsaved", _editViewModel.Scene.Id.ToString("N"));
+            : Path.Combine(Path.GetTempPath(), "Beutl", "Unsaved", _scene.Id.ToString("N"));
         return Path.Combine(projectDirectory, "resources", "ai");
     }
 

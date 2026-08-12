@@ -1,3 +1,4 @@
+using Beutl.Api.Services;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 
@@ -102,6 +103,62 @@ public sealed class ElementSourceHandlerRegistryTests
         }
     }
 
+    [Test]
+    public void ExtensionRegistrations_AreComposedAndRetiredWhenPackageIsRemoved()
+    {
+        var provider = new ExtensionProvider();
+        using var registry = new ElementSourceHandlerRegistry([], provider);
+        var handler = new TestHandler(typeof(FirstSource));
+        var extension = new TestExtension(
+        [
+            new ElementSourceHandlerRegistration(handler),
+        ]);
+
+        provider.AddExtensions(1, [extension]);
+
+        Assert.That(registry.TryAcquire(typeof(FirstSource), out IElementSourceHandlerLease? lease), Is.True);
+        using (lease)
+        {
+            Assert.That(lease!.Handler, Is.SameAs(handler));
+        }
+
+        provider.RemoveExtensions(1);
+
+        Assert.That(registry.TryAcquire(typeof(FirstSource), out lease), Is.False);
+    }
+
+    [Test]
+    public void InvalidExtensionRegistration_RollsBackPartialContributions()
+    {
+        var provider = new ExtensionProvider();
+        var failures = new List<ElementSourceHandlerExtensionFailure>();
+        var hostHandler = new TestHandler(typeof(FirstSource));
+        using var registry = new ElementSourceHandlerRegistry(
+        [
+            new ElementSourceHandlerRegistration(hostHandler),
+        ],
+        provider,
+        failures.Add);
+        var extension = new TestExtension(
+        [
+            new ElementSourceHandlerRegistration(new TestHandler(typeof(SecondSource))),
+            new ElementSourceHandlerRegistration(new TestHandler(typeof(FirstSource))),
+        ]);
+
+        provider.AddExtensions(2, [extension]);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(failures, Has.Count.EqualTo(1));
+            Assert.That(registry.TryAcquire(typeof(SecondSource), out _), Is.False);
+            Assert.That(registry.TryAcquire(typeof(FirstSource), out IElementSourceHandlerLease? lease), Is.True);
+            using (lease)
+            {
+                Assert.That(lease!.Handler, Is.SameAs(hostHandler));
+            }
+        }
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
     {
         const int DelayMilliseconds = 10;
@@ -135,5 +192,12 @@ public sealed class ElementSourceHandlerRegistryTests
             IElementSourcePreflight preflight,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
+    }
+
+    private sealed class TestExtension(
+        IReadOnlyCollection<ElementSourceHandlerRegistration> registrations)
+        : ElementSourceHandlerExtension
+    {
+        public override IReadOnlyCollection<ElementSourceHandlerRegistration> Registrations { get; } = registrations;
     }
 }

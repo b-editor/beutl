@@ -9,6 +9,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Editor.Services.AI;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -27,7 +28,7 @@ using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEditorContext, IPreviewRenderQuality
+public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorContext, ISupportAutoSaveEditorContext, IPreviewRenderQuality
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
@@ -172,6 +173,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposeWith(_disposables);
 
         _elementAdder = new ElementAdderImpl(this);
+        _elementAdder.DisposeWith(_disposables);
         _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();
 
         _autoSaveService.SaveError
@@ -543,6 +545,21 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     public string SceneId { get; }
 
     public Scene Scene { get; private set; }
+
+    Scene IAiJobResultEditorContext.Scene => Scene;
+
+    TimeSpan IAiJobResultEditorContext.CurrentTime => Player.CurrentFrame.Value;
+
+    IElementAdder IAiJobResultEditorContext.ElementAdder => _elementAdder;
+
+    int IAiJobResultEditorContext.GetNextLayer(TimeSpan start)
+    {
+        return Scene.Children
+            .Where(item => item.Start <= start && start < item.Range.End)
+            .Select(item => item.ZIndex)
+            .DefaultIfEmpty(-1)
+            .Max() + 1;
+    }
 
     // Host services injected from the composition root via EditorExtension.TryCreateContext;
     // exposed so editor-scoped view models (DockHost, output, property editors) can reach them.

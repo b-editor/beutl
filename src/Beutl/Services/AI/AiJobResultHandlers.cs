@@ -8,21 +8,23 @@ using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.ViewModels;
 
 namespace Beutl.Services.AI;
 
-internal sealed class AiJobResultContext(
-    EditViewModel editor,
-    IAuthenticatedContentService content,
-    Action<AiCaptionHistoryResult>? openCaptionResult) : IAiJobResultContext
+internal interface IAiCaptionResultPresenter
 {
-    private readonly EditViewModel _editor = editor ?? throw new ArgumentNullException(nameof(editor));
+    bool TryPresentCaptionResult(AiCaptionHistoryResult result);
+}
+
+internal sealed class AiJobResultContext(
+    IAiJobResultEditorContext editor,
+    IAuthenticatedContentService content,
+    Action<AiCaptionHistoryResult>? openCaptionResult) : IAiJobResultContext, IAiCaptionResultPresenter
+{
+    private readonly IAiJobResultEditorContext _editor = editor ?? throw new ArgumentNullException(nameof(editor));
     private readonly IAuthenticatedContentService _content = content ?? throw new ArgumentNullException(nameof(content));
 
-    public IEditorContext Editor => _editor;
-
-    internal Action<AiCaptionHistoryResult>? OpenCaptionResult { get; } = openCaptionResult;
+    public IAiJobResultEditorContext Editor => _editor;
 
     public Task CopyContentToAsync(
         Uri contentUri,
@@ -30,13 +32,13 @@ internal sealed class AiJobResultContext(
         CancellationToken cancellationToken)
         => _content.CopyToAsync(contentUri, destination, cancellationToken);
 
-    public int GetNextLayer(TimeSpan start)
+    public bool TryPresentCaptionResult(AiCaptionHistoryResult result)
     {
-        return _editor.Scene.Children
-            .Where(item => item.Start <= start && start < item.Range.End)
-            .Select(item => item.ZIndex)
-            .DefaultIfEmpty(-1)
-            .Max() + 1;
+        if (openCaptionResult is null)
+            return false;
+
+        openCaptionResult(result);
+        return true;
     }
 }
 
@@ -181,13 +183,6 @@ internal abstract class BuiltInAiJobResultHandler(
         IAiJobResultContext context,
         CancellationToken cancellationToken);
 
-    protected static EditViewModel GetEditor(IAiJobResultContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        return context.Editor as EditViewModel
-            ?? throw new InvalidOperationException("The AI job result context requires a Beutl edit view model.");
-    }
-
     protected static void ShowImportResult(ElementAddResult result)
     {
         if (result.Failure is LockedElementLayerFailure)
@@ -239,15 +234,15 @@ internal sealed class ImageAiJobResultHandler : BuiltInAiJobResultHandler
         content.Position = 0;
         using Bitmap bitmap = Bitmap.FromStream(content);
 
-        EditViewModel editor = GetEditor(context);
-        TimeSpan start = editor.Player.CurrentFrame.Value;
-        var importer = new AiResultImporter(editor);
+        IAiJobResultEditorContext editor = context.Editor;
+        TimeSpan start = editor.CurrentTime;
+        var importer = new AiResultImporter(editor.Scene, editor.ElementAdder);
         ElementAddResult result = await importer.ImportImageAsync(
             bitmap,
             new AiResultImportOptions(
                 start,
                 TimeSpan.FromSeconds(5),
-                context.GetNextLayer(start),
+                editor.GetNextLayer(start),
                 _getDisplayName(),
                 AiProvenanceFactory.ImportedHistoryResult(
                     _getOperation(job),
@@ -286,15 +281,15 @@ internal sealed class VideoAiJobResultHandler()
             }
 
             int? durationSeconds = AiJobResultInput.GetInt32(job, "durationSeconds");
-            EditViewModel editor = GetEditor(context);
-            TimeSpan start = editor.Player.CurrentFrame.Value;
-            var importer = new AiResultImporter(editor);
+            IAiJobResultEditorContext editor = context.Editor;
+            TimeSpan start = editor.CurrentTime;
+            var importer = new AiResultImporter(editor.Scene, editor.ElementAdder);
             ElementAddResult result = await importer.ImportVideoAsync(
                 temporaryContentPath,
                 new AiResultImportOptions(
                     start,
                     TimeSpan.FromSeconds(durationSeconds ?? 6),
-                    context.GetNextLayer(start),
+                    editor.GetNextLayer(start),
                     Strings.AiVideoGeneration,
                     AiProvenanceFactory.ImportedHistoryResult(
                         AiOperations.VideoGeneration.Value,
@@ -335,9 +330,9 @@ internal sealed class CaptionAiJobResultHandler(
         CancellationToken cancellationToken)
     {
         AiCaptionHistoryResult recovered = await DownloadAsync(job, context, cancellationToken);
-        if (context is AiJobResultContext { OpenCaptionResult: { } openCaptionResult })
+        if (context is IAiCaptionResultPresenter presenter
+            && presenter.TryPresentCaptionResult(recovered))
         {
-            openCaptionResult(recovered);
             return;
         }
 
@@ -351,7 +346,8 @@ internal sealed class CaptionAiJobResultHandler(
             CaptionTemplateDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
         ]);
         CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
-            GetEditor(context),
+            context.Editor.Scene,
+            context.Editor.ElementAdder,
             document,
             templates,
             CaptionTemplateIds.DefaultText,

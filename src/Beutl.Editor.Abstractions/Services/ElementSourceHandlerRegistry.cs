@@ -1,12 +1,47 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
+using Beutl.Extensibility;
 
 namespace Beutl.Editor.Services;
 
-public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
+/// <summary>
+/// Resolves source handlers from host and package contributions. Removing a contribution retires
+/// it before package unload and waits for active materialization calls to finish.
+/// </summary>
+public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry, IDisposable
 {
     private readonly Dictionary<Type, List<Registration>> _handlers = [];
+    private readonly Dictionary<ElementSourceHandlerExtension, List<IDisposable>> _extensionRegistrations =
+        new(ReferenceEqualityComparer.Instance);
+    private readonly object _extensionCompositionGate = new();
     private readonly object _gate = new();
+    private readonly Action<ElementSourceHandlerExtensionFailure>? _reportFailure;
+    private IExtensionProvider? _extensionProvider;
     private long _registrationSequence;
+    private bool _disposed;
+
+    public ElementSourceHandlerRegistry()
+        : this([])
+    {
+    }
+
+    public ElementSourceHandlerRegistry(
+        IEnumerable<ElementSourceHandlerRegistration> hostRegistrations,
+        IExtensionProvider? extensionProvider = null,
+        Action<ElementSourceHandlerExtensionFailure>? reportFailure = null)
+    {
+        ArgumentNullException.ThrowIfNull(hostRegistrations);
+        _reportFailure = reportFailure;
+        foreach (ElementSourceHandlerRegistration registration in hostRegistrations)
+        {
+            Register(registration);
+        }
+
+        if (extensionProvider is not null)
+        {
+            AttachExtensionProvider(extensionProvider);
+        }
+    }
 
     public IReadOnlyList<IElementSourceHandler> Handlers
     {
@@ -14,6 +49,7 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
         {
             lock (_gate)
             {
+                ObjectDisposedException.ThrowIf(_disposed, this);
                 return _handlers
                     .Select(pair => pair.Value[^1].State)
                     .OrderBy(state => state.Order)
@@ -41,6 +77,7 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
 
         lock (_gate)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             bool exists = _handlers.TryGetValue(sourceType, out List<Registration>? entries)
                 && entries.Count > 0;
             if (registration.Mode == ElementSourceHandlerRegistrationMode.Add && exists)
@@ -78,6 +115,7 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
         ArgumentNullException.ThrowIfNull(sourceType);
         lock (_gate)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_handlers.TryGetValue(sourceType, out List<Registration>? entries))
             {
                 for (int index = entries.Count - 1; index >= 0; index--)
@@ -100,13 +138,133 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
         }
     }
 
+    public void Dispose()
+    {
+        Registration[] registrations;
+        lock (_extensionCompositionGate)
+        {
+            lock (_gate)
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                registrations = _handlers.Values.SelectMany(value => value).ToArray();
+                _handlers.Clear();
+            }
+
+            if (_extensionProvider is not null)
+            {
+                _extensionProvider.AllExtensions.CollectionChanged -= OnExtensionsChanged;
+                _extensionProvider = null;
+            }
+
+            _extensionRegistrations.Clear();
+        }
+
+        foreach (Registration registration in registrations)
+        {
+            registration.Dispose();
+        }
+    }
+
+    private void AttachExtensionProvider(IExtensionProvider extensionProvider)
+    {
+        ArgumentNullException.ThrowIfNull(extensionProvider);
+        lock (_extensionCompositionGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_extensionProvider is not null)
+                throw new InvalidOperationException("An extension provider is already attached.");
+
+            _extensionProvider = extensionProvider;
+            extensionProvider.AllExtensions.CollectionChanged += OnExtensionsChanged;
+            try
+            {
+                SynchronizeExtensionRegistrationsCore();
+            }
+            catch
+            {
+                extensionProvider.AllExtensions.CollectionChanged -= OnExtensionsChanged;
+                _extensionProvider = null;
+                throw;
+            }
+        }
+    }
+
+    private void OnExtensionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        lock (_extensionCompositionGate)
+        {
+            if (!_disposed)
+            {
+                SynchronizeExtensionRegistrationsCore();
+            }
+        }
+    }
+
+    private void SynchronizeExtensionRegistrationsCore()
+    {
+        IExtensionProvider extensionProvider = _extensionProvider
+            ?? throw new InvalidOperationException("No extension provider is attached.");
+        ElementSourceHandlerExtension[] currentExtensions =
+            extensionProvider.GetExtensions<ElementSourceHandlerExtension>();
+        var currentSet = new HashSet<ElementSourceHandlerExtension>(
+            currentExtensions,
+            ReferenceEqualityComparer.Instance);
+
+        List<IDisposable>[] removedRegistrations = _extensionRegistrations
+            .Where(pair => !currentSet.Contains(pair.Key))
+            .Select(pair => pair.Value)
+            .ToArray();
+        foreach (ElementSourceHandlerExtension extension in _extensionRegistrations.Keys
+                     .Where(extension => !currentSet.Contains(extension))
+                     .ToArray())
+        {
+            _extensionRegistrations.Remove(extension);
+        }
+
+        foreach (List<IDisposable> registrations in removedRegistrations)
+        {
+            foreach (IDisposable registration in registrations)
+            {
+                registration.Dispose();
+            }
+        }
+
+        foreach (ElementSourceHandlerExtension extension in currentExtensions)
+        {
+            if (_extensionRegistrations.ContainsKey(extension))
+                continue;
+
+            var registrations = new List<IDisposable>();
+            try
+            {
+                foreach (ElementSourceHandlerRegistration registration in ValidateRegistrations(extension))
+                {
+                    registrations.Add(Register(registration));
+                }
+
+                _extensionRegistrations.Add(extension, registrations);
+            }
+            catch (Exception ex)
+            {
+                foreach (IDisposable registration in registrations)
+                {
+                    registration.Dispose();
+                }
+
+                ReportFailure(extension, ex);
+            }
+        }
+    }
+
     private void UnregisterAndDrain(Registration registration, RegistrationState state)
     {
         lock (_gate)
         {
             state.Retire();
-            if (_handlers.TryGetValue(state.SourceType, out List<Registration>? entries)
-                && entries is not null)
+            if (_handlers.TryGetValue(state.SourceType, out List<Registration>? entries))
             {
                 entries.Remove(registration);
                 if (entries.Count == 0)
@@ -117,6 +275,43 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
         }
 
         state.WaitForLeaseDrain();
+    }
+
+    private static ElementSourceHandlerRegistration[] ValidateRegistrations(
+        ElementSourceHandlerExtension extension)
+    {
+        IReadOnlyCollection<ElementSourceHandlerRegistration>? registrations = extension.Registrations;
+        if (registrations is null)
+        {
+            throw new InvalidOperationException(
+                "An element source-handler extension returned a null registration collection.");
+        }
+
+        ElementSourceHandlerRegistration[] snapshot = registrations.ToArray();
+        if (snapshot.Any(registration => registration is null))
+        {
+            throw new InvalidOperationException(
+                "An element source-handler extension returned a null registration.");
+        }
+
+        return snapshot;
+    }
+
+    private void ReportFailure(ElementSourceHandlerExtension extension, Exception exception)
+    {
+        if (_reportFailure is null)
+            return;
+
+        try
+        {
+            _reportFailure(new ElementSourceHandlerExtensionFailure(
+                extension.GetType().FullName ?? extension.GetType().Name,
+                exception));
+        }
+        catch
+        {
+            // Diagnostics must not interrupt extension removal before Extension.Unload().
+        }
     }
 
     private sealed class RegistrationState(

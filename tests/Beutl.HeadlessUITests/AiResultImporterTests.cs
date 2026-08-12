@@ -7,6 +7,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.HeadlessUITests;
 
@@ -40,7 +41,9 @@ public sealed class AiResultImporterTests
             }),
             DateTimeOffset.UtcNow);
         using var bitmap = new Bitmap(2, 2);
-        var importer = new AiResultImporter(editor);
+        var importer = new AiResultImporter(
+            editor.Scene,
+            editor.GetRequiredService<IElementAdder>());
 
         ElementAddResult result = await importer.ImportImageAsync(
             bitmap,
@@ -79,7 +82,7 @@ public sealed class AiResultImporterTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-video-importer");
         var adder = new CapturingElementAdder(producedElementCount: 2);
-        var importer = new AiResultImporter(editor, adder);
+        var importer = new AiResultImporter(editor.Scene, adder);
         var provenance = new GenerationProvenance(
             "beutl.ai",
             "video.generate",
@@ -112,7 +115,7 @@ public sealed class AiResultImporterTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-rejected-importer");
         var adder = new CapturingElementAdder(producedElementCount: 0);
-        var importer = new AiResultImporter(editor, adder);
+        var importer = new AiResultImporter(editor.Scene, adder);
         var provenance = new GenerationProvenance(
             "beutl.ai",
             "video.generate",

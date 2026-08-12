@@ -529,7 +529,9 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
                 snapshot.SourceElementId,
                 snapshot.OutpaintExpansionPercent,
                 snapshot.GeneratedAt);
-            var importer = new AiResultImporter(_editViewModel);
+            var importer = new AiResultImporter(
+                _editViewModel.Scene,
+                _editViewModel.GetRequiredService<IElementAdder>());
             ElementAddResult result = await importer.ImportImageAsync(
                 bitmap,
                 new AiResultImportOptions(

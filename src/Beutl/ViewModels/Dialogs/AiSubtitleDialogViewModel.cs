@@ -317,7 +317,8 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         try
         {
             CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
-                _editViewModel,
+                _editViewModel.Scene,
+                _editViewModel.GetRequiredService<IElementAdder>(),
                 document,
                 _captionTemplates,
                 SelectedCaptionTemplate.Value.Id,

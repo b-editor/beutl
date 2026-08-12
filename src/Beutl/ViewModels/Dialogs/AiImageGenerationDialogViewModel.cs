@@ -6,6 +6,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Logging;
@@ -16,6 +17,7 @@ using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -327,7 +329,9 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
             GenerationProvenance provenance = AiProvenanceFactory.ImageGeneration(
                 snapshot.Size,
                 snapshot.GeneratedAt);
-            var importer = new AiResultImporter(_editViewModel);
+            var importer = new AiResultImporter(
+                _editViewModel.Scene,
+                _editViewModel.GetRequiredService<IElementAdder>());
             ElementAddResult result = await importer.ImportImageAsync(
                 bitmap,
                 new AiResultImportOptions(

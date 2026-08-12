@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Editor.Models;
+using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -62,31 +63,14 @@ public sealed record ElementSourceMaterializationContext(
     Scene Scene,
     ElementDescription Description);
 
-public enum ElementMaterializationResourceOwnership
-{
-    /// <summary>The host disposes the resource after materialization finishes.</summary>
-    HostTemporary,
-
-    /// <summary>
-    /// The host disposes the resource if the transaction fails. After a successful scene commit,
-    /// ownership transfers to the materialized element graph and the host no longer disposes it.
-    /// </summary>
-    TransferOnCommit,
-}
-
 public sealed class ElementMaterializationResource : IAsyncDisposable
 {
     private Func<ValueTask>? _disposeAsync;
 
-    private ElementMaterializationResource(
-        Func<ValueTask> disposeAsync,
-        ElementMaterializationResourceOwnership ownership)
+    private ElementMaterializationResource(Func<ValueTask> disposeAsync)
     {
         _disposeAsync = disposeAsync;
-        Ownership = ownership;
     }
-
-    public ElementMaterializationResourceOwnership Ownership { get; }
 
     public static ElementMaterializationResource Temporary(IDisposable resource)
     {
@@ -96,36 +80,14 @@ public sealed class ElementMaterializationResource : IAsyncDisposable
             {
                 resource.Dispose();
                 return ValueTask.CompletedTask;
-            },
-            ElementMaterializationResourceOwnership.HostTemporary);
+            });
     }
 
     public static ElementMaterializationResource TemporaryAsync(IAsyncDisposable resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
         return new ElementMaterializationResource(
-            resource.DisposeAsync,
-            ElementMaterializationResourceOwnership.HostTemporary);
-    }
-
-    public static ElementMaterializationResource TransferOnCommit(IDisposable resource)
-    {
-        ArgumentNullException.ThrowIfNull(resource);
-        return new ElementMaterializationResource(
-            () =>
-            {
-                resource.Dispose();
-                return ValueTask.CompletedTask;
-            },
-            ElementMaterializationResourceOwnership.TransferOnCommit);
-    }
-
-    public static ElementMaterializationResource TransferOnCommitAsync(IAsyncDisposable resource)
-    {
-        ArgumentNullException.ThrowIfNull(resource);
-        return new ElementMaterializationResource(
-            resource.DisposeAsync,
-            ElementMaterializationResourceOwnership.TransferOnCommit);
+            resource.DisposeAsync);
     }
 
     public ValueTask DisposeAsync()
@@ -167,9 +129,9 @@ public sealed class ElementMaterialization
     public IReadOnlyList<IReadOnlySet<Guid>> Groups { get; }
 
     /// <summary>
-    /// Resource leases acquired during materialization. The host always releases
-    /// <see cref="ElementMaterializationResourceOwnership.HostTemporary"/> leases and releases
-    /// transfer leases only when the scene transaction does not commit.
+    /// Resource leases acquired during materialization. The host releases every lease after the
+    /// materialization pipeline finishes. A handler that needs a resource to outlive materialization
+    /// must attach it to the returned element graph itself.
     /// </summary>
     public IReadOnlyList<ElementMaterializationResource> Resources { get; }
 }
@@ -220,6 +182,19 @@ public interface IElementSourceHandler
         IElementSourcePreflight preflight,
         CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Contributes element source handlers from an extension package. Registrations are dynamically
+/// composed for every open editor and retired before the package unloads.
+/// </summary>
+public abstract class ElementSourceHandlerExtension : Extension
+{
+    public abstract IReadOnlyCollection<ElementSourceHandlerRegistration> Registrations { get; }
+}
+
+public sealed record ElementSourceHandlerExtensionFailure(
+    string ExtensionType,
+    Exception Exception);
 
 /// <summary>
 /// Owns a source-handler registration. Retain this object while the handler is available and

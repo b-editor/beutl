@@ -13,6 +13,7 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Language;
 using Beutl.ProjectSystem;
@@ -547,7 +548,7 @@ public sealed class AiJobCenterTests
         {
             Assert.That(retryHandler.RetryCount, Is.EqualTo(1));
             Assert.That(resultHandler.HandleCount, Is.EqualTo(1));
-            Assert.That(resultHandler.ResolvedExpectedEditor, Is.True);
+            Assert.That(resultHandler.ResolvedSceneEditingContext, Is.True);
             Assert.That(item.StatusDisplayName, Is.EqualTo("Ready to open"));
             Assert.That(item.CanAddToScene, Is.True);
             Assert.That(viewModel.Error.Value, Is.Null);
@@ -813,7 +814,7 @@ public sealed class AiJobCenterTests
     {
         public int HandleCount { get; private set; }
 
-        public bool ResolvedExpectedEditor { get; private set; }
+        public bool ResolvedSceneEditingContext { get; private set; }
 
         public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
         {
@@ -842,7 +843,12 @@ public sealed class AiJobCenterTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             HandleCount++;
-            ResolvedExpectedEditor = ReferenceEquals(context.Editor, expectedEditor);
+            ResolvedSceneEditingContext =
+                ReferenceEquals(context.Editor, expectedEditor)
+                && ReferenceEquals(context.Editor.Scene, expectedEditor.Scene)
+                && ReferenceEquals(
+                    context.Editor.ElementAdder,
+                    expectedEditor.GetService(typeof(IElementAdder)));
             return Task.CompletedTask;
         }
     }
