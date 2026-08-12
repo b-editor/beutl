@@ -51,8 +51,11 @@ public sealed class VersionControlCoordinator :
     private readonly HashSet<IProjectVersionControlBackend> _managedServices = new(
         ReferenceEqualityComparer.Instance);
     private readonly HashSet<string> _offeredPendingRecoveryIds = new(StringComparer.Ordinal);
+    // Ordinal, because GetOpeningRecoveryKey already resolved the casing the filesystem merges:
+    // a case-insensitive comparer on top of that would fold two genuinely distinct directories
+    // together on a case-sensitive volume.
     private readonly Dictionary<string, PendingOpeningPullRecovery> _openingPullRecoveries =
-        new(PathComparer);
+        new(StringComparer.Ordinal);
     private readonly TaskCompletionSource _propertiesDisposedCompletion = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _asyncDisposalCompletion = new(
@@ -1990,9 +1993,23 @@ public sealed class VersionControlCoordinator :
         return false;
     }
 
-    private static string GetOpeningRecoveryKey(string projectFile)
+    // Canonical, not merely fully qualified: RepositoryInfo decides identity on symlink- and
+    // casing-resolved paths, so a marker keyed lexically is missed when the same project is reopened
+    // through a different alias, and the recovery is then re-offered or the open aborted.
+    internal static string GetOpeningRecoveryKey(string projectFile)
     {
-        return Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectFile));
+        try
+        {
+            return Path.TrimEndingDirectorySeparator(
+                RepositoryPathComparer.ResolveCanonicalPath(projectFile));
+        }
+        catch (IOException)
+        {
+            // A path that cannot be canonicalized at all - a symbolic-link cycle, or a component
+            // that cannot be read - keeps its lexical key rather than failing the open. Aliases of
+            // such a path no longer collapse, which is exactly the behaviour before canonical keys.
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectFile));
+        }
     }
 
     private static void EnsurePendingRecoveryPathIsSafeForOpen(

@@ -4592,6 +4592,54 @@ public class VersionControlRestoreTests
         }
     }
 
+    [Test]
+    public void Opening_recovery_keys_collapse_symbolic_link_aliases_of_one_project()
+    {
+        string temporaryRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-recovery-key-{Guid.NewGuid():N}");
+        string repositoryRoot = Path.Combine(temporaryRoot, "repository");
+        string aliasRoot = Path.Combine(temporaryRoot, "repository-link");
+        string otherRoot = Path.Combine(temporaryRoot, "other");
+        Directory.CreateDirectory(repositoryRoot);
+        Directory.CreateDirectory(otherRoot);
+        try
+        {
+            try
+            {
+                Directory.CreateSymbolicLink(aliasRoot, repositoryRoot);
+            }
+            catch (Exception ex)
+                when (ex is UnauthorizedAccessException
+                      or IOException
+                      or PlatformNotSupportedException)
+            {
+                Assert.Ignore($"Symbolic links are not creatable here: {ex.Message}");
+            }
+
+            string viaRealPath = Path.Combine(repositoryRoot, "project.bep");
+            string viaAlias = Path.Combine(aliasRoot, "project.bep");
+            File.WriteAllText(viaRealPath, string.Empty);
+            File.WriteAllText(Path.Combine(otherRoot, "project.bep"), string.Empty);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    VersionControlCoordinator.GetOpeningRecoveryKey(viaAlias),
+                    Is.EqualTo(VersionControlCoordinator.GetOpeningRecoveryKey(viaRealPath)),
+                    "An alias of the same project must find the marker the real path recorded.");
+                Assert.That(
+                    VersionControlCoordinator.GetOpeningRecoveryKey(
+                        Path.Combine(otherRoot, "project.bep")),
+                    Is.Not.EqualTo(VersionControlCoordinator.GetOpeningRecoveryKey(viaRealPath)));
+            });
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
     [AvaloniaTest]
     public async Task Branch_switch_prefetches_lfs_objects_while_the_project_is_still_open()
     {
