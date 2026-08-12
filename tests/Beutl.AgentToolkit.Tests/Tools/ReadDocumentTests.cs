@@ -847,14 +847,14 @@ public sealed class ReadDocumentTests
             Assert.That(all.Value.FrameCenter.X, Is.EqualTo(960));
             Assert.That(all.Value.FrameCenter.Y, Is.EqualTo(540));
             Assert.That(all.Value.TimeFiltered, Is.True);
-            Assert.That(titleBounds.MeasurementKind, Is.EqualTo("render-node-operation-bounds"));
+            Assert.That(titleBounds.MeasurementKind, Is.EqualTo("render-node-query-bounds"));
             Assert.That(titleBounds.LocalBounds.Width, Is.GreaterThan(0));
             Assert.That(titleBounds.LocalBounds.Height, Is.GreaterThan(0));
             Assert.That(titleBounds.TransformedBounds.Left, Is.LessThan(960));
             Assert.That(titleBounds.TransformedBounds.Right, Is.GreaterThan(960));
             Assert.That(titleBounds.TransformedBounds.Top, Is.LessThan(540));
             Assert.That(titleBounds.TransformedBounds.Bottom, Is.GreaterThan(540));
-            Assert.That(plateBounds.MeasurementKind, Is.EqualTo("render-node-operation-bounds"));
+            Assert.That(plateBounds.MeasurementKind, Is.EqualTo("render-node-query-bounds"));
             Assert.That(plateBounds.LocalBounds.Width, Is.EqualTo(200).Within(0.01));
             Assert.That(plateBounds.LocalBounds.Height, Is.EqualTo(80).Within(0.01));
             Assert.That(plateBounds.UserTranslate!.X, Is.EqualTo(120).Within(0.01));
@@ -913,7 +913,7 @@ public sealed class ReadDocumentTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(bounds.MeasurementKind, Is.EqualTo("render-node-operation-bounds"));
+            Assert.That(bounds.MeasurementKind, Is.EqualTo("render-node-query-bounds"));
             Assert.That(bounds.TransformedBounds.Left, Is.EqualTo(50).Within(0.01));
             Assert.That(bounds.TransformedBounds.Top, Is.LessThan(75));
             Assert.That(bounds.TransformedBounds.Right, Is.GreaterThan(150));

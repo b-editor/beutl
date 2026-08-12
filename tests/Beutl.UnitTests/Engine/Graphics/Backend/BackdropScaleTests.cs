@@ -72,8 +72,16 @@ public class BackdropScaleTests
             const float w = 2f;
             const int dev = 200; // ceil(100 logical x w)
 
-            var snapshot = new SnapshotBackdropRenderNode();
-            RenderNodeOperation[] captureOps = snapshot.Process(new RenderNodeContext([]));
+            using var snapshot = new SnapshotBackdropRenderNode();
+            using var renderer = new RenderNodeRenderer(
+                snapshot,
+                new RenderNodeRendererOptions
+                {
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                    },
+                });
 
             // 1. Capture on a flush-style canvas (SurfaceDensity = w).
             using RenderTarget captureTarget = RenderTarget.Create(dev, dev)!;
@@ -81,10 +89,7 @@ public class BackdropScaleTests
             {
                 capCanvas.Clear(Colors.Black);
                 capCanvas.DrawRectangle(new Rect(25, 25, 50, 50), Brushes.Resource.White, null);
-                foreach (RenderNodeOperation op in captureOps)
-                {
-                    op.Render(capCanvas);
-                }
+                renderer.Render(capCanvas);
             }
 
             // 2. Replay on a separate density-w canvas.
@@ -102,12 +107,6 @@ public class BackdropScaleTests
             Assert.That(cx, Is.EqualTo(100.0).Within(5.0), $"backdrop double-scaled horizontally (cx={cx})");
             Assert.That(cy, Is.EqualTo(100.0).Within(5.0), $"backdrop double-scaled vertically (cy={cy})");
 
-            foreach (RenderNodeOperation op in captureOps)
-            {
-                op.Dispose();
-            }
-
-            snapshot.Dispose();
         });
     }
 }

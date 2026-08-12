@@ -7,7 +7,7 @@ public partial class Derived : EngineObject
 {
     public IProperty<float> X { get; } = Property.Create(0f);
 
-    public IProperty<float> Y { get; } = Property.Create(0f);
+    public IProperty<float> Y { get; } = Property.Create(17f);
 }
 
 public partial class Derived2 : Derived
@@ -21,7 +21,9 @@ public partial class Derived3 : Derived
     public List<Derived> Children { get; } = [];
 
     // EngineObjectの派生型に対して
-    public IProperty<Derived> Child { get; } = Property.Create<Derived>(null!);
+    public IProperty<Derived> Child { get; } = Property.Create(new Derived());
+
+    public IProperty<Derived?> OptionalChild { get; } = Property.Create<Derived?>(null);
 
     // IListProperty<T> over an EngineObject element exercises the generated list path
     // (CompareAndUpdateList + per-item disposal).

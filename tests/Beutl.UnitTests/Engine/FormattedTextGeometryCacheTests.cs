@@ -67,6 +67,30 @@ public class FormattedTextGeometryCacheTests
             "the reused slot's cached path must match a freshly measured 'W'.");
     }
 
+    // Version keys the render nodes' (resource, Version) snapshots as well as the path cache, so the bump
+    // SetSKPath performs has to stay one per reassignment.
+    [Test]
+    public void ReMeasure_ReusingGlyphSlot_BumpsVersionExactlyOncePerReassignment()
+    {
+        using FormattedText text = CreateText("I");
+        Geometry.Resource glyph = text.ToGeometies()[0];
+        int before = glyph.Version;
+
+        text.Text = "W";
+        Geometry.Resource reused = text.ToGeometies()[0];
+        int afterFirst = reused.Version;
+
+        text.Text = "I";
+        int afterSecond = text.ToGeometies()[0].Version;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(reused, Is.SameAs(glyph));
+            Assert.That(afterFirst, Is.EqualTo(before + 1));
+            Assert.That(afterSecond, Is.EqualTo(before + 2));
+        }
+    }
+
     // The stroke-path cache shares the same Version gate; invalidation must clear it too.
     [Test]
     public void ReMeasure_ReusingGlyphSlot_RebuildsCachedStrokePath()

@@ -15,14 +15,15 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 public class EffectScaleParityTests
 {
     private static readonly PixelSize Frame = new(200, 200);
+    private const double EffectNonVacuityTolerance = 0.02;
 
     public static IEnumerable<TestCaseData> Effects()
     {
         yield return new TestCaseData("InnerShadow", (Func<FilterEffect>)(() =>
         {
             var e = new InnerShadow();
-            e.Position.CurrentValue = new Point(20, 20);
-            e.Sigma.CurrentValue = new Size(10, 10);
+            e.Position.CurrentValue = new Point(6, 6);
+            e.Sigma.CurrentValue = new Size(6, 6);
             e.Color.CurrentValue = Colors.Black;
             return e;
         }));
@@ -140,8 +141,8 @@ public class EffectScaleParityTests
             return e;
         }));
         yield return new TestCaseData("PartsSplit", (Func<FilterEffect>)(() =>
-            // Contour readback: contours in device px must convert to logical via /w.
-            new PartsSplitEffect()));
+            // Contour readback: the per-target shrink makes every split contour visibly load-bearing.
+            MakePartsSplitEffect()));
         yield return new TestCaseData("LayerEffect-AfterSplit", (Func<FilterEffect>)(() =>
         {
             // Split into 9 parts so LayerEffect flattens multiple targets at the working density.
@@ -179,9 +180,10 @@ public class EffectScaleParityTests
             noise.Octaves.CurrentValue = 2;
             noise.Seed.CurrentValue = 1f;
             var e = new FlatShadow();
-            e.Angle.CurrentValue = 0;
-            e.Length.CurrentValue = 40;
+            e.Angle.CurrentValue = 35;
+            e.Length.CurrentValue = 80;
             e.Brush.CurrentValue = noise;
+            e.ShadowOnly.CurrentValue = true;
             return e;
         }));
         yield return new TestCaseData("Mosaic-AbsoluteOrigin", (Func<FilterEffect>)(() =>
@@ -192,35 +194,84 @@ public class EffectScaleParityTests
             e.Origin.CurrentValue = new RelativePoint(50, 30, RelativeUnit.Absolute);
             return e;
         }));
-        yield return new TestCaseData("DisplacementMap-DrawableMap", (Func<FilterEffect>)(() =>
+        foreach (TestCaseData testCase in DisplacementMapEffects())
+            yield return testCase;
+    }
+
+    public static IEnumerable<TestCaseData> DisplacementMapEffects()
+    {
+        yield return new TestCaseData(
+            "DisplacementMap-DrawableMap",
+            (Func<FilterEffect>)MakeDrawableDisplacementMapEffect);
+    }
+
+    private static FilterEffect MakeDrawableDisplacementMapEffect()
+    {
+        // Non-gradient (DrawableBrush) displacement map: exercises the tile-brush density path.
+        var stripes = new LinearGradientBrush();
+        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.CurrentValue = new RelativePoint(24, 0, RelativeUnit.Absolute);
+        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Black, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Black, 1));
+        var mapContent = new RectShape();
+        mapContent.AlignmentX.CurrentValue = AlignmentX.Center;
+        mapContent.AlignmentY.CurrentValue = AlignmentY.Center;
+        mapContent.Width.CurrentValue = 200;
+        mapContent.Height.CurrentValue = 200;
+        mapContent.Fill.CurrentValue = stripes;
+        var map = new DrawableBrush();
+        map.Drawable.CurrentValue = mapContent;
+        map.Stretch.CurrentValue = Stretch.Fill;
+        var transform = new DisplacementMapTranslateTransform();
+        transform.X.CurrentValue = 16;
+        transform.Y.CurrentValue = 0;
+        var effect = new DisplacementMapEffect();
+        effect.DisplacementMap.CurrentValue = map;
+        effect.Transform.CurrentValue = transform;
+        effect.Channel.CurrentValue = DisplacementMapChannel.Luminance;
+        return effect;
+    }
+
+    private static FilterEffect MakeNoDisplacementMapEffect()
+    {
+        var effect = new DisplacementMapEffect();
+        effect.DisplacementMap.CurrentValue = null;
+        return effect;
+    }
+
+    [TestCaseSource(nameof(DisplacementMapEffects))]
+    public void DisplacementMapEffect_ChangesIdentityOutput(string name, Func<FilterEffect> makeEffect)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            // Non-gradient (DrawableBrush) displacement map: exercises the tile-brush density path.
-            var stripes = new LinearGradientBrush();
-            stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
-            stripes.EndPoint.CurrentValue = new RelativePoint(24, 0, RelativeUnit.Absolute);
-            stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
-            stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
-            stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
-            stripes.GradientStops.Add(new GradientStop(Colors.Black, 0.5f));
-            stripes.GradientStops.Add(new GradientStop(Colors.Black, 1));
-            var mapContent = new RectShape();
-            mapContent.AlignmentX.CurrentValue = AlignmentX.Center;
-            mapContent.AlignmentY.CurrentValue = AlignmentY.Center;
-            mapContent.Width.CurrentValue = 200;
-            mapContent.Height.CurrentValue = 200;
-            mapContent.Fill.CurrentValue = stripes;
-            var map = new DrawableBrush();
-            map.Drawable.CurrentValue = mapContent;
-            map.Stretch.CurrentValue = Stretch.Fill;
-            var transform = new DisplacementMapTranslateTransform();
-            transform.X.CurrentValue = 16;
-            transform.Y.CurrentValue = 0;
-            var e = new DisplacementMapEffect();
-            e.DisplacementMap.CurrentValue = map;
-            e.Transform.CurrentValue = transform;
-            e.Channel.CurrentValue = DisplacementMapChannel.Luminance;
-            return e;
-        }));
+            // A translate displacement over a flat fill is invisible under clamp sampling, so the source
+            // carries its own stripes; only a materialized map can move them.
+            using Bitmap mapped = GoldenImageHarness.RenderAtScale(
+                Make(makeEffect, MakeStripes(20)),
+                Frame,
+                1f);
+            using Bitmap identity = GoldenImageHarness.RenderAtScale(
+                Make(MakeNoDisplacementMapEffect, MakeStripes(20)),
+                Frame,
+                1f);
+
+            Assert.That(
+                ImageMetrics.FirstNonFinite(("mapped", mapped), ("identity", identity)),
+                Is.Null,
+                $"{name}: the drawable-map vacuity comparison requires finite renders");
+            double mae = ImageMetrics.MeanAbsoluteError(mapped, identity);
+            double ssim = ImageMetrics.Ssim(mapped, identity);
+            TestContext.WriteLine($"[{name}] mapped vs identity MAE={mae:F4} SSIM={ssim:F4}");
+            Assert.That(
+                mae,
+                Is.GreaterThan(0.001),
+                $"{name}: the drawable displacement map did not change the identity render; "
+                + "transparent map materialization would make the scale-parity case vacuous");
+        });
     }
 
     // Border whose thickness is a fixed logical width (10 px): iScale and iResolution are both load-bearing.
@@ -248,7 +299,56 @@ public class EffectScaleParityTests
         return e;
     }
 
-    private static Drawable.Resource Make(Func<FilterEffect> makeEffect)
+    private static LinearGradientBrush MakeStripes(float period)
+    {
+        var stripes = new LinearGradientBrush();
+        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.CurrentValue = new RelativePoint(period, 0, RelativeUnit.Absolute);
+        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Gray, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Gray, 1));
+        return stripes;
+    }
+
+    private static LinearGradientBrush MakeAlphaStripes(float period)
+    {
+        var stripes = new LinearGradientBrush();
+        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.CurrentValue = new RelativePoint(period, 0, RelativeUnit.Absolute);
+        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0.45f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Transparent, 0.45f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
+        return stripes;
+    }
+
+    private static FilterEffect MakePartsSplitEffect()
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(new PartsSplitEffect());
+        group.Children.Add(MakePartsSplitDifferentiator());
+        return group;
+    }
+
+    private static FilterEffect MakePartsSplitControlEffect()
+        => MakePartsSplitDifferentiator();
+
+    private static TransformEffect MakePartsSplitDifferentiator()
+    {
+        var scale = new ScaleTransform();
+        scale.ScaleX.CurrentValue = 85;
+        scale.ScaleY.CurrentValue = 85;
+        var effect = new TransformEffect();
+        effect.Transform.CurrentValue = scale;
+        return effect;
+    }
+
+    private static Drawable.Resource Make(Func<FilterEffect> makeEffect) => Make(makeEffect, Brushes.White);
+
+    private static Drawable.Resource Make(Func<FilterEffect> makeEffect, Brush fill)
     {
         var shape = new RectShape();
         shape.AlignmentX.CurrentValue = AlignmentX.Center;
@@ -256,7 +356,7 @@ public class EffectScaleParityTests
         shape.TransformOrigin.CurrentValue = RelativePoint.Center;
         shape.Width.CurrentValue = 140;
         shape.Height.CurrentValue = 90;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.Fill.CurrentValue = fill;
         var rotation = new RotationTransform();
         rotation.Rotation.CurrentValue = 21f;
         shape.Transform.CurrentValue = rotation;
@@ -268,7 +368,6 @@ public class EffectScaleParityTests
     public void Effect_Supersampled_KeepsLogicalAppearance(string name, Func<FilterEffect> makeEffect)
     {
         VulkanTestEnvironment.EnsureAvailable();
-
         // Non-finite pixels (SwiftShader blur artifact vs real scale defect) are distinguished by
         // determinism: same location on every attempt = real defect (FAIL); moving = artifact (INCONCLUSIVE).
         // Reference and scaled renders are scanned separately so a broken reference does not mask a scaled defect.
@@ -278,12 +377,20 @@ public class EffectScaleParityTests
         {
             for (int attempt = 1; ; attempt++)
             {
-                using Bitmap r1 = GoldenImageHarness.RenderAtScale(Make(makeEffect), Frame, 1f);
-                using Bitmap hi = GoldenImageHarness.RenderAtScale(Make(makeEffect), Frame, 2f);
+                using Bitmap r1 = GoldenImageHarness.RenderAtScale(MakeForCase(name, makeEffect), Frame, 1f);
+                using Bitmap hi = GoldenImageHarness.RenderAtScale(MakeForCase(name, makeEffect), Frame, 2f);
                 using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
+                using Bitmap control = GoldenImageHarness.RenderAtScale(
+                    MakeForCase(name, ControlForCase(name)),
+                    Frame,
+                    1f);
 
                 string? refNonFinite = ImageMetrics.FirstNonFinite(("1:1", r1));
                 string? scaledNonFinite = ImageMetrics.FirstNonFinite(("2x", hi), ("2x-delivered", delivered));
+                Assert.That(
+                    ImageMetrics.FirstNonFinite(("effect-free-control", control)),
+                    Is.Null,
+                    $"{name}: the effect-free non-vacuity control must be finite");
                 if (refNonFinite is not null || scaledNonFinite is not null)
                 {
                     TestContext.WriteLine(
@@ -297,6 +404,16 @@ public class EffectScaleParityTests
 
                 // Parity is measurable: discard earlier transient non-finite records.
                 attempts.Clear();
+                Assert.That(
+                    HasFiniteVisibleContent(r1),
+                    $"{name}: the 1:1 reference must render finite visible content (SC-013 non-vacuity).");
+                double effectDelta = Math.Max(
+                    ImageMetrics.MeanAbsoluteError(r1, control),
+                    1 - ImageMetrics.Ssim(r1, control));
+                Assert.That(
+                    effectDelta,
+                    Is.GreaterThan(EffectNonVacuityTolerance),
+                    $"{name}: the fixture is indistinguishable from its effect-free control.");
                 double ssim = ImageMetrics.Ssim(r1, delivered);
                 // Windowed SSIM logged as diagnostic only (no universal floor; structural effects can be low).
                 double windowed = ImageMetrics.WindowedSsim(r1, delivered, 16);
@@ -313,12 +430,14 @@ public class EffectScaleParityTests
             bool refEverFinite = attempts.Any(a => a.Ref is null);
 
             // Compare location only (strip value), not the exact NaN/Inf bit pattern.
-            bool scaledAllNonFinite = attempts.All(a => a.Scaled is not null);
-            string[] scaledLocations = attempts
-                .Where(a => a.Scaled is not null)
-                .Select(a => a.Scaled!.Split(" = ", StringSplitOptions.None)[0])
-                .ToArray();
-            bool scaledDeterministic = scaledAllNonFinite && scaledLocations.Distinct().Count() == 1;
+            bool scaledDeterministic = HasStableNonFiniteLocation(attempts.Select(static item => item.Scaled));
+            bool refDeterministic = HasStableNonFiniteLocation(attempts.Select(static item => item.Ref));
+            if (refDeterministic)
+            {
+                Assert.Fail($"{name}: the 1x reference produced a non-finite pixel at the same location on all "
+                    + $"{maxAttempts} attempts [{attempts[0].Ref}]; deterministic invalid reference output is a "
+                    + "renderer defect, not a run-varying software-Vulkan artifact.");
+            }
 
             // Deterministic non-finite in scaled render with finite reference = real scale defect.
             if (scaledDeterministic && refEverFinite)
@@ -343,12 +462,60 @@ public class EffectScaleParityTests
         }
     }
 
+    private static bool HasFiniteVisibleContent(Bitmap bitmap)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        for (int i = 3; i < pixels.Length; i += 4)
+        {
+            float a = (float)BitConverter.UInt16BitsToHalf(pixels[i]);
+            if (float.IsFinite(a) && a > 0f)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Drawable.Resource MakeForCase(string name, Func<FilterEffect> makeEffect)
+    {
+        if (name.StartsWith("InnerShadow", StringComparison.Ordinal))
+            return MakeInnerShadowFixture(makeEffect);
+
+        Brush fill = name.StartsWith("PartsSplit", StringComparison.Ordinal)
+            ? MakeAlphaStripes(60)
+            : name.StartsWith("Mosaic-AbsoluteOrigin", StringComparison.Ordinal)
+              || name.StartsWith("DisplacementMap-DrawableMap", StringComparison.Ordinal)
+                ? MakeStripes(20)
+                : Brushes.White;
+        return Make(makeEffect, fill);
+    }
+
+    private static Drawable.Resource MakeInnerShadowFixture(Func<FilterEffect> makeEffect)
+    {
+        // Reuse the finite axis-aligned InnerShadow survey input so this fixture isolates density scaling;
+        // transformed-edge rendering is a separate renderer contract.
+        var shape = new EllipseShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Width.CurrentValue = 150;
+        shape.Height.CurrentValue = 110;
+        shape.Fill.CurrentValue = Brushes.White;
+        shape.FilterEffect.CurrentValue = makeEffect();
+        return shape.ToResource(CompositionContext.Default);
+    }
+
+    private static Func<FilterEffect> ControlForCase(string name)
+        => name.StartsWith("PartsSplit", StringComparison.Ordinal)
+            ? MakePartsSplitControlEffect
+            : static () => new FilterEffectGroup();
+
     public static IEnumerable<TestCaseData> RepresentativeEffectsWithScales()
     {
         float[] scales = [1.5f, 3f];
         (string Name, Func<FilterEffect> Make)[] effects =
         [
-            ("InnerShadow", () => { var e = new InnerShadow(); e.Position.CurrentValue = new Point(20, 20); e.Sigma.CurrentValue = new Size(10, 10); e.Color.CurrentValue = Colors.Black; return e; }),
+            ("InnerShadow", () => { var e = new InnerShadow(); e.Position.CurrentValue = new Point(6, 6); e.Sigma.CurrentValue = new Size(6, 6); e.Color.CurrentValue = Colors.Black; return e; }),
             ("StrokeEffect-Offset", () => { var pen = new Pen(); pen.Thickness.CurrentValue = 14; pen.Brush.CurrentValue = Brushes.Red; var e = new StrokeEffect(); e.Pen.CurrentValue = pen; e.Offset.CurrentValue = new Point(20, 12); return e; }),
             ("Mosaic-AbsoluteOrigin", () => { var e = new MosaicEffect(); e.TileSize.CurrentValue = new Size(16, 16); e.Origin.CurrentValue = new RelativePoint(50, 30, RelativeUnit.Absolute); return e; }),
             ("FlatShadow", () => { var e = new FlatShadow(); e.Angle.CurrentValue = 0; e.Length.CurrentValue = 40; e.Brush.CurrentValue = Brushes.Red; return e; }),
@@ -369,12 +536,20 @@ public class EffectScaleParityTests
         {
             for (int attempt = 1; ; attempt++)
             {
-                using Bitmap r1 = GoldenImageHarness.RenderAtScale(Make(makeEffect), Frame, 1f);
-                using Bitmap hi = GoldenImageHarness.RenderAtScale(Make(makeEffect), Frame, scale);
+                using Bitmap r1 = GoldenImageHarness.RenderAtScale(MakeForCase(label, makeEffect), Frame, 1f);
+                using Bitmap hi = GoldenImageHarness.RenderAtScale(MakeForCase(label, makeEffect), Frame, scale);
                 using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
+                using Bitmap control = GoldenImageHarness.RenderAtScale(
+                    MakeForCase(label, ControlForCase(label)),
+                    Frame,
+                    1f);
 
                 string? refNonFinite = ImageMetrics.FirstNonFinite(("1:1", r1));
                 string? scaledNonFinite = ImageMetrics.FirstNonFinite(($"{scale}x", hi), ($"{scale}x-delivered", delivered));
+                Assert.That(
+                    ImageMetrics.FirstNonFinite(("effect-free-control", control)),
+                    Is.Null,
+                    $"{label}: the effect-free non-vacuity control must be finite");
                 if (refNonFinite is not null || scaledNonFinite is not null)
                 {
                     TestContext.WriteLine(
@@ -386,6 +561,16 @@ public class EffectScaleParityTests
                 }
 
                 attempts.Clear();
+                Assert.That(
+                    HasFiniteVisibleContent(r1),
+                    $"{label}: the 1x reference must contain visible output.");
+                double effectDelta = Math.Max(
+                    ImageMetrics.MeanAbsoluteError(r1, control),
+                    1 - ImageMetrics.Ssim(r1, control));
+                Assert.That(
+                    effectDelta,
+                    Is.GreaterThan(EffectNonVacuityTolerance),
+                    $"{label}: the fixture is indistinguishable from its effect-free control.");
                 double ssim = ImageMetrics.Ssim(r1, delivered);
                 TestContext.WriteLine($"[{label}] {scale}x-delivered vs 1:1 SSIM={ssim:F4}");
                 Assert.That(ssim, Is.GreaterThan(0.95),
@@ -397,12 +582,13 @@ public class EffectScaleParityTests
         if (attempts.Count == maxAttempts)
         {
             bool refEverFinite = attempts.Any(a => a.Ref is null);
-            bool scaledAllNonFinite = attempts.All(a => a.Scaled is not null);
-            string[] scaledLocations = attempts
-                .Where(a => a.Scaled is not null)
-                .Select(a => a.Scaled!.Split(" = ", StringSplitOptions.None)[0])
-                .ToArray();
-            bool scaledDeterministic = scaledAllNonFinite && scaledLocations.Distinct().Count() == 1;
+            bool scaledDeterministic = HasStableNonFiniteLocation(attempts.Select(static item => item.Scaled));
+            bool refDeterministic = HasStableNonFiniteLocation(attempts.Select(static item => item.Ref));
+            if (refDeterministic)
+            {
+                Assert.Fail($"{label}: deterministic non-finite output in the 1x reference "
+                    + $"[{attempts[0].Ref}] is a renderer defect.");
+            }
 
             if (scaledDeterministic && refEverFinite)
             {
@@ -428,10 +614,70 @@ public class EffectScaleParityTests
             using Bitmap bordered = GoldenImageHarness.RenderAtScale(Make(MakeSkslBorderEffect), Frame, 1f);
             // An empty FilterEffectGroup is an identity effect: same fixture, no shader.
             using Bitmap plain = GoldenImageHarness.RenderAtScale(Make(() => new FilterEffectGroup()), Frame, 1f);
+            (int redBorderPixels, int preservedInteriorPixels) = CountSkslBorderPixels(bordered);
             double ssim = ImageMetrics.Ssim(bordered, plain);
             TestContext.WriteLine($"[SKSLScript guard] bordered vs plain SSIM={ssim:F4}");
-            Assert.That(ssim, Is.LessThan(0.99),
-                "SKSL border did not change the render — the script likely failed to compile/apply, which would make the SKSLScript-Border parity case vacuous");
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    ImageMetrics.FirstNonFinite(("bordered", bordered), ("plain", plain)),
+                    Is.Null,
+                    "the SKSL vacuity guard requires finite output");
+                Assert.That(redBorderPixels, Is.GreaterThan(0),
+                    "the SKSL output must contain the expected opaque red border");
+                Assert.That(preservedInteriorPixels, Is.GreaterThan(0),
+                    "the SKSL output must preserve visible interior source content");
+                Assert.That(ssim, Is.LessThan(0.99),
+                    "SKSL border did not change the render — the script likely failed to compile/apply, which would make the SKSLScript-Border parity case vacuous");
+            });
         });
+    }
+
+    private static (int RedBorderPixels, int PreservedInteriorPixels) CountSkslBorderPixels(Bitmap bitmap)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        int redBorderPixels = 0;
+        int preservedInteriorPixels = 0;
+        for (int index = 0; index < pixels.Length; index += 4)
+        {
+            float red = (float)BitConverter.UInt16BitsToHalf(pixels[index]);
+            float green = (float)BitConverter.UInt16BitsToHalf(pixels[index + 1]);
+            float blue = (float)BitConverter.UInt16BitsToHalf(pixels[index + 2]);
+            float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[index + 3]);
+            if (alpha > 0.9f && red > 0.9f && green < 0.1f && blue < 0.1f)
+                redBorderPixels++;
+            if (alpha > 0.9f && red > 0.8f && green > 0.8f && blue > 0.8f)
+                preservedInteriorPixels++;
+        }
+        return (redBorderPixels, preservedInteriorPixels);
+    }
+
+    [Test]
+    public void NonFiniteClassifier_DistinguishesStableFromRunVaryingLocations()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(HasStableNonFiniteLocation([
+                "1:1 @(4,5) = NaN",
+                "1:1 @(4,5) = Infinity",
+                "1:1 @(4,5) = NaN",
+            ]), Is.True);
+            Assert.That(HasStableNonFiniteLocation([
+                "1:1 @(4,5) = NaN",
+                "1:1 @(6,5) = NaN",
+                "1:1 @(4,5) = NaN",
+            ]), Is.False);
+            Assert.That(HasStableNonFiniteLocation(["1:1 @(4,5) = NaN", null, null]), Is.False);
+        });
+    }
+
+    private static bool HasStableNonFiniteLocation(IEnumerable<string?> samples)
+    {
+        string?[] values = samples.ToArray();
+        return values.Length > 0
+               && values.All(static value => value is not null)
+               && values.Select(static value => value!.Split(" = ", StringSplitOptions.None)[0])
+                   .Distinct(StringComparer.Ordinal)
+                   .Count() == 1;
     }
 }
