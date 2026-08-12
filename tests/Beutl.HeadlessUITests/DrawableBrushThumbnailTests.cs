@@ -671,6 +671,32 @@ public class DrawableBrushThumbnailTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Grouped_content_publishes_a_thumbnail()
+    {
+        GpuTestGate.EnsureAvailable();
+        var group = new DrawableGroup();
+        group.Children.Add(CreateRectangle(40, 24, Colors.Red));
+        var drawableBrush = new DrawableBrush(group);
+        drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
+        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
+        var imageBrush = new AvaImageBrush();
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+
+        try
+        {
+            handler.Update();
+            await WaitUntilAsync(
+                () => imageBrush.Source is WriteableBitmap,
+                TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            handler.Dispose();
+            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+        }
+    }
+
     private static RectShape CreateRectangle(float width, float height, Color color)
     {
         return new RectShape

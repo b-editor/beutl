@@ -420,6 +420,9 @@ public static class AvaloniaTypeConverter
                         DefaultRequest = new RenderNodeRenderRequest
                         {
                             Intent = RenderIntent.Preview,
+                            // A grouped drawable records a full-target layer scope, which cannot be
+                            // resolved without a domain; use the canvas the content was recorded against.
+                            TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
                             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                         },
                     });
