@@ -41,6 +41,7 @@
 
                 <TabStrip Margin="0,12"
                           HorizontalAlignment="Left"
+                          IsEnabled="{Binding !IsBusy.Value}"
                           SelectedIndex="{Binding Kind.SelectedIndex.Value, Mode=TwoWay}"
                           Theme="{DynamicResource SegmentedTabStrip}">
                     <TabStripItem Content="{x:Static lang:ExtensionsStrings.PackageKind_All}" />

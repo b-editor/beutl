@@ -81,14 +81,7 @@ public sealed class FontManager
 
         foreach (string file in _fontDirs
             .Where(dir => Directory.Exists(dir))
-            .SelectMany(dir => Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories))
-            .Where(file =>
-            {
-                ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
-                return ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
-                    || ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
-                    || ext.Equals(".otf", StringComparison.OrdinalIgnoreCase);
-            }))
+            .SelectMany(EnumerateFontCandidates))
         {
             SKTypeface? face = LoadFont(file);
 
@@ -190,6 +183,54 @@ public sealed class FontManager
             {
                 value = TypefaceCollection.Create([typeface]);
                 return true;
+            }
+        }
+    }
+
+    // A material package can leave an unreadable subdirectory or a disconnected mount under
+    // the scanned root. FontManager builds its map during static initialization, so letting
+    // that surface would keep the process from starting at all.
+    internal static IEnumerable<string> EnumerateFontCandidates(string root)
+    {
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = FileAttributes.System
+        };
+
+        IEnumerator<string> enumerator;
+        try
+        {
+            enumerator = Directory.EnumerateFiles(root, "*.*", options).GetEnumerator();
+        }
+        catch (Exception)
+        {
+            yield break;
+        }
+
+        using (enumerator)
+        {
+            while (true)
+            {
+                string file;
+                try
+                {
+                    if (!enumerator.MoveNext()) break;
+                    file = enumerator.Current;
+                }
+                catch (Exception)
+                {
+                    yield break;
+                }
+
+                ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
+                if (ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
+                    || ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
+                    || ext.Equals(".otf", StringComparison.OrdinalIgnoreCase))
+                {
+                    yield return file;
+                }
             }
         }
     }
