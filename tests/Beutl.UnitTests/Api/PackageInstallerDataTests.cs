@@ -1,4 +1,5 @@
-﻿using Beutl.Api.Services;
+﻿using System.Runtime.Versioning;
+using Beutl.Api.Services;
 using Beutl.Testing.Headless;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -212,6 +213,51 @@ public class PackageInstallerDataTests
     public void UninstallDataPackage_Succeeds_WhenThereIsNothingToRemove()
     {
         Assert.That(_installer.UninstallDataPackage("Beutl.Package.DataTest.Absent"), Is.True);
+    }
+
+    [Test]
+    public void UninstallDataPackage_KeepsReportingFailure_WhileThePayloadCannotBeRemoved()
+    {
+        const string Name = "Beutl.Package.DataTest.Undeletable";
+        LocalPackage materials = CreateDataPackage(Name, PackageKinds.MaterialTag, ("materials/a.png", "png"));
+        _installer.InstallDataPackage(materials);
+
+        string payload = MaterialsDirectoryOf(Name);
+        using (BlockDeletion(payload))
+        {
+            Assert.Multiple(() =>
+            {
+                // Every attempt must keep reporting failure: the caller drops the
+                // package's repository entry — the only record of this payload — as
+                // soon as removal reports success.
+                Assert.That(_installer.UninstallDataPackage(Name), Is.False);
+                Assert.That(_installer.UninstallDataPackage(Name), Is.False);
+                Assert.That(Directory.Exists(payload), Is.True);
+            });
+        }
+
+        Assert.That(_installer.UninstallDataPackage(Name), Is.True);
+    }
+
+    // Makes the directory's contents undeletable: on Unix by clearing the parent's write
+    // permission, on Windows by holding an exclusive handle on the file inside it.
+    private static IDisposable BlockDeletion(string directory)
+    {
+        string file = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories).First();
+        if (OperatingSystem.IsWindows())
+        {
+            return File.Open(file, FileMode.Open, FileAccess.Read, FileShare.None);
+        }
+
+        UnixFileMode original = File.GetUnixFileMode(directory);
+        File.SetUnixFileMode(directory, original & ~UnixFileMode.UserWrite);
+        return new UnixModeRestore(directory, original);
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private sealed class UnixModeRestore(string directory, UnixFileMode mode) : IDisposable
+    {
+        public void Dispose() => File.SetUnixFileMode(directory, mode);
     }
 
     [TestCase("..")]
