@@ -370,6 +370,34 @@ public class PackageInstallerDataTests
     }
 
     [Test]
+    public void Uninstall_ReportsAFailedPackage_WhenThePayloadCannotBeRemoved()
+    {
+        // UninstallViewModel keys its failure state off FailedPackages, so a payload that
+        // survived has to appear there or the queued uninstall is dropped as successful.
+        var identity = new PackageIdentity("Beutl.Package.DataTest.UninstallLocked", NuGetVersion.Parse("1.0.0"));
+        LocalPackage package = CreateDataPackage(
+            identity.Id, PackageKinds.MaterialTag, ("materials/logo.png", "png"));
+        _installer.InstallDataPackage(package);
+        _repository.UpgradePackages(identity);
+
+        var context = new PackageUninstallContext(identity, package.InstalledPath)
+        {
+            UnnecessaryPackages = [identity],
+            SizeToBeReleased = 1
+        };
+        using (BlockDeletion(MaterialsDirectoryOf(identity.Id)))
+        {
+            _installer.Uninstall(context, new Progress<double>());
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.FailedPackages, Is.Not.Empty);
+            Assert.That(Directory.Exists(MaterialsDirectoryOf(identity.Id)), Is.True);
+        });
+    }
+
+    [Test]
     public void Uninstall_RemovesThePayload_EvenWhenTheExtractedPackageIsGone()
     {
         var identity = new PackageIdentity("Beutl.Package.DataTest.Orphan", NuGetVersion.Parse("1.0.0"));

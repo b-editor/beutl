@@ -80,7 +80,10 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
 
             // A material or template package is not loaded as an assembly; its payload is
             // copied into the home directory after extraction.
-            DeployDataPackage(pkg);
+            if (!DeployDataPackage(pkg))
+            {
+                goto Failed;
+            }
 
             _logger.LogInformation("Package {PackageId} version {Version} installed successfully.", Model.Id, Model.Version.ToString());
             Succeeded.Value = true;
@@ -112,13 +115,13 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
         }
     }
 
-    private void DeployDataPackage(PackageIdentity pkg)
+    private bool DeployDataPackage(PackageIdentity pkg)
     {
         string? directory = Helper.PackagePathResolver.GetInstalledPath(pkg);
         if (!Directory.Exists(directory))
         {
             _logger.LogWarning("Installed directory not found for package {PackageId}.", pkg.Id);
-            return;
+            return true;
         }
 
         var reader = new PackageFolderReader(directory);
@@ -128,10 +131,16 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
         {
             // An update may have turned a data package into an extension; the old
             // payload directories have to go even though nothing is deployed now.
-            installer.UninstallDataPackage(pkg.Id);
-            return;
+            if (!installer.UninstallDataPackage(pkg.Id))
+            {
+                _logger.LogError("Failed to delete the obsolete data payload of {PackageId}.", pkg.Id);
+                return false;
+            }
+
+            return true;
         }
 
         installer.InstallDataPackage(localPackage);
+        return true;
     }
 }

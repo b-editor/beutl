@@ -78,8 +78,6 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
                     Message.Value = Strings.Deleting_files;
                     installer.Uninstall(context, this, token);
 
-                    _logger.LogInformation("Successfully uninstalled package {PackageId}.", context.Id);
-                    Message.Value = string.Format(Strings.Uninstalled_XXX, context.Id);
                     if (context.FailedPackages?.Count > 0)
                     {
                         _logger.LogError("Failed to delete some packages: {FailedPackages}.", string.Join(", ", context.FailedPackages));
@@ -87,7 +85,14 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
                             {Strings.These_packages_were_not_deleted_successfully}
                             {string.Join('\n', context.FailedPackages.Select(i => $"- {Path.GetFileName(i)}"))}
                             """;
+                        // Reporting success here would drop the queue while a payload or
+                        // extracted file is still on disk.
+                        Failed.Value = true;
+                        return;
                     }
+
+                    _logger.LogInformation("Successfully uninstalled package {PackageId}.", context.Id);
+                    Message.Value = string.Format(Strings.Uninstalled_XXX, context.Id);
                 }
             }
 
