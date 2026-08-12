@@ -56,6 +56,13 @@ internal sealed class FavoritesManager : IDisposable
         templatesItem.Name.Value = Strings.Templates;
         FavoriteItems.Add(templatesItem);
 
+        // 素材フォルダも常に表示（ローカライズ名で）
+        string materialsDir = BeutlEnvironment.GetMaterialsDirectoryPath();
+        Directory.CreateDirectory(materialsDir);
+        var materialsItem = new FileSystemItemViewModel(materialsDir, true);
+        materialsItem.Name.Value = Strings.Materials;
+        FavoriteItems.Add(materialsItem);
+
         foreach (string path in Favorites)
         {
             if (Directory.Exists(path))

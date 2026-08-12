@@ -92,10 +92,11 @@ presence only suggests otherwise.
   `*.json` and registers what it finds, so a template package's contents appear in the
   editor without a restart. The per-package subdirectory is what keeps two packages from
   colliding on a file name.
-- **Materials** — the file browser tab's **Materials** section lists everything under
-  `{home}/materials`, grouped into the package directories that installed them. An item is
-  dragged out as a plain file, which the player and the timeline already accept; whether a
-  given file becomes an image, a sound or nothing at all is the drop target's decision.
+- **Materials** — the file browser tab's favorites list always shows the **Materials**
+  entry, like the templates entry, pointing at `{home}/materials`; the package directories
+  that installed them are browsed from there. An item is dragged out as a plain file, which
+  the player and the timeline already accept; whether a given file becomes an image, a
+  sound or nothing at all is the drop target's decision.
 - **Fonts** — `FontManager` scans `{home}/materials` alongside the configured font
   directories, so a font a material package ships is available to text elements. It builds
   its family list once per launch, so a font installed while Beutl is running appears after

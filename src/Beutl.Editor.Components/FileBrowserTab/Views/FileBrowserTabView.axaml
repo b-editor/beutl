@@ -428,68 +428,6 @@
                                        Text="{x:Static lang:Strings.NoMediaFilesFound}" />
                         </Panel>
                     </Grid>
-
-                    <!--  素材セクション  -->
-                    <Grid x:Name="materialsSection" RowDefinitions="Auto,Auto">
-                        <ToggleButton x:Name="materialsToggle"
-                                      Margin="8,4"
-                                      IsChecked="True"
-                                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
-                            <TextBlock FontWeight="DemiBold" Text="{x:Static lang:Strings.Materials}" />
-                            <ToggleButton.Tag>
-                                <ToggleButton Padding="4"
-                                              IsChecked="{Binding IsMaterialsIconView.Value}"
-                                              Theme="{StaticResource TransparentButton}">
-                                    <Panel>
-                                        <icons:FluentIcon FontSize="14"
-                                                          IsVisible="{Binding IsMaterialsIconView.Value}"
-                                                          Icon="Grid" />
-                                        <icons:FluentIcon FontSize="14"
-                                                          IsVisible="{Binding !IsMaterialsIconView.Value}"
-                                                          Icon="TextBulletList" />
-                                    </Panel>
-                                </ToggleButton>
-                            </ToggleButton.Tag>
-                        </ToggleButton>
-                        <Panel x:Name="materialsContent" Grid.Row="1">
-                            <!--  リスト表示  -->
-                            <ListBox IsVisible="{Binding !IsMaterialsIconView.Value}"
-                                     ItemTemplate="{StaticResource ListItemTemplate}"
-                                     ItemsSource="{Binding MaterialsItems}"
-                                     SelectedItems="{Binding SelectedItems}"
-                                     SelectionMode="Multiple">
-                                <Interaction.Behaviors>
-                                    <local:FileSelectionBehavior />
-                                </Interaction.Behaviors>
-                                <ListBox.Styles>
-                                    <Style Selector="ListBoxItem">
-                                        <Setter Property="Padding" Value="0" />
-                                    </Style>
-                                </ListBox.Styles>
-                            </ListBox>
-                            <!--  アイコン表示  -->
-                            <ListBox IsVisible="{Binding IsMaterialsIconView.Value}"
-                                     ItemTemplate="{StaticResource FileItemTemplate}"
-                                     ItemsSource="{Binding MaterialsItems}"
-                                     SelectedItems="{Binding SelectedItems}"
-                                     SelectionMode="Multiple">
-                                <Interaction.Behaviors>
-                                    <local:FileSelectionBehavior />
-                                </Interaction.Behaviors>
-                                <ListBox.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Margin="4" />
-                                    </ItemsPanelTemplate>
-                                </ListBox.ItemsPanel>
-                                <ListBox.Styles>
-                                    <Style Selector="ListBoxItem">
-                                        <Setter Property="Padding" Value="0" />
-                                        <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                                    </Style>
-                                </ListBox.Styles>
-                            </ListBox>
-                        </Panel>
-                    </Grid>
                 </StackPanel>
             </ScrollViewer>
 
