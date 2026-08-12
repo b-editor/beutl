@@ -15,7 +15,14 @@ internal enum ImmediateCanvasFlushKind : byte
     PrepareForSampling,
 }
 
-internal delegate SKImage? DrawableBrushMaterializer(
+/// <param name="Image">The rasterized content, <paramref name="ContentBounds"/> sized at the request density.</param>
+/// <param name="ContentBounds">
+/// The drawable's own logical bounds. A tile brush stretches and tiles against these, so they must
+/// describe the content itself rather than the destination the brush was asked to fill.
+/// </param>
+internal readonly record struct MaterializedDrawableBrush(SKImage Image, Rect ContentBounds);
+
+internal delegate MaterializedDrawableBrush? DrawableBrushMaterializer(
     DrawableBrush.Resource brush,
     Rect bounds,
     float scale);

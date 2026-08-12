@@ -1,4 +1,6 @@
 ﻿using System.IO.Pipes;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
@@ -301,6 +303,61 @@ public class IpcProviderContractTests
         catch (OperationCanceledException) { }
         catch (IOException) { }
         catch (ObjectDisposedException) { }
+    }
+
+    private static void AssertDisposedCallThrowsOnDifferentThreads(Action dispose, Action operation)
+    {
+        using var disposeCompleted = new ManualResetEventSlim();
+        Exception? disposeException = null;
+        Exception? operationException = null;
+        int disposeThreadId = 0;
+        int operationThreadId = 0;
+
+        var disposeThread = new Thread(() =>
+        {
+            disposeThreadId = Environment.CurrentManagedThreadId;
+            try
+            {
+                dispose();
+            }
+            catch (Exception ex)
+            {
+                disposeException = ex;
+            }
+            finally
+            {
+                disposeCompleted.Set();
+            }
+        })
+        {
+            IsBackground = true
+        };
+
+        var operationThread = new Thread(() =>
+        {
+            disposeCompleted.Wait();
+            operationThreadId = Environment.CurrentManagedThreadId;
+            try
+            {
+                operation();
+            }
+            catch (Exception ex)
+            {
+                operationException = ex;
+            }
+        })
+        {
+            IsBackground = true
+        };
+
+        disposeThread.Start();
+        operationThread.Start();
+
+        Assert.That(disposeThread.Join(TimeSpan.FromSeconds(5)), Is.True, "Dispose did not complete in time");
+        Assert.That(operationThread.Join(TimeSpan.FromSeconds(5)), Is.True, "The post-dispose call did not complete in time");
+        Assert.That(disposeException, Is.Null);
+        Assert.That(disposeThreadId, Is.Not.EqualTo(operationThreadId));
+        Assert.That(operationException, Is.TypeOf<ObjectDisposedException>());
     }
 
     [Test]
@@ -813,6 +870,75 @@ public class IpcProviderContractTests
             Exception[] unobserved = watcher.Drain();
             Assert.That(unobserved, Is.Empty,
                 "Dispose must observe the dropped faulted sample prefetch so no UnobservedTaskException is raised");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public void ProviderDisposalFlags_AreVolatile()
+    {
+        foreach (Type providerType in new[] { typeof(IpcFrameProvider), typeof(IpcSampleProvider) })
+        {
+            FieldInfo field = providerType.GetField("_disposed", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new AssertionException($"{providerType.Name}._disposed was not found");
+
+            Assert.That(field.GetRequiredCustomModifiers(), Does.Contain(typeof(IsVolatile)),
+                $"{providerType.Name}._disposed must remain volatile");
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_AfterDisposeOnAnotherThread_ThrowsObjectDisposedException()
+    {
+        // Dispose and the rejected render run on distinct threads to exercise the cross-thread teardown signal.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFrameServingHost(server, buffers, new List<long>(), new object(), hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
+
+        try
+        {
+            AssertDisposedCallThrowsOnDifferentThreads(
+                provider.Dispose,
+                () =>
+                {
+                    using Bitmap frame = provider.RenderFrame(0).GetAwaiter().GetResult();
+                });
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task Sample_AfterDisposeOnAnotherThread_ThrowsObjectDisposedException()
+    {
+        // Mirror of the frame-side guard: Dispose and the rejected sample run on distinct threads.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunSampleServingHost(server, buffers, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 4, sampleRate: 4);
+
+        try
+        {
+            AssertDisposedCallThrowsOnDifferentThreads(
+                provider.Dispose,
+                () =>
+                {
+                    using Pcm<Stereo32BitFloat> sample = provider.Sample(0, 4).GetAwaiter().GetResult();
+                });
         }
         finally
         {

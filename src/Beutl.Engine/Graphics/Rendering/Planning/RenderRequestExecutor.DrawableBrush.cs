@@ -36,7 +36,7 @@ internal sealed partial class RenderRequestExecutor
             return canvas;
         }
 
-        private SKImage? MaterializeDrawableBrush(
+        private MaterializedDrawableBrush? MaterializeDrawableBrush(
             DrawableBrush.Resource brush,
             Rect bounds,
             float scale)
@@ -54,9 +54,6 @@ internal sealed partial class RenderRequestExecutor
 
             using DrawableBrushCycleScope cycle = EnterDrawableBrush(drawable);
             Rect domain = new(default, bounds.Size);
-            PixelRect deviceBounds = PixelRect.FromRect(domain, scale);
-            if (deviceBounds.Width == 0 || deviceBounds.Height == 0)
-                return null;
 
             DrawableRenderNode? root = null;
             RenderRequest? request = null;
@@ -64,6 +61,7 @@ internal sealed partial class RenderRequestExecutor
             RenderTargetLease? lease = null;
             ImmediateCanvas? canvas = null;
             SKImage? image = null;
+            Rect contentBounds = default;
             ExceptionDispatchInfo? failure = null;
             try
             {
@@ -99,7 +97,13 @@ internal sealed partial class RenderRequestExecutor
                     .Compile(request, graph, shaderBudget);
                 request = null;
 
-                lease = _targets.TryAcquire(deviceBounds.Size);
+                PixelRect deviceBounds = PixelRect.FromRect(domain, scale);
+                PixelRect contentDevice = PixelRect
+                    .FromRect(compiled.SelectedOutputBounds, scale)
+                    .Intersect(deviceBounds);
+                lease = contentDevice.Width == 0 || contentDevice.Height == 0
+                    ? null
+                    : _targets.TryAcquire(deviceBounds.Size);
                 if (lease is not null)
                 {
                     Rect rasterBounds = deviceBounds.ToRect(scale);
@@ -118,7 +122,8 @@ internal sealed partial class RenderRequestExecutor
                     canvas = null;
 
                     lease.Target.PrepareForSampling();
-                    image = CreateIndependentImage(lease.Target.Value);
+                    image = CreateIndependentImage(lease.Target.Value, contentDevice);
+                    contentBounds = contentDevice.ToRect(scale);
                 }
             }
             catch (Exception ex)
@@ -140,7 +145,7 @@ internal sealed partial class RenderRequestExecutor
                 failure!.Throw();
             }
 
-            return image;
+            return image is null ? null : new MaterializedDrawableBrush(image, contentBounds);
         }
 
         private static DrawableBrushCycleScope EnterDrawableBrush(Drawable.Resource drawable)
@@ -159,9 +164,12 @@ internal sealed partial class RenderRequestExecutor
             return new DrawableBrushCycleScope(active, identity);
         }
 
-        private static SKImage CreateIndependentImage(SKSurface surface)
+        private static SKImage CreateIndependentImage(SKSurface surface, PixelRect subset)
         {
-            SKImage snapshot = surface.Snapshot();
+            SKImage snapshot = surface.Snapshot(
+                    new SKRectI(subset.X, subset.Y, subset.Right, subset.Bottom))
+                ?? throw new InvalidOperationException(
+                    "The drawable-brush surface could not be cropped to its content bounds.");
             try
             {
                 SKImage raster = snapshot.ToRasterImage()

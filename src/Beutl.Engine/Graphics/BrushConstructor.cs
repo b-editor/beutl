@@ -272,8 +272,7 @@ public readonly struct BrushConstructor(
                 return null;
             }
 
-            skImage = materializer(drawableBrush, Bounds, s);
-            if (skImage is null)
+            if (materializer(drawableBrush, Bounds, s) is not { } materialized)
             {
                 s_logger.LogWarning(
                     "The drawable-brush materializer returned no image for '{Brush}'; the fill degrades to transparent.",
@@ -281,8 +280,8 @@ public readonly struct BrushConstructor(
                 return null;
             }
 
-            // The materialized image covers the brush bounds at the canvas density.
-            contentSize = Bounds.Size;
+            skImage = materialized.Image;
+            contentSize = materialized.ContentBounds.Size;
             contentDensity = s;
         }
         else if (tileBrush is ImageBrush.Resource imageBrush
