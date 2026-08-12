@@ -27,6 +27,7 @@ public partial class FileBrowserTabView : UserControl
 
         SetupSectionToggle(favoritesToggle, favoritesContent);
         SetupSectionToggle(projectDirToggle, projectDirContent);
+        SetupSectionToggle(materialsToggle, materialsContent);
         SetupSectionToggle(mediaFilesToggle, mediaFilesContent);
     }
 

@@ -35,9 +35,6 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         AllItems = new(LibraryService.Current._totalCount + GraphNodeRegistry.s_totalCount);
         AddAllItems(LibraryItems);
         AddAllItems(Nodes);
-
-        RebuildMaterials();
-        InstalledMaterialService.Instance.Changed += OnInstalledMaterialsChanged;
     }
 
     public ReactiveCollection<Easing> Easings { get; } =
@@ -84,7 +81,6 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
     public ReactiveCollection<KeyValuePair<int, LibraryItemViewModel>> SearchResult { get; } = [];
 
-    public ReactiveCollection<MaterialItemViewModel> Materials { get; } = [];
 
     public int SelectedTab { get; set; } = 2;
 
@@ -135,57 +131,12 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
     public void Dispose()
     {
-        InstalledMaterialService.Instance.Changed -= OnInstalledMaterialsChanged;
         _disposables.Dispose();
         Easings.Clear();
         LibraryItems.Clear();
         Nodes.Clear();
         AllItems.Clear();
         SearchResult.Clear();
-        Materials.Clear();
-    }
-
-    private void OnInstalledMaterialsChanged(object? sender, EventArgs e)
-    {
-        Dispatcher.UIThread.Post(RebuildMaterials);
-    }
-
-    private void RebuildMaterials()
-    {
-        Materials.Clear();
-
-        foreach (IGrouping<string, InstalledMaterial> group in InstalledMaterialService.Instance.GetItems()
-                     .GroupBy(x => x.PackageName, StringComparer.OrdinalIgnoreCase))
-        {
-            // A file sitting directly in {home}/materials belongs to no package and is
-            // listed at the root instead of under a group.
-            MaterialItemViewModel? package = null;
-            if (!string.IsNullOrEmpty(group.Key))
-            {
-                package = new MaterialItemViewModel { DisplayName = group.Key };
-                Materials.Add(package);
-            }
-
-            foreach (InstalledMaterial material in group)
-            {
-                var item = new MaterialItemViewModel
-                {
-                    DisplayName = material.Name,
-                    FilePath = material.FilePath,
-                    Description = material.FilePath,
-                    Kind = material.Kind
-                };
-
-                if (package != null)
-                {
-                    package.Children.Add(item);
-                }
-                else
-                {
-                    Materials.Add(item);
-                }
-            }
-        }
     }
 
     public void WriteToJson(JsonObject json)

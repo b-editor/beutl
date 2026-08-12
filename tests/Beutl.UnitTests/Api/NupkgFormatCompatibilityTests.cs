@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Text;
 using Beutl.Api.Services;
 using Beutl.Testing.Headless;

@@ -121,6 +121,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public ObservableCollection<FileSystemItemViewModel> ProjectDirectoryItems { get; } = [];
 
+    public ObservableCollection<FileSystemItemViewModel> MaterialsItems { get; } = [];
+
     public ObservableCollection<FileSystemItemViewModel> MediaFileItems => _mediaSearcher.MediaFileItems;
 
     public ReactivePropertySlim<bool> IsLoadingMediaFiles => _mediaSearcher.IsLoadingMediaFiles;
@@ -130,6 +132,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
     public ReactivePropertySlim<bool> IsFavoritesIconView { get; } = new(false);
 
     public ReactivePropertySlim<bool> IsProjectDirIconView { get; } = new(false);
+
+    public ReactivePropertySlim<bool> IsMaterialsIconView { get; } = new(false);
 
     public ReactivePropertySlim<bool> IsMediaFilesIconView { get; } = new(true);
 
@@ -430,6 +434,22 @@ public sealed class FileBrowserTabViewModel : IToolContext
             }
         }
 
+        // 素材ディレクトリの更新
+        DisposeAndClear(MaterialsItems);
+        string materialsPath = BeutlEnvironment.GetMaterialsDirectoryPath();
+        if (Directory.Exists(materialsPath))
+        {
+            try
+            {
+                FileSystemEnumerator.PopulateCollection(MaterialsItems, materialsPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to enumerate materials directory {Path}", materialsPath);
+                NotificationService.ShowWarning(Strings.FileBrowser, ex.Message);
+            }
+        }
+
         // メディアファイル検索
         _mediaSearcher.SearchAsync(_projectDirectory);
     }
@@ -641,6 +661,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         DisposeAndClear(Items);
         DisposeAndClear(TreeRootItems);
         DisposeAndClear(ProjectDirectoryItems);
+        DisposeAndClear(MaterialsItems);
 
         _disposables.Dispose();
     }
