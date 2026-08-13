@@ -98,7 +98,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/FusionBoundaryExecutionTestSupport.cs"] = 6,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/ShaderFallbackTests.cs"] = 2,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GpuPassFusionFeature003RegressionTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GpuPassFusionScaleRegionTests.cs"] = 6,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GpuPassFusionScaleRegionTests.cs"] = 7,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/LosslessCompositeCoverageTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/ShaderMatrixUniformTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/TargetCaptureValueWrapperTests.cs"] = 2,
@@ -118,6 +118,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingSideEffectTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/ValueReplaySafetyTests.cs"] = 2,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RectClipRenderNodeTest.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererAllocationFailureTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererDeviceBoundsTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererExceptionSafetyTests.cs"] = 2,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererSnapshotFastPathTests.cs"] = 1,
@@ -177,7 +178,7 @@ public sealed class RenderPipelineMigrationCensusTests
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
             AssertAllOverridesAreMapped(overrides);
             AssertBaselineInventory("production", 30, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 181, s_testOverrideBaseline, overrides);
+            AssertBaselineInventory("test", 183, s_testOverrideBaseline, overrides);
         }
     }
 

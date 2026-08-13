@@ -344,6 +344,99 @@ public sealed class GpuPassFusionScaleRegionTests
         });
     }
 
+    [Test]
+    public void ExpandedClipAndBlur_MatchesNonExpandedExecutionPixels()
+    {
+        var clip = new Rect(20, 12, 24, 28);
+        using Bitmap nonExpanded = RenderClipBlur(requestedRegion: null, clip);
+        using Bitmap expanded = RenderClipBlur(clip, clip);
+
+        Assert.That(
+            expanded.GetPixelSpan().ToArray(),
+            Is.EqualTo(nonExpanded.GetPixelSpan().ToArray()),
+            "Expanded target-reading execution must copy the full destination before clipping subsequent draws.");
+    }
+
+    [Test]
+    public void ExpandedExecution_UsesTheBoundingBoxOfANonRectangularDestinationClip()
+    {
+        var requestedRegion = new Rect(0, 0, 32, 24);
+        using var node = new ClipBlurTargetNode(s_domain);
+        using var renderer = CreateClipBlurRenderer(node, requestedRegion);
+        using var target = new CpuRenderTarget((int)s_domain.Width, (int)s_domain.Height);
+        using var canvas = new ImmediateCanvas(target, logicalSize: s_domain.Size);
+        canvas.Clear(Colors.OrangeRed);
+        var ellipse = new EllipseGeometry
+        {
+            Width = { CurrentValue = requestedRegion.Width },
+            Height = { CurrentValue = requestedRegion.Height },
+        };
+        using Geometry.Resource geometry = ellipse.ToResource(CompositionContext.Default);
+        using var clip = canvas.PushClip(geometry);
+
+        Assert.That(() => renderer.Render(canvas), Throws.Nothing);
+        using Bitmap completed = target.Snapshot();
+        (float insideRed, float insideBlue) = RedBlueAt(completed, 16, 12);
+        (float outsideRed, float outsideBlue) = RedBlueAt(completed, 48, 32);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.CallbackCount, Is.EqualTo(1));
+            Assert.That(insideBlue, Is.GreaterThan(insideRed),
+                "the expanded target-reading effect must execute inside the ellipse");
+            Assert.That(outsideRed, Is.GreaterThan(outsideBlue),
+                "pixels outside the non-rectangular clip's bounding box must remain untouched");
+        });
+    }
+
+    [Test]
+    public void ExpandedExecution_RestoresTheClipBeforeReturningThePooledTarget()
+    {
+        var requestedRegion = new Rect(20, 12, 24, 28);
+        using var node = new ClipBlurTargetNode(s_domain);
+        using var renderer = CreateClipBlurRenderer(node, requestedRegion);
+        using var target = new CpuRenderTarget((int)s_domain.Width, (int)s_domain.Height);
+        using var canvas = new ImmediateCanvas(target, logicalSize: s_domain.Size);
+        canvas.Clear(Colors.OrangeRed);
+
+        using (canvas.PushClip(requestedRegion))
+        {
+            Assert.That(() => renderer.Render(canvas), Throws.Nothing);
+        }
+
+        Assert.That(() => renderer.Render(canvas), Throws.Nothing,
+            "the second expanded render must be able to reuse the first render's exact-size pooled target");
+        Assert.That(node.CallbackCount, Is.EqualTo(2));
+    }
+
+    private static Bitmap RenderClipBlur(Rect? requestedRegion, Rect clip)
+    {
+        using var node = new ClipBlurTargetNode(s_domain);
+        using var renderer = CreateClipBlurRenderer(node, requestedRegion);
+        using var target = new CpuRenderTarget((int)s_domain.Width, (int)s_domain.Height);
+        using var canvas = new ImmediateCanvas(target, logicalSize: s_domain.Size);
+        canvas.Clear(Colors.OrangeRed);
+        using (canvas.PushClip(clip))
+        {
+            renderer.Render(canvas);
+        }
+
+        return target.Snapshot();
+    }
+
+    private static RenderNodeRenderer CreateClipBlurRenderer(RenderNode node, Rect? requestedRegion)
+        => new(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    RequestedRegion = requestedRegion,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
     [TestCase(CaptureContainer.FiniteLayer)]
     [TestCase(CaptureContainer.TargetLayerScope)]
     public void DeclaredTargetCaptureResamplesWhileBackdropLateBindsToDenserScopeAndCacheIdentity(
@@ -767,6 +860,48 @@ public sealed class GpuPassFusionScaleRegionTests
                     TargetRegion.Region(bounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
+                    TargetAccess.Readback)));
+        }
+    }
+
+    private sealed class ClipBlurTargetNode(Rect bounds) : RenderNode
+    {
+        public int CallbackCount { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
+                session =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+                    output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.Custom(static _ => 1))));
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.CreateRequestLocal(
+                    session =>
+                    {
+                        CallbackCount++;
+                        session.UseSnapshot(bitmap => session.Canvas.Use(canvas =>
+                        {
+                            using SKImage image = SKImage.FromBitmap(bitmap.SKBitmap);
+                            using SKImageFilter blur = SKImageFilter.CreateBlur(3, 3);
+                            using var paint = new SKPaint
+                            {
+                                BlendMode = SKBlendMode.Src,
+                                ImageFilter = blur,
+                            };
+                            canvas.Canvas.DrawImage(image, 0, 0, paint);
+                        }));
+                    },
+                    TargetRegion.Region(bounds),
+                    bounds,
+                    RenderHitTestContract.OutputBounds,
                     TargetAccess.Readback)));
         }
     }

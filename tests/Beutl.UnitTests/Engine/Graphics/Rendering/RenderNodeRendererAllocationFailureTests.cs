@@ -111,6 +111,56 @@ public sealed class RenderNodeRendererAllocationFailureTests
         });
     }
 
+    [Test]
+    public void PreviewExpandedTargetAllocationFailureLeavesBorrowedDestinationUnmodified()
+    {
+        using var node = new ExpandedTargetReadNode();
+        var factory = new AlwaysFailTargetFactory();
+        using var renderer = CreateRenderer(
+            node,
+            RenderIntent.Preview,
+            factory,
+            requestedRegion: new Rect(25, 25, 50, 50));
+        using RenderTarget target = CpuTargetFactory.CreateTarget(new PixelSize(100, 100));
+        using var canvas = new ImmediateCanvas(target, logicalSize: s_domain.Size);
+        canvas.Clear(Colors.OrangeRed);
+        using Bitmap before = target.Snapshot();
+
+        Assert.That(() => renderer.Render(canvas), Throws.Nothing);
+        using Bitmap after = target.Snapshot();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(after.GetPixelSpan<ushort>().ToArray(), Is.EqualTo(before.GetPixelSpan<ushort>().ToArray()));
+            Assert.That(node.CallbackCount, Is.Zero);
+            Assert.That(factory.FailedDeviceSize, Is.EqualTo(new PixelSize(100, 100)));
+        });
+    }
+
+    [Test]
+    public void DeliveryExpandedTargetAllocationFailureThrowsWithoutExecuting()
+    {
+        using var node = new ExpandedTargetReadNode();
+        var factory = new AlwaysFailTargetFactory();
+        using var renderer = CreateRenderer(
+            node,
+            RenderIntent.Delivery,
+            factory,
+            requestedRegion: new Rect(25, 25, 50, 50));
+        using RenderTarget target = CpuTargetFactory.CreateTarget(new PixelSize(100, 100));
+        using var canvas = new ImmediateCanvas(target, logicalSize: s_domain.Size, intent: RenderIntent.Delivery);
+        canvas.Clear(Colors.OrangeRed);
+
+        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(
+            () => renderer.Render(canvas));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Is.EqualTo("The render-target factory could not allocate 100x100 pixels."));
+            Assert.That(node.CallbackCount, Is.Zero);
+            Assert.That(factory.FailedDeviceSize, Is.EqualTo(new PixelSize(100, 100)));
+        });
+    }
 
     private static FilterEffect.Resource CreateStrokeEffectResource()
     {
@@ -231,6 +281,49 @@ public sealed class RenderNodeRendererAllocationFailureTests
         }
     }
 
+    private sealed class AlwaysFailTargetFactory : IRenderTargetFactory
+    {
+        public PixelSize? FailedDeviceSize { get; private set; }
+
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            FailedDeviceSize = allocation.DeviceSize;
+            return null;
+        }
+    }
+
+    private sealed class ExpandedTargetReadNode : RenderNode
+    {
+        public int CallbackCount { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
+                session =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+                    output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(s_domain),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale)));
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.CreateRequestLocal(
+                    session =>
+                    {
+                        CallbackCount++;
+                        session.UseSnapshot(static _ => { });
+                    },
+                    TargetRegion.Region(s_domain),
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.Readback)));
+        }
+    }
+
     private class CpuTargetFactory : IRenderTargetFactory
     {
         public int CreateCalls { get; protected set; }
@@ -242,7 +335,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
             return CreateTarget(deviceSize);
         }
 
-        protected static RenderTarget CreateTarget(PixelSize deviceSize)
+        internal static RenderTarget CreateTarget(PixelSize deviceSize)
         {
             SKSurface surface = SKSurface.Create(new SKImageInfo(
                     deviceSize.Width,

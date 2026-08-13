@@ -209,7 +209,9 @@ public sealed class RenderNodeRenderer : IDisposable
     /// A singular active transform completes value-only self-bounded work as a successful no-op. Domain-independent
     /// target effects still execute for ordering, while work that requires the destination's root target domain
     /// remains invalid because no inverse domain exists. The call does not close, dispose, flush, submit, clear, or
-    /// snapshot the destination implicitly.
+    /// snapshot the destination implicitly. Expanded execution preserves rectangular clips exactly. Because Skia
+    /// does not expose the active clip path, a non-rectangular destination clip is reproduced conservatively by its
+    /// device bounding box; the destination's original clip still constrains the final commit.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="destination"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">This renderer or <paramref name="destination"/> is disposed.</exception>
@@ -303,20 +305,27 @@ public sealed class RenderNodeRenderer : IDisposable
     {
         RenderTargetLease? executionLease = null;
         ImmediateCanvas? executionCanvas = null;
+        IDisposable? destinationClip = null;
         ExceptionDispatchInfo? primary = null;
 
         void FinalizeExternalResources()
         {
+            IDisposable? clipToDispose = destinationClip;
+            destinationClip = null;
             ImmediateCanvas? canvasToDispose = executionCanvas;
             executionCanvas = null;
             RenderTargetLease? leaseToDispose = executionLease;
             executionLease = null;
-            DisposeExecutionResources(canvasToDispose, leaseToDispose);
+            DisposeExecutionResources(clipToDispose, canvasToDispose, leaseToDispose);
         }
 
         try
         {
-            executionLease = targets.Acquire(destination.DeviceSize);
+            executionLease = targets.TryAcquire(destination.DeviceSize);
+            if (executionLease is null)
+                return;
+
+            SKRectI destinationDeviceClip = CaptureExpandedDestinationClip(destination);
             var executionLogicalSize = new Size(
                 destination.DeviceSize.Width / destination.Density,
                 destination.DeviceSize.Height / destination.Density);
@@ -327,6 +336,7 @@ public sealed class RenderNodeRenderer : IDisposable
                 executionLogicalSize,
                 request.Request.Options.Intent,
                 destination.DeviceOrigin);
+            executionCanvas.Transform = destination.Transform;
             using (executionCanvas.PushDeviceSpace())
             using (SKImage priorTarget = destination._renderTarget.Value.Snapshot())
             using (var copyPaint = new SKPaint { BlendMode = SKBlendMode.Src })
@@ -334,7 +344,7 @@ public sealed class RenderNodeRenderer : IDisposable
                 executionCanvas.Canvas.DrawImage(priorTarget, 0, 0, copyPaint);
             }
 
-            executionCanvas.Transform = destination.Transform;
+            destinationClip = PushExpandedDestinationClip(executionCanvas, destinationDeviceClip);
             executionCanvas.Opacity = destination.Opacity;
             executionCanvas.BlendMode = destination.BlendMode;
             executor.Execute(
@@ -356,11 +366,35 @@ public sealed class RenderNodeRenderer : IDisposable
             DisposeExecutionResourcesAndCapture(
                 request.Request.Options.Owner,
                 ref primary,
+                destinationClip,
                 executionCanvas,
                 executionLease);
         }
 
         primary?.Throw();
+    }
+
+    private static SKRectI CaptureExpandedDestinationClip(ImmediateCanvas destination)
+        => destination.Canvas.DeviceClipBounds;
+
+    private static IDisposable PushExpandedDestinationClip(
+        ImmediateCanvas executionCanvas,
+        SKRectI destinationDeviceClip)
+    {
+        Matrix transform = executionCanvas.Transform;
+        executionCanvas.Transform = Matrix.Identity;
+        try
+        {
+            return executionCanvas.PushClip(new Rect(
+                destinationDeviceClip.Left,
+                destinationDeviceClip.Top,
+                destinationDeviceClip.Width,
+                destinationDeviceClip.Height));
+        }
+        finally
+        {
+            executionCanvas.Transform = transform;
+        }
     }
 
     private static void CommitExpandedTarget(
