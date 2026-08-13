@@ -36,6 +36,25 @@ public class SelectedDrawableRenderTests
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
     }
 
+    [Test]
+    public void Selected_drawable_raster_region_uses_output_bounds_not_query_bounds()
+    {
+        var outputBounds = new Rect(0, 0, 320, 240);
+        var queryBounds = new Rect(37, 29, 48, 32);
+        var measurement = new RenderNodeMeasurement(
+            outputBounds,
+            queryBounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            HasFragments: true,
+            HasContributingValues: false,
+            HasTargetEffects: true);
+
+        Assert.That(
+            PlayerViewModel.GetSelectedDrawableRasterRegion(measurement),
+            Is.EqualTo(outputBounds));
+    }
+
     [AvaloniaTest]
     public async Task Shifted_selected_drawable_measure_matches_rasterization_and_caller_owns_result()
     {
@@ -189,7 +208,7 @@ public class SelectedDrawableRenderTests
     }
 
     [AvaloniaTest]
-    public async Task Full_target_group_uses_query_geometry_for_measurement_and_rasterization()
+    public async Task Full_target_group_uses_output_extent_for_measurement_and_rasterization()
     {
         GpuTestGate.EnsureAvailable();
         await ResetProjectAsync();
@@ -215,10 +234,36 @@ public class SelectedDrawableRenderTests
             {
                 Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 320, 240)));
                 Assert.That(measurement.QueryBounds, Is.EqualTo(new Rect(37, 29, 48, 32)));
-                Assert.That(rasterization.Bounds, Is.EqualTo(measurement.QueryBounds));
-                Assert.That(measuredSize, Is.EqualTo(new PixelSize(48, 32)));
-                Assert.That(bitmap.Width, Is.EqualTo(48));
-                Assert.That(bitmap.Height, Is.EqualTo(32));
+                Assert.That(rasterization.Bounds, Is.EqualTo(measurement.OutputBounds));
+                Assert.That(measuredSize, Is.EqualTo(new PixelSize(320, 240)));
+                Assert.That(bitmap.Width, Is.EqualTo(320));
+                Assert.That(bitmap.Height, Is.EqualTo(240));
+            });
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Full_target_only_drawable_renders_when_query_bounds_are_empty()
+    {
+        GpuTestGate.EnsureAvailable();
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditor("selected-drawable-full-target-only");
+        var drawable = new SelectedDrawableFullTargetDrawable();
+
+        PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(drawable);
+        using Bitmap bitmap = await editor.Player.DrawSelectedDrawable(drawable);
+        (RenderNodeMeasurement measurement, RenderNodeRasterization rasterization) =
+            RenderSelectedDrawable(drawable, editor.Renderer.Value.FrameSize);
+        using (rasterization)
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 320, 240)));
+                Assert.That(measurement.QueryBounds, Is.EqualTo(Rect.Empty));
+                Assert.That(rasterization.Bounds, Is.EqualTo(measurement.OutputBounds));
+                Assert.That(measuredSize, Is.EqualTo(new PixelSize(320, 240)));
+                Assert.That(bitmap.Width, Is.EqualTo(320));
+                Assert.That(bitmap.Height, Is.EqualTo(240));
             });
         }
     }
@@ -291,11 +336,20 @@ public class SelectedDrawableRenderTests
             RenderNodeMeasurement measurement = renderer.Measure();
             RenderNodeRasterization rasterization = renderer.Rasterize(request with
             {
-                RequestedRegion = measurement.QueryBounds,
+                RequestedRegion = measurement.OutputBounds,
             });
             return (measurement, rasterization);
         });
     }
+}
+
+internal sealed partial class SelectedDrawableFullTargetDrawable : Drawable
+{
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+        => Size.Empty;
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+        => context.Clear(Colors.CornflowerBlue);
 }
 
 internal sealed partial class SelectedDrawableScaleCaptureDrawable : Drawable

@@ -2098,7 +2098,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     },
                 });
-            return PixelRect.FromRect(renderer.Measure().QueryBounds).Size;
+            return PixelRect.FromRect(GetSelectedDrawableRasterRegion(renderer.Measure())).Size;
         });
     }
 
@@ -2138,15 +2138,18 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 {
                     DefaultRequest = request,
                 });
-            Rect queryBounds = renderer.Measure().QueryBounds;
+            Rect outputBounds = GetSelectedDrawableRasterRegion(renderer.Measure());
             using RenderNodeRasterization rasterization = renderer.Rasterize(request with
             {
-                RequestedRegion = queryBounds,
+                RequestedRegion = outputBounds,
             });
             return rasterization.Bitmap?.Clone()
                 ?? throw new InvalidOperationException("The selected drawable produced no raster output.");
         });
     }
+
+    internal static Rect GetSelectedDrawableRasterRegion(RenderNodeMeasurement measurement)
+        => measurement.OutputBounds;
 
     internal static CompositionContext CreateSelectedDrawableCompositionContext(
         TimeSpan frame,
