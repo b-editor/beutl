@@ -269,14 +269,12 @@ public sealed partial class PixelSortEffect : FilterEffect
     internal static bool ShouldRethrowPassFailure(Exception exception, RenderIntent intent)
         => exception is OperationCanceledException || intent == RenderIntent.Delivery;
 
-    // Same delivery contract for the non-exception failure: an output target without a texture
-    // (allocation failure) must fail a delivery render instead of shipping the frame unsorted.
     internal static void ThrowIfDeliveryAllocationFailure(RenderIntent intent, int targetIndex)
     {
         if (intent == RenderIntent.Delivery)
         {
             throw new InvalidOperationException(
-                $"PixelSort could not allocate an output target for target {targetIndex}; the delivery render fails instead of shipping unsorted pixels.");
+                $"PixelSort output target {targetIndex} has no GPU texture; the delivery render fails instead of shipping unsorted pixels.");
         }
     }
 
@@ -348,7 +346,13 @@ public sealed partial class PixelSortEffect : FilterEffect
                 EffectTarget newTarget = ctx.CreateTargetLike(target);
                 RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
-                if (newRenderTarget?.Texture == null)
+                if (newRenderTarget is null)
+                {
+                    newTarget.Dispose();
+                    continue;
+                }
+
+                if (newRenderTarget.Texture is null)
                 {
                     newTarget.Dispose();
                     ThrowIfDeliveryAllocationFailure(ctx.Intent, i);

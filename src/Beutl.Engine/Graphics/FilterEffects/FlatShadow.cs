@@ -97,6 +97,12 @@ public partial class FlatShadow : FilterEffect
                     target.Bounds.Y - (y2Abs - y2) / 2,
                     (size.Width + x2Abs),
                     (size.Height + y2Abs)));
+            if (newTarget.IsEmpty)
+            {
+                newTarget.Dispose();
+                continue;
+            }
+
             using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill })
             using (var brushPaint = new SKPaint())
             using (SKPath path = CreatePath(srcBitmap))

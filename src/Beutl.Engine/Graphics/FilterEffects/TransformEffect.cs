@@ -59,6 +59,12 @@ public sealed partial class TransformEffect : FilterEffect
                         Matrix m2 = -offset2 * data.mat * offset2;
 
                         EffectTarget newTarget = effectContext.CreateTarget(target.Bounds.TransformToAABB(m1));
+                        if (newTarget.IsEmpty)
+                        {
+                            newTarget.Dispose();
+                            return target;
+                        }
+
                         using var canvas = effectContext.Open(newTarget);
                         using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                         using (canvas.PushTransform(m2))

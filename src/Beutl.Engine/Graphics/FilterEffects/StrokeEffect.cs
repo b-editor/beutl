@@ -91,6 +91,12 @@ public partial class StrokeEffect : FilterEffect
                     target.Bounds.Y - transformedBounds.Y);
 
                 EffectTarget newTarget = context.CreateTarget(transformedBounds);
+                if (newTarget.IsEmpty)
+                {
+                    newTarget.Dispose();
+                    continue;
+                }
+
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
                 using (newCanvas.PushTransform(origin))
                 {

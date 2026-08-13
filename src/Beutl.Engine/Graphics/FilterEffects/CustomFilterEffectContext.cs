@@ -158,6 +158,16 @@ public class CustomFilterEffectContext
             new Rect(default, bounds.Size),
             WorkingScale);
 
+    /// <summary>
+    /// Creates a target for the requested logical bounds at the resolved working density.
+    /// </summary>
+    /// <remarks>
+    /// If allocation fails, <see cref="RenderIntent.Preview"/> logs the failure and returns an empty
+    /// target, while <see cref="RenderIntent.Delivery"/> throws.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The allocation failed during a <see cref="RenderIntent.Delivery"/> render.
+    /// </exception>
     public EffectTarget CreateTarget(Rect bounds)
         => CreateTargetCore(bounds, WorkingScale);
 
@@ -191,6 +201,15 @@ public class CustomFilterEffectContext
     /// logical placement. Use this for same-bounds raster effects so fractional-origin pixels and
     /// raster aprons are preserved.
     /// </summary>
+    /// <remarks>
+    /// An unmaterialized or unbounded <paramref name="source"/> is a legitimate skip and returns an
+    /// empty target for either intent. If the replacement allocation itself fails,
+    /// <see cref="RenderIntent.Preview"/> logs the failure and returns an empty target so the caller
+    /// can keep the source, while <see cref="RenderIntent.Delivery"/> throws.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The replacement allocation failed during a <see cref="RenderIntent.Delivery"/> render.
+    /// </exception>
     public EffectTarget CreateTargetLike(EffectTarget source)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -203,8 +222,16 @@ public class CustomFilterEffectContext
             return source.CreateReplacement(renderTarget);
         }
 
+        if (Intent == RenderIntent.Delivery)
+        {
+            throw new InvalidOperationException(
+                $"Custom-effect replacement target allocation failed ({source.DeviceBounds.Width}x{source.DeviceBounds.Height} px, "
+                + $"target density {source.Scale.Value}, bounds {source.Bounds}); "
+                + "the delivery render fails instead of shipping an unprocessed frame.");
+        }
+
         s_logger.LogWarning(
-            "Custom-effect target allocation failed ({Width}x{Height} px, target density {TargetDensity}, bounds {Bounds}); returning an empty target.",
+            "Custom-effect replacement target allocation failed ({Width}x{Height} px, target density {TargetDensity}, bounds {Bounds}); returning an empty target so the preview can keep the source pixels.",
             source.DeviceBounds.Width,
             source.DeviceBounds.Height,
             source.Scale.Value,
@@ -346,7 +373,7 @@ public class CustomFilterEffectContext
         }
     }
 
-    private static EffectTarget AllocateTarget(
+    private EffectTarget AllocateTarget(
         Rect bounds,
         float density,
         PixelRect deviceBounds)
@@ -367,17 +394,25 @@ public class CustomFilterEffectContext
         }
         else
         {
-            // The empty target makes the subsequent Open() throw — log the cause before that happens.
             s_logger.LogWarning(
-                "Custom-effect target allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); returning an empty target.",
+                "Custom-effect target allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); preview returns an empty target, delivery render fails fast.",
                 deviceBounds.Width, deviceBounds.Height, density, bounds);
+
+            if (Intent == RenderIntent.Delivery)
+            {
+                throw new InvalidOperationException(
+                    $"Custom-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
+                    + $"w {density}, bounds {bounds}); the delivery render fails instead of shipping an incomplete frame.");
+            }
+
             return new EffectTarget();
         }
     }
 
     /// <summary>
     /// Opens an <see cref="ImmediateCanvas"/> over <paramref name="target"/>'s buffer.
-    /// Throws if the target is empty (allocation failed in <see cref="CreateTarget"/>).
+    /// Throws if the target is empty. <see cref="CreateTarget"/> can return an empty target after a
+    /// Preview allocation failure; Delivery allocation failures are thrown by <see cref="CreateTarget"/>.
     /// </summary>
     public ImmediateCanvas Open(EffectTarget target)
     {

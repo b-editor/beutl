@@ -59,7 +59,8 @@ public partial class SplitEffect : FilterEffect
                             t.Bounds.Height + (d.VerticalSpacing * (d.VerticalDivisions - 1)));
                         newBounds = t.Bounds.CenterRect(newBounds);
 
-                        var newTargets = new EffectTarget[d.HorizontalDivisions * d.VerticalDivisions];
+                        var newTargets = new EffectTargets();
+                        bool allocationFailed = false;
 
                         for (int v = 0; v < d.VerticalDivisions; v++)
                         {
@@ -71,6 +72,12 @@ public partial class SplitEffect : FilterEffect
                                         newBounds.Y + (divHeight + d.VerticalSpacing) * v,
                                         divWidth,
                                         divHeight));
+                                if (newTarget.IsEmpty)
+                                {
+                                    newTarget.Dispose();
+                                    allocationFailed = true;
+                                    break;
+                                }
 
                                 // Crop offset is device px; draw in device space.
                                 using (ImmediateCanvas canvas = effectContext.Open(newTarget))
@@ -80,14 +87,23 @@ public partial class SplitEffect : FilterEffect
                                     canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h * w, -divHeight * v * w));
                                 }
 
-                                newTargets[v * d.HorizontalDivisions + h] = newTarget;
+                                newTargets.Add(newTarget);
                             }
+
+                            if (allocationFailed)
+                                break;
+                        }
+
+                        if (allocationFailed)
+                        {
+                            newTargets.Dispose();
+                            continue;
                         }
 
                         t.Dispose();
                         effectContext.Targets.RemoveAt(i);
                         effectContext.Targets.InsertRange(i, newTargets);
-                        i += newTargets.Length - 1;
+                        i += newTargets.Count - 1;
                     }
                 }
             });

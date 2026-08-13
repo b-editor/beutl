@@ -163,6 +163,12 @@ public abstract partial class DisplacementMapTransform : EngineObject
             EffectTarget output = context.CreateTargetLike(effectTarget);
             try
             {
+                if (output.RenderTarget is null || output.Scale.IsUnbounded)
+                {
+                    output.Dispose();
+                    continue;
+                }
+
                 float density = output.Scale.Value;
                 using SKShader displacementMapShaderRaw = DisplacementMapShaderFactory.CreateOrTransparent(
                         context,

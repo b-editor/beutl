@@ -133,6 +133,12 @@ public sealed partial class Clipping : FilterEffect
                     ? originalRect.CenterRect(clipRect).Translate(target.Bounds.Position)
                     : newBounds;
                 EffectTarget newTarget = context.CreateTarget(targetBounds);
+                if (newTarget.IsEmpty)
+                {
+                    newTarget.Dispose();
+                    continue;
+                }
+
                 // Crop offset and source blit are device px; enter device space.
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
                 using (newCanvas.PushDeviceSpace())

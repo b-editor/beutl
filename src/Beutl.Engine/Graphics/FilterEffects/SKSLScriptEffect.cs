@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -86,13 +87,11 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             EffectTarget output = c.CreateTargetLike(effectTarget);
             try
             {
-                if (output.RenderTarget is null || output.Scale.IsUnbounded)
+                RenderTarget? outputRenderTarget = output.RenderTarget;
+                if (outputRenderTarget is null || output.Scale.IsUnbounded)
                 {
-                    throw new InvalidOperationException(
-                        "The SKSL script effect has no materialized output target: CreateTargetLike could not "
-                        + $"replace the {effectTarget.DeviceBounds.Width}x{effectTarget.DeviceBounds.Height} px "
-                        + "source because it was not materialized or the replacement allocation failed. "
-                        + "The effect fails visibly rather than rendering partially.");
+                    output.Dispose();
+                    continue;
                 }
 
                 using SKSLShaderBuilder builder = data.shader.CreateBuilder();
@@ -105,8 +104,8 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
                     builder.Uniforms["time"] = data.time;
 
                 float w = output.Scale.Value;
-                int deviceWidth = output.RenderTarget.Width;
-                int deviceHeight = output.RenderTarget.Height;
+                int deviceWidth = outputRenderTarget.Width;
+                int deviceHeight = outputRenderTarget.Height;
                 if (builder.Uniforms.Contains("width"))
                     builder.Uniforms["width"] = (float)deviceWidth;
                 if (builder.Uniforms.Contains("height"))

@@ -9,7 +9,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 /// <summary>
 /// A mapped-input readback failure must decide degrade-vs-fail from the explicit
 /// <see cref="RenderIntent"/>, not from the working-scale ceiling that happens to accompany it, and a
-/// legacy custom shader effect must fail visibly when its replacement target never materialized.
+/// replacement allocation failure must keep Preview sources and fail Delivery renders.
 /// </summary>
 [TestFixture]
 public sealed class MappedInputReadbackIntentTests
@@ -57,39 +57,92 @@ public sealed class MappedInputReadbackIntentTests
     }
 
     [Test]
-    public void SkslScriptEffect_WithoutAMaterializedOutputTarget_FailsDescriptively()
+    public void PreviewReplacementAllocationFailureKeepsTheSource()
     {
-        var effect = new SKSLScriptEffect();
-        effect.Script.CurrentValue =
-            """
-            uniform shader src;
+        using EffectTarget source = CreateUnallocatableSourceTarget();
+        using var targets = new EffectTargets { source.Clone() };
+        var context = CreateContext(targets, RenderIntent.Preview);
+        EffectTarget original = targets[0];
+        using EffectTarget replacement = context.CreateTargetLike(original);
 
-            half4 main(float2 fragCoord) {
-                return src.eval(fragCoord);
-            }
-            """;
-        var bounds = new Rect(0, 0, 4, 3);
-        using var targets = new EffectTargets { new EffectTarget() };
-
-        Assert.That(
-            () => ApplyCustomDirect(effect, bounds, targets),
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.Contains("no materialized output target"));
+        Assert.That(replacement.IsEmpty, Is.True);
+        Assert.That(targets[0], Is.SameAs(original));
+        Assert.That(original.RenderTarget, Is.Not.Null);
     }
 
-    private static void ApplyCustomDirect(FilterEffect effect, Rect bounds, EffectTargets targets)
+    [Test]
+    public void DeliveryReplacementAllocationFailureIncludesTheDeviceFootprint()
+    {
+        using EffectTarget source = CreateUnallocatableSourceTarget();
+        using var targets = new EffectTargets { source.Clone() };
+        var context = CreateContext(targets, RenderIntent.Delivery);
+        EffectTarget original = targets[0];
+
+        Assert.That(
+            () => context.CreateTargetLike(original),
+            Throws.TypeOf<InvalidOperationException>()
+                .With.Message.Contains($"{int.MaxValue}x3 px")
+                .And.Message.Contains("delivery render fails"));
+        Assert.That(targets[0], Is.SameAs(original));
+        Assert.That(original.RenderTarget, Is.Not.Null);
+    }
+
+    [Test]
+    public void DeliveryUnmaterializedSourceIsALegitimateSkip()
+    {
+        using var targets = new EffectTargets { new EffectTarget() };
+        var context = CreateContext(targets, RenderIntent.Delivery);
+        using EffectTarget replacement = context.CreateTargetLike(targets[0]);
+
+        Assert.That(replacement.IsEmpty, Is.True);
+    }
+
+    [Test]
+    public void LayerEffectPreviewAllocationFailureKeepsTheSource()
+    {
+        using var source = new CpuRenderTarget(new PixelSize(1, 1));
+        using var targets = new EffectTargets { new EffectTarget(source, Rect.Empty) };
+        EffectTarget original = targets[0];
+
+        Assert.That(
+            () => ApplyCustomDirect(new LayerEffect(), Rect.Empty, targets, RenderIntent.Preview),
+            Throws.Nothing);
+        Assert.That(targets[0], Is.SameAs(original));
+        Assert.That(original.RenderTarget, Is.Not.Null);
+    }
+
+    private static void ApplyCustomDirect(
+        FilterEffect effect,
+        Rect bounds,
+        EffectTargets targets,
+        RenderIntent intent)
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var recording = new FilterEffectContext(bounds, outputScale: 1f, workingScale: 1f);
         recording.ApplyTransactional(effect, resource);
         IFEItem_Custom item = recording.GetOrderedItems().OfType<IFEItem_Custom>().Single();
-        var execution = new CustomFilterEffectContext(
+        item.Accepts(CreateContext(targets, intent));
+    }
+
+    private static CustomFilterEffectContext CreateContext(EffectTargets targets, RenderIntent intent)
+        => new(
             targets,
-            RenderIntent.Preview,
+            intent,
             RenderRequestPurpose.Auxiliary,
             outputScale: 1f,
             workingScale: 1f,
             maxWorkingScale: 1f);
-        item.Accepts(execution);
+
+    private static EffectTarget CreateUnallocatableSourceTarget()
+    {
+        using var target = new CpuRenderTarget(new PixelSize(int.MaxValue, 3));
+        return new EffectTarget(target, new Rect(0, 0, 4, 3));
     }
+
+    private sealed class CpuRenderTarget(PixelSize size)
+        : RenderTarget(
+            SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(1, 1))
+                ?? throw new InvalidOperationException("Could not create a test surface."),
+            size.Width,
+            size.Height);
 }

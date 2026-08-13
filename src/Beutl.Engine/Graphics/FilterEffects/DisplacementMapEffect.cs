@@ -61,6 +61,12 @@ public partial class DisplacementMapEffect : FilterEffect
                         EffectTarget effectTarget = effectContext.Targets[i];
                         // Create target first so the map brush uses the buffer's post-clamp density.
                         var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
+                        if (newTarget.IsEmpty)
+                        {
+                            newTarget.Dispose();
+                            continue;
+                        }
+
                         RenderAndCommitReplacement(
                             effectContext,
                             i,

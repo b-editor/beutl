@@ -373,6 +373,12 @@ public sealed class FilterEffectContext : IDisposable
                     if (target.RenderTarget is not null)
                     {
                         EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                        if (newTarget.IsEmpty)
+                        {
+                            newTarget.Dispose();
+                            continue;
+                        }
+
                         using (ImmediateCanvas canvas = context.Open(newTarget))
                         // Source point-blits and sigma/offset are device-px; composite in device space.
                         using (canvas.PushDeviceSpace())
@@ -700,6 +706,12 @@ public sealed class FilterEffectContext : IDisposable
                 {
                     Size size = target.Bounds.Size;
                     EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                    if (newTarget.IsEmpty)
+                    {
+                        newTarget.Dispose();
+                        continue;
+                    }
+
                     // Read density from the target (may be clamped), not context.WorkingScale.
                     float w = newTarget.Scale.Value;
                     using var brushPaint = new SKPaint();
