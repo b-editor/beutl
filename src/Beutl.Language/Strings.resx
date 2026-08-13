@@ -1667,6 +1667,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_RevisionMissingProject" xml:space="preserve">
     <value>The revision {0} does not contain the current project file, so it cannot be restored.</value>
   </data>
+  <data name="VersionControl_UntrackReservedPathsConfirmation" xml:space="preserve">
+    <value>This repository already tracks Beutl's local state files. Until they stop being tracked, every pull will report the repository as having uncommitted changes. Stop tracking them? The files stay on disk.</value>
+  </data>
   <data name="VersionControl_WorkspaceBusy" xml:space="preserve">
     <value>This version control operation is unavailable while an export or a save is writing to the project.</value>
   </data>

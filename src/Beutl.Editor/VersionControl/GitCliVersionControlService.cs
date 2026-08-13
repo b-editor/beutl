@@ -4416,6 +4416,174 @@ internal sealed class GitCliVersionControlService :
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
 
+    public Task<IReadOnlyList<string>> GetTrackedReservedPathsAsync(
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            async () =>
+            {
+                RepositoryInfo repository = GetRepository();
+                IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return await GetTrackedReservedPathsCoreAsync(repository, runner, cancellationToken)
+                    .ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    public Task UntrackReservedPathsAsync(
+        IReadOnlyList<string> reservedPaths,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(reservedPaths);
+        if (reservedPaths.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        return RunSerializedAsync(
+            async () =>
+            {
+                RepositoryInfo repository = GetRepository();
+                IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                await TryUntrackReservedPathsCoreAsync(
+                        repository,
+                        runner,
+                        reservedPaths,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+                return true;
+            },
+            cancellationToken);
+    }
+
+    private static bool IsReservedProjectPath(string repositoryRelativePath)
+    {
+        if (repositoryRelativePath.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        foreach (string segment in repositoryRelativePath.Split('/'))
+        {
+            if (string.Equals(segment, ".beutl", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static async Task<IReadOnlyList<string>> GetTrackedReservedPathsCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult listed = await runner.RunAsync(
+            repository,
+            ["ls-files", "-z", "--", CreateSnapshotBasePathspec(repository)],
+            new GitCommandOptions(GitCommandExecutionKind.Local) { UseLiteralPathspecs = false },
+            cancellationToken).ConfigureAwait(false);
+        return listed.Stdout
+            .Split('\0', StringSplitOptions.RemoveEmptyEntries)
+            .Where(IsReservedProjectPath)
+            .ToArray();
+    }
+
+    // .gitignore never untracks what is already tracked, and snapshot status excludes these paths -
+    // so a project that is clean to Beutl still leaves the repository dirty for the pull
+    // precondition, with no way out from inside the app. Drop them from the index (the files stay on
+    // disk) and record that in its own commit: the initialization commit is pathspec-limited with
+    // the very excludes that hide these paths, so it would leave the deletion staged forever.
+    private async Task TryUntrackReservedPathsCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        IReadOnlyList<string> reservedPaths,
+        CancellationToken cancellationToken)
+    {
+        string? indexTree = null;
+        try
+        {
+            GitCommandResult index = await runner.RunAsync(
+                repository,
+                ["write-tree"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            indexTree = index.Stdout.Trim();
+
+            var removeArguments = new List<string> { "rm", "--cached", "--quiet", "--" };
+            removeArguments.AddRange(reservedPaths);
+            await runner.RunAsync(
+                repository,
+                removeArguments,
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+
+            // A pathspec-limited commit reads the working tree for the named paths and reports
+            // "nothing to commit" for an index-only deletion, which would leave the untracking
+            // staged forever. The commit therefore takes the index as it stands - and only when
+            // nothing else is staged, so an enclosing repository's own work is never swept in.
+            GitCommandResult staged = await runner.RunAsync(
+                repository,
+                ["diff", "--cached", "--name-only", "-z"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            string[] stagedPaths = staged.Stdout.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+            if (stagedPaths.Length != reservedPaths.Count
+                || !stagedPaths.All(path => reservedPaths.Contains(path, StringComparer.Ordinal)))
+            {
+                await ResetIndexAsync(repository, runner, indexTree, repository.Pathspec)
+                    .ConfigureAwait(false);
+                _logger.LogInformation(
+                    "Left reserved project paths tracked because other changes are staged in the repository.");
+                return;
+            }
+
+            await runner.RunAsync(
+                repository,
+                [
+                    "-c",
+                    "core.logAllRefUpdates=true",
+                    "commit",
+                    "--no-gpg-sign",
+                    "-m",
+                    "beutl: stop tracking reserved project state",
+                    "-m",
+                    "Beutl-Snapshot: init",
+                ],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Initialization has already succeeded by the time this runs, so a failure here must not
+            // fail it; undo only this step's own index change and leave the rest untouched.
+            if (indexTree is not null)
+            {
+                try
+                {
+                    await ResetIndexAsync(repository, runner, indexTree, repository.Pathspec)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception restoreException)
+                {
+                    LogWarningBestEffort(
+                        restoreException,
+                        "Could not restore the index after failing to untrack reserved project paths.");
+                }
+            }
+
+            LogWarningBestEffort(
+                ex,
+                "Could not stop tracking reserved project paths; pulls will report the repository dirty until they are untracked manually.");
+        }
+    }
+
     private async Task PrefetchBranchLfsObjectsCoreAsync(
         string name,
         CancellationToken cancellationToken)
@@ -5611,6 +5779,7 @@ internal sealed class GitCliVersionControlService :
                     },
                     cancellationToken).ConfigureAwait(false);
             }
+
         }
         catch (Exception operationException)
         {

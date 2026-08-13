@@ -943,6 +943,85 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Initialize_leaves_tracked_reserved_project_state_alone_without_consent()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await CommitFileAsync(
+            Path.Combine("nested", "project", ".beutl", "view-state.json"),
+            "{}\n",
+            "track reserved project state");
+        using GitCliVersionControlService service = CreateUnassociatedService();
+
+        await service.InitializeAsync(
+            new InitOptions(new RepositoryInfo(Root, projectRoot), UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        GitCommandResult tracked = await RunGitAsync("ls-files", "--", "nested/project");
+
+        Assert.That(tracked.Stdout, Does.Contain(".beutl/view-state.json"));
+    }
+
+    [Test]
+    public async Task Initialize_reports_the_reserved_project_state_the_repository_already_tracks()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await CommitFileAsync(
+            Path.Combine("nested", "project", ".beutl", "view-state.json"),
+            "{}\n",
+            "track reserved project state");
+        await CommitFileAsync(
+            Path.Combine("nested", "project", "keep.bep"),
+            "{}\n",
+            "track a project file");
+        using GitCliVersionControlService service = CreateUnassociatedService();
+
+        await service.InitializeAsync(
+            new InitOptions(new RepositoryInfo(Root, projectRoot), UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        IReadOnlyList<string> reserved = await service.GetTrackedReservedPathsAsync(
+            CancellationToken.None);
+
+        Assert.That(reserved, Is.EqualTo(new[] { "nested/project/.beutl/view-state.json" }));
+    }
+
+    [Test]
+    public async Task Initialize_stops_tracking_reserved_project_state_the_repository_already_tracked()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await CommitFileAsync(
+            Path.Combine("nested", "project", ".beutl", "view-state.json"),
+            "{}\n",
+            "track reserved project state");
+        await CommitFileAsync(
+            Path.Combine("nested", "project", "leftover.tmp"),
+            "leftover\n",
+            "track a temporary file");
+        using GitCliVersionControlService service = CreateUnassociatedService();
+
+        await service.InitializeAsync(
+            new InitOptions(new RepositoryInfo(Root, projectRoot), UseLfsWhenAvailable: false),
+            CancellationToken.None);
+        await service.UntrackReservedPathsAsync(
+            await service.GetTrackedReservedPathsAsync(CancellationToken.None),
+            CancellationToken.None);
+
+        GitCommandResult tracked = await RunGitAsync("ls-files", "--", "nested/project");
+        GitCommandResult status = await RunGitAsync("status", "--porcelain");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tracked.Stdout, Does.Not.Contain(".beutl/"));
+            Assert.That(tracked.Stdout, Does.Not.Contain("leftover.tmp"));
+            // The pull precondition inspects the whole repository, so the untracking has to be
+            // committed rather than left staged - otherwise every pull reports RepositoryDirty.
+            Assert.That(status.Stdout.Trim(), Is.Empty);
+        });
+    }
+
     private string CreateProjectDirectory()
     {
         string projectRoot = Path.Combine(Root, "nested", "project");

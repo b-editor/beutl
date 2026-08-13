@@ -42,6 +42,21 @@ internal interface IProjectVersionControlBackend :
         string projectRoot,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Lists the repository-relative <c>.beutl/</c> and <c>*.tmp</c> entries the repository already
+    /// tracks. Generated ignore rules cannot untrack these, and snapshot status hides their
+    /// modifications, so they leave the repository permanently dirty for the pull precondition.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetTrackedReservedPathsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Drops the given entries from the index and records that in its own commit. The files stay on
+    /// disk. Requires the user's consent: a repository may be sharing them deliberately.
+    /// </summary>
+    Task UntrackReservedPathsAsync(
+        IReadOnlyList<string> reservedPaths,
+        CancellationToken cancellationToken);
+
     Task InitializeAsync(InitOptions options, CancellationToken cancellationToken);
 
     Task EnsureRepositoryHygieneAsync(CancellationToken cancellationToken);

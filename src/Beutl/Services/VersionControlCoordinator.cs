@@ -141,6 +141,7 @@ public sealed class VersionControlCoordinator :
         ConfirmPendingPullRecoveryAsync = ShowPendingPullRecoveryConfirmationAsync;
         ConfirmUseEnclosingRepositoryAsync = ShowEnclosingRepositoryConfirmationAsync;
         ConfirmRemoveStaleLockAsync = ShowStaleLockConfirmationAsync;
+        ConfirmUntrackReservedPathsAsync = ShowUntrackReservedPathsConfirmationAsync;
         WarnConflictMarkersAsync = ShowConflictMarkerWarningAsync;
         RequestIdentityAsync = static _ => Task.FromResult<GitIdentity?>(null);
         PresentPolicyNoticeAsync = ShowPolicyNoticeAsync;
@@ -189,6 +190,10 @@ public sealed class VersionControlCoordinator :
 
     internal Func<RepositoryLockInfo, CancellationToken, Task<bool>>
         ConfirmRemoveStaleLockAsync
+    { get; set; }
+
+    internal Func<IReadOnlyList<string>, CancellationToken, Task<bool>>
+        ConfirmUntrackReservedPathsAsync
     { get; set; }
 
     internal Func<string, Task> WarnConflictMarkersAsync { get; set; }
@@ -346,6 +351,17 @@ public sealed class VersionControlCoordinator :
             PublishNotification(() =>
                 NotificationService.ShowWarning(Strings.VersionControl, ex.Guidance));
             return false;
+        }
+
+        // Runs after initialization, once the repository exists and is attached. Already-tracked
+        // .beutl/*.tmp entries leave the repository permanently dirty for the pull precondition, but
+        // a repository may be sharing them on purpose, so untracking them is the user's call.
+        IReadOnlyList<string> reservedPaths = await service.GetTrackedReservedPathsAsync(
+            operationCancellation);
+        if (reservedPaths.Count > 0
+            && await ConfirmUntrackReservedPathsAsync(reservedPaths, operationCancellation))
+        {
+            await service.UntrackReservedPathsAsync(reservedPaths, operationCancellation);
         }
 
         bool schedulePublication;
@@ -3352,6 +3368,16 @@ public sealed class VersionControlCoordinator :
         return ShowConfirmationAsync(
             Strings.VersionControl,
             $"{Strings.VersionControl_EnclosingRepositoryFound}\n\n{repository.RepoRoot}",
+            cancellationToken);
+    }
+
+    private Task<bool> ShowUntrackReservedPathsConfirmationAsync(
+        IReadOnlyList<string> reservedPaths,
+        CancellationToken cancellationToken)
+    {
+        return ShowConfirmationAsync(
+            Strings.VersionControl,
+            $"{Strings.VersionControl_UntrackReservedPathsConfirmation}\n\n{string.Join('\n', reservedPaths)}",
             cancellationToken);
     }
 

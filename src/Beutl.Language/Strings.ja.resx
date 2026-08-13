@@ -1661,6 +1661,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_RevisionMissingProject" xml:space="preserve">
     <value>リビジョン {0} には現在のプロジェクトファイルが含まれていないため、復元できません。</value>
   </data>
+  <data name="VersionControl_UntrackReservedPathsConfirmation" xml:space="preserve">
+    <value>このリポジトリは Beutl のローカル状態ファイルを既に追跡しています。追跡を外すまで、プルのたびにコミットされていない変更があると報告されます。追跡を外しますか？ファイル自体はディスクに残ります。</value>
+  </data>
   <data name="VersionControl_WorkspaceBusy" xml:space="preserve">
     <value>書き出しまたは保存がプロジェクトへ書き込んでいる間は、このバージョン管理操作を実行できません。</value>
   </data>

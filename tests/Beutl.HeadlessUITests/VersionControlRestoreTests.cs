@@ -9916,6 +9916,24 @@ public class VersionControlRestoreTests
             return Task.CompletedTask;
         }
 
+        public IReadOnlyList<string> TrackedReservedPaths { get; init; } = [];
+
+        public int UntrackReservedPathsCalls { get; private set; }
+
+        public Task<IReadOnlyList<string>> GetTrackedReservedPathsAsync(
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(TrackedReservedPaths);
+        }
+
+        public Task UntrackReservedPathsAsync(
+            IReadOnlyList<string> reservedPaths,
+            CancellationToken cancellationToken)
+        {
+            UntrackReservedPathsCalls++;
+            return Task.CompletedTask;
+        }
+
         public Task PrefetchBranchLfsObjectsAsync(string name, CancellationToken cancellationToken)
         {
             PrefetchBranchLfsCalls++;
