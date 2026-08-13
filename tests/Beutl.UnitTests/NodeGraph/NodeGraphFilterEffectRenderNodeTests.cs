@@ -14,6 +14,7 @@ using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -523,6 +524,50 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.Value?.Dispose();
     }
 
+    [Test]
+    public void Preview_FullTargetClearUsesTheResolvedTargetExtent()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        using var clearRenderNode = new ClearRenderNode(Colors.CornflowerBlue);
+        var clearNode = new FixedRenderNodeGraphNode(clearRenderNode);
+        var previewNode = new PreviewNode();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(clearNode);
+        model.Nodes.Add(previewNode);
+        model.Nodes.Add(outputNode);
+        model.Connect(previewNode.Input, clearNode.Output);
+        model.Connect(outputNode.InputPort, clearNode.Output);
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(previewNode);
+        monitor.IsEnabled = true;
+        var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 16, 12));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 64, 48),
+                CacheOptions = RenderCacheOptions.Disabled,
+            },
+            TargetFactory = new CpuTargetFactory(),
+        });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(monitor.Value, Is.Not.Null,
+                "A Full target write must not be classified as empty from its zero-area query bounds.");
+            Assert.That(monitor.Value!.Value.Width, Is.EqualTo(64));
+            Assert.That(monitor.Value.Value.Height, Is.EqualTo(48));
+        });
+
+        monitor.Value?.Dispose();
+    }
+
     // The recording node observes its own local space, which every enclosing target scope separates from
     // root space, so a normalizing layer sized from the root request rect clips local content away.
     // The child paints at local (-40,-40,80,80) and the enclosing translate maps it to root (60,60,80,80).
@@ -1015,6 +1060,24 @@ public class NodeGraphFilterEffectRenderNodeTests
         CountingPassThroughGraphNode Shared,
         MeasureCaptureNode MeasureCapture,
         PreviewNode Preview);
+
+    private sealed class CpuTargetFactory : IRenderTargetFactory
+    {
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => new CpuRenderTarget(allocation.DeviceSize);
+    }
+
+    private sealed class CpuRenderTarget(PixelSize size)
+        : RenderTarget(
+            SKSurface.Create(new SKImageInfo(
+                    size.Width,
+                    size.Height,
+                    SKColorType.RgbaF16,
+                    SKAlphaType.Premul,
+                    SKColorSpace.CreateSrgbLinear()))
+                ?? throw new InvalidOperationException("Could not create a CPU NodeGraph preview test surface."),
+            size.Width,
+            size.Height);
 
 }
 

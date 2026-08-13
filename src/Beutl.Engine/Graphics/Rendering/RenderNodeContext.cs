@@ -1263,6 +1263,41 @@ public sealed class RenderNodeContext
         return new RenderFragmentMetadata(reference.RecordedBounds, reference.RecordedEffectiveScale);
     }
 
+    internal bool TryCalculateRecordedOutputExtent(
+        IReadOnlyList<RenderFragmentHandle> fragments,
+        out Rect extent)
+    {
+        ArgumentNullException.ThrowIfNull(fragments);
+        NodeRecordingTransaction transaction = GetTransaction();
+        Rect result = default;
+        foreach (RenderFragmentHandle fragment in fragments)
+        {
+            RenderFragmentReference reference = transaction.GetReference(fragment);
+            if (reference.ValueCardinality.Maximum != 0)
+            {
+                if (!reference.HasConcreteRecordingMetadata)
+                {
+                    extent = default;
+                    return false;
+                }
+
+                result = result.Union(reference.RecordedBounds);
+            }
+
+            if (!TargetWriteMetadataResolver.TryResolveFinite(reference, out Rect? affectedBounds))
+            {
+                extent = default;
+                return false;
+            }
+
+            if (affectedBounds is { } affected)
+                result = result.Union(affected);
+        }
+
+        extent = result;
+        return true;
+    }
+
     internal Func<Point, bool> GetRecordedHitTest(RenderFragmentHandle fragment)
         => GetTransaction().GetReference(fragment).HitTest;
 

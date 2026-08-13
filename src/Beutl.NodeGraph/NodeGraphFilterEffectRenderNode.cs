@@ -243,7 +243,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
         }
 
         IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(node);
-        if (outputs.Count == 0 || HasEmptyRecordedBounds(outputs))
+        if (outputs.Count == 0 || HasEmptyOutputExtent(outputs))
         {
             _previews.Add(new DeferredPreview([], replace));
             return;
@@ -296,7 +296,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
         RenderNode node,
         IReadOnlyList<RenderFragmentHandle> outputs)
     {
-        if (outputs.Count == 0 || HasEmptyRecordedBounds(outputs))
+        if (outputs.Count == 0 || HasEmptyOutputExtent(outputs))
         {
             throw new InvalidOperationException(
                 $"The shared node-graph subtree '{node.GetType().FullName}' cannot be normalized "
@@ -363,12 +363,12 @@ internal sealed class FilterEffectInputBinding : IDisposable
     /// owning-target lowering, which back-maps the root domain through those scopes.
     /// </remarks>
     private RenderFragmentHandle NormalizeToLayer(IReadOnlyList<RenderFragmentHandle> outputs)
-        => TryCalculateBounds(outputs, out Rect bounds)
+        => _context.TryCalculateRecordedOutputExtent(outputs, out Rect bounds)
             ? _context.Layer(outputs, bounds)
             : _context.OwningTargetLayer(outputs);
 
-    private static bool HasEmptyRecordedBounds(IReadOnlyList<RenderFragmentHandle> outputs)
-        => TryCalculateBounds(outputs, out Rect bounds)
+    private bool HasEmptyOutputExtent(IReadOnlyList<RenderFragmentHandle> outputs)
+        => _context.TryCalculateRecordedOutputExtent(outputs, out Rect bounds)
            && (bounds.Width == 0 || bounds.Height == 0);
 
     private Rect CalculateRecordedQueryBounds(IReadOnlyList<RenderFragmentHandle> fragments)
@@ -380,26 +380,6 @@ internal sealed class FilterEffectInputBinding : IDisposable
         }
 
         return result;
-    }
-
-    private static bool TryCalculateBounds(
-        IReadOnlyList<RenderFragmentHandle> fragments,
-        out Rect bounds)
-    {
-        Rect result = Rect.Empty;
-        foreach (RenderFragmentHandle fragment in fragments)
-        {
-            if (!fragment.TryGetMetadata(out RenderFragmentMetadata metadata))
-            {
-                bounds = Rect.Empty;
-                return false;
-            }
-
-            result = result.Union(metadata.Bounds);
-        }
-
-        bounds = result;
-        return true;
     }
 
     private static void ExecutePreview(
