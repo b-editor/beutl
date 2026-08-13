@@ -49,7 +49,8 @@ internal sealed class OpaqueRenderDescription
         IReadOnlyList<RenderInputReadback> inputReadbacks,
         IReadOnlyList<RenderResourceBinding> resources,
         RenderBackendBoundary backendBoundary,
-        Action<EngineDirectRenderSession>? directReplay)
+        Action<EngineDirectRenderSession>? directReplay,
+        bool hasDirectReplayMaterializationContract = false)
     {
         _execution = execution;
         Bounds = bounds;
@@ -62,6 +63,7 @@ internal sealed class OpaqueRenderDescription
         Resources = resources;
         BackendBoundary = backendBoundary;
         DirectReplay = directReplay;
+        HasDirectReplayMaterializationContract = hasDirectReplayMaterializationContract;
     }
 
     public OpaqueRenderBoundsContract Bounds { get; }
@@ -86,6 +88,8 @@ internal sealed class OpaqueRenderDescription
     internal RenderBackendBoundary BackendBoundary { get; }
 
     internal Action<EngineDirectRenderSession>? DirectReplay { get; }
+
+    internal bool HasDirectReplayMaterializationContract { get; }
 
     internal void ThrowIfIncompatible(OpaqueRenderTopology topology, string parameterName)
     {
@@ -131,7 +135,7 @@ internal sealed class OpaqueRenderDescription
             DefinitionFingerprint,
             DeviceGridSensitivity,
             BackendBoundary,
-            DirectReplay is not null);
+            HasDirectReplayMaterializationContract);
 
     internal OpaqueRenderDescription WithoutDirectReplay()
         => DirectReplay is null
@@ -147,7 +151,8 @@ internal sealed class OpaqueRenderDescription
                 InputReadbacks,
                 Resources,
                 BackendBoundary,
-                directReplay: null);
+                directReplay: null,
+                hasDirectReplayMaterializationContract: false);
 
     /// <param name="state">
     /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
@@ -286,7 +291,9 @@ internal sealed class OpaqueRenderDescription
             Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
             BindInternalResources(resources),
             RenderBackendBoundary.None,
-            directReplay);
+            directReplay,
+            hasDirectReplayMaterializationContract:
+                directReplay is not null && scale.DeclaresNoSupplyDensity);
     }
 
     internal static OpaqueRenderDescription CreateBackendBoundary(
@@ -1294,7 +1301,7 @@ internal readonly record struct OpaqueRenderStructuralIdentity(
     object DescriptionKey,
     RenderDeviceGridSensitivity DeviceGridSensitivity,
     RenderBackendBoundary BackendBoundary,
-    bool HasEngineDirectReplay);
+    bool HasDirectReplayMaterializationContract);
 
 internal sealed record EngineOpaqueDefinition(
     RenderBackendBoundary BackendBoundary,

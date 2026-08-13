@@ -478,10 +478,14 @@ internal sealed partial class RenderRequestExecutor
                     return;
                 case RenderFragmentKind.OpaqueMap:
                 case RenderFragmentKind.OpaqueExpand:
-                case RenderFragmentKind.FilterEffectSegment:
                 case RenderFragmentKind.MaterializedInput:
                 case RenderFragmentKind.Shader:
                 case RenderFragmentKind.Geometry:
+                    DrawMaterializedFragment(fragment, destination);
+                    return;
+                case RenderFragmentKind.FilterEffectSegment:
+                    if (TryReplayBuiltInSkiaFilterChainDirect(fragment, destination))
+                        return;
                     DrawMaterializedFragment(fragment, destination);
                     return;
                 case RenderFragmentKind.OpaqueCombine:

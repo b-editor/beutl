@@ -282,6 +282,15 @@ internal sealed partial class RenderRequestExecutor
         {
             Rect requiredRegion = ResolveFragmentRequirement(fragment, fragment.Bounds);
             var payload = (FilterEffectSegmentRenderFragmentPayload)fragment.Payload!;
+            if (FilterEffectSegmentDirectReplaySupport.CanMaterialize(fragment))
+            {
+                return ExecuteDirectSkiaFilterMaterialization(
+                    fragment,
+                    currentTarget,
+                    payload,
+                    requiredRegion);
+            }
+
             var inputs = new List<MaterializedRenderValue>();
             EffectiveScale inputRequestScale = fragment.EffectiveScale.IsUnbounded
                 ? EffectiveScale.At(currentTarget.Density)
@@ -304,15 +313,18 @@ internal sealed partial class RenderRequestExecutor
                         using var targets = new EffectTargets();
                         foreach (MaterializedRenderValue input in inputs)
                         {
+                            bool hasCompleteBacking = input.RasterBounds.Contains(input.CompleteBounds);
+                            Rect inputBounds = hasCompleteBacking ? input.CompleteBounds : input.Bounds;
                             targets.Add(new EffectTarget(
                                 input.Target,
-                                input.Bounds,
+                                inputBounds,
                                 input.EffectiveScale,
                                 input.DeviceBounds,
-                                input.DeviceGridOffset)
+                                input.DeviceGridOffset,
+                                input.PreserveLegacyRasterPlacement && hasCompleteBacking)
                             {
-                                OriginalBounds = new Rect(default, input.Bounds.Size),
-                                Bounds = input.Bounds,
+                                OriginalBounds = new Rect(default, inputBounds.Size),
+                                Bounds = inputBounds,
                             });
                         }
 
@@ -329,7 +341,8 @@ internal sealed partial class RenderRequestExecutor
                             (target, source) => AcquireStandaloneProgram(
                                 target,
                                 source),
-                            _drawableBrushMaterializer);
+                            _drawableBrushMaterializer,
+                            useExecutorManagedCanvas: true);
                         activator.Apply(effectContext);
                         activator.CompletePolicyBoundary(
                             payload.WorkingScalePolicy.HasValue);
@@ -343,7 +356,7 @@ internal sealed partial class RenderRequestExecutor
                             MaterializedRenderValue value = MaterializeLegacyTarget(
                                 target,
                                 renderTarget,
-                                fragment.Bounds);
+                                target.Bounds);
                             _ownedValues.Add(value);
 
                             // Cropping the input to the backward region leaves the surrounding output
@@ -357,11 +370,11 @@ internal sealed partial class RenderRequestExecutor
 
                             if (selectedBounds != value.Bounds)
                             {
-                                if (value.PreserveLegacyRasterPlacement)
+                                if (value.PreserveLegacyRasterPlacement
+                                    || value.RasterBounds.Contains(value.CompleteBounds))
                                 {
-                                    // A legacy raster-placement value draws from its allocation
-                                    // footprint rather than from Bounds, so narrowing it is a
-                                    // relabel that must not re-allocate or move the placement.
+                                    // Preserve a complete backing so later legacy effects can sample
+                                    // the physical footprint while Bounds remains the selected output.
                                     value.Bounds = selectedBounds;
                                 }
                                 else
@@ -385,6 +398,87 @@ internal sealed partial class RenderRequestExecutor
             {
                 foreach (RenderFragmentReference input in fragment.Inputs)
                     CompleteFragmentUse(input);
+            }
+        }
+
+        private IReadOnlyList<MaterializedRenderValue> ExecuteDirectSkiaFilterMaterialization(
+            RenderFragmentReference fragment,
+            ImmediateCanvas currentTarget,
+            FilterEffectSegmentRenderFragmentPayload payload,
+            Rect requiredRegion)
+        {
+            RenderFragmentReference input = fragment.Inputs[0];
+            if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
+            {
+                CompleteFragmentUse(input);
+                MarkExecutionSkipped(fragment);
+                return [];
+            }
+
+            float requestedDensity = fragment.EffectiveScale.IsUnbounded
+                ? currentTarget.Density
+                : fragment.EffectiveScale.Value;
+            EffectiveScale scale = ClampToActiveDeviceGrid(
+                fragment.Bounds,
+                EffectiveScale.At(requestedDensity));
+            MaterializedRenderValue? output = null;
+            bool succeeded = false;
+            bool replayStarted = false;
+            try
+            {
+                output = CreateOwnedValue(
+                    requiredRegion,
+                    scale,
+                    fragment.Bounds,
+                    allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+                using var builder = new SKImageFilterBuilder();
+                foreach (IFEItem item in payload.BoundsItems)
+                    ((IFEItem_Skia)item).AcceptsDirect(builder);
+
+                using var paint = builder.HasFilter()
+                    ? new SKPaint { ImageFilter = builder.GetFilter() }
+                    : null;
+                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                    output.DeviceBounds,
+                    output.DeviceGridOffset,
+                    scale.Value);
+                using var canvas = CreateExecutorCanvas(
+                    output.Target,
+                    scale.Value,
+                    _options.MaxWorkingScale,
+                    output.RasterBounds.Size,
+                    _options.Intent,
+                    output.DeviceBounds.Position);
+                using (canvas.PushTransform(Matrix.CreateTranslation(
+                           rasterTranslation.X,
+                           rasterTranslation.Y)))
+                {
+                    if (paint is not null)
+                    {
+                        using (canvas.PushBlendMode(BlendMode.SrcOver))
+                        using (canvas.PushTransform(Matrix.Identity))
+                        using (canvas.PushPaint(paint))
+                        {
+                            replayStarted = true;
+                            Replay(input, canvas);
+                        }
+                    }
+                    else
+                    {
+                        replayStarted = true;
+                        Replay(input, canvas);
+                    }
+                }
+
+                succeeded = true;
+                return [output];
+            }
+            finally
+            {
+                if (!replayStarted)
+                    CompleteFragmentUse(input);
+                if (!succeeded && output is not null)
+                    ReleaseUnpublished(output);
             }
         }
 

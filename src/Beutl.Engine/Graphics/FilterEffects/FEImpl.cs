@@ -20,6 +20,8 @@ internal record FEItem_Skia<T>(
     T Data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> Factory, Func<T, Rect, Rect> TransformBounds)
     : FEItem<T>(Data, TransformBounds), IFEItem_Skia
 {
+    public Func<T, SKImageFilter?, SKImageFilter?>? DirectFactory { get; init; }
+
     /// <summary>
     /// Resolves <see cref="IFEItem.TransformBounds"/> from the combined execution-time target
     /// bounds when authoring-time bounds are unavailable (symbolic input).
@@ -48,6 +50,13 @@ internal record FEItem_Skia<T>(
     {
         builder.AppendSkiaFilter(Data, activator, Factory);
     }
+
+    public bool SupportsDirectReplay => DirectFactory is not null;
+
+    public void AcceptsDirect(SKImageFilterBuilder builder)
+    {
+        builder.AppendSkiaFilter(Data, DirectFactory!);
+    }
 }
 
 internal record FEItem_SKColorFilter<T>(
@@ -67,11 +76,20 @@ internal record FEItem_SKColorFilter<T>(
     {
         builder.AppendSKColorFilter(Data, activator, Factory);
     }
+
+    public bool SupportsDirectReplay => false;
+
+    public void AcceptsDirect(SKImageFilterBuilder builder)
+        => throw new InvalidOperationException("This color filter has no direct-replay factory.");
 }
 
 internal interface IFEItem_Skia
 {
     void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder);
+
+    bool SupportsDirectReplay { get; }
+
+    void AcceptsDirect(SKImageFilterBuilder builder);
 
     /// <summary>
     /// When true, the bounds mapping is resolved from the combined execution-time target

@@ -276,7 +276,7 @@ internal sealed partial class RenderRequestExecutor
                         density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
                             outputBounds.Translate(_activeDeviceGridOffset),
                             density);
-                        bool preserveRasterApron = description.DirectReplay is not null
+                        bool preserveRasterApron = description.HasDirectReplayMaterializationContract
                                                    && fragment.Kind == RenderFragmentKind.OpaqueSource;
                         density = RenderMaterializationDensityPolicy.Clamp(
                             fragment,

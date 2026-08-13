@@ -280,6 +280,23 @@ public sealed class FilterEffectContext : IDisposable
         });
     }
 
+    private void AppendDirectSkiaFilter<T>(
+        T data,
+        Func<T, SKImageFilter?, SKImageFilter?> factory,
+        Func<T, Rect, Rect> transformBounds,
+        Func<T, Rect, Rect>? transformSamplingBounds = null)
+        where T : IEquatable<T>
+    {
+        AppendDescription(new FEItem_Skia<T>(
+            data,
+            (value, input, _) => factory(value, input),
+            transformBounds)
+        {
+            DirectFactory = factory,
+            TransformSamplingBounds = transformSamplingBounds,
+        });
+    }
+
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void AppendSKColorFilter<T>(T data, Func<T, FilterEffectActivator, SKColorFilter?> factory)
         where T : IEquatable<T>
@@ -322,9 +339,9 @@ public sealed class FilterEffectContext : IDisposable
         if (sigma.Height < 0)
             sigma = sigma.WithHeight(0);
 
-        AppendSkiaFilter(
+        AppendDirectSkiaFilter(
             data: sigma,
-            factory: static (sigma, input, _) =>
+            factory: static (sigma, input) =>
             {
                 if (sigma.Width == 0 && sigma.Height == 0)
                     return null;

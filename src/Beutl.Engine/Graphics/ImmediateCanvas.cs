@@ -11,6 +11,7 @@ namespace Beutl.Graphics;
 internal enum ImmediateCanvasFlushKind : byte
 {
     CanvasClose,
+    CanvasSubmit,
     SourceSurface,
     PrepareForSampling,
 }
@@ -54,6 +55,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private bool _productRectangleCoverage;
     private int _callbackStateFloor;
     private readonly bool _flushOnDispose;
+    private bool _allowDeferredSameContextSampling;
+    private bool _submitOnDispose;
 
     public ImmediateCanvas(RenderTarget renderTarget, float density = 1f,
         float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default,
@@ -124,6 +127,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _currentDensity = parent._currentDensity;
         _directBlendMode = parent._directBlendMode;
         _productRectangleCoverage = parent._productRectangleCoverage;
+        _allowDeferredSameContextSampling = parent._allowDeferredSameContextSampling;
         MaxWorkingScale = parent.MaxWorkingScale;
         Intent = parent.Intent;
         DrawableBrushMaterializer = parent.DrawableBrushMaterializer;
@@ -245,6 +249,19 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             flushOnDispose: false,
             deviceOrigin);
 
+    internal void ConfigureCustomEffectExecution()
+    {
+        VerifyAccess();
+        if (_flushOnDispose)
+        {
+            throw new InvalidOperationException(
+                "Custom-effect execution requires an executor-managed canvas.");
+        }
+
+        _allowDeferredSameContextSampling = true;
+        _submitOnDispose = true;
+    }
+
     internal static IDisposable ObserveFlushes(Action<ImmediateCanvasFlushKind> observer)
     {
         ArgumentNullException.ThrowIfNull(observer);
@@ -334,11 +351,15 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         if (!disposing)
         {
-            GpuResourceRelease.DispatchFinalizer(_dispatcher, () => CloseCore(_flushOnDispose));
+            GpuResourceRelease.DispatchFinalizer(
+                _dispatcher,
+                () => CloseCore(_flushOnDispose, _submitOnDispose));
             return;
         }
 
-        GpuResourceRelease.Run(_dispatcher, () => CloseCore(_flushOnDispose));
+        GpuResourceRelease.Run(
+            _dispatcher,
+            () => CloseCore(_flushOnDispose, _submitOnDispose));
     }
 
     public void DrawSurface(SKSurface surface, Point point)
@@ -352,8 +373,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         RecordPixelOperation();
         Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
 
-        surface.Flush(true, true);
-        RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
+        if (!CanConsumeWithoutFlush(surface))
+        {
+            surface.Flush(true, true);
+            RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
+        }
     }
 
     public void DrawRenderTarget(RenderTarget renderTarget, Point point)
@@ -369,16 +393,40 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         RecordPixelOperation();
         Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
 
-        renderTarget.Value.Flush(true, true);
-        RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
+        if (!CanConsumeWithoutFlush(renderTarget))
+        {
+            renderTarget.Value.Flush(true, true);
+            RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
+        }
     }
 
     // Draw a buffer into a logical destination rect.
     public void DrawRenderTargetScaled(RenderTarget renderTarget, Rect dest)
-        => DrawRenderTargetScaledCore(renderTarget, dest, flushSource: true);
+        => DrawRenderTargetScaledCore(
+            renderTarget,
+            dest,
+            flushSource: !CanConsumeWithoutFlush(renderTarget));
 
     internal void DrawRenderTargetScaledWithoutFlush(RenderTarget renderTarget, Rect dest)
         => DrawRenderTargetScaledCore(renderTarget, dest, flushSource: false);
+
+    private bool CanConsumeWithoutFlush(RenderTarget renderTarget)
+    {
+        renderTarget.VerifyAccess();
+        return CanConsumeWithoutFlush(renderTarget.Value);
+    }
+
+    private bool CanConsumeWithoutFlush(SKSurface surface)
+    {
+        if (!_allowDeferredSameContextSampling || _flushOnDispose)
+            return false;
+
+        GRRecordingContext? destinationContext = _renderTarget.Value.Context;
+        GRRecordingContext? sourceContext = surface.Context;
+        return destinationContext is null
+            ? sourceContext is null
+            : sourceContext is not null && destinationContext.Handle == sourceContext.Handle;
+    }
 
     internal bool CanDrawPixelAligned(
         Rect dest,
@@ -564,8 +612,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         RecordPixelOperation();
         Canvas.DrawImage(image, src, dest, s_compositeSampling, _sharedFillPaint);
 
-        surface.Flush(true, true);
-        RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
+        if (!CanConsumeWithoutFlush(surface))
+        {
+            surface.Flush(true, true);
+            RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
+        }
     }
 
     public void DrawDrawable(Drawable.Resource drawable)
@@ -1264,11 +1315,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         if (_dispatcher == null)
         {
-            CloseCore(flush: false);
+            CloseCore(flush: false, submit: false);
         }
         else
         {
-            _dispatcher.Invoke(() => CloseCore(flush: false));
+            _dispatcher.Invoke(() => CloseCore(flush: false, submit: false));
         }
     }
 
@@ -1332,7 +1383,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    private void CloseCore(bool flush)
+    private void CloseCore(bool flush, bool submit)
     {
         // Must suppress the finalizer before any backend operation that might throw.
         IsDisposed = true;
@@ -1344,6 +1395,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 context.SkiaContext.Flush(true, true);
                 RecordFlush(ImmediateCanvasFlushKind.CanvasClose);
                 GpuResourceReclaimQueue.DrainAfterContextSync();
+            }
+            else if (submit && _renderTarget.Value.Context is GRContext submitContext)
+            {
+                submitContext.Flush(true, false);
+                RecordFlush(ImmediateCanvasFlushKind.CanvasSubmit);
             }
 
             while (_states.TryPop(out CanvasPushedState? state))

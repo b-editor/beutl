@@ -11,6 +11,7 @@ public class CustomFilterEffectContext
     private static readonly ILogger s_logger = Log.CreateLogger("CustomFilterEffectContext");
     private readonly Vector _deviceGridOffset;
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
+    private readonly bool _useExecutorManagedCanvas;
 
     internal CustomFilterEffectContext(
         EffectTargets targets,
@@ -20,7 +21,8 @@ public class CustomFilterEffectContext
         float workingScale = 1f,
         float maxWorkingScale = float.PositiveInfinity,
         Vector? deviceGridOffset = null,
-        DrawableBrushMaterializer? drawableBrushMaterializer = null)
+        DrawableBrushMaterializer? drawableBrushMaterializer = null,
+        bool useExecutorManagedCanvas = false)
     {
         if (!Enum.IsDefined(intent))
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
@@ -36,6 +38,7 @@ public class CustomFilterEffectContext
         Intent = intent;
         Purpose = purpose;
         _drawableBrushMaterializer = drawableBrushMaterializer;
+        _useExecutorManagedCanvas = useExecutorManagedCanvas;
     }
 
     public EffectTargets Targets { get; }
@@ -66,6 +69,8 @@ public class CustomFilterEffectContext
     public RenderRequestPurpose Purpose { get; }
 
     internal DrawableBrushMaterializer? DrawableBrushMaterializer => _drawableBrushMaterializer;
+
+    internal bool UsesExecutorManagedCanvas => _useExecutorManagedCanvas;
 
     internal BrushConstructor CreateBrushConstructor(
         Rect bounds,
@@ -385,12 +390,27 @@ public class CustomFilterEffectContext
 
         // Prefer the target's concrete Scale (may be clamped below WorkingScale by CreateTarget).
         float density = target.Scale.IsUnbounded ? WorkingScale : target.Scale.Value;
-        var canvas = new ImmediateCanvas(
-            target.RenderTarget,
-            density,
-            MaxWorkingScale,
-            logicalSize: target.Bounds.Size,
-            intent: Intent);
+        ImmediateCanvas canvas;
+        if (_useExecutorManagedCanvas)
+        {
+            canvas = ImmediateCanvas.CreateExecutorManaged(
+                target.RenderTarget,
+                density,
+                MaxWorkingScale,
+                target.Bounds.Size,
+                Intent);
+            canvas.ConfigureCustomEffectExecution();
+        }
+        else
+        {
+            canvas = new ImmediateCanvas(
+                target.RenderTarget,
+                density,
+                MaxWorkingScale,
+                logicalSize: target.Bounds.Size,
+                intent: Intent);
+        }
+
         canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
         return canvas;
     }

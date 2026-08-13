@@ -32,6 +32,16 @@ internal sealed partial class RenderRequestExecutor
                 return false;
             }
 
+            if (!fragment.EffectiveScale.IsUnbounded
+                && (fragment.EffectiveScale.Value != destination.Density
+                    || !DirectRenderTargetGeometry.FromCanvas(destination).CanDrawPixelAligned(
+                        fragment.Bounds,
+                        fragment.EffectiveScale.Value,
+                        PixelRect.FromRect(fragment.Bounds, fragment.EffectiveScale.Value).Size)))
+            {
+                return false;
+            }
+
             var inputs = new List<MaterializedRenderValue>();
             EffectiveScale outputSupply = fragment.EffectiveScale.IsUnbounded
                 ? EffectiveScale.At(destination.Density)
@@ -170,6 +180,127 @@ internal sealed partial class RenderRequestExecutor
             {
                 CompleteFragmentUse(run.Input);
             }
+        }
+
+        private bool TryReplayBuiltInSkiaFilterChainDirect(
+            RenderFragmentReference fragment,
+            ImmediateCanvas destination)
+        {
+            var chain = new List<(
+                RenderFragmentReference Fragment,
+                FilterEffectSegmentRenderFragmentPayload Payload)>();
+            RenderFragmentReference input = fragment;
+            while (TryGetDirectSkiaFilterSegment(input, destination, out var payload))
+            {
+                chain.Add((input, payload));
+                input = input.Inputs[0];
+            }
+
+            if (chain.Count == 0)
+                return false;
+
+            IReadOnlyList<MaterializedRenderValue>? materializedInput = null;
+            if (input.ValueCardinality.Maximum is > 1 or null)
+            {
+                if (!input.ContributesValuesToTarget)
+                    return false;
+
+                materializedInput = Materialize(
+                    input,
+                    destination,
+                    input.EffectiveScale.IsUnbounded
+                        ? EffectiveScale.At(destination.Density)
+                        : null);
+                if (materializedInput.Count > 1)
+                    return false;
+            }
+
+            using var builder = new SKImageFilterBuilder();
+            for (int segmentIndex = chain.Count - 1; segmentIndex >= 0; segmentIndex--)
+            {
+                foreach (IFEItem item in chain[segmentIndex].Payload.BoundsItems)
+                    ((IFEItem_Skia)item).AcceptsDirect(builder);
+            }
+
+            using var paint = builder.HasFilter()
+                ? new SKPaint { ImageFilter = builder.GetFilter() }
+                : null;
+            ExecuteSegment(chainIndex: 0);
+            return true;
+
+            void ExecuteSegment(int chainIndex)
+            {
+                (RenderFragmentReference current, _) = chain[chainIndex];
+                ExecuteReplayIsland(
+                    current,
+                    () =>
+                    {
+                        int nextIndex = chainIndex + 1;
+                        if (nextIndex < chain.Count)
+                        {
+                            ExecuteSegment(nextIndex);
+                            CompleteFragmentUse(chain[nextIndex].Fragment);
+                        }
+                        else if (paint is not null)
+                        {
+                            using (destination.PushBlendMode(BlendMode.SrcOver))
+                            using (destination.PushTransform(Matrix.Identity))
+                            using (destination.PushPaint(paint))
+                            {
+                                ReplayInput();
+                            }
+                        }
+                        else
+                        {
+                            ReplayInput();
+                        }
+                    });
+            }
+
+            void ReplayInput()
+            {
+                if (materializedInput is null)
+                {
+                    Replay(input, destination);
+                    return;
+                }
+
+                if (materializedInput.Count == 1)
+                    DrawValues(materializedInput, destination);
+                else
+                    MarkExecutionSkipped(chain[^1].Fragment);
+                CompleteFragmentUse(input);
+            }
+        }
+
+        private bool TryGetDirectSkiaFilterSegment(
+            RenderFragmentReference fragment,
+            ImmediateCanvas destination,
+            out FilterEffectSegmentRenderFragmentPayload payload)
+        {
+            payload = null!;
+            if (!fragment.ContributesValuesToTarget
+                || fragment.Inputs.Length != 1
+                || _values.ContainsKey(fragment)
+                || fragment.Id is { } id
+                    && (_cacheHits.ContainsKey(id) || _cacheMisses.ContainsKey(id))
+                || _resourceUses.GetRemainingUseCount(fragment) != 1
+                || !fragment.EffectiveScale.IsUnbounded
+                    && fragment.EffectiveScale.Value != destination.Density
+                || !fragment.Inputs[0].EffectiveScale.IsUnbounded
+                    && fragment.Inputs[0].EffectiveScale.Value != destination.Density
+                || !DirectRenderTargetGeometry.FromCanvas(destination).CanDrawPixelAligned(
+                    fragment.Bounds,
+                    destination.Density,
+                    PixelRect.FromRect(fragment.Bounds, destination.Density).Size)
+                || fragment.Payload is not FilterEffectSegmentRenderFragmentPayload directPayload
+                || !directPayload.SupportsDirectReplay)
+            {
+                return false;
+            }
+
+            payload = directPayload;
+            return true;
         }
 
         private void DrawMaterializedFragment(

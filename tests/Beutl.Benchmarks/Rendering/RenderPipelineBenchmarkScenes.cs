@@ -17,6 +17,7 @@ internal enum RenderPipelineBenchmarkBarrier
     None,
     WholeSourceShader,
     SpatialEffect,
+    CustomEffect,
     TargetDependency,
 }
 
@@ -146,8 +147,15 @@ internal static class RenderPipelineBenchmarkScenes
             semanticStageCount: 6,
             animation: RenderPipelineBenchmarkAnimation.ParameterOnly,
             hasStaticPrefixCache: true),
-        // Spatial stages leave the fusible shader path. These two pin how their cost scales with depth,
-        // separating one effect node holding a group from a stack of one-effect nodes.
+        new(
+            "StaticSpatialPrefixAnimatedBlurTail",
+            SourceSeed + 20,
+            semanticStageCount: 2,
+            animation: RenderPipelineBenchmarkAnimation.ParameterOnly,
+            barrier: RenderPipelineBenchmarkBarrier.SpatialEffect,
+            hasStaticPrefixCache: true),
+        // Spatial stages leave the fusible shader path. These workloads share one source so topology,
+        // CustomEffect boundaries, and mixed-segment costs can be compared without input noise.
         new(
             "SpatialGroupChain",
             SourceSeed + 20,
@@ -155,9 +163,19 @@ internal static class RenderPipelineBenchmarkScenes
             barrier: RenderPipelineBenchmarkBarrier.SpatialEffect),
         new(
             "SpatialNodeChain",
-            SourceSeed + 21,
+            SourceSeed + 20,
             semanticStageCount: 3,
             barrier: RenderPipelineBenchmarkBarrier.SpatialEffect),
+        new(
+            "LayerCustomEffect",
+            SourceSeed + 20,
+            semanticStageCount: 1,
+            barrier: RenderPipelineBenchmarkBarrier.CustomEffect),
+        new(
+            "BlurCustomBlur",
+            SourceSeed + 20,
+            semanticStageCount: 3,
+            barrier: RenderPipelineBenchmarkBarrier.CustomEffect),
         new(
             "MixedSpatialColor",
             SourceSeed + 8,

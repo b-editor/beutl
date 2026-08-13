@@ -316,7 +316,7 @@ internal static class RenderMaterializationDensityPolicy
         if (fragment.Kind == RenderFragmentKind.OpaqueSource
             && fragment.Payload is OpaqueRenderFragmentPayload opaque)
         {
-            return opaque.Description.DirectReplay is not null;
+            return opaque.Description.HasDirectReplayMaterializationContract;
         }
 
         return fragment.Kind == RenderFragmentKind.TargetScope
@@ -1141,7 +1141,7 @@ internal sealed class RenderCacheResolver
             && targetScope.Description.IsValueReplayMap
             || reference.Kind == RenderFragmentKind.OpaqueSource
             && reference.Payload is OpaqueRenderFragmentPayload opaque
-            && opaque.Description.DirectReplay is not null;
+            && opaque.Description.HasDirectReplayMaterializationContract;
         if (requiresRasterApron)
         {
             deviceBounds = RenderScaleUtilities.AddRasterApron(deviceBounds);
@@ -1176,7 +1176,8 @@ internal sealed class RenderCacheResolver
                 continue;
             if (current.Kind is RenderFragmentKind.RawTargetScope
                 or RenderFragmentKind.RawTargetCommand
-                or RenderFragmentKind.FilterEffectSegment)
+                || current.Kind == RenderFragmentKind.FilterEffectSegment
+                && !FilterEffectSegmentDirectReplaySupport.CanMaterialize(current))
             {
                 return true;
             }
@@ -1344,7 +1345,7 @@ internal sealed class RenderCacheResolver
                 bool declaresPhaseDependence = opaque.Description.DeviceGridSensitivity
                                                == RenderDeviceGridSensitivity.PhaseDependent;
                 bool isDrawableBrushHost = reference.Kind == RenderFragmentKind.OpaqueCombine
-                                           && opaque.Description.DirectReplay is not null;
+                                           && opaque.Description.HasDirectReplayMaterializationContract;
                 if (declaresPhaseDependence || isDrawableBrushHost)
                     return true;
             }

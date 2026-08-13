@@ -331,13 +331,12 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             throw new InvalidOperationException("The primary workload did not execute its fused three-stage chain.");
         }
 
-        // A whole-source shader barrier splits the shader runs; a spatial barrier leaves the shader path
-        // entirely, so its evidence is the intermediate it is forced to allocate.
+        // Built-in spatial filters may replay directly, but a whole-source shader still splits shader runs.
+        // CustomEffect topology is pinned by the benchmark unit test because its own target is not leased from
+        // the renderer pool and therefore cannot be inferred from IntermediateTargetAcquisitions.
         long barrierEvidence = scene.Barrier switch
         {
             RenderPipelineBenchmarkBarrier.WholeSourceShader => counters.GetValueOrDefault("ShaderRunExecutions"),
-            RenderPipelineBenchmarkBarrier.SpatialEffect
-                => counters.GetValueOrDefault("IntermediateTargetAcquisitions"),
             _ => long.MaxValue,
         };
         if (barrierEvidence < 1)
@@ -466,9 +465,15 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             "ParameterOnlyAnimation" => CreateAnimatedChain(scene, animatedNodes),
             "StructuralToggle" => CreateStructuralToggle(scene, animatedNodes),
             "StaticPrefixAnimatedTail" => CreateStaticPrefix(scene, animatedNodes),
+            "StaticSpatialPrefixAnimatedBlurTail" => CreateStaticSpatialPrefix(
+                scene,
+                animatedNodes,
+                sceneResources),
             "MixedSpatialColor" => CreateMixedChain(scene, sceneResources),
             "SpatialGroupChain" => CreateSpatialGroupChain(scene, sceneResources),
             "SpatialNodeChain" => CreateSpatialNodeChain(scene, sceneResources),
+            "LayerCustomEffect" => CreateCustomEffectChain(scene, sceneResources, mixed: false),
+            "BlurCustomBlur" => CreateCustomEffectChain(scene, sceneResources, mixed: true),
             "SmallObjectFixedOverhead" => CreateSmallObject(scene),
             "MultipleDrawablesTargetDependencies" => CreateMultipleRoots(scene),
             _ => throw new ArgumentOutOfRangeException(nameof(scene), scene.Name, "Unknown benchmark scene."),
@@ -535,6 +540,33 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         return WrapShader(current, BenchmarkShader.ChannelRotate);
     }
 
+    private static RenderNode CreateStaticSpatialPrefix(
+        RenderPipelineBenchmarkSceneDefinition scene,
+        List<IFrameStateConsumer> animatedNodes,
+        List<IDisposable> sceneResources)
+    {
+        FilterEffect.Resource prefixResource = new Blur
+        {
+            Sigma = { CurrentValue = new Size(3, 3) },
+        }.ToResource(CompositionContext.Default);
+        sceneResources.Add(prefixResource);
+        FilterEffectRenderNode prefix = prefixResource.CreateRenderNode();
+        prefix.AddChild(CreateSource(scene, s_targetDomain));
+
+        var cacheBoundary = new BenchmarkCacheBoundaryNode();
+        cacheBoundary.AddChild(prefix);
+        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
+            cacheBoundary.Cache.RecordSuccessfulStableRequest();
+
+        var tailEffect = new Blur();
+        FilterEffect.Resource tailResource = tailEffect.ToResource(CompositionContext.Default);
+        sceneResources.Add(tailResource);
+        FilterEffectRenderNode tail = tailResource.CreateRenderNode();
+        tail.AddChild(cacheBoundary);
+        animatedNodes.Add(new BenchmarkAnimatedBlurNode(tailEffect, tailResource, tail));
+        return tail;
+    }
+
     private static RenderNode CreateMixedChain(
         RenderPipelineBenchmarkSceneDefinition scene,
         List<IDisposable> sceneResources)
@@ -585,6 +617,33 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
 
         return current;
     }
+
+    private static RenderNode CreateCustomEffectChain(
+        RenderPipelineBenchmarkSceneDefinition scene,
+        List<IDisposable> sceneResources,
+        bool mixed)
+    {
+        FilterEffect effect = CreateCustomEffect(mixed);
+        FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        sceneResources.Add(resource);
+        FilterEffectRenderNode node = resource.CreateRenderNode();
+        node.AddChild(CreateSource(scene, s_targetDomain));
+        return node;
+    }
+
+    private static FilterEffect CreateCustomEffect(bool mixed)
+    {
+        var group = new FilterEffectGroup();
+        if (mixed)
+            group.Children.Add(new Blur { Sigma = { CurrentValue = new Size(3, 3) } });
+        group.Children.Add(new LayerEffect());
+        if (mixed)
+            group.Children.Add(new Blur { Sigma = { CurrentValue = new Size(4, 4) } });
+        return group;
+    }
+
+    internal static FilterEffect CreateCustomEffectForTest(bool mixed)
+        => CreateCustomEffect(mixed);
 
     private static Blur CreateMixedSpatialEffect()
     {
@@ -840,7 +899,11 @@ internal sealed class BenchmarkAnimatedShaderNode : ContainerRenderNode, IFrameS
 
     public void Apply(RenderPipelineBenchmarkFrameState state)
     {
+        if (_amount.Equals(state.AnimatedAmount))
+            return;
+
         _amount = state.AnimatedAmount;
+        HasChanges = true;
     }
 
     public override void Process(RenderNodeContext context)
@@ -852,6 +915,28 @@ internal sealed class BenchmarkAnimatedShaderNode : ContainerRenderNode, IFrameS
             bindings => bindings.Uniform("amount", amount));
         foreach (RenderFragmentHandle input in context.Inputs)
             context.Publish(context.Shader(input, description));
+    }
+}
+
+internal sealed class BenchmarkAnimatedBlurNode(
+    Blur effect,
+    FilterEffect.Resource resource,
+    FilterEffectRenderNode node) : IFrameStateConsumer
+{
+    private float _sigma;
+
+    public void Apply(RenderPipelineBenchmarkFrameState state)
+    {
+        float sigma = 1 + ((state.AnimatedAmount - 0.75f) * 8);
+        if (_sigma.Equals(sigma))
+            return;
+
+        _sigma = sigma;
+        effect.Sigma.CurrentValue = new Size(sigma, sigma);
+        bool updateOnly = false;
+        resource.Update(effect, CompositionContext.Default, ref updateOnly);
+        if (!node.Update(resource))
+            throw new InvalidOperationException("The animated Blur resource did not publish its changed sigma.");
     }
 }
 

@@ -16,6 +16,7 @@ public sealed class FilterEffectActivator : IDisposable
     private readonly SkRuntimeEffectProgramAcquirer? _injectedProgramAcquirer;
     private readonly Vector? _deviceGridOffset;
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
+    private readonly bool _useExecutorManagedCanvas;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
     private bool _customEffectBoundaryMaterialized;
@@ -38,7 +39,9 @@ public sealed class FilterEffectActivator : IDisposable
             maxWorkingScale,
             acquireProgram: null,
             deviceGridOffset: null,
-            ownsProgramCache: true)
+            ownsProgramCache: true,
+            drawableBrushMaterializer: null,
+            useExecutorManagedCanvas: false)
     {
     }
 
@@ -51,7 +54,8 @@ public sealed class FilterEffectActivator : IDisposable
         float workingScale,
         float maxWorkingScale,
         Vector deviceGridOffset,
-        DrawableBrushMaterializer? drawableBrushMaterializer = null)
+        DrawableBrushMaterializer? drawableBrushMaterializer = null,
+        bool useExecutorManagedCanvas = false)
         : this(
             targets,
             builder,
@@ -63,7 +67,8 @@ public sealed class FilterEffectActivator : IDisposable
             acquireProgram: null,
             deviceGridOffset,
             ownsProgramCache: true,
-            drawableBrushMaterializer)
+            drawableBrushMaterializer,
+            useExecutorManagedCanvas)
     {
     }
 
@@ -77,7 +82,8 @@ public sealed class FilterEffectActivator : IDisposable
         float maxWorkingScale,
         Vector deviceGridOffset,
         SkRuntimeEffectProgramAcquirer acquireProgram,
-        DrawableBrushMaterializer? drawableBrushMaterializer = null)
+        DrawableBrushMaterializer? drawableBrushMaterializer = null,
+        bool useExecutorManagedCanvas = false)
         : this(
             targets,
             builder,
@@ -89,7 +95,8 @@ public sealed class FilterEffectActivator : IDisposable
             acquireProgram ?? throw new ArgumentNullException(nameof(acquireProgram)),
             deviceGridOffset,
             ownsProgramCache: false,
-            drawableBrushMaterializer)
+            drawableBrushMaterializer,
+            useExecutorManagedCanvas)
     {
     }
 
@@ -104,7 +111,8 @@ public sealed class FilterEffectActivator : IDisposable
         SkRuntimeEffectProgramAcquirer? acquireProgram,
         Vector? deviceGridOffset,
         bool ownsProgramCache,
-        DrawableBrushMaterializer? drawableBrushMaterializer = null)
+        DrawableBrushMaterializer? drawableBrushMaterializer,
+        bool useExecutorManagedCanvas)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
@@ -122,6 +130,7 @@ public sealed class FilterEffectActivator : IDisposable
         Purpose = purpose;
         _deviceGridOffset = deviceGridOffset;
         _drawableBrushMaterializer = drawableBrushMaterializer;
+        _useExecutorManagedCanvas = useExecutorManagedCanvas;
         if (!ownsProgramCache)
         {
             _injectedProgramAcquirer = acquireProgram
@@ -326,10 +335,11 @@ public sealed class FilterEffectActivator : IDisposable
                     deviceBounds,
                     outputDeviceGridOffset,
                     w);
-                using (var canvas = new ImmediateCanvas(surface, w, MaxWorkingScale,
-                           logicalSize: rasterBounds.Size, intent: Intent))
+                using (ImmediateCanvas canvas = CreateExecutionCanvas(
+                           surface,
+                           w,
+                           rasterBounds.Size))
                 {
-                    canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
                     canvas.Clear();
                     using (canvas.PushTransform(
                                Matrix.CreateTranslation(
@@ -575,7 +585,8 @@ public sealed class FilterEffectActivator : IDisposable
                             WorkingScale,
                             MaxWorkingScale,
                             _deviceGridOffset,
-                            _drawableBrushMaterializer);
+                            _drawableBrushMaterializer,
+                            _useExecutorManagedCanvas);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -653,7 +664,8 @@ public sealed class FilterEffectActivator : IDisposable
             _deviceGridOffset
                 ?? (cloned.Count > 0 ? cloned[0].DeviceGridOffset : default),
             GetProgramAcquirer(),
-            _drawableBrushMaterializer);
+            _drawableBrushMaterializer,
+            _useExecutorManagedCanvas);
 
         activator.Apply(context);
         activator.Flush(false);
@@ -693,4 +705,34 @@ public sealed class FilterEffectActivator : IDisposable
     private readonly record struct FlushTarget(
         Rect InputBounds,
         Rect PhysicalBounds);
+
+    private ImmediateCanvas CreateExecutionCanvas(
+        RenderTarget target,
+        float density,
+        Size logicalSize)
+    {
+        ImmediateCanvas canvas;
+        if (_useExecutorManagedCanvas)
+        {
+            canvas = ImmediateCanvas.CreateExecutorManaged(
+                target,
+                density,
+                MaxWorkingScale,
+                logicalSize,
+                Intent);
+            canvas.ConfigureCustomEffectExecution();
+        }
+        else
+        {
+            canvas = new ImmediateCanvas(
+                target,
+                density,
+                MaxWorkingScale,
+                logicalSize,
+                Intent);
+        }
+
+        canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
+        return canvas;
+    }
 }

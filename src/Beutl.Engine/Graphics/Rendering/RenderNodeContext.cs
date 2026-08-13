@@ -549,7 +549,7 @@ public sealed class RenderNodeContext
                 .ToArray());
         OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
             execute: source.Execute,
-            directReplay: scale.DeclaresNoSupplyDensity && !ContainsDrawableBrush(fill, pen)
+            directReplay: !ContainsDrawableBrush(fill, pen)
                 ? source.ExecuteDirect
                 : null,
             bounds: OpaqueRenderBoundsContract.Source(outputBounds),
@@ -602,7 +602,7 @@ public sealed class RenderNodeContext
             contributesValuesToTarget: true,
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
-            hasOpaqueExternalWork: description.DirectReplay is null,
+            hasOpaqueExternalWork: !description.HasDirectReplayMaterializationContract,
             inputs: null,
             new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Source, description, inputReadbacks),
             hitTest);
@@ -1518,7 +1518,53 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
     RenderResource<FilterEffectContext> Context,
     ImmutableArray<IFEItem> BoundsItems,
     FilterEffectWorkingScalePolicy? WorkingScalePolicy,
-    int StreamInputCount);
+    int StreamInputCount)
+{
+    public bool SupportsDirectReplay
+        => StreamInputCount == 1
+           && !BoundsItems.IsDefaultOrEmpty
+           && BoundsItems.All(static item =>
+               item is IFEItem_Skia
+               {
+                   SupportsDirectReplay: true,
+                   ResolveBoundsAtExecutionTime: false,
+               });
+}
+
+internal static class FilterEffectSegmentDirectReplaySupport
+{
+    public static bool CanMaterialize(RenderFragmentReference fragment)
+    {
+        if (!fragment.ContributesValuesToTarget || !TryGetPayload(fragment, out _))
+            return false;
+
+        RenderFragmentReference input = fragment.Inputs[0];
+        while (TryGetPayload(input, out _))
+            input = input.Inputs[0];
+
+        return input.ContributesValuesToTarget
+               && input.ValueCardinality.Equals(RenderValueCardinality.Single);
+    }
+
+    private static bool TryGetPayload(
+        RenderFragmentReference fragment,
+        out FilterEffectSegmentRenderFragmentPayload payload)
+    {
+        if (fragment.Kind == RenderFragmentKind.FilterEffectSegment
+            && fragment.Inputs.Length == 1
+            && fragment.Payload is FilterEffectSegmentRenderFragmentPayload
+            {
+                SupportsDirectReplay: true,
+            } directPayload)
+        {
+            payload = directPayload;
+            return true;
+        }
+
+        payload = null!;
+        return false;
+    }
+}
 
 internal sealed record MaterializedInputRenderFragmentPayload(
     MaterializedInputDescription Description);

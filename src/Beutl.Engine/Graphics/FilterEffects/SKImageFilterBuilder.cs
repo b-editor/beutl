@@ -18,6 +18,17 @@ public sealed class SKImageFilterBuilder : IDisposable
         }
     }
 
+    internal void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, SKImageFilter?> factory)
+    {
+        SKImageFilter? inner = GetFilter();
+        SKImageFilter? outer = factory(data, inner);
+        if (outer != null)
+        {
+            _filter = outer;
+            inner?.Dispose();
+        }
+    }
+
     public void AppendSKColorFilter<T>(T data, FilterEffectActivator activator, Func<T, FilterEffectActivator, SKColorFilter?> factory)
     {
         SKColorFilter? inner = _colorFilter;
@@ -62,4 +73,3 @@ public sealed class SKImageFilterBuilder : IDisposable
         Clear();
     }
 }
-
