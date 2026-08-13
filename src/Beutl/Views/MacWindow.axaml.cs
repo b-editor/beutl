@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Runtime.ExceptionServices;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
@@ -424,11 +425,24 @@ public sealed partial class MacWindow : Window
 
     private async Task ShutdownAsync(CancellationToken cancellationToken)
     {
-        await mainView.EnsureCaptureStoppedAsync();
+        // See MainWindow.ShutdownAsync: a capture that refuses to stop must not skip the agent-host
+        // drain, the project close and its version-control snapshot, or the composition-root dispose.
+        ExceptionDispatchInfo? captureFailure = null;
+        try
+        {
+            await mainView.EnsureCaptureStoppedAsync();
+        }
+        catch (Exception ex)
+        {
+            captureFailure = ExceptionDispatchInfo.Capture(ex);
+        }
+
         if (DataContext is MainViewModel viewModel)
         {
             await viewModel.ShutdownAsync(cancellationToken);
         }
+
+        captureFailure?.Throw();
     }
 
     private async void OpenTutorialsDialog(object? sender, EventArgs e) => await mainView.ShowTutorialsDialogAsync();

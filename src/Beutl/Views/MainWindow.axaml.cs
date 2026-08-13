@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Runtime.ExceptionServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 
@@ -83,10 +84,24 @@ public sealed partial class MainWindow : AppWindow
 
     private async Task ShutdownAsync(CancellationToken cancellationToken)
     {
-        await mainView.EnsureCaptureStoppedAsync();
+        // The rest of shutdown drains the agent host, closes the project (which takes its
+        // version-control snapshot) and disposes the composition root. A capture that refuses to
+        // stop must not cost all of that, so its failure is carried past the remaining cleanup.
+        ExceptionDispatchInfo? captureFailure = null;
+        try
+        {
+            await mainView.EnsureCaptureStoppedAsync();
+        }
+        catch (Exception ex)
+        {
+            captureFailure = ExceptionDispatchInfo.Capture(ex);
+        }
+
         if (DataContext is MainViewModel viewModel)
         {
             await viewModel.ShutdownAsync(cancellationToken);
         }
+
+        captureFailure?.Throw();
     }
 }

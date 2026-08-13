@@ -6,28 +6,31 @@ internal static class RepositoryPathComparer
 {
     private const int MaxSymbolicLinkHops = 64;
 
-    private static StringComparison PathComparison
-        => FileSystemPathComparison.ForCurrentPlatform;
-
+    // Both comparisons below run on canonical paths, where ResolveCanonicalPath has already folded
+    // the casing the filesystem itself merges. Ordinal is therefore exact in both directions: two
+    // spellings of one directory have converged, and two directories that only a case-insensitive
+    // rule would merge stay apart on a case-sensitive volume.
     internal static bool AreEquivalent(string left, string right)
     {
         return string.Equals(
             ResolveCanonicalPath(left),
             ResolveCanonicalPath(right),
-            PathComparison);
+            StringComparison.Ordinal);
     }
 
     internal static bool IsContainedWithin(string root, string path)
     {
-        string canonicalRoot = ResolveCanonicalPath(root);
-        string canonicalPath = ResolveCanonicalPath(path);
-        string relativePath = Path.GetRelativePath(canonicalRoot, canonicalPath);
-        return relativePath != ".."
-               && !relativePath.StartsWith(
-                   $"..{Path.DirectorySeparatorChar}",
-                   StringComparison.Ordinal)
-               && !relativePath.StartsWith("../", StringComparison.Ordinal)
-               && !Path.IsPathFullyQualified(relativePath);
+        string canonicalRoot = Path.TrimEndingDirectorySeparator(ResolveCanonicalPath(root));
+        string canonicalPath = Path.TrimEndingDirectorySeparator(ResolveCanonicalPath(path));
+        if (string.Equals(canonicalRoot, canonicalPath, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        string prefix = canonicalRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? canonicalRoot
+            : canonicalRoot + Path.DirectorySeparatorChar;
+        return canonicalPath.StartsWith(prefix, StringComparison.Ordinal);
     }
 
     internal static string ResolveCanonicalPath(string path)

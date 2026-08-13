@@ -400,15 +400,6 @@ public partial class MainView
             return;
         }
 
-        using IDisposable? outputOperation = exportVm.EditorService.TryBeginOutputOperation();
-        if (outputOperation is null)
-        {
-            NotificationService.ShowWarning(
-                Strings.ExportProject,
-                Strings.VersionControl_WorktreeOperationInProgress);
-            return;
-        }
-
         string defaultFileName = Path.GetFileNameWithoutExtension(project.Uri.LocalPath);
         var options = new FilePickerSaveOptions
         {
@@ -426,6 +417,27 @@ public partial class MainView
         IStorageFile? file = await window.StorageProvider.SaveFilePickerAsync(options);
         if (file?.TryGetLocalPath() is string outputPath)
         {
+            // The lease is taken only once a destination is chosen: holding it across the picker
+            // makes a project close skip its Git snapshot for as long as the dialog is open.
+            using IDisposable? outputOperation = exportVm.EditorService.TryBeginOutputOperation();
+            if (outputOperation is null)
+            {
+                NotificationService.ShowWarning(
+                    Strings.ExportProject,
+                    Strings.VersionControl_WorktreeOperationInProgress);
+                return;
+            }
+
+            // The picker can span a project close and reopen, so the export targets whatever is
+            // open now rather than the instance captured before the dialog.
+            if (!ReferenceEquals(exportVm.ProjectService.CurrentProject.Value, project))
+            {
+                NotificationService.ShowWarning(
+                    Strings.ExportProject,
+                    MessageStrings.OperationFailed);
+                return;
+            }
+
             try
             {
                 ExportResult result = await ProjectPackageService.Current.ExportAsync(
