@@ -136,4 +136,28 @@ URL이 의심스러우면 열지 않는 것이 좋습니다.</value>
   <data name="RemoveFromLibrary_PaidConfirmation" xml:space="preserve">
     <value>이것은 유료 패키지({0})입니다. 라이브러리에서 제거하면 다시 구매해야 다시 획득할 수 있습니다. 계속하시겠습니까?</value>
   </data>
+  <data name="PackageKind_All" xml:space="preserve">
+    <value>전체</value>
+  </data>
+  <data name="PackageKind_Both" xml:space="preserve">
+    <value>소재 + 템플릿</value>
+  </data>
+  <data name="PackageKind_Extension" xml:space="preserve">
+    <value>확장</value>
+  </data>
+  <data name="PackageKind_Extensions" xml:space="preserve">
+    <value>확장</value>
+  </data>
+  <data name="PackageKind_Material" xml:space="preserve">
+    <value>소재</value>
+  </data>
+  <data name="PackageKind_Materials" xml:space="preserve">
+    <value>소재</value>
+  </data>
+  <data name="PackageKind_Template" xml:space="preserve">
+    <value>템플릿</value>
+  </data>
+  <data name="PackageKind_Templates" xml:space="preserve">
+    <value>템플릿</value>
+  </data>
 </root>

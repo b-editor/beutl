@@ -1,0 +1,115 @@
+# Data packages (materials and templates)
+
+The Beutl store distributes three kinds of package. Two of them ship data rather than
+code, and Beutl never loads an assembly from them:
+
+| Kind | Reserved tag | Ships |
+|---|---|---|
+| Extension | *(none)* | assemblies loaded into the editor |
+| Material | `beutl-material` | images, audio, video, fonts |
+| Template | `beutl-template` | object templates (`.json`) |
+| Both | `beutl-material` + `beutl-template` | a `materials/` and a `templates/` payload |
+
+## Publishing without a nupkg
+
+Most data-package authors are not developers and never build a nupkg. The developer
+portal's release editor accepts a **materials or templates folder** instead of a nupkg
+file: pick the kind (material, template, or both), select the folder, and the server
+builds the package and attaches it to the release. The package id is namespaced as
+`Beutl.Materials.<username>.<name>`, `Beutl.Templates.<username>.<name>` or
+`Beutl.Data.<username>.<name>` (for a package with both kinds), so the author only
+chooses the short name.
+
+For the **both** kind the folder must contain `materials/` and `templates/`
+subdirectories. A template in the package can use a bundled material: the server
+rewrites the template's `file://` references to the material into URIs relative to the
+template file, and the editor resolves them against the template's own location after
+installation.
+
+The rest of this document describes the nupkg layout for authors who do build the
+package themselves (or want to know what the release editor produces).
+
+## Declaring the kind
+
+The kind lives in the package's tags, not in a field of its own. Add the reserved
+tag(s) to the `.nuspec`:
+
+```xml
+<package>
+  <metadata>
+    <id>Contoso.Materials.CityPhotos</id>
+    <version>1.0.0</version>
+    <description>Royalty-free city photography.</description>
+    <tags>beutl-material photography cc0</tags>
+  </metadata>
+</package>
+```
+
+The tags are prefixed because the same vocabulary is read out of the nuspec, where a bare
+`material` is an ordinary tag plenty of unrelated packages already carry. A package that
+carries neither reserved tag is an extension. One that carries both ships both payloads
+and appears in both the material and the template listings. The reserved tags are set
+from the package type selector in the developer portal, which also refuses them as
+hand-typed tags — do not add them through the tag editor.
+
+The two reserved tags are hidden wherever the store lists an author's tags; the package
+page shows the kind instead.
+
+## Content layout
+
+Beutl copies the payload directories the package carries, chosen by the tags:
+
+```text
+material package
+  materials/**            ->  {home}/materials/{package-id}/
+
+template package
+  templates/**            ->  {home}/templates/{package-id}/
+
+both package
+  materials/**            ->  {home}/materials/{package-id}/
+  templates/**            ->  {home}/templates/{package-id}/
+```
+
+All are copied recursively, so subdirectories are preserved. `{home}` is `$BEUTL_HOME`
+when that directory exists, otherwise `~/.beutl`.
+
+Pack the payload with `<files>`, keeping the directory name at the root of the package:
+
+```xml
+<files>
+  <file src="assets\**\*" target="materials" />
+</files>
+```
+
+Do **not** ship a `lib/` directory in a data package. Nothing in it is loaded, and its
+presence only suggests otherwise.
+
+## What Beutl does with the payload
+
+- **Templates** — `ObjectTemplateService` watches `{home}/templates` recursively for
+  `*.json` and registers what it finds, so a template package's contents appear in the
+  editor without a restart. The per-package subdirectory is what keeps two packages from
+  colliding on a file name.
+- **Materials** — the file browser tab's favorites list always shows the **Materials**
+  entry, like the templates entry, pointing at `{home}/materials`; the package directories
+  that installed them are browsed from there. An item is dragged out as a plain file, which
+  the player and the timeline already accept; whether a given file becomes an image, a
+  sound or nothing at all is the drop target's decision.
+- **Fonts** — `FontManager` scans `{home}/materials` alongside the configured font
+  directories, so a font a material package ships is available to text elements. It builds
+  its family list once per launch, so a font installed while Beutl is running appears after
+  the next start.
+
+## Updating and uninstalling
+
+Installing replaces the package's payload directory wholesale, so a file dropped between
+versions does not survive an update. Uninstalling removes
+`{home}/materials/{package-id}` and `{home}/templates/{package-id}` along with the
+extracted package.
+
+## Listing by kind
+
+`GET /api/v3/discover/search` and `GET /api/v3/discover/featured` take an optional `type`
+parameter — `all` (the default), `extension`, `material`, or `template`. Omitting it lists
+every kind, which is what older clients do.

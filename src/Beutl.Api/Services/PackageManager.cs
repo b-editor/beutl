@@ -209,6 +209,16 @@ public sealed class PackageManager(
         {
             activity?.SetTag("PackageName", package.Name);
             activity?.SetTag("PackageVersion", package.Version);
+
+            // A material or template package ships no lib/ directory, so resolving a target
+            // framework for it would throw. Its payload was already copied into the home
+            // directory at install time and there is nothing to load here.
+            if (package.Tags.GetPackageKind() != PackageKind.Extension)
+            {
+                activity?.SetTag("AssemblyCount", 0);
+                return [];
+            }
+
             if (package.InstalledPath == null)
             {
                 var packageId = new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version));

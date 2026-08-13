@@ -136,4 +136,28 @@ Para forzar la instalación, usa la herramienta CLI.</value>
   <data name="RemoveFromLibrary_PaidConfirmation" xml:space="preserve">
     <value>Este es un paquete de pago ({0}). Si lo quitas de tu biblioteca, tendrás que volver a comprarlo para recuperarlo. ¿Estás seguro?</value>
   </data>
+  <data name="PackageKind_All" xml:space="preserve">
+    <value>Todos</value>
+  </data>
+  <data name="PackageKind_Both" xml:space="preserve">
+    <value>Material + Plantilla</value>
+  </data>
+  <data name="PackageKind_Extension" xml:space="preserve">
+    <value>Extensión</value>
+  </data>
+  <data name="PackageKind_Extensions" xml:space="preserve">
+    <value>Extensiones</value>
+  </data>
+  <data name="PackageKind_Material" xml:space="preserve">
+    <value>Material</value>
+  </data>
+  <data name="PackageKind_Materials" xml:space="preserve">
+    <value>Materiales</value>
+  </data>
+  <data name="PackageKind_Template" xml:space="preserve">
+    <value>Plantilla</value>
+  </data>
+  <data name="PackageKind_Templates" xml:space="preserve">
+    <value>Plantillas</value>
+  </data>
 </root>

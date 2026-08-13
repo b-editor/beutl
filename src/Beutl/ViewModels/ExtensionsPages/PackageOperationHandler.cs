@@ -46,12 +46,7 @@ internal class PackageOperationHandler
 
         _installedPackageRepository.UpgradePackages(packageId);
 
-        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
-                           ?? throw new InvalidOperationException(
-                               $"Package '{packageId}' was not found under the install directory after installation.");
-        PackageFolderReader reader = new(directory);
-        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
+        ActivateInstalledPackage(packageId);
     }
 
     public async Task DownloadAndLoadPackage(PackageIdentity packageId)
@@ -63,12 +58,25 @@ internal class PackageOperationHandler
 
         _installedPackageRepository.UpgradePackages(packageId);
 
+        ActivateInstalledPackage(packageId);
+    }
+
+    private void ActivateInstalledPackage(PackageIdentity packageId)
+    {
         string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
                            ?? throw new InvalidOperationException(
                                $"Package '{packageId}' was not found under the install directory after installation.");
         PackageFolderReader reader = new(directory);
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
+
+        if (localPackage.Tags.GetPackageKind() != PackageKind.Extension)
+        {
+            _packageInstaller.InstallDataPackage(localPackage);
+        }
+        else
+        {
+            _packageManager.Load(localPackage);
+        }
     }
 
     public async ValueTask<bool> UnloadPackages(string packageName)
@@ -116,6 +124,20 @@ internal class PackageOperationHandler
                     {
                         _queue.UninstallQueue(item);
                         hasFallback = true;
+                    }
+                }
+                else
+                {
+                    // The extracted package is already gone, but a data package's payload
+                    // lives outside it and still has to be removed.
+                    if (!_packageInstaller.UninstallDataPackage(item.Id))
+                    {
+                        _queue.UninstallQueue(item);
+                        hasFallback = true;
+                    }
+                    else
+                    {
+                        _installedPackageRepository.RemovePackage(item);
                     }
                 }
             }

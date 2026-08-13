@@ -34,13 +34,29 @@ public sealed class ObjectTemplateItem(
     {
         try
         {
+            // A template may reference files (e.g. a material bundled in the same package)
+            // with a URI relative to the template file; resolve them against it.
+            CoreSerializerOptions? options = FilePath != null
+                ? new CoreSerializerOptions { BaseUri = ToFileUri(FilePath) }
+                : null;
+
             return CoreSerializer.DeserializeFromJsonObject(
-                (JsonObject)Json.DeepClone(), BaseType) as ICoreSerializable;
+                (JsonObject)Json.DeepClone(), BaseType, options) as ICoreSerializable;
         }
         catch
         {
             return null;
         }
+    }
+
+    // `new Uri(path)` reads a URI-reserved character in the file name — a `#` is legal in a
+    // package payload — as syntax, truncating the base path.
+    internal static Uri ToFileUri(string path)
+    {
+        return new UriBuilder("file", string.Empty)
+        {
+            Path = Path.GetFullPath(path)
+        }.Uri;
     }
 
     public static ObjectTemplateItem CreateFromInstance(ICoreSerializable obj, string name)

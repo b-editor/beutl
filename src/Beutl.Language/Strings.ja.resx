@@ -1564,4 +1564,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ClickBrowse" xml:space="preserve">
     <value>参照をクリック...</value>
   </data>
+  <data name="Materials" xml:space="preserve">
+    <value>素材</value>
+  </data>
 </root>

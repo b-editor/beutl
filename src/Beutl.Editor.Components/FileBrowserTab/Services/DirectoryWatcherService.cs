@@ -58,6 +58,12 @@ internal sealed class DirectoryWatcherService : IDisposable
             return false;
         }
 
+        // materialsディレクトリも例外
+        if (IsUnderDirectory(path, BeutlEnvironment.GetMaterialsDirectoryPath()))
+        {
+            return false;
+        }
+
         return path.EndsWith(".bep", StringComparison.OrdinalIgnoreCase) ||
                path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase) ||
                path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase) ||
