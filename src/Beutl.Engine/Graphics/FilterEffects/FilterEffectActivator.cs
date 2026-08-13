@@ -345,7 +345,13 @@ public sealed class FilterEffectActivator : IDisposable
                                Matrix.CreateTranslation(
                                    flushTarget.InputBounds.X + rasterTranslation.X,
                                    flushTarget.InputBounds.Y + rasterTranslation.Y)))
-                    using (paint != null ? canvas.PushPaint(paint) : default)
+                    // The layer must be bounded by the content being filtered. Without explicit
+                    // bounds Skia sizes the filter's layer from the clip and samples the area
+                    // outside the drawn content, which is uninitialized device memory — a blur
+                    // (DropShadow, Blur) then pulls those undefined values into the result as NaN.
+                    using (paint != null
+                               ? canvas.PushPaint(paint, new Rect(default, flushTarget.InputBounds.Size))
+                               : default)
                     {
                         target.Draw(canvas);
                     }
