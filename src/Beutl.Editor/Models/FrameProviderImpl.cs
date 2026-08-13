@@ -20,14 +20,26 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private readonly Channel<(long Frame, Bitmap Bitmap)> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _producerTask;
+    private readonly RetainedRenderTargetCheckpoint _retentionCheckpoint;
     private bool _disposed;
 
     public FrameProviderImpl(Scene scene, Rational rate, SceneRenderer renderer, Subject<TimeSpan> progress)
+        : this(scene, rate, renderer, progress, RetainedRenderTargetCheckpoint.DefaultReleaseInterval)
+    {
+    }
+
+    internal FrameProviderImpl(
+        Scene scene,
+        Rational rate,
+        SceneRenderer renderer,
+        Subject<TimeSpan> progress,
+        int retainedRenderTargetReleaseInterval)
     {
         _scene = scene;
         _rate = rate;
         _renderer = renderer;
         _progress = progress;
+        _retentionCheckpoint = new RetainedRenderTargetCheckpoint(retainedRenderTargetReleaseInterval);
 
         int bufferSize = Preferences.Default.Get("Output.FrameBufferSize", 100);
         _channel = Channel.CreateBounded<(long Frame, Bitmap Bitmap)>(
@@ -66,6 +78,19 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
             throw new InvalidOperationException(
                 $"Encode buffer {actual} must equal the output frame size {_renderer.FrameSize}; " +
                 "SupersampleDownscaler failed to normalize the supersampled render to the output resolution.");
+        }
+
+        if (_retentionCheckpoint.Advance())
+        {
+            try
+            {
+                _renderer.ReleaseRetainedRenderTargets();
+            }
+            catch
+            {
+                normalized.Dispose();
+                throw;
+            }
         }
 
         return normalized;
@@ -163,4 +188,20 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
         _cts.Dispose();
     }
+}
+
+internal sealed class RetainedRenderTargetCheckpoint
+{
+    internal const int DefaultReleaseInterval = 30;
+    private readonly int _releaseInterval;
+    private int _renderedFrameCount;
+
+    public RetainedRenderTargetCheckpoint(int releaseInterval = DefaultReleaseInterval)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(releaseInterval);
+        _releaseInterval = releaseInterval;
+    }
+
+    public bool Advance()
+        => ++_renderedFrameCount % _releaseInterval == 0;
 }
