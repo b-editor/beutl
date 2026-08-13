@@ -631,8 +631,7 @@ internal sealed class FailureTestDisposable(Exception? failure = null) : IDispos
 internal sealed class FailureTestTargetFactory(
     int? failAt = null,
     Exception? createFailure = null,
-    Func<int, Exception?>? disposeFailure = null,
-    int maximumDimension = RenderScaleUtilities.MaxBufferDimension) : IRenderTargetFactory
+    Func<int, Exception?>? disposeFailure = null) : IRenderTargetFactory
 {
     public List<FailureTestRenderTarget> Targets { get; } = [];
 
