@@ -1,4 +1,5 @@
-﻿using Beutl.ProjectSystem;
+﻿using Beutl.Graphics.Effects;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.Helpers;
 
@@ -32,5 +33,17 @@ internal static class ToolTabHeaderHelper
         return element is null
             ? Observable.ReturnThenNever(string.Empty)
             : element.GetObservable(CoreObject.NameProperty).Select(n => ElementLabel(n, element));
+    }
+
+    // A named effect wins over its element: one element can carry several effects of the same type.
+    public static IObservable<string> ObserveEffectLabel(FilterEffect? effect)
+    {
+        if (effect is null)
+            return Observable.ReturnThenNever(string.Empty);
+
+        IObservable<string> elementLabel = ObserveElementLabel(effect.FindHierarchicalParent<Element>());
+
+        return effect.GetObservable(CoreObject.NameProperty)
+            .CombineLatest(elementLabel, (name, element) => string.IsNullOrWhiteSpace(name) ? element : name);
     }
 }

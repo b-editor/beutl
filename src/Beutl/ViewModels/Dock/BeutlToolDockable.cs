@@ -76,7 +76,7 @@ public class BeutlToolDockable : Tool, IDisposable
     // broken, so fall back to the extension's static metadata.
     private static string ResolveTitle(IToolContext context, string? header)
     {
-        return string.IsNullOrEmpty(header)
+        return string.IsNullOrWhiteSpace(header)
             ? context.Extension.Header ?? context.Extension.Name
             : header;
     }

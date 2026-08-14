@@ -87,11 +87,13 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
         if (this.GetService<IEditorContext>() is not { } editorContext) return;
         if (Value.Value == null) return;
 
-        // Reuse the tab already showing this graph before falling back to an idle one; a plain
-        // FindToolTab would always hand back the first tab and strand every other instance.
+        // Prefer the tab already showing this graph, then an idle one, and only then retarget any
+        // open tab. A plain FindToolTab would always hand back the first tab and strand every other
+        // instance; dropping straight to `new` would spawn a tab per graph instead.
         NodeGraphTabViewModel tab =
             editorContext.FindToolTab<NodeGraphTabViewModel>(t => t.Model.Value == Value.Value)
             ?? editorContext.FindToolTab<NodeGraphTabViewModel>(t => t.Model.Value is null)
+            ?? editorContext.FindToolTab<NodeGraphTabViewModel>()
             ?? new NodeGraphTabViewModel(editorContext);
 
         tab.Model.Value = Value.Value;

@@ -19,21 +19,37 @@ internal sealed class FileBrowserFavoritesStore
 {
     private const string PreferenceKey = "FileBrowser.Favorites";
 
-    public static FileBrowserFavoritesStore Instance { get; } = new(Preferences.Default);
+    public static FileBrowserFavoritesStore Instance { get; } = CreateDefault();
 
     private readonly ILogger _logger = Log.CreateLogger<FileBrowserFavoritesStore>();
-    private readonly IPreferences _preferences;
+    private readonly IPreferences? _preferences;
     private readonly ObservableCollection<string> _favorites = [];
     private int _suspendDepth;
     private bool _pending;
 
     // Test seam: points the store at an in-memory preference set instead of the ambient BEUTL_HOME.
-    internal FileBrowserFavoritesStore(IPreferences preferences)
+    internal FileBrowserFavoritesStore(IPreferences? preferences)
     {
         _preferences = preferences;
         Load();
         Favorites = new ReadOnlyObservableCollection<string>(_favorites);
         _favorites.CollectionChanged += OnCollectionChanged;
+    }
+
+    // Preferences.Default can throw on an unreadable preferences.json, and a static initializer that
+    // throws is cached forever — every later file browser tab would fail to open. Degrade instead.
+    private static FileBrowserFavoritesStore CreateDefault()
+    {
+        try
+        {
+            return new FileBrowserFavoritesStore(Preferences.Default);
+        }
+        catch (Exception ex)
+        {
+            Log.CreateLogger<FileBrowserFavoritesStore>()
+                .LogWarning(ex, "Failed to resolve preferences; favorites will not persist this session");
+            return new FileBrowserFavoritesStore(preferences: null);
+        }
     }
 
     public ReadOnlyObservableCollection<string> Favorites { get; }
@@ -52,8 +68,6 @@ internal sealed class FileBrowserFavoritesStore
             _favorites.Add(path);
         }
     }
-
-    public void Remove(string path) => _favorites.Remove(path);
 
     // IPreferences.Set rewrites the whole preferences file, and every Changed listener rebuilds its
     // item list, so a multi-path drop must not go through Add one path at a time.
@@ -95,11 +109,30 @@ internal sealed class FileBrowserFavoritesStore
     private void Flush()
     {
         Save();
-        Changed?.Invoke();
+
+        if (Changed is not { } changed)
+            return;
+
+        // One tab's refresh throwing must not strand the rest with a stale list, nor unwind into the
+        // click handler of whichever tab happened to make the edit.
+        foreach (Action handler in changed.GetInvocationList().Cast<Action>())
+        {
+            try
+            {
+                handler();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "A favorites listener failed to refresh");
+            }
+        }
     }
 
     private void Load()
     {
+        if (_preferences is null)
+            return;
+
         try
         {
             string json = _preferences.Get(PreferenceKey, "[]");
@@ -120,6 +153,9 @@ internal sealed class FileBrowserFavoritesStore
 
     private void Save()
     {
+        if (_preferences is null)
+            return;
+
         try
         {
             _preferences.Set(PreferenceKey, JsonSerializer.Serialize(_favorites.ToArray()));

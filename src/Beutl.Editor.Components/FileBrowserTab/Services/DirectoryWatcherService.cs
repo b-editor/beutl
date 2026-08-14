@@ -12,7 +12,6 @@ internal sealed class DirectoryWatcherService : IDisposable
     private readonly ILogger _logger = Log.CreateLogger<DirectoryWatcherService>();
     private FileSystemWatcher? _watcher;
     private CancellationTokenSource? _debounceCts;
-    private string? _watchedPath;
 
     // ファイルシステムに変更があったときに発火する。UIスレッドで呼び出される。
     public event Action? Changed;
@@ -20,12 +19,12 @@ internal sealed class DirectoryWatcherService : IDisposable
     // 指定パスの監視を開始する。前回の監視は自動的に停止される。
     public void Watch(string? path)
     {
-        // A recursive watcher costs an inotify descriptor per subdirectory, and callers re-subscribe
-        // on unrelated state changes (view mode, refresh), so never rebuild one for the same path.
-        if (_watcher is not null && string.Equals(_watchedPath, path, StringComparison.Ordinal))
+        // A recursive watcher costs an inotify descriptor per subdirectory, so never rebuild one for
+        // a path already being watched. OnWatcherError drops the watcher when the OS stops
+        // delivering, which is what lets a later Watch of the same path re-arm it.
+        if (_watcher is not null && string.Equals(_watcher.Path, path, StringComparison.Ordinal))
             return;
 
-        _watchedPath = path;
         _debounceCts?.Cancel();
         _debounceCts?.Dispose();
         _debounceCts = null;
@@ -49,11 +48,28 @@ internal sealed class DirectoryWatcherService : IDisposable
             _watcher.Deleted += OnFileSystemEvent;
             _watcher.Renamed += OnFileSystemEvent;
             _watcher.Changed += OnFileSystemEvent;
+            _watcher.Error += OnWatcherError;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to create FileSystemWatcher for {Path}", path);
         }
+    }
+
+    // After an Error the watcher delivers nothing more. Drop it so the same-path guard in Watch stops
+    // matching and the next call rebuilds, instead of leaving the tab silently un-watched.
+    private void OnWatcherError(object sender, ErrorEventArgs e)
+    {
+        _logger.LogWarning(e.GetException(), "FileSystemWatcher stopped; it will be rebuilt on the next Watch");
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_watcher is { } watcher && ReferenceEquals(watcher, sender))
+            {
+                watcher.Dispose();
+                _watcher = null;
+            }
+        });
     }
 
     // プロジェクト、シーン、要素のファイルは頻繁に変更されるため除外

@@ -174,7 +174,13 @@ public class FileBrowserFavoritesStoreTests
         first.RefreshFavoriteItems();
         second.RefreshFavoriteItems();
 
-        Assert.That(first.FavoriteItems, Has.Count.EqualTo(second.FavoriteItems.Count));
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.FavoriteItems.Select(i => i.FullPath), Does.Contain(directory));
+            Assert.That(second.FavoriteItems.Select(i => i.FullPath), Does.Contain(directory));
+            Assert.That(first.FavoriteItems, Has.Count.EqualTo(second.FavoriteItems.Count));
+        });
+
         for (int i = 0; i < first.FavoriteItems.Count; i++)
         {
             Assert.That(first.FavoriteItems[i], Is.Not.SameAs(second.FavoriteItems[i]));

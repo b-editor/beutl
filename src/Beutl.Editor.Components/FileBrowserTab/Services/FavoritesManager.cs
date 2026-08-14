@@ -1,6 +1,8 @@
 ﻿using System.Collections.ObjectModel;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
@@ -15,6 +17,7 @@ namespace Beutl.Editor.Components.FileBrowserTab.Services;
 /// </remarks>
 internal sealed class FavoritesManager : IDisposable
 {
+    private readonly ILogger _logger = Log.CreateLogger<FavoritesManager>();
     private readonly FileBrowserFavoritesStore _store;
     private readonly Action _onStoreChanged;
     private bool _disposed;
@@ -37,8 +40,6 @@ internal sealed class FavoritesManager : IDisposable
 
     public void ToggleFavorite(string currentPath) => _store.Toggle(currentPath);
 
-    public void RemoveFavorite(string path) => _store.Remove(path);
-
     public void AddRange(IEnumerable<string> paths) => _store.AddRange(paths);
 
     public void RefreshFavoriteItems()
@@ -50,18 +51,10 @@ internal sealed class FavoritesManager : IDisposable
         DisposeAndClearItems();
 
         // テンプレートフォルダを常に先頭に表示（ローカライズ名で）
-        string templatesDir = ObjectTemplateService.Instance.DirectoryPath;
-        Directory.CreateDirectory(templatesDir);
-        var templatesItem = new FileSystemItemViewModel(templatesDir, true);
-        templatesItem.Name.Value = Strings.Templates;
-        FavoriteItems.Add(templatesItem);
+        AddFixedFolder(ObjectTemplateService.Instance.DirectoryPath, Strings.Templates);
 
         // 素材フォルダも常に表示（ローカライズ名で）
-        string materialsDir = BeutlEnvironment.GetMaterialsDirectoryPath();
-        Directory.CreateDirectory(materialsDir);
-        var materialsItem = new FileSystemItemViewModel(materialsDir, true);
-        materialsItem.Name.Value = Strings.Materials;
-        FavoriteItems.Add(materialsItem);
+        AddFixedFolder(BeutlEnvironment.GetMaterialsDirectoryPath(), Strings.Materials);
 
         foreach (string path in Favorites)
         {
@@ -78,6 +71,25 @@ internal sealed class FavoritesManager : IDisposable
 
     // お気に入りコレクション変更時のコールバック。ホームビュー表示中の場合にアイテムを更新する。
     public event Action? Changed;
+
+    // The store fans Changed out to every tab, so an unwritable BEUTL_HOME must not escape into
+    // whichever tab's click started the edit, nor abort the remaining tabs' refresh.
+    private void AddFixedFolder(string directory, string localizedName)
+    {
+        try
+        {
+            Directory.CreateDirectory(directory);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to create the favorites folder {Directory}", directory);
+            return;
+        }
+
+        var item = new FileSystemItemViewModel(directory, true);
+        item.Name.Value = localizedName;
+        FavoriteItems.Add(item);
+    }
 
     private void DisposeAndClearItems()
     {

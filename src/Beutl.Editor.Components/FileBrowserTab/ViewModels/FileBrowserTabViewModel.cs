@@ -55,6 +55,11 @@ public sealed class FileBrowserTabViewModel : IToolContext
         // ディレクトリ変更時にリフレッシュ
         _directoryWatcher.Changed += () =>
         {
+            // A debounced refresh can land after this tab was disposed, repopulating the collections
+            // Dispose tore down with items nothing will ever dispose.
+            if (_disposed)
+                return;
+
             if (IsHomeView.Value)
                 RefreshHomeView();
             else
@@ -80,6 +85,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
             _directoryWatcher.Watch(path);
         }).AddTo(_disposables);
 
+        // IsHomeView starts true, so this replays immediately and performs the initial home-view
+        // build; repeating it after the constructor would enumerate the project directory twice.
         IsHomeView.Subscribe(isHome =>
         {
             if (isHome)
@@ -97,10 +104,6 @@ public sealed class FileBrowserTabViewModel : IToolContext
                 RefreshItems();
             }
         }).AddTo(_disposables);
-
-        // 初期化: ホームビューで起動（RootPathは設定しない）
-        RefreshHomeView();
-        _directoryWatcher.Watch(_projectDirectory);
     }
 
     public ToolTabExtension Extension => FileBrowserTabExtension.Instance;

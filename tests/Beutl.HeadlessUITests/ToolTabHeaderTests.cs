@@ -47,9 +47,17 @@ public class ToolTabHeaderTests
         context.HeaderSource.Value = "second";
         Assert.That(dockable.Title, Is.EqualTo("second"));
 
+        // HeaderSource deliberately outlives the context (see FakeToolContext.Dispose), so a value
+        // pushed here is a live notification and only the dockable's own unsubscribe can stop it.
         dockable.Dispose();
         context.HeaderSource.Value = "after-dispose";
-        Assert.That(dockable.Title, Is.EqualTo("second"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.HeaderSource.Value, Is.EqualTo("after-dispose"));
+            Assert.That(dockable.Title, Is.EqualTo("second"));
+        });
+
+        context.HeaderSource.Dispose();
     }
 
     [AvaloniaTest]
@@ -80,10 +88,11 @@ public class ToolTabHeaderTests
 
         public IReadOnlyReactiveProperty<string> Header => HeaderSource;
 
+        // HeaderSource is left alive so a test can keep publishing after the dockable disposed this
+        // context; disposing it here would make "the title stopped following" pass vacuously.
         public void Dispose()
         {
             IsSelected.Dispose();
-            HeaderSource.Dispose();
         }
 
         public object? GetService(Type serviceType) => null;

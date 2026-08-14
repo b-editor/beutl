@@ -162,24 +162,11 @@ public sealed class CurvesTabViewModel : IToolContext
             .DisposeWith(_disposables)!;
 
         Header = Effect
-            .Select(ObserveTargetLabel)
+            .Select(ToolTabHeaderHelper.ObserveEffectLabel)
             .Switch()
             .Select(label => ToolTabHeaderHelper.Compose(Strings.Curves, label))
             .ToReadOnlyReactivePropertySlim(Strings.Curves)
             .DisposeWith(_disposables)!;
-    }
-
-    // A named effect wins over its element: one element can carry several Curves effects.
-    private static IObservable<string> ObserveTargetLabel(Curves? effect)
-    {
-        if (effect is null)
-            return Observable.ReturnThenNever(string.Empty);
-
-        IObservable<string> elementLabel =
-            ToolTabHeaderHelper.ObserveElementLabel(effect.FindHierarchicalParent<Element>());
-
-        return effect.GetObservable(CoreObject.NameProperty)
-            .CombineLatest(elementLabel, (name, element) => string.IsNullOrWhiteSpace(name) ? element : name);
     }
 
     public IReadOnlyReactiveProperty<string> Header { get; }

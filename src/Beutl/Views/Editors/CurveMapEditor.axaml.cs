@@ -20,11 +20,13 @@ public partial class CurveMapEditor : UserControl
             && viewModel.GetService<EditViewModel>() is { } editViewModel
             && viewModel.TryGetCurves() is { } curves)
         {
-            // Reuse the tab already showing this effect before falling back to an idle one; a plain
-            // FindToolTab would always hand back the first tab and strand every other instance.
+            // Prefer the tab already showing this effect, then an idle one, and only then retarget
+            // any open tab. A plain FindToolTab would always hand back the first tab and strand every
+            // other instance; dropping straight to `new` would spawn a tab per object instead.
             CurvesTabViewModel context =
                 editViewModel.FindToolTab<CurvesTabViewModel>(t => t.Effect.Value == curves)
                 ?? editViewModel.FindToolTab<CurvesTabViewModel>(t => t.Effect.Value is null)
+                ?? editViewModel.FindToolTab<CurvesTabViewModel>()
                 ?? new CurvesTabViewModel(editViewModel);
 
             context.Effect.Value = curves;

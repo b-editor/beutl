@@ -90,14 +90,11 @@ public sealed class NodeGraphTabViewModel : IToolContext
                 {
                     NodeGraph.Value = new NodeGraphViewModel(newModel, editorContext);
                     var element = newModel.FindHierarchicalParent<Element>();
-                    IObservable<string> name = element?.GetObservable(CoreObject.NameProperty) ?? Observable.ReturnThenNever(string.Empty);
-                    string? fileName = Path.GetFileNameWithoutExtension(element?.Uri!.LocalPath);
 
                     Items.Add(new NodeGraphNavigationItem(
                         viewModel: NodeGraph.Value,
                         nodeGraph: newModel,
-                        name: name
-                            .Select(x => string.IsNullOrWhiteSpace(x) ? fileName : x)
+                        name: ToolTabHeaderHelper.ObserveElementLabel(element)
                             .ToReadOnlyReactivePropertySlim()!));
 
                     RestoreState(newModel);

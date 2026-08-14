@@ -97,6 +97,9 @@ public partial class TerminalTabView : UserControl
         // rebind through null and still tears the PTY down when that view-model is disposed.
         SetLaunchedViewModel(viewModel);
         viewModel.IsProcessExited.Value = false;
+        // A restart spawns a new shell; keeping the old shell's reported title would leave the tab
+        // advertising a dead session until the new one happens to emit OSC 0/2.
+        viewModel.TerminalTitle.Value = null;
 
         // Suppress detach-cleanup before spawning so switching away mid-launch re-docks the tab
         // instead of killing the just-spawned PTY. Kept on for the tab's life; disposal calls

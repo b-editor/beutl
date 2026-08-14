@@ -44,11 +44,13 @@ public sealed partial class ColorGradingPropertiesEditor : UserControl
             context.GetService<IEditorContext>() is { } editorContext &&
             context.TryGetColorGrading() is { } colorGrading)
         {
-            // Reuse the tab already showing this effect before falling back to an idle one; a plain
-            // FindToolTab would always hand back the first tab and strand every other instance.
+            // Prefer the tab already showing this effect, then an idle one, and only then retarget
+            // any open tab. A plain FindToolTab would always hand back the first tab and strand every
+            // other instance; dropping straight to `new` would spawn a tab per object instead.
             var toolTab =
                 editorContext.FindToolTab<ColorGradingTabViewModel>(t => t.Effect.Value == colorGrading)
                 ?? editorContext.FindToolTab<ColorGradingTabViewModel>(t => t.Effect.Value is null)
+                ?? editorContext.FindToolTab<ColorGradingTabViewModel>()
                 ?? new ColorGradingTabViewModel(editorContext);
 
             toolTab.Effect.Value = colorGrading;

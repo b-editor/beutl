@@ -192,37 +192,25 @@ public class TerminalTabViewModelTests
     }
 
     [Test]
-    public void ReadFromJson_RestoresTheInstanceNumberAndKeepsLaterTabsUnique()
+    public void Instance_numbers_stay_unique_across_a_view_state_round_trip()
     {
+        // Dock layouts are saved per scene, so persisting the number would make two scenes that each
+        // stored "Terminal 1" collide once both are open. Numbering is per session instead.
         var scene = new Scene(640, 480, string.Empty);
         var editorContext = new TestEditorContext(scene);
-        using var restored = new TerminalTabViewModel(editorContext);
-        int saved = restored.InstanceNumber + 100;
+        using var sceneA = new TerminalTabViewModel(editorContext);
+        var json = new JsonObject();
+        sceneA.WriteToJson(json);
 
-        restored.ReadFromJson(new JsonObject { ["instanceNumber"] = saved });
+        using var sceneB = new TerminalTabViewModel(editorContext);
+        sceneB.ReadFromJson(json);
 
-        using var fresh = new TerminalTabViewModel(editorContext);
         Assert.Multiple(() =>
         {
-            Assert.That(restored.InstanceNumber, Is.EqualTo(saved));
-            Assert.That(restored.Header.Value, Is.EqualTo($"{Strings.Terminal} {saved}"));
-            Assert.That(fresh.InstanceNumber, Is.GreaterThan(saved));
+            Assert.That(json, Is.Empty);
+            Assert.That(sceneB.InstanceNumber, Is.Not.EqualTo(sceneA.InstanceNumber));
+            Assert.That(sceneB.Header.Value, Is.Not.EqualTo(sceneA.Header.Value));
         });
-    }
-
-    [Test]
-    public void WriteToJson_RoundTripsTheInstanceNumber()
-    {
-        var scene = new Scene(640, 480, string.Empty);
-        var editorContext = new TestEditorContext(scene);
-        using var source = new TerminalTabViewModel(editorContext);
-        var json = new JsonObject();
-
-        source.WriteToJson(json);
-        using var target = new TerminalTabViewModel(editorContext);
-        target.ReadFromJson(json);
-
-        Assert.That(target.InstanceNumber, Is.EqualTo(source.InstanceNumber));
     }
 
     [Test]

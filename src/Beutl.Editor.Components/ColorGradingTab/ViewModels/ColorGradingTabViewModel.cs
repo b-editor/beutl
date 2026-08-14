@@ -53,24 +53,11 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
             .DisposeWith(_disposables)!;
 
         Header = Effect
-            .Select(ObserveTargetLabel)
+            .Select(ToolTabHeaderHelper.ObserveEffectLabel)
             .Switch()
             .Select(label => ToolTabHeaderHelper.Compose(Strings.ColorGrading, label))
             .ToReadOnlyReactivePropertySlim(Strings.ColorGrading)
             .DisposeWith(_disposables)!;
-    }
-
-    // A named effect wins over its element: one element can carry several ColorGrading effects.
-    private static IObservable<string> ObserveTargetLabel(ColorGrading? effect)
-    {
-        if (effect is null)
-            return Observable.ReturnThenNever(string.Empty);
-
-        IObservable<string> elementLabel =
-            ToolTabHeaderHelper.ObserveElementLabel(effect.FindHierarchicalParent<Element>());
-
-        return effect.GetObservable(CoreObject.NameProperty)
-            .CombineLatest(elementLabel, (name, element) => string.IsNullOrWhiteSpace(name) ? element : name);
     }
 
     public IReadOnlyReactiveProperty<string> Header { get; }

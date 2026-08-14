@@ -12,6 +12,8 @@ public sealed class TerminalTabViewModel : IToolContext
 {
     // Nothing about a terminal distinguishes one instance from another -- the shell and working
     // directory are identical across the whole editor -- so the tabs are numbered instead.
+    // Process-wide and deliberately not persisted: dock layouts are saved per scene, so a stored
+    // number would collide the moment two scenes that each saved "Terminal 1" are opened together.
     private static int s_lastInstanceNumber;
 
     private readonly ReadOnlyReactivePropertySlim<string> _header;
@@ -38,7 +40,7 @@ public sealed class TerminalTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public int InstanceNumber { get; private set; }
+    public int InstanceNumber { get; }
 
     /// <summary>
     /// Gets the title the shell reported through OSC 0/2, set by the view.
@@ -149,28 +151,10 @@ public sealed class TerminalTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue("instanceNumber", out JsonNode? node)
-            && node is JsonValue value
-            && value.TryGetValue(out int instanceNumber)
-            && instanceNumber > 0)
-        {
-            InstanceNumber = instanceNumber;
-            // Keep new tabs from colliding with the numbers a restored layout brought back.
-            int observed = Volatile.Read(ref s_lastInstanceNumber);
-            while (instanceNumber > observed)
-            {
-                int previous = Interlocked.CompareExchange(ref s_lastInstanceNumber, instanceNumber, observed);
-                if (previous == observed) break;
-                observed = previous;
-            }
-
-            TerminalTitle.ForceNotify();
-        }
     }
 
     public void WriteToJson(JsonObject json)
     {
-        json["instanceNumber"] = InstanceNumber;
     }
 
     public object? GetService(Type serviceType) => null;

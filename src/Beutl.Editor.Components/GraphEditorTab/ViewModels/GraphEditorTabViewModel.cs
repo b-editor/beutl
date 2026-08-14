@@ -56,7 +56,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
             .CombineLatest(SelectedItem, (element, item) => (element, property: item?.Name))
             .Select(t => (t.element, t.property) switch
             {
-                ({ Length: > 0 } e, { Length: > 0 } p) => $"{e} / {p}",
+                ({ Length: > 0 } e, { Length: > 0 } p) => ToolTabHeaderHelper.Compose(e, p),
                 ({ Length: > 0 } e, _) => ToolTabHeaderHelper.Compose(Strings.GraphEditor, e),
                 (_, { Length: > 0 } p) => ToolTabHeaderHelper.Compose(Strings.GraphEditor, p),
                 _ => Strings.GraphEditor,
@@ -178,6 +178,23 @@ public sealed class GraphEditorTabViewModel : IToolContext
                 _editorContext.CloseToolTab(this);
             }
         });
+    }
+
+    /// <summary>
+    /// Finds the tab a request for <paramref name="animation"/> should retarget, or
+    /// <see langword="null"/> when the caller has to create one.
+    /// </summary>
+    /// <remarks>
+    /// Prefer the tab already on this animation, then an idle one, and only then any open tab. Both
+    /// call sites used to construct unconditionally, which produced a fresh dockable on every click.
+    /// </remarks>
+    public static GraphEditorTabViewModel? FindReusable(
+        IEditorContext editorContext, Element? element, KeyFrameAnimation? animation)
+    {
+        return editorContext.FindToolTab<GraphEditorTabViewModel>(
+                   t => t.Element.Value == element && t.SelectedItem.Value?.Object == animation)
+               ?? editorContext.FindToolTab<GraphEditorTabViewModel>(t => t.Element.Value is null)
+               ?? editorContext.FindToolTab<GraphEditorTabViewModel>();
     }
 
     public void Select(KeyFrameAnimation? animation)
