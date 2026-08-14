@@ -37,7 +37,7 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public event EventHandler? RefreshRequested;
 
-    public string Header => Strings.ColorScopes;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.ColorScopes);
 
     public ToolTabExtension Extension => ColorScopesTabExtension.Instance;
 

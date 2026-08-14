@@ -8,6 +8,7 @@ namespace Beutl.ViewModels.Dock;
 public class BeutlToolDockable : Tool, IDisposable
 {
     private readonly IDisposable _isSelectedSubscription;
+    private readonly IDisposable _headerSubscription;
     private bool _isDisposed;
 
     public BeutlToolDockable(IToolContext context, EditViewModel editViewModel)
@@ -16,7 +17,7 @@ public class BeutlToolDockable : Tool, IDisposable
         EditViewModel = editViewModel;
 
         Id = CreateId(context);
-        Title = context.Header;
+        Title = ResolveTitle(context, context.Header.Value);
         Context = context;
         CanClose = true;
         CanFloat = true;
@@ -24,6 +25,15 @@ public class BeutlToolDockable : Tool, IDisposable
         CanDockAsDocument = false;
 
         IsSelected = context.IsSelected.Value;
+
+        _headerSubscription = context.Header
+            .DistinctUntilChanged()
+            .Subscribe(v =>
+            {
+                if (_isDisposed) return;
+                string title = ResolveTitle(context, v);
+                if (Title != title) Title = title;
+            });
 
         _isSelectedSubscription = context.IsSelected
             .DistinctUntilChanged()
@@ -56,9 +66,19 @@ public class BeutlToolDockable : Tool, IDisposable
         if (_isDisposed) return;
         _isDisposed = true;
         PropertyChanged -= OnPropertyChanged;
+        _headerSubscription.Dispose();
         _isSelectedSubscription.Dispose();
         ToolContext.Dispose();
         ToolContent = null;
+    }
+
+    // A tool context — a plugin's especially — can publish an empty header; a blank tab would look
+    // broken, so fall back to the extension's static metadata.
+    private static string ResolveTitle(IToolContext context, string? header)
+    {
+        return string.IsNullOrEmpty(header)
+            ? context.Extension.Header ?? context.Extension.Name
+            : header;
     }
 
     private static string CreateId(IToolContext context)

@@ -11,7 +11,17 @@ public interface IToolContext : IDisposable, IJsonSerializable, IServiceProvider
 
     IReactiveProperty<bool> IsSelected { get; }
 
-    string Header { get; }
+    /// <summary>
+    /// Gets the text shown on this tool's dock tab.
+    /// </summary>
+    /// <remarks>
+    /// Push a new value whenever the tab's identity changes — the folder a file browser is showing,
+    /// the element a graph editor is editing — so that several instances of a
+    /// <see cref="ToolTabExtension.CanMultiple"/> tool stay distinguishable. Values must be produced
+    /// on the UI thread; the host binds this straight onto the dockable's title. This is the
+    /// per-instance title, unlike <see cref="ToolTabExtension.Header"/>.
+    /// </remarks>
+    IReadOnlyReactiveProperty<string> Header { get; }
 }
 
 public abstract class ToolTabExtension : ViewExtension
@@ -29,6 +39,14 @@ public abstract class ToolTabExtension : ViewExtension
     /// </remarks>
     public virtual bool ReuseContentAcrossActivation => false;
 
+    /// <summary>
+    /// Gets the label this tool takes in the "add tool tab" menu, or <see langword="null"/> to keep
+    /// it out of that menu entirely.
+    /// </summary>
+    /// <remarks>
+    /// Static per-extension metadata. The title of an open tab comes from
+    /// <see cref="IToolContext.Header"/> instead.
+    /// </remarks>
     public virtual string? Header => null;
 
     public virtual DockAnchor DefaultAnchor => DockAnchor.None;

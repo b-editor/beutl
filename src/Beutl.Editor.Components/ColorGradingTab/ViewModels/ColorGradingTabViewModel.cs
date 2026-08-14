@@ -52,7 +52,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
             .DisposeWith(_disposables)!;
     }
 
-    public string Header => Strings.ColorGrading;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.ColorGrading);
 
     public ToolTabExtension Extension => ColorGradingTabExtension.Instance;
 

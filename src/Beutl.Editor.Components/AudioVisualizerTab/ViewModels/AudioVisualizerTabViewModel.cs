@@ -74,7 +74,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public IReadOnlyList<SpectrumDisplayShape> AvailableSpectrumShapes { get; } = Enum.GetValues<SpectrumDisplayShape>();
 
-    public string Header => Strings.AudioVisualizer;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.AudioVisualizer);
 
     public ToolTabExtension Extension => _extension;
 

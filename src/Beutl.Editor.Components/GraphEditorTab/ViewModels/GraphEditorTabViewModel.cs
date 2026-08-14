@@ -48,7 +48,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
             .DisposeWith(_disposables);
     }
 
-    public string Header => Strings.GraphEditor;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.GraphEditor);
 
     public ToolTabExtension Extension => GraphEditorTabExtension.Instance;
 

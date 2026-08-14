@@ -27,7 +27,7 @@ public sealed class TerminalTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public string Header => Strings.Terminal;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Terminal);
 
     public string ShellPath { get; }
 

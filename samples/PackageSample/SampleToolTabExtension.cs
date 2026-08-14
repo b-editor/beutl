@@ -44,7 +44,7 @@ public sealed class SampleToolTabExtension : ToolTabExtension
 
         public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-        public string Header => "Sample tab";
+        public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("Sample tab");
 
         public void Dispose()
         {

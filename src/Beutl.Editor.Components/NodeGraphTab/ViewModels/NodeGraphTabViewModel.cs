@@ -104,7 +104,7 @@ public sealed class NodeGraphTabViewModel : IToolContext
             }).DisposeWith(_disposables);
     }
 
-    public string Header => Strings.NodeGraph;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.NodeGraph);
 
     public ToolTabExtension Extension => NodeGraphTabExtension.Instance;
 

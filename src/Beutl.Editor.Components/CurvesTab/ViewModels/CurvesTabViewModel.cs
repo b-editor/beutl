@@ -161,7 +161,7 @@ public sealed class CurvesTabViewModel : IToolContext
             .DisposeWith(_disposables)!;
     }
 
-    public string Header => Strings.Curves;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Curves);
 
     public ToolTabExtension Extension => CurvesTabExtension.Instance;
 
