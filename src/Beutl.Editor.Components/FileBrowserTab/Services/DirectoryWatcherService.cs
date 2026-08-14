@@ -12,6 +12,7 @@ internal sealed class DirectoryWatcherService : IDisposable
     private readonly ILogger _logger = Log.CreateLogger<DirectoryWatcherService>();
     private FileSystemWatcher? _watcher;
     private CancellationTokenSource? _debounceCts;
+    private string? _watchedPath;
 
     // ファイルシステムに変更があったときに発火する。UIスレッドで呼び出される。
     public event Action? Changed;
@@ -19,6 +20,12 @@ internal sealed class DirectoryWatcherService : IDisposable
     // 指定パスの監視を開始する。前回の監視は自動的に停止される。
     public void Watch(string? path)
     {
+        // A recursive watcher costs an inotify descriptor per subdirectory, and callers re-subscribe
+        // on unrelated state changes (view mode, refresh), so never rebuild one for the same path.
+        if (_watcher is not null && string.Equals(_watchedPath, path, StringComparison.Ordinal))
+            return;
+
+        _watchedPath = path;
         _debounceCts?.Cancel();
         _debounceCts?.Dispose();
         _debounceCts = null;

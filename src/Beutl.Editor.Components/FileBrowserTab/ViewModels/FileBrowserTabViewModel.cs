@@ -121,7 +121,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public ObservableCollection<FileSystemItemViewModel> SelectedItems { get; } = [];
 
-    public ObservableCollection<string> Favorites => _favoritesManager.Favorites;
+    public ReadOnlyObservableCollection<string> Favorites => _favoritesManager.Favorites;
 
     public ObservableCollection<FileSystemItemViewModel> FavoriteItems => _favoritesManager.FavoriteItems;
 
@@ -482,13 +482,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void AddPathsToFavorites(IEnumerable<string> paths)
     {
-        foreach (string path in paths)
-        {
-            if (!Favorites.Contains(path))
-            {
-                Favorites.Add(path);
-            }
-        }
+        _favoritesManager.AddRange(paths);
     }
 
     public void CopyFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
