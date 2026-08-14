@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -33,11 +34,17 @@ public sealed class ColorScopesTabViewModel : IToolContext
         SelectedScopeType.Skip(1)
             .Subscribe(_ => RefreshRequested?.Invoke(this, EventArgs.Empty))
             .DisposeWith(_disposables);
+
+        Header = SelectedScopeType
+            .Select(t => ToolTabHeaderHelper.Compose(Strings.ColorScopes, LocalizeScopeType(t)))
+            .ToReadOnlyReactivePropertySlim(
+                ToolTabHeaderHelper.Compose(Strings.ColorScopes, LocalizeScopeType(SelectedScopeType.Value)))
+            .DisposeWith(_disposables)!;
     }
 
     public event EventHandler? RefreshRequested;
 
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.ColorScopes);
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => ColorScopesTabExtension.Instance;
 
@@ -74,6 +81,16 @@ public sealed class ColorScopesTabViewModel : IToolContext
     {
         _disposables.Dispose();
     }
+
+    internal static string LocalizeScopeType(ColorScopeType type) => type switch
+    {
+        ColorScopeType.Waveform => Strings.Waveform,
+        ColorScopeType.Histogram => Strings.Histogram,
+        ColorScopeType.Vectorscope => Strings.Vectorscope,
+        ColorScopeType.FalseColor => Strings.FalseColor,
+        ColorScopeType.Zebra => Strings.Zebra,
+        _ => Strings.ColorScopes,
+    };
 
     public object? GetService(Type serviceType)
     {

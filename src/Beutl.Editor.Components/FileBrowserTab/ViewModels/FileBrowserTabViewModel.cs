@@ -64,6 +64,10 @@ public sealed class FileBrowserTabViewModel : IToolContext
         // プロジェクトディレクトリの取得
         _projectDirectory = GetProjectDirectory();
 
+        Header = RootPath.Select(CreateHeader)
+            .ToReadOnlyReactivePropertySlim(CreateHeader(RootPath.Value))
+            .AddTo(_disposables)!;
+
         RootPath.Subscribe(path =>
         {
             _rootPath = path;
@@ -103,7 +107,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.FileBrowser);
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ReactiveProperty<FileBrowserViewMode> ViewMode { get; } = new(FileBrowserViewMode.Icon);
 
@@ -138,6 +142,20 @@ public sealed class FileBrowserTabViewModel : IToolContext
     public ReactivePropertySlim<bool> IsProjectDirIconView { get; } = new(false);
 
     public ReactivePropertySlim<bool> IsMediaFilesIconView { get; } = new(true);
+
+    // The home view keeps the tool's own name; a browsing tab is named after the folder it shows so
+    // that several file browser tabs stay distinguishable. RootPath is empty exactly when the tab is
+    // on the home view, so it is the only input needed here.
+    internal static string CreateHeader(string rootPath)
+    {
+        if (string.IsNullOrEmpty(rootPath))
+            return Strings.FileBrowser;
+
+        string trimmed = rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string name = Path.GetFileName(trimmed);
+        // A filesystem root ("C:\", "/") has no file name component.
+        return string.IsNullOrEmpty(name) ? rootPath : name;
+    }
 
     private string? GetProjectDirectory()
     {

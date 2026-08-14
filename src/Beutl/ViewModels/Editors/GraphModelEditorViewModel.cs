@@ -87,8 +87,12 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
         if (this.GetService<IEditorContext>() is not { } editorContext) return;
         if (Value.Value == null) return;
 
-        NodeGraphTabViewModel tab = editorContext.FindToolTab<NodeGraphTabViewModel>()
-                                   ?? new NodeGraphTabViewModel(editorContext);
+        // Reuse the tab already showing this graph before falling back to an idle one; a plain
+        // FindToolTab would always hand back the first tab and strand every other instance.
+        NodeGraphTabViewModel tab =
+            editorContext.FindToolTab<NodeGraphTabViewModel>(t => t.Model.Value == Value.Value)
+            ?? editorContext.FindToolTab<NodeGraphTabViewModel>(t => t.Model.Value is null)
+            ?? new NodeGraphTabViewModel(editorContext);
 
         tab.Model.Value = Value.Value;
 

@@ -10,6 +10,12 @@ namespace Beutl.Editor.Components.TerminalTab.ViewModels;
 
 public sealed class TerminalTabViewModel : IToolContext
 {
+    // Nothing about a terminal distinguishes one instance from another -- the shell and working
+    // directory are identical across the whole editor -- so the tabs are numbered instead.
+    private static int s_lastInstanceNumber;
+
+    private readonly ReadOnlyReactivePropertySlim<string> _header;
+
     public TerminalTabViewModel(IEditorContext editorContext)
     {
         WorkingDirectory = ResolveWorkingDirectory(editorContext);
@@ -21,13 +27,28 @@ public sealed class TerminalTabViewModel : IToolContext
             Environment.GetEnvironmentVariable,
             CultureInfo.CurrentCulture.Name,
             OperatingSystem.IsWindows());
+        InstanceNumber = Interlocked.Increment(ref s_lastInstanceNumber);
+
+        _header = TerminalTitle
+            .Select(BuildHeader)
+            .ToReadOnlyReactivePropertySlim(BuildHeader(TerminalTitle.Value))!;
     }
 
     public ToolTabExtension Extension => TerminalTabExtension.Instance;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Terminal);
+    public int InstanceNumber { get; private set; }
+
+    /// <summary>
+    /// Gets the title the shell reported through OSC 0/2, set by the view.
+    /// </summary>
+    /// <remarks>
+    /// A bare shell on macOS never emits it, so the numbered title has to stand on its own.
+    /// </remarks>
+    public ReactivePropertySlim<string?> TerminalTitle { get; } = new();
+
+    public IReadOnlyReactiveProperty<string> Header => _header;
 
     public string ShellPath { get; }
 
@@ -114,14 +135,42 @@ public sealed class TerminalTabViewModel : IToolContext
         IsSelected.Dispose();
         IsProcessExited.Dispose();
         ExitCode.Dispose();
+        _header.Dispose();
+        TerminalTitle.Dispose();
+    }
+
+    private string BuildHeader(string? reportedTitle)
+    {
+        string numbered = $"{Strings.Terminal} {InstanceNumber.ToString(CultureInfo.CurrentCulture)}";
+        return string.IsNullOrWhiteSpace(reportedTitle)
+            ? numbered
+            : $"{numbered}: {reportedTitle.Trim()}";
     }
 
     public void ReadFromJson(JsonObject json)
     {
+        if (json.TryGetPropertyValue("instanceNumber", out JsonNode? node)
+            && node is JsonValue value
+            && value.TryGetValue(out int instanceNumber)
+            && instanceNumber > 0)
+        {
+            InstanceNumber = instanceNumber;
+            // Keep new tabs from colliding with the numbers a restored layout brought back.
+            int observed = Volatile.Read(ref s_lastInstanceNumber);
+            while (instanceNumber > observed)
+            {
+                int previous = Interlocked.CompareExchange(ref s_lastInstanceNumber, instanceNumber, observed);
+                if (previous == observed) break;
+                observed = previous;
+            }
+
+            TerminalTitle.ForceNotify();
+        }
     }
 
     public void WriteToJson(JsonObject json)
     {
+        json["instanceNumber"] = InstanceNumber;
     }
 
     public object? GetService(Type serviceType) => null;

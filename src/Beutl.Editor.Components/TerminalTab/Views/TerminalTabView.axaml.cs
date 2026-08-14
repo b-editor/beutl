@@ -19,6 +19,17 @@ public partial class TerminalTabView : UserControl
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        Terminal.AddHandler(TerminalView.TitleChangedEvent, OnTerminalTitleChanged);
+    }
+
+    // OSC 0/2 reaches the view, but the tab title lives on the view-model, and this view is recycled
+    // across activations -- so report to the view-model that owns the PTY, not to DataContext.
+    private void OnTerminalTitleChanged(object? sender, TitleChangedEventArgs e)
+    {
+        if (!_disposed && _launchedViewModel is { } viewModel)
+        {
+            viewModel.TerminalTitle.Value = e.Title;
+        }
     }
 
     protected override void OnDataContextChanged(EventArgs e)

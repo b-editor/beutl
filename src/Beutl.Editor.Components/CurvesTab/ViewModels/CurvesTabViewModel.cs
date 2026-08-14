@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Controls.Curves;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -159,9 +160,29 @@ public sealed class CurvesTabViewModel : IToolContext
             .Select(x => x == CurveGroup.SaturationVsSaturation)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
+
+        Header = Effect
+            .Select(ObserveTargetLabel)
+            .Switch()
+            .Select(label => ToolTabHeaderHelper.Compose(Strings.Curves, label))
+            .ToReadOnlyReactivePropertySlim(Strings.Curves)
+            .DisposeWith(_disposables)!;
     }
 
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Curves);
+    // A named effect wins over its element: one element can carry several Curves effects.
+    private static IObservable<string> ObserveTargetLabel(Curves? effect)
+    {
+        if (effect is null)
+            return Observable.ReturnThenNever(string.Empty);
+
+        IObservable<string> elementLabel =
+            ToolTabHeaderHelper.ObserveElementLabel(effect.FindHierarchicalParent<Element>());
+
+        return effect.GetObservable(CoreObject.NameProperty)
+            .CombineLatest(elementLabel, (name, element) => string.IsNullOrWhiteSpace(name) ? element : name);
+    }
+
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => CurvesTabExtension.Instance;
 

@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Animation;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.NodeGraph;
@@ -46,9 +47,25 @@ public sealed class GraphEditorTabViewModel : IToolContext
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        // Both call sites construct a fresh tab per animation, so without the element and property
+        // names every open graph editor would read "Graph Editor".
+        Header = Element
+            .Select(ToolTabHeaderHelper.ObserveElementLabel)
+            .Switch()
+            .CombineLatest(SelectedItem, (element, item) => (element, property: item?.Name))
+            .Select(t => (t.element, t.property) switch
+            {
+                ({ Length: > 0 } e, { Length: > 0 } p) => $"{e} / {p}",
+                ({ Length: > 0 } e, _) => ToolTabHeaderHelper.Compose(Strings.GraphEditor, e),
+                (_, { Length: > 0 } p) => ToolTabHeaderHelper.Compose(Strings.GraphEditor, p),
+                _ => Strings.GraphEditor,
+            })
+            .ToReadOnlyReactivePropertySlim(Strings.GraphEditor)
+            .DisposeWith(_disposables)!;
     }
 
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.GraphEditor);
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => GraphEditorTabExtension.Instance;
 

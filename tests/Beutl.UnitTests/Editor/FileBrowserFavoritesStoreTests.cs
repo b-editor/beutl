@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Beutl.Configuration;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 

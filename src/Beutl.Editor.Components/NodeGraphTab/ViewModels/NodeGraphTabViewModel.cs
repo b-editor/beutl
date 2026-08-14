@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Collections.Pooled;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -102,9 +103,16 @@ public sealed class NodeGraphTabViewModel : IToolContext
                     RestoreState(newModel);
                 }
             }).DisposeWith(_disposables);
+
+        Header = Model
+            .Select(m => ToolTabHeaderHelper.ObserveElementLabel(m?.FindHierarchicalParent<Element>()))
+            .Switch()
+            .Select(label => ToolTabHeaderHelper.Compose(Strings.NodeGraph, label))
+            .ToReadOnlyReactivePropertySlim(Strings.NodeGraph)
+            .DisposeWith(_disposables)!;
     }
 
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.NodeGraph);
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => NodeGraphTabExtension.Instance;
 
