@@ -92,9 +92,13 @@ public sealed partial class PropertyEditorMenu : UserControl
             viewModel.PrepareToEditAnimation();
 
             // タイムラインのタブを開く
-            var anmTimelineTabViewModel = new GraphEditorTabViewModel(editViewModel);
-            anmTimelineTabViewModel.Element.Value = viewModel.GetService<Element>();
-            anmTimelineTabViewModel.Select(animatableProperty.Animation as KeyFrameAnimation);
+            Element? element = viewModel.GetService<Element>();
+            var animation = animatableProperty.Animation as KeyFrameAnimation;
+            GraphEditorTabViewModel anmTimelineTabViewModel =
+                GraphEditorTabViewModel.FindReusable(editViewModel, element, animation)
+                ?? new GraphEditorTabViewModel(editViewModel);
+            anmTimelineTabViewModel.Element.Value = element;
+            anmTimelineTabViewModel.Select(animation);
             editViewModel.OpenToolTab(anmTimelineTabViewModel);
         }
     }

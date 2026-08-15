@@ -1534,6 +1534,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
+  <data name="ToolTabHeaderFormat" xml:space="preserve">
+    <value>{0} - {1}</value>
+  </data>
   <data name="Start" xml:space="preserve">
     <value>開始</value>
   </data>

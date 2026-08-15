@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -50,9 +51,16 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
             .Select(v => !v)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
+
+        Header = Effect
+            .Select(ToolTabHeaderHelper.ObserveEffectLabel)
+            .Switch()
+            .Select(label => ToolTabHeaderHelper.Compose(Strings.ColorGrading, label))
+            .ToReadOnlyReactivePropertySlim(Strings.ColorGrading)
+            .DisposeWith(_disposables)!;
     }
 
-    public string Header => Strings.ColorGrading;
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => ColorGradingTabExtension.Instance;
 

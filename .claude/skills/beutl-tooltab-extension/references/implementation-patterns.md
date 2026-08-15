@@ -42,6 +42,9 @@ public sealed class SimpleTabExtension : ToolTabExtension
 // ViewModel
 public sealed class SimpleContext : IToolContext
 {
+    // Multiple instances need distinct titles.
+    private static int s_lastInstanceNumber;
+
     public SimpleContext(ToolTabExtension extension)
     {
         Extension = extension;
@@ -49,7 +52,8 @@ public sealed class SimpleContext : IToolContext
 
     public ToolTabExtension Extension { get; }
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-    public string Header => Strings.SimpleTab;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(
+        $"{Strings.SimpleTab} {Interlocked.Increment(ref s_lastInstanceNumber)}");
 
     public void Dispose() { }
     public object? GetService(Type t) => null;
@@ -272,5 +276,8 @@ public void OpenHiddenTab(IEditorContext editorContext)
 5. **ReactivePropertySlim**: prefer it for plain values (lightweight).
 6. **ReactiveProperty**: use when validation or conversion is required.
 7. **CanMultiple**: set to `false` when only a single instance makes sense.
-8. **Header**: return `null` to keep the tab out of the menu.
-9. **Localization**: route every visible string through `Strings.XXX`.
+8. **`ToolTabExtension.Header`**: return `null` to keep the tab out of the menu.
+9. **`IToolContext.Header`**: the live tab title. For a `CanMultiple => true` tool,
+   derive it from whatever distinguishes one instance from another, so the tabs
+   do not all read the same.
+10. **Localization**: route every visible string through `Strings.XXX`.

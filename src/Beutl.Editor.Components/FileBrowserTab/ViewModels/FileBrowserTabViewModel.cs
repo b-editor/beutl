@@ -55,6 +55,10 @@ public sealed class FileBrowserTabViewModel : IToolContext
         // ディレクトリ変更時にリフレッシュ
         _directoryWatcher.Changed += () =>
         {
+            // A debounced refresh can arrive after disposal.
+            if (_disposed)
+                return;
+
             if (IsHomeView.Value)
                 RefreshHomeView();
             else
@@ -63,6 +67,10 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
         // プロジェクトディレクトリの取得
         _projectDirectory = GetProjectDirectory();
+
+        Header = RootPath.Select(CreateHeader)
+            .ToReadOnlyReactivePropertySlim(CreateHeader(RootPath.Value))
+            .AddTo(_disposables)!;
 
         RootPath.Subscribe(path =>
         {
@@ -76,6 +84,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             _directoryWatcher.Watch(path);
         }).AddTo(_disposables);
 
+        // IsHomeView subscriptions replay immediately, so this performs the initial home-view build.
         IsHomeView.Subscribe(isHome =>
         {
             if (isHome)
@@ -93,17 +102,13 @@ public sealed class FileBrowserTabViewModel : IToolContext
                 RefreshItems();
             }
         }).AddTo(_disposables);
-
-        // 初期化: ホームビューで起動（RootPathは設定しない）
-        RefreshHomeView();
-        _directoryWatcher.Watch(_projectDirectory);
     }
 
     public ToolTabExtension Extension => FileBrowserTabExtension.Instance;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public string Header => Strings.FileBrowser;
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ReactiveProperty<FileBrowserViewMode> ViewMode { get; } = new(FileBrowserViewMode.Icon);
 
@@ -121,7 +126,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public ObservableCollection<FileSystemItemViewModel> SelectedItems { get; } = [];
 
-    public ObservableCollection<string> Favorites => _favoritesManager.Favorites;
+    public ReadOnlyObservableCollection<string> Favorites => _favoritesManager.Favorites;
 
     public ObservableCollection<FileSystemItemViewModel> FavoriteItems => _favoritesManager.FavoriteItems;
 
@@ -138,6 +143,18 @@ public sealed class FileBrowserTabViewModel : IToolContext
     public ReactivePropertySlim<bool> IsProjectDirIconView { get; } = new(false);
 
     public ReactivePropertySlim<bool> IsMediaFilesIconView { get; } = new(true);
+
+    // Empty RootPath denotes the home view.
+    internal static string CreateHeader(string rootPath)
+    {
+        if (string.IsNullOrEmpty(rootPath))
+            return Strings.FileBrowser;
+
+        string trimmed = rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string name = Path.GetFileName(trimmed);
+        // Filesystem roots have no filename component.
+        return string.IsNullOrEmpty(name) ? rootPath : name;
+    }
 
     private string? GetProjectDirectory()
     {
@@ -482,13 +499,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void AddPathsToFavorites(IEnumerable<string> paths)
     {
-        foreach (string path in paths)
-        {
-            if (!Favorites.Contains(path))
-            {
-                Favorites.Add(path);
-            }
-        }
+        _favoritesManager.AddRange(paths);
     }
 
     public void CopyFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
