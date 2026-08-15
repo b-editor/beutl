@@ -10,10 +10,9 @@ namespace Beutl.Editor.Components.TerminalTab.ViewModels;
 
 public sealed class TerminalTabViewModel : IToolContext
 {
-    // Nothing about a terminal distinguishes one instance from another -- the shell and working
-    // directory are identical across the whole editor -- so the tabs are numbered instead.
-    // Process-wide and deliberately not persisted: dock layouts are saved per scene, so a stored
-    // number would collide the moment two scenes that each saved "Terminal 1" are opened together.
+    // The shell and working directory are identical across the whole editor, so nothing but a number
+    // tells two terminals apart. Deliberately not persisted: dock layouts are saved per scene, so a
+    // stored number would collide once two scenes that each saved "Terminal 1" are open together.
     private static int s_lastInstanceNumber;
 
     private readonly ReadOnlyReactivePropertySlim<string> _header;

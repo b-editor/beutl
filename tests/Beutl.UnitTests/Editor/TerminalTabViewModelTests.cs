@@ -194,8 +194,6 @@ public class TerminalTabViewModelTests
     [Test]
     public void Instance_numbers_stay_unique_across_a_view_state_round_trip()
     {
-        // Dock layouts are saved per scene, so persisting the number would make two scenes that each
-        // stored "Terminal 1" collide once both are open. Numbering is per session instead.
         var scene = new Scene(640, 480, string.Empty);
         var editorContext = new TestEditorContext(scene);
         using var sceneA = new TerminalTabViewModel(editorContext);

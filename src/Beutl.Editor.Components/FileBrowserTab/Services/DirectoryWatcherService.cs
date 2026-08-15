@@ -12,8 +12,7 @@ internal sealed class DirectoryWatcherService : IDisposable
     private readonly ILogger _logger = Log.CreateLogger<DirectoryWatcherService>();
     // A watcher failing for a persistent reason (an exhausted inotify budget, an unreadable mount)
     // raises Error again the moment it is rebuilt, so rebuilding is capped. The cap counts
-    // *consecutive* failures: it must not disable a folder whose watcher recovered in between, and
-    // it must not be restored by a caller re-Watching the folder that is currently failing.
+    // *consecutive* failures.
     private const int MaxErrorRearms = 3;
 
     private FileSystemWatcher? _watcher;
@@ -39,8 +38,7 @@ internal sealed class DirectoryWatcherService : IDisposable
             _failingPath = null;
         }
 
-        // A recursive watcher costs an inotify descriptor per subdirectory, so never rebuild one for
-        // a path already being watched.
+        // A recursive watcher costs an inotify descriptor per subdirectory.
         if (_watcher is not null && string.Equals(_watcher.Path, path, StringComparison.Ordinal))
             return;
 
@@ -168,8 +166,7 @@ internal sealed class DirectoryWatcherService : IDisposable
     }
 
     // A delivered event proves the current watcher works, so the failures an earlier one racked up
-    // must not count towards the cap — otherwise scattered transient errors across a long session
-    // would eventually stop the folder updating for good.
+    // must not count towards the cap.
     internal void MarkDelivered()
     {
         _errorRearmCount = 0;

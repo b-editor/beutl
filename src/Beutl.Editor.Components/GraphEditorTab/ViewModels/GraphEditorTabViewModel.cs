@@ -48,8 +48,6 @@ public sealed class GraphEditorTabViewModel : IToolContext
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        // Both call sites construct a fresh tab per animation, so without the element and property
-        // names every open graph editor would read "Graph Editor".
         Header = Element
             .Select(ToolTabHeaderHelper.ObserveElementLabel)
             .Switch()

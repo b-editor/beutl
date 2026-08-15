@@ -146,9 +146,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> IsMediaFilesIconView { get; } = new(true);
 
-    // The home view keeps the tool's own name; a browsing tab is named after the folder it shows so
-    // that several file browser tabs stay distinguishable. RootPath is empty exactly when the tab is
-    // on the home view, so it is the only input needed here.
+    // RootPath is empty exactly when the tab is on the home view, so it is the only input needed.
     internal static string CreateHeader(string rootPath)
     {
         if (string.IsNullOrEmpty(rootPath))

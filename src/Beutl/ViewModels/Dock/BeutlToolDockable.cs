@@ -72,9 +72,8 @@ public class BeutlToolDockable : Tool, IDisposable
         ToolContent = null;
     }
 
-    // A tool context — a plugin's especially — can publish an empty header, and so can the
-    // extension's own menu label, so walk down to something a user can read. Extension.Name is the
-    // last resort because it defaults to the bare type name.
+    // A header can be empty — a plugin's especially — and so can the extension's menu label.
+    // Extension.Name comes last because it defaults to the bare type name.
     private static string ResolveTitle(IToolContext context, string? header)
     {
         if (!string.IsNullOrWhiteSpace(header))

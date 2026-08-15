@@ -22,8 +22,8 @@ public partial class TerminalTabView : UserControl
         Terminal.AddHandler(TerminalView.TitleChangedEvent, OnTerminalTitleChanged);
     }
 
-    // OSC 0/2 reaches the view, but the tab title lives on the view-model, and this view is recycled
-    // across activations -- so report to the view-model that owns the PTY, not to DataContext.
+    // This view is recycled across activations, so report to the view-model that owns the PTY rather
+    // than to the current DataContext.
     private void OnTerminalTitleChanged(object? sender, TitleChangedEventArgs e)
     {
         if (!_disposed && _launchedViewModel is { } viewModel)
@@ -97,8 +97,8 @@ public partial class TerminalTabView : UserControl
         // rebind through null and still tears the PTY down when that view-model is disposed.
         SetLaunchedViewModel(viewModel);
         viewModel.IsProcessExited.Value = false;
-        // A restart spawns a new shell; keeping the old shell's reported title would leave the tab
-        // advertising a dead session until the new one happens to emit OSC 0/2.
+        // A restart spawns a new shell, which may never emit OSC 0/2; the old title must not outlive
+        // the session that reported it.
         viewModel.TerminalTitle.Value = null;
 
         // Suppress detach-cleanup before spawning so switching away mid-launch re-docks the tab

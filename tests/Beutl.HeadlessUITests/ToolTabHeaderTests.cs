@@ -47,8 +47,8 @@ public class ToolTabHeaderTests
         context.HeaderSource.Value = "second";
         Assert.That(dockable.Title, Is.EqualTo("second"));
 
-        // HeaderSource deliberately outlives the context (see FakeToolContext.Dispose), so a value
-        // pushed here is a live notification and only the dockable's own unsubscribe can stop it.
+        // HeaderSource outlives the context (see FakeToolContext.Dispose), so only the dockable's own
+        // unsubscribe can stop the value below from arriving.
         dockable.Dispose();
         context.HeaderSource.Value = "after-dispose";
         Assert.Multiple(() =>

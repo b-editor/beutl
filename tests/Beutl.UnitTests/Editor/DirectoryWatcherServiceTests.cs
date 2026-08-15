@@ -26,8 +26,6 @@ public class DirectoryWatcherServiceTests
     [Test]
     public void Rearms_the_watcher_after_an_error()
     {
-        // Refresh never calls Watch, so a tab left on the same folder would otherwise stay
-        // un-watched until the user navigated elsewhere.
         using var service = new DirectoryWatcherService();
         service.Watch(_scratch);
 
@@ -43,8 +41,6 @@ public class DirectoryWatcherServiceTests
     [Test]
     public void Stops_rearming_once_the_retry_budget_is_spent()
     {
-        // A watcher failing for a persistent reason -- an exhausted inotify budget -- raises Error
-        // again the moment it is rebuilt, so retrying forever would spin.
         using var service = new DirectoryWatcherService();
         service.Watch(_scratch);
 
@@ -84,8 +80,6 @@ public class DirectoryWatcherServiceTests
     [Test]
     public void Watching_the_same_path_twice_keeps_the_original_watcher()
     {
-        // A recursive watcher costs an inotify descriptor per subdirectory, and callers re-subscribe
-        // on unrelated state changes.
         using var service = new DirectoryWatcherService();
         service.Watch(_scratch);
         service.Watch(_scratch);
@@ -96,8 +90,6 @@ public class DirectoryWatcherServiceTests
     [Test]
     public void Watching_the_same_path_does_not_restore_spent_retries()
     {
-        // Callers re-Watch the current folder on unrelated state changes, so treating that as a
-        // fresh start would let a persistently failing watcher rebuild without limit.
         using var service = new DirectoryWatcherService();
         service.Watch(_scratch);
         while (service.TryRearmAfterError())
@@ -108,8 +100,7 @@ public class DirectoryWatcherServiceTests
 
         Assert.Multiple(() =>
         {
-            // The explicit call still arms one watcher — it is the automatic retries that must stay
-            // spent, so the very next failure gives up instead of starting the budget over.
+            // The explicit call still arms a watcher; only the automatic retries stay spent.
             Assert.That(service.IsWatching, Is.True);
             Assert.That(service.TryRearmAfterError(), Is.False);
             Assert.That(service.IsWatching, Is.False);
@@ -119,8 +110,6 @@ public class DirectoryWatcherServiceTests
     [Test]
     public void A_watcher_that_delivers_again_gets_its_retries_back()
     {
-        // The cap is for a watcher failing repeatedly and immediately; transient errors scattered
-        // across a long session must not add up and disable the folder for good.
         using var service = new DirectoryWatcherService();
         service.Watch(_scratch);
         service.TryRearmAfterError();

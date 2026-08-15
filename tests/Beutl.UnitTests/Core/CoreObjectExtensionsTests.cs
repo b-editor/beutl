@@ -83,9 +83,8 @@ public class CoreObjectExtensionsTests
     [Test]
     public void GetObservable_LeavesNoHandlerBehindAfterUnsubscribing()
     {
-        // The subject registers on first subscribe and unregisters on last unsubscribe. Anything
-        // left attached across a subscribe/dispose cycle accumulates for the object's lifetime and
-        // shows up as a duplicated notification on the next subscription.
+        // A registration left attached across a subscribe/dispose cycle shows up as a duplicated
+        // notification on the next subscription.
         var obj = new TestCoreObject { Name = "init" };
         IObservable<string> observable = obj.GetObservable(CoreObject.NameProperty);
 
