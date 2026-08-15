@@ -196,6 +196,8 @@ public sealed class GLSLShader : IDisposable
             if (sourceTexture == null)
                 continue;
 
+            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+
             int width = sourceTexture.Width;
             int height = sourceTexture.Height;
 
