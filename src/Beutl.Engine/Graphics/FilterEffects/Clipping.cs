@@ -52,12 +52,8 @@ public sealed partial class Clipping : FilterEffect
         return result;
     }
 
-    private static Thickness FindRectAndReturnThickness(SKSurface surface)
+    private static Thickness FindRectAndReturnThickness(Bitmap bitmap)
     {
-        surface.Flush(true, true);
-        using var image = surface.Snapshot();
-        using var bitmap = image.ToBitmap(BitmapColorType.Alpha8);
-
         int x0 = bitmap.Width;
         int y0 = bitmap.Height;
         int x1 = 0;
@@ -91,11 +87,11 @@ public sealed partial class Clipping : FilterEffect
             Thickness thickness = originalThickness;
             var target = context.Targets[i];
             float w = context.WorkingScale;
-            var surface = target.RenderTarget!.Value;
             if (data.autoClip)
             {
                 // FindRect detects in device px; convert to logical (/ w).
-                Thickness detected = FindRectAndReturnThickness(surface);
+                using Bitmap bitmap = target.RenderTarget!.SnapshotAlpha();
+                Thickness detected = FindRectAndReturnThickness(bitmap);
                 thickness += new Thickness(detected.Left / w, detected.Top / w, detected.Right / w, detected.Bottom / w);
             }
 

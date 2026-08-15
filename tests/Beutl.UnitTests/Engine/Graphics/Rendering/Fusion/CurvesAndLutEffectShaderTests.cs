@@ -18,7 +18,7 @@ public sealed class CurvesAndLutEffectShaderTests
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
     [Test]
-    public void Curves_RecordsTypedResourcesAndUsesCapabilitySpecificBudget()
+    public void Curves_RecordsTypedResourcesAndFusesUnderEveryCapabilityProfile()
     {
         var effect = new Curves();
         CurveMap masterCurve = effect.MasterCurve.CurrentValue;
@@ -52,10 +52,8 @@ public sealed class CurvesAndLutEffectShaderTests
                 Assert.That(portableProgram.StageCount, Is.EqualTo(1));
                 Assert.That(portableProgram.SamplerCount, Is.EqualTo(10));
                 Assert.That(portableProgram.ChildCount, Is.EqualTo(10));
-                Assert.That(portableProgram.RequiresStandaloneExecution, Is.True);
-                Assert.That(
-                    portableProgram.OverflowReasons,
-                    Is.EqualTo(new[] { SkslBackendLimit.Samplers, SkslBackendLimit.Children }));
+                Assert.That(portableProgram.RequiresStandaloneExecution, Is.False);
+                Assert.That(portableProgram.OverflowReasons, Is.Empty);
                 Assert.That(vulkanProgram.RequiresStandaloneExecution, Is.False);
                 Assert.That(metalProgram.RequiresStandaloneExecution, Is.False);
             });
@@ -137,7 +135,7 @@ public sealed class CurvesAndLutEffectShaderTests
     }
 
     [Test]
-    public void Curves_StandaloneCompatibilityExecutionPreservesOutput()
+    public void Curves_PortableShaderExecutionPreservesOutput()
     {
         var effect = new Curves
         {
@@ -148,7 +146,7 @@ public sealed class CurvesAndLutEffectShaderTests
             },
         };
 
-        SKColor color = Render(effect);
+        SKColor color = Render(effect, expectedShaderStages: 1);
 
         AssertCyan(color);
     }

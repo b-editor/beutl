@@ -343,7 +343,8 @@ public class CustomFilterEffectContext
                 nameof(destination));
         }
 
-        source.RenderTarget.PrepareForSampling();
+        source.RenderTarget.PrepareForSampling(
+            RenderTargetSamplingIntent.SameContextTextureSampling(destination.RenderTarget.Value.Context));
         using SKImage? image = source.RenderTarget.Value.Snapshot();
         if (image is null)
         {

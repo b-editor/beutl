@@ -66,8 +66,17 @@ public static class ContourTracer
         out Contours contours,
         out PooledList<int> parentIndices)
     {
-        using var alphaBitmap = bitmap.Convert(BitmapColorType.Alpha8);
-        FindContoursCore(alphaBitmap, out var contoursList, out parentIndices);
+        PooledList<PooledList<PixelPoint>> contoursList;
+        if (bitmap.ColorType == BitmapColorType.Alpha8)
+        {
+            FindContoursCore(bitmap, out contoursList, out parentIndices);
+        }
+        else
+        {
+            using var alphaBitmap = bitmap.Convert(BitmapColorType.Alpha8);
+            FindContoursCore(alphaBitmap, out contoursList, out parentIndices);
+        }
+
         contours = new Contours(contoursList);
     }
 

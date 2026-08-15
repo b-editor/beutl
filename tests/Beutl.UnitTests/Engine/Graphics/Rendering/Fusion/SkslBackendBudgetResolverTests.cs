@@ -17,8 +17,8 @@ public sealed class SkslBackendBudgetResolverTests
             Assert.That(budget.CapabilityClass, Is.EqualTo(SkslBackendCapabilityClass.Portable));
             Assert.That(budget.MaxStages, Is.EqualTo(16));
             Assert.That(budget.MaxUniformVectors, Is.EqualTo(128));
-            Assert.That(budget.MaxSamplers, Is.EqualTo(8));
-            Assert.That(budget.MaxChildren, Is.EqualTo(8));
+            Assert.That(budget.MaxSamplers, Is.EqualTo(12));
+            Assert.That(budget.MaxChildren, Is.EqualTo(12));
             Assert.That(budget.MaxSourceBytes, Is.EqualTo(64 * 1024));
             Assert.That(budget.MaxProgramTokens, Is.EqualTo(16 * 1024));
         });
@@ -62,17 +62,25 @@ public sealed class SkslBackendBudgetResolverTests
         });
     }
 
-    [TestCase(GRBackend.Vulkan, 12, 12)]
-    [TestCase(GRBackend.Metal, 12, 12)]
-    public void BackendProfiles_UseCapabilitySpecificResourceLimits(
-        GRBackend backend,
+    [TestCase("Portable", 12, 12)]
+    [TestCase("Vulkan", 12, 12)]
+    [TestCase("Metal", 12, 12)]
+    public void CapabilityProfiles_UseSupportedBackendFloorWithHeadroom(
+        string capabilityClass,
         int expectedSamplers,
         int expectedChildren)
     {
-        SkslBackendBudget budget = SkslBackendBudgetResolver.Resolve(backend);
+        SkslBackendBudget budget = capabilityClass switch
+        {
+            "Portable" => SkslBackendBudgetResolver.Portable,
+            "Vulkan" => SkslBackendBudgetResolver.Resolve(GRBackend.Vulkan),
+            "Metal" => SkslBackendBudgetResolver.Resolve(GRBackend.Metal),
+            _ => throw new ArgumentOutOfRangeException(nameof(capabilityClass)),
+        };
 
         Assert.Multiple(() =>
         {
+            Assert.That(budget.CapabilityClass.ToString(), Is.EqualTo(capabilityClass));
             Assert.That(budget.MaxStages, Is.EqualTo(16));
             Assert.That(budget.MaxUniformVectors, Is.EqualTo(128));
             Assert.That(budget.MaxSamplers, Is.EqualTo(expectedSamplers));

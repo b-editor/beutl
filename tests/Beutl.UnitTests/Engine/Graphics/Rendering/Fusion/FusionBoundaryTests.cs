@@ -361,10 +361,10 @@ public sealed class FusionBoundaryTests
     }
 
     [Test]
-    public void VulkanResourceOverflow_UsesCompatibilityFallbackAndReportsBackendLimitBoundary()
+    public void PortableResourceOverflow_UsesSingleCompatibilityFallbackAtCurrentBudget()
     {
         using var registry = new RenderRequestResourceRegistry();
-        SkslBackendBudget budget = SkslBackendBudgetResolver.Resolve(SkiaSharp.GRBackend.Vulkan);
+        SkslBackendBudget budget = SkslBackendBudgetResolver.Portable;
         ShaderDescription description = ResourceHeavyDescription(budget.MaxSamplers, registry);
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
         {

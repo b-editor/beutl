@@ -81,7 +81,7 @@ public partial class FlatShadow : FilterEffect
         for (int ii = 0; ii < context.Targets.Count; ii++)
         {
             var target = context.Targets[ii];
-            using var srcBitmap = target.RenderTarget!.Snapshot();
+            using Bitmap srcBitmap = target.RenderTarget!.SnapshotAlpha();
 
             float x1 = MathF.Cos(radian);
             float y1 = MathF.Sin(radian);

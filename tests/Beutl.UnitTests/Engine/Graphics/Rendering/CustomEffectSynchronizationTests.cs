@@ -19,6 +19,108 @@ public sealed class CustomEffectSynchronizationTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
+    public void Snapshot_RetainsCompletionWaitForCpuReadback()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            GpuResourceReclaimQueue.FlushAndDrain();
+            using RenderTarget target = RenderTarget.Create(8, 8)
+                ?? throw new InvalidOperationException("Could not create the GPU readback target.");
+            target.Value.Canvas.Clear(SKColors.CornflowerBlue);
+            var flushes = new List<ImmediateCanvasFlushKind>();
+
+            using (ImmediateCanvas.ObserveFlushes(flushes.Add))
+            using (target.Snapshot())
+            {
+            }
+
+            Assert.That(flushes,
+                Is.EqualTo(new[] { ImmediateCanvasFlushKind.PrepareForSampling }),
+                "CPU readback must submit and wait before ReadPixels consumes the surface.");
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void BackendInterop_RetainsCompletionWaitBeforeTextureExposure()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            GpuResourceReclaimQueue.FlushAndDrain();
+            using RenderTarget target = RenderTarget.Create(8, 8)
+                ?? throw new InvalidOperationException("Could not create the GPU interop target.");
+            Assert.That(target.Texture, Is.Not.Null);
+            var flushes = new List<ImmediateCanvasFlushKind>();
+
+            using (ImmediateCanvas.ObserveFlushes(flushes.Add))
+                target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+
+            Assert.That(flushes,
+                Is.EqualTo(new[] { ImmediateCanvasFlushKind.PrepareForSampling }),
+                "Vulkan texture exposure must wait because Skia ordering does not cross the backend boundary.");
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void SameContextTextureSampling_SubmitsWithoutCompletionWait()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            GpuResourceReclaimQueue.FlushAndDrain();
+            using RenderTarget producer = RenderTarget.Create(8, 8)
+                ?? throw new InvalidOperationException("Could not create the GPU producer target.");
+            using RenderTarget consumer = RenderTarget.Create(8, 8)
+                ?? throw new InvalidOperationException("Could not create the GPU consumer target.");
+            Assert.That(producer.Value.Context, Is.Not.Null);
+            Assert.That(consumer.Value.Context, Is.Not.Null);
+            Assert.That(producer.Value.Context!.Handle, Is.EqualTo(consumer.Value.Context!.Handle));
+            var flushes = new List<ImmediateCanvasFlushKind>();
+
+            using (ImmediateCanvas.ObserveFlushes(flushes.Add))
+            {
+                producer.PrepareForSampling(
+                    RenderTargetSamplingIntent.SameContextTextureSampling(consumer.Value.Context));
+            }
+
+            Assert.That(flushes,
+                Is.EqualTo(new[] { ImmediateCanvasFlushKind.PrepareForSamplingSubmit }),
+                "Sampling ordered within one Skia context needs submission but not CPU completion.");
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void CrossContextTextureSampling_RetainsCompletionWait()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            GpuResourceReclaimQueue.FlushAndDrain();
+            using var producer = new CpuRenderTarget(new PixelSize(8, 8));
+            using RenderTarget consumer = RenderTarget.Create(8, 8)
+                ?? throw new InvalidOperationException("Could not create the GPU consumer target.");
+            Assert.That(producer.Value.Context, Is.Null);
+            Assert.That(consumer.Value.Context, Is.Not.Null);
+            var flushes = new List<ImmediateCanvasFlushKind>();
+
+            using (ImmediateCanvas.ObserveFlushes(flushes.Add))
+            {
+                producer.PrepareForSampling(
+                    RenderTargetSamplingIntent.SameContextTextureSampling(consumer.Value.Context));
+            }
+
+            Assert.That(flushes,
+                Is.EqualTo(new[] { ImmediateCanvasFlushKind.PrepareForSampling }),
+                "A context mismatch must conservatively retain the completion wait.");
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
     public void ExecutorManagedCustomEffect_CpuTargetsDoNotFlushInitializedSharedContext()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -222,16 +324,17 @@ public sealed class CustomEffectSynchronizationTests
         {
             Assert.That(flushes, Is.EqualTo(new[]
             {
-                ImmediateCanvasFlushKind.PrepareForSampling,
+                ImmediateCanvasFlushKind.PrepareForSamplingSubmit,
                 ImmediateCanvasFlushKind.SourceSurface,
-            }), "Explicit shader sampling remains a synchronization boundary before the final source draw.");
+            }), "Same-context shader sampling submits without waiting before the final source draw.");
         });
         AssertFlushCounts(
             flushes,
             canvasSubmit: 0,
             canvasClose: 0,
             sourceSurface: 1,
-            prepareForSampling: 1);
+            prepareForSampling: 0,
+            prepareForSamplingSubmit: 1);
     }
 
     [Test]
@@ -291,7 +394,8 @@ public sealed class CustomEffectSynchronizationTests
         int canvasSubmit,
         int canvasClose,
         int sourceSurface,
-        int prepareForSampling)
+        int prepareForSampling,
+        int prepareForSamplingSubmit = 0)
     {
         Assert.Multiple(() =>
         {
@@ -307,6 +411,9 @@ public sealed class CustomEffectSynchronizationTests
             Assert.That(
                 flushes.Count(static item => item == ImmediateCanvasFlushKind.PrepareForSampling),
                 Is.EqualTo(prepareForSampling));
+            Assert.That(
+                flushes.Count(static item => item == ImmediateCanvasFlushKind.PrepareForSamplingSubmit),
+                Is.EqualTo(prepareForSamplingSubmit));
         });
     }
 

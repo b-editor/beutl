@@ -148,15 +148,15 @@ public sealed class ColorFilterIslandSplitTests
     }
 
     /// <summary>
-    /// Curves binds nine curve resources in addition to the implicit source. The Vulkan policy admits those ten
+    /// Curves binds nine curve resources in addition to the implicit source. The Portable policy admits those ten
     /// resources under its 12/12 budget, so Curves can remain in the same shader run as the two color stages that
     /// follow it while four slots below the backend guarantee remain reserved for Skia's surrounding program.
     /// </summary>
     [Test]
-    public void CurvesThenBrightnessThenGamma_FusesWithinTheVulkanBudget()
+    public void CurvesThenBrightnessThenGamma_FusesWithinThePortableBudget()
     {
         using CompiledRenderRequest compiled = Compile(
-            SkslBackendBudgetResolver.Resolve(GRBackend.Vulkan),
+            SkslBackendBudgetResolver.Portable,
             new Curves(),
             new Brightness { Amount = { CurrentValue = 50f } },
             new Gamma { Amount = { CurrentValue = 220f } });

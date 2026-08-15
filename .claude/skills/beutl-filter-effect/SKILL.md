@@ -252,7 +252,7 @@ Create your own resource files inside the extension project, or pass a literal s
 | `CurrentPixel` shaders; immutable opacity | Fusable | May join a compatible fusion run. |
 | `WholeSource` shaders | Can be the head of a fusion run | May absorb later per-pixel work; upstream work cannot fold into it. |
 | Skia image filters (`Blur`, `DropShadow`, `Dilate`, `Erode`); `CustomEffect`; Geometry; 3D; raw canvas access | Not fusable | Forms a fusion boundary. |
-| Sampler/child budget | Portable: 8; Vulkan/Metal: 12 | The implicit `src` sampler consumes one slot; exceeding the cap falls back to a standalone pass. |
+| Sampler/child budget | Portable: 12; Vulkan/Metal: 12 | The implicit `src` sampler consumes one slot; exceeding the cap falls back to a standalone pass. |
 
 Compile the shader in the static constructor and apply it through `CustomEffect`:
 

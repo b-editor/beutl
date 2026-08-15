@@ -232,7 +232,8 @@ public sealed class SkslSnippetMergerTests
     public void PortableBudget_ReservesOneSamplerAndChildForTheImplicitSource()
     {
         using var registry = new RenderRequestResourceRegistry();
-        SkslSnippetStage[] stages = Enumerable.Range(0, 8)
+        SkslBackendBudget budget = SkslBackendBudgetResolver.Portable;
+        SkslSnippetStage[] stages = Enumerable.Range(0, budget.MaxSamplers)
             .Select(index =>
             {
                 RenderResource<object> resource = registry.RegisterBorrowed(new object());
@@ -242,16 +243,16 @@ public sealed class SkslSnippetMergerTests
 
         IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
             stages,
-            SkslBackendBudgetResolver.Portable);
+            budget);
 
         Assert.Multiple(() =>
         {
             Assert.That(programs.Select(static program => program.StageCount),
-                Is.EqualTo(new[] { 7, 1 }));
+                Is.EqualTo(new[] { budget.MaxSamplers - 1, 1 }));
             Assert.That(programs.Select(static program => program.SamplerCount),
-                Is.EqualTo(new[] { 8, 2 }));
+                Is.EqualTo(new[] { budget.MaxSamplers, 2 }));
             Assert.That(programs.Select(static program => program.ChildCount),
-                Is.EqualTo(new[] { 8, 2 }));
+                Is.EqualTo(new[] { budget.MaxChildren, 2 }));
             Assert.That(programs, Has.All.Matches<SkslMergedProgram>(
                 static program => !program.RequiresStandaloneExecution));
         });

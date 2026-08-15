@@ -6,6 +6,47 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
+internal readonly struct RenderTargetSamplingIntent
+{
+    private readonly RenderTargetSamplingIntentKind _kind;
+    private readonly GRRecordingContext? _consumerContext;
+
+    private RenderTargetSamplingIntent(
+        RenderTargetSamplingIntentKind kind,
+        GRRecordingContext? consumerContext = null)
+    {
+        _kind = kind;
+        _consumerContext = consumerContext;
+    }
+
+    public static RenderTargetSamplingIntent CpuReadback => default;
+
+    public static RenderTargetSamplingIntent BackendInterop { get; }
+        = new(RenderTargetSamplingIntentKind.BackendInterop);
+
+    public static RenderTargetSamplingIntent SameContextTextureSampling(GRRecordingContext? consumerContext)
+        => new(RenderTargetSamplingIntentKind.SameContextTextureSampling, consumerContext);
+
+    internal bool RequiresBackendInterop => _kind == RenderTargetSamplingIntentKind.BackendInterop;
+
+    internal bool CanSubmitWithoutCompletion(GRRecordingContext? producerContext)
+    {
+        if (_kind != RenderTargetSamplingIntentKind.SameContextTextureSampling)
+            return false;
+
+        return producerContext is null
+            ? _consumerContext is null
+            : _consumerContext is not null && producerContext.Handle == _consumerContext.Handle;
+    }
+}
+
+internal enum RenderTargetSamplingIntentKind : byte
+{
+    CpuReadback,
+    BackendInterop,
+    SameContextTextureSampling,
+}
+
 public class RenderTarget : IDisposable
 {
     private readonly SKSurfaceCounter<SKSurface> _surface;
@@ -107,8 +148,30 @@ public class RenderTarget : IDisposable
     public Bitmap Snapshot()
     {
         VerifyAccess();
-        PrepareForSampling();
+        PrepareForSampling(RenderTargetSamplingIntent.CpuReadback);
         var result = CreateSnapshotBitmap();
+        ReadPixelsInto(result);
+        return result;
+    }
+
+    /// <summary>
+    /// Reads the current surface directly into a one-byte-per-pixel alpha bitmap.
+    /// </summary>
+    /// <remarks>
+    /// The GPU backend converts the render target's RgbaF16 pixels to Alpha8 during readback, so
+    /// callers that inspect only coverage avoid transferring and converting the color channels.
+    /// This is a synchronous CPU readback and waits for submitted rendering to complete.
+    /// </remarks>
+    public Bitmap SnapshotAlpha()
+    {
+        VerifyAccess();
+        PrepareForSampling(RenderTargetSamplingIntent.CpuReadback);
+        var result = new Bitmap(
+            Width,
+            Height,
+            BitmapColorType.Alpha8,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
         ReadPixelsInto(result);
         return result;
     }
@@ -139,8 +202,8 @@ public class RenderTarget : IDisposable
                 nameof(destination));
         }
 
-        // ReadPixels does not convert formats or color spaces, so require the exact format that
-        // Snapshot() allocates (RgbaF16 / Premul / LinearSrgb).
+        // Keep the reusable full-color snapshot contract exact even though Skia can convert during
+        // ReadPixels; alpha-only callers use SnapshotAlpha instead.
         if (destination.ColorType != BitmapColorType.RgbaF16
             || destination.AlphaType != BitmapAlphaType.Premul
             || !destination.ColorSpace.Equals(BitmapColorSpace.LinearSrgb))
@@ -150,7 +213,7 @@ public class RenderTarget : IDisposable
                 nameof(destination));
         }
 
-        PrepareForSampling();
+        PrepareForSampling(RenderTargetSamplingIntent.CpuReadback);
         ReadPixelsInto(destination);
     }
 
@@ -232,19 +295,30 @@ public class RenderTarget : IDisposable
         _texture?.Value?.PrepareForRender();
     }
 
-    internal void PrepareForSampling()
+    internal void PrepareForSampling(RenderTargetSamplingIntent intent)
     {
         VerifyAccess();
 
+        bool waitForCompletion = !intent.CanSubmitWithoutCompletion(_surface.Value!.Context);
+
         // A context-wide flush is a superset of this surface's, so reclaiming deferred targets
         // here replaces the surface flush instead of adding a second submit.
-        if (!GpuResourceReclaimQueue.FlushAndDrain())
+        if (GpuResourceReclaimQueue.FlushAndDrain())
         {
-            _surface.Value!.Flush(true, true);
+            waitForCompletion = true;
+        }
+        else
+        {
+            _surface.Value.Flush(true, waitForCompletion);
         }
 
-        ImmediateCanvas.RecordFlush(ImmediateCanvasFlushKind.PrepareForSampling);
-        _texture?.Value?.PrepareForSampling();
+        ImmediateCanvas.RecordFlush(waitForCompletion
+            ? ImmediateCanvasFlushKind.PrepareForSampling
+            : ImmediateCanvasFlushKind.PrepareForSamplingSubmit);
+        if (intent.RequiresBackendInterop)
+        {
+            _texture?.Value?.PrepareForSampling();
+        }
     }
 
     private sealed class SKSurfaceCounter<T>(T value, bool deferRelease = false, long approximateBytes = 0)

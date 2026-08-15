@@ -117,7 +117,7 @@ public sealed class GLSLShader : IDisposable
             if (sourceTexture == null)
                 continue;
 
-            renderTarget.PrepareForSampling();
+            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
 
             EffectTarget newTarget = context.CreateTargetLike(target);
             RenderTarget? newRenderTarget = newTarget.RenderTarget;
@@ -296,7 +296,7 @@ public sealed class GLSLShader : IDisposable
             if (sourceTexture == null)
                 continue;
 
-            renderTarget.PrepareForSampling();
+            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
 
             EffectTarget newTarget = context.CreateTargetLike(target);
             RenderTarget? newRenderTarget = newTarget.RenderTarget;

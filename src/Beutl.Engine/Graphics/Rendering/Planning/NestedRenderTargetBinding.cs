@@ -58,7 +58,9 @@ internal sealed class NestedRenderTargetBinding : IDisposable
         if (_state != NestedRenderTargetBindingState.Staged || _lease is null)
             throw new InvalidOperationException("The nested render target is not staged.");
 
-        _lease.Target.PrepareForSampling();
+        // The binding can later expose either an SKImage or its Vulkan texture. Until the consumer is known,
+        // retain the cross-backend synchronization required by the latter.
+        _lease.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
         _state = NestedRenderTargetBindingState.Ready;
     }
 

@@ -126,7 +126,7 @@ public sealed partial class DrawableTextureSource : TextureSource
                 }
 
                 // Prepare for sampling (flush the surface)
-                _renderTarget.PrepareForSampling();
+                _renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
                 _renderTargetVersion = Version;
             }
 

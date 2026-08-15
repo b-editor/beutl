@@ -121,7 +121,9 @@ internal sealed partial class RenderRequestExecutor
                     canvas.CloseWithoutFlush();
                     canvas = null;
 
-                    lease.Target.PrepareForSampling();
+                    lease.Target.PrepareForSampling(
+                        RenderTargetSamplingIntent.SameContextTextureSampling(
+                            _targets.ExternalTarget?.Value.Context));
                     image = CreateIndependentImage(lease.Target.Value, contentDevice);
                     contentBounds = contentDevice.ToRect(scale);
                 }
