@@ -114,9 +114,21 @@ internal sealed class DirectoryWatcherService : IDisposable
 
         _failingPath = path;
 
-        _errorRearmCount++;
-        Watch(path, isErrorRearm: true);
-        return _watcher is not null;
+        // Watch swallows a construction failure, and with no watcher no further Error can arrive, so
+        // the remaining budget has to be spent here or the folder stays unwatched for good.
+        while (_errorRearmCount < MaxErrorRearms)
+        {
+            _errorRearmCount++;
+            Watch(path, isErrorRearm: true);
+            if (_watcher is not null)
+                return true;
+        }
+
+        _logger.LogWarning(
+            "FileSystemWatcher for {Path} could not be rebuilt in {Count} attempts; leaving it off until the folder changes",
+            path,
+            _errorRearmCount);
+        return false;
     }
 
     // プロジェクト、シーン、要素のファイルは頻繁に変更されるため除外

@@ -127,6 +127,30 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
+    public void A_rebuild_that_cannot_construct_a_watcher_spends_the_whole_budget()
+    {
+        using var service = new DirectoryWatcherService();
+        string doomed = Path.Combine(_scratch, "doomed");
+        Directory.CreateDirectory(doomed);
+        service.Watch(doomed);
+        Directory.Delete(doomed);
+
+        bool rearmed = service.TryRearmAfterError();
+
+        // Re-Watch the folder once it is back. The budget is not restored (the path is still the
+        // failing one), so a rebuild that spent it leaves the next failure nothing to retry with.
+        Directory.CreateDirectory(doomed);
+        service.Watch(doomed);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rearmed, Is.False);
+            Assert.That(service.IsWatching, Is.True);
+            Assert.That(service.TryRearmAfterError(), Is.False);
+        });
+    }
+
+    [Test]
     public void Watching_a_missing_path_leaves_nothing_armed()
     {
         using var service = new DirectoryWatcherService();
