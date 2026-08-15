@@ -293,7 +293,7 @@ public sealed class ObjectTemplateService
     {
         foreach (ObjectTemplateItem item in _items)
         {
-            if (string.Equals(item.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+            if (FilePathComparison.Equals(item.FilePath, filePath))
                 return item;
         }
 
