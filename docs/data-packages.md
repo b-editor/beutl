@@ -91,6 +91,11 @@ presence only suggests otherwise.
   `*.json` and registers what it finds, so a template package's contents appear in the
   editor without a restart. The per-package subdirectory is what keeps two packages from
   colliding on a file name.
+- **Template previews** — a template may carry an optional `Preview` key holding a
+  base64-encoded PNG, which the file browser shows as the template's thumbnail. Beutl
+  renders one when the user saves a template, so a package built from templates saved in
+  the editor already has them. A template without the key is still valid and falls back to
+  an icon chosen from its `BaseType`.
 - **Materials** — the file browser tab's favorites list always shows the **Materials**
   entry, like the templates entry, pointing at `{home}/materials`; the package directories
   that installed them are browsed from there. An item is dragged out as a plain file, which

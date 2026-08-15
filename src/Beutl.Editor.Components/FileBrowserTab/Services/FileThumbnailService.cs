@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using Avalonia.Media.Imaging;
+using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
@@ -83,12 +84,14 @@ public sealed record MediaFileInfo(
 
 public sealed class FileThumbnailService : IDisposable
 {
+    private readonly record struct CachedThumbnail(WeakReference<Bitmap> Bitmap, DateTime LastWriteUtc);
+
     private const int MaxThumbnailCacheEntries = 1000;
     private const int MaxMediaInfoCacheEntries = 500;
     private static readonly TimeSpan s_pruneInterval = TimeSpan.FromSeconds(60);
 
     private static readonly Lazy<FileThumbnailService> s_instance = new(() => new FileThumbnailService());
-    private readonly ConcurrentDictionary<string, WeakReference<Bitmap>> _cache = new();
+    private readonly ConcurrentDictionary<string, CachedThumbnail> _cache = new();
     private readonly ConcurrentDictionary<string, (MediaFileInfo Info, long LastAccessTicks)> _mediaInfoCache = new();
     private readonly SemaphoreSlim _semaphore = new(4); // 同時生成数を制限
     private readonly ILogger _logger = Log.CreateLogger<FileThumbnailService>();
@@ -104,58 +107,41 @@ public sealed class FileThumbnailService : IDisposable
 
     public int ThumbnailSize { get; set; } = 64;
 
-    private static readonly HashSet<string> s_imageExtensions =
-    [
-        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif"
-    ];
-
-    private static readonly HashSet<string> s_videoExtensions =
-    [
-        ".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"
-    ];
-
-    private static readonly HashSet<string> s_audioExtensions =
-    [
-        ".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a"
-    ];
-
     public async Task<Bitmap?> GetThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
         if (_disposed)
             return null;
 
+        DateTime lastWriteUtc = GetLastWriteTimeOrDefault(filePath);
+
         // キャッシュを確認
-        if (_cache.TryGetValue(filePath, out var weakRef) && weakRef.TryGetTarget(out var cached))
+        if (TryGetCached(filePath, lastWriteUtc, out Bitmap? cached))
         {
             return cached;
         }
-
-        string extension = Path.GetExtension(filePath).ToLowerInvariant();
 
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
             // 再度キャッシュを確認（競合回避）
-            if (_cache.TryGetValue(filePath, out weakRef) && weakRef.TryGetTarget(out cached))
+            if (TryGetCached(filePath, lastWriteUtc, out cached))
             {
                 return cached;
             }
 
-            Bitmap? thumbnail = null;
-
-            if (s_imageExtensions.Contains(extension))
+            Bitmap? thumbnail = DecoderFileExtensions.Classify(filePath) switch
             {
-                thumbnail = await GenerateImageThumbnailAsync(filePath, cancellationToken);
-            }
-            else if (s_videoExtensions.Contains(extension))
-            {
-                thumbnail = await GenerateVideoThumbnailAsync(filePath, cancellationToken);
-            }
+                MediaFileKind.Image => await GenerateImageThumbnailAsync(filePath, cancellationToken),
+                MediaFileKind.Video => await GenerateVideoThumbnailAsync(filePath, cancellationToken),
+                _ when IsObjectTemplateFile(filePath) =>
+                    await GenerateTemplateThumbnailAsync(filePath, cancellationToken),
+                _ => null
+            };
 
             if (thumbnail != null)
             {
                 PruneThumbnailCacheIfNeeded();
-                _cache[filePath] = new WeakReference<Bitmap>(thumbnail);
+                _cache[filePath] = new CachedThumbnail(new WeakReference<Bitmap>(thumbnail), lastWriteUtc);
             }
 
             return thumbnail;
@@ -187,9 +173,9 @@ public sealed class FileThumbnailService : IDisposable
             return entry.Info;
         }
 
-        string extension = Path.GetExtension(filePath).ToLowerInvariant();
-        bool isVideo = s_videoExtensions.Contains(extension);
-        bool isAudio = s_audioExtensions.Contains(extension);
+        MediaFileKind kind = DecoderFileExtensions.Classify(filePath);
+        bool isVideo = kind == MediaFileKind.Video;
+        bool isAudio = kind == MediaFileKind.Audio;
 
         if (!isVideo && !isAudio)
             return null;
@@ -278,16 +264,26 @@ public sealed class FileThumbnailService : IDisposable
 
     public bool CanGetMediaInfo(string filePath)
     {
-        string extension = Path.GetExtension(filePath).ToLowerInvariant();
-        return s_videoExtensions.Contains(extension) || s_audioExtensions.Contains(extension);
+        return DecoderFileExtensions.Classify(filePath) is MediaFileKind.Video or MediaFileKind.Audio;
     }
 
     public bool IsMediaFile(string filePath)
     {
-        string extension = Path.GetExtension(filePath).ToLowerInvariant();
-        return s_imageExtensions.Contains(extension)
-            || s_videoExtensions.Contains(extension)
-            || s_audioExtensions.Contains(extension);
+        return DecoderFileExtensions.IsMedia(filePath);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="filePath"/> is an object template, whose thumbnail is the preview
+    /// embedded when it was saved.
+    /// </summary>
+    /// <remarks>
+    /// Scoped to the templates directory so browsing an unrelated folder of JSON does not parse
+    /// every file looking for a template.
+    /// </remarks>
+    public bool IsObjectTemplateFile(string filePath)
+    {
+        return string.Equals(Path.GetExtension(filePath), ".json", StringComparison.OrdinalIgnoreCase)
+               && PathScope.IsUnderDirectory(filePath, ObjectTemplateService.GetDirectoryPath());
     }
 
     private async Task<Bitmap?> GenerateImageThumbnailAsync(string filePath, CancellationToken cancellationToken)
@@ -376,6 +372,28 @@ public sealed class FileThumbnailService : IDisposable
         }, cancellationToken);
     }
 
+    private async Task<Bitmap?> GenerateTemplateThumbnailAsync(string filePath, CancellationToken cancellationToken)
+    {
+        return await Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                if (ObjectTemplateService.Instance.TryLoadFromFile(filePath)?.Preview is not { Length: > 0 } preview)
+                    return null;
+
+                using var stream = new MemoryStream(preview);
+                return new Bitmap(stream);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to read the template preview of {FilePath}", filePath);
+                return null;
+            }
+        }, cancellationToken);
+    }
+
     private void PruneCaches()
     {
         if (_disposed)
@@ -385,12 +403,40 @@ public sealed class FileThumbnailService : IDisposable
         EvictMediaInfoCacheIfNeeded();
     }
 
+    // Rewriting a file keeps its path, so the timestamp is what separates a hit from a stale entry;
+    // without it an overwritten template or image serves its old thumbnail for the whole session.
+    private bool TryGetCached(string filePath, DateTime lastWriteUtc, out Bitmap? thumbnail)
+    {
+        if (_cache.TryGetValue(filePath, out CachedThumbnail entry)
+            && entry.LastWriteUtc == lastWriteUtc
+            && entry.Bitmap.TryGetTarget(out Bitmap? cached))
+        {
+            thumbnail = cached;
+            return true;
+        }
+
+        thumbnail = null;
+        return false;
+    }
+
+    private static DateTime GetLastWriteTimeOrDefault(string filePath)
+    {
+        try
+        {
+            return File.GetLastWriteTimeUtc(filePath);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
     private void PruneThumbnailCacheIfNeeded()
     {
         // 死んだ WeakReference エントリを除去
         foreach (var kvp in _cache)
         {
-            if (!kvp.Value.TryGetTarget(out _))
+            if (!kvp.Value.Bitmap.TryGetTarget(out _))
             {
                 _cache.TryRemove(kvp.Key, out _);
             }
@@ -424,8 +470,8 @@ public sealed class FileThumbnailService : IDisposable
 
     public bool CanGenerateThumbnail(string filePath)
     {
-        string extension = Path.GetExtension(filePath).ToLowerInvariant();
-        return s_imageExtensions.Contains(extension) || s_videoExtensions.Contains(extension);
+        return DecoderFileExtensions.Classify(filePath) is MediaFileKind.Image or MediaFileKind.Video
+               || IsObjectTemplateFile(filePath);
     }
 
     public void ClearCache()

@@ -30,6 +30,15 @@ public sealed class ObjectTemplateItem(
 
     public DateTime LastWriteTimeUtc { get; internal set; }
 
+    // Base64 of 1 MiB, four times what ObjectTemplatePreviewRenderer will ever write — headroom for
+    // a package authored elsewhere, without letting one file dictate the allocation.
+    private const int MaxEncodedPreviewLength = 1_398_104;
+
+    /// <summary>
+    /// A PNG preview of what this template produces, or null when none could be rendered.
+    /// </summary>
+    public byte[]? Preview { get; internal set; }
+
     public ICoreSerializable? CreateInstance()
     {
         try
@@ -70,7 +79,7 @@ public sealed class ObjectTemplateItem(
 
     public static JsonNode ToJson(ObjectTemplateItem item)
     {
-        return new JsonObject
+        var json = new JsonObject
         {
             [nameof(Id)] = item.Id.ToString(),
             [nameof(BaseType)] = TypeFormat.ToString(item.BaseType),
@@ -78,6 +87,13 @@ public sealed class ObjectTemplateItem(
             [nameof(Json)] = item.Json.DeepClone(),
             [nameof(CategoryFormat)] = item.CategoryFormat
         };
+
+        if (item.Preview is { Length: > 0 } preview)
+        {
+            json[nameof(Preview)] = Convert.ToBase64String(preview);
+        }
+
+        return json;
     }
 
     public static ObjectTemplateItem? FromJson(JsonNode json, string name, string filePath, ILogger logger)
@@ -128,11 +144,50 @@ public sealed class ObjectTemplateItem(
             string categoryFormat = json[nameof(CategoryFormat)]?.GetValue<string>()
                                     ?? ObjectTemplateCategoryResolver.Resolve(actualType).Format;
 
-            return new ObjectTemplateItem(id, baseType, actualType, jsonObject, name, categoryFormat, filePath);
+            // Detached: a JsonNode holds a strong reference to its parent, so keeping the child
+            // would pin the whole parsed document — including the base64 preview — for the
+            // lifetime of every item the service caches.
+            var payload = (JsonObject)jsonObject.DeepClone();
+
+            return new ObjectTemplateItem(id, baseType, actualType, payload, name, categoryFormat, filePath)
+            {
+                Preview = ReadPreview(json, logger)
+            };
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "An exception has occurred while creating ObjectTemplateItem from JSON.");
+            return null;
+        }
+    }
+
+    // A corrupt preview must not cost the user the template itself, so it degrades to "no preview".
+    // Nothing validates a template file, so the encoded length is untrusted and is bounded before
+    // anything is allocated for it.
+    private static byte[]? ReadPreview(JsonNode json, ILogger logger)
+    {
+        if (json[nameof(Preview)] is not JsonValue value
+            || !value.TryGetValue(out string? base64)
+            || string.IsNullOrEmpty(base64))
+        {
+            return null;
+        }
+
+        if (base64.Length > MaxEncodedPreviewLength)
+        {
+            logger.LogWarning(
+                "Template preview is {Length} characters, over the {Limit} limit; ignoring it.",
+                base64.Length, MaxEncodedPreviewLength);
+            return null;
+        }
+
+        try
+        {
+            return Convert.FromBase64String(base64);
+        }
+        catch (FormatException)
+        {
+            logger.LogWarning("Template preview is not valid base64; ignoring it.");
             return null;
         }
     }

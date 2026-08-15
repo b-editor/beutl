@@ -12,8 +12,7 @@ public sealed class ObjectTemplateService
     public static readonly ObjectTemplateService Instance = new();
     private readonly CoreList<ObjectTemplateItem> _items = [];
 
-    private readonly string _directoryPath = Path.Combine(
-        BeutlEnvironment.GetHomeDirectoryPath(), "templates");
+    private readonly string _directoryPath = GetDirectoryPath();
 
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
 
@@ -30,19 +29,46 @@ public sealed class ObjectTemplateService
 
     public string DirectoryPath => _directoryPath;
 
-    public ObjectTemplateItem? AddFromInstance(ICoreSerializable instance, string name)
+    /// <summary>
+    /// The templates directory, without constructing <see cref="Instance"/>.
+    /// </summary>
+    /// <remarks>
+    /// Callers that only need to test whether a path is a template — the file browser does this for
+    /// every listed file — must use this: reading <see cref="DirectoryPath"/> runs the singleton's
+    /// constructor, which loads and parses every template on disk on whatever thread asked first.
+    /// </remarks>
+    public static string GetDirectoryPath()
     {
+        return Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "templates");
+    }
+
+    /// <summary>
+    /// Saves <paramref name="instance"/> as a template, embedding a rendered preview when one can be produced.
+    /// </summary>
+    /// <remarks>
+    /// Rendering hops to the render thread, so it runs before the lock is taken — awaiting while
+    /// holding the lock would deadlock against a render thread that needs it back. The name is
+    /// therefore resolved inside the same lock window as the write, not before the render.
+    /// The await deliberately keeps the caller's context: the render dispatcher completes its task
+    /// on the render thread, so <c>ConfigureAwait(false)</c> would run the name probe and the file
+    /// write there, stalling playback and export for the duration of the save.
+    /// </remarks>
+    public async ValueTask<ObjectTemplateItem?> AddFromInstanceAsync(
+        ICoreSerializable instance, string name, CancellationToken cancellationToken = default)
+    {
+        var item = ObjectTemplateItem.CreateFromInstance(instance, name);
+        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(instance, cancellationToken);
+
         lock (_lock)
         {
-            string uniqueName = GetUniqueNameLocked(name);
-            var item = ObjectTemplateItem.CreateFromInstance(instance, uniqueName);
+            item.Name.Value = GetUniqueNameLocked(name);
             if (!SaveItemToFile(item))
             {
                 return null;
             }
 
             _items.Add(item);
-            _logger.LogInformation("Added new ObjectTemplateItem: {Name}", uniqueName);
+            _logger.LogInformation("Added new ObjectTemplateItem: {Name}", item.Name.Value);
             return item;
         }
     }

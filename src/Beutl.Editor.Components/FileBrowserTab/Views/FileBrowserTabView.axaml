@@ -72,7 +72,7 @@
                                Stretch="Uniform" />
                         <icons:FluentIcon FontSize="48"
                                           IsVisible="{Binding !HasThumbnail.Value}"
-                                          Icon="{Binding IconSymbol}" />
+                                          Icon="{Binding IconSymbol.Value}" />
                     </Panel>
                     <!--  ファイル名  -->
                     <TextBlock Grid.Row="1"
@@ -106,7 +106,7 @@
                                Stretch="Uniform" />
                         <icons:FluentIcon FontSize="20"
                                           IsVisible="{Binding !HasThumbnail.Value}"
-                                          Icon="{Binding IconSymbol}" />
+                                          Icon="{Binding IconSymbol.Value}" />
                     </Panel>
                     <TextBlock VerticalAlignment="Center"
                                Text="{Binding Name.Value}"
@@ -502,7 +502,7 @@
                                                Stretch="Uniform" />
                                         <icons:FluentIcon FontSize="20"
                                                           IsVisible="{Binding !HasThumbnail.Value}"
-                                                          Icon="{Binding IconSymbol}" />
+                                                          Icon="{Binding IconSymbol.Value}" />
                                     </Panel>
                                     <TextBlock VerticalAlignment="Center" Text="{Binding Name.Value}" />
                                 </StackPanel>

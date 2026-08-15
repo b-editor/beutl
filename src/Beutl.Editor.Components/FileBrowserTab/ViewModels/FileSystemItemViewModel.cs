@@ -1,6 +1,14 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
+using Beutl.Audio;
+using Beutl.Audio.Effects;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Editor.Services;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Transformation;
+using Beutl.Media.Decoding;
+using Beutl.ProjectSystem;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using Icon = FluentIcons.Common.Icon;
@@ -25,7 +33,7 @@ public class FileSystemItemViewModel : IDisposable
         }
 
         Extension = isDirectory ? string.Empty : Path.GetExtension(fullPath).ToLowerInvariant();
-        IconSymbol = GetIconSymbol();
+        IconSymbol = new ReactiveProperty<Icon>(GetIconSymbol()).AddTo(_disposables);
 
         if (isDirectory)
         {
@@ -58,7 +66,7 @@ public class FileSystemItemViewModel : IDisposable
 
     public string Extension { get; }
 
-    public Icon IconSymbol { get; }
+    public ReactiveProperty<Icon> IconSymbol { get; }
 
     public ObservableCollection<FileSystemItemViewModel>? Children { get; }
 
@@ -73,23 +81,58 @@ public class FileSystemItemViewModel : IDisposable
     // メディア情報のツールチップテキスト（遅延ロード）
     public ReactiveProperty<string?> MediaInfoText { get; } = new((string?)null);
 
+    // An object template is a .json file, so the extension alone cannot say what it holds; the
+    // category has to be read out of the file itself.
+    // IsObjectTemplateFile only tests the extension and the directory, so a stray, half-written or
+    // no-longer-resolvable .json lands here too; those fall back to the ordinary file description.
+    private async Task<bool> LoadTemplateInfoAsync()
+    {
+        try
+        {
+            var item = await Task.Run(() => ObjectTemplateService.Instance.TryLoadFromFile(FullPath));
+            if (item == null)
+                return false;
+
+            IconSymbol.Value = GetTemplateIconSymbol(item.BaseType);
+            MediaInfoText.Value = TypeDisplayHelpers.GetLocalizedName(item.ActualType);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static Icon GetTemplateIconSymbol(Type baseType)
+    {
+        if (baseType.IsAssignableTo(typeof(Element))) return Icon.Filmstrip;
+        if (baseType.IsAssignableTo(typeof(FilterEffect))) return Icon.Wand;
+        if (baseType.IsAssignableTo(typeof(Transform))) return Icon.ArrowMove;
+        if (baseType.IsAssignableTo(typeof(Drawable))) return Icon.Shapes;
+        if (baseType.IsAssignableTo(typeof(Sound)) || baseType.IsAssignableTo(typeof(AudioEffect)))
+            return Icon.MusicNote1;
+        if (baseType.IsAssignableTo(typeof(Media.Brush))) return Icon.PaintBrush;
+        if (baseType.IsAssignableTo(typeof(Media.Geometry))) return Icon.Pen;
+        if (baseType.IsAssignableTo(typeof(Media.Pen))) return Icon.LineHorizontal1;
+
+        return Icon.Document;
+    }
+
     private async Task LoadMediaInfoAsync()
     {
         var service = FileThumbnailService.Instance;
+        if (service.IsObjectTemplateFile(FullPath))
+        {
+            if (await LoadTemplateInfoAsync())
+                return;
+
+            SetFileDescription();
+            return;
+        }
+
         if (!service.CanGetMediaInfo(FullPath))
         {
-            // メディアでないファイルはサイズと日時を表示
-            try
-            {
-                var fileInfo = new FileInfo(FullPath);
-                MediaInfoText.Value =
-                    $"{MediaFileInfo.FormatFileSize(fileInfo.Length)} · {fileInfo.LastWriteTime:yyyy/MM/dd}";
-            }
-            catch
-            {
-                // ignore
-            }
-
+            SetFileDescription();
             return;
         }
 
@@ -100,6 +143,20 @@ public class FileSystemItemViewModel : IDisposable
             {
                 MediaInfoText.Value = info.ToDisplayString();
             }
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private void SetFileDescription()
+    {
+        try
+        {
+            var fileInfo = new FileInfo(FullPath);
+            MediaInfoText.Value =
+                $"{MediaFileInfo.FormatFileSize(fileInfo.Length)} · {fileInfo.LastWriteTime:yyyy/MM/dd}";
         }
         catch
         {
@@ -137,38 +194,42 @@ public class FileSystemItemViewModel : IDisposable
             return Icon.Folder;
         }
 
-        return Extension switch
+        // Named extensions win over the decoder-driven classification: '.ts' is both TypeScript and
+        // a transport stream, and which one Classify reports depends on whether an optional decoder
+        // extension happens to be registered.
+        Icon? named = Extension switch
         {
-            // Image files
-            ".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" or ".webp" or ".ico" or ".tiff" or ".tif" =>
-                Icon.Image,
-
-            // Video files
-            ".mp4" or ".avi" or ".mov" or ".mkv" or ".wmv" or ".flv" or ".webm" =>
-                Icon.Video,
-
-            // Audio files
-            ".mp3" or ".wav" or ".ogg" or ".flac" or ".aac" or ".wma" or ".m4a" =>
-                Icon.MusicNote1,
-
             // Document files
             ".pdf" => Icon.DocumentPdf,
             ".doc" or ".docx" => Icon.Document,
             ".txt" or ".md" or ".json" or ".xml" or ".yaml" or ".yml" => Icon.DocumentText,
 
             // Code files
-            ".cs" or ".fs" or ".vb" or ".py" or ".js" or ".ts" or ".html" or ".css" or ".xaml" or ".axaml" =>
-                Icon.Code,
+            ".cs" or ".fs" or ".vb" or ".py" or ".js" or ".ts" or ".html" or ".css" or ".xaml"
+                or ".axaml" => Icon.Code,
 
             // Archive files
             ".zip" or ".rar" or ".7z" or ".tar" or ".gz" =>
                 Icon.FolderZip,
 
             // Beutl project files
-            ".bepj" => Icon.Folder,
-            ".besc" => Icon.Filmstrip,
+            ".bep" => Icon.Folder,
+            ".scene" => Icon.Filmstrip,
+            ".belm" => Icon.Shapes,
 
-            // Default
+            _ => null
+        };
+
+        if (named is { } icon)
+        {
+            return icon;
+        }
+
+        return DecoderFileExtensions.Classify(FullPath) switch
+        {
+            MediaFileKind.Image => Icon.Image,
+            MediaFileKind.Video => Icon.Video,
+            MediaFileKind.Audio => Icon.MusicNote1,
             _ => Icon.Document
         };
     }
