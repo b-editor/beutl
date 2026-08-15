@@ -13,9 +13,11 @@ public class Composer : IComposer
     private readonly List<AudioNodeEntry> _currentEntry = new();
 
     // The entries active in the previous Compose window and that window's range. A sound whose captured
-    // range ended at the boundary still holds its latency tail, which the next window flushes (a sound
-    // ending exactly on the boundary cannot self-recover — its terminal clip window is full, so
-    // ClipNode.AppendFlushedTail has no room). An entry absent for any other reason is discarded.
+    // range ended at or before the boundary still holds (part of) its latency tail, which the next
+    // window flushes: a sound ending exactly on the boundary cannot self-recover (its terminal clip
+    // window is full, so ClipNode.AppendFlushedTail has no room), and one ending inside the window may
+    // have only partially drained (the terminal window had less trailing capacity than the reported
+    // latency), with ClipNode retaining the rest. An entry absent for any other reason is discarded.
     private readonly List<AudioNodeEntry> _previousEntry = new();
     private TimeRange? _previousRange;
 
@@ -184,7 +186,13 @@ public class Composer : IComposer
                 continue;
             if (entry.OutputNodes is not { } outputNodes)
                 continue;
-            if (!IsSameTimestamp(entry.SoundRange.End, previous.End))
+            // The sound ended during the previous window (at or before its end, within tick tolerance).
+            // A sound ending exactly at the boundary holds its full tail; one ending inside the window
+            // may have partially drained it (the terminal clip window had less trailing capacity than
+            // the reported latency), and ClipNode retains the rest for a later flush. Either way the
+            // next contiguous window must drain what remains. A sound still active past the boundary
+            // is either in _currentEntry or ineligible, so the other guards handle it.
+            if (entry.SoundRange.End.Ticks - previous.End.Ticks > 1)
                 continue;
             if (entry.Sound.TimeRange != entry.SoundRange)
                 continue;
@@ -204,9 +212,6 @@ public class Composer : IComposer
 
     private static bool IsContiguous(TimeSpan previousEnd, TimeSpan nextStart)
         => Math.Abs((nextStart - previousEnd).Ticks) <= TimeSpan.TicksPerMillisecond;
-
-    private static bool IsSameTimestamp(TimeSpan first, TimeSpan second)
-        => Math.Abs((first - second).Ticks) <= 1;
 
     private AudioBuffer? MixBuffers(List<AudioBuffer> buffers)
     {

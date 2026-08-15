@@ -1002,6 +1002,56 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_ContinuesPartiallyDrainedTail_WhenSoundEndsInsideThePreviousWindow()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        const int clipSamples = 48000;   // 1s at 48 kHz
+        int padSamples = L / 2;          // trailing room < L => only a partial append
+        var clipDuration = ExactDuration(clipSamples, SampleRate);
+        var window1Duration = ExactDuration(clipSamples + padSamples, SampleRate);
+
+        // The sound ends padSamples before window 1's end. Its terminal clip window therefore has
+        // only padSamples of trailing capacity: ClipNode appends that much of the limiter's held tail
+        // and retains the rest. Window 2 must continue the drain instead of rejecting the entry
+        // because SoundRange.End != previous.End.
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+
+        var window1 = new TimeRange(TimeSpan.Zero, window1Duration);
+        var eligibility = new CompositionEligibility([sound]);
+        var frame1 = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            window1,
+            default,
+            eligibility);
+        using var buffer1 = composer.Compose(window1, frame1);
+
+        var window2 = new TimeRange(window1Duration, window1Duration);
+        var frame2 = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            window2,
+            default,
+            eligibility);
+        using var buffer2 = composer.Compose(window2, frame2);
+
+        Assert.That(buffer2, Is.Not.Null);
+        var tail = buffer2!.GetChannelData(0);
+        for (int k = 0; k < L - padSamples; k++)
+        {
+            float expected = 0.25f * MathF.Sin(2f * MathF.PI * 200f * (clipSamples - L + padSamples + k) / SampleRate);
+            Assert.That(tail[k], Is.EqualTo(expected).Within(1e-5f),
+                $"The remaining {L - padSamples} held samples must be flushed into the next window (sample {k}).");
+        }
+    }
+
+    [Test]
     public void Composer_DoesNotFlushSoundThatBecomesIneligibleAtItsNaturalEnd()
     {
         const float lookaheadMs = 5f;
