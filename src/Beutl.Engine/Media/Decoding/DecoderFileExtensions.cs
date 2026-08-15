@@ -110,16 +110,21 @@ public static class DecoderFileExtensions
             return cache ??= DecoderRegistry.EnumerateDecoder()
                 .SelectMany(selector)
                 .Concat(baseline)
-                .Select(NormalizeExtension)
+                .Select(Normalize)
                 .Where(x => x.Length > 1)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
     }
 
-    // IDecoderInfo does not enforce a shape on what a decoder returns, and GetFilePatterns already
-    // accepts "mp4" and "*.mp4" alongside ".mp4". Classification has to read the same claims the
-    // file picker does, or a plugin's format is offered in the picker and unknown in the browser.
-    private static string NormalizeExtension(string extension)
+    /// <summary>
+    /// Rewrites a decoder's extension claim to the leading-dot form.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="IDecoderInfo"/> does not enforce a shape, so <c>mp4</c>, <c>.mp4</c> and
+    /// <c>*.mp4</c> all reach here. Classification, decoder selection and the file picker each read
+    /// the claims through this, or one of them accepts a format the others do not.
+    /// </remarks>
+    public static string Normalize(string extension)
     {
         string trimmed = extension.TrimStart('*');
         return trimmed.StartsWith('.') ? trimmed : $".{trimmed}";

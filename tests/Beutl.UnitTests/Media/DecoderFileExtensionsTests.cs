@@ -84,16 +84,22 @@ public class DecoderFileExtensionsTests
     }
 
     // IDecoderInfo does not constrain the shape, and GetFilePatterns already accepts all three.
+    // Classification and decoder selection have to agree, or the browser probes a file whose
+    // decoder GuessDecoder never matches.
     [TestCase("mp4x")]
     [TestCase(".mp4x")]
     [TestCase("*.mp4x")]
-    public void Classify_NormalizesTheShapeADecoderReturns(string declared)
+    public void ClassifyAndDecoderSelection_AgreeOnTheShapeADecoderReturns(string declared)
     {
         var decoder = new FakeDecoderInfo([declared], []);
         DecoderRegistry.Register(decoder);
         try
         {
-            Assert.That(DecoderFileExtensions.Classify("a.mp4x"), Is.EqualTo(MediaFileKind.Video));
+            Assert.Multiple(() =>
+            {
+                Assert.That(DecoderFileExtensions.Classify("a.mp4x"), Is.EqualTo(MediaFileKind.Video));
+                Assert.That(DecoderRegistry.GuessDecoder("a.mp4x"), Does.Contain(decoder));
+            });
         }
         finally
         {

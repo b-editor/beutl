@@ -178,6 +178,9 @@ public sealed class FileBrowserTabViewModel : IToolContext
                 // would repopulate disposed managers and start per-file work for a closed tab.
                 if (!_disposed)
                 {
+                    // A file probed before its decoder registered cached a size-only placeholder and
+                    // no thumbnail; rebuilding the items would just read those back.
+                    FileThumbnailService.Instance.ClearCache();
                     Refresh();
                 }
             },
