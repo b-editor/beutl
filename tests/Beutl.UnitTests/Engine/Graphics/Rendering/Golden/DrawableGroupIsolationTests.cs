@@ -32,16 +32,29 @@ public sealed class DrawableGroupIsolationTests
                     Brushes.White,
                     opacity: 50)
                 .ToResource(CompositionContext.Default);
-            using Bitmap actual = RenderScene(group);
+            using Bitmap actual = RenderScene(out RenderExecutionStatistics statistics, group);
             using Bitmap expected = RenderScene(control);
 
             AssertByteIdentical(expected, actual, "overlapping children at group opacity 50%");
+            Rgba left = ReadPixel(actual, 40, 200);
+            Rgba overlap = ReadPixel(actual, 200, 200);
+            Rgba right = ReadPixel(actual, 360, 200);
             Assert.Multiple(() =>
             {
-                Assert.That(ReadPixel(actual, 40, 200).Alpha, Is.EqualTo(0.5f).Within(0.003f));
-                Assert.That(ReadPixel(actual, 200, 200).Alpha, Is.EqualTo(0.5f).Within(0.003f));
-                Assert.That(ReadPixel(actual, 360, 200).Alpha, Is.EqualTo(0.5f).Within(0.003f));
+                Assert.That(left.Alpha, Is.EqualTo(0.5f).Within(0.003f));
+                Assert.That(left.Red, Is.EqualTo(left.Alpha).Within(0.003f));
+                Assert.That(overlap.Alpha, Is.EqualTo(0.5f).Within(0.003f));
+                Assert.That(overlap.Red, Is.EqualTo(overlap.Alpha).Within(0.003f));
+                Assert.That(right.Alpha, Is.EqualTo(0.5f).Within(0.003f));
+                Assert.That(right.Red, Is.EqualTo(right.Alpha).Within(0.003f));
+                Assert.That(
+                    statistics.ShaderRunExecutions,
+                    Is.Zero,
+                    "The fixture must exercise compatibility opacity through ImmediateCanvas.PushOpacity.");
             });
+            TestContext.WriteLine(
+                $"Group opacity path: shader runs {statistics.ShaderRunExecutions}, "
+                + $"fused shader runs {statistics.FusedShaderRunExecutions}.");
         });
     }
 
@@ -66,7 +79,13 @@ public sealed class DrawableGroupIsolationTests
             using Bitmap expected = RenderScene(plain);
             using Bitmap actual = RenderScene(filtered);
 
+            // Byte-identical: both paths now carry the group opacity in float precision, so an identity
+            // effect reproduces the unfiltered composition exactly.
             AssertByteIdentical(expected, actual, "identity effect on an overlapping group");
+            Assert.That(
+                ReadPixel(actual, 200, 200).Alpha,
+                Is.EqualTo(0.5f).Within(0.003f),
+                "the group opacity must be applied exactly once.");
         });
     }
 
@@ -573,12 +592,24 @@ public sealed class DrawableGroupIsolationTests
     private static Bitmap RenderScene(params Drawable.Resource[] resources)
         => RenderScene(1, resources);
 
+    private static Bitmap RenderScene(
+        out RenderExecutionStatistics statistics,
+        params Drawable.Resource[] resources)
+        => RenderScene(1, FusionMode.Enabled, out statistics, resources);
+
     private static Bitmap RenderScene(float outputScale, params Drawable.Resource[] resources)
         => RenderScene(outputScale, FusionMode.Enabled, resources);
 
     private static Bitmap RenderScene(
         float outputScale,
         FusionMode fusionMode,
+        params Drawable.Resource[] resources)
+        => RenderScene(outputScale, fusionMode, out _, resources);
+
+    private static Bitmap RenderScene(
+        float outputScale,
+        FusionMode fusionMode,
+        out RenderExecutionStatistics statistics,
         params Drawable.Resource[] resources)
     {
         int width = (int)MathF.Ceiling(s_frame.Width * outputScale);
@@ -609,6 +640,7 @@ public sealed class DrawableGroupIsolationTests
                 },
             });
         renderer.Render(canvas);
+        statistics = renderer.LastExecutionStatistics;
         return target.Snapshot();
     }
 

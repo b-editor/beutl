@@ -155,12 +155,8 @@ public sealed class FusionBoundaryTests
     }
 
     [Test]
-    public void WholeSourceGeometryAndTargetCaptureRemainExplicitBarriers()
+    public void GeometryAndTargetCaptureRemainExplicitBarriers()
     {
-        AssertBarrier(
-            RenderFragmentKind.Shader,
-            WholeSourcePayload(),
-            ExecutionIslandBoundaryReason.WholeSourceShader);
         AssertBarrier(
             RenderFragmentKind.Geometry,
             GeometryPayload(),
@@ -169,6 +165,57 @@ public sealed class FusionBoundaryTests
             RenderFragmentKind.TargetCapture,
             TargetCapturePayload(),
             expected: ExecutionIslandBoundaryReason.TargetCapture);
+    }
+
+    [Test]
+    public void WholeSourceStagesStartRunsAndNeverBecomeSuccessors()
+    {
+        using CompiledRenderRequest compiled = Compile((requestId, cache) =>
+        {
+            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference first = Fragment(RenderFragmentKind.Shader, WholeSourcePayload(), source);
+            RenderFragmentReference second = Fragment(RenderFragmentKind.Shader, WholeSourcePayload(), first);
+            RenderFragmentReference currentPixel = CurrentPixel(second, "return color * 0.5;");
+            return BuildGraph(requestId, [source, first, second, currentPixel], [currentPixel], cache);
+        });
+
+        CompiledShaderRun[] runs = compiled.ExecutionPlan.ShaderRuns.ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(runs.Select(static run => run.Stages.Length), Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(runs, Has.All.Matches<CompiledShaderRun>(static run => run.WholeSourceHead is not null));
+            Assert.That(runs, Has.All.Matches<CompiledShaderRun>(static run =>
+                run.Stages[0].Description.Kind == ShaderDescriptionKind.WholeSource
+                && run.Stages.Skip(1).All(stage => stage.Description.Kind == ShaderDescriptionKind.CurrentPixel)));
+            Assert.That(compiled.ExecutionPlan.Boundaries.Count(static boundary =>
+                    boundary.Reason == ExecutionIslandBoundaryReason.WholeSourceShader),
+                Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void FusionDisabled_KeepsWholeSourceInACompatibilityIsland()
+    {
+        using CompiledRenderRequest compiled = Compile((requestId, cache) =>
+        {
+            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference wholeSource = Fragment(
+                RenderFragmentKind.Shader,
+                WholeSourcePayload(),
+                source);
+            RenderFragmentReference currentPixel = CurrentPixel(wholeSource, "return color * 0.5;");
+            return BuildGraph(requestId, [source, wholeSource, currentPixel], [currentPixel], cache);
+        }, fusionMode: FusionMode.Disabled);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(compiled.ExecutionPlan.Islands.Select(static island => island.Kind),
+                Is.EqualTo(new[] { ExecutionIslandKind.Compatibility, ExecutionIslandKind.ShaderRun }));
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().Stages, Has.Length.EqualTo(1));
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().WholeSourceHead, Is.Null);
+            Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
+                static boundary => boundary.Reason == ExecutionIslandBoundaryReason.WholeSourceShader));
+        });
     }
 
 
@@ -314,6 +361,37 @@ public sealed class FusionBoundaryTests
     }
 
     [Test]
+    public void VulkanResourceOverflow_UsesCompatibilityFallbackAndReportsBackendLimitBoundary()
+    {
+        using var registry = new RenderRequestResourceRegistry();
+        SkslBackendBudget budget = SkslBackendBudgetResolver.Resolve(SkiaSharp.GRBackend.Vulkan);
+        ShaderDescription description = ResourceHeavyDescription(budget.MaxSamplers, registry);
+        using CompiledRenderRequest compiled = Compile((requestId, cache) =>
+        {
+            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference shader = Fragment(
+                RenderFragmentKind.Shader,
+                new ShaderRenderFragmentPayload(description),
+                source);
+            return BuildGraph(requestId, [source, shader], [shader], cache);
+        }, budget: budget);
+
+        ExecutionIslandBoundary[] backendBoundaries = compiled.ExecutionPlan.Boundaries
+            .Where(static boundary => boundary.Reason == ExecutionIslandBoundaryReason.BackendLimit)
+            .ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(compiled.ExecutionPlan.ShaderRuns, Is.Empty);
+            Assert.That(compiled.ExecutionPlan.Islands, Has.Exactly(1).Items);
+            Assert.That(compiled.ExecutionPlan.Islands[0].Kind, Is.EqualTo(ExecutionIslandKind.Compatibility));
+            Assert.That(backendBoundaries, Has.Exactly(1).Items);
+            Assert.That(
+                backendBoundaries[0].BackendLimits,
+                Is.EqualTo(new[] { SkslBackendLimit.Samplers, SkslBackendLimit.Children }));
+        });
+    }
+
+    [Test]
     public void DynamicCardinalityAndGroupOpacityDoNotClaimShaderEligibility()
     {
         using CompiledRenderRequest dynamic = Compile((requestId, cache) =>
@@ -357,6 +435,34 @@ public sealed class FusionBoundaryTests
             Assert.That(groupOpacity.ExecutionPlan.ShaderRuns, Is.Empty,
                 "Group opacity over multiple values is not equivalent to per-value color multiplication.");
             Assert.That(groupOpacity.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
+                static boundary => boundary.Reason == ExecutionIslandBoundaryReason.DynamicTopology));
+        });
+    }
+
+    [Test]
+    public void ZeroOrOneInput_CanStartAShaderRunWithoutABackendBoundary()
+    {
+        using CompiledRenderRequest compiled = Compile((requestId, cache) =>
+        {
+            RenderFragmentReference source = Fragment(
+                RenderFragmentKind.OpaqueSource,
+                OpaquePayload(
+                    OpaqueRenderTopology.Source,
+                    RenderValueCardinality.ZeroOrOne),
+                cardinality: RenderValueCardinality.ZeroOrOne);
+            RenderFragmentReference shader = Fragment(
+                RenderFragmentKind.Shader,
+                new ShaderRenderFragmentPayload(ShaderDescription.CurrentPixel(
+                    "half4 apply(half4 color) { return color; }")),
+                RenderValueCardinality.ZeroOrOne,
+                source);
+            return BuildGraph(requestId, [source, shader], [shader], cache);
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
+            Assert.That(compiled.ExecutionPlan.Boundaries, Has.None.Matches<ExecutionIslandBoundary>(
                 static boundary => boundary.Reason == ExecutionIslandBoundaryReason.DynamicTopology));
         });
     }
@@ -568,6 +674,34 @@ public sealed class FusionBoundaryTests
             maxChildren: int.MaxValue,
             maxSourceBytes: int.MaxValue,
             maxProgramTokens: int.MaxValue);
+
+    private static ShaderDescription ResourceHeavyDescription(
+        int resourceCount,
+        RenderRequestResourceRegistry registry)
+    {
+        string[] names = Enumerable.Range(0, resourceCount)
+            .Select(static index => $"lookup{index}")
+            .ToArray();
+        RenderResource<object>[] resources = names
+            .Select(_ => registry.RegisterBorrowed(new object()))
+            .ToArray();
+        string declarations = string.Join(' ', names.Select(static name => $"uniform shader {name};"));
+
+        return ShaderDescription.CurrentPixel(
+            $"{declarations} half4 apply(half4 color) {{ return color; }}",
+            bindings =>
+            {
+                for (int index = 0; index < names.Length; index++)
+                {
+                    bindings.Resource(
+                        names[index],
+                        resources[index],
+                        ShaderResourceCoordinateSpace.Value,
+                        static (writer, _, _) => writer.Set(
+                            SkiaSharp.SKShader.CreateColor(SkiaSharp.SKColors.White)));
+                }
+            });
+    }
 
 
     private static RenderNodeRenderer CreateBoundaryRenderer(

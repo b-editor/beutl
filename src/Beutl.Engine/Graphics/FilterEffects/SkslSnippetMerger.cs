@@ -32,10 +32,10 @@ internal sealed class SkslSnippetStage
         SkslCoverageBehavior coverageBehavior = SkslCoverageBehavior.RequiresResolvedCoverage)
     {
         ArgumentNullException.ThrowIfNull(description);
-        if (description.Kind != ShaderDescriptionKind.CurrentPixel)
+        if (description.Kind is not (ShaderDescriptionKind.CurrentPixel or ShaderDescriptionKind.WholeSource))
         {
             throw new ArgumentException(
-                "Only validated CurrentPixel shader descriptions can participate in a merged snippet run.",
+                "Only validated CurrentPixel and WholeSource shader descriptions can participate in a snippet run.",
                 nameof(description));
         }
         if (!Enum.IsDefined(coverageBehavior))
@@ -262,28 +262,42 @@ internal sealed class SkslMergedProgramIdentity : IEquatable<SkslMergedProgramId
 }
 
 /// <summary>
-/// Composes validated CurrentPixel snippets into whole-source SkSL while preserving authored order. All accepted
-/// declarations are alpha-renamed from lexer token offsets, so comments and member/swizzle identifiers cannot be
-/// corrupted by textual replacement. Runs split before the first stage that would overflow the selected backend
-/// budget. A stage that cannot fit by itself is returned as a one-stage standalone fallback instead of disappearing.
+/// Composes a leading WholeSource shader and validated CurrentPixel snippets into whole-source SkSL while preserving
+/// authored order. CurrentPixel declarations and the WholeSource entry point are alpha-renamed from lexer token
+/// offsets, so comments and member/swizzle identifiers cannot be corrupted by textual replacement. Runs split before
+/// the first stage that would overflow the selected backend budget. A stage that cannot fit by itself is returned as a
+/// one-stage standalone fallback instead of disappearing.
 /// </summary>
 internal static class SkslSnippetMerger
 {
     public const string SourceChildName = "src";
 
     private const string GeneratedPixelName = "__beutl_pixel";
+    private const string HeadPrefix = "__beutl_head_";
+    private const string HeadEntryPointName = HeadPrefix + "main";
+    private const string StagePrefix = "__beutl_s";
     private const string SourceHeader = "uniform shader src;\n";
     private const string MainHeader =
         "half4 main(float2 coord) {\n"
-        + "    half4 __beutl_pixel = src.eval(coord);\n";
-    private const string MainFooter = "    return __beutl_pixel;\n}\n";
-    private static readonly int s_fixedSourceByteCount =
+        + "    half4 " + GeneratedPixelName + " = src.eval(coord);\n";
+    private const string HeadMainHeader =
+        "half4 main(float2 coord) {\n"
+        + "    half4 " + GeneratedPixelName + " = " + HeadEntryPointName + "(coord);\n";
+    private const string MainFooter = "    return " + GeneratedPixelName + ";\n}\n";
+    private static readonly HashSet<string> s_headEntryPoint = new(StringComparer.Ordinal) { "main" };
+    private static readonly int s_currentPixelFixedSourceByteCount =
         Encoding.UTF8.GetByteCount(SourceHeader)
         + Encoding.UTF8.GetByteCount(MainHeader)
         + Encoding.UTF8.GetByteCount(MainFooter);
-    private static readonly int s_fixedProgramTokenCount =
+    private static readonly int s_currentPixelFixedProgramTokenCount =
         SkslLexer.Tokenize(SourceHeader).Count
         + SkslLexer.Tokenize(MainHeader).Count
+        + SkslLexer.Tokenize(MainFooter).Count;
+    private static readonly int s_headFixedSourceByteCount =
+        Encoding.UTF8.GetByteCount(HeadMainHeader)
+        + Encoding.UTF8.GetByteCount(MainFooter);
+    private static readonly int s_headFixedProgramTokenCount =
+        SkslLexer.Tokenize(HeadMainHeader).Count
         + SkslLexer.Tokenize(MainFooter).Count;
 
     public static SkslMergedProgram Merge(IReadOnlyList<SkslSnippetStage> stages)
@@ -304,9 +318,11 @@ internal static class SkslSnippetMerger
 
         var result = new List<SkslMergedProgram>();
         var current = new List<PreparedStage>();
-        ProgramMetrics currentMetrics = ProgramMetrics.Empty;
+        ProgramMetrics currentMetrics = default;
         foreach (PreparedStage stage in prepared)
         {
+            if (current.Count == 0)
+                currentMetrics = ProgramMetrics.CreateEmpty(stage.IsWholeSourceHead);
             ProgramMetrics candidateMetrics = currentMetrics.Add(stage);
             if (FitsBudget(candidateMetrics, budget))
             {
@@ -319,7 +335,7 @@ internal static class SkslSnippetMerger
             {
                 result.Add(CreateProgram(current, budget, currentMetrics));
                 current.Clear();
-                currentMetrics = ProgramMetrics.Empty;
+                currentMetrics = ProgramMetrics.CreateEmpty(stage.IsWholeSourceHead);
                 candidateMetrics = currentMetrics.Add(stage);
             }
 
@@ -344,13 +360,19 @@ internal static class SkslSnippetMerger
     {
         ArgumentNullException.ThrowIfNull(stages);
         if (stages.Count == 0)
-            throw new ArgumentException("At least one CurrentPixel stage is required.", nameof(stages));
+            throw new ArgumentException("At least one shader stage is required.", nameof(stages));
 
         var result = new PreparedStage[stages.Count];
         for (int index = 0; index < stages.Count; index++)
         {
             SkslSnippetStage stage = stages[index]
-                ?? throw new ArgumentException("A CurrentPixel stage cannot be null.", nameof(stages));
+                ?? throw new ArgumentException("A shader stage cannot be null.", nameof(stages));
+            if (index != 0 && stage.Description.Kind == ShaderDescriptionKind.WholeSource)
+            {
+                throw new ArgumentException(
+                    "A WholeSource shader can participate only as the first stage of a snippet run.",
+                    nameof(stages));
+            }
             result[index] = Prepare(index, stage);
         }
         return result;
@@ -358,23 +380,32 @@ internal static class SkslSnippetMerger
 
     private static PreparedStage Prepare(int index, SkslSnippetStage stage)
     {
-        string prefix = GetPrefix(index);
-        RenameResult renamed = Rename(stage.Description.Source, prefix);
+        bool isWholeSourceHead = stage.Description.Kind == ShaderDescriptionKind.WholeSource;
+        string prefix = isWholeSourceHead ? HeadPrefix : GetPrefix(index);
+        IReadOnlySet<string> renamedNames = isWholeSourceHead
+            ? s_headEntryPoint
+            : stage.Description.Source.TopLevelSymbols;
+        RenameResult renamed = Rename(stage.Description.Source, prefix, renamedNames);
         bool appendNewline = renamed.Source.Length == 0 || renamed.Source[^1] != '\n';
-        string invocation = CreateInvocation(prefix);
+        string invocation = isWholeSourceHead ? string.Empty : CreateInvocation(prefix);
         var bindings = new List<SkslMergedBindingLayout>(
             stage.Description.Uniforms.Count + stage.Description.Resources.Count);
-        AddBindings(index, stage, prefix, bindings);
+        AddBindings(index, stage, isWholeSourceHead ? string.Empty : prefix, bindings);
         int sourceBytes = Encoding.UTF8.GetByteCount(renamed.Source);
         if (appendNewline)
             sourceBytes = SaturatingAdd(sourceBytes, 1);
-        sourceBytes = SaturatingAdd(sourceBytes, Encoding.UTF8.GetByteCount(invocation));
-        int programTokens = SaturatingAdd(
-            renamed.TokenCount,
-            SkslLexer.Tokenize(invocation).Count);
+        int programTokens = renamed.TokenCount;
+        if (invocation.Length != 0)
+        {
+            sourceBytes = SaturatingAdd(sourceBytes, Encoding.UTF8.GetByteCount(invocation));
+            programTokens = SaturatingAdd(
+                programTokens,
+                SkslLexer.Tokenize(invocation).Count);
+        }
         return new PreparedStage(
             index,
             stage,
+            isWholeSourceHead,
             prefix,
             renamed.Source,
             appendNewline,
@@ -392,7 +423,9 @@ internal static class SkslSnippetMerger
         ProgramMetrics metrics)
     {
         var source = new StringBuilder();
-        source.Append(SourceHeader);
+        bool hasWholeSourceHead = stages[0].IsWholeSourceHead;
+        if (!hasWholeSourceHead)
+            source.Append(SourceHeader);
         var stageLayouts = new List<SkslMergedStageLayout>(stages.Count);
         var bindingLayouts = new List<SkslMergedBindingLayout>();
 
@@ -409,7 +442,7 @@ internal static class SkslSnippetMerger
             bindingLayouts.AddRange(prepared.Bindings);
         }
 
-        source.Append(MainHeader);
+        source.Append(hasWholeSourceHead ? HeadMainHeader : MainHeader);
         foreach (PreparedStage prepared in stages)
             source.Append(prepared.Invocation);
         source.Append(MainFooter);
@@ -437,15 +470,33 @@ internal static class SkslSnippetMerger
             overflow);
     }
 
-    private static string GetPrefix(int stageIndex) => $"__beutl_s{stageIndex}_";
+    internal static bool IsRendererGeneratedName(string name)
+    {
+        if (name is GeneratedPixelName or HeadEntryPointName)
+            return true;
+        if (!name.StartsWith(StagePrefix, StringComparison.Ordinal))
+            return false;
+
+        ReadOnlySpan<char> suffix = name.AsSpan(StagePrefix.Length);
+        int separator = suffix.IndexOf('_');
+        return separator > 0
+               && (separator == 1 || suffix[0] != '0')
+               && separator + 1 < suffix.Length
+               && int.TryParse(suffix[..separator], out int stageIndex)
+               && stageIndex >= 0;
+    }
+
+    private static string GetPrefix(int stageIndex) => $"{StagePrefix}{stageIndex}_";
 
     private static string CreateInvocation(string prefix)
         => $"    {GeneratedPixelName} = {prefix}apply({GeneratedPixelName});\n";
 
-    private static RenameResult Rename(SkslSource source, string prefix)
+    private static RenameResult Rename(
+        SkslSource source,
+        string prefix,
+        IReadOnlySet<string> names)
     {
         List<SkslToken> tokens = SkslLexer.Tokenize(source.Text);
-        IReadOnlySet<string> names = source.TopLevelSymbols;
         var result = new StringBuilder(source.Text.Length + (names.Count * prefix.Length));
         int copiedThrough = 0;
         for (int index = 0; index < tokens.Count; index++)
@@ -469,7 +520,7 @@ internal static class SkslSnippetMerger
 
     private static ProgramMetrics CalculateMetrics(IReadOnlyList<PreparedStage> stages)
     {
-        ProgramMetrics result = ProgramMetrics.Empty;
+        ProgramMetrics result = ProgramMetrics.CreateEmpty(stages[0].IsWholeSourceHead);
         foreach (PreparedStage stage in stages)
             result = result.Add(stage);
         return result;
@@ -594,6 +645,7 @@ internal static class SkslSnippetMerger
     private sealed record PreparedStage(
         int Index,
         SkslSnippetStage Stage,
+        bool IsWholeSourceHead,
         string Prefix,
         string Source,
         bool AppendNewline,
@@ -614,13 +666,18 @@ internal static class SkslSnippetMerger
         int SourceByteCount,
         int ProgramTokenCount)
     {
-        public static ProgramMetrics Empty { get; } = new(
-            0,
-            0,
-            1,
-            1,
-            s_fixedSourceByteCount,
-            s_fixedProgramTokenCount);
+        public static ProgramMetrics CreateEmpty(bool hasWholeSourceHead)
+            => new(
+                0,
+                0,
+                1,
+                1,
+                hasWholeSourceHead
+                    ? s_headFixedSourceByteCount
+                    : s_currentPixelFixedSourceByteCount,
+                hasWholeSourceHead
+                    ? s_headFixedProgramTokenCount
+                    : s_currentPixelFixedProgramTokenCount);
 
         public ProgramMetrics Add(PreparedStage stage)
             => new(

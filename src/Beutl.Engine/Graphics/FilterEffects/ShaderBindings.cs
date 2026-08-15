@@ -431,6 +431,7 @@ public sealed class ShaderExecutionContext
     private readonly Rect _outputBounds;
     private readonly Rect _requiredRegion;
     private readonly PixelRect _deviceBounds;
+    private readonly PixelSize _semanticOutputSize;
     private readonly Point _logicalOrigin;
     private readonly Vector _deviceGridOffset;
     private readonly EffectiveScale _inputEffectiveScale;
@@ -492,6 +493,17 @@ public sealed class ShaderExecutionContext
         _deviceGridOffset = new Vector(
             (deviceBounds.X / workingScale) - rasterBounds.X,
             (deviceBounds.Y / workingScale) - rasterBounds.Y);
+        _semanticOutputSize = PixelRect.FromRect(
+                outputBounds.Translate(_deviceGridOffset),
+                workingScale)
+            .Size;
+        if (_semanticOutputSize.Width <= 0 || _semanticOutputSize.Height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(outputBounds),
+                outputBounds,
+                "A shader's semantic output size must be positive.");
+        }
         _inputEffectiveScale = inputEffectiveScale;
         _outputScale = outputScale;
         _workingScale = workingScale;
@@ -538,6 +550,18 @@ public sealed class ShaderExecutionContext
     public PixelSize DeviceSize
     {
         get { _token.ThrowIfInactive(); return _deviceBounds.Size; }
+    }
+
+    /// <summary>Gets the complete semantic output dimensions in working-density pixels.</summary>
+    /// <remarks>
+    /// The size is derived from <see cref="OutputBounds"/>, <see cref="WorkingScale"/>, and
+    /// <see cref="DeviceGridOffset"/>. It is independent of the physical backing selected by the execution planner.
+    /// Unlike <see cref="DeviceSize"/>, it describes the stage's complete output rather than the requested region.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
+    public PixelSize SemanticOutputSize
+    {
+        get { _token.ThrowIfInactive(); return _semanticOutputSize; }
     }
 
     /// <summary>

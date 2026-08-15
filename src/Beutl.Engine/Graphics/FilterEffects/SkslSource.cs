@@ -22,7 +22,10 @@ public enum ShaderDescriptionKind
     /// Materializes a complete source through <c>half4 main(float2 coord)</c> and may sample arbitrary upstream
     /// locations.
     /// </summary>
-    /// <remarks>Whole-source stages execute unfused and must declare the implicit <c>src</c> child shader.</remarks>
+    /// <remarks>
+    /// Whole-source stages must declare the implicit <c>src</c> child shader. They may lead a fused run but cannot
+    /// consume an earlier stage inside that run.
+    /// </remarks>
     WholeSource,
 }
 
@@ -73,6 +76,7 @@ public sealed partial class SkslSource
         {
             _uniforms = ParseUniforms(normalized);
             ValidateWholeSourceEntryPoint(normalized);
+            ValidateWholeSourceReservedDeclarations(tokens);
         }
 
         Text = normalized;
@@ -99,6 +103,28 @@ public sealed partial class SkslSource
         => _topLevelSymbols
            ?? throw new InvalidOperationException(
                "Top-level symbol metadata is available only for CurrentPixel sources.");
+
+    internal static bool HasCurrentPixelEntryPoint(string source)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+            return false;
+
+        return CurrentPixelEntryRegex().IsMatch(SkslLexer.StripComments(source));
+    }
+
+    internal static bool HasUniformDeclaration(string source, string name)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        string stripped = SkslLexer.StripComments(source);
+        foreach (Match match in UniformRegex().Matches(stripped))
+        {
+            if (match.Groups["name"].Value == name)
+                return true;
+        }
+
+        return false;
+    }
 
     private static string Normalize(string source)
     {
@@ -169,7 +195,7 @@ public sealed partial class SkslSource
                 extent = parsed;
             }
 
-            if (name.StartsWith("__beutl", StringComparison.Ordinal)
+            if (SkslSnippetMerger.IsRendererGeneratedName(name)
                 || name.StartsWith("fe", StringComparison.Ordinal) && name.Contains('_', StringComparison.Ordinal))
             {
                 throw new ArgumentException($"The shader binding name '{name}' is reserved by the renderer.", nameof(source));
@@ -194,6 +220,33 @@ public sealed partial class SkslSource
                 nameof(source));
         }
     }
+
+    private static void ValidateWholeSourceReservedDeclarations(IReadOnlyList<SkslToken> tokens)
+    {
+        for (int index = 0; index < tokens.Count; index++)
+        {
+            SkslToken token = tokens[index];
+            if (!token.IsIdentifier
+                || token.Depth != 0
+                || !SkslSnippetMerger.IsRendererGeneratedName(token.Text)
+                || index > 0 && tokens[index - 1].Text == "."
+                || index + 1 >= tokens.Count)
+            {
+                continue;
+            }
+
+            string next = tokens[index + 1].Text;
+            if (!IsTopLevelDeclarationBoundary(next))
+                continue;
+
+            throw new ArgumentException(
+                $"The top-level shader declaration name '{token.Text}' is reserved by the renderer.",
+                "source");
+        }
+    }
+
+    private static bool IsTopLevelDeclarationBoundary(string token)
+        => token is "(" or "=" or "[" or ";" or "{" or ",";
 
     private sealed class CurrentPixelValidator
     {

@@ -587,7 +587,10 @@ internal static class DirectShaderRunPlanner
             return false;
 
         Rect outputBounds = run.Output.Bounds;
-        Rect requiredRegion = regions.GetFragmentRequirement(run.Output).Resolve(outputBounds);
+        RenderFragmentReference requirementFragment = run.WholeSourceHead is null
+            ? run.Output
+            : run.Stages[0].Fragment;
+        Rect requiredRegion = regions.GetFragmentRequirement(requirementFragment).Resolve(outputBounds);
         if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
             return false;
 

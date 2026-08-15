@@ -237,9 +237,22 @@ Create your own resource files inside the extension project, or pass a literal s
 
 > **Prefer `context.Shader(...)` for per-pixel work.** A `ShaderDefinition<TState>` recorded through
 > `FilterEffectContext.Shader` is a typed fragment the planner can fuse with neighbouring shader stages
-> into one GPU pass. The `CustomEffect` form below stays supported and is the right tool when the effect
-> needs the raw target — allocating, sampling, or drawing itself — but it is opaque to the planner, so it
-> ends the fusion island and every later item in that effect executes through the fallback path.
+> into one GPU pass. `SKSLScriptEffect` also records supported scripts declaratively and exposes them to
+> the fusion planner: `half4 main(float2 fragCoord)` becomes `WholeSource`, which can head a fusion run
+> and absorb later per-pixel work but not upstream operations, while `half4 apply(half4 color)` becomes
+> fully fusable `CurrentPixel` work. Scripts
+> that cannot be represented declaratively—including reserved `__beutl*`/`fe*_*` names, multi-declarator
+> uniforms, non-literal array lengths, or uniform types without a canonical zero value—automatically fall
+> back to the legacy `CustomEffect` path, so existing scripts do not break. Using `CustomEffect`
+> directly remains the right tool for raw-target allocation, sampling, or drawing, but it is opaque to the
+> planner and forms a fusion boundary.
+
+| Authoring construct | Fusion behavior | Limit or boundary |
+|---|---|---|
+| `CurrentPixel` shaders; immutable opacity | Fusable | May join a compatible fusion run. |
+| `WholeSource` shaders | Can be the head of a fusion run | May absorb later per-pixel work; upstream work cannot fold into it. |
+| Skia image filters (`Blur`, `DropShadow`, `Dilate`, `Erode`); `CustomEffect`; Geometry; 3D; raw canvas access | Not fusable | Forms a fusion boundary. |
+| Sampler/child budget | Portable: 8; Vulkan/Metal: 12 | The implicit `src` sampler consumes one slot; exceeding the cap falls back to a standalone pass. |
 
 Compile the shader in the static constructor and apply it through `CustomEffect`:
 

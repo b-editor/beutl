@@ -44,7 +44,7 @@ public sealed class ShaderAndAllocationFailureTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(failure!.Message, Does.Contain("At least one CurrentPixel stage"));
+            Assert.That(failure!.Message, Does.Contain("At least one shader stage is required"));
             Assert.That(after.Source, Is.EqualTo(before.Source));
             Assert.That(after.Bindings, Is.EqualTo(before.Bindings));
             Assert.That(after.Identity, Is.EqualTo(before.Identity));

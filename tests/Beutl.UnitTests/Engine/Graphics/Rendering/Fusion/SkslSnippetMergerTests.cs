@@ -257,6 +257,30 @@ public sealed class SkslSnippetMergerTests
         });
     }
 
+    [TestCase(GRBackend.Vulkan)]
+    [TestCase(GRBackend.Metal)]
+    public void BackendProfile_SingleStageBeyondSamplerLimitRequiresStandaloneFallback(GRBackend backend)
+    {
+        using var registry = new RenderRequestResourceRegistry();
+        SkslBackendBudget budget = SkslBackendBudgetResolver.Resolve(backend);
+        ShaderDescription description = ResourceShader(budget.MaxSamplers, registry);
+
+        SkslMergedProgram program = SkslSnippetMerger.MergeAndSplit(
+            [new SkslSnippetStage(description)],
+            budget).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(program.SamplerCount, Is.EqualTo(budget.MaxSamplers + 1));
+            Assert.That(program.RequiresStandaloneExecution, Is.True);
+            Assert.That(program.OverflowReasons, Does.Contain(SkslBackendLimit.Samplers));
+            Assert.That(program.OverflowReasons.Contains(SkslBackendLimit.Children),
+                Is.EqualTo(program.ChildCount > budget.MaxChildren));
+            Assert.That(program.Stages, Has.Count.EqualTo(1),
+                "an individually unsupported stage remains visible to the ordinary unfused fallback");
+        });
+    }
+
     [Test]
     public void MergeAndSplit_AccountsForGeneratedSourceLimit()
     {
@@ -444,14 +468,55 @@ public sealed class SkslSnippetMergerTests
     }
 
     [Test]
-    public void Stage_RejectsWholeSourceBecauseItIsAnExplicitBarrier()
+    public void Merge_WholeSourceHeadFeedsFollowingCurrentPixelStage()
+    {
+        ShaderDescription wholeSource = ShaderDescription.WholeSource(
+            "uniform shader src; uniform float gain; "
+            + "half4 sampleSource(float2 coord) { return src.eval(coord) * gain; } "
+            + "half4 main(float2 coord) { return sampleSource(coord); }",
+            RenderBoundsContract.Identity,
+            static bindings => bindings.Uniform("gain", 0.75f));
+        ShaderDescription currentPixel = ShaderDescription.CurrentPixel(
+            "uniform float gain; half4 apply(half4 color) { return color * gain; }",
+            static bindings => bindings.Uniform("gain", 0.5f));
+
+        SkslMergedProgram program = SkslSnippetMerger.Merge(
+            [new SkslSnippetStage(wholeSource), new SkslSnippetStage(currentPixel)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(program.Source, Does.Contain("half4 __beutl_head_main(float2 coord)")
+                .And.Contain("half4 sampleSource(float2 coord)")
+                .And.Contain("half4 __beutl_s1_apply(half4 color)")
+                .And.Contain("half4 __beutl_pixel = __beutl_head_main(coord);")
+                .And.Contain("__beutl_pixel = __beutl_s1_apply(__beutl_pixel);"));
+            Assert.That(program.Source.Split("uniform shader src;", StringSplitOptions.None), Has.Length.EqualTo(2),
+                "the WholeSource declaration is the only implicit-source declaration");
+            Assert.That(program.Bindings.Select(static binding => binding.MergedName),
+                Is.EqualTo(new[] { "gain", "__beutl_s1_gain" }));
+            Assert.That(program.SourceByteCount, Is.EqualTo(Encoding.UTF8.GetByteCount(program.Source)));
+            Assert.That(program.ProgramTokenCount, Is.EqualTo(SkslLexer.Tokenize(program.Source).Count));
+        });
+
+        using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(program.Source, out string? error);
+        Assert.Multiple(() =>
+        {
+            Assert.That(error, Is.Null);
+            Assert.That(effect, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void Merge_RejectsWholeSourceAfterTheHeadPosition()
     {
         ShaderDescription wholeSource = ShaderDescription.WholeSource(
             "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
             RenderBoundsContract.Identity);
+        ShaderDescription currentPixel = ShaderDescription.CurrentPixel(Identity);
 
         Assert.That(
-            () => new SkslSnippetStage(wholeSource),
+            () => SkslSnippetMerger.Merge(
+                [new SkslSnippetStage(currentPixel), new SkslSnippetStage(wholeSource)]),
             Throws.TypeOf<ArgumentException>());
     }
 
@@ -483,6 +548,33 @@ public sealed class SkslSnippetMergerTests
                 resource,
                 ShaderResourceCoordinateSpace.Value,
                 static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White))));
+    }
+
+    private static ShaderDescription ResourceShader(
+        int resourceCount,
+        RenderRequestResourceRegistry registry)
+    {
+        string[] names = Enumerable.Range(0, resourceCount)
+            .Select(static index => $"lookup{index}")
+            .ToArray();
+        RenderResource<object>[] resources = names
+            .Select(_ => registry.RegisterBorrowed(new object()))
+            .ToArray();
+        string declarations = string.Join(' ', names.Select(static name => $"uniform shader {name};"));
+
+        return ShaderDescription.CurrentPixel(
+            $"{declarations} half4 apply(half4 color) {{ return color; }}",
+            bindings =>
+            {
+                for (int index = 0; index < names.Length; index++)
+                {
+                    bindings.Resource(
+                        names[index],
+                        resources[index],
+                        ShaderResourceCoordinateSpace.Value,
+                        static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White)));
+                }
+            });
     }
 
     private static SkslBackendBudget Budget(

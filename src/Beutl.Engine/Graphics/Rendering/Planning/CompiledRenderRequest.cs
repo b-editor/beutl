@@ -664,12 +664,32 @@ internal sealed class CompiledShaderRun
         if (!Enum.IsDefined(coverageSource))
             throw new ArgumentOutOfRangeException(nameof(coverageSource));
 
+        ShaderDescription? wholeSourceHead = stages[0].Description.Kind == ShaderDescriptionKind.WholeSource
+            ? stages[0].Description
+            : null;
+        if (stages.Skip(wholeSourceHead is null ? 0 : 1)
+            .Any(static stage => stage.Description.Kind == ShaderDescriptionKind.WholeSource))
+        {
+            throw new ArgumentException(
+                "A WholeSource shader can appear only at the head of a compiled Shader run.",
+                nameof(stages));
+        }
+        if (wholeSourceHead is not null
+            && (!output.Bounds.Equals(stages[0].Fragment.Bounds)
+                || !output.EffectiveScale.Equals(stages[0].Fragment.EffectiveScale)))
+        {
+            throw new ArgumentException(
+                "A WholeSource-headed run must preserve the head stage's output bounds and effective scale.",
+                nameof(output));
+        }
+
         Id = id;
         Input = input;
         Output = output;
         Stages = stages;
         Program = program;
         CoverageSource = coverageSource;
+        WholeSourceHead = wholeSourceHead;
     }
 
     public CompiledShaderRunId Id { get; }
@@ -681,6 +701,9 @@ internal sealed class CompiledShaderRun
     public ImmutableArray<CompiledShaderStage> Stages { get; }
 
     public SkslMergedProgram Program { get; }
+
+    /// <summary>Gets the WholeSource head whose implicit source mapping governs the run input, if present.</summary>
+    public ShaderDescription? WholeSourceHead { get; }
 
     /// <summary>
     /// Gets the compile-time witness for the run input's coverage provenance. The executor still

@@ -18,7 +18,7 @@ public sealed class CurvesAndLutEffectShaderTests
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
     [Test]
-    public void Curves_RecordsTypedResourcesAndUsesStandaloneBudgetFallback()
+    public void Curves_RecordsTypedResourcesAndUsesCapabilitySpecificBudget()
     {
         var effect = new Curves();
         CurveMap masterCurve = effect.MasterCurve.CurrentValue;
@@ -33,10 +33,15 @@ public sealed class CurvesAndLutEffectShaderTests
             FEItem_Shader item = AssertTypedShader(context);
             ShaderDescription description = item.Description;
             tokens = description.Resources.Select(static binding => binding.Resource).ToArray();
-            IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
+            SkslMergedProgram portableProgram = SkslSnippetMerger.MergeAndSplit(
                 [new SkslSnippetStage(description)],
-                SkslBackendBudgetResolver.Portable);
-            SkslMergedProgram program = programs.Single();
+                SkslBackendBudgetResolver.Portable).Single();
+            SkslMergedProgram vulkanProgram = SkslSnippetMerger.MergeAndSplit(
+                [new SkslSnippetStage(description)],
+                SkslBackendBudgetResolver.Resolve(GRBackend.Vulkan)).Single();
+            SkslMergedProgram metalProgram = SkslSnippetMerger.MergeAndSplit(
+                [new SkslSnippetStage(description)],
+                SkslBackendBudgetResolver.Resolve(GRBackend.Metal)).Single();
 
             Assert.Multiple(() =>
             {
@@ -44,13 +49,15 @@ public sealed class CurvesAndLutEffectShaderTests
                 Assert.That(
                     description.Resources.Select(static binding => binding.CoordinateSpace),
                     Is.All.EqualTo(ShaderResourceCoordinateSpace.Value));
-                Assert.That(program.StageCount, Is.EqualTo(1));
-                Assert.That(program.SamplerCount, Is.EqualTo(10));
-                Assert.That(program.ChildCount, Is.EqualTo(10));
-                Assert.That(program.RequiresStandaloneExecution, Is.True);
+                Assert.That(portableProgram.StageCount, Is.EqualTo(1));
+                Assert.That(portableProgram.SamplerCount, Is.EqualTo(10));
+                Assert.That(portableProgram.ChildCount, Is.EqualTo(10));
+                Assert.That(portableProgram.RequiresStandaloneExecution, Is.True);
                 Assert.That(
-                    program.OverflowReasons,
+                    portableProgram.OverflowReasons,
                     Is.EqualTo(new[] { SkslBackendLimit.Samplers, SkslBackendLimit.Children }));
+                Assert.That(vulkanProgram.RequiresStandaloneExecution, Is.False);
+                Assert.That(metalProgram.RequiresStandaloneExecution, Is.False);
             });
         }
         finally

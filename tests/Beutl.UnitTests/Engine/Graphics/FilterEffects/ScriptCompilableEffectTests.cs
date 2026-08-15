@@ -57,4 +57,23 @@ public sealed class ScriptCompilableEffectTests
 
         Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Unavailable));
     }
+
+    [Test]
+    public void Sksl_current_pixel_apply_script_compiles()
+    {
+        var effect = new SKSLScriptEffect();
+
+        ScriptCompilationResult result = effect.ValidateScript(
+            """
+            half4 apply(half4 color) {
+                return half4(color.rgb * 0.5, color.a);
+            }
+            """);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Compiled));
+            Assert.That(result.Error, Is.Null);
+        });
+    }
 }

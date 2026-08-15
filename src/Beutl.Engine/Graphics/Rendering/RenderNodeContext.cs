@@ -757,11 +757,17 @@ public sealed class RenderNodeContext
                 MaxWorkingScale);
         }
 
+        RenderValueCardinality cardinality = ResolveFilterEffectSegmentCardinality(
+            references,
+            recordedBoundsItems,
+            outputBounds,
+            requiresOwningTargetDomain);
+
         return transaction.CreateFragment(
             RenderFragmentKind.FilterEffectSegment,
             outputBounds,
             scale,
-            RenderValueCardinality.Dynamic,
+            cardinality,
             references.Any(static item => item.ContributesValuesToTarget),
             canBeUsedAsValueInput: true,
             references.Any(static item => item.HasTargetEffects),
@@ -1493,6 +1499,33 @@ public sealed class RenderNodeContext
         }
 
         return RenderValueCardinality.Range(minimum, maximum);
+    }
+
+    private static RenderValueCardinality ResolveFilterEffectSegmentCardinality(
+        IReadOnlyList<RenderFragmentReference> inputs,
+        IReadOnlyList<IFEItem> items,
+        Rect outputBounds,
+        bool requiresOwningTargetDomain)
+    {
+        if (items.Count == 0 || items.Any(static item => item is not IFEItem_Skia))
+            return RenderValueCardinality.Dynamic;
+
+        RenderValueCardinality inputCardinality = AggregateCardinality(inputs);
+        if (inputCardinality.Equals(RenderValueCardinality.Single))
+        {
+            bool outputMayBeEmpty = requiresOwningTargetDomain
+                                    || outputBounds.Width == 0
+                                    || outputBounds.Height == 0
+                                    || items.Any(static item =>
+                                        item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true });
+            return outputMayBeEmpty
+                ? RenderValueCardinality.ZeroOrOne
+                : RenderValueCardinality.Single;
+        }
+
+        return inputCardinality.Equals(RenderValueCardinality.ZeroOrOne)
+            ? RenderValueCardinality.ZeroOrOne
+            : RenderValueCardinality.Dynamic;
     }
 
     private sealed class PlainPaintedSource<TState>(

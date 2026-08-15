@@ -53,6 +53,22 @@ public sealed class ShaderDefinition<TState>
             SKShaderTileMode.Decal,
             bindings);
 
+    internal static ShaderDefinition<TState> CurrentPixel(
+        SkslSource source,
+        Action<ShaderDefinitionBuilder<TState>>? bindings = null)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (source.Kind != ShaderDescriptionKind.CurrentPixel)
+            throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
+
+        return new ShaderDefinition<TState>(
+            ShaderDescriptionKind.CurrentPixel,
+            source,
+            RenderBoundsContract.Identity,
+            SKShaderTileMode.Decal,
+            bindings);
+    }
+
     /// <summary>Creates a whole-source shader definition.</summary>
     /// <param name="source">
     /// SkSL defining exactly one <c>half4 main(float2 coord)</c> entry point and an implicit
@@ -74,6 +90,27 @@ public sealed class ShaderDefinition<TState>
         return new ShaderDefinition<TState>(
             ShaderDescriptionKind.WholeSource,
             new SkslSource(source, ShaderDescriptionKind.WholeSource),
+            bounds,
+            sourceTileMode,
+            bindings);
+    }
+
+    internal static ShaderDefinition<TState> WholeSource(
+        SkslSource source,
+        RenderBoundsContract bounds,
+        Action<ShaderDefinitionBuilder<TState>>? bindings = null,
+        SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (source.Kind != ShaderDescriptionKind.WholeSource)
+            throw new ArgumentException("The parsed source is not a WholeSource source.", nameof(source));
+        bounds.ThrowIfUninitialized(nameof(bounds));
+        if (!Enum.IsDefined(sourceTileMode))
+            throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
+
+        return new ShaderDefinition<TState>(
+            ShaderDescriptionKind.WholeSource,
+            source,
             bounds,
             sourceTileMode,
             bindings);
@@ -202,6 +239,13 @@ public sealed class ShaderDefinitionBuilder<TState>
         AddUniform(name, new DirectUniformTemplate<TState, T>(name, value));
     }
 
+    internal void ConstantUniform<T>(string name, T value)
+        where T : unmanaged
+        => AddUniform(name, new ConstantDirectUniformTemplate<TState, T>(name, value));
+
+    internal void ConstantUniform(string name, ReadOnlySpan<float> values)
+        => AddUniform(name, new ConstantFloatSequenceUniformTemplate<TState>(name, values.ToArray()));
+
     /// <summary>Declares a floating-point sequence uniform supplied from the call state.</summary>
     /// <remarks>The provider must not capture values; use a <see langword="static"/> lambda or method.</remarks>
     public void Uniform(string name, Func<TState, IReadOnlyList<float>> values)
@@ -311,6 +355,33 @@ internal sealed class DirectUniformTemplate<TState, TValue>(
         TState state,
         IReadOnlyList<RenderResourceBinding> resourceBindings)
         => builder.Uniform(name, value(state));
+}
+
+internal sealed class ConstantDirectUniformTemplate<TState, TValue>(
+    string name,
+    TValue value)
+    : ShaderBindingTemplate<TState>
+    where TState : notnull
+    where TValue : unmanaged
+{
+    internal override void Apply(
+        ShaderBindingBuilder builder,
+        TState state,
+        IReadOnlyList<RenderResourceBinding> resourceBindings)
+        => builder.Uniform(name, value);
+}
+
+internal sealed class ConstantFloatSequenceUniformTemplate<TState>(
+    string name,
+    float[] values)
+    : ShaderBindingTemplate<TState>
+    where TState : notnull
+{
+    internal override void Apply(
+        ShaderBindingBuilder builder,
+        TState state,
+        IReadOnlyList<RenderResourceBinding> resourceBindings)
+        => builder.Uniform(name, values);
 }
 
 internal sealed class FloatSequenceUniformTemplate<TState>(

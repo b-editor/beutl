@@ -24,13 +24,13 @@ public sealed class ShaderMigrationPhysicalFootprintTests
             uniform float iScale;
 
             half4 main(float2 fragCoord) {
-                if (width != 9.0 || height != 8.0 ||
-                    iResolution.x != 9.0 || iResolution.y != 8.0 ||
-                    iScale != 2.0) {
+                if (width != 5.0 || height != 4.0 ||
+                    iResolution.x != 5.0 || iResolution.y != 4.0 ||
+                    iScale != 1.0) {
                     return half4(1.0, 0.0, 1.0, 1.0);
                 }
 
-                return fragCoord.x >= 8.0 && fragCoord.y >= 7.0
+                return fragCoord.x >= 4.0 && fragCoord.y >= 3.0
                     ? half4(1.0, 0.0, 0.0, 1.0)
                     : half4(0.0, 0.0, 1.0, 1.0);
             }
@@ -44,7 +44,7 @@ public sealed class ShaderMigrationPhysicalFootprintTests
         var effect = new SKSLScriptEffect();
         effect.Script.CurrentValue = script;
 
-        ApplyCustomDirect(effect, bounds, targets, workingScale: 1);
+        ApplyDirect(effect, bounds, targets, workingScale: 1);
 
         EffectTarget actual = targets.Single();
         using Bitmap bitmap = actual.RenderTarget!.Snapshot();
@@ -55,10 +55,10 @@ public sealed class ShaderMigrationPhysicalFootprintTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(actual.DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(actual.Scale, Is.EqualTo(EffectiveScale.At(2)));
-            Assert.That(bitmap.Width, Is.EqualTo(9));
-            Assert.That(bitmap.Height, Is.EqualTo(8));
+            Assert.That(actual.DeviceBounds, Is.EqualTo(PixelRect.FromRect(bounds, 1)));
+            Assert.That(actual.Scale, Is.EqualTo(EffectiveScale.At(1)));
+            Assert.That(bitmap.Width, Is.EqualTo(5));
+            Assert.That(bitmap.Height, Is.EqualTo(4));
             Assert.That(firstPixel, Is.EqualTo(new ushort[] { 0, 0, one, one }),
                 "metadata mismatches must not route through the magenta failure branch");
             Assert.That(finalPixel, Is.EqualTo(new ushort[] { one, 0, 0, one }),
@@ -86,7 +86,7 @@ public sealed class ShaderMigrationPhysicalFootprintTests
         var effect = new SKSLScriptEffect();
         effect.Script.CurrentValue = script;
 
-        ApplyCustomDirect(effect, bounds, targets, workingScale: 1);
+        ApplyDirect(effect, bounds, targets, workingScale: 1);
 
         EffectTarget actual = targets.Single();
         using Bitmap bitmap = actual.RenderTarget!.Snapshot();
@@ -246,26 +246,6 @@ public sealed class ShaderMigrationPhysicalFootprintTests
             maxWorkingScale: 1);
         activator.Apply(context);
         activator.Flush(false);
-    }
-
-    private static void ApplyCustomDirect(
-        FilterEffect effect,
-        Rect bounds,
-        EffectTargets targets,
-        float workingScale)
-    {
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var recording = new FilterEffectContext(bounds, outputScale: 1, workingScale);
-        recording.ApplyTransactional(effect, resource);
-        IFEItem_Custom item = recording.GetOrderedItems().OfType<IFEItem_Custom>().Single();
-        var execution = new CustomFilterEffectContext(
-            targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1,
-            workingScale,
-            maxWorkingScale: 1);
-        item.Accepts(execution);
     }
 
     private static EffectTargets CreateTargets(

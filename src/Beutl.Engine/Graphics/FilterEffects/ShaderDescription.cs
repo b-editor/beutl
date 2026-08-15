@@ -128,8 +128,9 @@ internal sealed class ShaderDescription
     /// <param name="sourceTileMode">The tile mode used when the implicit source is sampled outside its bounds.</param>
     /// <returns>An immutable deferred shader description.</returns>
     /// <remarks>
-    /// The stage runs as an unfused materialization boundary. Its <c>coord</c> argument is expressed in local
-    /// output-device pixels and its recorded effective scale is the resolved working density.
+    /// The stage may lead a fused run whose remaining stages are CurrentPixel transforms, but it never consumes an
+    /// earlier stage inside that run. Its <c>coord</c> argument is expressed in local output-device pixels and its
+    /// recorded effective scale is the resolved working density.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">

@@ -566,42 +566,36 @@ public sealed class FilterEffectContext : IDisposable
 
     public void Saturate(float amount)
     {
-        AppendSKColorFilter(amount, (s, _) =>
+        float[] array = s_colorMatPool.Get();
+        try
         {
-            float[] array = s_colorMatPool.Get();
-            try
-            {
-                Graphics.ColorMatrix.CreateSaturateMatrix(s, array);
-                //M15,M25,M35,M45がゼロなので意味がない
-                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+            Graphics.ColorMatrix.CreateSaturateMatrix(amount, array);
+            //M15,M25,M35,M45がゼロなので意味がない
+            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-                return SKColorFilter.CreateColorMatrix(array);
-            }
-            finally
-            {
-                s_colorMatPool.Return(array);
-            }
-        });
+            Shader(ColorMatrixShader.CurrentPixel(array));
+        }
+        finally
+        {
+            s_colorMatPool.Return(array);
+        }
     }
 
     public void HueRotate(float degrees)
     {
-        AppendSKColorFilter(degrees, (s, _) =>
+        float[] array = s_colorMatPool.Get();
+        try
         {
-            float[] array = s_colorMatPool.Get();
-            try
-            {
-                Graphics.ColorMatrix.CreateHueRotateMatrix(degrees, array);
-                //M15,M25,M35,M45がゼロなので意味がない
-                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+            Graphics.ColorMatrix.CreateHueRotateMatrix(degrees, array);
+            //M15,M25,M35,M45がゼロなので意味がない
+            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-                return SKColorFilter.CreateColorMatrix(array);
-            }
-            finally
-            {
-                s_colorMatPool.Return(array);
-            }
-        });
+            Shader(ColorMatrixShader.CurrentPixel(array));
+        }
+        finally
+        {
+            s_colorMatPool.Return(array);
+        }
     }
 
     public void LuminanceToAlpha()
@@ -626,66 +620,62 @@ public sealed class FilterEffectContext : IDisposable
 
     public void Brightness(float amount)
     {
-        AppendSKColorFilter(amount, (s, _) =>
+        // Recorded as a CurrentPixel shader stage rather than a Skia color filter so that an adjacent shader
+        // stage can fuse with it instead of splitting the chain at a legacy segment.
+        float[] array = s_colorMatPool.Get();
+        try
         {
-            float[] array = s_colorMatPool.Get();
-            try
-            {
-                Graphics.ColorMatrix.CreateBrightness(amount, array);
-                //M15,M25,M35,M45がゼロなので意味がない
-                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+            Graphics.ColorMatrix.CreateBrightness(amount, array);
+            //M15,M25,M35,M45がゼロなので意味がない
+            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-                return SKColorFilter.CreateColorMatrix(array);
-            }
-            finally
-            {
-                s_colorMatPool.Return(array);
-            }
-        });
+            Shader(ColorMatrixShader.CurrentPixel(array));
+        }
+        finally
+        {
+            s_colorMatPool.Return(array);
+        }
     }
 
     public void HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)
     {
-        AppendSKColorFilter(
-            (grayscale, invertStyle, contrast),
-            (data, _) => SKColorFilter.CreateHighContrast(data.grayscale,
-                (SKHighContrastConfigInvertStyle)data.invertStyle, data.contrast));
+        // SKColorFilter.CreateHighContrast returns null for an invalid configuration, which made the old path a
+        // no-op. Preserve that behavior instead of recording a shader with undefined parameters.
+        if (!Enum.IsDefined(invertStyle) || float.IsNaN(contrast) || contrast is < -1f or > 1f)
+            return;
+
+        Shader(BuiltInColorFilterShader.HighContrast(grayscale, invertStyle, contrast));
     }
 
     public void Lighting(Color multiply, Color add)
     {
         // CreateLightingはsRGBガンマ値でマトリックスを作成するため、
         // リニア色空間では不正確。リニアに変換したカラーマトリックスを使用する。
-        AppendSKColorFilter(
-            (multiply, add),
-            (data, _) =>
-            {
-                var mulLinear = data.multiply.ToLinear();
-                var addLinear = data.add.ToLinear();
+        var mulLinear = multiply.ToLinear();
+        var addLinear = add.ToLinear();
 
-                float[] array = s_colorMatPool.Get();
-                try
-                {
-                    array.AsSpan().Clear();
-                    array[0] = mulLinear.X;
-                    array[6] = mulLinear.Y;
-                    array[12] = mulLinear.Z;
-                    array[18] = 1;
-                    array[4] = addLinear.X;
-                    array[9] = addLinear.Y;
-                    array[14] = addLinear.Z;
-                    return SKColorFilter.CreateColorMatrix(array);
-                }
-                finally
-                {
-                    s_colorMatPool.Return(array);
-                }
-            });
+        float[] array = s_colorMatPool.Get();
+        try
+        {
+            array.AsSpan().Clear();
+            array[0] = mulLinear.X;
+            array[6] = mulLinear.Y;
+            array[12] = mulLinear.Z;
+            array[18] = 1;
+            array[4] = addLinear.X;
+            array[9] = addLinear.Y;
+            array[14] = addLinear.Z;
+            Shader(ColorMatrixShader.CurrentPixel(array));
+        }
+        finally
+        {
+            s_colorMatPool.Return(array);
+        }
     }
 
     public void LumaColor()
     {
-        AppendSKColorFilter(Unit.Default, (_, _) => SKColorFilter.CreateLumaColor());
+        Shader(BuiltInColorFilterShader.LumaColor());
     }
 
     public void BlendMode(Color color, BlendMode blendMode)

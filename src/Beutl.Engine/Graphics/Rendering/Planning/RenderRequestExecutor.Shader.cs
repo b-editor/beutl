@@ -120,7 +120,10 @@ internal sealed partial class RenderRequestExecutor
                 return [];
             }
 
-            Rect requiredRegion = ResolveFragmentRequirement(run.Output, outputBounds);
+            RenderFragmentReference requirementFragment = run.WholeSourceHead is null
+                ? run.Output
+                : run.Stages[0].Fragment;
+            Rect requiredRegion = ResolveFragmentRequirement(requirementFragment, outputBounds);
             if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
             {
                 CompleteFragmentUse(run.Input);
@@ -232,14 +235,31 @@ internal sealed partial class RenderRequestExecutor
                 bindingToken.RunAndComplete(
                     () =>
                     {
-                        SKShader inputShader = inputImage.ToShader(
-                            SKShaderTileMode.Decal,
-                            SKShaderTileMode.Decal,
-                            RasterShaderMapping.CreateLocalMatrix(
-                                outputScale,
+                        SKShader inputShader;
+                        if (run.WholeSourceHead is { } head)
+                        {
+                            inputShader = RasterShaderMapping.CreateSemanticImageShader(
+                                inputImage,
+                                input.Target.Value.Context,
+                                input.Bounds,
                                 input.EffectiveScale.Value,
+                                input.DeviceBounds,
+                                input.RasterBounds,
+                                outputScale,
                                 outputRasterBounds,
-                                input.RasterBounds));
+                                head.SourceTileMode);
+                        }
+                        else
+                        {
+                            inputShader = inputImage.ToShader(
+                                SKShaderTileMode.Decal,
+                                SKShaderTileMode.Decal,
+                                RasterShaderMapping.CreateLocalMatrix(
+                                    outputScale,
+                                    input.EffectiveScale.Value,
+                                    outputRasterBounds,
+                                    input.RasterBounds));
+                        }
                         children.Add(inputShader);
                         runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
 

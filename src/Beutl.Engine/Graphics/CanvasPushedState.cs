@@ -88,21 +88,12 @@ public partial class ImmediateCanvas
             }
         }
 
-        internal record OpacityPushedState(float Opacity, int Count, SKPaint Paint) : CanvasPushedState
+        internal record OpacityPushedState(float Opacity, int Count) : CanvasPushedState
         {
             public override void Pop(ImmediateCanvas canvas)
             {
-                canvas._sharedFillPaint.Reset();
-                canvas._sharedFillPaint.BlendMode = SKBlendMode.DstIn;
-
-                canvas.Canvas.SaveLayer(canvas._sharedFillPaint);
-                using (SKPaint maskPaint = Paint)
-                {
-                    canvas.Canvas.DrawPaint(maskPaint);
-                }
-
-                canvas.Canvas.Restore();
-
+                // The opacity rides on the layer paint's color filter, so restoring the layer applies it.
+                // No mask draw and no retained paint are needed on pop.
                 canvas.Canvas.RestoreToCount(Count);
                 canvas.Opacity = Opacity;
             }

@@ -62,8 +62,28 @@ public sealed class SkslBackendBudgetResolverTests
         });
     }
 
+    [TestCase(GRBackend.Vulkan, 12, 12)]
+    [TestCase(GRBackend.Metal, 12, 12)]
+    public void BackendProfiles_UseCapabilitySpecificResourceLimits(
+        GRBackend backend,
+        int expectedSamplers,
+        int expectedChildren)
+    {
+        SkslBackendBudget budget = SkslBackendBudgetResolver.Resolve(backend);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(budget.MaxStages, Is.EqualTo(16));
+            Assert.That(budget.MaxUniformVectors, Is.EqualTo(128));
+            Assert.That(budget.MaxSamplers, Is.EqualTo(expectedSamplers));
+            Assert.That(budget.MaxChildren, Is.EqualTo(expectedChildren));
+            Assert.That(budget.MaxSourceBytes, Is.EqualTo(64 * 1024));
+            Assert.That(budget.MaxProgramTokens, Is.EqualTo(16 * 1024));
+        });
+    }
+
     [Test]
-    public void PortableLimitsAreCommonFloorAndCapabilityClassesSeparateProgramIdentity()
+    public void CapabilityProfiles_DivergeAndSeparateProgramIdentity()
     {
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }");
@@ -75,24 +95,60 @@ public sealed class SkslBackendBudgetResolverTests
         SkslMergedProgram portableProgram = SkslSnippetMerger.MergeAndSplit([stage], portable).Single();
         SkslMergedProgram vulkanProgram = SkslSnippetMerger.MergeAndSplit([stage], vulkan).Single();
         SkslMergedProgram metalProgram = SkslSnippetMerger.MergeAndSplit([stage], metal).Single();
+        var contextIdentity = new RenderCacheDeviceContextIdentity("device", "context");
+        ProgramCacheContextKey portableContext = SkRuntimeEffectProgramCache.CreateContextKey(
+            contextIdentity,
+            portable);
+        ProgramCacheContextKey vulkanContext = SkRuntimeEffectProgramCache.CreateContextKey(
+            contextIdentity,
+            vulkan);
+        ProgramCacheContextKey metalContext = SkRuntimeEffectProgramCache.CreateContextKey(
+            contextIdentity,
+            metal);
 
         Assert.Multiple(() =>
         {
-            Assert.That(vulkan.MaxStages, Is.GreaterThanOrEqualTo(portable.MaxStages));
-            Assert.That(vulkan.MaxUniformVectors, Is.GreaterThanOrEqualTo(portable.MaxUniformVectors));
-            Assert.That(vulkan.MaxSamplers, Is.GreaterThanOrEqualTo(portable.MaxSamplers));
-            Assert.That(vulkan.MaxChildren, Is.GreaterThanOrEqualTo(portable.MaxChildren));
-            Assert.That(vulkan.MaxSourceBytes, Is.GreaterThanOrEqualTo(portable.MaxSourceBytes));
-            Assert.That(vulkan.MaxProgramTokens, Is.GreaterThanOrEqualTo(portable.MaxProgramTokens));
-            Assert.That(metal.MaxStages, Is.GreaterThanOrEqualTo(portable.MaxStages));
-            Assert.That(metal.MaxUniformVectors, Is.GreaterThanOrEqualTo(portable.MaxUniformVectors));
-            Assert.That(metal.MaxSamplers, Is.GreaterThanOrEqualTo(portable.MaxSamplers));
-            Assert.That(metal.MaxChildren, Is.GreaterThanOrEqualTo(portable.MaxChildren));
-            Assert.That(metal.MaxSourceBytes, Is.GreaterThanOrEqualTo(portable.MaxSourceBytes));
-            Assert.That(metal.MaxProgramTokens, Is.GreaterThanOrEqualTo(portable.MaxProgramTokens));
+            Assert.That(portable, Is.Not.EqualTo(vulkan));
+            Assert.That(portable, Is.Not.EqualTo(metal));
+            Assert.That(vulkan, Is.Not.EqualTo(metal));
             Assert.That(portableProgram.Identity, Is.Not.EqualTo(vulkanProgram.Identity));
             Assert.That(portableProgram.Identity, Is.Not.EqualTo(metalProgram.Identity));
             Assert.That(vulkanProgram.Identity, Is.Not.EqualTo(metalProgram.Identity));
+            Assert.That(portableContext, Is.Not.EqualTo(vulkanContext));
+            Assert.That(portableContext, Is.Not.EqualTo(metalContext));
+            Assert.That(vulkanContext, Is.Not.EqualTo(metalContext));
         });
     }
+
+    [Test]
+    public void CapabilityClass_RemainsPartOfBudgetAndCacheIdentityWhenLimitsMatch()
+    {
+        SkslBackendBudget vulkan = CreateIdentityBudget(SkslBackendCapabilityClass.Vulkan);
+        SkslBackendBudget metal = CreateIdentityBudget(SkslBackendCapabilityClass.Metal);
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "half4 apply(half4 color) { return color; }");
+        var stage = new SkslSnippetStage(description);
+        SkslMergedProgram vulkanProgram = SkslSnippetMerger.MergeAndSplit([stage], vulkan).Single();
+        SkslMergedProgram metalProgram = SkslSnippetMerger.MergeAndSplit([stage], metal).Single();
+        var contextIdentity = new RenderCacheDeviceContextIdentity("device", "context");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(vulkan, Is.Not.EqualTo(metal));
+            Assert.That(vulkanProgram.Identity, Is.Not.EqualTo(metalProgram.Identity));
+            Assert.That(
+                SkRuntimeEffectProgramCache.CreateContextKey(contextIdentity, vulkan),
+                Is.Not.EqualTo(SkRuntimeEffectProgramCache.CreateContextKey(contextIdentity, metal)));
+        });
+    }
+
+    private static SkslBackendBudget CreateIdentityBudget(SkslBackendCapabilityClass capabilityClass)
+        => new(
+            capabilityClass,
+            maxStages: 16,
+            maxUniformVectors: 128,
+            maxSamplers: 16,
+            maxChildren: 16,
+            maxSourceBytes: 64 * 1024,
+            maxProgramTokens: 16 * 1024);
 }

@@ -144,6 +144,54 @@ public sealed class ShaderDescriptionTests
         Assert.That(description.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
     }
 
+    [TestCase("const float __beutl_pixel = 1.0;")]
+    [TestCase("half4 __beutl_s7_sample(float2 coord) { return src.eval(coord); }")]
+    public void WholeSource_RejectsRendererReservedTopLevelDeclarations(string declaration)
+    {
+        Assert.That(
+            () => ShaderDescription.WholeSource(
+                $"uniform shader src; {declaration} half4 main(float2 coord) {{ return src.eval(coord); }}",
+                RenderBoundsContract.Identity),
+            Throws.TypeOf<ArgumentException>());
+    }
+
+    [Test]
+    public void WholeSource_AllowsNonGeneratedRendererPrefixOnTopLevelNames()
+    {
+        ShaderDescription description = ShaderDescription.WholeSource(
+            "uniform shader src; const float __beutl_custom = 1.0; "
+            + "half4 main(float2 coord) { return src.eval(coord) * __beutl_custom; }",
+            RenderBoundsContract.Identity);
+
+        Assert.That(description.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
+    }
+
+    [Test]
+    public void WholeSource_RejectsCommaSeparatedRendererGeneratedDeclaration()
+    {
+        Assert.That(
+            () => ShaderDescription.WholeSource(
+                """
+                uniform shader src;
+                half __beutl_head_main, keep;
+                half4 main(float2 coord) { return src.eval(coord); }
+                """,
+                RenderBoundsContract.Identity),
+            Throws.TypeOf<ArgumentException>()
+                .With.Message.Contains("__beutl_head_main"));
+    }
+
+    [Test]
+    public void WholeSource_AllowsRendererPrefixOnFunctionLocalNames()
+    {
+        ShaderDescription description = ShaderDescription.WholeSource(
+            "uniform shader src; half4 main(float2 coord) { "
+            + "float2 __beutl_pixel = coord; return src.eval(__beutl_pixel); }",
+            RenderBoundsContract.Identity);
+
+        Assert.That(description.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
+    }
+
     [Test]
     public void WholeSource_RequiresImplicitSourceAndExplicitBounds()
     {

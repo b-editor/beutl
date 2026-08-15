@@ -4,7 +4,7 @@ using Beutl.Graphics.Effects;
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Partitions the recorded value DAG without executing it. Shader runs are restricted to direct, single-value,
+/// Partitions the recorded value DAG without executing it. Shader runs are restricted to direct, at-most-one-value,
 /// target-independent chains so merging cannot change fan-out, painter order, group opacity, or target-token scope.
 /// </summary>
 internal sealed class ExecutionIslandPlanner
@@ -72,7 +72,22 @@ internal sealed class ExecutionIslandPlanner
                 continue;
 
             if (TryCreateStage(reference, out StageCandidate? stage, out ExecutionIslandBoundaryReason reason))
-                stageCandidates.Add(reference, stage!);
+            {
+                StageCandidate accepted = stage!;
+                if (fusionMode == FusionMode.Disabled && accepted.IsWholeSourceHeadOnly)
+                {
+                    rejectedStageClassifications.Add(
+                        reference,
+                        new ExecutionIslandClassification(
+                            ExecutionIslandKind.Compatibility,
+                            ExecutionIslandBoundaryReason.WholeSourceShader,
+                            []));
+                }
+                else
+                {
+                    stageCandidates.Add(reference, accepted);
+                }
+            }
             else if (reference.Kind is RenderFragmentKind.Shader or RenderFragmentKind.Opacity)
             {
                 rejectedStageClassifications.Add(
@@ -348,7 +363,9 @@ internal sealed class ExecutionIslandPlanner
             ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference current in references)
         {
-            if (!stages.ContainsKey(current) || current.Inputs.Length != 1)
+            if (!stages.TryGetValue(current, out StageCandidate? currentStage)
+                || currentStage.IsWholeSourceHeadOnly
+                || current.Inputs.Length != 1)
                 continue;
 
             RenderFragmentReference input = current.Inputs[0];
@@ -444,7 +461,11 @@ internal sealed class ExecutionIslandPlanner
         ExecutionIslandBoundaryReason reason;
         if (stages.ContainsKey(input))
         {
-            if (consumerCounts[input] != 1)
+            if (first.IsWholeSourceHeadOnly)
+            {
+                reason = ExecutionIslandBoundaryReason.WholeSourceShader;
+            }
+            else if (consumerCounts[input] != 1)
             {
                 reason = ExecutionIslandBoundaryReason.Branching;
             }
@@ -541,12 +562,11 @@ internal sealed class ExecutionIslandPlanner
             return false;
         }
         RenderFragmentReference input = fragment.Inputs[0];
-        bool isOptionalBackendStage =
+        bool isOptionalStage =
             fragment.ValueCardinality.Equals(RenderValueCardinality.ZeroOrOne)
-            && input.Payload is OpaqueRenderFragmentPayload opaque
-            && opaque.Description.BackendBoundary != RenderBackendBoundary.None;
+            && input.ValueCardinality.Equals(RenderValueCardinality.ZeroOrOne);
         if (!fragment.ValueCardinality.Equals(RenderValueCardinality.Single)
-            && !isOptionalBackendStage)
+            && !isOptionalStage)
         {
             rejectionReason = ExecutionIslandBoundaryReason.DynamicTopology;
             return false;
@@ -565,7 +585,7 @@ internal sealed class ExecutionIslandPlanner
         if (fragment.Kind == RenderFragmentKind.Shader)
         {
             var payload = (ShaderRenderFragmentPayload?)fragment.Payload;
-            if (payload?.Description.Kind != ShaderDescriptionKind.CurrentPixel)
+            if (payload is null)
             {
                 rejectionReason = ExecutionIslandBoundaryReason.WholeSourceShader;
                 return false;
@@ -590,7 +610,8 @@ internal sealed class ExecutionIslandPlanner
 
         stage = new StageCandidate(
             fragment,
-            new SkslSnippetStage(description, coverageBehavior));
+            new SkslSnippetStage(description, coverageBehavior),
+            description.Kind == ShaderDescriptionKind.WholeSource);
         return true;
     }
 
@@ -741,7 +762,8 @@ internal sealed class ExecutionIslandPlanner
 
     private sealed record StageCandidate(
         RenderFragmentReference Fragment,
-        SkslSnippetStage Snippet)
+        SkslSnippetStage Snippet,
+        bool IsWholeSourceHeadOnly)
     {
         public CompiledShaderStage ToCompiledStage(int programStageIndex)
             => new(

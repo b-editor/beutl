@@ -22,6 +22,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private static readonly AsyncLocal<PixelOperationObserverScope?> s_pixelOperationObserver = new();
     private static readonly AsyncLocal<DrawableBrushMaterializer?> s_drawableBrushMaterializer = new();
     private static readonly Lazy<SKRuntimeEffect> s_rectCoverageEffect = new(CreateRectCoverageEffect);
+    private static readonly Lazy<SKRuntimeEffect> s_opacityScaleEffect = new(CreateOpacityScaleEffect);
 
     // A tent kernel has no negative lobe, so a resampled composite cannot emit a value outside the
     // range of the samples it interpolated.
@@ -1050,10 +1051,21 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             return new PushedState(this, _states.Count);
         }
 
-        var paint = new SKPaint();
-        int count = Canvas.SaveLayer(paint);
-        paint.Color = new SKColor(0, 0, 0, (byte)(Opacity * 255));
-        _states.Push(new CanvasPushedState.OpacityPushedState(oldOpacity, count, paint));
+        // The group opacity is applied by the layer's own color filter, which multiplies the premultiplied
+        // result by a float uniform. Skia's two idiomatic alternatives both quantize to 8 bits inside an
+        // otherwise 16-bit linear pipeline: a paint alpha on the SaveLayer paint goes through SkColor4f ->
+        // byte, and so does the DstIn mask this used to draw on pop. Both turn opacity 0.5 into 128/255 ==
+        // 0.50195312 rather than 0.5.
+        // SaveLayer copies the paint, so neither it nor the filter has to outlive this call.
+        int count;
+        using (var paint = new SKPaint())
+        using (SKColorFilter filter = CreateOpacityColorFilter(Opacity))
+        {
+            paint.ColorFilter = filter;
+            count = Canvas.SaveLayer(paint);
+        }
+
+        _states.Push(new CanvasPushedState.OpacityPushedState(oldOpacity, count));
         return new PushedState(this, _states.Count);
     }
 
@@ -1701,5 +1713,41 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         return SKRuntimeEffect.CreateShader(source, out string? errorText)
                ?? throw new InvalidOperationException(
                    $"Failed to compile the rectangle coverage shader: {errorText}");
+    }
+
+    /// <summary>
+    /// Scales a premultiplied layer by a float opacity, without the 8-bit step Skia's own layer-alpha and
+    /// DstIn-mask paths both introduce.
+    /// </summary>
+    /// <remarks>
+    /// Multiplying all four premultiplied components by the same factor is exactly what group opacity means,
+    /// and it leaves the straight color untouched. A color-matrix filter would express the same scale but
+    /// clamps its result to [0, 1], which would crush the out-of-range values an RGBA16F layer is allowed to
+    /// carry; a runtime color filter has no such clamp.
+    /// </remarks>
+    private static SKRuntimeEffect CreateOpacityScaleEffect()
+    {
+        const string source =
+            """
+            uniform half opacity;
+
+            half4 main(half4 color)
+            {
+                return color * opacity;
+            }
+            """;
+        return SKRuntimeEffect.CreateColorFilter(source, out string? errorText)
+               ?? throw new InvalidOperationException(
+                   $"Failed to compile the opacity scale color filter: {errorText}");
+    }
+
+    /// <summary>Builds the float-precision group-opacity color filter for one normalized opacity.</summary>
+    private static SKColorFilter CreateOpacityColorFilter(float opacity)
+    {
+        using var uniforms = new SKRuntimeEffectUniforms(s_opacityScaleEffect.Value)
+        {
+            { "opacity", opacity },
+        };
+        return s_opacityScaleEffect.Value.ToColorFilter(uniforms);
     }
 }
