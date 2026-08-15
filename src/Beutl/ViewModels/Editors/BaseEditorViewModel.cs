@@ -414,10 +414,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return string.Empty;
     }
 
-    public ValueTask<bool> SaveAsTemplateAsync(string name)
+    public async ValueTask<bool> SaveAsTemplateAsync(string name)
     {
-        if (GetTemplateTarget() is not { } target) return new(false);
-        return new(ObjectTemplateService.Instance.AddFromInstance(target, name) != null);
+        if (GetTemplateTarget() is not { } target) return false;
+        return await ObjectTemplateService.Instance.AddFromInstanceAsync(target, name) != null;
     }
 
     public async ValueTask RefreshCanPasteAsync()

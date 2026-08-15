@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Buffers.Binary;
+using System.Text.Json.Nodes;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -29,6 +30,23 @@ public sealed class ObjectTemplateItem(
     public string? FilePath { get; internal set; } = filePath;
 
     public DateTime LastWriteTimeUtc { get; internal set; }
+
+    // Base64 of 1 MiB, four times what ObjectTemplatePreviewRenderer will ever write — headroom for
+    // a package authored elsewhere, without letting one file dictate the allocation.
+    private const int MaxEncodedPreviewLength = 1_398_104;
+
+    // 2048x2048 worth of pixels: far above the 256px previews this writes, far below what would
+    // hurt to hold decoded. Unsigned because the product of two uint dimensions overflows a long.
+    private const ulong MaxPreviewPixels = 4_194_304;
+
+    private const int PngHeaderLength = 24;
+
+    private static ReadOnlySpan<byte> s_pngSignature => [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+
+    /// <summary>
+    /// A PNG preview of what this template produces, or null when none could be rendered.
+    /// </summary>
+    public byte[]? Preview { get; internal set; }
 
     public ICoreSerializable? CreateInstance()
     {
@@ -70,7 +88,7 @@ public sealed class ObjectTemplateItem(
 
     public static JsonNode ToJson(ObjectTemplateItem item)
     {
-        return new JsonObject
+        var json = new JsonObject
         {
             [nameof(Id)] = item.Id.ToString(),
             [nameof(BaseType)] = TypeFormat.ToString(item.BaseType),
@@ -78,6 +96,13 @@ public sealed class ObjectTemplateItem(
             [nameof(Json)] = item.Json.DeepClone(),
             [nameof(CategoryFormat)] = item.CategoryFormat
         };
+
+        if (item.Preview is { Length: > 0 } preview)
+        {
+            json[nameof(Preview)] = Convert.ToBase64String(preview);
+        }
+
+        return json;
     }
 
     public static ObjectTemplateItem? FromJson(JsonNode json, string name, string filePath, ILogger logger)
@@ -128,12 +153,77 @@ public sealed class ObjectTemplateItem(
             string categoryFormat = json[nameof(CategoryFormat)]?.GetValue<string>()
                                     ?? ObjectTemplateCategoryResolver.Resolve(actualType).Format;
 
-            return new ObjectTemplateItem(id, baseType, actualType, jsonObject, name, categoryFormat, filePath);
+            // Detached: a JsonNode holds a strong reference to its parent, so keeping the child
+            // would pin the whole parsed document — including the base64 preview — for the
+            // lifetime of every item the service caches.
+            var payload = (JsonObject)jsonObject.DeepClone();
+
+            return new ObjectTemplateItem(id, baseType, actualType, payload, name, categoryFormat, filePath)
+            {
+                Preview = ReadPreview(json, logger)
+            };
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "An exception has occurred while creating ObjectTemplateItem from JSON.");
             return null;
         }
+    }
+
+    // Nothing validates a template file, so the encoded length is untrusted and is bounded before
+    // anything is allocated for it. A rejected preview costs the thumbnail, never the template.
+    private static byte[]? ReadPreview(JsonNode json, ILogger logger)
+    {
+        if (json[nameof(Preview)] is not JsonValue value
+            || !value.TryGetValue(out string? base64)
+            || string.IsNullOrEmpty(base64))
+        {
+            return null;
+        }
+
+        if (base64.Length > MaxEncodedPreviewLength)
+        {
+            logger.LogWarning(
+                "Template preview is {Length} characters, over the {Limit} limit; ignoring it.",
+                base64.Length, MaxEncodedPreviewLength);
+            return null;
+        }
+
+        byte[] preview;
+        try
+        {
+            preview = Convert.FromBase64String(base64);
+        }
+        catch (FormatException)
+        {
+            logger.LogWarning("Template preview is not valid base64; ignoring it.");
+            return null;
+        }
+
+        return IsDecodableSize(preview, logger) ? preview : null;
+    }
+
+    // The encoded length bounds only what a preview costs on disk. A store-installed template is
+    // third-party content, and a PNG of a single flat colour stays tiny while declaring dimensions
+    // that cost gigabytes once decoded, so the header is checked before anything decodes it.
+    private static bool IsDecodableSize(byte[] preview, ILogger logger)
+    {
+        if (preview.Length < PngHeaderLength || !preview.AsSpan(0, 8).SequenceEqual(s_pngSignature))
+        {
+            logger.LogWarning("Template preview is not a PNG; ignoring it.");
+            return false;
+        }
+
+        uint width = BinaryPrimitives.ReadUInt32BigEndian(preview.AsSpan(16, 4));
+        uint height = BinaryPrimitives.ReadUInt32BigEndian(preview.AsSpan(20, 4));
+        if (width == 0 || height == 0 || (ulong)width * height > MaxPreviewPixels)
+        {
+            logger.LogWarning(
+                "Template preview declares {Width}x{Height}, over the {Limit} pixel limit; ignoring it.",
+                width, height, MaxPreviewPixels);
+            return false;
+        }
+
+        return true;
     }
 }

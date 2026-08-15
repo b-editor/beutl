@@ -53,13 +53,13 @@ internal sealed class DirectoryWatcherService : IDisposable
     private bool ShouldExcludePath(string path)
     {
         // templatesディレクトリは例外
-        if (IsUnderDirectory(path, ObjectTemplateService.Instance.DirectoryPath))
+        if (PathScope.IsUnderDirectory(path, BeutlEnvironment.GetTemplatesDirectoryPath()))
         {
             return false;
         }
 
         // materialsディレクトリも例外
-        if (IsUnderDirectory(path, BeutlEnvironment.GetMaterialsDirectoryPath()))
+        if (PathScope.IsUnderDirectory(path, BeutlEnvironment.GetMaterialsDirectoryPath()))
         {
             return false;
         }
@@ -68,17 +68,6 @@ internal sealed class DirectoryWatcherService : IDisposable
                path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase) ||
                path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase) ||
                path.Contains(".beutl");
-    }
-
-    private static bool IsUnderDirectory(string path, string directory)
-    {
-        string normalizedDir = Path.GetFullPath(directory)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-        string normalizedPath = Path.GetFullPath(path);
-
-        return normalizedPath.StartsWith(normalizedDir, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(normalizedPath + Path.DirectorySeparatorChar, normalizedDir, StringComparison.OrdinalIgnoreCase);
     }
 
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
