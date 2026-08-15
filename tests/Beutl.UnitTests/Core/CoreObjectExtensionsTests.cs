@@ -70,7 +70,6 @@ public class CoreObjectExtensionsTests
     [Test]
     public void GetObservable_EmitsOncePerChange()
     {
-        // A duplicate PropertyChanged registration would publish every change twice.
         var obj = new TestCoreObject { Name = "init" };
         var values = new List<string?>();
 
@@ -83,8 +82,6 @@ public class CoreObjectExtensionsTests
     [Test]
     public void GetObservable_LeavesNoHandlerBehindAfterUnsubscribing()
     {
-        // A registration left attached across a subscribe/dispose cycle shows up as a duplicated
-        // notification on the next subscription.
         var obj = new TestCoreObject { Name = "init" };
         IObservable<string> observable = obj.GetObservable(CoreObject.NameProperty);
 

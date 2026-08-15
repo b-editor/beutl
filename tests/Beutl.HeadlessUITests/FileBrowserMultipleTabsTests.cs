@@ -220,8 +220,7 @@ public class FileBrowserMultipleTabsTests
         Assert.Multiple(() =>
         {
             Assert.That(FileBrowsers(editor), Has.Length.EqualTo(1));
-            // The templates and materials entries are always present, so an empty list would mean
-            // the surviving tab's items were torn down with its sibling.
+            // Fixed folders should survive closing the sibling tab.
             Assert.That(survivor.FavoriteItems, Is.Not.Empty);
         });
     }

@@ -40,8 +40,7 @@ public sealed class SampleToolTabExtension : ToolTabExtension
 
     private sealed class Context(ToolTabExtension extension) : IToolContext
     {
-        // CanMultiple is true, so the title has to say which instance this is. A real tool would use
-        // whatever its tab is showing; there is nothing to show here, hence the counter.
+        // Number each instance because CanMultiple is enabled.
         private static int s_lastInstanceNumber;
 
         public ToolTabExtension Extension { get; } = extension;

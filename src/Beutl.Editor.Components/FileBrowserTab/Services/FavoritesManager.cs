@@ -7,13 +7,10 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
 /// <summary>
-/// One file browser tab's view over the shared <see cref="FileBrowserFavoritesStore"/>.
+/// Per-tab view over shared favorite paths.
 /// </summary>
 /// <remarks>
-/// The path list is shared, but <see cref="FavoriteItems"/> is not: a
-/// <see cref="FileSystemItemViewModel"/> owns expansion state and a subscription that
-/// <see cref="FileSystemItemViewModel.Dispose"/> tears down, so sharing the items would let one
-/// tab's refresh silently disable another tab's visible rows.
+/// Favorite items remain per tab because they own expansion and subscription state.
 /// </remarks>
 internal sealed class FavoritesManager : IDisposable
 {
@@ -44,7 +41,7 @@ internal sealed class FavoritesManager : IDisposable
 
     public void RefreshFavoriteItems()
     {
-        // A watcher's debounced refresh can land after the owning tab was disposed.
+        // Debounced refreshes may arrive after disposal.
         if (_disposed)
             return;
 
@@ -72,8 +69,7 @@ internal sealed class FavoritesManager : IDisposable
     // お気に入りコレクション変更時のコールバック。ホームビュー表示中の場合にアイテムを更新する。
     public event Action? Changed;
 
-    // The store fans Changed out to every tab, so an unwritable BEUTL_HOME must not escape into
-    // whichever tab's click started the edit, nor abort the remaining tabs' refresh.
+    // Isolate tab refresh failures so one tab cannot block the others.
     private void AddFixedFolder(string directory, string localizedName)
     {
         try
@@ -107,7 +103,7 @@ internal sealed class FavoritesManager : IDisposable
             return;
 
         _disposed = true;
-        // The store outlives every tab, so a handler left attached leaks this whole view model.
+        // Unsubscribe because the store outlives each tab.
         _store.Changed -= _onStoreChanged;
         Changed = null;
         DisposeAndClearItems();

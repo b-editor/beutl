@@ -42,8 +42,7 @@ public sealed class SimpleTabExtension : ToolTabExtension
 // ViewModel
 public sealed class SimpleContext : IToolContext
 {
-    // CanMultiple is true above, so the title must identify the instance — a constant here would
-    // make every tab read "Simple tab". A real tool derives it from whatever the tab is showing.
+    // Multiple instances need distinct titles.
     private static int s_lastInstanceNumber;
 
     public SimpleContext(ToolTabExtension extension)

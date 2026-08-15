@@ -179,14 +179,10 @@ public sealed class GraphEditorTabViewModel : IToolContext
     }
 
     /// <summary>
-    /// Finds the tab a request for <paramref name="animation"/> should retarget, or
-    /// <see langword="null"/> when the caller has to create one.
+    /// Finds a matching or idle graph-editor tab for <paramref name="animation"/>.
     /// </summary>
     /// <remarks>
-    /// Prefer the tab already on this animation, then an idle one. Deliberately stops there: this
-    /// extension exposes no menu <see cref="ToolTabExtension.Header"/>, so these call sites are the
-    /// only way to obtain a tab, and retargeting an occupied one would make a second graph editor
-    /// unreachable and rule out comparing two animations side by side.
+    /// Occupied tabs are not retargeted; callers create a new tab when needed.
     /// </remarks>
     public static GraphEditorTabViewModel? FindReusable(
         IEditorContext editorContext, Element? element, KeyFrameAnimation? animation)

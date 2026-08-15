@@ -47,8 +47,7 @@ public class ToolTabHeaderTests
         context.HeaderSource.Value = "second";
         Assert.That(dockable.Title, Is.EqualTo("second"));
 
-        // HeaderSource outlives the context (see FakeToolContext.Dispose), so only the dockable's own
-        // unsubscribe can stop the value below from arriving.
+        // Keep the source alive so this verifies the dockable's unsubscribe.
         dockable.Dispose();
         context.HeaderSource.Value = "after-dispose";
         Assert.Multiple(() =>
@@ -81,7 +80,6 @@ public class ToolTabHeaderTests
     [AvaloniaTest]
     public async Task A_blank_extension_header_falls_back_to_the_display_name()
     {
-        // Extension.Name defaults to the bare type name, so it must not be the first fallback.
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("tooltab-header-blank-extension");
 
@@ -105,8 +103,7 @@ public class ToolTabHeaderTests
 
         public IReadOnlyReactiveProperty<string> Header => HeaderSource;
 
-        // HeaderSource is left alive so a test can keep publishing after the dockable disposed this
-        // context; disposing it here would make "the title stopped following" pass vacuously.
+        // Keep HeaderSource alive to test the dockable's unsubscribe.
         public void Dispose()
         {
             IsSelected.Dispose();

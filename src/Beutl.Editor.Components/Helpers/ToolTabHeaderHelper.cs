@@ -3,10 +3,6 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.Helpers;
 
-/// <summary>
-/// Builds the per-instance titles that let several tabs of one
-/// <see cref="ToolTabExtension.CanMultiple"/> tool be told apart.
-/// </summary>
 internal static class ToolTabHeaderHelper
 {
     public static string Compose(string tabName, string? target)
@@ -16,7 +12,6 @@ internal static class ToolTabHeaderHelper
             : string.Format(CultureInfo.CurrentCulture, Strings.ToolTabHeaderFormat, tabName, target);
     }
 
-    // An element that was never renamed carries an empty Name, so fall back to its file name.
     public static string ElementLabel(string? name, Element? element)
     {
         if (!string.IsNullOrWhiteSpace(name))
@@ -35,7 +30,6 @@ internal static class ToolTabHeaderHelper
             : element.GetObservable(CoreObject.NameProperty).Select(n => ElementLabel(n, element));
     }
 
-    // A named effect wins over its element: one element can carry several effects of the same type.
     public static IObservable<string> ObserveEffectLabel(FilterEffect? effect)
     {
         if (effect is null)

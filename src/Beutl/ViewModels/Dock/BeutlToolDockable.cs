@@ -72,8 +72,7 @@ public class BeutlToolDockable : Tool, IDisposable
         ToolContent = null;
     }
 
-    // A header can be empty — a plugin's especially — and so can the extension's menu label.
-    // Extension.Name comes last because it defaults to the bare type name.
+    // Resolve empty per-instance/menu headers to a readable display or extension name.
     private static string ResolveTitle(IToolContext context, string? header)
     {
         if (!string.IsNullOrWhiteSpace(header))

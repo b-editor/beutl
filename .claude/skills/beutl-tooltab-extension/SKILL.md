@@ -54,8 +54,7 @@ public sealed class MyToolTabExtension : ToolTabExtension
     // Localized display name (shown in the "add tool tab" menu)
     public override string DisplayName => Strings.MyToolTab;
 
-    // Label in the "add tool tab" menu; null keeps the tool out of that menu, so the tab can only
-    // be opened from code. This is NOT the tab title — that is IToolContext.Header.
+    // Add-tab menu label; null hides this tool. IToolContext.Header is the per-instance tab title.
     public override string? Header => Strings.MyToolTab;
 
     // Default docking position: None / Left / Right / Bottom / Player

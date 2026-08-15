@@ -13,8 +13,7 @@ internal sealed class CoreObjectSubject<T> : LightweightObservableBase<T>
     {
         _object = o;
         _property = property;
-        // Do not subscribe here: Initialize/Deinitialize bracket the subscribed lifetime, so an extra
-        // registration would outlive every Deinitialize and pin this subject to the object for good.
+        // Subscribe only between Initialize and Deinitialize; subscribing here would leak the source.
     }
 
     protected override void Deinitialize()

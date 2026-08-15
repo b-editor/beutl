@@ -52,8 +52,6 @@ public class ToolTabReuseTests
     [Test]
     public void A_menuless_tool_never_retargets_an_occupied_tab()
     {
-        // Without a ToolTabExtension.Header the call site is the only way to obtain a tab, so taking
-        // only one would make a second instance unreachable.
         var occupied = new FakeTab("b");
         var context = new TestEditorContext(occupied);
 

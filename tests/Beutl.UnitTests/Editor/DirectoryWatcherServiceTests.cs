@@ -100,7 +100,6 @@ public class DirectoryWatcherServiceTests
 
         Assert.Multiple(() =>
         {
-            // The explicit call still arms a watcher; only the automatic retries stay spent.
             Assert.That(service.IsWatching, Is.True);
             Assert.That(service.TryRearmAfterError(), Is.False);
             Assert.That(service.IsWatching, Is.False);
@@ -137,8 +136,7 @@ public class DirectoryWatcherServiceTests
 
         bool rearmed = service.TryRearmAfterError();
 
-        // Re-Watch the folder once it is back. The budget is not restored (the path is still the
-        // failing one), so a rebuild that spent it leaves the next failure nothing to retry with.
+        // Re-Watching does not restore the budget — the path is still the failing one.
         Directory.CreateDirectory(doomed);
         service.Watch(doomed);
 

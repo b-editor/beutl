@@ -54,8 +54,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
             .Subscribe(t => _ = ComposeSnapshotOnIdleAsync())
             .DisposeWith(_disposables);
 
-        // Strings.Audio, not Strings.AudioVisualizer: the localized tool name plus the mode overflows
-        // the tab.
+        // Use Strings.Audio: the localized full name plus mode is too wide for the tab.
         Header = SelectedMode
             .Select(m => ToolTabHeaderHelper.Compose(Strings.Audio, LocalizeMode(m)))
             .ToReadOnlyReactivePropertySlim(

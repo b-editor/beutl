@@ -55,8 +55,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         // ディレクトリ変更時にリフレッシュ
         _directoryWatcher.Changed += () =>
         {
-            // A debounced refresh can land after this tab was disposed, repopulating the collections
-            // Dispose tore down with items nothing will ever dispose.
+            // A debounced refresh can arrive after disposal.
             if (_disposed)
                 return;
 
@@ -85,8 +84,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             _directoryWatcher.Watch(path);
         }).AddTo(_disposables);
 
-        // IsHomeView starts true, so this replays immediately and performs the initial home-view
-        // build; repeating it after the constructor would enumerate the project directory twice.
+        // IsHomeView subscriptions replay immediately, so this performs the initial home-view build.
         IsHomeView.Subscribe(isHome =>
         {
             if (isHome)
@@ -146,7 +144,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> IsMediaFilesIconView { get; } = new(true);
 
-    // RootPath is empty exactly when the tab is on the home view, so it is the only input needed.
+    // Empty RootPath denotes the home view.
     internal static string CreateHeader(string rootPath)
     {
         if (string.IsNullOrEmpty(rootPath))
@@ -154,7 +152,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
         string trimmed = rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         string name = Path.GetFileName(trimmed);
-        // A filesystem root ("C:\", "/") has no file name component.
+        // Filesystem roots have no filename component.
         return string.IsNullOrEmpty(name) ? rootPath : name;
     }
 

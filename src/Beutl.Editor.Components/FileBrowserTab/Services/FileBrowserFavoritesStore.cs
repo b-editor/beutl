@@ -8,12 +8,10 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
 /// <summary>
-/// The single owner of the file browser's favorite directories.
+/// Shared owner of file-browser favorites.
 /// </summary>
 /// <remarks>
-/// File browsers exist per scene and per tab, so a per-tab list would let whichever instance saves
-/// last overwrite every other instance's edits. Deliberately not <see cref="IDisposable"/>: closing
-/// one tab must not be able to tear down process-wide state. Touch only from the UI thread.
+/// Process-wide state is shared by scenes and tabs and accessed on the UI thread.
 /// </remarks>
 internal sealed class FileBrowserFavoritesStore
 {
@@ -27,7 +25,6 @@ internal sealed class FileBrowserFavoritesStore
     private int _suspendDepth;
     private bool _pending;
 
-    // Test seam: points the store at an in-memory preference set instead of the ambient BEUTL_HOME.
     internal FileBrowserFavoritesStore(IPreferences? preferences)
     {
         _preferences = preferences;
@@ -36,8 +33,7 @@ internal sealed class FileBrowserFavoritesStore
         _favorites.CollectionChanged += OnCollectionChanged;
     }
 
-    // Preferences.Default can throw on an unreadable preferences.json, and a static initializer that
-    // throws is cached forever — every later file browser tab would fail to open. Degrade instead.
+    // Avoid poisoning the static store when preferences cannot be read.
     private static FileBrowserFavoritesStore CreateDefault()
     {
         try
@@ -69,8 +65,7 @@ internal sealed class FileBrowserFavoritesStore
         }
     }
 
-    // IPreferences.Set rewrites the whole preferences file, and every Changed listener rebuilds its
-    // item list, so a multi-path drop must not go through Add one path at a time.
+    // Batch persistence and notifications for multi-path updates.
     public void AddRange(IEnumerable<string> paths)
     {
         _suspendDepth++;
@@ -113,8 +108,7 @@ internal sealed class FileBrowserFavoritesStore
         if (Changed is not { } changed)
             return;
 
-        // One tab's refresh throwing must not strand the rest with a stale list, nor unwind into the
-        // click handler of whichever tab happened to make the edit.
+        // A failing tab must not block other listeners.
         foreach (Action handler in changed.GetInvocationList().Cast<Action>())
         {
             try
@@ -139,8 +133,7 @@ internal sealed class FileBrowserFavoritesStore
             string[]? paths = JsonSerializer.Deserialize<string[]>(json);
             if (paths != null)
             {
-                // Toggle removes a single matching entry, so a duplicate persisted by an older build
-                // would survive being un-favorited. Nulls come from a hand-edited preferences file.
+                // Ignore null/empty entries and deduplicate hand-edited preferences.
                 foreach (string path in paths
                              .OfType<string>()
                              .Where(p => !string.IsNullOrEmpty(p))

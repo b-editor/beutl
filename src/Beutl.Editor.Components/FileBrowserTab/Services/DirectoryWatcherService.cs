@@ -10,9 +10,7 @@ internal sealed class DirectoryWatcherService : IDisposable
 {
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
     private readonly ILogger _logger = Log.CreateLogger<DirectoryWatcherService>();
-    // A watcher failing for a persistent reason (an exhausted inotify budget, an unreadable mount)
-    // raises Error again the moment it is rebuilt, so rebuilding is capped. The cap counts
-    // *consecutive* failures.
+    // Limit consecutive rearm attempts because persistent failures recur immediately.
     private const int MaxErrorRearms = 3;
 
     private FileSystemWatcher? _watcher;
@@ -30,15 +28,14 @@ internal sealed class DirectoryWatcherService : IDisposable
 
     private void Watch(string? path, bool isErrorRearm)
     {
-        // Callers re-Watch the same path on unrelated state changes, so only a move to a different
-        // folder counts as leaving the failure behind.
+        // Only changing folders clears a failure budget.
         if (!isErrorRearm && !string.Equals(_failingPath, path, StringComparison.Ordinal))
         {
             _errorRearmCount = 0;
             _failingPath = null;
         }
 
-        // A recursive watcher costs an inotify descriptor per subdirectory.
+        // Recursive watchers consume one inotify descriptor per subdirectory.
         if (_watcher is not null && string.Equals(_watcher.Path, path, StringComparison.Ordinal))
             return;
 
@@ -73,8 +70,7 @@ internal sealed class DirectoryWatcherService : IDisposable
         }
     }
 
-    // After an Error the watcher delivers nothing more, and Refresh never calls Watch, so a tab left
-    // on the same folder would stay silently un-watched until the user navigated elsewhere.
+    // Rebuild after Error; otherwise the current folder stays unwatched.
     private void OnWatcherError(object sender, ErrorEventArgs e)
     {
         _logger.LogWarning(e.GetException(), "FileSystemWatcher stopped; rebuilding it");
@@ -86,13 +82,12 @@ internal sealed class DirectoryWatcherService : IDisposable
 
             if (TryRearmAfterError())
             {
-                // Changes made while the watcher was down produced no events; resync now.
+                // Resync changes missed while the watcher was down.
                 Changed?.Invoke();
             }
         });
     }
 
-    // Separated from the dispatcher hop so a test can drive the recovery the OS would trigger.
     internal bool TryRearmAfterError()
     {
         string? path = _watcher?.Path;
@@ -114,8 +109,8 @@ internal sealed class DirectoryWatcherService : IDisposable
 
         _failingPath = path;
 
-        // Watch swallows a construction failure, and with no watcher no further Error can arrive, so
-        // the remaining budget has to be spent here or the folder stays unwatched for good.
+        // Watch swallows a construction failure, and with no watcher no further Error can arrive to
+        // spend what is left of the budget.
         while (_errorRearmCount < MaxErrorRearms)
         {
             _errorRearmCount++;
@@ -177,8 +172,7 @@ internal sealed class DirectoryWatcherService : IDisposable
         }, token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
     }
 
-    // A delivered event proves the current watcher works, so the failures an earlier one racked up
-    // must not count towards the cap.
+    // A delivered event resets the rearm budget.
     internal void MarkDelivered()
     {
         _errorRearmCount = 0;

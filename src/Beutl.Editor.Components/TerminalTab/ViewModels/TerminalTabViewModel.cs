@@ -10,9 +10,7 @@ namespace Beutl.Editor.Components.TerminalTab.ViewModels;
 
 public sealed class TerminalTabViewModel : IToolContext
 {
-    // The shell and working directory are identical across the whole editor, so nothing but a number
-    // tells two terminals apart. Deliberately not persisted: dock layouts are saved per scene, so a
-    // stored number would collide once two scenes that each saved "Terminal 1" are open together.
+    // Number instances; shell and working directory are not unique, so numbers are not persisted.
     private static int s_lastInstanceNumber;
 
     private readonly ReadOnlyReactivePropertySlim<string> _header;
@@ -41,12 +39,8 @@ public sealed class TerminalTabViewModel : IToolContext
 
     public int InstanceNumber { get; }
 
-    /// <summary>
-    /// Gets the title the shell reported through OSC 0/2, set by the view.
-    /// </summary>
-    /// <remarks>
-    /// A bare shell on macOS never emits it, so the numbered title has to stand on its own.
-    /// </remarks>
+    /// <summary>Gets the title reported by the shell through OSC 0/2.</summary>
+    /// <remarks>macOS shells may omit it, so the numbered title is the fallback.</remarks>
     public ReactivePropertySlim<string?> TerminalTitle { get; } = new();
 
     public IReadOnlyReactiveProperty<string> Header => _header;
