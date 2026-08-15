@@ -1823,6 +1823,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
     <value>This project is inside an existing Git repository.</value>
   </data>
+  <data name="VersionControl_AdoptExistingRepository" xml:space="preserve">
+    <value>This project directory is already a Git repository that Beutl does not manage. Track this project with it? Beutl will add its own ignore and attribute rules and record a version when you save or close.</value>
+  </data>
   <data name="VersionControl_UseEnclosingRepository" xml:space="preserve">
     <value>Use Enclosing Repository</value>
   </data>

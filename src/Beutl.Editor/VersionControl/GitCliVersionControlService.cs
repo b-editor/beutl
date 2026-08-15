@@ -528,6 +528,17 @@ internal sealed class GitCliVersionControlService :
             cancellationToken);
     }
 
+    public Task<bool> HasVersionTrackingOptInAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(repository);
+        return RunSerializedAsync(
+            () => HasVersionTrackingOptInCoreAsync(repository, cancellationToken),
+            cancellationToken);
+    }
+
     public Task<CommitResult> CommitAllAsync(
         string message,
         SnapshotKind kind,
@@ -7343,6 +7354,78 @@ internal sealed class GitCliVersionControlService :
                 return lines;
             },
             cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> HasVersionTrackingOptInCoreAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        if (await IsRepositoryHygieneAppliedCoreAsync(repository.ProjectRoot, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        // The hygiene files can be deleted or checked out away, so the durable record of an
+        // earlier opt-in is a snapshot Beutl itself committed for this project. A repository with
+        // no readable history has none, and asking again is the safe answer.
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                [
+                    "log",
+                    "--no-show-signature",
+                    "--max-count=1",
+                    "--format=%H",
+                    "--grep=^Beutl-Snapshot: ",
+                    "HEAD",
+                    "--",
+                    repository.Pathspec,
+                ],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return !string.IsNullOrWhiteSpace(result.Stdout);
+        }
+        catch (GitOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> IsRepositoryHygieneAppliedCoreAsync(
+        string projectRoot,
+        CancellationToken cancellationToken)
+    {
+        string normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectRoot));
+        return await HygieneFileContainsLinesAsync(
+                   Path.Combine(normalizedRoot, ".gitignore"),
+                   s_gitIgnoreLines,
+                   cancellationToken)
+                   .ConfigureAwait(false)
+               && await HygieneFileContainsLinesAsync(
+                   Path.Combine(normalizedRoot, ".gitattributes"),
+                   s_textAttributeLines,
+                   cancellationToken)
+                   .ConfigureAwait(false);
+    }
+
+    private static async Task<bool> HygieneFileContainsLinesAsync(
+        string path,
+        IReadOnlyList<string> requiredLines,
+        CancellationToken cancellationToken)
+    {
+        HygieneFileSnapshot snapshot = await ReadHygieneFileSnapshotAsync(path, cancellationToken)
+            .ConfigureAwait(false);
+        if (!snapshot.Exists)
+        {
+            return false;
+        }
+
+        List<string> lines = ReadHygieneLines(snapshot.Contents);
+        return requiredLines.All(required => lines.Contains(required, StringComparer.Ordinal));
     }
 
     private static int? RemoveManagedLfsBlocks(List<string> lines)

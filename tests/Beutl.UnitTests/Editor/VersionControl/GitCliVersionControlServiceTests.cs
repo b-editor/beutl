@@ -605,6 +605,75 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task HasVersionTrackingOptInAsync_only_reports_true_after_hygiene_runs()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        var config = new VersionControlConfig { UseLfsWhenAvailable = false };
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: false, config),
+            Repository,
+            watcher: null,
+            _ => CreateRunner());
+
+        bool beforeHygiene = await service.HasVersionTrackingOptInAsync(
+            Repository,
+            CancellationToken.None);
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+        bool afterHygiene = await service.HasVersionTrackingOptInAsync(
+            Repository,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(beforeHygiene, Is.False);
+            Assert.That(afterHygiene, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task HasVersionTrackingOptInAsync_survives_deleting_the_generated_hygiene_files()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        var config = new VersionControlConfig { UseLfsWhenAvailable = false };
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: false, config),
+            Repository,
+            watcher: null,
+            _ => CreateRunner());
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+        await service.CommitAllAsync(
+            "beutl: enable version control",
+            SnapshotKind.Init,
+            CancellationToken.None);
+        File.Delete(Path.Combine(Root, ".gitignore"));
+        File.Delete(Path.Combine(Root, ".gitattributes"));
+
+        Assert.That(
+            await service.HasVersionTrackingOptInAsync(Repository, CancellationToken.None),
+            Is.True);
+    }
+
+    [Test]
+    public async Task HasVersionTrackingOptInAsync_reports_false_for_a_repository_beutl_never_managed()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        var config = new VersionControlConfig { UseLfsWhenAvailable = false };
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: false, config),
+            Repository,
+            watcher: null,
+            _ => CreateRunner());
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+        File.Delete(Path.Combine(Root, ".gitattributes"));
+
+        Assert.That(
+            await service.HasVersionTrackingOptInAsync(Repository, CancellationToken.None),
+            Is.False);
+    }
+
+    [Test]
     public async Task EnsureRepositoryHygieneAsync_applies_Lfs_to_mixed_case_media_extensions()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");

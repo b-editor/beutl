@@ -54,6 +54,7 @@ public class VersionControlStringsTests
         "VersionControl_SwitchBranchConfirmation",
         "VersionControl_PullConfirmation",
         "VersionControl_EnclosingRepositoryScopeFormat",
+        "VersionControl_AdoptExistingRepository",
         "VersionControl_RemoteUrl",
         "VersionControl_SetRemote",
         "VersionControl_SetRemoteTitle",

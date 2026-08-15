@@ -61,6 +61,16 @@ internal interface IProjectVersionControlBackend :
 
     Task EnsureRepositoryHygieneAsync(CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Reports whether this repository already records an opt-in for the project: either the
+    /// generated ignore and attribute rules are in place, or its history already carries a
+    /// snapshot Beutl committed for the project. That record is what distinguishes a repository
+    /// version tracking was enabled for from one the user created and Beutl has never managed.
+    /// </summary>
+    Task<bool> HasVersionTrackingOptInAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken);
+
     Task<CommitResult> CommitAllAsync(
         string message,
         SnapshotKind kind,

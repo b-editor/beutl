@@ -499,6 +499,11 @@ public class VersionControlSaveTests
         Assert.Fail("Timed out waiting for version control activation.");
     }
 
+    private static string ToRepositoryPath(string repositoryRoot, string path)
+    {
+        return Path.GetRelativePath(repositoryRoot, path).Replace(Path.DirectorySeparatorChar, '/');
+    }
+
     private static async Task<int> CountCommitsAsync(string gitPath, string repositoryRoot)
     {
         string output = await RunGitAsync(gitPath, repositoryRoot, "rev-list", "--count", "HEAD");
@@ -556,6 +561,166 @@ public class VersionControlSaveTests
         await process.WaitForExitAsync();
         Assert.That(process.ExitCode, Is.Zero, stderr);
         return stdout;
+    }
+
+    [AvaloniaTest]
+    public async Task Initial_revision_records_editor_state_that_autosave_has_not_written()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = false;
+            config.UseLfsWhenAvailable = false;
+
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-initial-revision");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "initial-revision",
+                location))!;
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            HeadlessTestHelpers.Settle();
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            adder.AddElement(new ElementDescription(
+                Start: TimeSpan.Zero,
+                Length: TimeSpan.FromSeconds(1),
+                Layer: 0,
+                EngineObjectFactory: () => new RectShape()));
+            HeadlessTestHelpers.Settle();
+
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
+            Assert.That(initialized, Is.True);
+
+            WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
+                .GetStatusAsync(CancellationToken.None);
+            string committedScene = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "show",
+                $"HEAD:{ToRepositoryPath(projectRoot, scene.Uri!.LocalPath)}");
+            int commits = await CountCommitsAsync(gitPath, projectRoot);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(commits, Is.EqualTo(1));
+                Assert.That(status.IsClean, Is.True);
+                Assert.That(committedScene, Does.Contain(".belm"));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Close_snapshot_records_editor_state_that_autosave_has_not_written()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = true;
+            config.UseLfsWhenAvailable = false;
+
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-close-persists");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "close-persists",
+                location))!;
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
+            Assert.That(initialized, Is.True);
+
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            string scenePath = ToRepositoryPath(projectRoot, scene.Uri!.LocalPath);
+            TestShell.Editor.ActivateTabItem(scene);
+            HeadlessTestHelpers.Settle();
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            adder.AddElement(new ElementDescription(
+                Start: TimeSpan.Zero,
+                Length: TimeSpan.FromSeconds(1),
+                Layer: 0,
+                EngineObjectFactory: () => new RectShape()));
+            HeadlessTestHelpers.Settle();
+
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
+
+            string committedScene = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "show",
+                $"HEAD:{scenePath}");
+            string statusOutput = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "status",
+                "--porcelain");
+            int closeSnapshots = await CountCloseSnapshotsAsync(gitPath, projectRoot);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(closeSnapshots, Is.EqualTo(1));
+                Assert.That(committedScene, Does.Contain(".belm"));
+                Assert.That(statusOutput.Trim(), Is.Empty);
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
     }
 
     private static string ProbeGitOrIgnore()

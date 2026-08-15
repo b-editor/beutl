@@ -54,6 +54,13 @@ public sealed class ProjectService
 
     public IObservable<(Project? New, Project? Old)> ProjectObservable => _safeProjectObservable;
 
+    /// <summary>
+    /// Raised before <see cref="Closing"/>, while the editors are still open. Anything that has to
+    /// read or persist live editor state has to run here: <see cref="Closing"/> is where the
+    /// editor host clears and disposes the tabs.
+    /// </summary>
+    internal event Func<ProjectCloseContext, CancellationToken, Task>? ClosingPreparing;
+
     internal event Func<ProjectCloseContext, CancellationToken, Task>? Closing;
 
     internal event Func<ProjectCloseContext, CancellationToken, Task>? ClosingFinalizing;
@@ -440,6 +447,8 @@ public sealed class ProjectService
         var closeContext = new ProjectCloseContext();
         try
         {
+            await NotifyClosingPreparingAsync(closeContext, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             await NotifyClosingAsync(closeContext, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             await NotifyClosingFinalizingAsync(closeContext);
@@ -592,21 +601,18 @@ public sealed class ProjectService
         var closeContext = new ProjectCloseContext();
         try
         {
-            if (Closing is { } closing)
+            foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
+                     in EnumerateRollbackCloseHandlers())
             {
-                foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
-                         in closing.GetInvocationList())
+                try
                 {
-                    try
-                    {
-                        await handler(closeContext, CancellationToken.None);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(
-                            ex,
-                            "A project-closing handler failed while rolling back project activation.");
-                    }
+                    await handler(closeContext, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "A project-closing handler failed while rolling back project activation.");
                 }
             }
 
@@ -621,6 +627,42 @@ public sealed class ProjectService
         {
             bool projectClosed = !ReferenceEquals(_app.Project, project);
             await closeContext.CompleteAsync(projectClosed, _logger);
+        }
+    }
+
+    private IEnumerable<Func<ProjectCloseContext, CancellationToken, Task>>
+        EnumerateRollbackCloseHandlers()
+    {
+        if (ClosingPreparing is { } closingPreparing)
+        {
+            foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
+                     in closingPreparing.GetInvocationList())
+            {
+                yield return handler;
+            }
+        }
+
+        if (Closing is { } closing)
+        {
+            foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
+                     in closing.GetInvocationList())
+            {
+                yield return handler;
+            }
+        }
+    }
+
+    private async Task NotifyClosingPreparingAsync(
+        ProjectCloseContext closeContext,
+        CancellationToken cancellationToken)
+    {
+        if (ClosingPreparing is { } closingPreparing)
+        {
+            foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
+                     in closingPreparing.GetInvocationList())
+            {
+                await handler(closeContext, cancellationToken);
+            }
         }
     }
 

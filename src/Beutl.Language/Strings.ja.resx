@@ -1817,6 +1817,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
     <value>このプロジェクトは既存の Git リポジトリ内にあります。</value>
   </data>
+  <data name="VersionControl_AdoptExistingRepository" xml:space="preserve">
+    <value>このプロジェクトのフォルダーは、Beutl が管理していない既存の Git リポジトリです。このリポジトリでプロジェクトを管理しますか？ Beutl 用の除外設定と属性設定が追加され、保存時と終了時にバージョンが記録されます。</value>
+  </data>
   <data name="VersionControl_UseEnclosingRepository" xml:space="preserve">
     <value>親リポジトリを使用</value>
   </data>

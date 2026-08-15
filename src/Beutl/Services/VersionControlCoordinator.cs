@@ -77,6 +77,7 @@ public sealed class VersionControlCoordinator :
     private CancellationTokenSource? _projectServiceEpochCancellation = new();
     private PendingRecoveryOfferContext? _pendingRecoveryOffer;
     private PendingOpeningRepositoryDecision? _pendingOpeningRepositoryDecision;
+    private string? _deferredSaveSnapshotRoot;
     private CancellationTokenSource? _configurationActivationCancellation;
     private ConfigurationActivationRequest? _pendingConfigurationActivation;
     private long _nextActivationRevision;
@@ -140,6 +141,7 @@ public sealed class VersionControlCoordinator :
         ConfirmPullAsync = ShowPullConfirmationAsync;
         ConfirmPendingPullRecoveryAsync = ShowPendingPullRecoveryConfirmationAsync;
         ConfirmUseEnclosingRepositoryAsync = ShowEnclosingRepositoryConfirmationAsync;
+        ConfirmAdoptExistingRepositoryAsync = ShowAdoptExistingRepositoryConfirmationAsync;
         ConfirmRemoveStaleLockAsync = ShowStaleLockConfirmationAsync;
         ConfirmUntrackReservedPathsAsync = ShowUntrackReservedPathsConfirmationAsync;
         WarnConflictMarkersAsync = ShowConflictMarkerWarningAsync;
@@ -148,7 +150,7 @@ public sealed class VersionControlCoordinator :
         _config.ConfigurationChanged += OnVersionControlConfigChanged;
         _projectService.OpeningPreflight += PrepareProjectOpeningAsync;
         _projectService.Opening += InspectProjectOpeningAsync;
-        _projectService.Closing += PrepareProjectClosingAsync;
+        _projectService.ClosingPreparing += PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing += NotifyProjectClosingAsync;
         _projectSubscription = _projectService.ProjectObservable.Subscribe(
             change => OnProjectChanged(change.New));
@@ -186,6 +188,10 @@ public sealed class VersionControlCoordinator :
 
     internal Func<RepositoryInfo, CancellationToken, Task<bool>>
         ConfirmUseEnclosingRepositoryAsync
+    { get; set; }
+
+    internal Func<RepositoryInfo, CancellationToken, Task<bool>>
+        ConfirmAdoptExistingRepositoryAsync
     { get; set; }
 
     internal Func<RepositoryLockInfo, CancellationToken, Task<bool>>
@@ -326,6 +332,17 @@ public sealed class VersionControlCoordinator :
             return false;
         }
 
+        // The initial revision has to record what the user sees, so in-memory edits reach disk
+        // first: with autosave off the tree still holds element files the scene does not include.
+        if (!await TrySaveOpenProjectAsync(expectedProject, operationCancellation))
+        {
+            PublishNotification(() =>
+                NotificationService.ShowWarning(
+                    Strings.VersionControl,
+                    MessageStrings.OperationFailed));
+            return false;
+        }
+
         try
         {
             try
@@ -451,6 +468,22 @@ public sealed class VersionControlCoordinator :
                 await closeBarrier.CompleteAsync(projectClosed: false).ConfigureAwait(false);
             }
         }
+
+        await TrySaveForCloseSnapshotAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    // The close snapshot runs from ClosingFinalizing, by which point the editor host has disposed
+    // every tab, so in-memory edits can only reach disk from this earlier ClosingPreparing phase.
+    private async Task TrySaveForCloseSnapshotAsync(CancellationToken cancellationToken)
+    {
+        if (!_config.AutoCommitOnClose
+            || GetOwnedBackend()?.Repository is null
+            || _projectService.CurrentProject.Value is not { } project)
+        {
+            return;
+        }
+
+        await TrySaveOpenProjectAsync(project, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task CompletePreparedCloseBarrierAsync(
@@ -821,7 +854,7 @@ public sealed class VersionControlCoordinator :
         _config.ConfigurationChanged -= OnVersionControlConfigChanged;
         _projectService.OpeningPreflight -= PrepareProjectOpeningAsync;
         _projectService.Opening -= InspectProjectOpeningAsync;
-        _projectService.Closing -= PrepareProjectClosingAsync;
+        _projectService.ClosingPreparing -= PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing -= NotifyProjectClosingAsync;
         _projectSubscription.Dispose();
         if (ReferenceEquals(_editorService.ProjectVersionControlCoordinator, this))
@@ -3361,6 +3394,16 @@ public sealed class VersionControlCoordinator :
             cancellationToken);
     }
 
+    private Task<bool> ShowAdoptExistingRepositoryConfirmationAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        return ShowConfirmationAsync(
+            Strings.VersionControl,
+            $"{Strings.VersionControl_AdoptExistingRepository}\n\n{repository.RepoRoot}",
+            cancellationToken);
+    }
+
     private Task<bool> ShowEnclosingRepositoryConfirmationAsync(
         RepositoryInfo repository,
         CancellationToken cancellationToken)
@@ -4154,9 +4197,15 @@ public sealed class VersionControlCoordinator :
         IProjectFileWriteLease? completedWrite,
         CancellationToken cancellationToken)
     {
-        IProjectVersionControlBackend? service = GetOperationReadyBackend();
-        if (!enabled || service?.Repository is null)
+        if (!enabled)
         {
+            return;
+        }
+
+        IProjectVersionControlBackend? service = GetOperationReadyBackend();
+        if (service?.Repository is null)
+        {
+            DeferSnapshotUntilActivated();
             return;
         }
 
@@ -4180,6 +4229,91 @@ public sealed class VersionControlCoordinator :
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create the {SnapshotKind} project snapshot.", kind);
+        }
+    }
+
+    // Repository discovery runs asynchronously after the project opens, so an explicit save can
+    // land before the tracked backend becomes visible. The save is the only trigger for its
+    // snapshot, so remember it and replay it once activation publishes the backend.
+    private void DeferSnapshotUntilActivated()
+    {
+        lock (_stateGate)
+        {
+            if (!_disposed
+                && _activation is { ProjectRoot: var activationRoot }
+                && _state.ProjectRoot is { } currentRoot
+                && string.Equals(activationRoot, currentRoot, PathComparison))
+            {
+                _deferredSaveSnapshotRoot = currentRoot;
+            }
+        }
+    }
+
+    private void StartDeferredSaveSnapshot()
+    {
+        string deferredRoot;
+        lock (_stateGate)
+        {
+            string? pendingRoot = _deferredSaveSnapshotRoot;
+            _deferredSaveSnapshotRoot = null;
+            if (_disposed
+                || pendingRoot is null
+                || _state.ProjectRoot is not { } currentRoot
+                || !string.Equals(pendingRoot, currentRoot, PathComparison))
+            {
+                return;
+            }
+
+            deferredRoot = currentRoot;
+        }
+
+        // Taken synchronously so the replay is registered as an in-flight operation before the
+        // fire-and-forget task starts, which is what keeps disposal from racing past it.
+        NonTransactionalOperationLease? operation =
+            TryBeginNonTransactionalOperation(_lifetimeCancellation.Token);
+        if (operation is null)
+        {
+            return;
+        }
+
+        _ = RunDeferredSaveSnapshotAsync(operation, deferredRoot);
+    }
+
+    private async Task RunDeferredSaveSnapshotAsync(
+        NonTransactionalOperationLease operation,
+        string projectRoot)
+    {
+        using (operation)
+        {
+            try
+            {
+                lock (_stateGate)
+                {
+                    if (_disposed
+                        || _state.ProjectRoot is not { } currentRoot
+                        || !string.Equals(currentRoot, projectRoot, PathComparison))
+                    {
+                        return;
+                    }
+                }
+
+                await CommitSnapshotAsync(
+                        _config.AutoCommitOnSave,
+                        SaveSnapshotMessage,
+                        SnapshotKind.Save,
+                        completedWrite: null,
+                        operation.CancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to record the save snapshot deferred while version control was activating.");
+            }
         }
     }
 
@@ -4601,6 +4735,13 @@ public sealed class VersionControlCoordinator :
                     return;
                 }
             }
+            else if (!await ConfirmAdoptRepositoryIfNeededAsync(
+                         activation.Service,
+                         repository,
+                         activation.CancellationToken))
+            {
+                return;
+            }
 
             if (!IsCurrentActivation(activation))
             {
@@ -4706,6 +4847,7 @@ public sealed class VersionControlCoordinator :
             finally
             {
                 activation.Finish();
+                StartDeferredSaveSnapshot();
                 if (pendingRecoveryOfferService is not null)
                 {
                     StartPendingPullRecoveryOffer(pendingRecoveryOfferService);
@@ -4714,6 +4856,18 @@ public sealed class VersionControlCoordinator :
                 TryStartPendingConfigurationActivation();
             }
         }
+    }
+
+    // Version tracking stays opt-in per project, so merely opening a project whose directory the
+    // user has already made a repository must not start writing hygiene files and commits. Only a
+    // repository that already records an earlier opt-in resumes tracking without asking.
+    private async Task<bool> ConfirmAdoptRepositoryIfNeededAsync(
+        IProjectVersionControlBackend service,
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        return await service.HasVersionTrackingOptInAsync(repository, cancellationToken)
+               || await ConfirmAdoptExistingRepositoryAsync(repository, cancellationToken);
     }
 
     private async Task<RepositoryInfo?> SelectRepositoryForInitializationAsync(
