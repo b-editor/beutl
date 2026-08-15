@@ -68,6 +68,40 @@ public class CoreObjectExtensionsTests
     }
 
     [Test]
+    public void GetObservable_EmitsOncePerChange()
+    {
+        // A duplicate PropertyChanged registration would publish every change twice.
+        var obj = new TestCoreObject { Name = "init" };
+        var values = new List<string?>();
+
+        using IDisposable sub = obj.GetObservable(CoreObject.NameProperty).Subscribe(values.Add);
+        obj.Name = "next";
+
+        Assert.That(values, Is.EqualTo(new[] { "init", "next" }));
+    }
+
+    [Test]
+    public void GetObservable_LeavesNoHandlerBehindAfterUnsubscribing()
+    {
+        // The subject registers on first subscribe and unregisters on last unsubscribe. Anything
+        // left attached across a subscribe/dispose cycle accumulates for the object's lifetime and
+        // shows up as a duplicated notification on the next subscription.
+        var obj = new TestCoreObject { Name = "init" };
+        IObservable<string> observable = obj.GetObservable(CoreObject.NameProperty);
+
+        for (int i = 0; i < 3; i++)
+        {
+            observable.Subscribe(_ => { }).Dispose();
+        }
+
+        var values = new List<string?>();
+        using IDisposable sub = observable.Subscribe(values.Add);
+        obj.Name = "next";
+
+        Assert.That(values, Is.EqualTo(new[] { "init", "next" }));
+    }
+
+    [Test]
     public void Find_PredicateNull_Throws()
     {
         var obj = new TestCoreObject();

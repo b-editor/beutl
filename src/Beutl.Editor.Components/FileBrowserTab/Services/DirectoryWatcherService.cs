@@ -10,18 +10,30 @@ internal sealed class DirectoryWatcherService : IDisposable
 {
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
     private readonly ILogger _logger = Log.CreateLogger<DirectoryWatcherService>();
+    // A watcher that keeps failing (an exhausted inotify budget, an unreadable mount) would raise
+    // Error again the moment it is rebuilt, so the retries are capped rather than unbounded.
+    private const int MaxErrorRearms = 3;
+
     private FileSystemWatcher? _watcher;
     private CancellationTokenSource? _debounceCts;
+    private int _errorRearmCount;
 
     // ファイルシステムに変更があったときに発火する。UIスレッドで呼び出される。
     public event Action? Changed;
 
+    internal bool IsWatching => _watcher is not null;
+
     // 指定パスの監視を開始する。前回の監視は自動的に停止される。
-    public void Watch(string? path)
+    public void Watch(string? path) => Watch(path, isErrorRearm: false);
+
+    private void Watch(string? path, bool isErrorRearm)
     {
+        // The budget is per failing watcher, so any ordinary navigation clears it.
+        if (!isErrorRearm)
+            _errorRearmCount = 0;
+
         // A recursive watcher costs an inotify descriptor per subdirectory, so never rebuild one for
-        // a path already being watched. OnWatcherError drops the watcher when the OS stops
-        // delivering, which is what lets a later Watch of the same path re-arm it.
+        // a path already being watched.
         if (_watcher is not null && string.Equals(_watcher.Path, path, StringComparison.Ordinal))
             return;
 
@@ -56,20 +68,48 @@ internal sealed class DirectoryWatcherService : IDisposable
         }
     }
 
-    // After an Error the watcher delivers nothing more. Drop it so the same-path guard in Watch stops
-    // matching and the next call rebuilds, instead of leaving the tab silently un-watched.
+    // After an Error the watcher delivers nothing more, and Refresh never calls Watch, so a tab left
+    // on the same folder would stay silently un-watched until the user navigated elsewhere.
     private void OnWatcherError(object sender, ErrorEventArgs e)
     {
-        _logger.LogWarning(e.GetException(), "FileSystemWatcher stopped; it will be rebuilt on the next Watch");
+        _logger.LogWarning(e.GetException(), "FileSystemWatcher stopped; rebuilding it");
 
         Dispatcher.UIThread.Post(() =>
         {
-            if (_watcher is { } watcher && ReferenceEquals(watcher, sender))
+            if (_watcher is not { } watcher || !ReferenceEquals(watcher, sender))
+                return;
+
+            if (TryRearmAfterError())
             {
-                watcher.Dispose();
-                _watcher = null;
+                // Changes made while the watcher was down produced no events; resync now.
+                Changed?.Invoke();
             }
         });
+    }
+
+    // Separated from the dispatcher hop so a test can drive the recovery the OS would trigger.
+    internal bool TryRearmAfterError()
+    {
+        string? path = _watcher?.Path;
+        _watcher?.Dispose();
+        _watcher = null;
+
+        if (path is null || _errorRearmCount >= MaxErrorRearms)
+        {
+            if (path is not null)
+            {
+                _logger.LogWarning(
+                    "FileSystemWatcher for {Path} failed {Count} times; leaving it off until the folder changes",
+                    path,
+                    _errorRearmCount);
+            }
+
+            return false;
+        }
+
+        _errorRearmCount++;
+        Watch(path, isErrorRearm: true);
+        return _watcher is not null;
     }
 
     // プロジェクト、シーン、要素のファイルは頻繁に変更されるため除外

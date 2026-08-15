@@ -152,6 +152,23 @@ public class FileBrowserFavoritesStoreTests
     }
 
     [Test]
+    public void Load_drops_duplicate_and_empty_persisted_entries()
+    {
+        // Toggle removes a single matching entry, so a duplicate would survive being un-favorited.
+        var preferences = new FakePreferences();
+        preferences.Set("FileBrowser.Favorites", """["/a","","/a",null,"/b"]""");
+        var store = new FileBrowserFavoritesStore(preferences);
+
+        store.Toggle("/a");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.Favorites, Is.EqualTo(new[] { "/b" }));
+            Assert.That(store.Contains("/a"), Is.False);
+        });
+    }
+
+    [Test]
     public void Load_tolerates_malformed_json()
     {
         var preferences = new FakePreferences();

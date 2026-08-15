@@ -72,13 +72,20 @@ public class BeutlToolDockable : Tool, IDisposable
         ToolContent = null;
     }
 
-    // A tool context — a plugin's especially — can publish an empty header; a blank tab would look
-    // broken, so fall back to the extension's static metadata.
+    // A tool context — a plugin's especially — can publish an empty header, and so can the
+    // extension's own menu label, so walk down to something a user can read. Extension.Name is the
+    // last resort because it defaults to the bare type name.
     private static string ResolveTitle(IToolContext context, string? header)
     {
-        return string.IsNullOrWhiteSpace(header)
-            ? context.Extension.Header ?? context.Extension.Name
-            : header;
+        if (!string.IsNullOrWhiteSpace(header))
+            return header;
+
+        if (!string.IsNullOrWhiteSpace(context.Extension.Header))
+            return context.Extension.Header;
+
+        return string.IsNullOrWhiteSpace(context.Extension.DisplayName)
+            ? context.Extension.Name
+            : context.Extension.DisplayName;
     }
 
     private static string CreateId(IToolContext context)

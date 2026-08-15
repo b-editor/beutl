@@ -42,6 +42,10 @@ public sealed class SimpleTabExtension : ToolTabExtension
 // ViewModel
 public sealed class SimpleContext : IToolContext
 {
+    // CanMultiple is true above, so the title must identify the instance — a constant here would
+    // make every tab read "Simple tab". A real tool derives it from whatever the tab is showing.
+    private static int s_lastInstanceNumber;
+
     public SimpleContext(ToolTabExtension extension)
     {
         Extension = extension;
@@ -49,7 +53,8 @@ public sealed class SimpleContext : IToolContext
 
     public ToolTabExtension Extension { get; }
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.SimpleTab);
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(
+        $"{Strings.SimpleTab} {Interlocked.Increment(ref s_lastInstanceNumber)}");
 
     public void Dispose() { }
     public object? GetService(Type t) => null;

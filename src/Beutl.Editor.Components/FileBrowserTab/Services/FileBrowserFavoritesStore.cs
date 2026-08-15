@@ -139,7 +139,12 @@ internal sealed class FileBrowserFavoritesStore
             string[]? paths = JsonSerializer.Deserialize<string[]>(json);
             if (paths != null)
             {
-                foreach (string path in paths)
+                // Toggle removes a single matching entry, so a duplicate persisted by an older build
+                // would survive being un-favorited. Nulls come from a hand-edited preferences file.
+                foreach (string path in paths
+                             .OfType<string>()
+                             .Where(p => !string.IsNullOrEmpty(p))
+                             .Distinct(StringComparer.Ordinal))
                 {
                     _favorites.Add(path);
                 }

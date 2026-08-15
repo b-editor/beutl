@@ -78,11 +78,28 @@ public class ToolTabHeaderTests
         Assert.That(dockable.Title, Is.EqualTo(FakeToolExtension.Instance.Header));
     }
 
-    private sealed class FakeToolContext(string header) : IToolContext
+    [AvaloniaTest]
+    public async Task A_blank_extension_header_falls_back_to_the_display_name()
+    {
+        // Extension.Name defaults to the bare type name, so it must not be the first fallback.
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-header-blank-extension");
+
+        var context = new FakeToolContext(string.Empty, BlankHeaderToolExtension.Instance);
+        using var dockable = new BeutlToolDockable(context, editor);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dockable.Title, Is.EqualTo(BlankHeaderToolExtension.Instance.DisplayName));
+            Assert.That(dockable.Title, Is.Not.EqualTo(BlankHeaderToolExtension.Instance.Name));
+        });
+    }
+
+    private sealed class FakeToolContext(string header, ToolTabExtension? extension = null) : IToolContext
     {
         public ReactivePropertySlim<string> HeaderSource { get; } = new(header);
 
-        public ToolTabExtension Extension => FakeToolExtension.Instance;
+        public ToolTabExtension Extension { get; } = extension ?? FakeToolExtension.Instance;
 
         public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
@@ -103,6 +120,35 @@ public class ToolTabHeaderTests
 
         public void WriteToJson(JsonObject json)
         {
+        }
+    }
+
+    private sealed class BlankHeaderToolExtension : ToolTabExtension
+    {
+        public static readonly BlankHeaderToolExtension Instance = new();
+
+        public override bool CanMultiple => true;
+
+        public override string Name => "BlankHeaderToolTab";
+
+        public override string DisplayName => "Blank header tool tab";
+
+        public override string? Header => "   ";
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = new Border();
+            return true;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            context = new FakeToolContext(string.Empty, Instance);
+            return true;
         }
     }
 

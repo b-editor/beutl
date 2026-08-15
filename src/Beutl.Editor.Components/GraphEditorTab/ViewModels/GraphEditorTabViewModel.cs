@@ -185,16 +185,17 @@ public sealed class GraphEditorTabViewModel : IToolContext
     /// <see langword="null"/> when the caller has to create one.
     /// </summary>
     /// <remarks>
-    /// Prefer the tab already on this animation, then an idle one, and only then any open tab. Both
-    /// call sites used to construct unconditionally, which produced a fresh dockable on every click.
+    /// Prefer the tab already on this animation, then an idle one. Deliberately stops there: this
+    /// extension exposes no menu <see cref="ToolTabExtension.Header"/>, so these call sites are the
+    /// only way to obtain a tab, and retargeting an occupied one would make a second graph editor
+    /// unreachable and rule out comparing two animations side by side.
     /// </remarks>
     public static GraphEditorTabViewModel? FindReusable(
         IEditorContext editorContext, Element? element, KeyFrameAnimation? animation)
     {
         return editorContext.FindToolTab<GraphEditorTabViewModel>(
                    t => t.Element.Value == element && t.SelectedItem.Value?.Object == animation)
-               ?? editorContext.FindToolTab<GraphEditorTabViewModel>(t => t.Element.Value is null)
-               ?? editorContext.FindToolTab<GraphEditorTabViewModel>();
+               ?? editorContext.FindToolTab<GraphEditorTabViewModel>(t => t.Element.Value is null);
     }
 
     public void Select(KeyFrameAnimation? animation)
