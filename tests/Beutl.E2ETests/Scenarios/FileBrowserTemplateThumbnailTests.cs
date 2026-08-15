@@ -91,6 +91,34 @@ public class FileBrowserTemplateThumbnailTests
         Assert.That(thumbnail, Is.Null);
     }
 
+    // A decoder can claim one extension as both kinds — AVFoundation and Media Foundation do for
+    // '.adts' — and opening such a file video-only is rejected outright, losing its metadata.
+    [AvaloniaTest]
+    public async Task GetMediaInfoAsync_AsksForBothStreamKinds()
+    {
+        var decoder = new RecordingDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.bothkinds");
+            await File.WriteAllBytesAsync(path, [0]);
+            try
+            {
+                await FileThumbnailService.Instance.GetMediaInfoAsync(path);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+
+            Assert.That(decoder.RequestedModes, Does.Contain(MediaMode.AudioVideo));
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
     private sealed class FakeDecoderInfo : IDecoderInfo
     {
         public string Name => "Fake Decoder";
@@ -100,5 +128,22 @@ public class FileBrowserTemplateThumbnailTests
         public IEnumerable<string> VideoExtensions() => [".fakevid"];
 
         public IEnumerable<string> AudioExtensions() => [".fakeaud"];
+    }
+
+    private sealed class RecordingDecoderInfo : IDecoderInfo
+    {
+        public List<MediaMode> RequestedModes { get; } = [];
+
+        public string Name => "Recording Decoder";
+
+        public MediaReader? Open(string file, MediaOptions options)
+        {
+            RequestedModes.Add(options.StreamsToLoad);
+            return null;
+        }
+
+        public IEnumerable<string> VideoExtensions() => [".bothkinds"];
+
+        public IEnumerable<string> AudioExtensions() => [".bothkinds"];
     }
 }

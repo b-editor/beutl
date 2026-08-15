@@ -173,11 +173,7 @@ public sealed class FileThumbnailService : IDisposable
             return entry.Info;
         }
 
-        MediaFileKind kind = DecoderFileExtensions.Classify(filePath);
-        bool isVideo = kind == MediaFileKind.Video;
-        bool isAudio = kind == MediaFileKind.Audio;
-
-        if (!isVideo && !isAudio)
+        if (DecoderFileExtensions.Classify(filePath) is not (MediaFileKind.Video or MediaFileKind.Audio))
             return null;
 
         await _semaphore.WaitAsync(cancellationToken);
@@ -196,8 +192,12 @@ public sealed class FileThumbnailService : IDisposable
                 try
                 {
                     long fileSize = new FileInfo(filePath).Length;
-                    var mode = isVideo ? MediaMode.Video : MediaMode.Audio;
-                    var options = new MediaOptions(mode);
+
+                    // Which streams a file actually carries is not decidable from its extension —
+                    // AVFoundation and Media Foundation both claim '.adts' as video and as audio —
+                    // and a video-only open of an audio-only file is rejected outright. Both are
+                    // requested and the reader's HasVideo / HasAudio decide what is read.
+                    var options = new MediaOptions(MediaMode.AudioVideo);
                     using var reader = DecoderRegistry.OpenMediaFile(filePath, options);
                     if (reader == null)
                         return new MediaFileInfo(null, null, null, null, null, null, null, null, fileSize);
