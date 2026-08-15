@@ -92,7 +92,10 @@ public class ComposerTests
         using var resource = (SourceSound.Resource)sound.ToResource(CompositionContext.Default);
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
         var frame = new CompositionFrame(
-            ImmutableArray.Create((EngineObject.Resource)resource), range, default);
+            ImmutableArray.Create((EngineObject.Resource)resource),
+            range,
+            default,
+            new CompositionEligibility([sound]));
 
         const int sampleRate = 44100;
         using var composer = new Composer { SampleRate = sampleRate };
