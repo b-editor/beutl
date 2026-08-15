@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,6 +53,13 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
             .Throttle(TimeSpan.FromMilliseconds(40))
             .Subscribe(t => _ = ComposeSnapshotOnIdleAsync())
             .DisposeWith(_disposables);
+
+        // Use Strings.Audio: the localized full name plus mode is too wide for the tab.
+        Header = SelectedMode
+            .Select(m => ToolTabHeaderHelper.Compose(Strings.Audio, LocalizeMode(m)))
+            .ToReadOnlyReactivePropertySlim(
+                ToolTabHeaderHelper.Compose(Strings.Audio, LocalizeMode(SelectedMode.Value)))
+            .DisposeWith(_disposables)!;
     }
 
     public event EventHandler? SnapshotUpdated;
@@ -74,7 +82,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public IReadOnlyList<SpectrumDisplayShape> AvailableSpectrumShapes { get; } = Enum.GetValues<SpectrumDisplayShape>();
 
-    public string Header => Strings.AudioVisualizer;
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => _extension;
 
@@ -167,6 +175,16 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
         _disposables.Dispose();
         RingBuffer.Clear();
     }
+
+    internal static string LocalizeMode(AudioVisualizerMode mode) => mode switch
+    {
+        AudioVisualizerMode.Waveform => Strings.Waveform,
+        AudioVisualizerMode.Spectrum => Strings.Spectrum,
+        AudioVisualizerMode.Meter => Strings.Meter,
+        AudioVisualizerMode.Spectrogram => Strings.Spectrogram,
+        AudioVisualizerMode.PhaseScope => Strings.PhaseScope,
+        _ => Strings.AudioVisualizer,
+    };
 
     public object? GetService(Type serviceType)
     {

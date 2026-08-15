@@ -46,10 +46,7 @@ internal class PackageOperationHandler
 
         _installedPackageRepository.UpgradePackages(packageId);
 
-        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
-        PackageFolderReader reader = new(directory);
-        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
+        ActivateInstalledPackage(packageId);
     }
 
     public async Task DownloadAndLoadPackage(PackageIdentity packageId)
@@ -61,10 +58,25 @@ internal class PackageOperationHandler
 
         _installedPackageRepository.UpgradePackages(packageId);
 
-        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
+        ActivateInstalledPackage(packageId);
+    }
+
+    private void ActivateInstalledPackage(PackageIdentity packageId)
+    {
+        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
+                           ?? throw new InvalidOperationException(
+                               $"Package '{packageId}' was not found under the install directory after installation.");
         PackageFolderReader reader = new(directory);
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
+
+        if (localPackage.Tags.GetPackageKind() != PackageKind.Extension)
+        {
+            _packageInstaller.InstallDataPackage(localPackage);
+        }
+        else
+        {
+            _packageManager.Load(localPackage);
+        }
     }
 
     public async ValueTask<bool> UnloadPackages(string packageName)
@@ -86,7 +98,7 @@ internal class PackageOperationHandler
     {
         foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(packageName))
         {
-            string directory = Helper.PackagePathResolver.GetInstalledPath(item);
+            string directory = Helper.ResolveInstalledDirectory(item);
             if (Directory.Exists(directory))
             {
                 PackageUninstallContext ctx = _packageInstaller.PrepareForUninstall(directory);
@@ -102,7 +114,7 @@ internal class PackageOperationHandler
         {
             try
             {
-                string directory = Helper.PackagePathResolver.GetInstalledPath(item);
+                string directory = Helper.ResolveInstalledDirectory(item);
                 if (Directory.Exists(directory))
                 {
                     var ctx = _packageInstaller.PrepareForUninstall(directory);
@@ -112,6 +124,20 @@ internal class PackageOperationHandler
                     {
                         _queue.UninstallQueue(item);
                         hasFallback = true;
+                    }
+                }
+                else
+                {
+                    // The extracted package is already gone, but a data package's payload
+                    // lives outside it and still has to be removed.
+                    if (!_packageInstaller.UninstallDataPackage(item.Id))
+                    {
+                        _queue.UninstallQueue(item);
+                        hasFallback = true;
+                    }
+                    else
+                    {
+                        _installedPackageRepository.RemovePackage(item);
                     }
                 }
             }

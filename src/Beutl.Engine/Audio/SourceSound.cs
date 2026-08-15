@@ -25,7 +25,7 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
     public bool TryGetOriginalDuration(out TimeSpan timeSpan)
     {
         using var resource = Source.CurrentValue?.ToResource(CompositionContext.Default);
-        if (resource != null)
+        if (resource != null && resource.Duration > TimeSpan.Zero)
         {
             timeSpan = resource.Duration;
             return true;

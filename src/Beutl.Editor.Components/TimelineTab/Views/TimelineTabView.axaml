@@ -107,7 +107,7 @@
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
                 Background="{DynamicResource SystemFillColorCriticalBrush}"
-                CornerRadius="4"
+                CornerRadius="{DynamicResource ControlCornerRadius}"
                 IsHitTestVisible="False"
                 IsVisible="{CompiledBinding IsRazorMode.Value}"
                 ZIndex="100">
@@ -139,7 +139,7 @@
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
                 Background="{DynamicResource SystemFillColorSuccessBrush}"
-                CornerRadius="4"
+                CornerRadius="{DynamicResource ControlCornerRadius}"
                 IsHitTestVisible="False"
                 IsVisible="{CompiledBinding IsSlipMode.Value}"
                 ZIndex="100">
@@ -171,7 +171,7 @@
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
                 Background="{DynamicResource SystemFillColorCautionBrush}"
-                CornerRadius="4"
+                CornerRadius="{DynamicResource ControlCornerRadius}"
                 IsHitTestVisible="False"
                 IsVisible="{CompiledBinding IsRollMode.Value}"
                 ZIndex="100">
@@ -203,7 +203,7 @@
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
                 Background="{DynamicResource SystemFillColorAttentionBrush}"
-                CornerRadius="4"
+                CornerRadius="{DynamicResource ControlCornerRadius}"
                 IsHitTestVisible="False"
                 IsVisible="{CompiledBinding IsSlideMode.Value}"
                 ZIndex="100">

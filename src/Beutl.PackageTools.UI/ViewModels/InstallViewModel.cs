@@ -1,6 +1,7 @@
 ﻿using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
 
+using NuGet.Packaging;
 using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
@@ -76,6 +77,14 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
             var pkg = new PackageIdentity(Model.Id, Model.Version);
             repos.AddPackage(pkg);
             repos.UpgradePackages(pkg);
+
+            // A material or template package is not loaded as an assembly; its payload is
+            // copied into the home directory after extraction.
+            if (!DeployDataPackage(pkg))
+            {
+                goto Failed;
+            }
+
             _logger.LogInformation("Package {PackageId} version {Version} installed successfully.", Model.Id, Model.Version.ToString());
             Succeeded.Value = true;
             return;
@@ -104,5 +113,34 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
                 _logger.LogInformation("Deleted temporary file {File}.", file);
             }
         }
+    }
+
+    private bool DeployDataPackage(PackageIdentity pkg)
+    {
+        string? directory = Helper.PackagePathResolver.GetInstalledPath(pkg);
+        if (!Directory.Exists(directory))
+        {
+            _logger.LogWarning("Installed directory not found for package {PackageId}.", pkg.Id);
+            return true;
+        }
+
+        var reader = new PackageFolderReader(directory);
+        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
+        var installer = app.GetResource<PackageInstaller>();
+        if (localPackage.Tags.GetPackageKind() == PackageKind.Extension)
+        {
+            // An update may have turned a data package into an extension; the old
+            // payload directories have to go even though nothing is deployed now.
+            if (!installer.UninstallDataPackage(pkg.Id))
+            {
+                _logger.LogError("Failed to delete the obsolete data payload of {PackageId}.", pkg.Id);
+                return false;
+            }
+
+            return true;
+        }
+
+        installer.InstallDataPackage(localPackage);
+        return true;
     }
 }

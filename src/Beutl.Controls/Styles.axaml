@@ -63,6 +63,8 @@
                 <ResourceInclude Source="/ColorPicker/ColorPickerStyles.axaml" />
                 <ResourceInclude Source="/ColorPicker/ColorPickerButtonStyles.axaml" />
                 <ResourceInclude Source="/Styling/Dock/DockFluent.axaml" />
+                <!--  Last, so the theme-resource overrides win the reverse merged-dictionary lookup.  -->
+                <ResourceInclude Source="/Styling/CornerRadius.axaml" />
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">

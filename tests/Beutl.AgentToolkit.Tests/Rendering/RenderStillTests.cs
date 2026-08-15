@@ -109,6 +109,50 @@ public sealed class RenderStillTests
     }
 
     [Test]
+    public void Half_float_visibility_luma_is_monotonic()
+    {
+        using Bitmap black = CreateSolidHalfFloatBitmap(0);
+        using Bitmap gray = CreateSolidHalfFloatBitmap(SrgbToLinear(128f / 255f));
+        using Bitmap white = CreateSolidHalfFloatBitmap(1);
+
+        StillFrameVisibilityAnalysis blackAnalysis = StillRenderer.AnalyzeFrameVisibility(black);
+        StillFrameVisibilityAnalysis grayAnalysis = StillRenderer.AnalyzeFrameVisibility(gray);
+        StillFrameVisibilityAnalysis whiteAnalysis = StillRenderer.AnalyzeFrameVisibility(white);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(whiteAnalysis.MaxLuma, Is.GreaterThanOrEqualTo(250));
+            Assert.That(whiteAnalysis.MaxLuma, Is.GreaterThan(grayAnalysis.MaxLuma));
+            Assert.That(grayAnalysis.MaxLuma, Is.GreaterThan(blackAnalysis.MaxLuma));
+        });
+    }
+
+    [Test]
+    public void Half_float_white_foreground_is_detected_against_srgb_188_background()
+    {
+        using var bitmap = new Bitmap(
+            64,
+            64,
+            BitmapColorType.RgbaF16,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
+        FillHalfFloat(bitmap, SrgbToLinear(188f / 255f));
+        FillHalfFloatRect(bitmap, new PixelRect(24, 24, 16, 16), 1);
+
+        StillFrameVisibilityAnalysis analysis = StillRenderer.AnalyzeFrameVisibility(bitmap);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(analysis.MaxLuma, Is.GreaterThanOrEqualTo(250));
+            Assert.That(analysis.ForegroundPixels, Is.EqualTo(16 * 16));
+            Assert.That(
+                analysis.Warnings,
+                Has.None.Contains("very low visual contrast"),
+                "A white foreground over sRGB 188 has substantial contrast.");
+        });
+    }
+
+    [Test]
     public async Task Gpu_required_3d_scene_renders_when_available_or_reports_rendering_unavailable()
     {
         string dir = CreateWorkspace();
@@ -319,6 +363,45 @@ public sealed class RenderStillTests
         scene.Children.Add(element);
         return scene;
     }
+
+    private static Bitmap CreateSolidHalfFloatBitmap(float linearValue)
+    {
+        var bitmap = new Bitmap(
+            8,
+            8,
+            BitmapColorType.RgbaF16,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
+        FillHalfFloat(bitmap, linearValue);
+        return bitmap;
+    }
+
+    private static void FillHalfFloat(Bitmap bitmap, float linearValue)
+    {
+        FillHalfFloatRect(bitmap, new PixelRect(0, 0, bitmap.Width, bitmap.Height), linearValue);
+    }
+
+    private static void FillHalfFloatRect(Bitmap bitmap, PixelRect rect, float linearValue)
+    {
+        Half channel = (Half)linearValue;
+        for (int y = rect.Y; y < rect.Bottom; y++)
+        {
+            Span<Half> row = bitmap.GetRow<Half>(y);
+            for (int x = rect.X; x < rect.Right; x++)
+            {
+                int offset = x * 4;
+                row[offset] = channel;
+                row[offset + 1] = channel;
+                row[offset + 2] = channel;
+                row[offset + 3] = (Half)1;
+            }
+        }
+    }
+
+    private static float SrgbToLinear(float value)
+        => value <= 0.04045f
+            ? value / 12.92f
+            : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
 
     private static Scene CreateChangingScene(string dir)
     {

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using Avalonia.Controls;
 using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
 
@@ -7,6 +8,7 @@ namespace Beutl.ViewModels.Dock;
 public class BeutlToolDockable : Tool, IDisposable
 {
     private readonly IDisposable _isSelectedSubscription;
+    private readonly IDisposable _headerSubscription;
     private bool _isDisposed;
 
     public BeutlToolDockable(IToolContext context, EditViewModel editViewModel)
@@ -15,7 +17,7 @@ public class BeutlToolDockable : Tool, IDisposable
         EditViewModel = editViewModel;
 
         Id = CreateId(context);
-        Title = context.Header;
+        Title = ResolveTitle(context, context.Header.Value);
         Context = context;
         CanClose = true;
         CanFloat = true;
@@ -23,6 +25,15 @@ public class BeutlToolDockable : Tool, IDisposable
         CanDockAsDocument = false;
 
         IsSelected = context.IsSelected.Value;
+
+        _headerSubscription = context.Header
+            .DistinctUntilChanged()
+            .Subscribe(v =>
+            {
+                if (_isDisposed) return;
+                string title = ResolveTitle(context, v);
+                if (Title != title) Title = title;
+            });
 
         _isSelectedSubscription = context.IsSelected
             .DistinctUntilChanged()
@@ -39,6 +50,8 @@ public class BeutlToolDockable : Tool, IDisposable
 
     public EditViewModel EditViewModel { get; }
 
+    internal Control? ToolContent { get; set; }
+
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_isDisposed) return;
@@ -53,8 +66,24 @@ public class BeutlToolDockable : Tool, IDisposable
         if (_isDisposed) return;
         _isDisposed = true;
         PropertyChanged -= OnPropertyChanged;
+        _headerSubscription.Dispose();
         _isSelectedSubscription.Dispose();
         ToolContext.Dispose();
+        ToolContent = null;
+    }
+
+    // Resolve empty per-instance/menu headers to a readable display or extension name.
+    private static string ResolveTitle(IToolContext context, string? header)
+    {
+        if (!string.IsNullOrWhiteSpace(header))
+            return header;
+
+        if (!string.IsNullOrWhiteSpace(context.Extension.Header))
+            return context.Extension.Header;
+
+        return string.IsNullOrWhiteSpace(context.Extension.DisplayName)
+            ? context.Extension.Name
+            : context.Extension.DisplayName;
     }
 
     private static string CreateId(IToolContext context)

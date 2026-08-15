@@ -86,8 +86,13 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
             })
             .DisposeWith(_disposables);
 
+        Kind = new PackageKindFilterViewModel(() => Refresh.Execute())
+            .DisposeWith(_disposables);
+
         Refresh.Execute();
     }
+
+    public PackageKindFilterViewModel Kind { get; }
 
     public AvaloniaList<object> Items { get; } = [];
 
@@ -109,7 +114,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
                 await _apiApp.AuthenticatedUser.Value.RefreshAsync();
             }
 
-            return await _discover.GetFeatured(start, count);
+            return await _discover.GetFeatured(start, count, Kind.Selected);
         }
     }
 

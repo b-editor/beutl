@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Collections;
@@ -15,6 +16,8 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
+using DynamicData;
+using DynamicData.Binding;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -61,6 +64,64 @@ public partial class MainView
 
         viewModel.MenuBar.ExportProject.Subscribe(OnExportProject).AddTo(_disposables);
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
+
+        InitializeDockLayoutPresetMenu(viewModel);
+    }
+
+    private void InitializeDockLayoutPresetMenu(MainViewModel viewModel)
+    {
+        // Keyed by menu item so a removed preset's header subscription goes away with it; leaving
+        // it in _disposables would pin the MenuItem — and through it the preset's layout JSON —
+        // for the rest of the session.
+        var headerSubscriptions = new Dictionary<MenuItem, IDisposable>();
+
+        MenuItem CreateDockLayoutMenuItem(DockLayoutPresetItem item)
+        {
+            var menuItem = new MenuItem
+            {
+                DataContext = item,
+                Command = viewModel.MenuBar.ApplyDockLayout,
+                CommandParameter = item
+            };
+
+            // A typed subscription rather than a string-path Binding: the surrounding XAML uses
+            // compiled bindings, and a reflection path would silently blank the header if the
+            // property were ever renamed.
+            headerSubscriptions[menuItem] = item.Name.Subscribe(name => menuItem.Header = name);
+            return menuItem;
+        }
+
+        void DisposeMenuItem(MenuItem menuItem)
+        {
+            if (headerSubscriptions.Remove(menuItem, out IDisposable? subscription))
+            {
+                subscription.Dispose();
+            }
+        }
+
+        viewModel.MenuBar.DockLayoutPresets
+            .ToObservableChangeSet<ICoreReadOnlyList<DockLayoutPresetItem>, DockLayoutPresetItem>()
+            .ObserveOnUIDispatcher()
+            .Transform(CreateDockLayoutMenuItem)
+            .OnItemRemoved(DisposeMenuItem)
+            .Bind(out ReadOnlyObservableCollection<MenuItem>? presetMenuItems)
+            .Subscribe()
+            .DisposeWith(_disposables);
+
+        // The change set only fires OnItemRemoved while the view lives; drop the rest on teardown.
+        Disposable.Create(headerSubscriptions, subs =>
+        {
+            foreach (IDisposable subscription in subs.Values) subscription.Dispose();
+            subs.Clear();
+        }).DisposeWith(_disposables);
+
+        dockLayoutPresetMenuItem.ItemsSource = presetMenuItems;
+
+        // An empty submenu would render as a dead-end, so hide the entry until presets exist.
+        viewModel.MenuBar.DockLayoutPresets.ObserveProperty(x => x.Count)
+            .ObserveOnUIDispatcher()
+            .Subscribe(count => dockLayoutPresetMenuItem.IsVisible = count > 0)
+            .DisposeWith(_disposables);
     }
 
     private void InitializeRecentItems(MainViewModel viewModel)

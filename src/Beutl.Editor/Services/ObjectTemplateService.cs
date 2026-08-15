@@ -12,8 +12,7 @@ public sealed class ObjectTemplateService
     public static readonly ObjectTemplateService Instance = new();
     private readonly CoreList<ObjectTemplateItem> _items = [];
 
-    private readonly string _directoryPath = Path.Combine(
-        BeutlEnvironment.GetHomeDirectoryPath(), "templates");
+    private readonly string _directoryPath = BeutlEnvironment.GetTemplatesDirectoryPath();
 
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
 
@@ -30,21 +29,39 @@ public sealed class ObjectTemplateService
 
     public string DirectoryPath => _directoryPath;
 
-    public ObjectTemplateItem? AddFromInstance(ICoreSerializable instance, string name)
+    /// <summary>
+    /// Saves <paramref name="instance"/> as a template, embedding a rendered preview when one can be produced.
+    /// </summary>
+    /// <remarks>
+    /// Rendering hops to the render thread, so it runs before the lock is taken — awaiting while
+    /// holding the lock would deadlock against a render thread that needs it back, which is also
+    /// why the name is resolved in the same lock window as the write. Persistence is pushed onto
+    /// the thread pool because the render dispatcher completes its task on the render thread, and a
+    /// caller with no synchronization context would otherwise write the file there.
+    /// </remarks>
+    public async ValueTask<ObjectTemplateItem?> AddFromInstanceAsync(
+        ICoreSerializable instance, string name, CancellationToken cancellationToken = default)
     {
-        lock (_lock)
-        {
-            string uniqueName = GetUniqueNameLocked(name);
-            var item = ObjectTemplateItem.CreateFromInstance(instance, uniqueName);
-            if (!SaveItemToFile(item))
-            {
-                return null;
-            }
+        var item = ObjectTemplateItem.CreateFromInstance(instance, name);
+        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(instance, cancellationToken);
 
-            _items.Add(item);
-            _logger.LogInformation("Added new ObjectTemplateItem: {Name}", uniqueName);
-            return item;
-        }
+        return await Task.Run(
+            () =>
+            {
+                lock (_lock)
+                {
+                    item.Name.Value = GetUniqueNameLocked(name);
+                    if (!SaveItemToFile(item))
+                    {
+                        return null;
+                    }
+
+                    _items.Add(item);
+                    _logger.LogInformation("Added new ObjectTemplateItem: {Name}", item.Name.Value);
+                    return item;
+                }
+            },
+            cancellationToken);
     }
 
     public string GetUniqueName(string baseName)
@@ -274,7 +291,7 @@ public sealed class ObjectTemplateService
     {
         foreach (ObjectTemplateItem item in _items)
         {
-            if (string.Equals(item.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+            if (FilePathComparison.Equals(item.FilePath, filePath))
                 return item;
         }
 

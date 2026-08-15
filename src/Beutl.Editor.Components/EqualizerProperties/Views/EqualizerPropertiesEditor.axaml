@@ -25,7 +25,7 @@
         <Border Padding="4,4,0,4"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="4"
+                CornerRadius="{DynamicResource ControlCornerRadius}"
                 IsVisible="{Binding SelectedBand.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
             <StackPanel DataContext="{Binding SelectedBand.Value}" Spacing="2">
                 <!--  Debug中だけだが、個別にDataContextを設定しないと、なぜかInvalidCastExceptionが発生する。  -->

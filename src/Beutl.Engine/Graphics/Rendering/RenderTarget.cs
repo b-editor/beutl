@@ -190,13 +190,32 @@ public class RenderTarget : IDisposable
         if (IsDisposed) return;
 
         IsDisposed = true;
+
+        // Skia's GPU context is thread-affine, so the surface and its shared texture have to be
+        // released on the dispatcher that allocated them — releasing from another thread corrupts
+        // the context and faults the render thread later.
+        SKSurfaceCounter<SKSurface> surface = _surface;
+        SKSurfaceCounter<ITexture2D>? texture = _texture;
+
+        if (!disposing && _dispatcher is { HasShutdownFinished: false } dispatcher && !dispatcher.CheckAccess())
+        {
+            // A finalizer must not block on another thread, so it cannot use the bounded wait below.
+            dispatcher.Dispatch(() => Release(surface, texture));
+            return;
+        }
+
+        GpuResourceRelease.Run(_dispatcher, () => Release(surface, texture));
+    }
+
+    private static void Release(SKSurfaceCounter<SKSurface> surface, SKSurfaceCounter<ITexture2D>? texture)
+    {
         try
         {
-            _surface.Release();
+            surface.Release();
         }
         finally
         {
-            _texture?.Release();
+            texture?.Release();
         }
     }
 
@@ -256,16 +275,14 @@ public class RenderTarget : IDisposable
                         Value = null;
                         if (value != null)
                         {
-                            if (_dispatcher != null)
+                            // Finished, not Started: between the two the owner thread is still
+                            // running an operation, so disposing here could free a surface in use.
+                            // Past Finished, dispatching would queue onto a loop that no longer
+                            // drains and the native resource would outlive the process instead.
+                            if (_dispatcher is { HasShutdownFinished: false } dispatcher
+                                && !dispatcher.CheckAccess())
                             {
-                                if (_dispatcher.CheckAccess())
-                                {
-                                    value.Dispose();
-                                }
-                                else
-                                {
-                                    _dispatcher.Dispatch(value.Dispose);
-                                }
+                                dispatcher.Dispatch(value.Dispose);
                             }
                             else
                             {

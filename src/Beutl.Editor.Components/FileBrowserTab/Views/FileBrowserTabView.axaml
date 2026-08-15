@@ -56,7 +56,7 @@
             <Border Padding="4"
                     Background="Transparent"
                     Classes="file-item"
-                    CornerRadius="4"
+                    CornerRadius="{DynamicResource ControlCornerRadius}"
                     DoubleTapped="OnItemDoubleTapped"
                     ToolTip.Tip="{Binding MediaInfoText.Value}">
                 <Interaction.Behaviors>
@@ -72,7 +72,7 @@
                                Stretch="Uniform" />
                         <icons:FluentIcon FontSize="48"
                                           IsVisible="{Binding !HasThumbnail.Value}"
-                                          Icon="{Binding IconSymbol}" />
+                                          Icon="{Binding IconSymbol.Value}" />
                     </Panel>
                     <!--  ファイル名  -->
                     <TextBlock Grid.Row="1"
@@ -106,7 +106,7 @@
                                Stretch="Uniform" />
                         <icons:FluentIcon FontSize="20"
                                           IsVisible="{Binding !HasThumbnail.Value}"
-                                          Icon="{Binding IconSymbol}" />
+                                          Icon="{Binding IconSymbol.Value}" />
                     </Panel>
                     <TextBlock VerticalAlignment="Center"
                                Text="{Binding Name.Value}"
@@ -487,7 +487,7 @@
                         </Style>
                     </TreeView.Styles>
                     <TreeView.ItemTemplate>
-                        <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <TreeDataTemplate x:DataType="vm:FileSystemItemViewModel" ItemsSource="{Binding Children}">
                             <Border Background="Transparent"
                                     Classes="file-item"
                                     DoubleTapped="OnItemDoubleTapped"
@@ -502,7 +502,7 @@
                                                Stretch="Uniform" />
                                         <icons:FluentIcon FontSize="20"
                                                           IsVisible="{Binding !HasThumbnail.Value}"
-                                                          Icon="{Binding IconSymbol}" />
+                                                          Icon="{Binding IconSymbol.Value}" />
                                     </Panel>
                                     <TextBlock VerticalAlignment="Center" Text="{Binding Name.Value}" />
                                 </StackPanel>

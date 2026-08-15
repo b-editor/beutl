@@ -278,6 +278,21 @@
   <data name="ResetDockLayout" xml:space="preserve">
     <value>Reset dock layout</value>
   </data>
+  <data name="DockLayout" xml:space="preserve">
+    <value>Dock layout</value>
+  </data>
+  <data name="ApplyDockLayout" xml:space="preserve">
+    <value>Apply dock layout</value>
+  </data>
+  <data name="ManageDockLayouts" xml:space="preserve">
+    <value>Manage dock layouts</value>
+  </data>
+  <data name="SaveCurrentDockLayout" xml:space="preserve">
+    <value>Save the current layout</value>
+  </data>
+  <data name="SavedDockLayouts" xml:space="preserve">
+    <value>Saved layouts</value>
+  </data>
   <data name="EditAnimation" xml:space="preserve">
     <value>Edit animation</value>
   </data>
@@ -1524,5 +1539,41 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
     <value>{0}: {1}</value>
+  </data>
+  <data name="ToolTabHeaderFormat" xml:space="preserve">
+    <value>{0} - {1}</value>
+  </data>
+  <data name="Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Debug" xml:space="preserve">
+    <value>Debug</value>
+  </data>
+  <data name="AudioVisualizer_Display" xml:space="preserve">
+    <value>Display</value>
+  </data>
+  <data name="WindowCapture" xml:space="preserve">
+    <value>Window Capture</value>
+  </data>
+  <data name="AudioVisualizer_MinDecibels" xml:space="preserve">
+    <value>Min dB</value>
+  </data>
+  <data name="WindowCapture_RenderScale" xml:space="preserve">
+    <value>Render scale</value>
+  </data>
+  <data name="WindowCapture_FrameRate" xml:space="preserve">
+    <value>Frame rate (fps)</value>
+  </data>
+  <data name="WindowCapture_OutputFile" xml:space="preserve">
+    <value>Output file (.mp4)</value>
+  </data>
+  <data name="Browse" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="ClickBrowse" xml:space="preserve">
+    <value>Click Browse...</value>
+  </data>
+  <data name="Materials" xml:space="preserve">
+    <value>Materials</value>
   </data>
 </root>

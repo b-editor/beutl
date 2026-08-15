@@ -31,7 +31,7 @@
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 BoxShadow="0 8 32 0 #40000000"
-                CornerRadius="8">
+                CornerRadius="{DynamicResource OverlayCornerRadius}">
             <Grid RowDefinitions="Auto,Auto,*">
                 <TextBox x:Name="QueryTextBox"
                          Margin="8,8,8,4"
@@ -86,7 +86,7 @@
                                         Padding="6,2"
                                         VerticalAlignment="Center"
                                         Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
-                                        CornerRadius="4"
+                                        CornerRadius="{DynamicResource ControlCornerRadius}"
                                         IsVisible="{Binding KeyGestureText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                     <TextBlock FontSize="11"
                                                Text="{Binding KeyGestureText}" />

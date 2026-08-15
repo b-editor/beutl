@@ -279,11 +279,11 @@ public sealed partial class ElementView : UserControl
         string uniqueName = ObjectTemplateService.Instance.GetUniqueName(defaultName);
 
         var flyout = new SaveAsTemplateFlyout { Text = uniqueName };
-        flyout.Confirmed += (_, name) =>
+        flyout.Confirmed += async (_, name) =>
         {
             if (!string.IsNullOrWhiteSpace(name))
             {
-                ObjectTemplateService.Instance.AddFromInstance(viewModel.Model, name);
+                await ObjectTemplateService.Instance.AddFromInstanceAsync(viewModel.Model, name);
             }
         };
         flyout.ShowAt(this, true);

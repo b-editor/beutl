@@ -25,7 +25,9 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         Converters = { new JsonStringEnumConverter() },
     };
 
-    public bool IsAvailable => !FFmpegInstallNotifier.IsLibrariesMissing;
+    public bool IsAvailable
+        => !FFmpegInstallNotifier.IsLibrariesMissing
+            && !FFmpegInstallNotifier.IsVerificationInProgress;
 
     public event EventHandler? AvailabilityChanged
     {

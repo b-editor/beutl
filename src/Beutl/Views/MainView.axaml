@@ -175,6 +175,9 @@
                     <Separator />
                     <MenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}"
                               Header="{x:Static lang:Strings.ResetDockLayout}" />
+                    <MenuItem x:Name="dockLayoutPresetMenuItem" Header="{x:Static lang:Strings.ApplyDockLayout}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.OpenDockLayoutTab}"
+                              Header="{x:Static lang:Strings.ManageDockLayouts}" />
                 </MenuItem>
                 <MenuItem x:Name="toolWindowMenuItem" Header="{x:Static lang:Strings.Tools}" />
                 <!--  シーン  -->
@@ -230,7 +233,7 @@
                 <TextBlock VerticalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            IsVisible="{CompiledBinding IsDebuggerAttached}"
-                           Text="Debug" />
+                           Text="{x:Static lang:Strings.Debug}" />
 
                 <Border Margin="4,0,0,0"
                         wnd:AppWindow.AllowInteractionInTitleBar="True"

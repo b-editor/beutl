@@ -76,7 +76,7 @@
                                     BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                     BorderThickness="1"
                                     BoxShadow="0 4 16 0 #40000000"
-                                    CornerRadius="4">
+                                    CornerRadius="{DynamicResource OverlayCornerRadius}">
                                 <ListBox Name="PART_MarkerListBox"
                                          MinWidth="200"
                                          MaxHeight="240"

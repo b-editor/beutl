@@ -64,9 +64,14 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
                 }
             })
             .DisposeWith(_disposables);
+
+        Kind = new PackageKindFilterViewModel(() => Refresh.Execute())
+            .DisposeWith(_disposables);
     }
 
     public string Keyword { get; }
+
+    public PackageKindFilterViewModel Kind { get; }
 
     public AvaloniaList<object> Packages { get; } = [];
 
@@ -83,7 +88,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
     private async Task<Package[]> SearchPackages(int start, int count)
     {
-        return await _discoverService.Search(Keyword, start, count);
+        return await _discoverService.Search(Keyword, start, count, Kind.Selected);
     }
 
     private async Task RefreshPackages()

@@ -24,8 +24,10 @@
             </DockPanel>
         </Border>
         <terminal:TerminalControl Name="Terminal"
+                                  Background="Transparent"
                                   BufferSize="5000"
                                   FontFamily="Consolas, Menlo, monospace"
+                                  Foreground="{DynamicResource TerminalForegroundBrush}"
                                   Process=""
                                   ProcessExited="OnProcessExited" />
     </DockPanel>

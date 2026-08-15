@@ -33,7 +33,13 @@ public partial class PackageInstaller
         long size = 0;
         foreach (PackageIdentity package in unnecessaryPackages)
         {
-            string directory = Helper.PackagePathResolver.GetInstalledPath(package);
+            string directory = Helper.ResolveInstalledDirectory(package);
+            if (!Directory.Exists(directory))
+            {
+                _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
+                continue;
+            }
+
             foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             {
                 size += new FileInfo(file).Length;
@@ -60,8 +66,25 @@ public partial class PackageInstaller
         long totalSize = 0;
         foreach (PackageIdentity package in context.UnnecessaryPackages)
         {
-            string directory = Helper.PackagePathResolver.GetInstalledPath(package);
-            bool hasAnyFailures = false;
+            // A data package's payload lives outside the install directory, and it has to
+            // go even when the extracted package itself is already missing.
+            bool dataRemoved = UninstallDataPackage(package.Id);
+
+            string directory = Helper.ResolveInstalledDirectory(package);
+            if (!Directory.Exists(directory))
+            {
+                // The files are already gone, so the repository entry would outlive them.
+                _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
+                _installedPackageRepository.RemovePackage(package);
+                if (!dataRemoved)
+                {
+                    failedPackages.Add(directory);
+                }
+
+                continue;
+            }
+
+            bool hasAnyFailures = !dataRemoved;
             foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             {
                 try

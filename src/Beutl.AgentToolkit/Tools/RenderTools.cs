@@ -11,6 +11,7 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -51,6 +52,8 @@ public sealed class RenderTools(
     private const int MaxStoryboardSubdivisionLevel = 3;
     private const string StoryboardFrameKindShot = "shot";
     private const string StoryboardFrameKindInbetween = "inbetween";
+    private const string RenderScaleDescription =
+        "Supersampling render scale. Non-finite values and values <= 0 use 1. The ceil(frame size * renderScale) output extent must not exceed 16384 pixels on either axis.";
 
     [McpServerTool(Name = "render_still")]
     [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns visibility warnings for blank or near-black frames. Bare filenames are written under agent-output/. By default the tool returns the same JSON text payload as before; pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
@@ -59,7 +62,7 @@ public sealed class RenderTools(
         string outputPath,
         [Description("Scene time in seconds. Use this exact parameter name; time is not a render_still parameter.")]
         double timeSeconds = 0,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Required when outputPath already exists.")]
         bool confirmOverwrite = false,
@@ -70,6 +73,7 @@ public sealed class RenderTools(
         return ExecuteMcpAsync<RenderStillResponse>(async () =>
         {
             Scene scene = RequireSceneSnapshot();
+            renderScale = ValidateRenderScale(scene, renderScale, "render_still");
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
             RenderStillResponse response = await stillRenderer.RenderAsync(
@@ -98,7 +102,7 @@ public sealed class RenderTools(
         string outputDirectory = "agent-output",
         [Description("Basename used for generated still PNGs and the contact sheet. Omit for a collision-free default containing the active session id; explicit values preserve exact filenames.")]
         string? basename = null,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Required when generated output paths already exist.")]
         bool confirmOverwrite = false,
@@ -124,6 +128,7 @@ public sealed class RenderTools(
             // Project-detached clone whose own frame-rate lookup would always miss.
             IEditingSession session = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(session);
+            renderScale = ValidateRenderScale(scene, renderScale, "render_storyboard");
             int frameRate = ReadSessionFrameRate(session);
             int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
             IReadOnlyList<ResolvedStoryboardFrame> resolvedShots = ResolveStoryboardFrames(
@@ -249,7 +254,7 @@ public sealed class RenderTools(
         double[]? timeSeconds = null,
         [Description("Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.")]
         int sampleCount = 5,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Minimum changed-pixel ratio required for every adjacent sample pair. Defaults to 0.02.")]
         double minChangedPixelRatio = 0.02,
@@ -266,6 +271,7 @@ public sealed class RenderTools(
         return ExecuteAsync(async () =>
         {
             Scene scene = RequireSceneSnapshot();
+            renderScale = ValidateRenderScale(scene, renderScale, "evaluate_motion_variation");
             IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
             return await motionVariationAnalyzer.AnalyzeAsync(
                 scene,
@@ -330,7 +336,7 @@ public sealed class RenderTools(
         double[]? timeSeconds = null,
         [Description("Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.")]
         int sampleCount = 5,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Optional profile label recorded in the review notes, such as draft, editorial, kinetic-type, or minimal.")]
         string? styleProfile = null,
@@ -367,6 +373,7 @@ public sealed class RenderTools(
             ValidateVideoType(videoType);
             IEditingSession snapshotSession = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(snapshotSession);
+            renderScale = ValidateRenderScale(scene, renderScale, "evaluate_edit_quality");
             // Derive the baseline key from the SAME session the snapshot came from: a session switch
             // between two active-session reads must not file the baseline under another project's key.
             string sessionKey = sessions.GetSessionKey(snapshotSession);
@@ -492,7 +499,7 @@ public sealed class RenderTools(
         double[]? timeSeconds = null,
         [Description("Number of evenly spaced samples when timeSeconds is omitted and includeMotion is true. Clamped to 2..8.")]
         int sampleCount = 5,
-        [Description("Supersampling render scale for rendered motion checks. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Optional profile label such as kinetic-type or high-tempo-promo.")]
         string? styleProfile = null,
@@ -524,6 +531,7 @@ public sealed class RenderTools(
         {
             ValidateVideoType(videoType);
             Scene scene = RequireSceneSnapshot();
+            renderScale = ValidateRenderScale(scene, renderScale, "suggest_quality_fixes");
             IReadOnlyList<TimeSpan>? sampleTimes = includeMotion
                 ? ResolveSampleTimes(scene, timeSeconds, sampleCount)
                 : null;
@@ -571,7 +579,7 @@ public sealed class RenderTools(
         double[]? timeSeconds = null,
         [Description("Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.")]
         int sampleCount = 5,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Optional profile label recorded in quality notes, such as kinetic-type, high-tempo-promo, editorial, or minimal.")]
         string? styleProfile = null,
@@ -612,6 +620,7 @@ public sealed class RenderTools(
             ValidateVideoType(videoType);
             IEditingSession snapshotSession = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(snapshotSession);
+            renderScale = ValidateRenderScale(scene, renderScale, "final_preflight");
             // Derive the baseline key from the SAME session the snapshot came from: a session switch
             // between two active-session reads must not file the baseline under another project's key.
             string sessionKey = sessions.GetSessionKey(snapshotSession);
@@ -808,7 +817,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "export_video")]
-    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are written under agent-output/. Control size/quality with crf or bitrate. Pass background:true to run as a job and poll read_render_job(jobId).")]
+    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are written under agent-output/. Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. Pass background:true to run as a job and poll read_render_job(jobId).")]
     public ValueTask<ToolResult<ExportVideoResult>> ExportVideo(
         [Description("Workspace-relative or in-workspace absolute output path. Render outputs use outputPath/outputDirectory; project file tools use path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
         string outputPath,
@@ -818,11 +827,11 @@ public sealed class RenderTools(
         int frameRateDenominator = 1,
         [Description("Audio sample rate.")]
         int sampleRate = 44100,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
-        [Description("Constant Rate Factor for the H.264/x265 encoder (0-51, lower is higher quality/larger file; libx264 default is 23). Mutually exclusive with bitrate. Raise it (e.g. 28-30) to shrink hard-to-compress content such as full-frame grain.")]
+        [Description("Constant Rate Factor for the FFmpeg H.264/x265 encoder (0-51, lower is higher quality/larger file; libx264 default is 23). Mutually exclusive with bitrate. AVFoundation has no CRF control; when it is selected, the successful result contains a warning that crf was ignored. Raise it (e.g. 28-30) to shrink hard-to-compress content such as full-frame grain.")]
         int? crf = null,
-        [Description("Target average video bitrate in bits per second (e.g. 4000000). Mutually exclusive with crf; forces ABR by dropping the crf option.")]
+        [Description("Target average video bitrate in bits per second (e.g. 4000000). Mutually exclusive with crf; forces ABR by dropping the crf option. AVFoundation treats this as a target; the successful result includes a warning when the estimated video bitrate is below 50% of the request. The estimate subtracts configured audio bitrate when known and otherwise identifies its container-wide audio/muxing approximation.")]
         int? bitrate = null,
         [Description("Required when outputPath already exists.")]
         bool confirmOverwrite = false,
@@ -832,6 +841,9 @@ public sealed class RenderTools(
     {
         return ExecuteAsync<ExportVideoResult>(async () =>
         {
+            Scene scene = RequireSceneSnapshot();
+            renderScale = ValidateRenderScale(scene, renderScale, "export_video");
+
             // Only preflight-reject when FFmpeg is the sole encoder for this container; a non-FFmpeg
             // encoder (e.g. AVFoundation for macOS .mp4/.mov) can export without the worker.
             if (videoExporter.RequiresFFmpegWorker(NormalizeOutputPath(outputPath))
@@ -872,7 +884,6 @@ public sealed class RenderTools(
                     "Provide either crf or bitrate, not both."));
             }
 
-            Scene scene = RequireSceneSnapshot();
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
@@ -1226,6 +1237,7 @@ public sealed class RenderTools(
         string prefix,
         CancellationToken cancellationToken)
     {
+        renderScale = ValidateRenderScale(scene, renderScale, "compare_revisions");
         string batchId = Guid.NewGuid().ToString("N")[..8];
         var stillPaths = new List<string>(sampleTimes.Count);
         for (int i = 0; i < sampleTimes.Count; i++)
@@ -2086,6 +2098,70 @@ public sealed class RenderTools(
     {
         IEditingSession session = sessions.RequireSession();
         return CreateSceneSnapshot(session);
+    }
+
+    internal static float ValidateRenderScale(Scene scene, float renderScale, string toolName)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentException.ThrowIfNullOrWhiteSpace(toolName);
+
+        float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
+        PixelSize frameSize = scene.FrameSize;
+        double requestedWidth = GetRootDeviceExtent(frameSize.Width, normalizedScale);
+        double requestedHeight = GetRootDeviceExtent(frameSize.Height, normalizedScale);
+        if (requestedWidth <= RenderNodeContext.MaxBufferDimension
+            && requestedHeight <= RenderNodeContext.MaxBufferDimension)
+        {
+            return normalizedScale;
+        }
+
+        double maximumScaleLimit = Math.Min(
+            frameSize.Width > 0
+                ? RenderNodeContext.MaxBufferDimension / (double)frameSize.Width
+                : double.PositiveInfinity,
+            frameSize.Height > 0
+                ? RenderNodeContext.MaxBufferDimension / (double)frameSize.Height
+                : double.PositiveInfinity);
+        float maximumScale = (float)maximumScaleLimit;
+        while (!RootOutputExtentFits(frameSize, maximumScale))
+        {
+            maximumScale = MathF.BitDecrement(maximumScale);
+        }
+
+        float nextScale = MathF.BitIncrement(maximumScale);
+        while (float.IsFinite(nextScale) && RootOutputExtentFits(frameSize, nextScale))
+        {
+            maximumScale = nextScale;
+            nextScale = MathF.BitIncrement(maximumScale);
+        }
+
+        string requestedExtent = $"{FormatDeviceExtent(requestedWidth)}x{FormatDeviceExtent(requestedHeight)}";
+        string maximumScaleText = maximumScale.ToString("G9", CultureInfo.InvariantCulture);
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            $"{toolName} renderScale {normalizedScale.ToString("G9", CultureInfo.InvariantCulture)} requests an output extent of {requestedExtent} pixels. "
+            + $"Each output axis is limited to {RenderNodeContext.MaxBufferDimension} pixels; "
+            + $"the maximum usable renderScale for frame {frameSize.Width}x{frameSize.Height} is {maximumScaleText}.",
+            "renderScale",
+            $"Use renderScale <= {maximumScaleText} for this frame size."));
+    }
+
+    private static bool RootOutputExtentFits(PixelSize frameSize, float renderScale)
+    {
+        return GetRootDeviceExtent(frameSize.Width, renderScale) <= RenderNodeContext.MaxBufferDimension
+               && GetRootDeviceExtent(frameSize.Height, renderScale) <= RenderNodeContext.MaxBufferDimension;
+    }
+
+    private static float GetRootDeviceExtent(int logicalExtent, float renderScale)
+    {
+        return MathF.Ceiling(logicalExtent * renderScale);
+    }
+
+    private static string FormatDeviceExtent(double extent)
+    {
+        return extent >= long.MinValue && extent <= long.MaxValue
+            ? ((long)extent).ToString(CultureInfo.InvariantCulture)
+            : extent.ToString("G17", CultureInfo.InvariantCulture);
     }
 
     // Reads the frame rate from the given session's live, Project-attached scene; CreateSceneSnapshot

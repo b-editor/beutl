@@ -1,0 +1,19 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Beutl's corner rounding, overriding FluentAvalonia's defaults (4 / 8).
+        These are the single source of truth: prefer
+        {DynamicResource ControlCornerRadius} / {DynamicResource OverlayCornerRadius}
+        over literal values so the whole shell stays in sync.
+        Literals remain only where the shape is not a rounded rectangle
+        (circular indicators, pills), where only some corners are rounded,
+        or where a child is inset by a stroke and must stay a hair tighter
+        than its parent — those spots carry a comment and follow their
+        parent's value by hand (ElementView's mediaClip, BrushEditor's
+        swatch, the Dock* geometry keys in Dock/DockFluent.axaml).
+        Timeline elements deliberately round less; see
+        TimelineElementCornerRadius in TimelineTab/Resources/TimelineResources.axaml.
+    -->
+    <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+    <CornerRadius x:Key="OverlayCornerRadius">12</CornerRadius>
+</ResourceDictionary>

@@ -56,7 +56,7 @@ public sealed class SessionSecurityTests
         string escaping = Path.Combine("..", "escape-project");
 
         string message = Assert.Throws<WorkspaceBoundaryException>(() =>
-            SessionTools.NormalizeProjectPath(new WorkspaceGuard(root), escaping, "path")).Message;
+            SessionTools.NormalizeProjectPath(new WorkspaceGuard(root), escaping, "path"))!.Message;
 
         Assert.That(message, Does.Contain("workspace"));
     }

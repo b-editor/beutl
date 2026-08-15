@@ -33,28 +33,40 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
             if (!package.HasVersion)
             {
                 installeds = repos.GetLocalPackages(package.Id)
-                    .Select(x => Helper.PackagePathResolver.GetInstalledPath(x))
-                    .Where(x => x != null)
+                    .Select(Helper.ResolveInstalledDirectory)
+                    .Where(Directory.Exists)
                     .ToArray();
             }
             else
             {
-                string installed = Helper.PackagePathResolver.GetInstalledPath(package);
-                if (installed != null)
-                {
-                    installeds = [installed];
-                }
-                else
-                {
-                    installeds = [];
-                }
+                string installed = Helper.ResolveInstalledDirectory(package);
+                installeds = Directory.Exists(installed) ? [installed] : [];
             }
 
             if (installeds.Length <= 0)
             {
                 _logger.LogWarning("Package {PackageId} has already been uninstalled.", package.Id);
-                repos.RemovePackages(package.Id);
-                Message.Value = Strings.This_package_has_already_been_uninstalled;
+                // A data package's payload lives outside the install directory, so a
+                // retried uninstall has to remove it even when the extracted package
+                // is already gone. The repository entry is the only remaining record of
+                // that payload, so it stays until the removal actually succeeds.
+                if (installer.UninstallDataPackage(package.Id))
+                {
+                    repos.RemovePackages(package.Id);
+                    Message.Value = Strings.This_package_has_already_been_uninstalled;
+                }
+                else
+                {
+                    _logger.LogError("Failed to delete the data payload of {PackageId}.", package.Id);
+                    ErrorMessage.Value = $"""
+                        {Strings.These_packages_were_not_deleted_successfully}
+                        - {package.Id}
+                        """;
+                    // Falling through would report success and drop the queue, orphaning
+                    // a payload that is still installed.
+                    Failed.Value = true;
+                    return;
+                }
             }
             else
             {
@@ -66,8 +78,6 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
                     Message.Value = Strings.Deleting_files;
                     installer.Uninstall(context, this, token);
 
-                    _logger.LogInformation("Successfully uninstalled package {PackageId}.", context.Id);
-                    Message.Value = string.Format(Strings.Uninstalled_XXX, context.Id);
                     if (context.FailedPackages?.Count > 0)
                     {
                         _logger.LogError("Failed to delete some packages: {FailedPackages}.", string.Join(", ", context.FailedPackages));
@@ -75,7 +85,14 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
                             {Strings.These_packages_were_not_deleted_successfully}
                             {string.Join('\n', context.FailedPackages.Select(i => $"- {Path.GetFileName(i)}"))}
                             """;
+                        // Reporting success here would drop the queue while a payload or
+                        // extracted file is still on disk.
+                        Failed.Value = true;
+                        return;
                     }
+
+                    _logger.LogInformation("Successfully uninstalled package {PackageId}.", context.Id);
+                    Message.Value = string.Format(Strings.Uninstalled_XXX, context.Id);
                 }
             }
 

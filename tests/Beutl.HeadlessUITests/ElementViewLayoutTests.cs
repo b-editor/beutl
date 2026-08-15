@@ -58,7 +58,6 @@ public class ElementViewLayoutTests
     private static async Task<(Window Window, ElementView Element)> InflateFirstElementView(string name)
     {
         await TestReset.ResetShellAsync();
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         EditViewModel editor = await OpenEditorForNewScene(name);
         AddRectangle(editor);
 
@@ -74,6 +73,7 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Label_is_inset_clear_of_the_rounded_corner()
     {
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
         (Window window, ElementView element) = await InflateFirstElementView("elementview-inset");
         try
         {
@@ -96,6 +96,7 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Locked_clip_keeps_the_label_clear_of_the_lock_glyph()
     {
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
         (Window window, ElementView element) = await InflateFirstElementView("elementview-locked");
         try
         {
@@ -126,6 +127,7 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Rename_textbox_text_starts_where_the_label_does()
     {
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
         (Window window, ElementView element) = await InflateFirstElementView("elementview-rename");
         try
         {
@@ -162,6 +164,7 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Renaming_does_not_paint_into_the_rounded_corner()
     {
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
         (Window window, ElementView element) = await InflateFirstElementView("elementview-corner");
         try
         {
@@ -248,15 +251,22 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Media_host_rounds_and_clips_the_thumbnail_and_waveform()
     {
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
         (Window window, ElementView element) = await InflateFirstElementView("elementview-rounded");
         try
         {
             // A real filmstrip/waveform never renders in this headless layout pass (both need async
-            // media decode), so the rounding is asserted structurally: the wrapper Border rounds to
-            // the clip's inner radius (3px = 4px outer - 1px stroke) and clips its children.
+            // media decode), so the rounding is asserted structurally. An element is only LayerHeight
+            // tall, so its outer Border deliberately rounds less (TimelineElementCornerRadius, 4px)
+            // than the shell's ControlCornerRadius (8px) — pin that, or the exception drifts back.
+            // The mediaClip wrapper sits inside the element's 1px stroke, so it rounds to 3px and
+            // clips its children.
+            var outer = (Border)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "border");
             var mediaClip = (Border)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "mediaClip");
             Assert.Multiple(() =>
             {
+                Assert.That(outer.CornerRadius, Is.EqualTo(new CornerRadius(4)),
+                    "Elements must keep the timeline's tighter rounding.");
                 Assert.That(mediaClip.CornerRadius, Is.EqualTo(new CornerRadius(3)),
                     "Media host must round to the clip's inner radius.");
                 Assert.That(mediaClip.ClipToBounds, Is.True,

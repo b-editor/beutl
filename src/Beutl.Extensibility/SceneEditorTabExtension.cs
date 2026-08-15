@@ -11,13 +11,31 @@ public interface IToolContext : IDisposable, IJsonSerializable, IServiceProvider
 
     IReactiveProperty<bool> IsSelected { get; }
 
-    string Header { get; }
+    /// <summary>Gets the per-instance text shown on the tool's dock tab.</summary>
+    /// <remarks>
+    /// Update it on the UI thread when the tab identity changes. Unlike
+    /// <see cref="ToolTabExtension.Header"/>, this title belongs to one instance.
+    /// </remarks>
+    IReadOnlyReactiveProperty<string> Header { get; }
 }
 
 public abstract class ToolTabExtension : ViewExtension
 {
     public abstract bool CanMultiple { get; }
 
+    /// <summary>
+    /// Gets whether the host reuses the same content control when this tool is deactivated and
+    /// activated again.
+    /// </summary>
+    /// <remarks>
+    /// Reused controls can still be unloaded from and loaded into the visual tree. State and
+    /// resources that must survive those transitions and require deterministic cleanup should be
+    /// owned by the <see cref="IToolContext"/>, which is disposed when its dockable closes.
+    /// </remarks>
+    public virtual bool ReuseContentAcrossActivation => false;
+
+    /// <summary>Gets the add-tab menu label, or <see langword="null"/> to hide the tool.</summary>
+    /// <remarks>Open tab titles come from <see cref="IToolContext.Header"/>.</remarks>
     public virtual string? Header => null;
 
     public virtual DockAnchor DefaultAnchor => DockAnchor.None;

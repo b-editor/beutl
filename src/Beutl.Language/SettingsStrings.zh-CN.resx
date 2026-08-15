@@ -1,0 +1,630 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SignOut" xml:space="preserve">
+    <value>退出登录</value>
+    <comment />
+  </data>
+  <data name="ChangeAccountSettings" xml:space="preserve">
+    <value>更改账户设置</value>
+    <comment />
+  </data>
+  <data name="SignIn" xml:space="preserve">
+    <value>登录</value>
+    <comment />
+  </data>
+  <data name="SignInWith" xml:space="preserve">
+    <value>使用您的社交账户登录</value>
+    <comment />
+  </data>
+  <data name="SignInViaBrowser" xml:space="preserve">
+    <value>通过浏览器登录</value>
+    <comment />
+  </data>
+  <data name="Editor_Extension_Priority" xml:space="preserve">
+    <value>编辑器扩展优先级</value>
+    <comment />
+  </data>
+  <data name="Higher" xml:space="preserve">
+    <value>更高</value>
+    <comment />
+  </data>
+  <data name="Lower" xml:space="preserve">
+    <value>更低</value>
+    <comment />
+  </data>
+  <data name="All_Editor_Extensions" xml:space="preserve">
+    <value>所有编辑器扩展</value>
+    <comment />
+  </data>
+  <data name="Add_file_extension" xml:space="preserve">
+    <value>添加文件扩展名</value>
+    <comment />
+  </data>
+  <data name="Theme_Tip" xml:space="preserve">
+    <value>选择要显示的应用程序主题。</value>
+    <comment />
+  </data>
+  <data name="Please_enter_a_file_extension" xml:space="preserve">
+    <value>请输入文件扩展名。</value>
+    <comment />
+  </data>
+  <data name="The_following_characters_are_not_allowed" xml:space="preserve">
+    <value>不允许使用以下字符 (" &gt; &lt; | : ? * \\ /)</value>
+    <comment />
+  </data>
+  <data name="This_file_extension_already_exists" xml:space="preserve">
+    <value>此文件扩展名已存在。</value>
+    <comment />
+  </data>
+  <data name="CopyVersionInfo" xml:space="preserve">
+    <value>复制版本信息</value>
+    <comment />
+  </data>
+  <data name="DeviceInformation" xml:space="preserve">
+    <value>设备信息</value>
+  </data>
+  <data name="EditorSettings" xml:space="preserve">
+    <value>编辑器设置</value>
+    <comment />
+  </data>
+  <data name="DecoderPriority" xml:space="preserve">
+    <value>解码器优先级</value>
+    <comment />
+  </data>
+  <data name="DecoderPriority_Description" xml:space="preserve">
+    <value>您可以更改解码器的优先级顺序。上方的解码器具有优先权。</value>
+    <comment />
+  </data>
+  <data name="AccentColor" xml:space="preserve">
+    <value>强调色</value>
+    <comment />
+  </data>
+  <data name="CustomColor" xml:space="preserve">
+    <value>自定义颜色</value>
+    <comment />
+  </data>
+  <data name="UseCustomAccentColor" xml:space="preserve">
+    <value>使用自定义强调色</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Beutl_Application" xml:space="preserve">
+    <value>应用程序</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
+    <value>收集以下信息以改进应用程序性能：应用程序启动时间、操作经过时间以及 API 检索的项目数</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
+    <value>包管理</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Description_Beutl_PackageManagement" xml:space="preserve">
+    <value>收集安装和加载扩展所花费的时间。</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Beutl_Api_Client" xml:space="preserve">
+    <value>API 客户端</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Description_Beutl_Api_Client" xml:space="preserve">
+    <value>收集扩展商店和账户功能使用的 API 调用时间。</value>
+    <comment />
+  </data>
+  <data name="Telemetry" xml:space="preserve">
+    <value>遥测</value>
+    <comment />
+  </data>
+  <data name="Telemetry_ShortDescription" xml:space="preserve">
+    <value>关于要收集的数据的设置</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Description" xml:space="preserve">
+    <value>为了改进 Beutl，我们收集匿名的使用数据。这些设置将在应用程序重新启动后生效。有关详细信息，请参阅以下页面。</value>
+    <comment />
+  </data>
+  <data name="ShowExactBoundaries_Description" xml:space="preserve">
+    <value>在预览期间准确显示元素的边界。启用此设置可能会使边框不可见。</value>
+    <comment />
+  </data>
+  <data name="ShowExactBoundaries" xml:space="preserve">
+    <value>显示精确边界</value>
+    <comment />
+  </data>
+  <data name="AutoAdjustSceneDuration" xml:space="preserve">
+    <value>自动调整场景时长</value>
+    <comment />
+  </data>
+  <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
+    <value>添加元素时，如果需要调整场景的时长，将自动进行调整。</value>
+    <comment />
+  </data>
+  <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
+    <value>某些设置已移动。</value>
+    <comment />
+  </data>
+  <data name="EnablePointerLockInProperty" xml:space="preserve">
+    <value>启用指针锁定</value>
+    <comment />
+  </data>
+  <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
+    <value>在属性编辑器中拖动操作期间隐藏光标。（仅限 Windows）</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Beutl_Logging" xml:space="preserve">
+    <value>日志记录</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Description_Beutl_Logging" xml:space="preserve">
+    <value>收集更详细的使用信息。发送的日志也会存储在 ".beutl/log" 目录下。</value>
+    <comment />
+  </data>
+  <data name="EnableAutoSave" xml:space="preserve">
+    <value>启用自动保存</value>
+    <comment />
+  </data>
+  <data name="EnableAutoSave_Description" xml:space="preserve">
+    <value>执行操作后自动保存文件。</value>
+    <comment />
+  </data>
+  <data name="ProxyMedia" xml:space="preserve">
+    <value>代理媒体</value>
+    <comment />
+  </data>
+  <data name="ProxyStoreRootPath" xml:space="preserve">
+    <value>存储位置</value>
+    <comment />
+  </data>
+  <data name="ProxyStoreRootPath_Description" xml:space="preserve">
+    <value>代理文件存储在此文件夹中。更改在重新启动后生效。</value>
+    <comment />
+  </data>
+  <data name="ProxyStoreMaxTotalGiB" xml:space="preserve">
+    <value>最大存储大小</value>
+    <comment />
+  </data>
+  <data name="ProxyStoreMaxTotalGiB_Description" xml:space="preserve">
+    <value>当存储超过此大小时，将移除最近最少使用的代理。更改在重新启动后生效。</value>
+    <comment />
+  </data>
+  <data name="ProxyDefaultPreset" xml:space="preserve">
+    <value>默认预设</value>
+    <comment />
+  </data>
+  <data name="ProxyDefaultPreset_Description" xml:space="preserve">
+    <value>在代理工具选项卡中默认选择的预设。</value>
+    <comment />
+  </data>
+  <data name="FrameCacheMaxSize" xml:space="preserve">
+    <value>最大字节数</value>
+    <comment />
+  </data>
+  <data name="FrameCacheMaxSize_Description" xml:space="preserve">
+    <value>缓存数量将进行调整，使其不超过此字节数。</value>
+    <comment />
+  </data>
+  <data name="FrameCacheScale" xml:space="preserve">
+    <value>缩放</value>
+    <comment />
+  </data>
+  <data name="FrameCacheScale_Original" xml:space="preserve">
+    <value>原始</value>
+    <comment />
+  </data>
+  <data name="FrameCacheScale_FitToPreviewer" xml:space="preserve">
+    <value>适应预览屏幕</value>
+    <comment />
+  </data>
+  <data name="FrameCacheScale_Half" xml:space="preserve">
+    <value>一半</value>
+    <comment />
+  </data>
+  <data name="FrameCacheScale_Quarter" xml:space="preserve">
+    <value>四分之一</value>
+    <comment />
+  </data>
+  <data name="FrameCacheColorType" xml:space="preserve">
+    <value>色彩空间</value>
+    <comment />
+  </data>
+  <data name="PropertyEditor" xml:space="preserve">
+    <value>属性编辑器</value>
+    <comment />
+  </data>
+  <data name="EnableFrameCache" xml:space="preserve">
+    <value>启用帧缓存</value>
+    <comment />
+  </data>
+  <data name="NodeCache" xml:space="preserve">
+    <value>节点缓存</value>
+    <comment />
+  </data>
+  <data name="EnableNodeCache" xml:space="preserve">
+    <value>启用节点缓存</value>
+    <comment />
+  </data>
+  <data name="NodeCacheMaxPixels" xml:space="preserve">
+    <value>最大像素数</value>
+    <comment />
+  </data>
+  <data name="NodeCacheMinPixels" xml:space="preserve">
+    <value>最小像素数</value>
+    <comment />
+  </data>
+  <data name="SwapTimelineScrollDirection" xml:space="preserve">
+    <value>交换时间轴的滚动方向</value>
+    <comment />
+  </data>
+  <data name="TimelineAutoScrollMode" xml:space="preserve">
+    <value>播放期间时间轴自动滚动</value>
+    <comment />
+  </data>
+  <data name="TimelineAutoScrollMode_Description" xml:space="preserve">
+    <value>自动滚动时间轴以跟随播放位置</value>
+    <comment />
+  </data>
+  <data name="TimelineAutoScrollMode_None" xml:space="preserve">
+    <value>关闭</value>
+    <comment />
+  </data>
+  <data name="TimelineAutoScrollMode_AlwaysFollow" xml:space="preserve">
+    <value>始终跟随</value>
+    <comment />
+  </data>
+  <data name="TimelineAutoScrollMode_PageScroll" xml:space="preserve">
+    <value>页面滚动</value>
+    <comment />
+  </data>
+  <data name="ClampResizeToOriginalLength" xml:space="preserve">
+    <value>将调整大小限制为原始媒体长度</value>
+    <comment />
+  </data>
+  <data name="ClampResizeToOriginalLength_Description" xml:space="preserve">
+    <value>防止时间轴元素被调整到超出原始媒体时长</value>
+    <comment />
+  </data>
+  <data name="Graphics" xml:space="preserve">
+    <value>图形</value>
+    <comment />
+  </data>
+  <data name="SelectedGpu" xml:space="preserve">
+    <value>GPU</value>
+    <comment />
+  </data>
+  <data name="SelectedGpu_Description" xml:space="preserve">
+    <value>选择用于渲染的 GPU。更改将在重新启动后生效。</value>
+    <comment />
+  </data>
+  <data name="SelectedGpu_Auto" xml:space="preserve">
+    <value>自动</value>
+    <comment />
+  </data>
+  <data name="Account" xml:space="preserve">
+    <value>账户</value>
+  </data>
+  <data name="ColorPalette" xml:space="preserve">
+    <value>调色板</value>
+  </data>
+  <data name="AvailableGPUs" xml:space="preserve">
+    <value>可用的 GPU</value>
+  </data>
+  <data name="AvailableMemory" xml:space="preserve">
+    <value>可用内存</value>
+  </data>
+  <data name="Dark" xml:space="preserve">
+    <value>深色</value>
+  </data>
+  <data name="DarkClassic" xml:space="preserve">
+    <value>深色（经典）</value>
+  </data>
+  <data name="ExtensionsSettings" xml:space="preserve">
+    <value>扩展设置</value>
+  </data>
+  <data name="Keymap" xml:space="preserve">
+    <value>键位映射</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="License" xml:space="preserve">
+    <value>许可证</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>链接</value>
+  </data>
+  <data name="PrivacyPolicy" xml:space="preserve">
+    <value>隐私政策</value>
+  </data>
+  <data name="TermsOfService" xml:space="preserve">
+    <value>服务条款</value>
+  </data>
+  <data name="Theme" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="ThirdPartyLicenses" xml:space="preserve">
+    <value>第三方许可证</value>
+  </data>
+  <data name="VulkanVersion" xml:space="preserve">
+    <value>Vulkan 版本</value>
+  </data>
+  <data name="EnabledExtensions" xml:space="preserve">
+    <value>已启用的扩展</value>
+  </data>
+  <data name="Light" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="HighContrast" xml:space="preserve">
+    <value>高对比度</value>
+  </data>
+  <data name="FollowSystem" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="SourceCode" xml:space="preserve">
+    <value>源代码</value>
+  </data>
+  <data name="Font" xml:space="preserve">
+    <value>字体</value>
+  </data>
+  <data name="ToneMapping" xml:space="preserve">
+    <value>色调映射</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode" xml:space="preserve">
+    <value>色调映射</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_Description" xml:space="preserve">
+    <value>为预览选择色调映射运算符</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_None" xml:space="preserve">
+    <value>无</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_Reinhard" xml:space="preserve">
+    <value>Reinhard</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_ACES" xml:space="preserve">
+    <value>ACES</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_Hable" xml:space="preserve">
+    <value>Hable</value>
+    <comment />
+  </data>
+  <data name="ToneMappingExposure" xml:space="preserve">
+    <value>曝光</value>
+    <comment />
+  </data>
+  <data name="ToneMappingExposure_Description" xml:space="preserve">
+    <value>调整色调映射的曝光级别</value>
+    <comment />
+  </data>
+  <data name="UseHdrPreview" xml:space="preserve">
+    <value>HDR 预览</value>
+    <comment />
+  </data>
+  <data name="UseHdrPreview_Description" xml:space="preserve">
+    <value>为预览播放器使用 HDR 渲染（鼠标操作等将受到限制）</value>
+    <comment />
+  </data>
+  <data name="AiAgents" xml:space="preserve">
+    <value>AI 代理</value>
+    <comment />
+  </data>
+  <data name="AiAgents_PageDescription" xml:space="preserve">
+    <value>设置 AI 编码代理（如 Claude Code）以编辑 Beutl 项目：将技能、子代理和 MCP 服务器条目安装到代理的文件夹中。</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Target" xml:space="preserve">
+    <value>安装目标</value>
+    <comment />
+  </data>
+  <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
+    <value>工作区根目录</value>
+    <comment />
+  </data>
+  <data name="AiAgents_WorkspaceRoot_Description" xml:space="preserve">
+    <value>允许 MCP 服务器在其中创建和编辑项目的文件夹</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Components" xml:space="preserve">
+    <value>组件</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Skills" xml:space="preserve">
+    <value>技能</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Skills_Description" xml:space="preserve">
+    <value>代理按需加载的 Beutl 编辑专业知识</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Subagents" xml:space="preserve">
+    <value>子代理</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Subagents_Description" xml:space="preserve">
+    <value>用于时间轴、外观和质量审查任务的专用代理定义</value>
+    <comment />
+  </data>
+  <data name="AiAgents_StdioMcp" xml:space="preserve">
+    <value>Stdio MCP 服务器</value>
+    <comment />
+  </data>
+  <data name="AiAgents_StdioMcp_Description" xml:space="preserve">
+    <value>可选的无头服务器，无需启动 GUI 即可编辑项目文件</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcp" xml:space="preserve">
+    <value>实时 MCP 服务器</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcp_Description" xml:space="preserve">
+    <value>推荐：将代理连接到正在运行的编辑器；编辑会实时显示在预览和撤销历史中</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcp_NotRunning" xml:space="preserve">
+    <value>实时 MCP 端点未运行</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcpUrl" xml:space="preserve">
+    <value>实时 MCP URL</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcpUrl_Description" xml:space="preserve">
+    <value>MCP 客户端的连接 URL。每次请求都发送下面的身份验证标头——像对待密码一样对待它</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Advanced" xml:space="preserve">
+    <value>高级</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Advanced_Description" xml:space="preserve">
+    <value>覆盖文件夹名称和 MCP 配置文件，以及 stdio 服务器命令行。空字段使用所选代理的默认值</value>
+    <comment />
+  </data>
+  <data name="AiAgents_SkillsDirectory" xml:space="preserve">
+    <value>技能文件夹</value>
+    <comment />
+  </data>
+  <data name="AiAgents_SubagentsDirectory" xml:space="preserve">
+    <value>子代理文件夹</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpConfigFileName" xml:space="preserve">
+    <value>MCP 配置文件</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpServersPropertyName" xml:space="preserve">
+    <value>服务器属性</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpCommand" xml:space="preserve">
+    <value>命令</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpArguments" xml:space="preserve">
+    <value>参数（每行一个）</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Install" xml:space="preserve">
+    <value>安装</value>
+    <comment />
+  </data>
+  <data name="AiAgents_InstallCompleted" xml:space="preserve">
+    <value>已安装 {0} 个文件。</value>
+    <comment />
+  </data>
+  <data name="AiAgents_InstalledFiles" xml:space="preserve">
+    <value>已安装的文件</value>
+    <comment />
+  </data>
+  <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
+    <value>选择工作区根目录</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Agent" xml:space="preserve">
+    <value>代理</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Agent_Description" xml:space="preserve">
+    <value>要为其安装工具包的 AI 编码代理（文件夹约定遵循每个代理）</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Agent_Custom" xml:space="preserve">
+    <value>自定义（手动路径）</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Scope" xml:space="preserve">
+    <value>安装范围</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Scope_Description" xml:space="preserve">
+    <value>项目安装到项目文件夹中；全局安装到您的用户配置文件中</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Scope_Project" xml:space="preserve">
+    <value>项目</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Scope_Global" xml:space="preserve">
+    <value>全局（用户配置文件）</value>
+    <comment />
+  </data>
+  <data name="AiAgents_ProjectFolder" xml:space="preserve">
+    <value>项目文件夹</value>
+    <comment />
+  </data>
+  <data name="AiAgents_ProjectFolder_Description" xml:space="preserve">
+    <value>代理在其中运行的存储库或项目文件夹</value>
+    <comment />
+  </data>
+  <data name="AiAgents_SelectProjectFolder" xml:space="preserve">
+    <value>选择项目文件夹</value>
+    <comment />
+  </data>
+  <data name="AiAgents_ProjectFolderMissing" xml:space="preserve">
+    <value>请先选择项目文件夹。</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Destinations" xml:space="preserve">
+    <value>安装目标路径</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Destinations_Description" xml:space="preserve">
+    <value>所选代理和范围放置每个组件的位置</value>
+    <comment />
+  </data>
+  <data name="AiAgents_NotSupported" xml:space="preserve">
+    <value>此代理不支持</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpManual" xml:space="preserve">
+    <value>无法自动写入此代理的 MCP 配置。请在代理自己的设置中手动注册 MCP 服务器。</value>
+    <comment />
+  </data>
+  <data name="AiAgents_CliFailed" xml:space="preserve">
+    <value>通过代理的 CLI 进行 MCP 注册失败。请手动运行该命令：
+{0}</value>
+    <comment />
+  </data>
+  <data name="AiAgents_StdioMissing" xml:space="preserve">
+    <value>在应用程序旁边未找到 stdio MCP 服务器二进制文件。在“高级”下输入命令，或重新安装 Beutl。</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcpAuthHeader" xml:space="preserve">
+    <value>身份验证标头</value>
+    <comment />
+  </data>
+  <data name="AiAgents_UpdateAvailable_Title" xml:space="preserve">
+    <value>AI 代理资源已更新</value>
+    <comment />
+  </data>
+  <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
+    <value>此版本的 Beutl 捆绑了比您安装的更新的技能和子代理。现在使用您保存的设置重新安装它们吗？您在目标位置手动编辑的文件将被覆盖。</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Reinstall" xml:space="preserve">
+    <value>重新安装</value>
+    <comment />
+  </data>
+</root>

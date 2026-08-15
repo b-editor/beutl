@@ -59,23 +59,37 @@ public partial class FrameCacheManager
             try
             {
                 // Resize if needed
+                // Alpha type is part of the stored representation: the branch below draws into a
+                // Premul surface, so unpremultiplied input that skipped it would be read as premultiplied.
                 if (newSize.Width < size.Width ||
                     newSize.Height < size.Height ||
                     bitmap.ColorType != BitmapColorType.Bgra8888 ||
+                    bitmap.AlphaType != BitmapAlphaType.Premul ||
                     bitmap.ColorSpace != BitmapColorSpace.Srgb)
                 {
                     var newWidth = Math.Min(size.Width, newSize.Width);
                     var newHeight = Math.Min(size.Height, newSize.Height);
-                    var resized = current.SKBitmap.Resize(
-                        new SKImageInfo(newWidth, newHeight, SKColorType.Bgra8888, SKAlphaType.Premul, SKColorSpace.CreateSrgb()),
-                        new SKSamplingOptions(SKFilterMode.Linear));
-                    if (resized != null)
+                    var resized = new SKBitmap(new SKImageInfo(
+                        newWidth, newHeight, SKColorType.Bgra8888, SKAlphaType.Premul, SKColorSpace.CreateSrgb()));
+                    // SKBitmap.Resize cannot dither (it takes no SKPaint) and only DrawImage takes
+                    // SKSamplingOptions, so the linear downscale has to go through an SKImage.
+                    // Wrapping the pixmap avoids the full-frame copy SKImage.FromBitmap would make
+                    // of this mutable source.
+                    using (var canvas = new SKCanvas(resized))
+                    using (var paint = new SKPaint { BlendMode = SKBlendMode.Src, IsDither = true })
+                    using (var pixmap = current.SKBitmap.PeekPixels())
+                    using (var image = pixmap is not null
+                               ? SKImage.FromPixels(pixmap)
+                               : SKImage.FromBitmap(current.SKBitmap))
                     {
-                        var resizedBitmap = new Bitmap(resized);
-                        if (ownsCurrentBitmap) bitmapRef.Dispose();
-                        current = resizedBitmap;
-                        ownsCurrentBitmap = true;
+                        canvas.DrawImage(image, new SKRect(0, 0, newWidth, newHeight),
+                            new SKSamplingOptions(SKFilterMode.Linear), paint);
                     }
+
+                    var resizedBitmap = new Bitmap(resized);
+                    if (ownsCurrentBitmap) bitmapRef.Dispose();
+                    current = resizedBitmap;
+                    ownsCurrentBitmap = true;
                 }
 
                 if (options.ColorType == FrameCacheColorType.YUV)
@@ -133,7 +147,9 @@ public partial class FrameCacheManager
         {
             if (!_isYuv)
             {
-                var bitmap = new Bitmap(_width, _height);
+                // ToCacheData draws into a Premul surface; labelling those pixels Unpremul makes the
+                // preview premultiply them a second time and darkens every translucent area.
+                var bitmap = new Bitmap(_width, _height, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
                 int srcStride = _width * 4;
                 int dstStride = bitmap.RowBytes;
 
@@ -160,7 +176,7 @@ public partial class FrameCacheManager
             }
             else
             {
-                var bitmap = new Bitmap(_width, _height);
+                var bitmap = new Bitmap(_width, _height, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
                 fixed (byte* yuvPtr = _data)
                 {
                     YuvConversion.I420ToBgra(yuvPtr, (byte*)bitmap.Data, bitmap.RowBytes, _width, _height);

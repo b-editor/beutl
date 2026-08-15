@@ -15,6 +15,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
     private readonly Stack<CanvasPushedState> _states = new();
+    private int _disposeClaimed;
     private Matrix _currentTransform;
     // Base CTM = CreateScale(SurfaceDensity); identity when density == 1.
     private readonly Matrix _baseTransform;
@@ -67,7 +68,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         // GC path swallows; explicit Dispose() still surfaces errors.
         try
         {
-            Dispose();
+            Dispose(disposing: false);
         }
         catch
         {
@@ -142,7 +143,9 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         Canvas.ClipPath(geometry.GetCachedPath(), operation.ToSKClipOperation(), true);
     }
 
-    public void Dispose()
+    public void Dispose() => Dispose(disposing: true);
+
+    private void Dispose(bool disposing)
     {
         void DisposeCore()
         {
@@ -170,17 +173,21 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             _sharedStrokePaint.Dispose();
         }
 
-        if (!IsDisposed)
+        // Claimed here, not inside DisposeCore: Run can return with the cleanup still queued, so a
+        // second Dispose would see IsDisposed false and queue a rival one, double-disposing the paints.
+        if (Interlocked.Exchange(ref _disposeClaimed, 1) != 0)
         {
-            if (_dispatcher == null)
-            {
-                DisposeCore();
-            }
-            else
-            {
-                _dispatcher?.Invoke(DisposeCore);
-            }
+            return;
         }
+
+        // A finalizer must not block on another thread, so it cannot take the bounded wait below.
+        if (!disposing && _dispatcher is { HasShutdownFinished: false } dispatcher && !dispatcher.CheckAccess())
+        {
+            dispatcher.Dispatch(DisposeCore);
+            return;
+        }
+
+        GpuResourceRelease.Run(_dispatcher, DisposeCore);
     }
 
     public void DrawSurface(SKSurface surface, Point point)

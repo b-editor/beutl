@@ -6,3 +6,10 @@ root = true
 
 [*]
 generated_code = true
+
+# generated_code = true also makes the compiler treat every submodule file as auto-generated, and
+# auto-generated code needs an explicit `#nullable` directive before it may use nullable annotations
+# — otherwise every `?` raises CS8669. These are upstream sources we deliberately do not edit, so
+# silence that warning here rather than patching the vendored files.
+[*.cs]
+dotnet_diagnostic.CS8669.severity = none

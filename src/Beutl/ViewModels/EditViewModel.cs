@@ -112,7 +112,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         // Derived from Renderer so the swap is ordered: cache subscribers see the new Renderer.
         FrameCacheManager = Renderer
-            .Select(r => new FrameCacheManager(r.FrameSize, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
+            .Select(r => new FrameCacheManager(r.FrameSize, CreateFrameCacheOptions(), CreateFrameCacheMaxSize())
+            {
+                IsEnabled = config.IsFrameCacheEnabled
+            })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -180,6 +183,13 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         RestoreState();
 
         _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
+    }
+
+    private static IObservable<long> CreateFrameCacheMaxSize()
+    {
+        return GlobalConfiguration.Instance.EditorConfig
+            .GetObservable(EditorConfig.FrameCacheMaxSizeProperty)
+            .Select(v => (long)(v * 1024 * 1024));
     }
 
     private static FrameCacheOptions CreateFrameCacheOptions()

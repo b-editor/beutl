@@ -1,4 +1,5 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Testing.Headless;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
@@ -8,50 +9,31 @@ namespace Beutl.UnitTests.Api;
 [NonParallelizable]
 public class InstalledPackageRepositoryTests
 {
-    private string? _previousHome;
-    private string? _tempHome;
+    private static string InstalledPackagesFile => Path.Combine(Helper.AppRoot, "installedPackages.json");
 
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
+    [SetUp]
+    public void SetUp()
     {
-        _previousHome = Environment.GetEnvironmentVariable("BEUTL_HOME");
-        _tempHome = Path.Combine(Path.GetTempPath(), $"beutl-repo-tests-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_tempHome);
-        Environment.SetEnvironmentVariable("BEUTL_HOME", _tempHome);
+        Assert.That(
+            Helper.AppRoot,
+            Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        File.Delete(InstalledPackagesFile);
     }
 
-    [OneTimeTearDown]
-    public void OneTimeTearDown()
+    [TearDown]
+    public void TearDown()
     {
-        Environment.SetEnvironmentVariable("BEUTL_HOME", _previousHome);
-        try
-        {
-            if (_tempHome is not null && Directory.Exists(_tempHome))
-            {
-                Directory.Delete(_tempHome, recursive: true);
-            }
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+        Assert.That(
+            Helper.AppRoot,
+            Is.EqualTo(BeutlHomeIsolation.CurrentHome));
 
-    // Helper.AppRoot is pinned by its static ctor at first use; skip I/O tests when isolation
-    // took effect too late, so they never write to the developer's real ~/.beutl.
-    private bool IsHomeIsolated => _tempHome is not null
-        && Helper.AppRoot.StartsWith(_tempHome, StringComparison.OrdinalIgnoreCase);
+        File.Delete(InstalledPackagesFile);
+    }
 
     [Test]
     public void GetPackageObservable_EmitsNull_WhenNotInstalled()
     {
-        if (!IsHomeIsolated)
-        {
-            Assert.Ignore("BEUTL_HOME isolation took effect after Helper.AppRoot was pinned; skipping I/O test.");
-        }
-
         const string name = "Beutl.Package.UpdateTest.None";
         var repo = new InstalledPackageRepository();
 
@@ -64,11 +46,6 @@ public class InstalledPackageRepositoryTests
     [Test]
     public void GetPackageObservable_EmitsInstalledIdentity_AfterUpgrade()
     {
-        if (!IsHomeIsolated)
-        {
-            Assert.Ignore("BEUTL_HOME isolation took effect after Helper.AppRoot was pinned; skipping I/O test.");
-        }
-
         const string name = "Beutl.Package.UpdateTest.Upgrade";
         var repo = new InstalledPackageRepository();
 
@@ -85,11 +62,6 @@ public class InstalledPackageRepositoryTests
     [Test]
     public void GetObservable_Bool_DoesNotFlashFalse_DuringUpgrade()
     {
-        if (!IsHomeIsolated)
-        {
-            Assert.Ignore("BEUTL_HOME isolation took effect after Helper.AppRoot was pinned; skipping I/O test.");
-        }
-
         const string name = "Beutl.Package.UpdateTest.Flash";
         var repo = new InstalledPackageRepository();
         repo.UpgradePackages(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
@@ -105,11 +77,6 @@ public class InstalledPackageRepositoryTests
     [Test]
     public void GetObservable_ForVersion_TracksEquivalentIdentityInstances()
     {
-        if (!IsHomeIsolated)
-        {
-            Assert.Ignore("BEUTL_HOME isolation took effect after Helper.AppRoot was pinned; skipping I/O test.");
-        }
-
         const string name = "Beutl.Package.UpdateTest.Version";
         const string version = "1.0.0";
         var repo = new InstalledPackageRepository();

@@ -2,9 +2,12 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
+using Avalonia.Threading;
+
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.Services;
 
@@ -77,6 +80,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     public List<KeyValuePair<int, LibraryItemViewModel>> AllItems { get; }
 
     public ReactiveCollection<KeyValuePair<int, LibraryItemViewModel>> SearchResult { get; } = [];
+
 
     public int SelectedTab { get; set; } = 2;
 
@@ -152,5 +156,5 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public string Header => Strings.Library;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Library);
 }

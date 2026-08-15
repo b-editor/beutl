@@ -71,8 +71,9 @@
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.Avalonia.Fluent" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <!-- Microsoft.Extensions.DependencyInjection / .Logging are supplied by the
+         Microsoft.AspNetCore.App FrameworkReference below, so referencing the packages here is
+         redundant (NU1510). -->
     <PackageReference Include="ModelContextProtocol" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="OpenTelemetry" />

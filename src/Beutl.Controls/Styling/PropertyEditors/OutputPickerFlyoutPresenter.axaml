@@ -11,14 +11,14 @@
                   BasedOn="{StaticResource TransparentToggleButton}"
                   TargetType="ToggleButton">
         <Setter Property="Padding" Value="6,5,6,6" />
-        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </ControlTheme>
 
     <ControlTheme x:Key="OutputPicker_MoreButton"
                   BasedOn="{StaticResource TransparentButton}"
                   TargetType="Button">
         <Setter Property="Padding" Value="6,5,6,6" />
-        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </ControlTheme>
 
     <ControlTheme x:Key="OutputPicker_ListBoxItem" TargetType="ListBoxItem">

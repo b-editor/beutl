@@ -2,6 +2,12 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <!--
+        Elements are only LayerHeight tall and sit edge to edge, so the shell's ControlCornerRadius
+        reads as too round on them. This is a deliberate exception, not a spot that fell out of sync.
+    -->
+    <CornerRadius x:Key="TimelineElementCornerRadius">4</CornerRadius>
+
     <ControlTheme x:Key="LayerHeaderColorPickerButtonTheme"
                   TargetType="ui:ColorPickerButton"
                   BasedOn="{StaticResource {x:Type ui:ColorPickerButton}}">

@@ -205,11 +205,11 @@
         </Setter>
 
         <Style Selector="^.RGB /template/ ContentPresenter">
-            <Setter Property="CornerRadius" Value="4 0 0 4" />
+            <Setter Property="CornerRadius" Value="{Binding Source={StaticResource ControlCornerRadius}, Converter={StaticResource LeftCornerRadiusFilterConverter}}" />
             <Setter Property="BorderThickness" Value="1 1 0 1" />
         </Style>
         <Style Selector="^.HSV /template/ ContentPresenter">
-            <Setter Property="CornerRadius" Value="0 4 4 0" />
+            <Setter Property="CornerRadius" Value="{Binding Source={StaticResource ControlCornerRadius}, Converter={StaticResource RightCornerRadiusFilterConverter}}" />
             <Setter Property="BorderThickness" Value="0 1 1 1" />
         </Style>
         <Style Selector="^:pointerover /template/ ContentPresenter">
@@ -437,7 +437,7 @@
                                         Grid.Column="4"
                                         Height="48"
                                         Background="{x:Static ui:ColorRamp.CheckeredBrush}"
-                                        CornerRadius="4" />
+                                        CornerRadius="{DynamicResource ControlCornerRadius}" />
                                 <Border Name="CurrentColorPreviewBorder"
                                         Grid.Row="1"
                                         Grid.Column="4"

@@ -19,6 +19,7 @@
             <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="#181818" />
             <SolidColorBrush x:Key="DockSurfaceEditorBrush" Color="#1C1C1C" />
             <SolidColorBrush x:Key="DockSurfacePanelBrush" Color="#1A1A1A" />
+            <SolidColorBrush x:Key="TerminalForegroundBrush" Color="{DynamicResource TextFillColorPrimary}" />
             <SolidColorBrush x:Key="DockSurfaceHeaderBrush" Color="#202020" />
             <SolidColorBrush x:Key="DockSurfaceHeaderActiveBrush" Color="#262626" />
 
@@ -49,6 +50,7 @@
             <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="{DynamicResource LayerFillColorDefault}" />
             <SolidColorBrush x:Key="DockSurfaceEditorBrush" Color="{DynamicResource ControlFillColorDefault}" />
             <SolidColorBrush x:Key="DockSurfacePanelBrush" Color="{DynamicResource LayerFillColorDefault}" />
+            <SolidColorBrush x:Key="TerminalForegroundBrush" Color="{DynamicResource TextFillColorPrimary}" />
             <SolidColorBrush x:Key="DockSurfaceHeaderBrush" Color="{DynamicResource SubtleFillColorSecondary}" />
             <SolidColorBrush x:Key="DockSurfaceHeaderActiveBrush" Color="{DynamicResource SubtleFillColorTertiary}" />
 
@@ -98,7 +100,8 @@
     <sys:Double x:Key="DockFontSizeNormal">12</sys:Double>
 
     <!--  ===== Geometry / density =====  -->
-    <sys:Double x:Key="DockCornerRadiusSmall">4</sys:Double>
+    <!--  The radii below mirror ControlCornerRadius; upstream Dock keys take a Double or only some corners.  -->
+    <sys:Double x:Key="DockCornerRadiusSmall">8</sys:Double>
     <sys:Double x:Key="DockHeaderHeight">28</sys:Double>
     <sys:Double x:Key="DockTabHeight">28</sys:Double>
     <sys:Double x:Key="DockTabItemMinHeight">26</sys:Double>
@@ -111,8 +114,8 @@
     <Thickness x:Key="DockDocumentTabItemPadding">10,4,10,4</Thickness>
     <Thickness x:Key="DockToolTabItemPadding">8,2,8,2</Thickness>
     <Thickness x:Key="DockToolTabItemSelectedPadding">8,2,8,2</Thickness>
-    <CornerRadius x:Key="DockDocumentTabItemCornerRadius">4,4,0,0</CornerRadius>
-    <CornerRadius x:Key="DockDocumentTabCreateButtonCornerRadius">4</CornerRadius>
+    <CornerRadius x:Key="DockDocumentTabItemCornerRadius">8,8,0,0</CornerRadius>
+    <CornerRadius x:Key="DockDocumentTabCreateButtonCornerRadius">8</CornerRadius>
 
     <sys:Double x:Key="DockIconSizeSmall">12</sys:Double>
     <sys:Double x:Key="DockIconSizeNormal">14</sys:Double>

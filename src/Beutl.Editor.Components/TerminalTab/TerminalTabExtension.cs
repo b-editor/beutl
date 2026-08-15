@@ -20,6 +20,8 @@ public sealed class TerminalTabExtension : ToolTabExtension
 
     public override bool CanMultiple => true;
 
+    public override bool ReuseContentAcrossActivation => true;
+
     public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)

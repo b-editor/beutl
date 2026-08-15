@@ -41,6 +41,7 @@ public class ElementObjectServiceTests
         if (Directory.Exists(_basePath)) Directory.Delete(_basePath, recursive: true);
     }
 
+    [SuppressResourceClassGeneration]
     private sealed class TestEngineObject : EngineObject;
 
     [Test]

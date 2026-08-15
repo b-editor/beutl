@@ -61,7 +61,7 @@ public class InstalledPackageRepository : IBeutlApiResource
     {
         _logger.LogInformation("Adding package: {PackageName} with version: {PackageVersion}", name, version);
         var package = new PackageIdentity(name, new NuGetVersion(version));
-        string installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
+        string? installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
         if (!Directory.Exists(installedPath))
         {
             _logger.LogError("Directory not found for package: {PackageName} with version: {PackageVersion}", name, version);
@@ -81,7 +81,7 @@ public class InstalledPackageRepository : IBeutlApiResource
     public void AddPackage(PackageIdentity package)
     {
         _logger.LogInformation("Adding package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
-        string installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
+        string? installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
         if (!Directory.Exists(installedPath))
         {
             _logger.LogError("Directory not found for package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);

@@ -26,6 +26,7 @@ public class RenderNodeProcessor(
 
     public void Render(ImmediateCanvas canvas)
     {
+        Root.PrepareForProcess(canvas);
         var ops = PullToRoot();
         int consumed = 0;
         try
