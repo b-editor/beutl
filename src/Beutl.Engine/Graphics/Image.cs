@@ -31,6 +31,11 @@ public static partial class Image
         s_extensionToFormat = list.ToFrozenDictionary();
     }
 
+    /// <summary>
+    /// The still-image file extensions Skia has a format for, each with a leading dot.
+    /// </summary>
+    public static IReadOnlyCollection<string> SupportedExtensions => s_extensionToFormat.Keys;
+
     public static Bitmap ToBitmap(
         this SKImage self,
         BitmapColorType? colorType = null,
