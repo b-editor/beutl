@@ -20,11 +20,34 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 /// samples. The near-zero alpha band and the non-zero alpha-offset matrix specifically pin the two cases a
 /// transparency shortcut inside the stage would get wrong: an alpha offset can make a transparent pixel
 /// visible, and a tiny alpha still unpremultiplies into a saturating value rather than into nothing.
+/// <para>
+/// Parity is bounded, not bit-exact. Skia carries the matrix in <c>half</c> uniforms, so on a backend whose
+/// <c>half</c> is real fp16 (Metal through MoltenVK) the reference itself works from coefficients quantized
+/// to about 2^-11 relative, while this stage takes them at float precision; a backend that evaluates
+/// <c>half</c> at float precision (SwiftShader) makes that quantization a no-op and the two agree bit for
+/// bit. Feeding both paths fp16-rounded coefficients collapses the divergence, which is what identifies it.
+/// </para>
+/// <para>
+/// Two bounds hold together because neither one alone covers the sweep. The absolute bound expresses the
+/// coefficient quantization, but says nothing about the near-zero alpha band, whose outputs are subnormal
+/// and orders of magnitude under it - a stage that blanked that band would pass it. The code-distance bound
+/// covers the band, where quantizing a coefficient cannot move a result more than a code or so, and is left
+/// off the normal range, where near-cancellation legitimately amplifies the same quantization into tens of
+/// codes.
+/// </para>
 /// </remarks>
 [NonParallelizable]
 [TestFixture]
 public sealed class ColorFilterShaderParityTests
 {
+    /// <summary>Two fp16 steps at 1.0: the reference's own coefficient precision.</summary>
+    private const double MaximumAbsoluteError = 1.0 / 1024;
+
+    /// <summary>The largest half value below the smallest normal, so only subnormal outputs are compared.</summary>
+    private const float SubnormalMagnitudeCeiling = 6.103515625e-5f;
+
+    private const int MaximumSubnormalStorageCodeDistance = 2;
+
     private static readonly Rect s_bounds = new(0, 0, Sweep.Width, Sweep.Height);
 
     [TestCaseSource(nameof(Amounts))]
@@ -37,24 +60,10 @@ public sealed class ColorFilterShaderParityTests
             float[] matrix = new float[ColorMatrixShader.SkiaColorMatrixLength];
             ColorMatrix.CreateBrightness(amount, matrix);
 
-            using Bitmap skia = Execute(context => AppendSkiaColorMatrix(context, matrix));
-            using Bitmap shader = Execute(context => context.Shader(ColorMatrixShader.CurrentPixel(matrix)));
-
-            RgbaMaximumError error = ImageMetrics.MaximumAbsoluteErrorPerChannel(skia, shader);
-            TestContext.WriteLine(
-                $"amount={amount:R} max per-channel error r={error.Red:R} g={error.Green:R} "
-                + $"b={error.Blue:R} a={error.Alpha:R}");
-
-            Assert.That(
-                ImageMetrics.FirstNonFinite(("skia", skia), ("shader", shader)),
-                Is.Null,
-                "Both color-matrix paths must produce finite RGBA16F values.");
-            Assert.That(
-                error.Maximum,
-                Is.Zero,
-                "The shader color matrix must reproduce the Skia color filter bit-exactly; measured max "
-                + $"per-channel error r={error.Red:R} g={error.Green:R} b={error.Blue:R} a={error.Alpha:R} "
-                + $"at amount {amount:R}.");
+            AssertStorageCodeParity(
+                $"ColorMatrix amount={amount:R}",
+                context => AppendSkiaColorMatrix(context, matrix),
+                context => context.Shader(ColorMatrixShader.CurrentPixel(matrix)));
         });
     }
 
@@ -71,23 +80,10 @@ public sealed class ColorFilterShaderParityTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap skia = Execute(context => AppendSkiaColorMatrix(context, matrix));
-            using Bitmap shader = Execute(context => context.Shader(ColorMatrixShader.CurrentPixel(matrix)));
-
-            RgbaMaximumError error = ImageMetrics.MaximumAbsoluteErrorPerChannel(skia, shader);
-            TestContext.WriteLine(
-                $"{name} max per-channel error r={error.Red:R} g={error.Green:R} "
-                + $"b={error.Blue:R} a={error.Alpha:R}");
-
-            Assert.That(
-                ImageMetrics.FirstNonFinite(("skia", skia), ("shader", shader)),
-                Is.Null,
-                "Both color-matrix paths must produce finite RGBA16F values.");
-            Assert.That(
-                error.Maximum,
-                Is.Zero,
-                $"The shader color matrix must reproduce the Skia color filter bit-exactly for {name}; measured "
-                + $"max per-channel error r={error.Red:R} g={error.Green:R} b={error.Blue:R} a={error.Alpha:R}.");
+            AssertStorageCodeParity(
+                name,
+                context => AppendSkiaColorMatrix(context, matrix),
+                context => context.Shader(ColorMatrixShader.CurrentPixel(matrix)));
         });
     }
 
@@ -118,7 +114,7 @@ public sealed class ColorFilterShaderParityTests
     [TestCase(0.35f)]
     [TestCase(2f)]
     [Category("GpuPassFusionGpu")]
-    public void Saturate_MatchesTheSkiaColorFilterBitExactly(float amount)
+    public void Saturate_MatchesTheSkiaColorFilterWithinOneStorageCode(float amount)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -126,7 +122,7 @@ public sealed class ColorFilterShaderParityTests
             float[] matrix = new float[ColorMatrixShader.SkiaColorMatrixLength];
             ColorMatrix.CreateSaturateMatrix(amount, matrix);
 
-            AssertBitExactParity(
+            AssertStorageCodeParity(
                 $"Saturate amount={amount:R}",
                 context => AppendSkiaColorMatrix(context, matrix),
                 context => context.Saturate(amount));
@@ -137,7 +133,7 @@ public sealed class ColorFilterShaderParityTests
     [TestCase(180f)]
     [TestCase(-45f)]
     [Category("GpuPassFusionGpu")]
-    public void HueRotate_MatchesTheSkiaColorFilterBitExactly(float degrees)
+    public void HueRotate_MatchesTheSkiaColorFilterWithinOneStorageCode(float degrees)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -145,7 +141,7 @@ public sealed class ColorFilterShaderParityTests
             float[] matrix = new float[ColorMatrixShader.SkiaColorMatrixLength];
             ColorMatrix.CreateHueRotateMatrix(degrees, matrix);
 
-            AssertBitExactParity(
+            AssertStorageCodeParity(
                 $"HueRotate degrees={degrees:R}",
                 context => AppendSkiaColorMatrix(context, matrix),
                 context => context.HueRotate(degrees));
@@ -154,7 +150,7 @@ public sealed class ColorFilterShaderParityTests
 
     [TestCaseSource(nameof(LightingCases))]
     [Category("GpuPassFusionGpu")]
-    public void Lighting_WithNonZeroOffsetsMatchesTheSkiaColorFilterBitExactly(
+    public void Lighting_WithNonZeroOffsetsMatchesTheSkiaColorFilterWithinOneStorageCode(
         string name,
         Color multiply,
         Color add)
@@ -164,7 +160,7 @@ public sealed class ColorFilterShaderParityTests
         {
             float[] matrix = CreateLightingMatrix(multiply, add);
 
-            AssertBitExactParity(
+            AssertStorageCodeParity(
                 $"Lighting {name} multiply={multiply} add={add}",
                 context => AppendSkiaColorMatrix(context, matrix),
                 context => context.Lighting(multiply, add));
@@ -212,10 +208,10 @@ public sealed class ColorFilterShaderParityTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void LumaColor_MatchesTheSkiaColorFilterBitExactly()
+    public void LumaColor_MatchesTheSkiaColorFilterWithinOneStorageCode()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() => AssertBitExactParity(
+        VulkanTestEnvironment.InvokeOnRenderThread(() => AssertStorageCodeParity(
             "LumaColor",
             static context => context.AppendSKColorFilter(
                 Unit.Default,
@@ -225,13 +221,13 @@ public sealed class ColorFilterShaderParityTests
 
     [TestCaseSource(nameof(HighContrastCases))]
     [Category("GpuPassFusionGpu")]
-    public void HighContrast_MatchesTheSkiaColorFilterBitExactly(
+    public void HighContrast_MatchesTheSkiaColorFilterWithinOneStorageCode(
         bool grayscale,
         HighContrastInvertStyle invertStyle,
         float contrast)
     {
         VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() => AssertBitExactParity(
+        VulkanTestEnvironment.InvokeOnRenderThread(() => AssertStorageCodeParity(
             $"HighContrast grayscale={grayscale} invert={invertStyle} contrast={contrast:R}",
             context => context.AppendSKColorFilter(
                 Unit.Default,
@@ -450,7 +446,7 @@ public sealed class ColorFilterShaderParityTests
         return matrix;
     }
 
-    private static void AssertBitExactParity(
+    private static void AssertStorageCodeParity(
         string label,
         Action<FilterEffectContext> appendSkia,
         Action<FilterEffectContext> appendShader)
@@ -459,9 +455,14 @@ public sealed class ColorFilterShaderParityTests
         using Bitmap shader = Execute(appendShader);
 
         RgbaMaximumError error = ImageMetrics.MaximumAbsoluteErrorPerChannel(skia, shader);
+        RgbaMaximumError codes = ImageMetrics.MaximumStorageCodeDistancePerChannel(
+            skia,
+            shader,
+            SubnormalMagnitudeCeiling);
         TestContext.WriteLine(
             $"{label} max per-channel error r={error.Red:R} g={error.Green:R} "
-            + $"b={error.Blue:R} a={error.Alpha:R}");
+            + $"b={error.Blue:R} a={error.Alpha:R}; subnormal codes r={codes.Red} g={codes.Green} "
+            + $"b={codes.Blue} a={codes.Alpha}");
 
         Assert.That(
             ImageMetrics.FirstNonFinite(("skia", skia), ("shader", shader)),
@@ -469,9 +470,17 @@ public sealed class ColorFilterShaderParityTests
             $"Both {label} paths must produce finite RGBA16F values.");
         Assert.That(
             error.Maximum,
-            Is.Zero,
-            $"The CurrentPixel {label} path must reproduce the Skia color filter bit-exactly; measured max "
-            + $"per-channel error r={error.Red:R} g={error.Green:R} b={error.Blue:R} a={error.Alpha:R}.");
+            Is.LessThanOrEqualTo(MaximumAbsoluteError),
+            $"The CurrentPixel {label} path must reproduce the Skia color filter to within the precision "
+            + $"Skia itself carries; measured max per-channel error r={error.Red:R} g={error.Green:R} "
+            + $"b={error.Blue:R} a={error.Alpha:R}.");
+        Assert.That(
+            codes.Maximum,
+            Is.LessThanOrEqualTo(MaximumSubnormalStorageCodeDistance),
+            $"The CurrentPixel {label} path must stay within {MaximumSubnormalStorageCodeDistance} RgbaF16 "
+            + "codes of the Skia color filter across the subnormal band, where the absolute bound above is "
+            + $"too coarse to see anything; measured max per-channel distance r={codes.Red} g={codes.Green} "
+            + $"b={codes.Blue} a={codes.Alpha}.");
     }
 
     private static void AssertRecordsOneCurrentPixelStage(Action<FilterEffectContext> record)

@@ -44,6 +44,9 @@ public class ImageMetricsTests
         return bmp;
     }
 
+    private static void SetCode(Bitmap bitmap, int x, int y, int channel, int code)
+        => bitmap.GetRow<ushort>(y)[(x * 4) + channel] = (ushort)code;
+
     private static void SetPremultipliedGray(Bitmap bitmap, int x, int y, float coverage)
     {
         Span<ushort> row = bitmap.GetRow<ushort>(y);
@@ -85,6 +88,72 @@ public class ImageMetricsTests
             Assert.That(error.Alpha, Is.EqualTo(0.75));
             Assert.That(error.Maximum, Is.EqualTo(0.75));
             Assert.That(error[2], Is.EqualTo(error.Blue));
+        });
+    }
+
+    [Test]
+    public void MaximumStorageCodeDistancePerChannel_CountsAdjacentCodesAsOneAtEveryMagnitude()
+    {
+        using var a = Flat(2, 2, 0, 0, 0, 0);
+        using var b = Flat(2, 2, 0, 0, 0, 0);
+        // The subnormal step (2^-24) and the step below one (2^-11) differ by 8192x in absolute terms,
+        // so only a code distance scores them the same.
+        SetCode(b, 0, 0, 0, BitConverter.HalfToUInt16Bits((Half)0f) + 1);
+        SetCode(a, 0, 0, 1, BitConverter.HalfToUInt16Bits((Half)1f));
+        SetCode(b, 0, 0, 1, BitConverter.HalfToUInt16Bits((Half)1f) + 1);
+        SetCode(a, 0, 0, 2, BitConverter.HalfToUInt16Bits((Half)0.5f));
+        SetCode(b, 0, 0, 2, BitConverter.HalfToUInt16Bits((Half)0.5f) - 1);
+
+        RgbaMaximumError codes = ImageMetrics.MaximumStorageCodeDistancePerChannel(a, b);
+        RgbaMaximumError absolute = ImageMetrics.MaximumAbsoluteErrorPerChannel(a, b);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(codes, Is.EqualTo(new RgbaMaximumError(1, 1, 1, 0)));
+            Assert.That(absolute.Red, Is.LessThan(absolute.Green));
+        });
+    }
+
+    [Test]
+    public void MaximumStorageCodeDistancePerChannel_OrdersTheCodesAcrossZero()
+    {
+        using var a = Flat(2, 2, 0, 0, 0, 1);
+        using var b = Flat(2, 2, 0, 0, 0, 1);
+        SetCode(a, 1, 1, 0, 0x8000);
+        SetCode(b, 1, 1, 1, 0x8001);
+        SetCode(b, 1, 1, 2, BitConverter.HalfToUInt16Bits((Half)1f));
+
+        RgbaMaximumError codes = ImageMetrics.MaximumStorageCodeDistancePerChannel(a, b);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(codes.Red, Is.Zero, "negative zero is the same value as positive zero.");
+            Assert.That(codes.Green, Is.EqualTo(1), "the first negative subnormal is one step below zero.");
+            Assert.That(codes.Blue, Is.GreaterThan(1));
+        });
+    }
+
+    [Test]
+    public void MaximumStorageCodeDistancePerChannel_IgnoresChannelsAboveTheCeiling()
+    {
+        const float subnormalCeiling = 6.103515625e-5f;
+        using var a = Flat(2, 2, 0, 0, 0, 1);
+        using var b = Flat(2, 2, 0, 0, 0, 1);
+        SetCode(a, 0, 0, 0, 8);
+        SetCode(b, 0, 0, 0, 12);
+        SetCode(b, 0, 0, 1, BitConverter.HalfToUInt16Bits((Half)0.5f));
+
+        RgbaMaximumError bounded = ImageMetrics.MaximumStorageCodeDistancePerChannel(a, b, subnormalCeiling);
+        RgbaMaximumError unbounded = ImageMetrics.MaximumStorageCodeDistancePerChannel(a, b);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bounded.Red, Is.EqualTo(4), "subnormal samples stay in the comparison.");
+            Assert.That(bounded.Green, Is.Zero, "a sample at or above the ceiling drops out.");
+            Assert.That(unbounded.Green, Is.GreaterThan(0));
+            Assert.That(
+                () => ImageMetrics.MaximumStorageCodeDistancePerChannel(a, b, 0),
+                Throws.InstanceOf<ArgumentOutOfRangeException>());
         });
     }
 

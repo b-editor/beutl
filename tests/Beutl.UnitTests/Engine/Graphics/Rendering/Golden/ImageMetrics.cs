@@ -100,6 +100,53 @@ internal static class ImageMetrics
     }
 
     /// <summary>
+    /// Returns the largest per-channel distance in RgbaF16 storage codes, where 1 is a single
+    /// representable step at that magnitude, over the channels whose two samples are both below
+    /// <paramref name="magnitudeCeiling"/>.
+    /// </summary>
+    /// <remarks>
+    /// An absolute-error bound cannot express "one step" for a half-float buffer: the step is 2^-24 near
+    /// zero and 2^-11 near one, so a bound tight enough for the top of the range rejects an adjacent code
+    /// at the bottom of it. The ceiling exists for the reverse case: it restricts the comparison to the
+    /// magnitudes where an absolute bound is too coarse to say anything at all. Non-finite codes carry no
+    /// ordering; pair this with <see cref="FirstNonFinite"/>.
+    /// </remarks>
+    public static RgbaMaximumError MaximumStorageCodeDistancePerChannel(
+        Bitmap a,
+        Bitmap b,
+        float magnitudeCeiling = float.PositiveInfinity)
+    {
+        EnsureComparable(a, b);
+        if (float.IsNaN(magnitudeCeiling) || magnitudeCeiling <= 0)
+            throw new ArgumentOutOfRangeException(nameof(magnitudeCeiling));
+
+        Span<int> maximum = stackalloc int[ChannelCount];
+        for (int y = 0; y < a.Height; y++)
+        {
+            ReadOnlySpan<ushort> rowA = a.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> rowB = b.GetRow<ushort>(y);
+            for (int x = 0; x < a.Width; x++)
+            {
+                int offset = x * ChannelCount;
+                for (int channel = 0; channel < ChannelCount; channel++)
+                {
+                    ushort codeA = rowA[offset + channel];
+                    ushort codeB = rowB[offset + channel];
+                    if (Math.Abs(HalfBitsToFloat(codeA)) >= magnitudeCeiling
+                        || Math.Abs(HalfBitsToFloat(codeB)) >= magnitudeCeiling)
+                    {
+                        continue;
+                    }
+
+                    maximum[channel] = Math.Max(maximum[channel], StorageCodeDistance(codeA, codeB));
+                }
+            }
+        }
+
+        return new RgbaMaximumError(maximum[0], maximum[1], maximum[2], maximum[3]);
+    }
+
+    /// <summary>
     /// Computes RGBA MAE over the nontrivial coverage band in <paramref name="reference"/>.
     /// </summary>
     /// <remarks>
@@ -408,6 +455,18 @@ internal static class ImageMetrics
         => Math.Abs(HalfBitsToFloat(a) - HalfBitsToFloat(b));
 
     private static float HalfBitsToFloat(ushort bits) => (float)BitConverter.UInt16BitsToHalf(bits);
+
+    private static int StorageCodeDistance(ushort a, ushort b)
+        => Math.Abs(OrderedHalfCode(a) - OrderedHalfCode(b));
+
+    // Half is sign-magnitude, so its raw codes are not monotonic across zero. Mirroring the negative
+    // half restores the ordering that makes adjacent representable values exactly one apart, and folds
+    // -0 onto +0.
+    private static int OrderedHalfCode(ushort bits)
+    {
+        int magnitude = bits & 0x7FFF;
+        return (bits & 0x8000) != 0 ? -magnitude : magnitude;
+    }
 
     private static void EnsureComparable(Bitmap a, Bitmap b)
     {
