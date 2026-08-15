@@ -50,7 +50,7 @@ public sealed class TerminalTabViewModel : IToolContext
     /// </remarks>
     public ReactivePropertySlim<string?> TerminalTitle { get; } = new();
 
-    public IReadOnlyReactiveProperty<string> Header => _header;
+    public IReadOnlyReactiveProperty<string> TabTitle => _header;
 
     public string ShellPath { get; }
 

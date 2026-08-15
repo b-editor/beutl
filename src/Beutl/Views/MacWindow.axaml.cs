@@ -159,7 +159,7 @@ public sealed partial class MacWindow : Window
         // ToolTabExtensionをメニューに表示する
         NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
-            var menuItem = new NativeMenuItem() { Header = item.Header, CommandParameter = item };
+            var menuItem = new NativeMenuItem() { Header = item.MenuHeader, CommandParameter = item };
 
             menuItem.Click += (s, e) =>
             {
@@ -180,7 +180,7 @@ public sealed partial class MacWindow : Window
 
         viewModel.ToolTabExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
-            .Filter(i => i.Header != null)
+            .Filter(i => i.MenuHeader != null)
             .Cast(CreateToolTabMenuItem)
             .Bind(out ReadOnlyObservableCollection<NativeMenuItem>? list1)
             .Subscribe();

@@ -10,13 +10,16 @@ internal sealed class DirectoryWatcherService : IDisposable
 {
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
     private readonly ILogger _logger = Log.CreateLogger<DirectoryWatcherService>();
-    // A watcher that keeps failing (an exhausted inotify budget, an unreadable mount) would raise
-    // Error again the moment it is rebuilt, so the retries are capped rather than unbounded.
+    // A watcher failing for a persistent reason (an exhausted inotify budget, an unreadable mount)
+    // raises Error again the moment it is rebuilt, so rebuilding is capped. The cap counts
+    // *consecutive* failures: it must not disable a folder whose watcher recovered in between, and
+    // it must not be restored by a caller re-Watching the folder that is currently failing.
     private const int MaxErrorRearms = 3;
 
     private FileSystemWatcher? _watcher;
     private CancellationTokenSource? _debounceCts;
     private int _errorRearmCount;
+    private string? _failingPath;
 
     // ファイルシステムに変更があったときに発火する。UIスレッドで呼び出される。
     public event Action? Changed;
@@ -28,9 +31,13 @@ internal sealed class DirectoryWatcherService : IDisposable
 
     private void Watch(string? path, bool isErrorRearm)
     {
-        // The budget is per failing watcher, so any ordinary navigation clears it.
-        if (!isErrorRearm)
+        // Callers re-Watch the same path on unrelated state changes, so only a move to a different
+        // folder counts as leaving the failure behind.
+        if (!isErrorRearm && !string.Equals(_failingPath, path, StringComparison.Ordinal))
+        {
             _errorRearmCount = 0;
+            _failingPath = null;
+        }
 
         // A recursive watcher costs an inotify descriptor per subdirectory, so never rebuild one for
         // a path already being watched.
@@ -99,13 +106,15 @@ internal sealed class DirectoryWatcherService : IDisposable
             if (path is not null)
             {
                 _logger.LogWarning(
-                    "FileSystemWatcher for {Path} failed {Count} times; leaving it off until the folder changes",
+                    "FileSystemWatcher for {Path} failed {Count} times in a row; leaving it off until the folder changes",
                     path,
                     _errorRearmCount);
             }
 
             return false;
         }
+
+        _failingPath = path;
 
         _errorRearmCount++;
         Watch(path, isErrorRearm: true);
@@ -147,9 +156,24 @@ internal sealed class DirectoryWatcherService : IDisposable
         {
             if (!token.IsCancellationRequested)
             {
-                Dispatcher.UIThread.Post(() => Changed?.Invoke(), DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(
+                    () =>
+                    {
+                        MarkDelivered();
+                        Changed?.Invoke();
+                    },
+                    DispatcherPriority.Background);
             }
         }, token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+    }
+
+    // A delivered event proves the current watcher works, so the failures an earlier one racked up
+    // must not count towards the cap — otherwise scattered transient errors across a long session
+    // would eventually stop the folder updating for good.
+    internal void MarkDelivered()
+    {
+        _errorRearmCount = 0;
+        _failingPath = null;
     }
 
     public void Dispose()

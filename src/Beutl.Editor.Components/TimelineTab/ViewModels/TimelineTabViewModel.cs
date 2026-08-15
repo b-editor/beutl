@@ -408,7 +408,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     public IObservable<System.Reactive.Unit> CanExecuteChanged => _canExecuteChangedSubject;
 
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Timeline);
+    public IReadOnlyReactiveProperty<string> TabTitle { get; } = new ReactivePropertySlim<string>(Strings.Timeline);
 
     public void Dispose()
     {

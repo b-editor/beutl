@@ -16,7 +16,7 @@ public sealed class TerminalTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.Terminal;
 
-    public override string? Header => Strings.Terminal;
+    public override string? MenuHeader => Strings.Terminal;
 
     public override bool CanMultiple => true;
 

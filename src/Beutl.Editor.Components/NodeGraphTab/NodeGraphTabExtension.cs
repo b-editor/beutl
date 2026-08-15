@@ -16,7 +16,7 @@ public sealed class NodeGraphTabExtension : ToolTabExtension
 
     public override string DisplayName => "NodeGraph";
 
-    public override string? Header => Strings.NodeGraph;
+    public override string? MenuHeader => Strings.NodeGraph;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

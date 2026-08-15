@@ -244,7 +244,7 @@ public class TerminalTabLifecycleTests
 
         public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-        public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("Transient");
+        public IReadOnlyReactiveProperty<string> TabTitle { get; } = new ReactivePropertySlim<string>("Transient");
 
         public void Dispose()
         {

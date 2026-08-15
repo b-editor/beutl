@@ -94,6 +94,50 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
+    public void Watching_the_same_path_does_not_restore_spent_retries()
+    {
+        // Callers re-Watch the current folder on unrelated state changes, so treating that as a
+        // fresh start would let a persistently failing watcher rebuild without limit.
+        using var service = new DirectoryWatcherService();
+        service.Watch(_scratch);
+        while (service.TryRearmAfterError())
+        {
+        }
+
+        service.Watch(_scratch);
+
+        Assert.Multiple(() =>
+        {
+            // The explicit call still arms one watcher — it is the automatic retries that must stay
+            // spent, so the very next failure gives up instead of starting the budget over.
+            Assert.That(service.IsWatching, Is.True);
+            Assert.That(service.TryRearmAfterError(), Is.False);
+            Assert.That(service.IsWatching, Is.False);
+        });
+    }
+
+    [Test]
+    public void A_watcher_that_delivers_again_gets_its_retries_back()
+    {
+        // The cap is for a watcher failing repeatedly and immediately; transient errors scattered
+        // across a long session must not add up and disable the folder for good.
+        using var service = new DirectoryWatcherService();
+        service.Watch(_scratch);
+        service.TryRearmAfterError();
+        service.TryRearmAfterError();
+
+        service.MarkDelivered();
+
+        var results = new List<bool>();
+        for (int i = 0; i < 4; i++)
+        {
+            results.Add(service.TryRearmAfterError());
+        }
+
+        Assert.That(results, Is.EqualTo(new[] { true, true, true, false }));
+    }
+
+    [Test]
     public void Watching_a_missing_path_leaves_nothing_armed()
     {
         using var service = new DirectoryWatcherService();

@@ -18,7 +18,7 @@ public sealed class ColorGradingTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.ColorGrading;
 
-    public override string Header => Strings.ColorGrading;
+    public override string MenuHeader => Strings.ColorGrading;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

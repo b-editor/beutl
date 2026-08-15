@@ -18,7 +18,7 @@ public sealed class ObjectPropertyTabExtension : ToolTabExtension
 
     public override string DisplayName => "Property editor";
 
-    public override string? Header => Strings.Properties;
+    public override string? MenuHeader => Strings.Properties;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 

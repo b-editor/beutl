@@ -161,7 +161,7 @@ public sealed class CurvesTabViewModel : IToolContext
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
-        Header = Effect
+        TabTitle = Effect
             .Select(ToolTabHeaderHelper.ObserveEffectLabel)
             .Switch()
             .Select(label => ToolTabHeaderHelper.Compose(Strings.Curves, label))
@@ -169,7 +169,7 @@ public sealed class CurvesTabViewModel : IToolContext
             .DisposeWith(_disposables)!;
     }
 
-    public IReadOnlyReactiveProperty<string> Header { get; }
+    public IReadOnlyReactiveProperty<string> TabTitle { get; }
 
     public ToolTabExtension Extension => CurvesTabExtension.Instance;
 

@@ -22,7 +22,7 @@ public sealed class SimpleTabExtension : ToolTabExtension
 {
     public override bool CanMultiple => true;
 
-    public override string? Header => Strings.SimpleTab;
+    public override string? MenuHeader => Strings.SimpleTab;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 
@@ -53,7 +53,7 @@ public sealed class SimpleContext : IToolContext
 
     public ToolTabExtension Extension { get; }
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(
+    public IReadOnlyReactiveProperty<string> TabTitle { get; } = new ReactivePropertySlim<string>(
         $"{Strings.SimpleTab} {Interlocked.Increment(ref s_lastInstanceNumber)}");
 
     public void Dispose() { }
@@ -246,8 +246,8 @@ public sealed class HiddenTabExtension : ToolTabExtension
 {
     public override bool CanMultiple => false;
 
-    // Returning null for Header hides the entry from the menu
-    public override string? Header => null;
+    // Returning null for MenuHeader hides the entry from the menu
+    public override string? MenuHeader => null;
 
     // ... rest of the implementation ...
 }
@@ -277,8 +277,8 @@ public void OpenHiddenTab(IEditorContext editorContext)
 5. **ReactivePropertySlim**: prefer it for plain values (lightweight).
 6. **ReactiveProperty**: use when validation or conversion is required.
 7. **CanMultiple**: set to `false` when only a single instance makes sense.
-8. **`ToolTabExtension.Header`**: return `null` to keep the tab out of the menu.
-9. **`IToolContext.Header`**: the live tab title. For a `CanMultiple => true` tool,
+8. **`ToolTabExtension.MenuHeader`**: return `null` to keep the tab out of the menu.
+9. **`IToolContext.TabTitle`**: the live tab title. For a `CanMultiple => true` tool,
    derive it from whatever distinguishes one instance from another, so the tabs
    do not all read the same.
 10. **Localization**: route every visible string through `Strings.XXX`.

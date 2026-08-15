@@ -18,7 +18,7 @@ public sealed class LibraryTabExtension : ToolTabExtension
 
     public override bool CanMultiple => false;
 
-    public override string? Header => Strings.Library;
+    public override string? MenuHeader => Strings.Library;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Left;
 

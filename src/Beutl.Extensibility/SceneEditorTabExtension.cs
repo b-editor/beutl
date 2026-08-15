@@ -19,9 +19,9 @@ public interface IToolContext : IDisposable, IJsonSerializable, IServiceProvider
     /// the element a graph editor is editing — so that several instances of a
     /// <see cref="ToolTabExtension.CanMultiple"/> tool stay distinguishable. Values must be produced
     /// on the UI thread; the host binds this straight onto the dockable's title. This is the
-    /// per-instance title, unlike <see cref="ToolTabExtension.Header"/>.
+    /// per-instance title, unlike <see cref="ToolTabExtension.MenuHeader"/>.
     /// </remarks>
-    IReadOnlyReactiveProperty<string> Header { get; }
+    IReadOnlyReactiveProperty<string> TabTitle { get; }
 }
 
 public abstract class ToolTabExtension : ViewExtension
@@ -45,9 +45,9 @@ public abstract class ToolTabExtension : ViewExtension
     /// </summary>
     /// <remarks>
     /// Static per-extension metadata. The title of an open tab comes from
-    /// <see cref="IToolContext.Header"/> instead.
+    /// <see cref="IToolContext.TabTitle"/> instead.
     /// </remarks>
-    public virtual string? Header => null;
+    public virtual string? MenuHeader => null;
 
     public virtual DockAnchor DefaultAnchor => DockAnchor.None;
 

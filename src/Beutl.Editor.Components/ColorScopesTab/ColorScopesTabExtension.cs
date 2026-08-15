@@ -18,7 +18,7 @@ public sealed class ColorScopesTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.ColorScopes;
 
-    public override string Header => Strings.ColorScopes;
+    public override string MenuHeader => Strings.ColorScopes;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

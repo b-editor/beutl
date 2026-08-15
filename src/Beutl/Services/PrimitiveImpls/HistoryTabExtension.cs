@@ -15,7 +15,7 @@ public sealed class HistoryTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.History;
 
-    public override string? Header => Strings.History;
+    public override string? MenuHeader => Strings.History;
 
     public override bool CanMultiple => false;
 

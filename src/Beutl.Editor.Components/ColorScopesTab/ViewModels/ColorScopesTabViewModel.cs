@@ -35,7 +35,7 @@ public sealed class ColorScopesTabViewModel : IToolContext
             .Subscribe(_ => RefreshRequested?.Invoke(this, EventArgs.Empty))
             .DisposeWith(_disposables);
 
-        Header = SelectedScopeType
+        TabTitle = SelectedScopeType
             .Select(t => ToolTabHeaderHelper.Compose(Strings.ColorScopes, LocalizeScopeType(t)))
             .ToReadOnlyReactivePropertySlim(
                 ToolTabHeaderHelper.Compose(Strings.ColorScopes, LocalizeScopeType(SelectedScopeType.Value)))
@@ -44,7 +44,7 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public event EventHandler? RefreshRequested;
 
-    public IReadOnlyReactiveProperty<string> Header { get; }
+    public IReadOnlyReactiveProperty<string> TabTitle { get; }
 
     public ToolTabExtension Extension => ColorScopesTabExtension.Instance;
 

@@ -101,7 +101,7 @@ public sealed class NodeGraphTabViewModel : IToolContext
                 }
             }).DisposeWith(_disposables);
 
-        Header = Model
+        TabTitle = Model
             .Select(m => ToolTabHeaderHelper.ObserveElementLabel(m?.FindHierarchicalParent<Element>()))
             .Switch()
             .Select(label => ToolTabHeaderHelper.Compose(Strings.NodeGraph, label))
@@ -109,7 +109,7 @@ public sealed class NodeGraphTabViewModel : IToolContext
             .DisposeWith(_disposables)!;
     }
 
-    public IReadOnlyReactiveProperty<string> Header { get; }
+    public IReadOnlyReactiveProperty<string> TabTitle { get; }
 
     public ToolTabExtension Extension => NodeGraphTabExtension.Instance;
 

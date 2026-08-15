@@ -15,7 +15,7 @@ public sealed class OutputTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.Output;
 
-    public override string? Header => Strings.Output;
+    public override string? MenuHeader => Strings.Output;
 
     public override bool CanMultiple => false;
 

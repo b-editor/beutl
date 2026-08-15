@@ -17,7 +17,7 @@ public sealed class TimelineTabExtension : ToolTabExtension
 
     public override bool CanMultiple => false;
 
-    public override string? Header => Strings.Timeline;
+    public override string? MenuHeader => Strings.Timeline;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
 

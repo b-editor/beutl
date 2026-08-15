@@ -203,7 +203,7 @@ public sealed partial class MainView : UserControl
         // ToolTabExtensionをメニューに表示する
         MenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
-            var menuItem = new MenuItem() { Header = item.Header, DataContext = item };
+            var menuItem = new MenuItem() { Header = item.MenuHeader, DataContext = item };
 
             menuItem.Click += (s, e) =>
             {
@@ -224,7 +224,7 @@ public sealed partial class MainView : UserControl
 
         viewModel.ToolTabExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
-            .Filter(i => i.Header != null)
+            .Filter(i => i.MenuHeader != null)
             .Cast(CreateToolTabMenuItem)
             .Bind(out ReadOnlyObservableCollection<MenuItem>? list1)
             .Subscribe()

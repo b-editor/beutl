@@ -15,7 +15,7 @@ public sealed class DockLayoutTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.DockLayout;
 
-    public override string? Header => Strings.DockLayout;
+    public override string? MenuHeader => Strings.DockLayout;
 
     public override bool CanMultiple => false;
 
