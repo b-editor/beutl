@@ -193,9 +193,11 @@ public sealed class GraphEditorTabViewModel : IToolContext
     public static GraphEditorTabViewModel? FindReusable(
         IEditorContext editorContext, Element? element, KeyFrameAnimation? animation)
     {
-        return editorContext.FindToolTab<GraphEditorTabViewModel>(
-                   t => t.Element.Value == element && t.SelectedItem.Value?.Object == animation)
-               ?? editorContext.FindToolTab<GraphEditorTabViewModel>(t => t.Element.Value is null);
+        return ToolTabReuse.Find<GraphEditorTabViewModel>(
+            editorContext,
+            t => t.Element.Value == element && t.SelectedItem.Value?.Object == animation,
+            t => t.Element.Value is null,
+            retargetAnyOpen: false);
     }
 
     public void Select(KeyFrameAnimation? animation)

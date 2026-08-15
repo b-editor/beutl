@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Beutl.Controls.Converters;
 using Beutl.Editor.Components.ColorGradingProperties.ViewModels;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.ColorGradingProperties.Views;
@@ -44,14 +45,12 @@ public sealed partial class ColorGradingPropertiesEditor : UserControl
             context.GetService<IEditorContext>() is { } editorContext &&
             context.TryGetColorGrading() is { } colorGrading)
         {
-            // Prefer the tab already showing this effect, then an idle one, and only then retarget
-            // any open tab. A plain FindToolTab would always hand back the first tab and strand every
-            // other instance; dropping straight to `new` would spawn a tab per object instead.
-            var toolTab =
-                editorContext.FindToolTab<ColorGradingTabViewModel>(t => t.Effect.Value == colorGrading)
-                ?? editorContext.FindToolTab<ColorGradingTabViewModel>(t => t.Effect.Value is null)
-                ?? editorContext.FindToolTab<ColorGradingTabViewModel>()
-                ?? new ColorGradingTabViewModel(editorContext);
+            var toolTab = ToolTabReuse.Find<ColorGradingTabViewModel>(
+                              editorContext,
+                              t => t.Effect.Value == colorGrading,
+                              t => t.Effect.Value is null,
+                              retargetAnyOpen: true)
+                          ?? new ColorGradingTabViewModel(editorContext);
 
             toolTab.Effect.Value = colorGrading;
 

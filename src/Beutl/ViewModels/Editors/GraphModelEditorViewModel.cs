@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
@@ -87,14 +88,12 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
         if (this.GetService<IEditorContext>() is not { } editorContext) return;
         if (Value.Value == null) return;
 
-        // Prefer the tab already showing this graph, then an idle one, and only then retarget any
-        // open tab. A plain FindToolTab would always hand back the first tab and strand every other
-        // instance; dropping straight to `new` would spawn a tab per graph instead.
-        NodeGraphTabViewModel tab =
-            editorContext.FindToolTab<NodeGraphTabViewModel>(t => t.Model.Value == Value.Value)
-            ?? editorContext.FindToolTab<NodeGraphTabViewModel>(t => t.Model.Value is null)
-            ?? editorContext.FindToolTab<NodeGraphTabViewModel>()
-            ?? new NodeGraphTabViewModel(editorContext);
+        NodeGraphTabViewModel tab = ToolTabReuse.Find<NodeGraphTabViewModel>(
+                                        editorContext,
+                                        t => t.Model.Value == Value.Value,
+                                        t => t.Model.Value is null,
+                                        retargetAnyOpen: true)
+                                    ?? new NodeGraphTabViewModel(editorContext);
 
         tab.Model.Value = Value.Value;
 
