@@ -16,7 +16,7 @@ public sealed class ElementPropertyTabExtension : ToolTabExtension
 
     public override string DisplayName => "Element Property";
 
-    public override string? MenuHeader => Strings.ElementProperty;
+    public override string? Header => Strings.ElementProperty;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 

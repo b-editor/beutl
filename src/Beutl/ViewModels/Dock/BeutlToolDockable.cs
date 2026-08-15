@@ -17,7 +17,7 @@ public class BeutlToolDockable : Tool, IDisposable
         EditViewModel = editViewModel;
 
         Id = CreateId(context);
-        Title = ResolveTitle(context, context.TabTitle.Value);
+        Title = ResolveTitle(context, context.Header.Value);
         Context = context;
         CanClose = true;
         CanFloat = true;
@@ -26,7 +26,7 @@ public class BeutlToolDockable : Tool, IDisposable
 
         IsSelected = context.IsSelected.Value;
 
-        _headerSubscription = context.TabTitle
+        _headerSubscription = context.Header
             .DistinctUntilChanged()
             .Subscribe(v =>
             {
@@ -80,8 +80,8 @@ public class BeutlToolDockable : Tool, IDisposable
         if (!string.IsNullOrWhiteSpace(header))
             return header;
 
-        if (!string.IsNullOrWhiteSpace(context.Extension.MenuHeader))
-            return context.Extension.MenuHeader;
+        if (!string.IsNullOrWhiteSpace(context.Extension.Header))
+            return context.Extension.Header;
 
         return string.IsNullOrWhiteSpace(context.Extension.DisplayName)
             ? context.Extension.Name

@@ -174,7 +174,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public IReadOnlyReactiveProperty<string> TabTitle { get; } = new ReactivePropertySlim<string>(Strings.SceneSettings);
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.SceneSettings);
 
     private string? ValidateSize(int observable)
     {

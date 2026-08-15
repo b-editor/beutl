@@ -18,7 +18,7 @@ public sealed class PreviewSettingsTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.PreviewSettings;
 
-    public override string MenuHeader => Strings.PreviewSettings;
+    public override string Header => Strings.PreviewSettings;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 

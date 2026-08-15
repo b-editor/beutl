@@ -56,7 +56,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
         // Strings.Audio, not Strings.AudioVisualizer: the mode already fills most of the tab and
         // the localized tool name is long enough to push everything else out of view.
-        TabTitle = SelectedMode
+        Header = SelectedMode
             .Select(m => ToolTabHeaderHelper.Compose(Strings.Audio, LocalizeMode(m)))
             .ToReadOnlyReactivePropertySlim(
                 ToolTabHeaderHelper.Compose(Strings.Audio, LocalizeMode(SelectedMode.Value)))
@@ -83,7 +83,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public IReadOnlyList<SpectrumDisplayShape> AvailableSpectrumShapes { get; } = Enum.GetValues<SpectrumDisplayShape>();
 
-    public IReadOnlyReactiveProperty<string> TabTitle { get; }
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => _extension;
 

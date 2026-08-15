@@ -172,8 +172,8 @@ public class TerminalTabViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(second.InstanceNumber, Is.EqualTo(first.InstanceNumber + 1));
-            Assert.That(first.TabTitle.Value, Is.EqualTo($"{Strings.Terminal} {first.InstanceNumber}"));
-            Assert.That(second.TabTitle.Value, Is.Not.EqualTo(first.TabTitle.Value));
+            Assert.That(first.Header.Value, Is.EqualTo($"{Strings.Terminal} {first.InstanceNumber}"));
+            Assert.That(second.Header.Value, Is.Not.EqualTo(first.Header.Value));
         });
     }
 
@@ -182,13 +182,13 @@ public class TerminalTabViewModelTests
     {
         var scene = new Scene(640, 480, string.Empty);
         using var viewModel = new TerminalTabViewModel(new TestEditorContext(scene));
-        string numbered = viewModel.TabTitle.Value;
+        string numbered = viewModel.Header.Value;
 
         viewModel.TerminalTitle.Value = "  vim Program.cs  ";
-        Assert.That(viewModel.TabTitle.Value, Is.EqualTo($"{numbered}: vim Program.cs"));
+        Assert.That(viewModel.Header.Value, Is.EqualTo($"{numbered}: vim Program.cs"));
 
         viewModel.TerminalTitle.Value = "   ";
-        Assert.That(viewModel.TabTitle.Value, Is.EqualTo(numbered));
+        Assert.That(viewModel.Header.Value, Is.EqualTo(numbered));
     }
 
     [Test]
@@ -209,7 +209,7 @@ public class TerminalTabViewModelTests
         {
             Assert.That(json, Is.Empty);
             Assert.That(sceneB.InstanceNumber, Is.Not.EqualTo(sceneA.InstanceNumber));
-            Assert.That(sceneB.TabTitle.Value, Is.Not.EqualTo(sceneA.TabTitle.Value));
+            Assert.That(sceneB.Header.Value, Is.Not.EqualTo(sceneA.Header.Value));
         });
     }
 

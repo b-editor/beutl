@@ -52,7 +52,7 @@ public class ToolTabReuseTests
     [Test]
     public void A_menuless_tool_never_retargets_an_occupied_tab()
     {
-        // Without a MenuHeader the call site is the only way to obtain a tab, so taking over the
+        // Without a ToolTabExtension.Header the call site is the only way to obtain a tab, so taking
         // only one would make a second instance unreachable.
         var occupied = new FakeTab("b");
         var context = new TestEditorContext(occupied);
@@ -94,7 +94,7 @@ public class ToolTabReuseTests
 
         public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-        public IReadOnlyReactiveProperty<string> TabTitle { get; } = new ReactivePropertySlim<string>("fake");
+        public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("fake");
 
         public void Dispose()
         {

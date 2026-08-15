@@ -13,7 +13,7 @@ public sealed class EditWellKnownSizeTabExtension : ToolTabExtension
 
     public override string DisplayName => "Edit Well known size";
 
-    public override string? MenuHeader => "Edit Well known size";
+    public override string? Header => "Edit Well known size";
 
     public override bool CanMultiple => false;
 

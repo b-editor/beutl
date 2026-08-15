@@ -182,7 +182,7 @@ public class DockLayoutTabTests
             DockLayoutTabExtension.Instance.TryCreateContext(editor, out IToolContext? context), Is.True);
         Assert.That(context, Is.InstanceOf<DockLayoutViewModel>());
         Assert.That(context!.Extension, Is.SameAs(DockLayoutTabExtension.Instance));
-        Assert.That(context.TabTitle.Value, Is.EqualTo(Strings.DockLayout));
+        Assert.That(context.Header.Value, Is.EqualTo(Strings.DockLayout));
 
         Assert.That(DockLayoutTabExtension.Instance.TryCreateContent(editor, out Control? control), Is.True);
         Assert.That(control, Is.InstanceOf<DockLayoutView>());

@@ -69,7 +69,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         // プロジェクトディレクトリの取得
         _projectDirectory = GetProjectDirectory();
 
-        TabTitle = RootPath.Select(CreateHeader)
+        Header = RootPath.Select(CreateHeader)
             .ToReadOnlyReactivePropertySlim(CreateHeader(RootPath.Value))
             .AddTo(_disposables)!;
 
@@ -110,7 +110,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public IReadOnlyReactiveProperty<string> TabTitle { get; }
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ReactiveProperty<FileBrowserViewMode> ViewMode { get; } = new(FileBrowserViewMode.Icon);
 

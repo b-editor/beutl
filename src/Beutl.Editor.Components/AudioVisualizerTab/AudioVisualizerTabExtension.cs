@@ -17,7 +17,7 @@ public sealed class AudioVisualizerTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.AudioVisualizer;
 
-    public override string MenuHeader => Strings.AudioVisualizer;
+    public override string Header => Strings.AudioVisualizer;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
 

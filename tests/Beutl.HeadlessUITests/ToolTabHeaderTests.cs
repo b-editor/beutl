@@ -69,13 +69,13 @@ public class ToolTabHeaderTests
         var context = new FakeToolContext(string.Empty);
         using var dockable = new BeutlToolDockable(context, editor);
 
-        Assert.That(dockable.Title, Is.EqualTo(FakeToolExtension.Instance.MenuHeader));
+        Assert.That(dockable.Title, Is.EqualTo(FakeToolExtension.Instance.Header));
 
         context.HeaderSource.Value = "named";
         Assert.That(dockable.Title, Is.EqualTo("named"));
 
         context.HeaderSource.Value = string.Empty;
-        Assert.That(dockable.Title, Is.EqualTo(FakeToolExtension.Instance.MenuHeader));
+        Assert.That(dockable.Title, Is.EqualTo(FakeToolExtension.Instance.Header));
     }
 
     [AvaloniaTest]
@@ -103,7 +103,7 @@ public class ToolTabHeaderTests
 
         public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-        public IReadOnlyReactiveProperty<string> TabTitle => HeaderSource;
+        public IReadOnlyReactiveProperty<string> Header => HeaderSource;
 
         // HeaderSource is left alive so a test can keep publishing after the dockable disposed this
         // context; disposing it here would make "the title stopped following" pass vacuously.
@@ -133,7 +133,7 @@ public class ToolTabHeaderTests
 
         public override string DisplayName => "Blank header tool tab";
 
-        public override string? MenuHeader => "   ";
+        public override string? Header => "   ";
 
         public override bool TryCreateContent(
             IEditorContext editorContext,
@@ -162,7 +162,7 @@ public class ToolTabHeaderTests
 
         public override string DisplayName => "Fake tool tab";
 
-        public override string? MenuHeader => "Fake tool tab";
+        public override string? Header => "Fake tool tab";
 
         public override bool TryCreateContent(
             IEditorContext editorContext,

@@ -255,7 +255,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public IReadOnlyReactiveProperty<string> TabTitle { get; } = new ReactivePropertySlim<string>(Strings.Proxies);
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Proxies);
 
     public async Task GenerateAsync(ProxyClipViewModel clip)
     {

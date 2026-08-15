@@ -250,7 +250,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     {
         return editViewModel.ExtensionProvider.AllExtensions
             .OfType<ToolTabExtension>()
-            .Where(extension => extension.MenuHeader is not null)
+            .Where(extension => extension.Header is not null)
             .OrderBy(extension => extension.Name);
     }
 

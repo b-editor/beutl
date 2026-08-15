@@ -50,7 +50,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
         // Both call sites construct a fresh tab per animation, so without the element and property
         // names every open graph editor would read "Graph Editor".
-        TabTitle = Element
+        Header = Element
             .Select(ToolTabHeaderHelper.ObserveElementLabel)
             .Switch()
             .CombineLatest(SelectedItem, (element, item) => (element, property: item?.Name))
@@ -65,7 +65,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
             .DisposeWith(_disposables)!;
     }
 
-    public IReadOnlyReactiveProperty<string> TabTitle { get; }
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => GraphEditorTabExtension.Instance;
 
@@ -186,7 +186,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
     /// </summary>
     /// <remarks>
     /// Prefer the tab already on this animation, then an idle one. Deliberately stops there: this
-    /// extension exposes no menu <see cref="ToolTabExtension.MenuHeader"/>, so these call sites are the
+    /// extension exposes no menu <see cref="ToolTabExtension.Header"/>, so these call sites are the
     /// only way to obtain a tab, and retargeting an occupied one would make a second graph editor
     /// unreachable and rule out comparing two animations side by side.
     /// </remarks>

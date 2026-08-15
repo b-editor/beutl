@@ -52,7 +52,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
-        TabTitle = Effect
+        Header = Effect
             .Select(ToolTabHeaderHelper.ObserveEffectLabel)
             .Switch()
             .Select(label => ToolTabHeaderHelper.Compose(Strings.ColorGrading, label))
@@ -60,7 +60,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
             .DisposeWith(_disposables)!;
     }
 
-    public IReadOnlyReactiveProperty<string> TabTitle { get; }
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => ColorGradingTabExtension.Instance;
 

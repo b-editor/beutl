@@ -16,7 +16,7 @@ public sealed class FileBrowserTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.FileBrowser;
 
-    public override string? MenuHeader => Strings.FileBrowser;
+    public override string? Header => Strings.FileBrowser;
 
     public override bool CanMultiple => true;
 

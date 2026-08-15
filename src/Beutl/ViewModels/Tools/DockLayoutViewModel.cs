@@ -41,7 +41,7 @@ public sealed class DockLayoutViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public IReadOnlyReactiveProperty<string> TabTitle { get; } = new ReactivePropertySlim<string>(Strings.DockLayout);
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.DockLayout);
 
     public ICoreList<DockLayoutPresetItem> Items => _service.Items;
 

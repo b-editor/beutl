@@ -110,7 +110,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public IReadOnlyReactiveProperty<string> TabTitle { get; } = new ReactivePropertySlim<string>(Strings.PathEditor);
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.PathEditor);
 
     // FigureContextがcontext引数と同じ場合、編集を終了
     public void StartOrFinishEdit(IPathFigureEditorContext context)

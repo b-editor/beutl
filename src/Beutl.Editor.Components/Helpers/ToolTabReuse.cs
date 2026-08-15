@@ -14,7 +14,7 @@ internal static class ToolTabReuse
     /// Whether an occupied tab may be taken over as a last resort. True for tools reachable from the
     /// "add tool tab" menu, where dropping straight to a new tab would spawn one per object and the
     /// user can still open a second tab by hand. False for a tool with no
-    /// <see cref="ToolTabExtension.MenuHeader"/>, where taking over the only tab would make a second
+    /// <see cref="ToolTabExtension.Header"/>, where taking over the only tab would make a second
     /// instance unreachable.
     /// </param>
     public static T? Find<T>(

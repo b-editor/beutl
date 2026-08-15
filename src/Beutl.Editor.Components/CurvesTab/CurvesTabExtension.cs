@@ -18,7 +18,7 @@ public sealed class CurvesTabExtension : ToolTabExtension
 
     public override string DisplayName => Strings.Curves;
 
-    public override string MenuHeader => Strings.Curves;
+    public override string Header => Strings.Curves;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

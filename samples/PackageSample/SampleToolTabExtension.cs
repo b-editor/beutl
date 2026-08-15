@@ -19,7 +19,7 @@ public sealed class SampleToolTabExtension : ToolTabExtension
 
     public override string DisplayName => "Sample tab";
 
-    public override string MenuHeader => "Sample tab";
+    public override string Header => "Sample tab";
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
@@ -48,7 +48,7 @@ public sealed class SampleToolTabExtension : ToolTabExtension
 
         public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-        public IReadOnlyReactiveProperty<string> TabTitle { get; } =
+        public IReadOnlyReactiveProperty<string> Header { get; } =
             new ReactivePropertySlim<string>($"Sample tab {Interlocked.Increment(ref s_lastInstanceNumber)}");
 
         public void Dispose()

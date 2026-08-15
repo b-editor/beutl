@@ -55,8 +55,8 @@ public sealed class MyToolTabExtension : ToolTabExtension
     public override string DisplayName => Strings.MyToolTab;
 
     // Label in the "add tool tab" menu; null keeps the tool out of that menu, so the tab can only
-    // be opened from code. This is NOT the tab title — that is IToolContext.TabTitle.
-    public override string? MenuHeader => Strings.MyToolTab;
+    // be opened from code. This is NOT the tab title — that is IToolContext.Header.
+    public override string? Header => Strings.MyToolTab;
 
     // Default docking position: None / Left / Right / Bottom / Player
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
@@ -112,7 +112,7 @@ public sealed class MyToolTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public IReadOnlyReactiveProperty<string> TabTitle { get; } = new ReactivePropertySlim<string>(Strings.MyToolTab);
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.MyToolTab);
 
     public void Dispose() => _disposables.Dispose();
 
@@ -124,15 +124,15 @@ public sealed class MyToolTabViewModel : IToolContext
 }
 ```
 
-> `IToolContext` itself only requires `Extension`, `IsSelected`, and `TabTitle`
+> `IToolContext` itself only requires `Extension`, `IsSelected`, and `Header`
 > (plus `IDisposable` / `IJsonSerializable` / `IServiceProvider`). Docking
 > placement is declared on the **Extension** via `DefaultAnchor` /
 > `DefaultOrder` / `OpenByDefault`, not on the ViewModel.
 >
-> The two are separate concepts, hence the separate names.
-> `ToolTabExtension.MenuHeader` (`string?`) is static per-extension metadata:
-> the label in the "add tool tab" menu, and `null` keeps the tool out of that
-> menu. `IToolContext.TabTitle` (`IReadOnlyReactiveProperty<string>`) is the
+> The two `Header`s are different things. `ToolTabExtension.Header` (`string?`)
+> is static per-extension metadata: the label in the "add tool tab" menu, and
+> `null` keeps the tool out of that menu. `IToolContext.Header`
+> (`IReadOnlyReactiveProperty<string>`) is the
 > per-instance tab title, and the host binds it live onto the dockable. A
 > `CanMultiple => true` tool should derive it from whatever distinguishes one
 > instance from another — the folder a file browser shows, the element a graph
@@ -187,7 +187,7 @@ public sealed class MyToolTabExtension : ToolTabExtension
 
     public override bool CanMultiple => false;
 
-    public override string? MenuHeader => Strings.MyToolTab;
+    public override string? Header => Strings.MyToolTab;
 
     // Default docking position: None / Left / Right / Bottom / Player
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
@@ -237,7 +237,7 @@ public sealed class MyToolTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public IReadOnlyReactiveProperty<string> TabTitle { get; } = new ReactivePropertySlim<string>(Strings.MyToolTab);
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.MyToolTab);
 
     public void Dispose() => _disposables.Dispose();
 

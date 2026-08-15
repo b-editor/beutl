@@ -46,7 +46,7 @@ public sealed class ToolTabAddButton : Button
         var item = new MenuItem
         {
             DataContext = extension,
-            Header = extension.MenuHeader,
+            Header = extension.Header,
             IsEnabled = extension.CanMultiple || !factory.IsToolTabOpen(extension),
         };
 
