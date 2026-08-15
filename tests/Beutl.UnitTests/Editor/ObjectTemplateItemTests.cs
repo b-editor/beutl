@@ -170,6 +170,21 @@ public class ObjectTemplateItemTests
         Assert.That(restored.ActualType, Is.EqualTo(typeof(TestEngineObjectWithFileSource)));
     }
 
+    // uint.MaxValue squared overflows a signed 64-bit product and wraps negative, which would pass
+    // a `> limit` check computed in long.
+    [Test]
+    public void FromJson_WithPreviewDimensionsThatOverflowASignedProduct_DropsThePreview()
+    {
+        JsonObject json = ObjectTemplateItem.ToJson(CreateItem()).AsObject();
+        json["Preview"] = Convert.ToBase64String(PngHeader(uint.MaxValue, uint.MaxValue));
+
+        ObjectTemplateItem? restored = ObjectTemplateItem.FromJson(
+            json, "title", Path.Combine(_root, "templates", "pkg", "title.json"), NullLogger.Instance);
+
+        Assert.That(restored, Is.Not.Null);
+        Assert.That(restored!.Preview, Is.Null);
+    }
+
     [Test]
     public void FromJson_WithAPreviewWithinBounds_KeepsIt()
     {

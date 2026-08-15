@@ -36,8 +36,8 @@ public sealed class ObjectTemplateItem(
     private const int MaxEncodedPreviewLength = 1_398_104;
 
     // 2048x2048 worth of pixels: far above the 256px previews this writes, far below what would
-    // hurt to hold decoded.
-    private const long MaxPreviewPixels = 4_194_304;
+    // hurt to hold decoded. Unsigned because the product of two uint dimensions overflows a long.
+    private const ulong MaxPreviewPixels = 4_194_304;
 
     private const int PngHeaderLength = 24;
 
@@ -217,7 +217,7 @@ public sealed class ObjectTemplateItem(
 
         uint width = BinaryPrimitives.ReadUInt32BigEndian(preview.AsSpan(16, 4));
         uint height = BinaryPrimitives.ReadUInt32BigEndian(preview.AsSpan(20, 4));
-        if (width == 0 || height == 0 || (long)width * height > MaxPreviewPixels)
+        if (width == 0 || height == 0 || (ulong)width * height > MaxPreviewPixels)
         {
             logger.LogWarning(
                 "Template preview declares {Width}x{Height}, over the {Limit} pixel limit; ignoring it.",

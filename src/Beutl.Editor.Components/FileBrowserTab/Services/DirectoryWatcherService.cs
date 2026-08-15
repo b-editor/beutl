@@ -53,7 +53,7 @@ internal sealed class DirectoryWatcherService : IDisposable
     private bool ShouldExcludePath(string path)
     {
         // templatesディレクトリは例外
-        if (PathScope.IsUnderDirectory(path, ObjectTemplateService.GetDirectoryPath()))
+        if (PathScope.IsUnderDirectory(path, BeutlEnvironment.GetTemplatesDirectoryPath()))
         {
             return false;
         }

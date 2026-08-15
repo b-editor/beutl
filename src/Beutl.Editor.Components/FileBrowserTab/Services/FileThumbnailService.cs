@@ -283,7 +283,7 @@ public sealed class FileThumbnailService : IDisposable
     public bool IsObjectTemplateFile(string filePath)
     {
         return string.Equals(Path.GetExtension(filePath), ".json", StringComparison.OrdinalIgnoreCase)
-               && PathScope.IsUnderDirectory(filePath, ObjectTemplateService.GetDirectoryPath());
+               && PathScope.IsUnderDirectory(filePath, BeutlEnvironment.GetTemplatesDirectoryPath());
     }
 
     private async Task<Bitmap?> GenerateImageThumbnailAsync(string filePath, CancellationToken cancellationToken)

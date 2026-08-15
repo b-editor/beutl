@@ -12,7 +12,7 @@ public sealed class ObjectTemplateService
     public static readonly ObjectTemplateService Instance = new();
     private readonly CoreList<ObjectTemplateItem> _items = [];
 
-    private readonly string _directoryPath = GetDirectoryPath();
+    private readonly string _directoryPath = BeutlEnvironment.GetTemplatesDirectoryPath();
 
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
 
@@ -28,19 +28,6 @@ public sealed class ObjectTemplateService
     }
 
     public string DirectoryPath => _directoryPath;
-
-    /// <summary>
-    /// The templates directory, without constructing <see cref="Instance"/>.
-    /// </summary>
-    /// <remarks>
-    /// Callers that only need to test whether a path is a template — the file browser does this for
-    /// every listed file — must use this: reading <see cref="DirectoryPath"/> runs the singleton's
-    /// constructor, which loads and parses every template on disk on whatever thread asked first.
-    /// </remarks>
-    public static string GetDirectoryPath()
-    {
-        return Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "templates");
-    }
 
     /// <summary>
     /// Saves <paramref name="instance"/> as a template, embedding a rendered preview when one can be produced.
