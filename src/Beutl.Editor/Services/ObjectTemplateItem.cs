@@ -170,9 +170,8 @@ public sealed class ObjectTemplateItem(
         }
     }
 
-    // A corrupt preview must not cost the user the template itself, so it degrades to "no preview".
     // Nothing validates a template file, so the encoded length is untrusted and is bounded before
-    // anything is allocated for it.
+    // anything is allocated for it. A rejected preview costs the thumbnail, never the template.
     private static byte[]? ReadPreview(JsonNode json, ILogger logger)
     {
         if (json[nameof(Preview)] is not JsonValue value

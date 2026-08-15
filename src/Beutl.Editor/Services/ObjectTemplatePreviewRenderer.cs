@@ -97,9 +97,8 @@ public static class ObjectTemplatePreviewRenderer
             : TimeSpan.Zero;
 
         // The element's sizes are authored against its own scene's frame — a caption is a 355pt
-        // glyph in a 1920x1080 project — so the preview scene has to keep that frame and reach the
-        // preview size through the output scale. Composing into a 256x144 frame instead would draw
-        // everything at roughly 7x and crop it.
+        // glyph in a 1920x1080 project — so the preview scene has to keep that frame for layout to
+        // resolve the way it did there.
         PixelSize frameSize = ResolveFrameSize(element);
 
         // Scene.Children_CollectionChanged relates each element's path to the scene's own, so both
@@ -156,11 +155,9 @@ public static class ObjectTemplatePreviewRenderer
     /// </summary>
     /// <remarks>
     /// Fitting the drawn content rather than <paramref name="availableSize"/> is what keeps a
-    /// thumbnail legible: an element's sizes are authored against its project's frame, so scaling
-    /// the whole 1920x1080 frame down would leave a caption a few pixels tall.
-    /// <paramref name="availableSize"/> still has to be the authored frame, because that is what
-    /// alignment resolves against.
-    /// The resources belong to the caller; this neither disposes nor mutates them.
+    /// thumbnail legible: scaling a whole 1920x1080 frame down would leave a caption a few pixels
+    /// tall. <paramref name="availableSize"/> still has to be the authored frame, because that is
+    /// what alignment resolves against. The resources belong to the caller.
     /// </remarks>
     private static byte[]? RenderResources(IReadOnlyList<Drawable.Resource> resources, Size availableSize)
     {

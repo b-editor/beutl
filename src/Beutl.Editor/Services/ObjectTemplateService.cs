@@ -34,12 +34,10 @@ public sealed class ObjectTemplateService
     /// </summary>
     /// <remarks>
     /// Rendering hops to the render thread, so it runs before the lock is taken — awaiting while
-    /// holding the lock would deadlock against a render thread that needs it back. The name is
-    /// therefore resolved inside the same lock window as the write, not before the render.
-    /// Persistence is pushed onto the thread pool rather than left to whatever completes the render
-    /// task: the render dispatcher completes it on the render thread, so a caller with no
-    /// synchronization context would otherwise run the name probe and the file write there,
-    /// stalling playback and export for the duration of the save.
+    /// holding the lock would deadlock against a render thread that needs it back, which is also
+    /// why the name is resolved in the same lock window as the write. Persistence is pushed onto
+    /// the thread pool because the render dispatcher completes its task on the render thread, and a
+    /// caller with no synchronization context would otherwise write the file there.
     /// </remarks>
     public async ValueTask<ObjectTemplateItem?> AddFromInstanceAsync(
         ICoreSerializable instance, string name, CancellationToken cancellationToken = default)

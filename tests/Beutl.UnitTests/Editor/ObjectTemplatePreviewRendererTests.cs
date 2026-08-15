@@ -24,9 +24,8 @@ public class ObjectTemplatePreviewRendererTests
         Assert.That(decoded.Height, Is.GreaterThan(0));
     }
 
-    // A 100x100 shape inside a 1920x1080 project must fill the thumbnail. Composing the element
-    // into the preview's own frame cropped it instead; scaling the whole project frame down would
-    // shrink it to a few pixels.
+    // A 100x100 shape inside a 1920x1080 project must fill the thumbnail: scaling the whole project
+    // frame down would leave it a few pixels tall.
     [Test]
     public async Task RenderPngAsync_Element_FitsTheDrawnContentNotTheProjectFrame()
     {
@@ -44,8 +43,7 @@ public class ObjectTemplatePreviewRendererTests
         Assert.That(png, Is.Not.Null);
         using SKBitmap decoded = SKBitmap.Decode(png);
 
-        // The square shape crops to a square preview, and its colour reaches every corner. The crop
-        // rounds outward from a fractional origin, so the size can overshoot by a pixel.
+        // The crop rounds outward from a fractional origin, so the size can overshoot by a pixel.
         Assert.Multiple(() =>
         {
             Assert.That(decoded.Width, Is.EqualTo(decoded.Height));

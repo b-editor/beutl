@@ -160,7 +160,6 @@ public class FileSystemItemViewModel : IDisposable
         }
         catch
         {
-            // ignore
         }
     }
 

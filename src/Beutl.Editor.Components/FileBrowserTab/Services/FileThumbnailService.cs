@@ -257,10 +257,9 @@ public sealed class FileThumbnailService : IDisposable
         }
     }
 
-    // An extension does not decide which streams a file carries: AVFoundation and Media Foundation
-    // both claim '.adts' as video and as audio, and AVFReader throws outright when a requested
-    // stream is absent — so neither asking for both nor trusting the classification alone works.
-    // The classified kind is tried first and the other kind only as a fallback.
+    // AVFoundation and Media Foundation both claim '.adts' as video and as audio, so the
+    // classification can be wrong, and AVFReader throws outright when a requested stream is absent
+    // — including when both are requested for a single-stream file.
     private static MediaReader? OpenForProbe(string filePath, MediaFileKind kind)
     {
         MediaMode first = kind == MediaFileKind.Audio ? MediaMode.Audio : MediaMode.Video;
@@ -326,7 +325,6 @@ public sealed class FileThumbnailService : IDisposable
     // browser draws at is the size it retains.
     private Bitmap? ToThumbnail(SKBitmap source, CancellationToken cancellationToken)
     {
-        // アスペクト比を維持してリサイズ
         float scale = Math.Min((float)ThumbnailSize / source.Width, (float)ThumbnailSize / source.Height);
         int newWidth = Math.Max(1, (int)(source.Width * scale));
         int newHeight = Math.Max(1, (int)(source.Height * scale));

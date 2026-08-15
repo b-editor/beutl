@@ -33,7 +33,6 @@ public class FileBrowserTemplateThumbnailTests
         });
     }
 
-    // This harness registers no decoders, so the video/audio extensions come from a fake one here.
     [Test]
     public void CanGenerateThumbnail_CoversImagesVideosAndTemplates()
     {
@@ -94,8 +93,7 @@ public class FileBrowserTemplateThumbnailTests
     }
 
     // A decoder can claim one extension as both kinds — AVFoundation and Media Foundation do for
-    // '.adts' — and AVFReader throws when a requested stream is absent, so the probe cannot ask for
-    // both at once nor trust the classification alone.
+    // '.adts' — so the classification alone cannot decide which stream to ask for.
     [AvaloniaTest]
     public async Task GetMediaInfoAsync_FallsBackToTheOtherStreamKind()
     {
@@ -132,7 +130,6 @@ public class FileBrowserTemplateThumbnailTests
             .AddFromInstanceAsync(CreateRedRect(), $"large-{Guid.NewGuid():N}");
         Assert.That(item?.Preview, Is.Not.Null);
 
-        // Stand in for a package-authored preview: far bigger than the thumbnail it is drawn at.
         await File.WriteAllTextAsync(item!.FilePath!, BuildTemplateJsonWithPreview(item, 1024, 1024));
         FileThumbnailService.Instance.ClearCache();
 
