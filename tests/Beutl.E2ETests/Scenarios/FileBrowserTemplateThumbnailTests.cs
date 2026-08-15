@@ -14,7 +14,7 @@ namespace Beutl.E2ETests.Scenarios;
 [NonParallelizable]
 public class FileBrowserTemplateThumbnailTests
 {
-    [AvaloniaTest]
+    [Test]
     public void IsObjectTemplateFile_OnlyMatchesJsonUnderTheTemplatesDirectory()
     {
         FileThumbnailService service = FileThumbnailService.Instance;
@@ -32,7 +32,7 @@ public class FileBrowserTemplateThumbnailTests
     }
 
     // This harness registers no decoders, so the video/audio extensions come from a fake one here.
-    [AvaloniaTest]
+    [Test]
     public void CanGenerateThumbnail_CoversImagesVideosAndTemplates()
     {
         FileThumbnailService service = FileThumbnailService.Instance;

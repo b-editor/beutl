@@ -49,9 +49,10 @@ public sealed class ObjectTemplateService
     /// Rendering hops to the render thread, so it runs before the lock is taken — awaiting while
     /// holding the lock would deadlock against a render thread that needs it back. The name is
     /// therefore resolved inside the same lock window as the write, not before the render.
-    /// The await deliberately keeps the caller's context: the render dispatcher completes its task
-    /// on the render thread, so <c>ConfigureAwait(false)</c> would run the name probe and the file
-    /// write there, stalling playback and export for the duration of the save.
+    /// Persistence is pushed onto the thread pool rather than left to whatever completes the render
+    /// task: the render dispatcher completes it on the render thread, so a caller with no
+    /// synchronization context would otherwise run the name probe and the file write there,
+    /// stalling playback and export for the duration of the save.
     /// </remarks>
     public async ValueTask<ObjectTemplateItem?> AddFromInstanceAsync(
         ICoreSerializable instance, string name, CancellationToken cancellationToken = default)
@@ -59,18 +60,23 @@ public sealed class ObjectTemplateService
         var item = ObjectTemplateItem.CreateFromInstance(instance, name);
         item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(instance, cancellationToken);
 
-        lock (_lock)
-        {
-            item.Name.Value = GetUniqueNameLocked(name);
-            if (!SaveItemToFile(item))
+        return await Task.Run(
+            () =>
             {
-                return null;
-            }
+                lock (_lock)
+                {
+                    item.Name.Value = GetUniqueNameLocked(name);
+                    if (!SaveItemToFile(item))
+                    {
+                        return null;
+                    }
 
-            _items.Add(item);
-            _logger.LogInformation("Added new ObjectTemplateItem: {Name}", item.Name.Value);
-            return item;
-        }
+                    _items.Add(item);
+                    _logger.LogInformation("Added new ObjectTemplateItem: {Name}", item.Name.Value);
+                    return item;
+                }
+            },
+            cancellationToken);
     }
 
     public string GetUniqueName(string baseName)

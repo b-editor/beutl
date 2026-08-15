@@ -194,9 +194,8 @@ public class FileSystemItemViewModel : IDisposable
             return Icon.Folder;
         }
 
-        // Named extensions win over the decoder-driven classification: '.ts' is both TypeScript and
-        // a transport stream, and which one Classify reports depends on whether an optional decoder
-        // extension happens to be registered.
+        // Named extensions win over the decoder-driven classification, so a decoder claiming an
+        // extension this list already names cannot change the icon out from under it.
         Icon? named = Extension switch
         {
             // Document files

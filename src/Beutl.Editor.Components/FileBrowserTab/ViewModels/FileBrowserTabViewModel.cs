@@ -33,6 +33,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
     private readonly MediaFileSearcher _mediaSearcher = new();
     private string? _projectDirectory;
     private int _decoderRefreshQueued;
+    private volatile bool _disposed;
 
     internal string? ProjectDirectory => _projectDirectory;
 
@@ -165,14 +166,20 @@ public sealed class FileBrowserTabViewModel : IToolContext
     // non-media icon and no thumbnail until the list is rebuilt.
     private void OnDecodersChanged(object? sender, EventArgs e)
     {
-        if (Interlocked.Exchange(ref _decoderRefreshQueued, 1) != 0)
+        if (_disposed || Interlocked.Exchange(ref _decoderRefreshQueued, 1) != 0)
             return;
 
         Dispatcher.UIThread.Post(
             () =>
             {
                 Interlocked.Exchange(ref _decoderRefreshQueued, 0);
-                Refresh();
+
+                // The tab can close between the post and the dispatcher running it; refreshing then
+                // would repopulate disposed managers and start per-file work for a closed tab.
+                if (!_disposed)
+                {
+                    Refresh();
+                }
             },
             DispatcherPriority.Background);
     }
@@ -656,6 +663,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void Dispose()
     {
+        _disposed = true;
         DecoderRegistry.DecodersChanged -= OnDecodersChanged;
         _mediaSearcher.Dispose();
         _favoritesManager.Dispose();

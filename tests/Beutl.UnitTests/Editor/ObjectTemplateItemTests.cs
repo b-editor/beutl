@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Buffers.Binary;
+using System.Text;
 using System.Text.Json.Nodes;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -88,7 +89,7 @@ public class ObjectTemplateItemTests
     [Test]
     public void Preview_RoundTripsThroughJson()
     {
-        byte[] preview = [1, 2, 3, 250, 251, 252];
+        byte[] preview = PngHeader(256, 144);
         ObjectTemplateItem item = CreateItem();
         item.Preview = preview;
 
@@ -151,6 +152,60 @@ public class ObjectTemplateItemTests
 
         Assert.That(restored, Is.Not.Null);
         Assert.That(restored!.Json.Parent, Is.Null);
+    }
+
+    // A store-installed template is third-party content: a PNG of one flat colour stays well under
+    // the encoded-length cap while declaring dimensions that cost gigabytes to decode.
+    [Test]
+    public void FromJson_WithAnOversizedPreview_DropsOnlyThePreview()
+    {
+        JsonObject json = ObjectTemplateItem.ToJson(CreateItem()).AsObject();
+        json["Preview"] = Convert.ToBase64String(PngHeader(30000, 30000));
+
+        ObjectTemplateItem? restored = ObjectTemplateItem.FromJson(
+            json, "title", Path.Combine(_root, "templates", "pkg", "title.json"), NullLogger.Instance);
+
+        Assert.That(restored, Is.Not.Null);
+        Assert.That(restored!.Preview, Is.Null);
+        Assert.That(restored.ActualType, Is.EqualTo(typeof(TestEngineObjectWithFileSource)));
+    }
+
+    [Test]
+    public void FromJson_WithAPreviewWithinBounds_KeepsIt()
+    {
+        byte[] preview = PngHeader(256, 144);
+        JsonObject json = ObjectTemplateItem.ToJson(CreateItem()).AsObject();
+        json["Preview"] = Convert.ToBase64String(preview);
+
+        ObjectTemplateItem? restored = ObjectTemplateItem.FromJson(
+            json, "title", Path.Combine(_root, "templates", "pkg", "title.json"), NullLogger.Instance);
+
+        Assert.That(restored!.Preview, Is.EqualTo(preview));
+    }
+
+    [Test]
+    public void FromJson_WithANonPngPreview_DropsOnlyThePreview()
+    {
+        JsonObject json = ObjectTemplateItem.ToJson(CreateItem()).AsObject();
+        json["Preview"] = Convert.ToBase64String("not a png at all, just bytes"u8.ToArray());
+
+        ObjectTemplateItem? restored = ObjectTemplateItem.FromJson(
+            json, "title", Path.Combine(_root, "templates", "pkg", "title.json"), NullLogger.Instance);
+
+        Assert.That(restored, Is.Not.Null);
+        Assert.That(restored!.Preview, Is.Null);
+    }
+
+    // Signature + the IHDR width/height, which is all the size check reads.
+    private static byte[] PngHeader(uint width, uint height)
+    {
+        byte[] bytes = new byte[24];
+        ReadOnlySpan<byte> signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        signature.CopyTo(bytes);
+        "IHDR"u8.CopyTo(bytes.AsSpan(12));
+        BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(16), width);
+        BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(20), height);
+        return bytes;
     }
 
     [Test]

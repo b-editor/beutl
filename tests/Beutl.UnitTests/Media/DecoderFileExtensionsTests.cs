@@ -62,6 +62,45 @@ public class DecoderFileExtensionsTests
         Assert.That(DecoderFileExtensions.Classify(file), Is.EqualTo(MediaFileKind.None));
     }
 
+    // FFmpeg claims '.ts' as a transport stream, which would otherwise hand every TypeScript source
+    // file to a video decoder for thumbnails, media probes and the recursive media search.
+    [Test]
+    public void Classify_TypeScript_StaysNonMedia()
+    {
+        var decoder = new FakeDecoderInfo([".ts"], []);
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(DecoderFileExtensions.Classify("app.ts"), Is.EqualTo(MediaFileKind.None));
+                Assert.That(DecoderFileExtensions.IsMedia("app.ts"), Is.False);
+            });
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    // IDecoderInfo does not constrain the shape, and GetFilePatterns already accepts all three.
+    [TestCase("mp4x")]
+    [TestCase(".mp4x")]
+    [TestCase("*.mp4x")]
+    public void Classify_NormalizesTheShapeADecoderReturns(string declared)
+    {
+        var decoder = new FakeDecoderInfo([declared], []);
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            Assert.That(DecoderFileExtensions.Classify("a.mp4x"), Is.EqualTo(MediaFileKind.Video));
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
     // The still-image set is Skia's own format table, so a format the image picker offers must not
     // be one the file browser calls unknown.
     [TestCase("a.heif")]

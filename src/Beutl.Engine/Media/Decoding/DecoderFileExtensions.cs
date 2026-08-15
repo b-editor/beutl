@@ -43,6 +43,15 @@ public static class DecoderFileExtensions
         ".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a"
     ];
 
+    // A decoder's extension claim is not always exclusive: FFmpeg reads '.ts' as an MPEG transport
+    // stream, and it is TypeScript everywhere else. Handing a source file to a video decoder for a
+    // thumbnail, media probe and the recursive media search is the worse of the two readings, so
+    // these lose to the non-media meaning even while a decoder declares them.
+    private static readonly HashSet<string> s_nonMediaExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".ts"
+    };
+
     private static readonly Lock s_lock = new();
     private static HashSet<string>? s_video;
     private static HashSet<string>? s_audio;
@@ -63,7 +72,7 @@ public static class DecoderFileExtensions
     public static MediaFileKind Classify(string file)
     {
         string extension = Path.GetExtension(file);
-        if (string.IsNullOrEmpty(extension))
+        if (string.IsNullOrEmpty(extension) || s_nonMediaExtensions.Contains(extension))
             return MediaFileKind.None;
 
         if (s_image.Contains(extension))
@@ -101,8 +110,19 @@ public static class DecoderFileExtensions
             return cache ??= DecoderRegistry.EnumerateDecoder()
                 .SelectMany(selector)
                 .Concat(baseline)
+                .Select(NormalizeExtension)
+                .Where(x => x.Length > 1)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
+    }
+
+    // IDecoderInfo does not enforce a shape on what a decoder returns, and GetFilePatterns already
+    // accepts "mp4" and "*.mp4" alongside ".mp4". Classification has to read the same claims the
+    // file picker does, or a plugin's format is offered in the picker and unknown in the browser.
+    private static string NormalizeExtension(string extension)
+    {
+        string trimmed = extension.TrimStart('*');
+        return trimmed.StartsWith('.') ? trimmed : $".{trimmed}";
     }
 
     private static void Invalidate()

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Buffers.Binary;
+using System.Text.Json.Nodes;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -33,6 +34,14 @@ public sealed class ObjectTemplateItem(
     // Base64 of 1 MiB, four times what ObjectTemplatePreviewRenderer will ever write — headroom for
     // a package authored elsewhere, without letting one file dictate the allocation.
     private const int MaxEncodedPreviewLength = 1_398_104;
+
+    // 2048x2048 worth of pixels: far above the 256px previews this writes, far below what would
+    // hurt to hold decoded.
+    private const long MaxPreviewPixels = 4_194_304;
+
+    private const int PngHeaderLength = 24;
+
+    private static ReadOnlySpan<byte> s_pngSignature => [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
     /// <summary>
     /// A PNG preview of what this template produces, or null when none could be rendered.
@@ -181,14 +190,41 @@ public sealed class ObjectTemplateItem(
             return null;
         }
 
+        byte[] preview;
         try
         {
-            return Convert.FromBase64String(base64);
+            preview = Convert.FromBase64String(base64);
         }
         catch (FormatException)
         {
             logger.LogWarning("Template preview is not valid base64; ignoring it.");
             return null;
         }
+
+        return IsDecodableSize(preview, logger) ? preview : null;
+    }
+
+    // The encoded length bounds only what a preview costs on disk. A store-installed template is
+    // third-party content, and a PNG of a single flat colour stays tiny while declaring dimensions
+    // that cost gigabytes once decoded, so the header is checked before anything decodes it.
+    private static bool IsDecodableSize(byte[] preview, ILogger logger)
+    {
+        if (preview.Length < PngHeaderLength || !preview.AsSpan(0, 8).SequenceEqual(s_pngSignature))
+        {
+            logger.LogWarning("Template preview is not a PNG; ignoring it.");
+            return false;
+        }
+
+        uint width = BinaryPrimitives.ReadUInt32BigEndian(preview.AsSpan(16, 4));
+        uint height = BinaryPrimitives.ReadUInt32BigEndian(preview.AsSpan(20, 4));
+        if (width == 0 || height == 0 || (long)width * height > MaxPreviewPixels)
+        {
+            logger.LogWarning(
+                "Template preview declares {Width}x{Height}, over the {Limit} pixel limit; ignoring it.",
+                width, height, MaxPreviewPixels);
+            return false;
+        }
+
+        return true;
     }
 }
