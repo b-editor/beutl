@@ -173,7 +173,8 @@ public sealed class FileThumbnailService : IDisposable
             return entry.Info;
         }
 
-        if (DecoderFileExtensions.Classify(filePath) is not (MediaFileKind.Video or MediaFileKind.Audio))
+        MediaFileKind kind = DecoderFileExtensions.Classify(filePath);
+        if (kind is not (MediaFileKind.Video or MediaFileKind.Audio))
             return null;
 
         await _semaphore.WaitAsync(cancellationToken);
@@ -192,13 +193,7 @@ public sealed class FileThumbnailService : IDisposable
                 try
                 {
                     long fileSize = new FileInfo(filePath).Length;
-
-                    // Which streams a file actually carries is not decidable from its extension —
-                    // AVFoundation and Media Foundation both claim '.adts' as video and as audio —
-                    // and a video-only open of an audio-only file is rejected outright. Both are
-                    // requested and the reader's HasVideo / HasAudio decide what is read.
-                    var options = new MediaOptions(MediaMode.AudioVideo);
-                    using var reader = DecoderRegistry.OpenMediaFile(filePath, options);
+                    using MediaReader? reader = OpenForProbe(filePath, kind);
                     if (reader == null)
                         return new MediaFileInfo(null, null, null, null, null, null, null, null, fileSize);
 
@@ -262,6 +257,30 @@ public sealed class FileThumbnailService : IDisposable
         }
     }
 
+    // An extension does not decide which streams a file carries: AVFoundation and Media Foundation
+    // both claim '.adts' as video and as audio, and AVFReader throws outright when a requested
+    // stream is absent — so neither asking for both nor trusting the classification alone works.
+    // The classified kind is tried first and the other kind only as a fallback.
+    private static MediaReader? OpenForProbe(string filePath, MediaFileKind kind)
+    {
+        MediaMode first = kind == MediaFileKind.Audio ? MediaMode.Audio : MediaMode.Video;
+        MediaMode second = first == MediaMode.Video ? MediaMode.Audio : MediaMode.Video;
+
+        return TryOpen(filePath, first) ?? TryOpen(filePath, second);
+
+        static MediaReader? TryOpen(string filePath, MediaMode mode)
+        {
+            try
+            {
+                return DecoderRegistry.OpenMediaFile(filePath, new MediaOptions(mode));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
     public bool CanGetMediaInfo(string filePath)
     {
         return DecoderFileExtensions.Classify(filePath) is MediaFileKind.Video or MediaFileKind.Audio;
@@ -298,27 +317,35 @@ public sealed class FileThumbnailService : IDisposable
                 return null;
 
             cancellationToken.ThrowIfCancellationRequested();
-
-            // アスペクト比を維持してリサイズ
-            float scale = Math.Min((float)ThumbnailSize / original.Width, (float)ThumbnailSize / original.Height);
-            int newWidth = (int)(original.Width * scale);
-            int newHeight = (int)(original.Height * scale);
-
-            using var resized = original.Resize(new SKImageInfo(newWidth, newHeight), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
-            if (resized == null)
-                return null;
-
-            using var image = SKImage.FromBitmap(resized);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 90);
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            using var memStream = new MemoryStream();
-            data.SaveTo(memStream);
-            memStream.Position = 0;
-
-            return new Bitmap(memStream);
+            return ToThumbnail(original, cancellationToken);
         }, cancellationToken);
+    }
+
+    // Every path funnels through here so nothing keeps a full-resolution bitmap alive: a directory
+    // enumeration starts a load per file and each item holds its result strongly, so the size the
+    // browser draws at is the size it retains.
+    private Bitmap? ToThumbnail(SKBitmap source, CancellationToken cancellationToken)
+    {
+        // アスペクト比を維持してリサイズ
+        float scale = Math.Min((float)ThumbnailSize / source.Width, (float)ThumbnailSize / source.Height);
+        int newWidth = Math.Max(1, (int)(source.Width * scale));
+        int newHeight = Math.Max(1, (int)(source.Height * scale));
+
+        using var resized = source.Resize(
+            new SKImageInfo(newWidth, newHeight), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
+        if (resized == null)
+            return null;
+
+        using var image = SKImage.FromBitmap(resized);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var memStream = new MemoryStream();
+        data.SaveTo(memStream);
+        memStream.Position = 0;
+
+        return new Bitmap(memStream);
     }
 
     private async Task<Bitmap?> GenerateVideoThumbnailAsync(string filePath, CancellationToken cancellationToken)
@@ -341,27 +368,7 @@ public sealed class FileThumbnailService : IDisposable
                 using (bmpRef)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-
-                    // SKBitmapを取得
-                    var skBitmap = bmpRef.Value.SKBitmap;
-
-                    // サムネイルサイズにリサイズ
-                    float scale = Math.Min((float)ThumbnailSize / skBitmap.Width, (float)ThumbnailSize / skBitmap.Height);
-                    int newWidth = (int)(skBitmap.Width * scale);
-                    int newHeight = (int)(skBitmap.Height * scale);
-
-                    using var resized = skBitmap.Resize(new SKImageInfo(newWidth, newHeight), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
-                    if (resized == null)
-                        return null;
-
-                    using var image = SKImage.FromBitmap(resized);
-                    using var data = image.Encode(SKEncodedImageFormat.Png, 90);
-
-                    using var memStream = new MemoryStream();
-                    data.SaveTo(memStream);
-                    memStream.Position = 0;
-
-                    return new Bitmap(memStream);
+                    return ToThumbnail(bmpRef.Value.SKBitmap, cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -383,8 +390,12 @@ public sealed class FileThumbnailService : IDisposable
                 if (ObjectTemplateService.Instance.TryLoadFromFile(filePath)?.Preview is not { Length: > 0 } preview)
                     return null;
 
-                using var stream = new MemoryStream(preview);
-                return new Bitmap(stream);
+                using var decoded = SKBitmap.Decode(preview);
+                if (decoded == null)
+                    return null;
+
+                cancellationToken.ThrowIfCancellationRequested();
+                return ToThumbnail(decoded, cancellationToken);
             }
             catch (Exception ex)
             {

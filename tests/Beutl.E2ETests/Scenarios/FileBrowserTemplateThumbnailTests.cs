@@ -1,9 +1,11 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Text.Json.Nodes;
+using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Decoding;
+using SkiaSharp;
 
 namespace Beutl.E2ETests.Scenarios;
 
@@ -92,9 +94,10 @@ public class FileBrowserTemplateThumbnailTests
     }
 
     // A decoder can claim one extension as both kinds — AVFoundation and Media Foundation do for
-    // '.adts' — and opening such a file video-only is rejected outright, losing its metadata.
+    // '.adts' — and AVFReader throws when a requested stream is absent, so the probe cannot ask for
+    // both at once nor trust the classification alone.
     [AvaloniaTest]
-    public async Task GetMediaInfoAsync_AsksForBothStreamKinds()
+    public async Task GetMediaInfoAsync_FallsBackToTheOtherStreamKind()
     {
         var decoder = new RecordingDecoderInfo();
         DecoderRegistry.Register(decoder);
@@ -111,12 +114,55 @@ public class FileBrowserTemplateThumbnailTests
                 File.Delete(path);
             }
 
-            Assert.That(decoder.RequestedModes, Does.Contain(MediaMode.AudioVideo));
+            // Classified video (video wins an ambiguous claim), then audio once that open fails.
+            Assert.That(decoder.RequestedModes, Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
         }
         finally
         {
             DecoderRegistry.Unregister(decoder);
         }
+    }
+
+    // A package preview may be far larger than the 64px the browser draws, and every listed item
+    // holds its thumbnail strongly.
+    [AvaloniaTest]
+    public async Task GetThumbnailAsync_DownscalesAnOversizedTemplatePreview()
+    {
+        ObjectTemplateItem? item = await ObjectTemplateService.Instance
+            .AddFromInstanceAsync(CreateRedRect(), $"large-{Guid.NewGuid():N}");
+        Assert.That(item?.Preview, Is.Not.Null);
+
+        // Stand in for a package-authored preview: far bigger than the thumbnail it is drawn at.
+        await File.WriteAllTextAsync(item!.FilePath!, BuildTemplateJsonWithPreview(item, 1024, 1024));
+        FileThumbnailService.Instance.ClearCache();
+
+        var thumbnail = await FileThumbnailService.Instance.GetThumbnailAsync(item.FilePath!);
+
+        Assert.That(thumbnail, Is.Not.Null);
+        Assert.That(thumbnail!.PixelSize.Width, Is.LessThanOrEqualTo(FileThumbnailService.Instance.ThumbnailSize));
+        Assert.That(thumbnail.PixelSize.Height, Is.LessThanOrEqualTo(FileThumbnailService.Instance.ThumbnailSize));
+    }
+
+    private static RectShape CreateRedRect()
+    {
+        return new RectShape
+        {
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 100 },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
+        };
+    }
+
+    private static string BuildTemplateJsonWithPreview(ObjectTemplateItem item, int width, int height)
+    {
+        using var surface = SKSurface.Create(new SKImageInfo(width, height));
+        surface.Canvas.Clear(SKColors.Red);
+        using SKImage image = surface.Snapshot();
+        using SKData data = image.Encode(SKEncodedImageFormat.Png, 90);
+
+        JsonObject json = ObjectTemplateItem.ToJson(item).AsObject();
+        json["Preview"] = Convert.ToBase64String(data.ToArray());
+        return json.ToJsonString();
     }
 
     private sealed class FakeDecoderInfo : IDecoderInfo
