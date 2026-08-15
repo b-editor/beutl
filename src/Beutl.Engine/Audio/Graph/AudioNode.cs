@@ -112,7 +112,7 @@ public abstract class AudioNode : IDisposable
     /// an animated parameter (a lookahead delay) must, while draining, hold that parameter at the value
     /// retained from the clip's terminal sample rather than re-sampling automation over the post-clip
     /// range — otherwise it reads the wrong tail. The default is pass-through (returns
-    /// <paramref name="input"/> unchanged), keeping the zero-processing path byte-identical. A node that
+    /// <paramref name="input"/> unchanged), keeping the zero-processing path byte-identical.
     /// Ownership of <paramref name="input"/> transfers to this method on entry. An override that returns
     /// a fresh buffer must dispose <paramref name="input"/> before returning, and an override that throws
     /// must dispose it before propagating the exception. Returning <paramref name="input"/> transfers
