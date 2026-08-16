@@ -344,7 +344,7 @@ public class BeutlApiApplication
         string fileName = Path.Combine(Helper.AppRoot, UserFileName);
         if (File.Exists(fileName))
         {
-            JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName));
+            JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName, cancellationToken));
             DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
 
             if (node != null)
