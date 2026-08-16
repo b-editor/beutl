@@ -76,7 +76,7 @@ public sealed class BeutlApiApplicationTests
             using var httpClient = new HttpClient(handler);
             var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
 
-            var (v1, v3) = await app.CheckForUpdatesAsync("2.0.0-preview.6");
+            var (v1, v3) = await app.CheckForUpdatesAsync("2.0.0-preview.6", CancellationToken.None);
 
             Assert.That(handler.LastRequestUri, Is.Not.Null);
             Assert.That(handler.LastRequestUri!.Query, Does.Contain("type=zip"));

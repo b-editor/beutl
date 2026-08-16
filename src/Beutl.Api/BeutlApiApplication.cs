@@ -105,13 +105,15 @@ public class BeutlApiApplication
     // 更新があるかどうかをチェックします
     // このアプリケーションがアセットメタデータを持っている場合は、AppUpdateResponseを返します
     // そうでない場合は、CheckForUpdatesResponseを返します
-    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(string version)
+    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(
+        string version,
+        CancellationToken cancellationToken)
     {
         var metadata = await LoadMetadata();
-        if (metadata == null) return (await App.CheckForUpdates(version), null);
+        if (metadata == null) return (await App.CheckForUpdates(version, cancellationToken), null);
         var update = await App.GetUpdate(
             version, ToServerType(metadata.Type), metadata.OS, metadata.Arch,
-            metadata.Standalone, "false");
+            metadata.Standalone, "false", cancellationToken);
         return (null, update);
     }
 

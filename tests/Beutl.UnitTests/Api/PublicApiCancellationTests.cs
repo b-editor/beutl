@@ -47,6 +47,7 @@ public sealed class PublicApiCancellationTests
         AssertRequiredCancellationTokens(typeof(IPackagesClient), ["GetPackage"]);
         AssertRequiredCancellationTokens(typeof(IReleasesClient), ["GetReleases", "GetRelease"]);
         AssertRequiredCancellationTokens(typeof(IUsersClient), ["GetUser", "GetSelf", "GetUserPackages"]);
+        AssertRequiredCancellationTokens(typeof(IAppClient), ["CheckForUpdates", "GetUpdate"]);
     }
 
     [Test]

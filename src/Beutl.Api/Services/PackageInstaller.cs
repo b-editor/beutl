@@ -414,7 +414,7 @@ public partial class PackageInstaller : IBeutlApiResource
                 await user.RefreshAsync(cancellationToken);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
