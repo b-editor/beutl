@@ -24,6 +24,9 @@ public sealed class PublicApiCancellationTests
         ["RefreshAsync", "GetAssetAsync"];
 
     private static readonly string[] s_profileOperations =
+        ["RefreshAsync", "GetPackagesAsync"];
+
+    private static readonly string[] s_authenticatedUserOperations =
         ["RefreshAsync"];
 
     [Test]
@@ -34,6 +37,8 @@ public sealed class PublicApiCancellationTests
         AssertRequiredCancellationTokens(typeof(Package), s_packageOperations);
         AssertRequiredCancellationTokens(typeof(Release), s_releaseOperations);
         AssertRequiredCancellationTokens(typeof(Profile), s_profileOperations);
+        AssertRequiredCancellationTokens(typeof(AuthenticatedUser), s_authenticatedUserOperations);
+        AssertRequiredCancellationTokens(typeof(BeutlApiApplication), ["CheckForUpdatesAsync"]);
         AssertRequiredCancellationTokens(typeof(IFilesClient), ["GetFile"]);
     }
 
@@ -185,6 +190,57 @@ public sealed class PublicApiCancellationTests
         Profile profile = CreateProfile(app);
 
         Task operation = profile.RefreshAsync(cancellationTokenSource.Token, self);
+
+        await AssertTransportCancellation(operation, handler, cancellationTokenSource);
+    }
+
+    [Test]
+    public async Task ProfileGetPackagesAsync_PropagatesCancellationToTransport()
+    {
+        using var handler = new BlockingHandler();
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var cancellationTokenSource = new CancellationTokenSource();
+        Profile profile = CreateProfile(app);
+
+        Task operation = profile.GetPackagesAsync(cancellationTokenSource.Token);
+
+        await AssertTransportCancellation(operation, handler, cancellationTokenSource);
+    }
+
+    [Test]
+    public async Task AuthenticatedUserRefreshAsync_PropagatesCancellationToTransport()
+    {
+        using var handler = new BlockingHandler();
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var user = new AuthenticatedUser(
+            CreateProfile(app),
+            new AuthResponse
+            {
+                Token = "token",
+                RefreshToken = "refresh-token",
+                Expiration = DateTime.UtcNow.AddMinutes(-1),
+            },
+            app,
+            httpClient,
+            DateTime.UtcNow);
+
+        Task operation = user.RefreshAsync(cancellationTokenSource.Token, force: true).AsTask();
+
+        await AssertTransportCancellation(operation, handler, cancellationTokenSource);
+    }
+
+    [Test]
+    public async Task CheckForUpdatesAsync_PropagatesCancellationToTransport()
+    {
+        using var handler = new BlockingHandler();
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        Task operation = app.CheckForUpdatesAsync("1.0.0", cancellationTokenSource.Token);
 
         await AssertTransportCancellation(operation, handler, cancellationTokenSource);
     }
