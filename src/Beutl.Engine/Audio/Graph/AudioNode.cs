@@ -193,11 +193,23 @@ public abstract class AudioNode : IDisposable
         foreach (AudioNode input in _inputs)
         {
             int inputTotal = input.GetTotalLatencySamples(sampleRate);
+            if (inputTotal < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative total latency {inputTotal}.");
+            }
+
             if (inputTotal > upstream)
                 upstream = inputTotal;
         }
 
         int ownLatency = GetLatencySamples(sampleRate);
+        if (ownLatency < 0)
+        {
+            throw new InvalidOperationException(
+                $"{GetType().Name} returned negative latency {ownLatency}.");
+        }
+
         if (upstream == int.MaxValue || ownLatency == int.MaxValue)
             return int.MaxValue;
 

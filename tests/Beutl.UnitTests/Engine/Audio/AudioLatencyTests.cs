@@ -286,6 +286,28 @@ public class AudioLatencyTests
         Assert.That(mixer.GetTotalLatencySamples(SampleRate), Is.EqualTo(slowest));
     }
 
+    [Test]
+    public void GetTotalLatencySamples_NegativeOwnLatencyThrows()
+    {
+        using var node = new FixedLatencyNode(-1);
+
+        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(
+            () => node.GetTotalLatencySamples(SampleRate));
+        Assert.That(exception!.Message, Does.Contain(nameof(FixedLatencyNode)).And.Contain("-1"));
+    }
+
+    [Test]
+    public void GetTotalLatencySamples_NegativeChildTotalThrows()
+    {
+        using var child = new FixedLatencyNode(-1, overrideTotal: true);
+        using var parent = new FixedLatencyNode(0);
+        parent.AddInput(child);
+
+        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(
+            () => parent.GetTotalLatencySamples(SampleRate));
+        Assert.That(exception!.Message, Does.Contain(nameof(FixedLatencyNode)).And.Contain("-1"));
+    }
+
     [TestCase(50f)]
     [TestCase(100f)]
     [TestCase(200f)]
@@ -493,4 +515,15 @@ internal sealed partial class FixedLatencyEffect(int latencySamples) : AudioEffe
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode) => inputNode;
 
     public override int GetLatencySamples(int sampleRate) => latencySamples;
+}
+
+internal sealed class FixedLatencyNode(int latencySamples, bool overrideTotal = false) : AudioNode
+{
+    public override AudioBuffer Process(AudioProcessContext context)
+        => new(context.SampleRate, 2, context.GetSampleCount());
+
+    public override int GetLatencySamples(int sampleRate) => latencySamples;
+
+    public override int GetTotalLatencySamples(int sampleRate)
+        => overrideTotal ? latencySamples : base.GetTotalLatencySamples(sampleRate);
 }
