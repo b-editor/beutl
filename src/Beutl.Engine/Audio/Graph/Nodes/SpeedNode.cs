@@ -41,7 +41,14 @@ public sealed class SpeedNode : AudioNode
         int upstreamLatency = 0;
         foreach (AudioNode input in Inputs)
         {
-            upstreamLatency = Math.Max(upstreamLatency, input.GetTotalLatencySamples(sampleRate));
+            int inputTotal = input.GetTotalLatencySamples(sampleRate);
+            if (inputTotal < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative total latency {inputTotal}.");
+            }
+
+            upstreamLatency = Math.Max(upstreamLatency, inputTotal);
         }
 
         if (upstreamLatency == 0)

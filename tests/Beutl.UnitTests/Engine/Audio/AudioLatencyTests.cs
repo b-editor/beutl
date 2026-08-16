@@ -308,6 +308,18 @@ public class AudioLatencyTests
         Assert.That(exception!.Message, Does.Contain(nameof(FixedLatencyNode)).And.Contain("-1"));
     }
 
+    [Test]
+    public void SpeedNode_GetTotalLatencySamples_NegativeChildTotalThrows()
+    {
+        using var child = new FixedLatencyNode(-1, overrideTotal: true);
+        using var speed = new SpeedNode { Speed = Property.CreateAnimatable(100f) };
+        speed.AddInput(child);
+
+        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(
+            () => speed.GetTotalLatencySamples(SampleRate));
+        Assert.That(exception!.Message, Does.Contain(nameof(FixedLatencyNode)).And.Contain("-1"));
+    }
+
     [TestCase(50f)]
     [TestCase(100f)]
     [TestCase(200f)]

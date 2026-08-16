@@ -191,6 +191,36 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void ResampleNode_PartialBlocksKeepExactOutputSampleCount()
+    {
+        const int sourceSampleRate = 48000;
+        const int outputSampleRate = 44100;
+
+        using var source = new RecordingFlushRequestNode();
+        using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
+        resample.AddInput(source);
+
+        using var processed = resample.Process(Context(TimeSpan.Zero, 1, outputSampleRate));
+        using var firstTail = resample.Flush(Context(
+            TimeSpan.FromSeconds(1.0 / outputSampleRate),
+            1,
+            outputSampleRate));
+        using var secondTail = resample.Flush(Context(
+            TimeSpan.FromSeconds(2.0 / outputSampleRate),
+            1,
+            outputSampleRate));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(processed.SampleCount, Is.EqualTo(1));
+            Assert.That(firstTail.SampleCount, Is.EqualTo(1));
+            Assert.That(secondTail.SampleCount, Is.EqualTo(1));
+            Assert.That(source.TotalFlushedSamples, Is.EqualTo(4),
+                "Each one-sample output block must consume the corresponding two source-rate samples without returning an oversized block.");
+        });
+    }
+
+    [Test]
     public void ClipNode_TerminalWindow_AppendsRecoveredTail()
     {
         const float lookaheadMs = 5f;
@@ -480,6 +510,31 @@ public class AudioLatencyCompensationTests
             Assert.That(tailData[k], Is.EqualTo(0f).Within(1e-6f),
                 $"Branch A ended before the terminal slice; its stale tail must not be mixed into the group pad (sample {k}).");
         }
+    }
+
+    [Test]
+    public void MixerNode_Flush_KeepsPartiallyDrainedBranchLive()
+    {
+        const float lookaheadMs = 20f;
+        const int sampleCount = 4096;
+        int L = LookaheadSamples(lookaheadMs);
+        var groupEnd = ExactDuration(sampleCount, SampleRate);
+        var branchEnd = groupEnd - TimeSpan.FromMilliseconds(5);
+
+        using var input = CreateBuffer(2, sampleCount, (_, i) =>
+            0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(new BufferReplayNode(input));
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(limiter);
+        mixer.SetBranchEndTime(limiter, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, sampleCount, SampleRate));
+        using var tail = mixer.Flush(ExactContext(groupEnd, sampleCount, SampleRate));
+
+        Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
+            "A branch whose retained latency extends past the group boundary must remain live during flush.");
     }
 
     [Test]
@@ -1056,6 +1111,87 @@ public class AudioLatencyCompensationTests
             Assert.That(tail[k], Is.EqualTo(expected).Within(1e-5f),
                 $"The remaining {L - padSamples} held samples must be flushed into the next window (sample {k}).");
         }
+    }
+
+    [Test]
+    public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
+    {
+        const float lookaheadMs = 20f;
+        const int clipSamples = 48000;
+        int chunkSamples = LookaheadSamples(lookaheadMs) / 4;
+        var clipDuration = ExactDuration(clipSamples, SampleRate);
+        var chunkDuration = ExactDuration(chunkSamples, SampleRate);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var eligibility = new CompositionEligibility([sound]);
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        for (int i = 0; i < 2; i++)
+        {
+            var range = new TimeRange(clipDuration + (chunkDuration * i), chunkDuration);
+            var frame = new CompositionFrame(
+                ImmutableArray<EngineObject.Resource>.Empty,
+                range,
+                default,
+                eligibility);
+            using var tail = composer.Compose(range, frame);
+
+            Assert.That(tail, Is.Not.Null);
+            Assert.That(HasNonZero(tail!.GetChannelData(0)), Is.True,
+                $"The retained limiter tail must remain available in partial window {i + 1}.");
+        }
+    }
+
+    [Test]
+    public void Composer_Flush_ContinuesPartialDrainAcrossCalls()
+    {
+        const float lookaheadMs = 20f;
+        const int clipSamples = 48000;
+        int chunkSamples = LookaheadSamples(lookaheadMs) / 4;
+        var clipDuration = ExactDuration(clipSamples, SampleRate);
+        var chunkDuration = ExactDuration(chunkSamples, SampleRate);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var eligibility = new CompositionEligibility([sound]);
+        var composeRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            composeRange,
+            default,
+            eligibility);
+        using var processed = composer.Compose(composeRange, frame);
+
+        var firstRange = new TimeRange(clipDuration, chunkDuration);
+        using var firstTail = composer.Flush(firstRange);
+        var secondRange = new TimeRange(clipDuration + chunkDuration, chunkDuration);
+        using var secondTail = composer.Flush(secondRange);
+
+        Assert.That(firstTail, Is.Not.Null);
+        Assert.That(secondTail, Is.Not.Null);
+        Assert.That(HasNonZero(firstTail!.GetChannelData(0)), Is.True,
+            "The first partial Composer.Flush must emit the beginning of the retained tail.");
+        Assert.That(HasNonZero(secondTail!.GetChannelData(0)), Is.True,
+            "A subsequent partial Composer.Flush must continue the retained tail instead of returning silence.");
     }
 
     [Test]

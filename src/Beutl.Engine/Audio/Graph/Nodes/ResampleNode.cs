@@ -9,6 +9,8 @@ public sealed class ResampleNode : AudioNode
     private int _sourceSampleRate = 44100;
     private ResampleSampleProvider? _resampleProvider;
     private int _lastSampleRate;
+    private readonly Queue<AudioBuffer> _pendingOutputs = new();
+    private int _pendingOffset;
 
     public int SourceSampleRate
     {
@@ -18,6 +20,7 @@ public sealed class ResampleNode : AudioNode
             if (_sourceSampleRate != value)
             {
                 _sourceSampleRate = value;
+                ClearPendingOutputs();
                 _resampleProvider?.Dispose();
                 _resampleProvider = null;
             }
@@ -58,7 +61,10 @@ public sealed class ResampleNode : AudioNode
     {
         // Same rate: pass the input through (caller owns it, don't dispose).
         if (input.SampleRate == context.SampleRate)
+        {
+            ClearPendingOutputs();
             return input;
+        }
 
         // Otherwise the resampler reads `input` synchronously into a fresh buffer; dispose it after.
         // (The provider is rebuilt next call, so it never reads this buffer again.)
@@ -66,21 +72,86 @@ public sealed class ResampleNode : AudioNode
 
         if (_resampleProvider == null || _lastSampleRate != context.SampleRate)
         {
+            ClearPendingOutputs();
             _resampleProvider?.Dispose();
             _resampleProvider = new ResampleSampleProvider(input, context.SampleRate);
             _lastSampleRate = context.SampleRate;
         }
 
-        // Convert input to the resampler and process
-        var output = _resampleProvider.Process(input);
+        if (_pendingOutputs.Count > 0)
+        {
+            AudioBuffer pending = _pendingOutputs.Peek();
+            if (pending.SampleRate != context.SampleRate || pending.ChannelCount != input.ChannelCount)
+            {
+                ClearPendingOutputs();
+            }
+        }
 
-        return output;
+        _pendingOutputs.Enqueue(_resampleProvider.Process(input));
+
+        int requestedSamples = context.GetSampleCount();
+        var output = new AudioBuffer(context.SampleRate, input.ChannelCount, requestedSamples);
+        try
+        {
+            int written = 0;
+            while (written < requestedSamples && _pendingOutputs.Count > 0)
+            {
+                AudioBuffer pending = _pendingOutputs.Peek();
+                if (pending.SampleRate != output.SampleRate || pending.ChannelCount != output.ChannelCount)
+                {
+                    ClearPendingOutputs();
+                    break;
+                }
+
+                int available = pending.SampleCount - _pendingOffset;
+                if (available <= 0)
+                {
+                    _pendingOutputs.Dequeue().Dispose();
+                    _pendingOffset = 0;
+                    continue;
+                }
+
+                int count = Math.Min(requestedSamples - written, available);
+                for (int channel = 0; channel < output.ChannelCount; channel++)
+                {
+                    pending.GetChannelData(channel)
+                        .Slice(_pendingOffset, count)
+                        .CopyTo(output.GetChannelData(channel).Slice(written, count));
+                }
+
+                written += count;
+                _pendingOffset += count;
+                if (_pendingOffset == pending.SampleCount)
+                {
+                    _pendingOutputs.Dequeue().Dispose();
+                    _pendingOffset = 0;
+                }
+            }
+
+            return output;
+        }
+        catch
+        {
+            output.Dispose();
+            throw;
+        }
+    }
+
+    private void ClearPendingOutputs()
+    {
+        while (_pendingOutputs.Count > 0)
+        {
+            _pendingOutputs.Dequeue().Dispose();
+        }
+
+        _pendingOffset = 0;
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            ClearPendingOutputs();
             _resampleProvider?.Dispose();
             _resampleProvider = null;
         }

@@ -24,6 +24,7 @@ public class Composer : IComposer
         public int Version { get; set; }
         public EventHandler? EditedHandler { get; set; }
         public TimeRange SoundRange { get; set; }
+        public int RemainingTailSamples { get; set; }
         public required Sound Sound { get; init; }
 
         public void Dispose()
@@ -89,9 +90,9 @@ public class Composer : IComposer
                 // Build final audio graph
                 var result = BuildFinalOutput(timeRange, eligibility);
 
-                _previousEntry.Clear();
-                _previousEntry.AddRange(_currentEntry);
-                _previousRange = timeRange;
+                bool contiguous = _previousRange is { } previous
+                    && IsContiguous(previous.End, timeRange.Start);
+                PromoteEntries(timeRange, contiguous);
 
                 return result;
             }
@@ -114,15 +115,12 @@ public class Composer : IComposer
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
         int total = 0;
-        foreach (var entry in _currentEntry)
+        foreach (var entry in GetRetainedEntries())
         {
             if (entry.OutputNodes is not { } outputNodes)
                 continue;
 
-            foreach (AudioNode outputNode in outputNodes)
-            {
-                total = Math.Max(total, outputNode.GetTotalLatencySamples(sampleRate));
-            }
+            total = Math.Max(total, GetEntryLatency(entry, outputNodes, sampleRate));
         }
 
         return total;
@@ -145,9 +143,17 @@ public class Composer : IComposer
             try
             {
                 var context = new AudioProcessContext(range, SampleRate, _animationSampler, range);
-                foreach (var entry in _currentEntry.ToArray())
+                var entries = GetRetainedEntries();
+                bool contiguous = _previousRange is { } previous
+                    && IsContiguous(previous.End, range.Start);
+                int sampleCount = context.GetSampleCount();
+                foreach (var entry in entries)
                 {
                     if (entry.OutputNodes is not { } outputNodes)
+                        continue;
+
+                    int latency = GetEntryLatency(entry, outputNodes, SampleRate);
+                    if (latency <= 0)
                         continue;
 
                     foreach (AudioNode outputNode in outputNodes)
@@ -157,6 +163,8 @@ public class Composer : IComposer
 
                         buffers.Add(outputNode.Flush(context));
                     }
+
+                    entry.RemainingTailSamples = SubtractTail(latency, sampleCount);
                 }
 
                 mixedBuffer = MixBuffers(buffers)
@@ -165,7 +173,13 @@ public class Composer : IComposer
 
                 _currentEntry.Clear();
                 _previousEntry.Clear();
-                _previousRange = null;
+                foreach (var entry in entries)
+                {
+                    if (contiguous && entry.RemainingTailSamples > 0)
+                        _previousEntry.Add(entry);
+                }
+
+                _previousRange = _previousEntry.Count > 0 ? range : null;
                 return mixedBuffer;
             }
             catch
@@ -263,6 +277,10 @@ public class Composer : IComposer
             if (!eligibility.Contains(entry.Sound))
                 continue;
 
+            int latency = GetEntryLatency(entry, outputNodes, SampleRate);
+            if (latency <= 0)
+                continue;
+
             foreach (var outputNode in outputNodes)
             {
                 if (outputNode.GetTotalLatencySamples(SampleRate) <= 0)
@@ -271,7 +289,69 @@ public class Composer : IComposer
                 var flushContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
                 buffers.Add(outputNode.Flush(flushContext));
             }
+
+            entry.RemainingTailSamples = SubtractTail(
+                latency,
+                AudioProcessContext.GetSampleCount(range, SampleRate));
         }
+    }
+
+    private void PromoteEntries(TimeRange timeRange, bool contiguous)
+    {
+        var previous = _previousEntry.ToArray();
+        _previousEntry.Clear();
+
+        foreach (var entry in _currentEntry)
+        {
+            _previousEntry.Add(entry);
+        }
+
+        foreach (var entry in previous)
+        {
+            if (contiguous && entry.RemainingTailSamples > 0 && !_currentEntry.Contains(entry))
+            {
+                _previousEntry.Add(entry);
+            }
+        }
+
+        _previousRange = timeRange;
+    }
+
+    private List<AudioNodeEntry> GetRetainedEntries()
+    {
+        var entries = new List<AudioNodeEntry>(_currentEntry.Count + _previousEntry.Count);
+        entries.AddRange(_currentEntry);
+        foreach (var entry in _previousEntry)
+        {
+            if (!entries.Contains(entry))
+            {
+                entries.Add(entry);
+            }
+        }
+
+        return entries;
+    }
+
+    private static int GetEntryLatency(AudioNodeEntry entry, AudioNode[] outputNodes, int sampleRate)
+    {
+        if (entry.RemainingTailSamples > 0)
+            return entry.RemainingTailSamples;
+
+        int latency = 0;
+        foreach (AudioNode outputNode in outputNodes)
+        {
+            latency = Math.Max(latency, outputNode.GetTotalLatencySamples(sampleRate));
+        }
+
+        return latency;
+    }
+
+    private static int SubtractTail(int latency, int samples)
+    {
+        if (latency == int.MaxValue)
+            return int.MaxValue;
+
+        return Math.Max(0, latency - samples);
     }
 
     private static bool IsContiguous(TimeSpan previousEnd, TimeSpan nextStart)
@@ -388,6 +468,7 @@ public class Composer : IComposer
         }
 
         entry.SoundRange = sound.TimeRange;
+        entry.RemainingTailSamples = 0;
         _currentEntry.Add(entry);
     }
 

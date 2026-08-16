@@ -147,12 +147,22 @@ public sealed class MixerNode : AudioNode
         if (!_branchEndTimes.TryGetValue(Inputs[index], out TimeSpan branchEndTime))
             return false;
 
+        int branchLatency = Inputs[index].GetTotalLatencySamples(context.SampleRate);
+        if (branchLatency == int.MaxValue)
+            return false;
+
         // Apply the tick tolerance without overflowing at TimeSpan.MinValue.
         long blockStartTicks = context.TimeRange.Start.Ticks;
         long deadBeforeTicks = blockStartTicks < TimeSpan.MinValue.Ticks + BranchLivenessToleranceTicks
             ? TimeSpan.MinValue.Ticks
             : blockStartTicks - BranchLivenessToleranceTicks;
-        return branchEndTime.Ticks < deadBeforeTicks;
+
+        long latencyTicks = (long)Math.Ceiling(
+            branchLatency * (double)TimeSpan.TicksPerSecond / context.SampleRate);
+        long tailEndTicks = branchEndTime.Ticks > TimeSpan.MaxValue.Ticks - latencyTicks
+            ? TimeSpan.MaxValue.Ticks
+            : branchEndTime.Ticks + latencyTicks;
+        return tailEndTicks < deadBeforeTicks;
     }
 
     protected override void OnInputAdded(AudioNode input, int index)
