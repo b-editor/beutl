@@ -34,6 +34,9 @@ public sealed class MyAsyncLock
         Task wait = _semaphore.WaitAsync(cancellationToken);
         if (wait.IsCompleted)
         {
+            // A synchronously completed wait can still be canceled; propagate the
+            // cancellation instead of returning a releaser for a lock never acquired.
+            wait.GetAwaiter().GetResult();
             return _releaser;
         }
         else
