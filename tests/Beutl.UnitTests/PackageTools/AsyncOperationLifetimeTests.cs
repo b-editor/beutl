@@ -75,4 +75,87 @@ public sealed class AsyncOperationLifetimeTests
                 Throws.TypeOf<ObjectDisposedException>());
         });
     }
+
+    [Test]
+    public async Task DisposeAsync_StillDrainsAndDisposesWhenCancellationThrows()
+    {
+        var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allowOperationToFinish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool resourcesDisposed = false;
+        var lifetime = new AsyncOperationLifetime(
+            static () => throw new InvalidOperationException("cancel failed"),
+            () =>
+            {
+                resourcesDisposed = true;
+                return ValueTask.CompletedTask;
+            });
+        Task operation = lifetime.RunAsync(async cancellationToken =>
+        {
+            operationStarted.TrySetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                cancellationObserved.TrySetResult();
+            }
+
+            await allowOperationToFinish.Task;
+        });
+        await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task dispose = lifetime.DisposeAsync().AsTask();
+        await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        allowOperationToFinish.TrySetResult();
+
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                async () => await dispose.WaitAsync(TimeSpan.FromSeconds(5)),
+                Throws.TypeOf<InvalidOperationException>());
+            Assert.That(resourcesDisposed, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task RunAsync_InvokesCompletionWhenCallerCancelsButLifetimeIsNotStopping()
+    {
+        var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allowOperationToFinish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int completionCount = 0;
+        var lifetime = new AsyncOperationLifetime(
+            static () => { },
+            static () => ValueTask.CompletedTask);
+        using var callerCancellation = new CancellationTokenSource();
+
+        Task operation = lifetime.RunAsync(
+            async cancellationToken =>
+            {
+                operationStarted.TrySetResult();
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    cancellationObserved.TrySetResult();
+                }
+
+                await allowOperationToFinish.Task;
+            },
+            () => Interlocked.Increment(ref completionCount),
+            callerCancellation.Token);
+        await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        callerCancellation.Cancel();
+        await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        allowOperationToFinish.TrySetResult();
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(completionCount, Is.EqualTo(1));
+    }
 }

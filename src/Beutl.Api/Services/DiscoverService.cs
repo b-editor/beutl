@@ -43,7 +43,7 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
         using CancellationTokenSource lifetimeCts = clients.CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = lifetimeCts.Token;
         token.ThrowIfCancellationRequested();
-        using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetDailyRanking", ActivityKind.Client);
+        using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetFeatured", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
         activity?.SetTag("type", type.ToString());

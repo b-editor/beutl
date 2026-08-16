@@ -43,20 +43,23 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                     Packages.Clear();
                     Packages.AddRange(Enumerable.Repeat(new DummyItem(), 6));
 
-                    using (await _clients.Lock.LockAsync())
+                    using (await _clients.Lock.LockAsync(_lifetimeCts.Token))
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
 
                         if (_user != null)
                         {
-                            await _user.RefreshAsync(CancellationToken.None);
+                            await _user.RefreshAsync(_lifetimeCts.Token);
                         }
 
-                        await RefreshPackages(_user != null);
+                        await RefreshPackages(_user != null, _lifetimeCts.Token);
                         activity?.AddEvent(new("Refreshed_Packages"));
                     }
 
                     await task;
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -205,22 +208,27 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         }
     }
 
-    private async Task RefreshPackages(bool auth)
+    private async Task RefreshPackages(bool auth, CancellationToken cancellationToken)
     {
         PackageManager manager = _clients.GetResource<PackageManager>();
         DiscoverService discover = _clients.GetResource<DiscoverService>();
-        List<Package> own = auth ? await LoadAll() : [];
+        List<Package> own = auth ? await LoadAll(cancellationToken) : [];
         Packages.Clear();
         var installed = await manager.GetPackages();
 
         foreach (var name in own.Select(i => i.Name).Union(installed.Select(i => i.Name)))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var remote = own.FirstOrDefault(i => i.Name == name);
             if (remote == null)
             {
                 try
                 {
-                    remote = await discover.GetPackage(name, CancellationToken.None);
+                    remote = await discover.GetPackage(name, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch
                 {
@@ -240,14 +248,15 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         }
     }
 
-    private async Task<List<Package>> LoadAll()
+    private async Task<List<Package>> LoadAll(CancellationToken cancellationToken)
     {
         var list = new List<Package>();
-        Package[] array = await _service.GetPackages(CancellationToken.None, 0, 30);
+        Package[] array = await _service.GetPackages(cancellationToken, 0, 30);
         list.AddRange(array);
         while (array.Length == 30)
         {
-            array = await _service.GetPackages(CancellationToken.None, list.Count, 30);
+            cancellationToken.ThrowIfCancellationRequested();
+            array = await _service.GetPackages(cancellationToken, list.Count, 30);
             list.AddRange(array);
         }
 

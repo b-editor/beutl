@@ -72,7 +72,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             {
                 lock (_gate)
                 {
-                    if (!_stopping && !linkedCancellation.IsCancellationRequested)
+                    if (!_stopping)
                     {
                         completion();
                     }
@@ -87,8 +87,16 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
-        _lifetimeCancellation.Cancel();
-        _cancelPendingRequests();
+        Exception? cancellationFailure = null;
+        try
+        {
+            _lifetimeCancellation.Cancel();
+            _cancelPendingRequests();
+        }
+        catch (Exception ex)
+        {
+            cancellationFailure = ex;
+        }
 
         try
         {
@@ -129,6 +137,11 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             {
                 _lifetimeCancellation.Dispose();
             }
+        }
+
+        if (cancellationFailure != null)
+        {
+            throw cancellationFailure;
         }
     }
 }

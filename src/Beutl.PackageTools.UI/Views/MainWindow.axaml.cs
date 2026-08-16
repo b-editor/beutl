@@ -30,9 +30,15 @@ public partial class MainWindow : Window
                 return;
 
             disposeStarted = true;
-            await viewmodel.DisposeAsync();
-            disposeCompleted = true;
-            Close();
+            try
+            {
+                await viewmodel.DisposeAsync();
+            }
+            finally
+            {
+                disposeCompleted = true;
+                Close();
+            }
         };
 
         DataContext = viewmodel;

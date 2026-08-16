@@ -200,6 +200,15 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
             Process.Start(startInfo);
         }
+
+        try
+        {
+            _beutlClients.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Beutl API application failed to dispose during shutdown.");
+        }
     }
 
     public void Execute(ContextCommandExecution execution)

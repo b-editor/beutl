@@ -159,6 +159,7 @@ public sealed class PackageManager(
                                 () => remotePackage.GetReleaseAsync(pkg.Version, operationToken),
                                 operationToken)
                             .ConfigureAwait(false);
+                        operationToken.ThrowIfCancellationRequested();
                         _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
                         return new PackageUpdate(remotePackage, oldRelease, item);
                     }
