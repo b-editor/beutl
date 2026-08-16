@@ -61,6 +61,10 @@ public record PackageChangeModel(
                     AlreadyInstalled = alreadyInstalled
                 };
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 s_logger.LogError(ex, "An exception occurred while reading nupkg file for package {PackageId} at path {Path}", package.Id, localNupkgPath);
