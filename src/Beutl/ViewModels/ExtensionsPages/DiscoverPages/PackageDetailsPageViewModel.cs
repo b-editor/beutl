@@ -202,7 +202,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                         try
                         {
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId, _lifetimeCts.Token);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
@@ -268,7 +268,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                             _handler.DeleteOldVersionFiles(Package.Name);
 
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId, _lifetimeCts.Token);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));

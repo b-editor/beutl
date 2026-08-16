@@ -229,7 +229,11 @@ public class BeutlApiApplication : IAsyncDisposable
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
-        Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>(), this));
+        Register(() => new PackageInstaller(
+            new HttpClient(),
+            ownsHttpClient: true,
+            GetResource<InstalledPackageRepository>(),
+            this));
         Register(() =>
         {
             // Unload diagnostics take a heavy ClrMD self-snapshot and write a dump; they are a development-only aid,

@@ -137,7 +137,7 @@ public partial class InstallPage : PackageToolPage
                 try
                 {
                     await main.RunOperationAsync(
-                        operationToken => Task.Run(() => viewModel.Run(operationToken), operationToken),
+                        operationToken => Task.Run(() => viewModel.Run(operationToken)),
                         () =>
                         {
                             object? nextViewModel = main.Next(viewModel, token);

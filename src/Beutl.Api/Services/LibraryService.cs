@@ -43,6 +43,7 @@ public class LibraryService(BeutlApiApplication clients) : IBeutlApiResource
         activity?.SetTag("count", count);
 
         AcquirePackageResponse[] packages = await clients.Library.GetLibrary(token, start, count);
+        token.ThrowIfCancellationRequested();
         Package[] result = await Task.WhenAll(
             packages.Select(package => GetPackage(package.Package.Name, token)));
         token.ThrowIfCancellationRequested();

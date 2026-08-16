@@ -37,24 +37,36 @@ internal class PackageOperationHandler
 
     public PackageChangesQueue Queue => _queue;
 
-    public async Task DownloadAndLoadPackage(Release release, PackageIdentity packageId)
+    public async Task DownloadAndLoadPackage(
+        Release release,
+        PackageIdentity packageId,
+        CancellationToken cancellationToken)
     {
-        PackageInstallContext context = await _packageInstaller.PrepareForInstall(release, force: true);
-        await _packageInstaller.DownloadPackageFile(context);
-        await _packageInstaller.VerifyPackageFile(context);
-        await _packageInstaller.ResolveDependencies(context, null);
+        PackageInstallContext context = await _packageInstaller.PrepareForInstall(
+            release,
+            force: true,
+            cancellationToken);
+        await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken);
+        await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken);
+        await _packageInstaller.ResolveDependencies(context, null, cancellationToken);
 
         _installedPackageRepository.UpgradePackages(packageId);
 
         ActivateInstalledPackage(packageId);
     }
 
-    public async Task DownloadAndLoadPackage(PackageIdentity packageId)
+    public async Task DownloadAndLoadPackage(
+        PackageIdentity packageId,
+        CancellationToken cancellationToken)
     {
-        PackageInstallContext context = _packageInstaller.PrepareForInstall(packageId.Id, packageId.Version.ToString(), force: true);
-        await _packageInstaller.DownloadPackageFile(context);
-        await _packageInstaller.VerifyPackageFile(context);
-        await _packageInstaller.ResolveDependencies(context, null);
+        PackageInstallContext context = _packageInstaller.PrepareForInstall(
+            packageId.Id,
+            packageId.Version.ToString(),
+            force: true,
+            cancellationToken);
+        await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken);
+        await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken);
+        await _packageInstaller.ResolveDependencies(context, null, cancellationToken);
 
         _installedPackageRepository.UpgradePackages(packageId);
 

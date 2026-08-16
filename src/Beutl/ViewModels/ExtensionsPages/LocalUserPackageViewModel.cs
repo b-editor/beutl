@@ -65,7 +65,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
                     try
                     {
-                        await _handler.DownloadAndLoadPackage(_packageIdentity);
+                        await _handler.DownloadAndLoadPackage(_packageIdentity, CancellationToken.None);
                         NotificationService.ShowInformation(
                             title: ExtensionsStrings.PackageInstaller,
                             message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
@@ -120,7 +120,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                                     $"Package '{Package.Name}' could not be unloaded safely.");
                             }
                             _handler.DeleteOldVersionFiles(Package.Name);
-                            await _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId);
+                            await _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId, CancellationToken.None);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));

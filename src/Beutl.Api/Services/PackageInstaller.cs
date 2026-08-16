@@ -17,10 +17,11 @@ using ILogger = NuGet.Common.ILogger;
 
 namespace Beutl.Api.Services;
 
-public partial class PackageInstaller : IBeutlApiResource
+public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 {
     private readonly Microsoft.Extensions.Logging.ILogger _logger = Log.CreateLogger<PackageInstaller>();
     private readonly HttpClient _httpClient;
+    private readonly bool _ownsHttpClient;
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly BeutlApiApplication _apiApplication;
 
@@ -45,6 +46,7 @@ public partial class PackageInstaller : IBeutlApiResource
     public PackageInstaller(HttpClient httpClient, InstalledPackageRepository installedPackageRepository, BeutlApiApplication apiApplication)
     {
         _httpClient = httpClient;
+        _ownsHttpClient = false;
         _installedPackageRepository = installedPackageRepository;
         _apiApplication = apiApplication;
 
@@ -86,6 +88,27 @@ public partial class PackageInstaller : IBeutlApiResource
         };
 
         _resolver = new PackageResolver();
+    }
+
+    internal PackageInstaller(
+        HttpClient httpClient,
+        bool ownsHttpClient,
+        InstalledPackageRepository installedPackageRepository,
+        BeutlApiApplication apiApplication)
+        : this(httpClient, installedPackageRepository, apiApplication)
+    {
+        _ownsHttpClient = ownsHttpClient;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _cacheContext.Dispose();
+        if (_ownsHttpClient)
+        {
+            _httpClient.Dispose();
+        }
+
+        return ValueTask.CompletedTask;
     }
 
     private static void CreateLocalSourceDirectory()

@@ -80,7 +80,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
                         try
                         {
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId, CancellationToken.None);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
@@ -144,7 +144,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
                             _handler.DeleteOldVersionFiles(Package.Name);
 
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId, CancellationToken.None);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));

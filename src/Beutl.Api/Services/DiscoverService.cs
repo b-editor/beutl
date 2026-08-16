@@ -51,6 +51,7 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
         SimplePackageResponse[] packages = await clients.Discover
             .GetFeatured(token, start, count, type.ToQueryValue())
             .ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         Package[] result = await Task.WhenAll(
                 packages.Select(package => GetPackage(package.Name, token)))
             .ConfigureAwait(false);
@@ -72,6 +73,7 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
         SimplePackageResponse[] packages = await clients.Discover
             .Search(query, token, start, count, type.ToQueryValue())
             .ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         Package[] result = await Task.WhenAll(
                 packages.Select(package => GetPackage(package.Name, token)))
             .ConfigureAwait(false);
