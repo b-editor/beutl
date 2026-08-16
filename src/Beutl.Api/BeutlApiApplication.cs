@@ -290,13 +290,15 @@ public class BeutlApiApplication : IAsyncDisposable
 
     private async Task<AuthenticatedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
     {
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
         using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client))
         {
             string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
             CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
             {
                 ContinueUri = continueUri
-            }, cancellationToken);
+            }, token);
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
@@ -305,7 +307,7 @@ public class BeutlApiApplication : IAsyncDisposable
 
             Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
-            string? code = await GetResponseFromListener(listener, cancellationToken);
+            string? code = await GetResponseFromListener(listener, token);
             activity?.AddEvent(new("Received_Code"));
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -316,15 +318,15 @@ public class BeutlApiApplication : IAsyncDisposable
             {
                 Code = code,
                 SessionId = authUriRes.SessionId
-            }, cancellationToken);
+            }, token);
             activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
             // Serialize only the authentication state transition; the OAuth wait above must
             // not hold the application-wide lock.
-            using (await Lock.LockAsync(cancellationToken))
+            using (await Lock.LockAsync(token))
             {
                 activity?.AddEvent(new("Entered_AsyncLock"));
-                AuthenticatedUser user = await CompleteSignInAsync(authResponse, cancellationToken);
+                AuthenticatedUser user = await CompleteSignInAsync(authResponse, token);
                 activity?.AddEvent(new("Saved_User"));
                 return user;
             }
@@ -333,16 +335,18 @@ public class BeutlApiApplication : IAsyncDisposable
 
     public async Task<AuthenticatedUser> SignInAsync(CancellationToken cancellationToken)
     {
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
         using (Activity? activity = ActivitySource.StartActivity("SignInAsync", ActivityKind.Client))
         {
-            using (await Lock.LockAsync(cancellationToken))
+            using (await Lock.LockAsync(token))
             {
                 activity?.AddEvent(new("Entered_AsyncLock"));
                 string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
                 CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
                 {
                     ContinueUri = continueUri
-                }, cancellationToken);
+                }, token);
                 using HttpListener listener = StartListener($"{continueUri}/");
                 activity?.AddEvent(new("Started_Listener"));
 
@@ -350,7 +354,7 @@ public class BeutlApiApplication : IAsyncDisposable
 
                 Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
-                string? code = await GetResponseFromListener(listener, cancellationToken);
+                string? code = await GetResponseFromListener(listener, token);
                 activity?.AddEvent(new("Received_Code"));
                 if (string.IsNullOrWhiteSpace(code))
                 {
@@ -361,10 +365,10 @@ public class BeutlApiApplication : IAsyncDisposable
                 {
                     Code = code,
                     SessionId = authUriRes.SessionId
-                }, cancellationToken);
+                }, token);
                 activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-                AuthenticatedUser user = await CompleteSignInAsync(authResponse, cancellationToken);
+                AuthenticatedUser user = await CompleteSignInAsync(authResponse, token);
                 activity?.AddEvent(new("Saved_User"));
                 return user;
             }

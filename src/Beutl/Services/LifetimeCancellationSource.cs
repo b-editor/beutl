@@ -16,22 +16,53 @@ internal sealed class LifetimeCancellationSource : IDisposable
 
     public void Cancel()
     {
+        Exception? failure = null;
         lock (_gate)
         {
-            _source?.Cancel();
+            try
+            {
+                _source?.Cancel();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        }
+
+        if (failure != null)
+        {
+            throw failure;
         }
     }
 
     public void Dispose()
     {
         CancellationTokenSource? source;
+        Exception? failure = null;
         lock (_gate)
         {
             source = _source;
             _source = null;
-            source?.Cancel();
+            try
+            {
+                source?.Cancel();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
         }
 
-        source?.Dispose();
+        try
+        {
+            source?.Dispose();
+        }
+        finally
+        {
+            if (failure != null)
+            {
+                throw failure;
+            }
+        }
     }
 }

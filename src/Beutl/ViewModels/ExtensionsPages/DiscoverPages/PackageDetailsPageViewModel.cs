@@ -258,6 +258,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         Release release = await AcquireRelease(_lifetimeCts.Token);
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
 
+                        bool oldVersionRemoved = false;
                         try
                         {
                             if (!await _handler.UnloadPackages(Package.Name))
@@ -267,6 +268,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                             }
 
                             _handler.DeleteOldVersionFiles(Package.Name);
+                            oldVersionRemoved = true;
 
                             await _handler.DownloadAndLoadPackage(release, packageId, _lifetimeCts.Token);
                             NotificationService.ShowInformation(
@@ -275,6 +277,13 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         }
                         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
                         {
+                            if (oldVersionRemoved)
+                            {
+                                // The old version was already unloaded and deleted; queue the update so
+                                // PackageTools restores the package on the next launch.
+                                _handler.Queue.InstallQueue(packageId);
+                            }
+
                             throw;
                         }
                         catch (Exception ex)
