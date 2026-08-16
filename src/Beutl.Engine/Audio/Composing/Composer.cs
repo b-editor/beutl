@@ -135,7 +135,7 @@ public class Composer : IComposer
     /// Drains the output nodes retained by the most recent composition at the beginning of
     /// <paramref name="range"/> and mixes the recovered tails into a buffer of that range's length.
     /// </summary>
-    public AudioBuffer? Flush(TimeRange range)
+    public AudioBuffer? Flush(TimeRange range, CompositionEligibility? eligibility = null)
     {
         if (IsAudioRendering)
             return default;
@@ -147,6 +147,9 @@ public class Composer : IComposer
             AudioBuffer? mixedBuffer = null;
             try
             {
+                if (eligibility is { } currentEligibility)
+                    _lastEligibility = currentEligibility;
+
                 var context = new AudioProcessContext(range, SampleRate, _animationSampler, range);
                 var entries = GetRetainedEntries();
                 bool contiguous = _previousRange is { } previous
@@ -373,7 +376,8 @@ public class Composer : IComposer
     }
 
     private static bool IsContiguous(TimeSpan previousEnd, TimeSpan nextStart)
-        => Math.Abs((nextStart - previousEnd).Ticks) <= TimeSpan.TicksPerMillisecond;
+        => Math.Abs((nextStart - previousEnd).Ticks)
+            <= AudioProcessContext.TimestampQuantizationToleranceTicks;
 
     private bool CanFlushEntry(AudioNodeEntry entry)
     {

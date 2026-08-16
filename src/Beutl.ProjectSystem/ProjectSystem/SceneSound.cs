@@ -157,8 +157,24 @@ public sealed partial class SceneSound : Sound
         public override AudioBuffer Flush(AudioProcessContext context)
         {
             ArgumentNullException.ThrowIfNull(context);
-            return _composer?.Flush(context.TimeRange)
-                ?? CreateSilentFlush(context);
+            var scene = _resource?.ReferencedScene;
+            var compositor = _resource?._compositor;
+            if (_composer is null || scene is null || compositor is null)
+                return CreateSilentFlush(context);
+
+            if (!Resource.Enter(scene))
+                throw new InvalidOperationException("A circular reference was detected.");
+
+            try
+            {
+                CompositionFrame frame = compositor.EvaluateAudio(context.TimeRange);
+                return _composer.Flush(context.TimeRange, frame.Eligibility)
+                    ?? CreateSilentFlush(context);
+            }
+            finally
+            {
+                Resource.Exit(scene);
+            }
         }
 
         public override int GetTotalLatencySamples(int sampleRate)

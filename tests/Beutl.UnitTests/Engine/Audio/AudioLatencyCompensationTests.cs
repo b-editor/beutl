@@ -215,8 +215,8 @@ public class AudioLatencyCompensationTests
             Assert.That(processed.SampleCount, Is.EqualTo(1));
             Assert.That(firstTail.SampleCount, Is.EqualTo(1));
             Assert.That(secondTail.SampleCount, Is.EqualTo(1));
-            Assert.That(source.TotalFlushedSamples, Is.EqualTo(4),
-                "Each one-sample output block must consume the corresponding two source-rate samples without returning an oversized block.");
+            Assert.That(source.TotalFlushedSamples, Is.EqualTo(2),
+                "The two one-sample output drain blocks must consume only their non-overlapping source-rate ranges.");
         });
     }
 
@@ -240,6 +240,37 @@ public class AudioLatencyCompensationTests
 
         Assert.That(firstSamples[^1] - firstSamples[0], Is.GreaterThan(50f),
             "Small output blocks must consume the resampled stream in order instead of replaying a growing pending backlog.");
+    }
+
+    [Test]
+    public void ResampleNode_PartialBlocksRequestNonOverlappingTimestampRanges()
+    {
+        const int sourceSampleRate = 48000;
+        const int outputSampleRate = 44100;
+        const int blockCount = 64;
+
+        using var source = new RampInputNode(sourceSampleRate);
+        using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
+        resample.AddInput(source);
+
+        TimeSpan start = TimeSpan.Zero;
+        TimeSpan blockDuration = ExactDuration(1, outputSampleRate);
+        for (int i = 0; i < blockCount; i++)
+        {
+            using var output = resample.Process(ExactContext(start, 1, outputSampleRate));
+            Assert.That(output.SampleCount, Is.EqualTo(1));
+            start += blockDuration;
+        }
+
+        Assert.That(source.RequestedRanges, Has.Count.EqualTo(blockCount));
+        Assert.That(source.RequestedRanges[0].Start, Is.EqualTo(0));
+        for (int i = 1; i < source.RequestedRanges.Count; i++)
+        {
+            var previous = source.RequestedRanges[i - 1];
+            var current = source.RequestedRanges[i];
+            Assert.That(current.Start, Is.EqualTo(previous.Start + previous.Count),
+                $"Source request {i} must begin where request {i - 1} ended.");
+        }
     }
 
     [Test]
@@ -1245,6 +1276,39 @@ public class AudioLatencyCompensationTests
         Assert.That(tail, Is.Not.Null);
         Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
             "A non-contiguous flush must discard the old tail instead of emitting it at the seek destination.");
+        Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Composer_Flush_DoesNotDrainAfterSubMillisecondSeek()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            new CompositionEligibility([sound]));
+        using var processed = composer.Compose(firstRange, frame);
+
+        var subMillisecondGap = TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond / 2);
+        var seekRange = new TimeRange(oneSecond + subMillisecondGap, oneSecond);
+        using var tail = composer.Flush(seekRange);
+
+        Assert.That(tail, Is.Not.Null);
+        Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
+            "A sub-millisecond seek must discard the old tail instead of draining it at the seek destination.");
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0));
     }
 

@@ -726,6 +726,57 @@ public class SceneCompositorTests
         }
     }
 
+    [Test]
+    public void EvaluateAudio_ReferencedSceneMuteSuppressesNestedLimiterTail()
+    {
+        const int sampleRate = 48000;
+        const int clipSamples = 4096;
+        const int lookaheadSamples = 240;
+        var duration = TimeSpan.FromSeconds((double)clipSamples / sampleRate);
+        string basePath = GetTempPath();
+
+        try
+        {
+            Scene childScene = CreateScene(basePath);
+            var childSound = new LimiterTailSound { LookaheadMs = 5f };
+            Element childElement = CreateElement(basePath, isEnabled: true, childSound);
+            childElement.Length = duration;
+            childScene.Children.Add(childElement);
+            TimelineLayer childLayer = CreateLayer(0);
+            childScene.Layers.Add(childLayer);
+
+            Scene parentScene = CreateScene(basePath);
+            var sceneSound = new SceneSound();
+            sceneSound.ReferencedScene.CurrentValue = childScene;
+            Element parentElement = CreateElement(basePath, isEnabled: true, sceneSound);
+            parentElement.Length = duration;
+            parentScene.Children.Add(parentElement);
+
+            using var compositor = new SceneCompositor(parentScene);
+            using var composer = new Composer { SampleRate = sampleRate };
+
+            var firstRange = new TimeRange(TimeSpan.Zero, duration);
+            using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
+
+            childLayer.IsAudioMuted = true;
+            var tailRange = new TimeRange(
+                duration,
+                TimeSpan.FromSeconds((double)lookaheadSamples / sampleRate));
+            using AudioBuffer? tail = composer.Compose(tailRange, compositor.EvaluateAudio(tailRange));
+
+            Assert.That(first, Is.Not.Null);
+            Assert.That(tail, Is.Not.Null);
+            Assert.That(
+                tail!.GetChannelData(0)[..lookaheadSamples].ToArray(),
+                Has.All.EqualTo(0f),
+                "A referenced scene muted before the terminal drain must not emit its retained limiter tail.");
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
     [Beutl.Engine.SuppressResourceClassGeneration]
     private class TestGraphicsObject : EngineObject
     {

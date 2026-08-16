@@ -6,7 +6,7 @@ namespace Beutl.Audio.Graph;
 
 public sealed class AudioProcessContext
 {
-    private const long TimestampQuantizationToleranceTicks = 1;
+    internal const long TimestampQuantizationToleranceTicks = 1;
 
     public AudioProcessContext(TimeRange timeRange, int sampleRate, AnimationSampler animationSampler, TimeRange? originalTimeRange)
     {

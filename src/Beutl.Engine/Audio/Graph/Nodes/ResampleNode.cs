@@ -1,4 +1,5 @@
 ﻿using System;
+using Beutl.Media;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
@@ -10,6 +11,7 @@ public sealed class ResampleNode : AudioNode
     private ResampleSampleProvider? _resampleProvider;
     private int _lastSampleRate;
     private TimeSpan? _lastTimeRangeEnd;
+    private long? _sourceSampleCursor;
 
     public int SourceSampleRate
     {
@@ -22,6 +24,7 @@ public sealed class ResampleNode : AudioNode
                 _resampleProvider?.Dispose();
                 _resampleProvider = null;
                 _lastTimeRangeEnd = null;
+                _sourceSampleCursor = null;
             }
         }
     }
@@ -31,8 +34,10 @@ public sealed class ResampleNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Resample node requires exactly one input.");
 
-        var newContext = new AudioProcessContext(context.TimeRange, SourceSampleRate, context.AnimationSampler, context.OriginalTimeRange);
-        return Resample(context, Inputs[0].Process(newContext));
+        AudioProcessContext newContext = CreateUpstreamContext(context, out long sourceStart);
+        AudioBuffer input = Inputs[0].Process(newContext);
+        _sourceSampleCursor = checked(sourceStart + input.SampleCount);
+        return Resample(context, input);
     }
 
     public override AudioBuffer Flush(AudioProcessContext context)
@@ -40,8 +45,10 @@ public sealed class ResampleNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Resample node requires exactly one input.");
 
-        var newContext = new AudioProcessContext(context.TimeRange, SourceSampleRate, context.AnimationSampler, context.OriginalTimeRange);
-        return Resample(context, Inputs[0].Flush(newContext));
+        AudioProcessContext newContext = CreateUpstreamContext(context, out long sourceStart);
+        AudioBuffer input = Inputs[0].Flush(newContext);
+        _sourceSampleCursor = checked(sourceStart + input.SampleCount);
+        return Resample(context, input);
     }
 
     public override int GetTotalLatencySamples(int sampleRate)
@@ -65,12 +72,6 @@ public sealed class ResampleNode : AudioNode
             _resampleProvider = null;
             _lastTimeRangeEnd = context.TimeRange.End;
             return input;
-        }
-
-        if (_lastTimeRangeEnd is { } previousEnd && !context.ContinuesFrom(previousEnd))
-        {
-            _resampleProvider?.Dispose();
-            _resampleProvider = null;
         }
 
         if (_resampleProvider == null
@@ -98,8 +99,49 @@ public sealed class ResampleNode : AudioNode
             _resampleProvider?.Dispose();
             _resampleProvider = null;
             _lastTimeRangeEnd = null;
+            _sourceSampleCursor = null;
             throw;
         }
+    }
+
+    private AudioProcessContext CreateUpstreamContext(AudioProcessContext context, out long sourceStart)
+    {
+        if (_lastTimeRangeEnd is { } previousEnd && !context.ContinuesFrom(previousEnd))
+        {
+            _resampleProvider?.Dispose();
+            _resampleProvider = null;
+            _sourceSampleCursor = null;
+        }
+
+        sourceStart = _sourceSampleCursor
+            ?? AudioMath.TimeToSampleIndex(context.TimeRange.Start, SourceSampleRate);
+        long sourceEnd = CeilingSampleIndex(context.TimeRange.End, SourceSampleRate);
+        long sourceCount = Math.Max(0, sourceEnd - sourceStart);
+        if (sourceCount > int.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(context),
+                $"Source sample count {sourceCount} exceeds Int32.MaxValue at sampleRate={SourceSampleRate}.");
+        }
+
+        int sampleCount = (int)sourceCount;
+        // Keep the truncating TimeToSampleIndex conversion above the requested boundary even when
+        // TimeSpan.TotalSeconds rounds an exact sample position infinitesimally below its integer.
+        long startTicks = checked((long)Math.Ceiling(
+            sourceStart * (double)TimeSpan.TicksPerSecond / SourceSampleRate) + 1);
+        TimeSpan start = TimeSpan.FromTicks(startTicks);
+        TimeSpan duration = AudioProcessContext.GetDurationForSampleCount(sampleCount, SourceSampleRate);
+        return new AudioProcessContext(
+            new TimeRange(start, duration),
+            SourceSampleRate,
+            context.AnimationSampler,
+            context.OriginalTimeRange);
+    }
+
+    private static long CeilingSampleIndex(TimeSpan time, int sampleRate)
+    {
+        double samples = time.TotalSeconds * sampleRate;
+        return (long)Math.Ceiling(samples);
     }
 
     protected override void Dispose(bool disposing)
@@ -109,6 +151,7 @@ public sealed class ResampleNode : AudioNode
             _resampleProvider?.Dispose();
             _resampleProvider = null;
             _lastTimeRangeEnd = null;
+            _sourceSampleCursor = null;
         }
 
         base.Dispose(disposing);

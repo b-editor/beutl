@@ -34,6 +34,8 @@ internal class ConstantInputNode(int sampleRate, int channels, int count, float 
 /// </summary>
 internal sealed class RampInputNode(int sampleRate) : AudioNode
 {
+    public List<(long Start, int Count)> RequestedRanges { get; } = [];
+
     public override AudioBuffer Process(AudioProcessContext context)
     {
         int count = context.GetSampleCount();
@@ -41,6 +43,7 @@ internal sealed class RampInputNode(int sampleRate) : AudioNode
         Span<float> left = buffer.GetChannelData(0);
         Span<float> right = buffer.GetChannelData(1);
         long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate);
+        RequestedRanges.Add((startIndex, count));
         for (int i = 0; i < count; i++)
         {
             float v = (startIndex + i) * 0.01f;

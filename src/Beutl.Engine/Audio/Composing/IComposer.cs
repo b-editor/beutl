@@ -17,5 +17,6 @@ public interface IComposer : IDisposable
     int GetTotalLatencySamples(int sampleRate);
 
     /// <summary>Drains retained node tails into a buffer covering <paramref name="range"/>.</summary>
-    AudioBuffer? Flush(TimeRange range);
+    /// <param name="eligibility">An optional current eligibility snapshot for retained sounds.</param>
+    AudioBuffer? Flush(TimeRange range, CompositionEligibility? eligibility = null);
 }
