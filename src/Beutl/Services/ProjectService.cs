@@ -247,6 +247,16 @@ public sealed class ProjectService
         CancelPendingOpenAttemptExcept(owner: null);
     }
 
+    /// <summary>
+    /// Clears the shutdown request. The application never needs this — shutdown is terminal there —
+    /// but the headless suite shares one <see cref="MainViewModel"/> across the whole assembly, so a
+    /// test that exercises shutdown would otherwise reject every later test's project transition.
+    /// </summary>
+    internal void ClearShutdownRequest()
+    {
+        Interlocked.Exchange(ref _shutdownRequested, 0);
+    }
+
     private async ValueTask<ProjectTransitionScope> BeginTransitionAsync(
         ProjectTransitionPurpose purpose,
         object owner,

@@ -22,6 +22,10 @@ internal static class TestReset
         // which needs a window the headless host lacks. SkipVersionCheck removes that branch.
         Preferences.Default.Set("ProjectService.SkipVersionCheck", true);
 
+        // A case that exercised shutdown latched the request on the ProjectService this assembly
+        // shares, and every transition below (and in every later case) is rejected while it is set.
+        TestShell.Project.ClearShutdownRequest();
+
         await TestShell.Project.CloseProject();
         BeutlApplication.Current.Items.Clear();
         HeadlessTestHelpers.Settle();
