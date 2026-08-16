@@ -54,7 +54,7 @@ public class MainViewModel
             IsBusy.Value = true;
             try
             {
-                await _app.RestoreUserAsync(null);
+                await _app.RestoreUserAsync(null, CancellationToken.None);
             }
             catch (Exception ex)
             {

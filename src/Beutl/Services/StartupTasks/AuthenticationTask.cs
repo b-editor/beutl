@@ -20,7 +20,7 @@ public sealed class AuthenticationTask : StartupTask
             {
                 try
                 {
-                    await _beutlApiApplication.RestoreUserAsync(activity);
+                    await _beutlApiApplication.RestoreUserAsync(activity, CancellationToken.None);
                 }
                 catch (Exception e)
                 {

@@ -319,27 +319,28 @@ public class BeutlApiApplication
         }
     }
 
-    public async Task RestoreUserAsync(Activity? activity)
+    public async Task RestoreUserAsync(Activity? activity, CancellationToken cancellationToken)
     {
-        using (await Lock.LockAsync())
+        using (await Lock.LockAsync(cancellationToken))
         {
             activity?.AddEvent(new("Entered_AsyncLock"));
 
-            AuthenticatedUser? user = await ReadUserAsync();
+            AuthenticatedUser? user = await ReadUserAsync(cancellationToken);
             if (user != null)
             {
-                await user.RefreshAsync(CancellationToken.None);
+                await user.RefreshAsync(cancellationToken);
 
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
-                await user.Profile.RefreshAsync(CancellationToken.None, true);
+                await user.Profile.RefreshAsync(cancellationToken, true);
                 _authenticatedUser.Value = user;
                 SaveUser();
             }
         }
     }
 
-    public async ValueTask<AuthenticatedUser?> ReadUserAsync()
+    public async ValueTask<AuthenticatedUser?> ReadUserAsync(CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string fileName = Path.Combine(Helper.AppRoot, UserFileName);
         if (File.Exists(fileName))
         {

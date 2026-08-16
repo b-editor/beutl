@@ -39,7 +39,7 @@ public class AuthenticatedUser(
             DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
             if (_writeTime < lastWriteTime)
             {
-                AuthenticatedUser? fileUser = await clients.ReadUserAsync();
+                AuthenticatedUser? fileUser = await clients.ReadUserAsync(cancellationToken);
                 if (fileUser?.Profile?.Id == Profile.Id)
                 {
                     _response = fileUser._response;
