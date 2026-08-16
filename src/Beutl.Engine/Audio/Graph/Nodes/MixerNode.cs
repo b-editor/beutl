@@ -11,6 +11,7 @@ public sealed class MixerNode : AudioNode
         new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<AudioNode> _processedBranches =
         new(ReferenceEqualityComparer.Instance);
+    private TimeSpan? _lastTimeRangeEnd;
 
     public float[] Gains
     {
@@ -43,7 +44,18 @@ public sealed class MixerNode : AudioNode
     }
 
     public override AudioBuffer Process(AudioProcessContext context)
-        => Mix(context, drain: false);
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (_lastTimeRangeEnd is { } previousEnd && !context.ContinuesFrom(previousEnd))
+        {
+            _processedBranches.Clear();
+        }
+
+        AudioBuffer result = Mix(context, drain: false);
+        _lastTimeRangeEnd = context.TimeRange.End;
+        return result;
+    }
 
     // Fan-in flush drains and mixes live branch tails using the normal gain fold.
     public override AudioBuffer Flush(AudioProcessContext context)
@@ -186,6 +198,7 @@ public sealed class MixerNode : AudioNode
         _gains = RemoveAt(_gains, index);
         _branchEndTimes.Remove(input);
         _processedBranches.Remove(input);
+        _lastTimeRangeEnd = null;
     }
 
     protected override void OnInputsCleared()
@@ -193,6 +206,7 @@ public sealed class MixerNode : AudioNode
         _gains = Array.Empty<float>();
         _branchEndTimes.Clear();
         _processedBranches.Clear();
+        _lastTimeRangeEnd = null;
     }
 
     protected override void Dispose(bool disposing)
@@ -202,6 +216,7 @@ public sealed class MixerNode : AudioNode
             _gains = Array.Empty<float>();
             _branchEndTimes.Clear();
             _processedBranches.Clear();
+            _lastTimeRangeEnd = null;
         }
 
         base.Dispose(disposing);

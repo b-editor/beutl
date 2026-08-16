@@ -360,10 +360,10 @@ public class Composer : IComposer
         return entries;
     }
 
-    private static int GetEntryLatency(AudioNodeEntry entry, AudioNode[] outputNodes, int sampleRate)
+    private int GetEntryLatency(AudioNodeEntry entry, AudioNode[] outputNodes, int sampleRate)
     {
         if (entry.RemainingTailSamples > 0)
-            return entry.RemainingTailSamples;
+            return ScaleSampleCount(entry.RemainingTailSamples, SampleRate, sampleRate);
 
         int latency = 0;
         foreach (AudioNode outputNode in outputNodes)
@@ -372,6 +372,15 @@ public class Composer : IComposer
         }
 
         return latency;
+    }
+
+    private static int ScaleSampleCount(int sampleCount, int sourceSampleRate, int destinationSampleRate)
+    {
+        if (sampleCount == int.MaxValue || sourceSampleRate == destinationSampleRate)
+            return sampleCount;
+
+        double scaled = sampleCount * (double)destinationSampleRate / sourceSampleRate;
+        return scaled >= int.MaxValue ? int.MaxValue : (int)Math.Ceiling(scaled);
     }
 
     private static int SubtractTail(int latency, int samples)

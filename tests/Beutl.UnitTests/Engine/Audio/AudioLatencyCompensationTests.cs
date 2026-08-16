@@ -560,6 +560,34 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_Process_AfterSeek_DoesNotDrainStaleBranchTail()
+    {
+        const float lookaheadMs = 20f;
+        const int processSamples = 4096;
+        const int seekSamples = 1024;
+        int L = LookaheadSamples(lookaheadMs);
+        var branchEnd = ExactDuration(processSamples, SampleRate);
+
+        using var input = CreateBuffer(2, processSamples, (_, i) =>
+            0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(new BufferReplayNode(input));
+        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = branchEnd };
+        clip.AddInput(limiter);
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(clip);
+        mixer.SetBranchEndTime(clip, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+        var seekStart = branchEnd + TimeSpan.FromMilliseconds(1);
+        using var seekOutput = mixer.Process(ExactContext(seekStart, seekSamples, SampleRate));
+
+        Assert.That(seekOutput.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
+            "A discontinuous process must clear branch drain state instead of emitting a cached tail at the seek destination.");
+    }
+
+    [Test]
     public void MixerNode_Flush_SkipsBranchThatEndedBeforeTheTerminalSlice()
     {
         const float lookaheadMs = 5f;
@@ -1233,6 +1261,52 @@ public class AudioLatencyCompensationTests
             Assert.That(HasNonZero(tail!.GetChannelData(0)), Is.True,
                 $"The retained limiter tail must remain available in partial window {i + 1}.");
         }
+    }
+
+    [Test]
+    public void Composer_GetTotalLatencySamples_ScalesRetainedTailToRequestedRate()
+    {
+        const float lookaheadMs = 20f;
+        const int clipSamples = 48000;
+        int retainedSamples = LookaheadSamples(lookaheadMs) * 3 / 4;
+        int chunkSamples = LookaheadSamples(lookaheadMs) / 4;
+        var clipDuration = ExactDuration(clipSamples, SampleRate);
+        var chunkDuration = ExactDuration(chunkSamples, SampleRate);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var eligibility = new CompositionEligibility([sound]);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            new TimeRange(TimeSpan.Zero, clipDuration),
+            default,
+            eligibility);
+        using var first = composer.Compose(firstFrame.Time, firstFrame);
+
+        var partialRange = new TimeRange(clipDuration, chunkDuration);
+        var partialFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            partialRange,
+            default,
+            eligibility);
+        using var partial = composer.Compose(partialRange, partialFrame);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(retainedSamples));
+            Assert.That(
+                composer.GetTotalLatencySamples(44100),
+                Is.EqualTo((int)Math.Ceiling(retainedSamples * 44100d / SampleRate)));
+            Assert.That(
+                composer.GetTotalLatencySamples(96000),
+                Is.EqualTo((int)Math.Ceiling(retainedSamples * 96000d / SampleRate)));
+        });
     }
 
     [Test]
