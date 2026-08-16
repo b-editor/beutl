@@ -15,6 +15,7 @@ public class Composer : IComposer
     // Retain the previous window so contiguous windows can drain complete or partially drained tails.
     private readonly List<AudioNodeEntry> _previousEntry = new();
     private TimeRange? _previousRange;
+    private CompositionEligibility? _lastEligibility;
 
     private sealed class AudioNodeEntry : IDisposable
     {
@@ -79,6 +80,7 @@ public class Composer : IComposer
                 CompositionEligibility eligibility = frame.Eligibility
                     ?? throw new InvalidOperationException(
                         "Audio composition requires an eligibility snapshot.");
+                _lastEligibility = eligibility;
 
                 _currentEntry.Clear();
                 foreach (var resource in frame.Objects)
@@ -117,6 +119,9 @@ public class Composer : IComposer
         int total = 0;
         foreach (var entry in GetRetainedEntries())
         {
+            if (!CanFlushEntry(entry))
+                continue;
+
             if (entry.OutputNodes is not { } outputNodes)
                 continue;
 
@@ -147,8 +152,21 @@ public class Composer : IComposer
                 bool contiguous = _previousRange is { } previous
                     && IsContiguous(previous.End, range.Start);
                 int sampleCount = context.GetSampleCount();
+
+                if (!contiguous)
+                {
+                    DiscardRetainedState(entries);
+                    return new AudioBuffer(SampleRate, 2, sampleCount);
+                }
+
                 foreach (var entry in entries)
                 {
+                    if (!CanFlushEntry(entry))
+                    {
+                        entry.RemainingTailSamples = 0;
+                        continue;
+                    }
+
                     if (entry.OutputNodes is not { } outputNodes)
                         continue;
 
@@ -175,7 +193,7 @@ public class Composer : IComposer
                 _previousEntry.Clear();
                 foreach (var entry in entries)
                 {
-                    if (contiguous && entry.RemainingTailSamples > 0)
+                    if (entry.RemainingTailSamples > 0 && CanFlushEntry(entry))
                         _previousEntry.Add(entry);
                 }
 
@@ -357,6 +375,27 @@ public class Composer : IComposer
     private static bool IsContiguous(TimeSpan previousEnd, TimeSpan nextStart)
         => Math.Abs((nextStart - previousEnd).Ticks) <= TimeSpan.TicksPerMillisecond;
 
+    private bool CanFlushEntry(AudioNodeEntry entry)
+    {
+        if (entry.IsDirty || !entry.Sound.IsEnabled || entry.Sound.TimeRange != entry.SoundRange)
+            return false;
+
+        return _lastEligibility is not { } eligibility || eligibility.Contains(entry.Sound);
+    }
+
+    private void DiscardRetainedState(IEnumerable<AudioNodeEntry> entries)
+    {
+        foreach (var entry in entries)
+        {
+            entry.RemainingTailSamples = 0;
+        }
+
+        _currentEntry.Clear();
+        _previousEntry.Clear();
+        _previousRange = null;
+        _lastEligibility = null;
+    }
+
     private AudioBuffer? MixBuffers(List<AudioBuffer> buffers)
     {
         if (buffers.Count == 0)
@@ -420,8 +459,10 @@ public class Composer : IComposer
         _audioCache.Clear();
 
         // Invalidation also clears previous-window state so disposed graphs cannot be flushed.
+        _currentEntry.Clear();
         _previousEntry.Clear();
         _previousRange = null;
+        _lastEligibility = null;
     }
 
     /// <summary>

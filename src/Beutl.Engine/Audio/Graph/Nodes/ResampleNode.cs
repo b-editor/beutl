@@ -9,8 +9,7 @@ public sealed class ResampleNode : AudioNode
     private int _sourceSampleRate = 44100;
     private ResampleSampleProvider? _resampleProvider;
     private int _lastSampleRate;
-    private readonly Queue<AudioBuffer> _pendingOutputs = new();
-    private int _pendingOffset;
+    private TimeSpan? _lastTimeRangeEnd;
 
     public int SourceSampleRate
     {
@@ -20,9 +19,9 @@ public sealed class ResampleNode : AudioNode
             if (_sourceSampleRate != value)
             {
                 _sourceSampleRate = value;
-                ClearPendingOutputs();
                 _resampleProvider?.Dispose();
                 _resampleProvider = null;
+                _lastTimeRangeEnd = null;
             }
         }
     }
@@ -62,98 +61,54 @@ public sealed class ResampleNode : AudioNode
         // Same rate: pass the input through (caller owns it, don't dispose).
         if (input.SampleRate == context.SampleRate)
         {
-            ClearPendingOutputs();
+            _resampleProvider?.Dispose();
+            _resampleProvider = null;
+            _lastTimeRangeEnd = context.TimeRange.End;
             return input;
         }
 
-        // Otherwise the resampler reads `input` synchronously into a fresh buffer; dispose it after.
-        // (The provider is rebuilt next call, so it never reads this buffer again.)
-        using var owned = input;
-
-        if (_resampleProvider == null || _lastSampleRate != context.SampleRate)
+        if (_lastTimeRangeEnd is { } previousEnd && !context.ContinuesFrom(previousEnd))
         {
-            ClearPendingOutputs();
+            _resampleProvider?.Dispose();
+            _resampleProvider = null;
+        }
+
+        if (_resampleProvider == null
+            || _lastSampleRate != context.SampleRate
+            || _resampleProvider.SourceSampleRate != input.SampleRate
+            || _resampleProvider.ChannelCount != input.ChannelCount)
+        {
             _resampleProvider?.Dispose();
             _resampleProvider = new ResampleSampleProvider(input, context.SampleRate);
             _lastSampleRate = context.SampleRate;
         }
-
-        if (_pendingOutputs.Count > 0)
+        else
         {
-            AudioBuffer pending = _pendingOutputs.Peek();
-            if (pending.SampleRate != context.SampleRate || pending.ChannelCount != input.ChannelCount)
-            {
-                ClearPendingOutputs();
-            }
+            _resampleProvider.Append(input);
         }
 
-        _pendingOutputs.Enqueue(_resampleProvider.Process(input));
-
-        int requestedSamples = context.GetSampleCount();
-        var output = new AudioBuffer(context.SampleRate, input.ChannelCount, requestedSamples);
         try
         {
-            int written = 0;
-            while (written < requestedSamples && _pendingOutputs.Count > 0)
-            {
-                AudioBuffer pending = _pendingOutputs.Peek();
-                if (pending.SampleRate != output.SampleRate || pending.ChannelCount != output.ChannelCount)
-                {
-                    ClearPendingOutputs();
-                    break;
-                }
-
-                int available = pending.SampleCount - _pendingOffset;
-                if (available <= 0)
-                {
-                    _pendingOutputs.Dequeue().Dispose();
-                    _pendingOffset = 0;
-                    continue;
-                }
-
-                int count = Math.Min(requestedSamples - written, available);
-                for (int channel = 0; channel < output.ChannelCount; channel++)
-                {
-                    pending.GetChannelData(channel)
-                        .Slice(_pendingOffset, count)
-                        .CopyTo(output.GetChannelData(channel).Slice(written, count));
-                }
-
-                written += count;
-                _pendingOffset += count;
-                if (_pendingOffset == pending.SampleCount)
-                {
-                    _pendingOutputs.Dequeue().Dispose();
-                    _pendingOffset = 0;
-                }
-            }
-
+            AudioBuffer output = _resampleProvider.Read(context.GetSampleCount());
+            _lastTimeRangeEnd = context.TimeRange.End;
             return output;
         }
         catch
         {
-            output.Dispose();
+            _resampleProvider?.Dispose();
+            _resampleProvider = null;
+            _lastTimeRangeEnd = null;
             throw;
         }
-    }
-
-    private void ClearPendingOutputs()
-    {
-        while (_pendingOutputs.Count > 0)
-        {
-            _pendingOutputs.Dequeue().Dispose();
-        }
-
-        _pendingOffset = 0;
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            ClearPendingOutputs();
             _resampleProvider?.Dispose();
             _resampleProvider = null;
+            _lastTimeRangeEnd = null;
         }
 
         base.Dispose(disposing);
@@ -162,51 +117,53 @@ public sealed class ResampleNode : AudioNode
     private sealed class ResampleSampleProvider : IDisposable
     {
         private readonly int _targetSampleRate;
+        private readonly int _sourceSampleRate;
+        private readonly int _channelCount;
         private WdlResamplingSampleProvider? _wdlResampler;
-        private AudioBufferSampleProvider? _inputProvider;
+        private readonly AudioBufferSampleProvider _inputProvider;
         private bool _disposed;
 
         public ResampleSampleProvider(AudioBuffer input, int targetSampleRate)
         {
             _targetSampleRate = targetSampleRate;
-            CreateResampler(input);
-        }
-
-        private void CreateResampler(AudioBuffer input)
-        {
-            _inputProvider?.Dispose();
-            _wdlResampler = null;
-
+            _sourceSampleRate = input.SampleRate;
+            _channelCount = input.ChannelCount;
             _inputProvider = new AudioBufferSampleProvider(input);
             _wdlResampler = new WdlResamplingSampleProvider(_inputProvider, _targetSampleRate);
         }
 
-        public AudioBuffer Process(AudioBuffer input)
+        public int SourceSampleRate => _sourceSampleRate;
+
+        public int ChannelCount => _channelCount;
+
+        public void Append(AudioBuffer input)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(ResampleSampleProvider));
+            if (input.SampleRate != _sourceSampleRate || input.ChannelCount != _channelCount)
+                throw new InvalidOperationException("Resample input format changed while streaming.");
+
+            _inputProvider.Append(input);
+        }
+
+        public AudioBuffer Read(int sampleCount)
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(ResampleSampleProvider));
 
-            // Update input if it has changed
-            if (_inputProvider == null || _inputProvider.InputBuffer != input)
-            {
-                CreateResampler(input);
-            }
-
-            var outputSampleCount = (int)System.Math.Round(input.SampleCount * (double)_targetSampleRate / input.SampleRate);
-            var output = new AudioBuffer(_targetSampleRate, input.ChannelCount, outputSampleCount);
+            var output = new AudioBuffer(_targetSampleRate, _channelCount, sampleCount);
             try
             {
-                // Read resampled data
-                var buffer = new float[outputSampleCount * input.ChannelCount];
+                var buffer = new float[sampleCount * _channelCount];
                 int samplesRead = _wdlResampler!.Read(buffer, 0, buffer.Length);
 
                 // Copy interleaved samples back to AudioBuffer
-                for (int ch = 0; ch < input.ChannelCount; ch++)
+                for (int ch = 0; ch < _channelCount; ch++)
                 {
                     var channelData = output.GetChannelData(ch);
-                    for (int i = 0; i < samplesRead / input.ChannelCount; i++)
+                    for (int i = 0; i < samplesRead / _channelCount; i++)
                     {
-                        channelData[i] = buffer[i * input.ChannelCount + ch];
+                        channelData[i] = buffer[i * _channelCount + ch];
                     }
                 }
 
@@ -225,7 +182,7 @@ public sealed class ResampleNode : AudioNode
             if (!_disposed)
             {
                 _wdlResampler = null;
-                _inputProvider?.Dispose();
+                _inputProvider.Dispose();
                 _disposed = true;
             }
         }
@@ -234,52 +191,90 @@ public sealed class ResampleNode : AudioNode
     private sealed class AudioBufferSampleProvider : ISampleProvider, IDisposable
     {
         private readonly WaveFormat _waveFormat;
-        private AudioBuffer? _inputBuffer;
+        private readonly Queue<AudioBuffer> _inputBuffers = new();
+        private AudioBuffer? _currentBuffer;
         private int _position;
         private bool _disposed;
 
         public AudioBufferSampleProvider(AudioBuffer buffer)
         {
-            _inputBuffer = buffer;
             _waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(buffer.SampleRate, buffer.ChannelCount);
-            _position = 0;
+            _inputBuffers.Enqueue(buffer);
         }
-
-        public AudioBuffer? InputBuffer => _inputBuffer;
 
         public WaveFormat WaveFormat => _waveFormat;
 
+        private int ChannelCount => _waveFormat.Channels;
+
+        public void Append(AudioBuffer buffer)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(AudioBufferSampleProvider));
+            if (buffer.SampleRate != _waveFormat.SampleRate || buffer.ChannelCount != ChannelCount)
+                throw new InvalidOperationException("Resample input format changed while streaming.");
+
+            _inputBuffers.Enqueue(buffer);
+        }
+
         public int Read(float[] buffer, int offset, int count)
         {
-            if (_disposed || _inputBuffer == null)
+            if (_disposed)
                 return 0;
 
-            var samplesPerChannel = count / _inputBuffer.ChannelCount;
-            var availableSamples = _inputBuffer.SampleCount - _position;
-            var samplesToRead = System.Math.Min(samplesPerChannel, availableSamples);
-
-            if (samplesToRead <= 0)
-                return 0;
-
-            // Copy samples from AudioBuffer to interleaved float array
-            for (int i = 0; i < samplesToRead; i++)
+            int total = 0;
+            while (total < count)
             {
-                for (int ch = 0; ch < _inputBuffer.ChannelCount; ch++)
+                if (_currentBuffer is null)
                 {
-                    var channelData = _inputBuffer.GetChannelData(ch);
-                    buffer[offset + i * _inputBuffer.ChannelCount + ch] = channelData[_position + i];
+                    if (_inputBuffers.Count == 0)
+                        break;
+
+                    _currentBuffer = _inputBuffers.Dequeue();
+                    _position = 0;
+                }
+
+                int samplesPerChannel = (count - total) / ChannelCount;
+                int availableSamples = _currentBuffer.SampleCount - _position;
+                int samplesToRead = Math.Min(samplesPerChannel, availableSamples);
+                if (samplesToRead <= 0)
+                {
+                    _currentBuffer.Dispose();
+                    _currentBuffer = null;
+                    continue;
+                }
+
+                for (int i = 0; i < samplesToRead; i++)
+                {
+                    for (int ch = 0; ch < ChannelCount; ch++)
+                    {
+                        buffer[offset + total + i * ChannelCount + ch]
+                            = _currentBuffer.GetChannelData(ch)[_position + i];
+                    }
+                }
+
+                total += samplesToRead * ChannelCount;
+                _position += samplesToRead;
+                if (_position == _currentBuffer.SampleCount)
+                {
+                    _currentBuffer.Dispose();
+                    _currentBuffer = null;
                 }
             }
 
-            _position += samplesToRead;
-            return samplesToRead * _inputBuffer.ChannelCount;
+            return total;
         }
 
         public void Dispose()
         {
             if (!_disposed)
             {
-                _inputBuffer = null;
+                _currentBuffer?.Dispose();
+                _currentBuffer = null;
+                while (_inputBuffers.Count > 0)
+                {
+                    _inputBuffers.Dequeue().Dispose();
+                }
+
                 _disposed = true;
             }
         }

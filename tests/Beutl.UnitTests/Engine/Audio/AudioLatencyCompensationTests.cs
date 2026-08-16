@@ -221,6 +221,28 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void ResampleNode_PartialBlocksPreserveStreamingProgress()
+    {
+        const int sourceSampleRate = 48000;
+        const int outputSampleRate = 44100;
+        const int blockCount = 64;
+
+        using var source = new IndexedAudioNode(sourceSampleRate);
+        using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
+        resample.AddInput(source);
+
+        float[] firstSamples = new float[blockCount];
+        for (int i = 0; i < blockCount; i++)
+        {
+            using var output = resample.Process(ExactContext(ExactDuration(i, outputSampleRate), 1, outputSampleRate));
+            firstSamples[i] = output.GetChannelData(0)[0];
+        }
+
+        Assert.That(firstSamples[^1] - firstSamples[0], Is.GreaterThan(50f),
+            "Small output blocks must consume the resampled stream in order instead of replaying a growing pending backlog.");
+    }
+
+    [Test]
     public void ClipNode_TerminalWindow_AppendsRecoveredTail()
     {
         const float lookaheadMs = 5f;
@@ -1195,6 +1217,102 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_Flush_DoesNotDrainAfterNonContiguousRange()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            new CompositionEligibility([sound]));
+        using var processed = composer.Compose(firstRange, frame);
+
+        var seekRange = new TimeRange(TimeSpan.FromSeconds(3), oneSecond);
+        using var tail = composer.Flush(seekRange);
+
+        Assert.That(tail, Is.Not.Null);
+        Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
+            "A non-contiguous flush must discard the old tail instead of emitting it at the seek destination.");
+        Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Composer_Flush_DoesNotDrainDirtyEntry()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            new CompositionEligibility([sound]));
+        using var processed = composer.Compose(firstRange, frame);
+
+        sound.Gain.CurrentValue = 50f;
+
+        using var tail = composer.Flush(new TimeRange(oneSecond, oneSecond));
+
+        Assert.That(tail, Is.Not.Null);
+        Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
+            "A dirty sound must not emit the tail of its old cached graph through direct Flush.");
+    }
+
+    [Test]
+    public void Composer_Flush_AfterInvalidationDoesNotUseDisposedCurrentEntries()
+    {
+        const float lookaheadMs = 5f;
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            new CompositionEligibility([sound]));
+        using var processed = composer.Compose(firstRange, frame);
+
+        composer.InvalidateCache();
+
+        Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0));
+        Assert.DoesNotThrow(() =>
+        {
+            using AudioBuffer? tail = composer.Flush(new TimeRange(oneSecond, oneSecond));
+            Assert.That(tail, Is.Not.Null);
+        });
+    }
+
+    [Test]
     public void Composer_DoesNotFlushSoundThatBecomesIneligibleAtItsNaturalEnd()
     {
         const float lookaheadMs = 5f;
@@ -1525,6 +1643,29 @@ public class AudioLatencyCompensationTests
                     data[i] = 0.25f * MathF.Sin(2f * MathF.PI * 200f * (startIndex + i) / sampleRate);
                 }
             }
+
+            return buffer;
+        }
+    }
+
+    private sealed class IndexedAudioNode(int sampleRate) : AudioNode
+    {
+        private long _nextSample;
+
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            int count = context.GetSampleCount();
+            var buffer = new AudioBuffer(sampleRate, 2, count);
+            for (int channel = 0; channel < 2; channel++)
+            {
+                var data = buffer.GetChannelData(channel);
+                for (int i = 0; i < count; i++)
+                {
+                    data[i] = _nextSample + i;
+                }
+            }
+
+            _nextSample += count;
 
             return buffer;
         }
