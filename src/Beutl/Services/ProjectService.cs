@@ -116,15 +116,6 @@ public sealed class ProjectService
                 return;
             }
 
-            if (!File.Exists(file))
-            {
-                _logger.LogInformation(
-                    "Skipping project open preflight: file is unavailable. File: {File}",
-                    file);
-                NotificationService.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
-                return;
-            }
-
             IReadOnlyList<ProjectOpenPreparation> preparations;
             try
             {
@@ -132,6 +123,18 @@ public sealed class ProjectService
             }
             catch (OperationCanceledException) when (attempt.IsCancellationRequested)
             {
+                return;
+            }
+
+            // A missing file is worth a transition only when a preparation can bring it back: an
+            // interrupted pull leaves it missing and its recovery is one of these preparations.
+            // Deciding before the transition also keeps a plainly deleted project from taking one.
+            if (preparations.Count == 0 && !File.Exists(file))
+            {
+                _logger.LogInformation(
+                    "Skipping project open: file is unavailable. File: {File}",
+                    file);
+                NotificationService.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
                 return;
             }
 

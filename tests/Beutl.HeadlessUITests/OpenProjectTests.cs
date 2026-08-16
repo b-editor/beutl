@@ -26,7 +26,7 @@ public class OpenProjectTests
     }
 
     [AvaloniaTest]
-    public async Task OpenProject_skips_preflight_when_the_project_file_is_missing()
+    public async Task OpenProject_consults_preflight_before_refusing_a_missing_project_file()
     {
         await ResetProjectAsync();
         string missingFile = Path.Combine(NewWorkspace("missing-preflight"), "missing.bep");
@@ -42,7 +42,13 @@ public class OpenProjectTests
         {
             await TestShell.Project.OpenProject(missingFile);
 
-            Assert.That(preflightCalls, Is.Zero);
+            Assert.Multiple(() =>
+            {
+                // Consulted even though the file is gone: an interrupted pull leaves it missing,
+                // and the preflight is what restores it before the open continues.
+                Assert.That(preflightCalls, Is.EqualTo(1));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+            });
         }
         finally
         {
