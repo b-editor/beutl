@@ -220,10 +220,21 @@ public class ExportTests
         using var output = new OutputViewModel(editor, provider);
         output.Started += (_, _) => throw new InvalidOperationException("subscriber failed");
 
-        Assert.DoesNotThrowAsync(output.StartEncode);
+        // Awaited rather than asserted through a blocking DoesNotThrowAsync: encoding resumes on
+        // the dispatcher, which a blocked UI thread would never pump.
+        Exception? startFailure = null;
+        try
+        {
+            await output.StartEncode();
+        }
+        catch (Exception ex)
+        {
+            startFailure = ex;
+        }
 
         Assert.Multiple(() =>
         {
+            Assert.That(startFailure, Is.Null);
             Assert.That(provider.Acquired, Is.EqualTo(1));
             Assert.That(provider.Released, Is.EqualTo(1));
             Assert.That(output.IsEncoding.Value, Is.False);

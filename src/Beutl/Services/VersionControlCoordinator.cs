@@ -2761,11 +2761,59 @@ public sealed class VersionControlCoordinator :
         string projectRoot,
         string projectFile)
     {
-        if (!RepositoryPathComparer.IsContainedWithin(projectRoot, projectFile))
+        if (!IsProjectFileContained(projectRoot, projectFile))
         {
             throw new InvalidOperationException(
                 $"The project file '{projectFile}' resolves outside the version-controlled project root.");
         }
+    }
+
+    private static bool IsProjectFileContained(string projectRoot, string projectFile)
+    {
+        try
+        {
+            return RepositoryPathComparer.IsContainedWithin(projectRoot, projectFile);
+        }
+        catch (Exception ex)
+            when (ex is IOException
+                  or UnauthorizedAccessException
+                  or NotSupportedException
+                  or ArgumentException)
+        {
+            // Only when the path cannot be canonicalized at all - a symbolic-link cycle, or a
+            // component that cannot be read. A resolvable path that lands outside has already
+            // returned false above, so this fallback cannot turn an escape into containment.
+        }
+
+        string fullPath = Path.GetFullPath(projectFile);
+        string? ancestor = Path.GetDirectoryName(fullPath);
+        while (ancestor is not null)
+        {
+            try
+            {
+                if (RepositoryPathComparer.AreEquivalent(ancestor, projectRoot))
+                {
+                    string relative = Path.GetRelativePath(ancestor, fullPath);
+                    return relative != ".."
+                           && !relative.StartsWith(
+                               $"..{Path.DirectorySeparatorChar}",
+                               StringComparison.Ordinal)
+                           && !Path.IsPathRooted(relative);
+                }
+            }
+            catch (Exception ex)
+                when (ex is IOException
+                      or UnauthorizedAccessException
+                      or NotSupportedException
+                      or ArgumentException)
+            {
+                // An unresolvable child must not stop the walk from reaching a resolvable ancestor.
+            }
+
+            ancestor = Path.GetDirectoryName(ancestor);
+        }
+
+        return false;
     }
 
     private bool HandleCycleFailure(

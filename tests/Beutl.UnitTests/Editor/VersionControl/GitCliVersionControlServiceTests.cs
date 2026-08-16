@@ -3550,11 +3550,23 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             SnapshotKind.Save,
             CancellationToken.None);
 
+        // Located anywhere in the argument list: the snapshot path prefixes its staging command
+        // with -c advice.addIgnoredFile=false, so "add" is not always the first argument.
+        static bool StagesEverything(IReadOnlyList<string> arguments)
+        {
+            for (int i = 0; i + 1 < arguments.Count; i++)
+            {
+                if (arguments[i] == "add" && arguments[i + 1] == "-A")
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         GitCommandExecutionKind[] executionKinds = runner.Invocations
-            .Where(static invocation =>
-                invocation.Arguments.Count > 1
-                && invocation.Arguments[0] == "add"
-                && invocation.Arguments[1] == "-A")
+            .Where(invocation => StagesEverything(invocation.Arguments))
             .Select(static invocation => invocation.Options.ExecutionKind)
             .ToArray();
         Assert.That(
@@ -4258,7 +4270,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(configuredRemote, Is.EqualTo(remoteUrl));
-            Assert.That(runner.AuxiliaryFailureCount, Is.EqualTo(1));
+            // Only that the probe actually failed: setting a remote refreshes the LFS quota notice
+            // and the status independently, and how many of those read the remote is not this
+            // test's subject.
+            Assert.That(runner.AuxiliaryFailureCount, Is.GreaterThanOrEqualTo(1));
             Assert.That(entry.Level, Is.EqualTo(LogLevel.Warning));
             Assert.That(entry.Exception, Is.SameAs(runner.AuxiliaryFailure));
             Assert.That(
@@ -4442,6 +4457,16 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         }
     }
 
+    // Reading status probes the upstream ref before counting ahead/behind. An empty for-each-ref
+    // result is what "no upstream" looks like, which stops the probe before it runs rev-list and
+    // spares every stub runner from having to answer that too.
+    private static GitCommandResult StubStatusResult(IReadOnlyList<string> arguments)
+    {
+        return arguments.FirstOrDefault() == "for-each-ref"
+            ? new GitCommandResult(0, string.Empty, string.Empty)
+            : new GitCommandResult(0, "# branch.head main\0", string.Empty);
+    }
+
     private sealed class ConcurrencyTrackingRunner : IGitCliRunner
     {
         private int _concurrency;
@@ -4462,7 +4487,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             try
             {
                 await Task.Delay(100, cancellationToken);
-                return new GitCommandResult(0, "# branch.head main\0", "");
+                return StubStatusResult(arguments);
             }
             finally
             {
@@ -4504,7 +4529,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             _started.TrySetResult(true);
             await _completion.Task.WaitAsync(cancellationToken);
-            return new GitCommandResult(0, "# branch.head main\0", "");
+            return StubStatusResult(arguments);
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
@@ -4865,7 +4890,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            return Task.FromResult(new GitCommandResult(0, "# branch.head main\0", ""));
+            return Task.FromResult(StubStatusResult(arguments));
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
@@ -4892,7 +4917,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 ? Task.FromException<GitCommandResult>(new GitOperationException(
                     128,
                     $"fatal: Unable to create '{lockInfo.LockPath}': File exists.\n"))
-                : Task.FromResult(new GitCommandResult(0, "# branch.head main\0", ""));
+                : Task.FromResult(StubStatusResult(arguments));
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)

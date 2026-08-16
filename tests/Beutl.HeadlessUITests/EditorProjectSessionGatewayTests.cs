@@ -45,8 +45,8 @@ public class EditorProjectSessionGatewayTests
             }
             finally
             {
-                // Avalonia.Headless creates a fresh TestApp for every [AvaloniaTest], so this
-                // composition root is not reused by the next test.
+                // The composition root is shared across the assembly, so the next case's
+                // TestReset.ResetShellAsync drops this disposed one and builds a fresh shell.
                 await TestShell.MainViewModel.DisposeAsync();
             }
         }

@@ -2448,11 +2448,13 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string externalProject = Path.Combine(externalRoot, "outside.bep");
         await File.WriteAllTextAsync(externalProject, "outside\n");
         string linkedProject = Path.Combine(Root, "linked-project.bep");
-        CreateFileSymbolicLinkOrIgnore(linkedProject, externalProject);
         using var service = CreateService();
         ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
             "beutl: checkpoint",
             CancellationToken.None);
+        // Created after the checkpoint: snapshotting refuses a symbolic link with a project-file
+        // extension outright, and this covers the persistence guard, not that refusal.
+        CreateFileSymbolicLinkOrIgnore(linkedProject, externalProject);
 
         Assert.ThrowsAsync<ArgumentException>(async () =>
             await service.PersistPendingPullRecoveryAsync(
@@ -2467,6 +2469,10 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     {
         await CommitFileAsync("project.bep", "base\n", "initial");
         string externalRoot = CreateTemporaryDirectory();
+        using var service = CreateService();
+        PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
+        // Created after the checkpoint: snapshotting refuses a symbolic link with a project-file
+        // extension outright, and this covers enumeration, not that refusal.
         CreateDirectorySymbolicLinkOrIgnore(
             Path.Combine(Root, "escape"),
             externalRoot);
@@ -2478,8 +2484,6 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 Root,
                 Path.Combine(Root, "linked-project.bep")),
             Is.False);
-        using var service = CreateService();
-        PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
         await ReplaceRecoveryProjectFileAsync(valid, "linked-project.bep");
 
         PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
@@ -2496,6 +2500,10 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string externalRoot = CreateTemporaryDirectory();
         Directory.CreateDirectory(Path.Combine(externalRoot, "sub"));
         await File.WriteAllTextAsync(Path.Combine(externalRoot, "project.bep"), "external\n");
+        using var service = CreateService();
+        PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
+        // Created after the checkpoint: snapshotting refuses a symbolic link with a project-file
+        // extension outright, and this covers enumeration, not that refusal.
         CreateDirectorySymbolicLinkOrIgnore(
             Path.Combine(Root, "alias"),
             Path.Combine(externalRoot, "sub"));
@@ -2507,8 +2515,6 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 Root,
                 Path.Combine(Root, "linked-project.bep")),
             Is.False);
-        using var service = CreateService();
-        PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
         await ReplaceRecoveryProjectFileAsync(valid, "linked-project.bep");
 
         PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
@@ -2587,44 +2593,32 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Pending_pull_recovery_round_trip_preserves_an_in_root_project_file_alias()
+    public async Task Checkpoint_refuses_a_project_file_that_is_an_in_root_symbolic_link()
     {
         string targetDirectory = Path.Combine(Root, "target");
         Directory.CreateDirectory(targetDirectory);
         string targetProjectFile = Path.Combine(targetDirectory, "project-data");
-        string linkedRootContainer = CreateTemporaryDirectory();
-        string linkedRoot = Path.Combine(linkedRootContainer, "repository-link");
-        CreateDirectorySymbolicLinkOrIgnore(linkedRoot, Root);
-        string projectAlias = Path.Combine(linkedRoot, "project.bep");
         string repositoryProjectAlias = Path.Combine(Root, "project.bep");
         await File.WriteAllTextAsync(targetProjectFile, "base\n");
         CreateFileSymbolicLinkOrIgnore(repositoryProjectAlias, "target/project-data");
         await RunGitAsync("add", "-A");
         await RunGitAsync("commit", "-m", "initial");
-        PendingPullRecovery persisted;
-        using (GitCliVersionControlService service = CreateService())
-        {
-            await File.WriteAllTextAsync(projectAlias, "local work\n");
-            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-                "beutl: checkpoint",
-                CancellationToken.None);
-            persisted = await service.PersistPendingPullRecoveryAsync(
-                checkpoint,
-                checkpoint.BaseTip,
-                projectAlias,
-                CancellationToken.None);
-        }
+        using GitCliVersionControlService service = CreateService();
 
-        using GitCliVersionControlService restarted = CreateService();
-        PendingPullRecovery recovered = (await restarted.GetPendingPullRecoveriesAsync(
-            CancellationToken.None)).Single();
+        InvalidOperationException? refusal = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CreateProjectCheckpointAsync(
+                "beutl: checkpoint",
+                CancellationToken.None));
 
         Assert.Multiple(() =>
         {
-            Assert.That(persisted.ProjectFile, Is.EqualTo(repositoryProjectAlias));
-            Assert.That(recovered.ProjectFile, Is.EqualTo(repositoryProjectAlias));
-            Assert.That(RepositoryPathComparer.AreEquivalent(recovered.ProjectFile, targetProjectFile),
+            // Refused even though the link resolves inside the repository: Git records the link
+            // rather than the bytes, so a restore would not put the project data back.
+            Assert.That(
+                RepositoryPathComparer.AreEquivalent(repositoryProjectAlias, targetProjectFile),
                 Is.True);
+            Assert.That(refusal!.Message, Does.Contain("project.bep"));
+            Assert.That(refusal.Message, Does.Contain("cannot be snapshotted safely"));
         });
     }
 

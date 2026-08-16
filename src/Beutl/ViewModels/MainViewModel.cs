@@ -172,6 +172,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
         _agentHostEndpoint.StartInBackground();
     }
 
+    internal bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
     public override void Dispose()
     {
         _ = ShutdownAsync();

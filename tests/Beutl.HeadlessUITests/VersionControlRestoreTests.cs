@@ -4431,9 +4431,12 @@ public class VersionControlRestoreTests
             HeadlessTestHelpers.Settle();
             WorkspaceStatus statusAfterEdit = await TestShell.VersionControl.CurrentService!
                 .GetStatusAsync(CancellationToken.None);
+            // Adding an element writes its .belm straight away so the scene's include glob can see
+            // it, so the only pending change at this point is that file; the scene itself is the
+            // in-memory edit the branch switch has to persist.
             Assert.That(
-                statusAfterEdit.IsClean,
-                Is.True,
+                statusAfterEdit.Changes.Select(change => Path.GetExtension(change.Path)),
+                Is.EqualTo(new[] { ".belm" }),
                 string.Join(
                     ", ",
                     statusAfterEdit.Changes.Select(change => $"{change.Status} {change.Path}")));
@@ -8850,12 +8853,23 @@ public class VersionControlRestoreTests
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
 
             cancellation.Cancel();
-            Assert.ThrowsAsync<OperationCanceledException>(async () =>
-                await pull.WaitAsync(TimeSpan.FromSeconds(5)));
+            // Awaited rather than asserted through a blocking ThrowsAsync: cancelling the pull
+            // reopens the project on the dispatcher, which a blocked UI thread would never pump.
+            OperationCanceledException? cancelled = null;
+            try
+            {
+                await pull.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (OperationCanceledException ex)
+            {
+                cancelled = ex;
+            }
+
             HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
             {
+                Assert.That(cancelled, Is.Not.Null);
                 Assert.That(backend.PullCalls, Is.EqualTo(1));
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
                 Assert.That(

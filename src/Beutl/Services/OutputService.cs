@@ -14,6 +14,7 @@ public sealed class OutputProfileItem : IDisposable
     private readonly ILogger<OutputProfileItem> _logger = Log.CreateLogger<OutputProfileItem>();
     private readonly EditorService _editorService;
     private readonly object _outputOperationSync = new();
+    private IDisposable? _outputOperation;
     private int _eventHandlersInProgress;
     private bool _disposeRequested;
     private bool _contextDisposed;
@@ -37,6 +38,7 @@ public sealed class OutputProfileItem : IDisposable
 
     private void OnStarted(object? sender, EventArgs e)
     {
+        bool reservationLost = false;
         lock (_outputOperationSync)
         {
             if (_contextDisposed)
@@ -46,6 +48,22 @@ public sealed class OutputProfileItem : IDisposable
 
             _outputReportedFinished = false;
             _eventHandlersInProgress++;
+
+            // Every output context reserves the workspace here, not just the ones that remember to
+            // do it themselves, so a version-control worktree mutation cannot run under an encode
+            // started by a third-party output extension.
+            if (_outputOperation is null)
+            {
+                _outputOperation = _editorService.TryBeginOutputOperation();
+                reservationLost = _outputOperation is null;
+            }
+        }
+
+        if (reservationLost)
+        {
+            _logger.LogWarning(
+                "Could not reserve the workspace for the output of {File}; the worktree is being changed.",
+                Context.Object.Uri);
         }
 
         try
@@ -70,6 +88,7 @@ public sealed class OutputProfileItem : IDisposable
 
     private void OnFinished(object? sender, EventArgs e)
     {
+        IDisposable? completedOperation;
         lock (_outputOperationSync)
         {
             if (_contextDisposed)
@@ -79,7 +98,11 @@ public sealed class OutputProfileItem : IDisposable
 
             _eventHandlersInProgress++;
             _outputReportedFinished = true;
+            completedOperation = _outputOperation;
+            _outputOperation = null;
         }
+
+        completedOperation?.Dispose();
 
         try
         {
@@ -180,10 +203,18 @@ public sealed class OutputProfileItem : IDisposable
 
     private void DisposeContext()
     {
+        IDisposable? outputOperation;
+        lock (_outputOperationSync)
+        {
+            outputOperation = _outputOperation;
+            _outputOperation = null;
+        }
+
         _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.Object.Uri);
         Context.Started -= OnStarted;
         Context.Finished -= OnFinished;
         Context.Dispose();
+        outputOperation?.Dispose();
     }
 
     public static JsonNode ToJson(OutputProfileItem item)
