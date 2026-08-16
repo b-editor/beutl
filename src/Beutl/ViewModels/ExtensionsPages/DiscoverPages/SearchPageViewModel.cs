@@ -90,9 +90,15 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
     public override void Dispose()
     {
-        _lifetimeCts.Cancel();
-        _disposables.Dispose();
-        _lifetimeCts.Dispose();
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        finally
+        {
+            _disposables.Dispose();
+            _lifetimeCts.Dispose();
+        }
     }
 
     private async Task<Package[]> SearchPackages(int start, int count, CancellationToken cancellationToken)

@@ -151,9 +151,15 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
     public override void Dispose()
     {
-        _lifetimeCts.Cancel();
-        _disposables.Dispose();
-        _lifetimeCts.Dispose();
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        finally
+        {
+            _disposables.Dispose();
+            _lifetimeCts.Dispose();
+        }
     }
 
     public async Task<Package?> TryFindPackage(LocalPackage localPackage)

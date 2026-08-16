@@ -445,9 +445,15 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
     public override void Dispose()
     {
-        _lifetimeCts.Cancel();
-        _disposables.Dispose();
-        _lifetimeCts.Dispose();
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        finally
+        {
+            _disposables.Dispose();
+            _lifetimeCts.Dispose();
+        }
     }
 
     private static string KindToText(PackageKind kind)

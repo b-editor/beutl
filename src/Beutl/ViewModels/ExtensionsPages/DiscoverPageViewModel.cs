@@ -131,8 +131,14 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
 
     public override void Dispose()
     {
-        _lifetimeCts.Cancel();
-        _disposables.Dispose();
-        _lifetimeCts.Dispose();
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        finally
+        {
+            _disposables.Dispose();
+            _lifetimeCts.Dispose();
+        }
     }
 }
