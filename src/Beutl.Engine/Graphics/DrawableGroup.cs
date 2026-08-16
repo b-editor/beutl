@@ -30,6 +30,10 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             Size availableSize = context.Size;
             var boundsMemory = context.UseMemory<Rect>();
             var transformParams = (r.Transform, r.TransformOrigin, availableSize, boundsMemory);
+            bool isolatesContent = resource.Opacity != 100f
+                                   || r.FilterEffect is not null
+                                   || r.BlendMode != Graphics.BlendMode.SrcOver
+                                   || r.Children.Any(static child => child.BlendMode != Graphics.BlendMode.SrcOver);
 
             using (context.PushBlendMode(r.BlendMode))
             using (context.PushNode(
@@ -42,11 +46,10 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                            Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
             using (context.PushOpacity(resource.Opacity / 100f))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
-            using (context.PushLayer())
             using (context.PushNode(
-                       boundsMemory,
-                       b => new BoundsObserveNode(b),
-                       (n, b) => n.Update(b)))
+                       (boundsMemory, isolatesContent),
+                       b => new ContentBoundsRenderNode(b.boundsMemory, b.isolatesContent),
+                       (n, b) => n.Update(b.boundsMemory, b.isolatesContent)))
             {
                 OnDraw(context, r);
             }
@@ -115,31 +118,45 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         }
     }
 
-    internal sealed class BoundsObserveNode : ContainerRenderNode
+    internal sealed class ContentBoundsRenderNode(
+        MemoryNode<Rect> memoryNode,
+        bool isolatesContent) : ContainerRenderNode
     {
-        public BoundsObserveNode(MemoryNode<Rect> memoryNode)
-        {
-            MemoryNode = memoryNode;
-        }
+        public MemoryNode<Rect> MemoryNode { get; private set; } = memoryNode;
 
-        public MemoryNode<Rect> MemoryNode { get; private set; }
+        public bool IsolatesContent { get; private set; } = isolatesContent;
 
-        public bool Update(MemoryNode<Rect> memoryNode)
+        public bool Update(MemoryNode<Rect> memoryNode, bool isolatesContent)
         {
+            bool changed = false;
             if (memoryNode != MemoryNode)
             {
                 MemoryNode = memoryNode;
-                HasChanges = true;
-                return true;
+                changed = true;
             }
 
-            return false;
+            if (isolatesContent != IsolatesContent)
+            {
+                IsolatesContent = isolatesContent;
+                changed = true;
+            }
+
+            HasChanges |= changed;
+            return changed;
         }
 
         public override void Process(RenderNodeContext context)
         {
-            MemoryNode.Value = context.CalculateRecordedInputBoundsHint();
-            context.PassThrough();
+            Rect bounds = context.CalculateRecordedInputBoundsHint();
+            MemoryNode.Value = bounds;
+            if (IsolatesContent)
+            {
+                context.Publish(context.TargetLayerScope(context.Inputs, TargetRegion.Region(bounds)));
+            }
+            else
+            {
+                context.PassThrough();
+            }
         }
     }
 
@@ -282,15 +299,19 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                     metadataState.GetRequiredInputBounds)
                 : RenderBoundsContract.CreateFullInput(
                     metadataState.TransformBounds);
+            var scaleMapper = new TransformScaleMapper(transform);
             TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
                 execute: session => ExecuteTransform(session, transform),
                 bounds: boundsContract,
                 hitTest: RenderHitTestContract.Custom(metadataState.HitTest),
-                scale: RenderScaleContract.MapInputSupply(new TransformScaleMapper(transform).Map),
+                scale: RenderScaleContract.MapInputSupply(
+                    scaleMapper.MapSupply,
+                    scaleMapper.MapDemand),
                 deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
                 deviceGridMapping: transform.IsIdentity
                     ? RenderDeviceGridMapping.Preserved
-                    : RenderDeviceGridMapping.Remapped);
+                    : RenderDeviceGridMapping.Remapped,
+                builtInBackdropCapturesBackingTarget: true);
             context.PublishMappedInputs(
                 description,
                 static (context, input, value) => context.TargetScope(input, value));
@@ -326,8 +347,11 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
         private readonly record struct TransformScaleMapper(Matrix Transform)
         {
-            public EffectiveScale Map(EffectiveScale inputSupply)
+            public EffectiveScale MapSupply(EffectiveScale inputSupply)
                 => TransformRenderNode.RescaleDensity(inputSupply, Transform);
+
+            public EffectiveScale MapDemand(EffectiveScale outputDemand)
+                => TransformRenderNode.RescaleDemand(outputDemand, Transform);
         }
     }
 }

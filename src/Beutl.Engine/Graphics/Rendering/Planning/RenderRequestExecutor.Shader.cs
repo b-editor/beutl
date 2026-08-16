@@ -66,12 +66,22 @@ internal sealed partial class RenderRequestExecutor
                     bool succeeded = false;
                     try
                     {
-                        ExecuteShaderElement(
-                            description,
-                            input,
-                            output,
-                            outputBounds,
-                            requiredRegion);
+                        MaterializedRenderValue shaderInput = NormalizeSemanticShaderInput(input);
+                        try
+                        {
+                            ExecuteShaderElement(
+                                description,
+                                shaderInput,
+                                output,
+                                outputBounds,
+                                requiredRegion);
+                        }
+                        finally
+                        {
+                            if (!ReferenceEquals(shaderInput, input))
+                                ReleaseUnpublished(shaderInput);
+                        }
+
                         executed = true;
                         results.Add(output);
                         succeeded = true;
@@ -163,12 +173,24 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                ExecuteCompiledShaderRunElement(
-                    run,
-                    input,
-                    output,
-                    outputBounds,
-                    requiredRegion);
+                MaterializedRenderValue shaderInput = run.WholeSourceHead is null
+                    ? input
+                    : NormalizeSemanticShaderInput(input);
+                try
+                {
+                    ExecuteCompiledShaderRunElement(
+                        run,
+                        shaderInput,
+                        output,
+                        outputBounds,
+                        requiredRegion);
+                }
+                finally
+                {
+                    if (!ReferenceEquals(shaderInput, input))
+                        ReleaseUnpublished(shaderInput);
+                }
+
                 succeeded = true;
                 return [output];
             }
@@ -178,6 +200,109 @@ internal sealed partial class RenderRequestExecutor
                     ReleaseUnpublished(output);
                 CompleteFragmentUse(run.Input);
             }
+        }
+
+        private MaterializedRenderValue NormalizeSemanticShaderInput(MaterializedRenderValue input)
+        {
+            if (!input.PreserveLegacyRasterPlacement || CanUseAsSemanticShaderInput(input))
+                return input;
+
+            MaterializedRenderValue normalized = CreateNormalizedSemanticShaderInput(
+                input,
+                addRasterApron: false);
+            if (CanUseAsSemanticShaderInput(normalized))
+                return normalized;
+
+            // Global device-grid alignment can move a locally exact edge by a sub-pixel epsilon.
+            // Keep the legacy exact placement whenever it is sufficient, and add an apron only for
+            // the residual case where raster-local pixel rounding still falls outside the image.
+            ReleaseUnpublished(normalized);
+            return CreateNormalizedSemanticShaderInput(input, addRasterApron: true);
+        }
+
+        private MaterializedRenderValue CreateNormalizedSemanticShaderInput(
+            MaterializedRenderValue input,
+            bool addRasterApron)
+        {
+            Rect physicalBounds = input.RasterBounds.Union(input.Bounds);
+            Rect alignedPhysicalBounds = physicalBounds.Translate(input.DeviceGridOffset);
+            float density = addRasterApron
+                ? RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
+                    alignedPhysicalBounds,
+                    input.EffectiveScale.Value)
+                : RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                    alignedPhysicalBounds,
+                    input.EffectiveScale.Value);
+            EffectiveScale normalizedScale = EffectiveScale.At(density);
+            PixelRect normalizedDeviceBounds = PixelRect.FromRect(physicalBounds, density);
+            if (addRasterApron)
+                normalizedDeviceBounds = RenderScaleUtilities.AddRasterApron(normalizedDeviceBounds);
+            MaterializedRenderValue normalized = CreateOwnedValue(
+                input.Bounds,
+                normalizedScale,
+                input.CompleteBounds,
+                physicalDeviceBounds: normalizedDeviceBounds,
+                deviceGridOffset: input.DeviceGridOffset,
+                allowPreviewDrop: true);
+            bool succeeded = false;
+            try
+            {
+                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                    normalized.DeviceBounds,
+                    normalized.DeviceGridOffset,
+                    normalized.EffectiveScale.Value);
+                using var canvas = CreateExecutorCanvas(
+                    normalized.Target,
+                    normalized.EffectiveScale.Value,
+                    _options.MaxWorkingScale,
+                    normalized.RasterBounds.Size,
+                    _options.Intent,
+                    normalized.DeviceBounds.Position);
+                using (canvas.PushTransform(Matrix.CreateTranslation(
+                           rasterTranslation.X,
+                           rasterTranslation.Y)))
+                {
+                    canvas.DrawRenderTargetScaledWithoutFlush(input.Target, input.RasterBounds);
+                }
+
+                succeeded = true;
+                return normalized;
+            }
+            finally
+            {
+                if (!succeeded)
+                    ReleaseUnpublished(normalized);
+            }
+        }
+
+        private static bool CanUseAsSemanticShaderInput(MaterializedRenderValue input)
+        {
+            // Mirror RasterShaderMapping's raster-local subset calculation. Continuous Rect
+            // containment is insufficient because PixelRect.FromRect rounds both edges outward.
+            Rect sourceRasterBounds = input.RasterBounds;
+            float sourceScale = input.EffectiveScale.Value;
+            Rect canonicalRasterBounds = input.DeviceBounds.ToRect(sourceScale);
+            PixelRect semanticSubset;
+            if (sourceRasterBounds == canonicalRasterBounds)
+            {
+                PixelRect semanticDeviceBounds = PixelRect.FromRect(input.Bounds, sourceScale);
+                semanticSubset = new PixelRect(
+                    semanticDeviceBounds.X - input.DeviceBounds.X,
+                    semanticDeviceBounds.Y - input.DeviceBounds.Y,
+                    semanticDeviceBounds.Width,
+                    semanticDeviceBounds.Height);
+            }
+            else
+            {
+                semanticSubset = PixelRect.FromRect(
+                    input.Bounds.Translate(new Vector(
+                        -sourceRasterBounds.X,
+                        -sourceRasterBounds.Y)),
+                    sourceScale);
+            }
+
+            var imageBounds = new PixelRect(input.DeviceBounds.Size);
+            return imageBounds.Contains(semanticSubset);
         }
 
         private void ExecuteCompiledShaderRunElement(
@@ -251,9 +376,21 @@ internal sealed partial class RenderRequestExecutor
                         }
                         else
                         {
+                            bool interpolatedBitmap = run.Input.Kind == RenderFragmentKind.OpaqueSource
+                                && ((OpaqueRenderFragmentPayload)run.Input.Payload!).Description
+                                    .DirectReplayAtExactIntegerReduction;
+                            SKSamplingOptions sampling = interpolatedBitmap
+                                ? RasterShaderMapping.SamplingFor(
+                                        input.EffectiveScale.Value,
+                                        outputScale)
+                                : SKSamplingOptions.Default;
+                            SKShaderTileMode tileMode = interpolatedBitmap
+                                ? SKShaderTileMode.Clamp
+                                : SKShaderTileMode.Decal;
                             inputShader = inputImage.ToShader(
-                                SKShaderTileMode.Decal,
-                                SKShaderTileMode.Decal,
+                                tileMode,
+                                tileMode,
+                                sampling,
                                 RasterShaderMapping.CreateLocalMatrix(
                                     outputScale,
                                     input.EffectiveScale.Value,

@@ -71,18 +71,6 @@ internal sealed partial class RenderRequestExecutor
                     drawable.GetOriginal().Render(graphics, drawable);
                 }
 
-                request = new RenderRequest(
-                    new RenderRequestOptions(
-                        _options.Intent,
-                        _options.Purpose,
-                        targetDomain: domain,
-                        requestedRegion: domain,
-                        outputScale: scale,
-                        maxWorkingScale: _options.MaxWorkingScale,
-                        cachePolicy: RenderCacheOptions.Disabled,
-                        fusionMode: _options.FusionMode));
-                var recorder = new RenderRequestRecorder(request);
-                RecordedRenderGraph graph = recorder.Record(root);
                 var cacheContext = new RenderCacheResolutionContext(
                     RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
                     _targets.CacheDeviceContextIdentity,
@@ -90,42 +78,86 @@ internal sealed partial class RenderRequestExecutor
                     allowCapturePublication: false);
                 SkslBackendBudget shaderBudget = SkslBackendBudgetResolver.Resolve(
                     _targets.ExternalTarget?.Value.Context?.Backend);
-                compiled = new RenderRequestCompiler(
-                        structuralPlanCache: null,
-                        renderCacheContext: cacheContext,
-                        renderCacheLookup: null)
-                    .Compile(request, graph, shaderBudget);
-                request = null;
 
-                PixelRect deviceBounds = PixelRect.FromRect(domain, scale);
+                CompiledRenderRequest Compile(Rect targetDomain)
+                {
+                    request = new RenderRequest(
+                        new RenderRequestOptions(
+                            _options.Intent,
+                            _options.Purpose,
+                            targetDomain,
+                            requestedRegion: null,
+                            outputScale: scale,
+                            maxWorkingScale: _options.MaxWorkingScale,
+                            cachePolicy: RenderCacheOptions.Disabled,
+                            fusionMode: _options.FusionMode));
+                    var recorder = new RenderRequestRecorder(request);
+                    RecordedRenderGraph graph = recorder.Record(root);
+                    CompiledRenderRequest result = new RenderRequestCompiler(
+                            structuralPlanCache: null,
+                            renderCacheContext: cacheContext,
+                            renderCacheLookup: null)
+                        .Compile(request, graph, shaderBudget);
+                    request = null;
+                    return result;
+                }
+
+                compiled = Compile(domain);
+                Rect intrinsicDomain = compiled.Measurement.QueryBounds;
+                if (intrinsicDomain.Width != 0
+                    && intrinsicDomain.Height != 0
+                    && intrinsicDomain != domain)
+                {
+                    compiled.Dispose();
+                    compiled = Compile(intrinsicDomain);
+                }
+
+                Rect executionBounds = compiled.ExecutionTargetBounds;
+                PixelRect deviceBounds = PixelRect.FromRect(
+                    new Rect(default, executionBounds.Size),
+                    scale);
+                Rect relativeContentBounds = compiled.SelectedOutputBounds
+                    .WithX(compiled.SelectedOutputBounds.X - executionBounds.X)
+                    .WithY(compiled.SelectedOutputBounds.Y - executionBounds.Y);
                 PixelRect contentDevice = PixelRect
-                    .FromRect(compiled.SelectedOutputBounds, scale)
+                    .FromRect(relativeContentBounds, scale)
                     .Intersect(deviceBounds);
                 lease = contentDevice.Width == 0 || contentDevice.Height == 0
                     ? null
                     : _targets.TryAcquire(deviceBounds.Size);
                 if (lease is not null)
                 {
-                    Rect rasterBounds = deviceBounds.ToRect(scale);
+                    Rect rasterBounds = executionBounds.WithX(0).WithY(0);
                     canvas = CreateExecutorCanvas(
                         lease.Target,
                         scale,
                         _options.MaxWorkingScale,
                         rasterBounds.Size,
-                        _options.Intent,
-                        deviceBounds.Position);
+                        _options.Intent);
                     canvas.Clear();
 
                     var executor = new RenderRequestExecutor(_targets, _programCache);
-                    executor.Execute(compiled, canvas);
+                    using (canvas.PushTransform(Matrix.CreateTranslation(-executionBounds.X, -executionBounds.Y)))
+                    {
+                        executor.Execute(
+                            compiled,
+                            canvas,
+                            replayBounds: compiled.ExecutionTargetBounds);
+                    }
                     canvas.CloseWithoutFlush();
                     canvas = null;
 
                     lease.Target.PrepareForSampling(
                         RenderTargetSamplingIntent.SameContextTextureSampling(
                             _targets.ExternalTarget?.Value.Context));
-                    image = CreateIndependentImage(lease.Target.Value, contentDevice);
-                    contentBounds = contentDevice.ToRect(scale);
+                    image = CreateIndependentImage(
+                        lease.Target.Value,
+                        new PixelRect(
+                            contentDevice.X - deviceBounds.X,
+                            contentDevice.Y - deviceBounds.Y,
+                            contentDevice.Width,
+                            contentDevice.Height));
+                    contentBounds = compiled.SelectedOutputBounds;
                 }
             }
             catch (Exception ex)

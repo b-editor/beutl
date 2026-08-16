@@ -16,6 +16,15 @@ public static class RenderScaleUtilities
             ? float.PositiveInfinity
             : maxWorkingScale;
 
+    internal static bool IsExactIntegerReduction(float scale)
+    {
+        if (!float.IsFinite(scale) || scale <= 0f || scale >= 1f)
+            return false;
+
+        float reduction = 1f / scale;
+        return MathF.Abs(reduction - MathF.Round(reduction)) <= 0.0001f;
+    }
+
     public static float ResolveWorkingScale(
         ReadOnlySpan<EffectiveScale> inputs,
         float outputScale,

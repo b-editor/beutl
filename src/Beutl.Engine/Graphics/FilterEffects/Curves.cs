@@ -41,13 +41,15 @@ public sealed partial class Curves : FilterEffect
 
         float3 linearToSrgb(float3 c) {
             float3 lo = c * 12.92;
-            float3 hi = 1.055 * pow(c, float3(1.0/2.4)) - 0.055;
+            // mix evaluates both branches, so the unused power branch must also stay in its domain.
+            float3 hi = 1.055 * pow(max(c, float3(0.0)), float3(1.0/2.4)) - 0.055;
             return mix(lo, hi, step(float3(0.0031308), c));
         }
 
         float3 srgbToLinear(float3 c) {
             float3 lo = c / 12.92;
-            float3 hi = pow((c + 0.055) / 1.055, float3(2.4));
+            // Negative extended-range values use lo, but a NaN in the unused branch still poisons mix.
+            float3 hi = pow(max((c + 0.055) / 1.055, float3(0.0)), float3(2.4));
             return mix(lo, hi, step(float3(0.04045), c));
         }
 

@@ -42,8 +42,10 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             : RenderBoundsContract.CreateFullInput(
                 metadataState.TransformBounds);
         RenderHitTestContract hitTest = RenderHitTestContract.Custom(metadataState.HitTest);
+        var scaleMapper = new TransformScaleMapper(transform);
         RenderScaleContract scale = RenderScaleContract.MapInputSupply(
-            new TransformScaleMapper(transform).Map);
+            scaleMapper.MapSupply,
+            scaleMapper.MapDemand);
         // Set discards the ambient transform for the canvas base transform, so it moves the input even when
         // the matrix is identity.
         RenderDeviceGridMapping gridMapping =
@@ -61,7 +63,8 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                 hitTest,
                 scale,
                 RenderDeviceGridSensitivity.Insensitive,
-                gridMapping);
+                gridMapping,
+                builtInBackdropCapturesBackingTarget: false);
             context.PublishMappedInputs(
                 description,
                 static (context, input, value) => context.TargetScope(input, value));
@@ -119,6 +122,18 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
         return EffectiveScale.At(d);
     }
 
+    internal static EffectiveScale RescaleDemand(EffectiveScale outputDemand, Matrix transform)
+    {
+        if (transform.M13 != 0 || transform.M23 != 0 || transform.M33 != 1)
+            return outputDemand;
+
+        float factor = DeviceGridAlignment.ResolveAffineDensity(transform, 1f);
+        float density = outputDemand.Value * factor;
+        return float.IsFinite(density) && density > 0f
+            ? EffectiveScale.At(density)
+            : outputDemand;
+    }
+
     private readonly record struct TransformMetadataState(
         Matrix Transform,
         bool HasInverse,
@@ -138,7 +153,10 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
 
     private readonly record struct TransformScaleMapper(Matrix Transform)
     {
-        public EffectiveScale Map(EffectiveScale inputSupply)
+        public EffectiveScale MapSupply(EffectiveScale inputSupply)
             => RescaleDensity(inputSupply, Transform);
+
+        public EffectiveScale MapDemand(EffectiveScale outputDemand)
+            => RescaleDemand(outputDemand, Transform);
     }
 }

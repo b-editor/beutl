@@ -62,8 +62,8 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             pen: pen,
             outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
-            // Bitmap at native 1:1 density; downstream transforms re-scale accordingly.
             scale: RenderScaleContract.Custom(static _ => 1f),
+            directReplayAtExactIntegerReduction: true,
             resources: [sourceResource]));
     }
 

@@ -115,7 +115,7 @@ internal sealed partial class RenderRequestExecutor
                 RenderFragmentKind.Geometry => ExecuteGeometry(fragment, currentTarget),
                 RenderFragmentKind.Opacity => MaterializeOpacity(fragment, currentTarget, requestedScale),
                 RenderFragmentKind.OpacityMask => MaterializeOpacityMask(fragment, currentTarget, requestedScale),
-                RenderFragmentKind.Layer => MaterializeLayer(fragment, requestedScale),
+                RenderFragmentKind.Layer => MaterializeLayer(fragment, currentTarget, requestedScale),
                 RenderFragmentKind.TargetCapture
                     or RenderFragmentKind.BuiltInBackdropCapture => CaptureTarget(fragment, currentTarget),
                 RenderFragmentKind.TargetScope

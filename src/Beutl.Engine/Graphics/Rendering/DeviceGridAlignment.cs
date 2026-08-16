@@ -37,8 +37,10 @@ internal static class DeviceGridAlignment
     /// <see cref="ImmediateCanvas.Density"/> under a 2x transform would allocate half the target's supply.
     /// </summary>
     public static float ResolveLocalDensity(ImmediateCanvas canvas)
+        => ResolveAffineDensity(canvas.Transform, canvas.Density);
+
+    public static float ResolveAffineDensity(Matrix transform, float fallbackDensity)
     {
-        Matrix transform = canvas.Transform;
         if (transform.M13 != 0 || transform.M23 != 0 || transform.M33 != 1)
         {
             throw new NotSupportedException(
@@ -58,7 +60,7 @@ internal static class DeviceGridAlignment
             (squaredFrobenius * squaredFrobenius) - (4d * determinant * determinant));
         double largestEigenvalue = (squaredFrobenius + Math.Sqrt(discriminant)) / 2d;
         float density = (float)Math.Sqrt(largestEigenvalue);
-        return float.IsFinite(density) && density > 0f ? density : canvas.Density;
+        return float.IsFinite(density) && density > 0f ? density : fallbackDensity;
     }
 
     public static Vector NormalizePhase(Vector logicalOffset, float density)

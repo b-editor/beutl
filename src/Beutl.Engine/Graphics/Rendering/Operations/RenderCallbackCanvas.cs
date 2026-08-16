@@ -174,7 +174,8 @@ public sealed class RenderCallbackCanvas
                 canvas.PushTransform(Matrix.CreateTranslation(-_logicalOrigin.X, -_logicalOrigin.Y));
                 canvas.ClipRect(_rasterBounds);
             }
-            else if (_capability == CallbackCanvasCapability.TargetScope)
+            else if (_capability is CallbackCanvasCapability.TargetScope
+                     or CallbackCanvasCapability.TargetCommandFull)
             {
                 canvas.ClipRect(
                     RenderScaleUtilities.AddRasterApron(_deviceBounds)

@@ -428,14 +428,18 @@ internal static class RenderMaterializationDemandResolver
                 if (!MergeProcessedDemand(materializedDemands, fragment, selectedDemand))
                     continue;
 
-                EnqueueMaterializedInputs(fragment, selectedDemand, pending);
+                EnqueueMaterializedInputs(
+                    fragment,
+                    selectedDemand,
+                    maxWorkingScale,
+                    pending);
                 continue;
             }
 
             if (!MergeProcessedDemand(replayDemands, fragment, item.Demand))
                 continue;
 
-            EnqueueReplayInputs(fragment, item.Demand, pending);
+            EnqueueReplayInputs(fragment, item.Demand, maxWorkingScale, pending);
         }
 
         effectClassUses.ExceptWith(otherUses);
@@ -504,6 +508,7 @@ internal static class RenderMaterializationDemandResolver
     private static void EnqueueReplayInputs(
         RenderFragmentReference fragment,
         float targetDemand,
+        float maxWorkingScale,
         Stack<PendingDemand> pending)
     {
         switch (fragment.Kind)
@@ -511,9 +516,19 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.Opacity:
             case RenderFragmentKind.Blend:
             case RenderFragmentKind.TargetLayerScope:
-            case RenderFragmentKind.TargetScope:
             case RenderFragmentKind.RawTargetScope:
                 EnqueueInputs(fragment, targetDemand, DemandUse.ReplayTarget, pending);
+                return;
+            case RenderFragmentKind.TargetScope:
+                TargetScopeDescription targetScope =
+                    ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
+                float inputDemand = targetScope.IsValueReplayMap
+                    ? ResolveMappedInputDemand(
+                        targetScope.Scale,
+                        targetDemand,
+                        maxWorkingScale)
+                    : targetDemand;
+                EnqueueInputs(fragment, inputDemand, DemandUse.ReplayTarget, pending);
                 return;
             case RenderFragmentKind.OpacityMask:
                 if (fragment.Inputs.Length > 0)
@@ -571,13 +586,37 @@ internal static class RenderMaterializationDemandResolver
     private static void EnqueueMaterializedInputs(
         RenderFragmentReference fragment,
         float valueDemand,
+        float maxWorkingScale,
         Stack<PendingDemand> pending)
     {
         switch (fragment.Kind)
         {
             case RenderFragmentKind.Layer:
-            case RenderFragmentKind.TargetScope:
                 EnqueueInputs(fragment, valueDemand, DemandUse.ReplayTarget, pending);
+                return;
+            case RenderFragmentKind.TargetScope:
+                TargetScopeDescription targetScope =
+                    ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
+                float targetScopeInputDemand = targetScope.IsValueReplayMap
+                    ? ResolveMappedInputDemand(
+                        targetScope.Scale,
+                        valueDemand,
+                        maxWorkingScale)
+                    : valueDemand;
+                EnqueueInputs(
+                    fragment,
+                    targetScopeInputDemand,
+                    DemandUse.ReplayTarget,
+                    pending);
+                return;
+            case RenderFragmentKind.OpaqueMap:
+                OpaqueRenderDescription description =
+                    ((OpaqueRenderFragmentPayload)fragment.Payload!).Description;
+                float inputDemand = ResolveMappedInputDemand(
+                    description.Scale,
+                    valueDemand,
+                    maxWorkingScale);
+                EnqueueInputs(fragment, inputDemand, DemandUse.MaterializeValue, pending);
                 return;
             case RenderFragmentKind.MaterializedInput:
             case RenderFragmentKind.TargetCapture:
@@ -610,6 +649,19 @@ internal static class RenderMaterializationDemandResolver
                 UseSupplyFallback: false,
                 IsEffectClassConsumer: isEffectClassConsumer));
         }
+    }
+
+    private static float ResolveMappedInputDemand(
+        RenderScaleContract scale,
+        float outputDemand,
+        float maxWorkingScale)
+    {
+        float mapped = scale.MapOutputDemandToInput(EffectiveScale.At(outputDemand)).Value;
+        // Cap amplification at the request ceiling before another map can observe it. The pending
+        // input's ResolveDemand pass applies its own logical-bounds buffer budget if it materializes.
+        return MathF.Min(
+            mapped,
+            RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale));
     }
 
     private static bool IsEffectClassConsumer(RenderFragmentReference fragment)

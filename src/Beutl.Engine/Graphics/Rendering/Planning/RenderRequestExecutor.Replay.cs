@@ -32,12 +32,17 @@ internal sealed partial class RenderRequestExecutor
                 return false;
             }
 
+            bool replayAtExactReduction = description.DirectReplayAtExactIntegerReduction
+                && RenderScaleUtilities.IsExactIntegerReduction(destination.Density);
+            float replayScale = replayAtExactReduction
+                ? destination.Density
+                : fragment.EffectiveScale.Value;
             if (!fragment.EffectiveScale.IsUnbounded
-                && (fragment.EffectiveScale.Value != destination.Density
+                && (!replayAtExactReduction && fragment.EffectiveScale.Value != destination.Density
                     || !DirectRenderTargetGeometry.FromCanvas(destination).CanDrawPixelAligned(
                         fragment.Bounds,
-                        fragment.EffectiveScale.Value,
-                        PixelRect.FromRect(fragment.Bounds, fragment.EffectiveScale.Value).Size)))
+                        replayScale,
+                        PixelRect.FromRect(fragment.Bounds, replayScale).Size)))
             {
                 return false;
             }
@@ -225,6 +230,9 @@ internal sealed partial class RenderRequestExecutor
             using var paint = builder.HasFilter()
                 ? new SKPaint { ImageFilter = builder.GetFilter() }
                 : null;
+            Rect layerContentBounds = materializedInput is { Count: 1 }
+                ? materializedInput[0].RasterBounds
+                : input.Bounds;
             ExecuteSegment(chainIndex: 0);
             return true;
 
@@ -245,7 +253,9 @@ internal sealed partial class RenderRequestExecutor
                         {
                             using (destination.PushBlendMode(BlendMode.SrcOver))
                             using (destination.PushTransform(Matrix.Identity))
-                            using (destination.PushPaint(paint))
+                            // Bound the layer to exactly what ReplayInput draws; filters must not sample
+                            // the destination clip outside that content as if it belonged to the source.
+                            using (destination.PushPaint(paint, layerContentBounds))
                             {
                                 ReplayInput();
                             }

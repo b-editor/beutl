@@ -832,6 +832,52 @@ public sealed class RenderCacheResolutionTests
         });
     }
 
+    [TestCase(4f)]
+    [TestCase(float.PositiveInfinity)]
+    public void MaterializationDemands_UpscalingTransformStaysWithinWorkingAndBufferCeilings(
+        float maxWorkingScale)
+    {
+        var bounds = new Rect(0, 0, 8, 6);
+        RenderFragmentReference leaf = Pure(bounds: bounds);
+        var layer = new RenderFragmentReference(
+            RenderFragmentKind.Layer,
+            bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            [leaf],
+            new LayerRenderFragmentPayload(bounds),
+            static _ => true);
+        RenderFragmentReference transform = ValueReplayMap(
+            layer,
+            EffectiveScale.Unbounded,
+            "upscale",
+            scaleContract: RenderScaleContract.MapInputSupply(
+                static supply => supply,
+                ScaleDemandByOneMillion));
+
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+            RenderMaterializationDemandResolver.Resolve(
+                [transform],
+                outputScale: 1,
+                maxWorkingScale: maxWorkingScale).Demands;
+
+        float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+            bounds,
+            MathF.Min(1_000_000, maxWorkingScale));
+        PixelRect allocated = PixelRect.FromRect(bounds, demands[layer].Value);
+        Assert.Multiple(() =>
+        {
+            Assert.That(demands[layer], Is.EqualTo(EffectiveScale.At(expected)));
+            Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(expected)));
+            Assert.That(allocated.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(allocated.Height, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+        });
+    }
+
     [Test]
     public void ContributeValuesCache_DelegatesDensityAndFootprintToLargeLayerInput()
     {
@@ -1224,13 +1270,14 @@ public sealed class RenderCacheResolutionTests
         EffectiveScale scale,
         string key,
         Rect? bounds = null,
-        RenderBoundsContract? boundsContract = null)
+        RenderBoundsContract? boundsContract = null,
+        RenderScaleContract? scaleContract = null)
     {
         TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
             static session => session.Canvas.Use(_ => session.ReplayInput()),
             boundsContract ?? RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
-            RenderScaleContract.PreserveInputSupply,
+            scaleContract ?? RenderScaleContract.PreserveInputSupply,
             deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             deviceGridMapping: RenderDeviceGridMapping.Preserved);
         return new RenderFragmentReference(
@@ -1246,6 +1293,9 @@ public sealed class RenderCacheResolutionTests
             new TargetScopeRenderFragmentPayload(description),
             static _ => true);
     }
+
+    private static EffectiveScale ScaleDemandByOneMillion(EffectiveScale outputDemand)
+        => EffectiveScale.At(outputDemand.Value * 1_000_000);
 
     private static RenderRequest NewRequest()
         => new(new RenderRequestOptions(
@@ -1800,4 +1850,3 @@ public sealed class RenderCacheResolutionTests
                ?? throw new InvalidOperationException("Could not create a cache-test render target.");
     }
 }
-

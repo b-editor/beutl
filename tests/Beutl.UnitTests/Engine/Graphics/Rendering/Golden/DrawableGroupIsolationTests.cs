@@ -6,6 +6,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
@@ -517,6 +518,74 @@ public sealed class DrawableGroupIsolationTests
         });
     }
 
+    [Test]
+    public void SourceBackdropInsideGroup_MatchesBareBackdrop()
+    {
+        var frame = new PixelSize(256, 144);
+
+        Drawable.Resource[] CreateScene(bool grouped, bool includeBackdrop = true)
+        {
+            var gradient = new LinearGradientBrush();
+            gradient.GradientStops.Add(new GradientStop(Colors.Crimson, 0));
+            gradient.GradientStops.Add(new GradientStop(Colors.Gold, 1));
+
+            Drawable.Resource background = CreateRectangle(frame.Width, frame.Height, gradient)
+                .ToResource(CompositionContext.Default);
+            Drawable.Resource foreground = CreateRectangle(130, 95, Brushes.Navy)
+                .ToResource(CompositionContext.Default);
+            if (!includeBackdrop)
+                return [background, foreground];
+
+            var backdrop = new SourceBackdrop
+            {
+                Clear = { CurrentValue = false },
+                FilterEffect = { CurrentValue = new Invert() },
+            };
+            Drawable effect = backdrop;
+            if (grouped)
+            {
+                var group = new DrawableGroup();
+                group.Children.Add(backdrop);
+                effect = group;
+            }
+
+            return
+            [
+                background,
+                foreground,
+                effect.ToResource(CompositionContext.Default),
+            ];
+        }
+
+        Drawable.Resource[] expectedResources = CreateScene(grouped: false);
+        Drawable.Resource[] actualResources = CreateScene(grouped: true);
+        Drawable.Resource[] omittedResources = CreateScene(grouped: false, includeBackdrop: false);
+        try
+        {
+            using Bitmap expected = RenderScene(frame, expectedResources);
+            using Bitmap actual = RenderScene(frame, actualResources);
+            using Bitmap omitted = RenderScene(frame, omittedResources);
+
+            AssertByteIdentical(
+                expected,
+                actual,
+                "a SourceBackdrop nested in a DrawableGroup");
+            Assert.That(
+                actual.GetPixelSpan().SequenceEqual(omitted.GetPixelSpan()),
+                Is.False,
+                "the grouped SourceBackdrop must contribute visible pixels");
+        }
+        finally
+        {
+            foreach (Drawable.Resource resource in expectedResources)
+                resource.Dispose();
+            foreach (Drawable.Resource resource in actualResources)
+                resource.Dispose();
+            foreach (Drawable.Resource resource in omittedResources)
+                resource.Dispose();
+        }
+    }
+
     private static Drawable.Resource CreateGroup(
         float opacity,
         FilterEffect? effect,
@@ -611,16 +680,32 @@ public sealed class DrawableGroupIsolationTests
         FusionMode fusionMode,
         out RenderExecutionStatistics statistics,
         params Drawable.Resource[] resources)
+        => RenderScene(s_frame, outputScale, fusionMode, useCpuTarget: false, out statistics, resources);
+
+    private static Bitmap RenderScene(
+        PixelSize frame,
+        params Drawable.Resource[] resources)
+        => RenderScene(frame, 1, FusionMode.Enabled, useCpuTarget: true, out _, resources);
+
+    private static Bitmap RenderScene(
+        PixelSize frame,
+        float outputScale,
+        FusionMode fusionMode,
+        bool useCpuTarget,
+        out RenderExecutionStatistics statistics,
+        params Drawable.Resource[] resources)
     {
-        int width = (int)MathF.Ceiling(s_frame.Width * outputScale);
-        int height = (int)MathF.Ceiling(s_frame.Height * outputScale);
-        using RenderTarget target = RenderTarget.Create(width, height)
-                                    ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, outputScale, logicalSize: s_frame.ToSize(1));
+        int width = (int)MathF.Ceiling(frame.Width * outputScale);
+        int height = (int)MathF.Ceiling(frame.Height * outputScale);
+        using RenderTarget target = useCpuTarget
+            ? new CpuRenderTarget(width, height)
+            : RenderTarget.Create(width, height)
+              ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
+        using var canvas = new ImmediateCanvas(target, outputScale, logicalSize: frame.ToSize(1));
         canvas.Clear();
 
         using var root = new DrawableRenderNode(resources[0]);
-        using (var context = new GraphicsContext2D(root, s_frame.ToSize(1), outputScale))
+        using (var context = new GraphicsContext2D(root, frame.ToSize(1), outputScale))
         {
             foreach (Drawable.Resource resource in resources)
                 context.DrawDrawable(resource);
@@ -633,7 +718,7 @@ public sealed class DrawableGroupIsolationTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, s_frame.ToSize(1)),
+                    TargetDomain = new Rect(default, frame.ToSize(1)),
                     OutputScale = outputScale,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = fusionMode,
@@ -688,6 +773,17 @@ public sealed class DrawableGroupIsolationTests
         }
         return false;
     }
+
+    private sealed class CpuRenderTarget(int width, int height)
+        : RenderTarget(
+            SKSurface.Create(new SKImageInfo(
+                width,
+                height,
+                SKColorType.RgbaF16,
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear())),
+            width,
+            height);
 
     private readonly record struct Rgba(float Red, float Green, float Blue, float Alpha);
 }

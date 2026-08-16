@@ -478,6 +478,147 @@ public class NodeGraphFilterEffectRenderNodeTests
         });
     }
 
+    [Test]
+    public void InputFacadeFanOut_RendersByteIdenticallyToSingleOutputControl()
+    {
+        using NodeGraphFilterEffect.Resource controlResource = BuildFanOutGraph(
+            transform: null,
+            outputCount: 1);
+        using NodeGraphFilterEffect.Resource fanOutResource = BuildFanOutGraph(
+            transform: null,
+            outputCount: 2);
+        using Bitmap control = RasterizeGraph(controlResource, transformInputBeforeGraph: true);
+        using Bitmap fanOut = RasterizeGraph(fanOutResource, transformInputBeforeGraph: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((fanOut.Width, fanOut.Height), Is.EqualTo((control.Width, control.Height)));
+            Assert.That(
+                fanOut.GetPixelSpan().SequenceEqual(control.GetPixelSpan()),
+                Is.True,
+                "Publishing the input facade twice must match the equivalent single-output graph.");
+        });
+    }
+
+    [Test]
+    public void TransformNodeFanOut_RendersByteIdenticallyToSingleOutputControl()
+    {
+        Matrix rotation = Matrix.CreateRotation(MathF.PI * 25f / 180f);
+        using NodeGraphFilterEffect.Resource controlResource = BuildFanOutGraph(rotation, outputCount: 1);
+        using NodeGraphFilterEffect.Resource fanOutResource = BuildFanOutGraph(rotation, outputCount: 2);
+        using Bitmap control = RasterizeGraph(controlResource);
+        using Bitmap fanOut = RasterizeGraph(fanOutResource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((fanOut.Width, fanOut.Height), Is.EqualTo((control.Width, control.Height)));
+            Assert.That(
+                fanOut.GetPixelSpan().SequenceEqual(control.GetPixelSpan()),
+                Is.True,
+                "Publishing a shared TransformNode result twice must match the single-output control.");
+        });
+    }
+
+    [Test]
+    public void DivergentFilterBranches_RenderByteIdenticallyToSeparateGraphControl()
+    {
+        using NodeGraphFilterEffect.Resource fanOutResource = BuildDivergentFilterGraph(
+            includeBlur: true,
+            includeBrightness: true);
+        using Bitmap fanOut = RasterizeGraph(fanOutResource, transformInputBeforeGraph: true);
+        using NodeGraphFilterEffect.Resource blurResource = BuildDivergentFilterGraph(
+            includeBlur: true,
+            includeBrightness: false);
+        using NodeGraphFilterEffect.Resource brightnessResource = BuildDivergentFilterGraph(
+            includeBlur: false,
+            includeBrightness: true);
+        using Bitmap control = RasterizeSeparateGraphs(
+            blurResource,
+            brightnessResource,
+            transformInputBeforeGraph: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((fanOut.Width, fanOut.Height), Is.EqualTo((control.Width, control.Height)));
+            Assert.That(
+                fanOut.GetPixelSpan().SequenceEqual(control.GetPixelSpan()),
+                Is.True,
+                "Divergent filter branches must match two equivalent non-fan-out graphs.");
+        });
+    }
+
+    [Test]
+    public void PreviewOnlyInputFacade_RendersFrameAndPreview()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var input = new FilterEffectInputNode();
+        var preview = new PreviewNode();
+        model.Nodes.Add(input);
+        model.Nodes.Add(preview);
+        model.Connect(preview.Input, input.Output);
+        NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(preview);
+        monitor.IsEnabled = true;
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            source,
+            new TransformRenderNode(Matrix.CreateTranslation(7, 4), TransformOperator.Prepend),
+            resource.CreateRenderNode());
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                CacheOptions = RenderCacheOptions.Disabled,
+            },
+        });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.Bitmap, Is.Not.Null);
+            Assert.That(monitor.Value, Is.Not.Null);
+        });
+        monitor.Value?.Dispose();
+    }
+
+    [Test]
+    public void PreviewOnlySourceNode_RendersFrameAndPreview()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var input = new FilterEffectInputNode();
+        using var previewSource = new CountingOpaqueSourceRenderNode(new Rect(8, 6, 18, 14));
+        var sourceNode = new FixedRenderNodeGraphNode(previewSource);
+        var preview = new PreviewNode();
+        model.Nodes.Add(input);
+        model.Nodes.Add(sourceNode);
+        model.Nodes.Add(preview);
+        model.Connect(preview.Input, sourceNode.Output);
+        NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(preview);
+        monitor.IsEnabled = true;
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                CacheOptions = RenderCacheOptions.Disabled,
+            },
+        });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.Bitmap, Is.Not.Null);
+            Assert.That(monitor.Value, Is.Not.Null);
+        });
+        monitor.Value?.Dispose();
+    }
+
     // A NodeGraphFilterEffect on a DrawableGroup nests PushFilterEffect around PushLayer, so the graph's
     // bound inputs are a TargetLayerScope(Full) whose recording metadata stays symbolic.
     [Test]
@@ -1033,6 +1174,118 @@ public class NodeGraphFilterEffectRenderNodeTests
             shared,
             measureCapture,
             preview);
+    }
+
+    private static NodeGraphFilterEffect.Resource BuildFanOutGraph(Matrix? transform, int outputCount)
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var input = new FilterEffectInputNode();
+        model.Nodes.Add(input);
+        IOutputPort branchOutput = input.Output;
+
+        if (transform is { } matrix)
+        {
+            var transformNode = new TransformNode();
+            transformNode.Matrix.Property!.SetValue(matrix);
+            model.Nodes.Add(transformNode);
+            model.Connect((IInputPort)transformNode.Items[1], input.Output);
+            branchOutput = (IOutputPort)transformNode.Items[0];
+        }
+
+        for (int index = 0; index < outputCount; index++)
+        {
+            var output = new OutputNode();
+            model.Nodes.Add(output);
+            model.Connect(output.InputPort, branchOutput);
+        }
+
+        return (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+    }
+
+    private static NodeGraphFilterEffect.Resource BuildDivergentFilterGraph(
+        bool includeBlur,
+        bool includeBrightness)
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var input = new FilterEffectInputNode();
+        model.Nodes.Add(input);
+
+        if (includeBlur)
+        {
+            var blur = new FilterEffectNode<Blur>();
+            blur.Object.Sigma.CurrentValue = new Size(4, 4);
+            var output = new OutputNode();
+            model.Nodes.Add(blur);
+            model.Nodes.Add(output);
+            model.Connect((IInputPort)blur.Items[1], input.Output);
+            model.Connect(output.InputPort, (IOutputPort)blur.Items[0]);
+        }
+
+        if (includeBrightness)
+        {
+            var brightness = new FilterEffectNode<Brightness>();
+            brightness.Object.Amount.CurrentValue = 140f;
+            var output = new OutputNode();
+            model.Nodes.Add(brightness);
+            model.Nodes.Add(output);
+            model.Connect((IInputPort)brightness.Items[1], input.Output);
+            model.Connect(output.InputPort, (IOutputPort)brightness.Items[0]);
+        }
+
+        return (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+    }
+
+    private static Bitmap RasterizeGraph(
+        NodeGraphFilterEffect.Resource resource,
+        bool transformInputBeforeGraph = false)
+    {
+        var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
+        RenderNode graphInput = transformInputBeforeGraph
+            ? new TransformRenderNode(Matrix.CreateTranslation(7, 4), TransformOperator.Prepend)
+            : resource.CreateRenderNode();
+        using var pipeline = transformInputBeforeGraph
+            ? ScaleRecordingTestHelper.Pipeline(source, graphInput, resource.CreateRenderNode())
+            : ScaleRecordingTestHelper.Pipeline(source, graphInput);
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                CacheOptions = RenderCacheOptions.Disabled,
+            },
+        });
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        return rasterization.Bitmap?.Clone()
+            ?? throw new AssertionException("The node graph did not produce a bitmap.");
+    }
+
+    private static Bitmap RasterizeSeparateGraphs(
+        NodeGraphFilterEffect.Resource first,
+        NodeGraphFilterEffect.Resource second,
+        bool transformInputBeforeGraph)
+    {
+        using var root = new ContainerRenderNode();
+        foreach (NodeGraphFilterEffect.Resource resource in new[] { first, second })
+        {
+            var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
+            root.AddChild(transformInputBeforeGraph
+                ? ScaleRecordingTestHelper.Pipeline(
+                    source,
+                    new TransformRenderNode(Matrix.CreateTranslation(7, 4), TransformOperator.Prepend),
+                    resource.CreateRenderNode())
+                : ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode()));
+        }
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                CacheOptions = RenderCacheOptions.Disabled,
+            },
+        });
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        return rasterization.Bitmap?.Clone()
+            ?? throw new AssertionException("The separate graph control did not produce a bitmap.");
     }
 
     private static NodeMonitor<Ref<Bitmap>?> GetPreviewMonitor(PreviewNode node)

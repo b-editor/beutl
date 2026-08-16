@@ -455,9 +455,11 @@ internal sealed partial class RenderRequestExecutor
                 {
                     if (paint is not null)
                     {
+                        Rect layerContentBounds = input.Bounds;
                         using (canvas.PushBlendMode(BlendMode.SrcOver))
                         using (canvas.PushTransform(Matrix.Identity))
-                        using (canvas.PushPaint(paint))
+                        // The filter layer must not include pixels outside the replayed input contract.
+                        using (canvas.PushPaint(paint, layerContentBounds))
                         {
                             replayStarted = true;
                             Replay(input, canvas);

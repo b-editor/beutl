@@ -1,7 +1,9 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -81,6 +83,42 @@ public sealed class ValueReplaySafetyTests
         });
     }
 
+    [Test]
+    public void AppendTransform_LayerMaterializesAtPlannedDestinationDensity()
+    {
+        var requestedSizes = new List<PixelSize>();
+        using RenderNode root = CreateTransformedLayer(
+            Matrix.CreateScale(4, 4),
+            TransformOperator.Append,
+            new Rect(0, 0, 8, 6));
+        using var renderer = CreateRenderer(root, new RecordingCpuTargetFactory(requestedSizes));
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(requestedSizes, Does.Contain(new PixelSize(8, 6)),
+                "The executor must use the planner's unscaled Layer demand across an Append scope.");
+        });
+    }
+
+    [Test]
+    public void PerspectiveTransform_LayerRendersWithoutScalarDensity()
+    {
+        var perspective = new Rotation3DTransform(0, 55, 0, 0, 0, 0)
+        {
+            Depth = { CurrentValue = 400 },
+        };
+        using RenderNode root = CreateTransformedLayer(
+            perspective.CreateMatrix(Composition.CompositionContext.Default),
+            TransformOperator.Prepend,
+            new Rect(0, 0, 24, 16));
+        using var renderer = CreateRenderer(root, new RecordingCpuTargetFactory([]));
+
+        Assert.That(() => renderer.Rasterize().Dispose(), Throws.Nothing);
+    }
+
     private static RenderRequest CreateRequest(
         bool cacheEnabled,
         RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary)
@@ -91,6 +129,34 @@ public sealed class ValueReplaySafetyTests
             outputScale: 1,
             maxWorkingScale: 1,
             cachePolicy: cacheEnabled ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled));
+
+    private static RenderNodeRenderer CreateRenderer(
+        RenderNode root,
+        IRenderTargetFactory targetFactory)
+        => new(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 1,
+                    MaxWorkingScale = 8,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                },
+                TargetFactory = targetFactory,
+            });
+
+    private static RenderNode CreateTransformedLayer(
+        Matrix transform,
+        TransformOperator transformOperator,
+        Rect bounds)
+    {
+        var root = new TransformRenderNode(transform, transformOperator);
+        var layer = new LayerRenderNode(bounds);
+        layer.AddChild(new RectangleRenderNode(bounds, Brushes.Resource.White, null));
+        root.AddChild(layer);
+        return root;
+    }
 
     private static RenderFragmentReference GetSingleRoot(RecordedRenderGraph graph)
     {
@@ -147,5 +213,25 @@ public sealed class ValueReplaySafetyTests
                 layer,
                 CreateIdentityValueReplayDescription(nameof(FiniteLayerReplayNode))));
         }
+    }
+
+    private sealed class RecordingCpuTargetFactory(List<PixelSize> requestedSizes) : IRenderTargetFactory
+    {
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+        {
+            PixelSize size = allocation.DeviceSize;
+            requestedSizes.Add(size);
+            SKSurface surface = SKSurface.Create(new SKImageInfo(
+                                    size.Width,
+                                    size.Height,
+                                    SKColorType.RgbaF16,
+                                    SKAlphaType.Premul,
+                                    SKColorSpace.CreateSrgbLinear()))
+                                ?? throw new InvalidOperationException("Could not create the CPU test surface.");
+            return new CpuRenderTarget(surface, size);
+        }
+
+        private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
+            : RenderTarget(surface, size.Width, size.Height);
     }
 }

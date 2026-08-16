@@ -39,7 +39,8 @@ internal sealed class TargetScopeDescription
         RenderDeviceGridMapping deviceGridMapping,
         object definitionFingerprint,
         IReadOnlyList<RenderResourceBinding> resources,
-        bool isValueReplayMap)
+        bool isValueReplayMap,
+        bool builtInBackdropCapturesBackingTarget)
     {
         _execution = execution;
         Bounds = bounds;
@@ -50,6 +51,7 @@ internal sealed class TargetScopeDescription
         DefinitionFingerprint = definitionFingerprint;
         Resources = resources;
         IsValueReplayMap = isValueReplayMap;
+        BuiltInBackdropCapturesBackingTarget = builtInBackdropCapturesBackingTarget;
     }
 
     public RenderBoundsContract Bounds { get; }
@@ -71,6 +73,8 @@ internal sealed class TargetScopeDescription
     internal void Execute(TargetScopeSession session) => _execution.Invoke(session);
 
     internal bool IsValueReplayMap { get; }
+
+    internal bool BuiltInBackdropCapturesBackingTarget { get; }
 
     /// <param name="state">
     /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
@@ -112,7 +116,8 @@ internal sealed class TargetScopeDescription
             deviceGridMapping,
             execute.Method,
             resources,
-            isValueReplayMap: false);
+            isValueReplayMap: false,
+            builtInBackdropCapturesBackingTarget: false);
 
     /// <summary>
     /// Creates a scope whose output can never satisfy a later request's cache lookup.
@@ -139,7 +144,8 @@ internal sealed class TargetScopeDescription
             deviceGridMapping,
             execute.Method,
             resources,
-            isValueReplayMap: false);
+            isValueReplayMap: false,
+            builtInBackdropCapturesBackingTarget: false);
 
     /// <summary>
     /// Creates a scope the renderer lowers into the value graph instead of materializing its input.
@@ -156,6 +162,7 @@ internal sealed class TargetScopeDescription
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
         RenderDeviceGridMapping deviceGridMapping,
+        bool builtInBackdropCapturesBackingTarget = false,
         IEnumerable<RenderResourceBinding>? resources = null)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
@@ -166,7 +173,8 @@ internal sealed class TargetScopeDescription
             deviceGridMapping,
             new EngineValueReplayMapDefinition(execute.Method),
             resources,
-            isValueReplayMap: true);
+            isValueReplayMap: true,
+            builtInBackdropCapturesBackingTarget);
 
     internal static TargetScopeDescription CreateCore(
         RenderExecutionChannel<TargetScopeSession> execution,
@@ -177,7 +185,8 @@ internal sealed class TargetScopeDescription
         RenderDeviceGridMapping deviceGridMapping,
         object definitionFingerprint,
         IEnumerable<RenderResourceBinding>? resources,
-        bool isValueReplayMap)
+        bool isValueReplayMap,
+        bool builtInBackdropCapturesBackingTarget = false)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
@@ -197,7 +206,8 @@ internal sealed class TargetScopeDescription
             deviceGridMapping,
             definitionFingerprint,
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
-            isValueReplayMap);
+            isValueReplayMap,
+            builtInBackdropCapturesBackingTarget);
     }
 }
 

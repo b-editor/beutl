@@ -18,8 +18,14 @@ internal sealed class RegionAnalyzer
             options.TargetDomain);
 
         ImmutableArray<RenderFragmentReference> topologicalOrder = GetTopologicalOrder(roots);
+        ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures =
+            FindBackingTargetBackdropCaptures(topologicalOrder, targetDependencies);
         IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains =
-            ResolveTargetDomains(roots, options.TargetDomain, targetDependencies);
+            ResolveTargetDomains(
+                roots,
+                options.TargetDomain,
+                targetDependencies,
+                backingTargetBackdropCaptures);
         ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata =
             ResolveForwardMetadata(topologicalOrder, targetDomains, options);
         RenderNodeMeasurement measurement = Measure(options, roots);
@@ -94,7 +100,8 @@ internal sealed class RegionAnalyzer
             fragmentRegions.ToImmutable(),
             valueRegions.ToImmutable(),
             targetAccessRegions.ToImmutable(),
-            metadata);
+            metadata,
+            backingTargetBackdropCaptures);
     }
 
     private static bool PropagateValueRequirements(
@@ -341,7 +348,8 @@ internal sealed class RegionAnalyzer
     private static IReadOnlyDictionary<RenderFragmentReference, Rect?> ResolveTargetDomains(
         IReadOnlyList<RenderFragmentReference> roots,
         Rect? rootDomain,
-        TargetDependencyPlan targetDependencies)
+        TargetDependencyPlan targetDependencies,
+        IReadOnlySet<RenderFragmentId> backingTargetBackdropCaptures)
     {
         var result = new Dictionary<RenderFragmentReference, Rect?>(
             ReferenceEqualityComparer.Instance);
@@ -359,7 +367,35 @@ internal sealed class RegionAnalyzer
                      .Where(static step => step.Kind == TargetDependencyKind.Capture))
         {
             RenderFragmentReference reference = references[capture.FragmentId];
-            result[reference] = scopes[capture.ScopeId].ResolvedDomain;
+            TargetScopePlan captureScope = scopes[capture.ScopeId];
+            if (backingTargetBackdropCaptures.Contains(capture.FragmentId))
+            {
+                // A value replay map materializes its input before replaying it through a transform. A backdrop
+                // reads the backing target outside that materialization boundary; resolving it inside the map
+                // would inverse-rasterize the target only to transform it forward again during replay.
+                TargetScopePlan current = captureScope;
+                while (current.ParentId is { } parentId)
+                {
+                    RenderFragmentReference? owner = current.OwnerFragmentId is { } ownerId
+                        ? references[ownerId]
+                        : null;
+                    if (owner?.Payload is LayerRenderFragmentPayload
+                        or TargetLayerScopeRenderFragmentPayload)
+                    {
+                        break;
+                    }
+
+                    if (owner?.Payload is TargetScopeRenderFragmentPayload scope
+                        && scope.Description.BuiltInBackdropCapturesBackingTarget)
+                    {
+                        captureScope = scopes[parentId];
+                    }
+
+                    current = scopes[parentId];
+                }
+            }
+
+            result[reference] = captureScope.ResolvedDomain;
         }
         return result;
 
@@ -409,6 +445,47 @@ internal sealed class RegionAnalyzer
             foreach (RenderFragmentReference input in reference.Inputs)
                 Visit(input, inputDomain, result, visitedDomains);
         }
+    }
+
+    private static ImmutableHashSet<RenderFragmentId> FindBackingTargetBackdropCaptures(
+        ImmutableArray<RenderFragmentReference> topologicalOrder,
+        TargetDependencyPlan targetDependencies)
+    {
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = topologicalOrder
+            .ToDictionary(GetId);
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes = targetDependencies.Scopes
+            .ToDictionary(static scope => scope.Id);
+        var result = ImmutableHashSet.CreateBuilder<RenderFragmentId>();
+        foreach (TargetDependencyStep capture in targetDependencies.Steps
+                     .Where(static step => step.Kind == TargetDependencyKind.Capture))
+        {
+            if (references[capture.FragmentId].Kind != RenderFragmentKind.BuiltInBackdropCapture)
+                continue;
+
+            TargetScopePlan current = scopes[capture.ScopeId];
+            while (current.ParentId is { } parentId)
+            {
+                RenderFragmentReference? owner = current.OwnerFragmentId is { } ownerId
+                    ? references[ownerId]
+                    : null;
+                if (owner?.Payload is LayerRenderFragmentPayload
+                    or TargetLayerScopeRenderFragmentPayload)
+                {
+                    break;
+                }
+
+                if (owner?.Payload is TargetScopeRenderFragmentPayload scope
+                    && scope.Description.BuiltInBackdropCapturesBackingTarget)
+                {
+                    result.Add(capture.FragmentId);
+                    break;
+                }
+
+                current = scopes[parentId];
+            }
+        }
+
+        return result.ToImmutable();
     }
 
     private static ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> ResolveForwardMetadata(
@@ -1254,7 +1331,8 @@ internal sealed class RegionAnalysis
         ImmutableDictionary<RenderFragmentId, RequiredRegion> fragmentRequirements,
         ImmutableDictionary<RenderValueId, RequiredRegion> valueRequirements,
         ImmutableDictionary<RenderFragmentId, RequiredRegion> targetAccessRequirements,
-        ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata)
+        ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata,
+        ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures)
     {
         Measurement = measurement;
         TargetDomain = targetDomain;
@@ -1265,6 +1343,7 @@ internal sealed class RegionAnalysis
         ValueRequirements = valueRequirements;
         TargetAccessRequirements = targetAccessRequirements;
         Metadata = metadata;
+        BackingTargetBackdropCaptures = backingTargetBackdropCaptures;
     }
 
     public RenderNodeMeasurement Measurement { get; }
@@ -1288,6 +1367,8 @@ internal sealed class RegionAnalysis
     public ImmutableDictionary<RenderFragmentId, RequiredRegion> TargetAccessRequirements { get; }
 
     public ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> Metadata { get; }
+
+    public ImmutableHashSet<RenderFragmentId> BackingTargetBackdropCaptures { get; }
 
     public RequiredRegion GetFragmentRequirement(RenderFragmentReference reference)
         => FragmentRequirements[GetId(reference)];

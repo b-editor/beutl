@@ -26,6 +26,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private static readonly AsyncLocal<DrawableBrushMaterializer?> s_drawableBrushMaterializer = new();
     private static readonly Lazy<SKRuntimeEffect> s_rectCoverageEffect = new(CreateRectCoverageEffect);
     private static readonly Lazy<SKRuntimeEffect> s_opacityScaleEffect = new(CreateOpacityScaleEffect);
+    private static readonly SKSamplingOptions s_bitmapSampling = new(SKCubicResampler.Mitchell);
 
     // A tent kernel has no negative lobe, so a resampled composite cannot emit a value outside the
     // range of the samples it interpolated.
@@ -696,7 +697,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         using var img = SKImage.FromBitmap(bmp.SKBitmap);
 
         RecordPixelOperation();
-        Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+        SKSamplingOptions sampling = RenderScaleUtilities.IsExactIntegerReduction(SurfaceDensity)
+            ? s_compositeSampling
+            : s_bitmapSampling;
+        Canvas.DrawImage(img, 0, 0, sampling, _sharedFillPaint);
     }
 
     // Draw a bitmap into a logical destination rect (Mitchell resample).

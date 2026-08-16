@@ -50,7 +50,9 @@ internal sealed class OpaqueRenderDescription
         IReadOnlyList<RenderResourceBinding> resources,
         RenderBackendBoundary backendBoundary,
         Action<EngineDirectRenderSession>? directReplay,
-        bool hasDirectReplayMaterializationContract = false)
+        bool supportsDirectDstOut,
+        bool hasDirectReplayMaterializationContract = false,
+        bool directReplayAtExactIntegerReduction = false)
     {
         _execution = execution;
         Bounds = bounds;
@@ -63,7 +65,9 @@ internal sealed class OpaqueRenderDescription
         Resources = resources;
         BackendBoundary = backendBoundary;
         DirectReplay = directReplay;
+        SupportsDirectDstOut = supportsDirectDstOut;
         HasDirectReplayMaterializationContract = hasDirectReplayMaterializationContract;
+        DirectReplayAtExactIntegerReduction = directReplayAtExactIntegerReduction;
     }
 
     public OpaqueRenderBoundsContract Bounds { get; }
@@ -89,7 +93,11 @@ internal sealed class OpaqueRenderDescription
 
     internal Action<EngineDirectRenderSession>? DirectReplay { get; }
 
+    internal bool SupportsDirectDstOut { get; }
+
     internal bool HasDirectReplayMaterializationContract { get; }
+
+    internal bool DirectReplayAtExactIntegerReduction { get; }
 
     internal void ThrowIfIncompatible(OpaqueRenderTopology topology, string parameterName)
     {
@@ -135,7 +143,9 @@ internal sealed class OpaqueRenderDescription
             DefinitionFingerprint,
             DeviceGridSensitivity,
             BackendBoundary,
-            HasDirectReplayMaterializationContract);
+            HasDirectReplayMaterializationContract,
+            DirectReplayAtExactIntegerReduction,
+            SupportsDirectDstOut);
 
     internal OpaqueRenderDescription WithoutDirectReplay()
         => DirectReplay is null
@@ -152,7 +162,9 @@ internal sealed class OpaqueRenderDescription
                 Resources,
                 BackendBoundary,
                 directReplay: null,
-                hasDirectReplayMaterializationContract: false);
+                supportsDirectDstOut: false,
+                hasDirectReplayMaterializationContract: false,
+                directReplayAtExactIntegerReduction: false);
 
     /// <param name="state">
     /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
@@ -250,7 +262,8 @@ internal sealed class OpaqueRenderDescription
             Array.AsReadOnly(CopyInputReadbacks(inputReadbacks)),
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
             RenderBackendBoundary.None,
-            directReplay: null);
+            directReplay: null,
+            supportsDirectDstOut: false);
     }
 
     /// <summary>
@@ -268,6 +281,8 @@ internal sealed class OpaqueRenderDescription
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
+        bool directReplayAtExactIntegerReduction = false,
+        bool supportsDirectDstOut = true,
         IEnumerable<RenderResource>? resources = null)
     {
         ArgumentNullException.ThrowIfNull(execute);
@@ -278,7 +293,8 @@ internal sealed class OpaqueRenderDescription
         object definitionFingerprint = new EngineOpaqueDefinition(
             RenderBackendBoundary.None,
             execute.Method,
-            directReplay?.Method);
+            directReplay?.Method,
+            directReplayAtExactIntegerReduction);
 
         return new OpaqueRenderDescription(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
@@ -292,8 +308,11 @@ internal sealed class OpaqueRenderDescription
             BindInternalResources(resources),
             RenderBackendBoundary.None,
             directReplay,
+            supportsDirectDstOut && directReplay is not null,
             hasDirectReplayMaterializationContract:
-                directReplay is not null && scale.DeclaresNoSupplyDensity);
+                directReplay is not null && scale.DeclaresNoSupplyDensity,
+            directReplayAtExactIntegerReduction:
+                directReplay is not null && directReplayAtExactIntegerReduction);
     }
 
     internal static OpaqueRenderDescription CreateBackendBoundary(
@@ -317,7 +336,8 @@ internal sealed class OpaqueRenderDescription
         object definitionFingerprint = new EngineOpaqueDefinition(
             backendBoundary,
             execute.Method,
-            DirectReplayMethod: null);
+            DirectReplayMethod: null,
+            DirectReplayAtExactIntegerReduction: false);
 
         return new OpaqueRenderDescription(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
@@ -330,7 +350,8 @@ internal sealed class OpaqueRenderDescription
             Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
             BindInternalResources(resources),
             backendBoundary,
-            directReplay: null);
+            directReplay: null,
+            supportsDirectDstOut: false);
     }
 
     private static void ThrowIfUndefined(RenderDeviceGridSensitivity deviceGridSensitivity)
@@ -772,6 +793,7 @@ public readonly struct RenderScaleContract
     private readonly RenderScaleContractKind _kind;
     private readonly Func<RenderScaleContext, float>? _resolve;
     private readonly Func<EffectiveScale, EffectiveScale>? _mapInputSupply;
+    private readonly Func<EffectiveScale, EffectiveScale>? _mapOutputDemandToInput;
     private readonly object? _structuralIdentity;
 
     private RenderScaleContract(RenderScaleContractKind kind)
@@ -779,6 +801,7 @@ public readonly struct RenderScaleContract
         _kind = kind;
         _resolve = null;
         _mapInputSupply = null;
+        _mapOutputDemandToInput = null;
         _structuralIdentity = kind;
     }
 
@@ -787,6 +810,7 @@ public readonly struct RenderScaleContract
         _kind = RenderScaleContractKind.Custom;
         _resolve = resolve;
         _mapInputSupply = null;
+        _mapOutputDemandToInput = null;
         _structuralIdentity = structuralIdentity;
     }
 
@@ -797,6 +821,19 @@ public readonly struct RenderScaleContract
         _kind = RenderScaleContractKind.MapInputSupply;
         _resolve = null;
         _mapInputSupply = mapInputSupply;
+        _mapOutputDemandToInput = null;
+        _structuralIdentity = new RenderScaleContractStructuralIdentity(_kind, structuralIdentity);
+    }
+
+    private RenderScaleContract(
+        Func<EffectiveScale, EffectiveScale> mapInputSupply,
+        Func<EffectiveScale, EffectiveScale> mapOutputDemandToInput,
+        object structuralIdentity)
+    {
+        _kind = RenderScaleContractKind.MapInputSupply;
+        _resolve = null;
+        _mapInputSupply = mapInputSupply;
+        _mapOutputDemandToInput = mapOutputDemandToInput;
         _structuralIdentity = new RenderScaleContractStructuralIdentity(_kind, structuralIdentity);
     }
 
@@ -825,6 +862,24 @@ public readonly struct RenderScaleContract
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
         return new RenderScaleContract(map, map.Method);
+    }
+
+    internal static RenderScaleContract MapInputSupply(
+        Func<EffectiveScale, EffectiveScale> map,
+        Func<EffectiveScale, EffectiveScale> mapOutputDemandToInput)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        ArgumentNullException.ThrowIfNull(mapOutputDemandToInput);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
+        RenderDescriptionValidation.ValidatePureMetadataCallback(
+            mapOutputDemandToInput,
+            nameof(mapOutputDemandToInput));
+        return new RenderScaleContract(
+            map,
+            mapOutputDemandToInput,
+            new RenderScaleBidirectionalMappingStructuralIdentity(
+                map.Method,
+                mapOutputDemandToInput.Method));
     }
 
     public static RenderScaleContract Custom(
@@ -933,6 +988,25 @@ public readonly struct RenderScaleContract
         }
 
         return EffectiveScale.At(resolved);
+    }
+
+    internal EffectiveScale MapOutputDemandToInput(EffectiveScale outputDemand)
+    {
+        ThrowIfNotInitialized();
+        if (outputDemand.IsUnbounded)
+            throw new ArgumentException("Output demand must be concrete.", nameof(outputDemand));
+
+        EffectiveScale mapped = _kind == RenderScaleContractKind.MapInputSupply
+                                && _mapOutputDemandToInput is not null
+            ? _mapOutputDemandToInput(outputDemand)
+            : outputDemand;
+        if (mapped.IsUnbounded)
+        {
+            throw new InvalidOperationException(
+                "An output-demand mapping must return a concrete positive density.");
+        }
+
+        return EffectiveScale.At(mapped.Value);
     }
 
     internal void ThrowIfUninitialized(string parameterName)
@@ -1296,17 +1370,24 @@ internal readonly record struct RenderScaleContractStructuralIdentity(
     RenderScaleContractKind Kind,
     object CallbackIdentity);
 
+internal readonly record struct RenderScaleBidirectionalMappingStructuralIdentity(
+    MethodInfo SupplyMethod,
+    MethodInfo DemandMethod);
+
 internal readonly record struct OpaqueRenderStructuralIdentity(
     OpaqueRenderTopology Topology,
     object DescriptionKey,
     RenderDeviceGridSensitivity DeviceGridSensitivity,
     RenderBackendBoundary BackendBoundary,
-    bool HasDirectReplayMaterializationContract);
+    bool HasDirectReplayMaterializationContract,
+    bool DirectReplayAtExactIntegerReduction,
+    bool SupportsDirectDstOut);
 
 internal sealed record EngineOpaqueDefinition(
     RenderBackendBoundary BackendBoundary,
     MethodInfo ExecuteMethod,
-    MethodInfo? DirectReplayMethod);
+    MethodInfo? DirectReplayMethod,
+    bool DirectReplayAtExactIntegerReduction);
 
 internal static class RenderDescriptionValidation
 {

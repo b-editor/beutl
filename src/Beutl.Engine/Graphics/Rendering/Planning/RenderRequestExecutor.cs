@@ -288,6 +288,7 @@ internal sealed partial class RenderRequestExecutor
         private readonly HashSet<RenderCacheCandidateId> _suppressedCacheCaptures = [];
         private readonly List<(IBuiltInBackdropCaptureSink Sink, MaterializedRenderValue Value)> _backdropCaptures = [];
         private readonly List<PendingBackdropPublication> _pendingBackdropPublications = [];
+        private readonly List<ImmediateCanvas> _backdropSources = [];
         private int _shaderRunExecutions;
         private int _shaderStageExecutions;
         private int _fusedShaderRunExecutions;
@@ -403,6 +404,23 @@ internal sealed partial class RenderRequestExecutor
                 return;
             }
 
+            bool canReplayMaterializedValue = fragment.Kind != RenderFragmentKind.BuiltInBackdropCapture;
+            if (canReplayMaterializedValue
+                && _values.TryGetValue(fragment, out IReadOnlyList<MaterializedRenderValue>? cachedValues))
+            {
+                if (fragment.ContributesValuesToTarget)
+                    DrawValues(cachedValues, destination);
+                return;
+            }
+
+            if (fragment.CanBeUsedAsValueInput
+                && canReplayMaterializedValue
+                && _resourceUses.GetRemainingUseCount(fragment) > 1)
+            {
+                DrawMaterializedFragment(fragment, destination);
+                return;
+            }
+
             if (_executionPlan.TryGetMembership(fragment, out ExecutionIslandMembership membership)
                 && membership.ShaderRun is not null)
             {
@@ -463,10 +481,10 @@ internal sealed partial class RenderRequestExecutor
                 case RenderFragmentKind.Layer:
                     if (fragment.ContributesValuesToTarget)
                         DrawValues(
-                            Materialize(fragment, destination, EffectiveScale.At(destination.Density)),
+                            Materialize(fragment, destination),
                             destination);
                     else
-                        _ = Materialize(fragment, destination, EffectiveScale.At(destination.Density));
+                        _ = Materialize(fragment, destination);
                     return;
                 case RenderFragmentKind.TargetLayerScope:
                     ExecuteReplayIsland(fragment, () => ReplayTargetLayerScope(fragment, destination));

@@ -7,6 +7,7 @@ namespace Beutl.Graphics.Particles;
 
 internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : RenderNode
 {
+    private const long MaximumFiniteLayerBytes = 1L * 1024 * 1024 * 1024;
     private static readonly Rect s_drawableRecordingDomain = new(0, 0, 1920, 1080);
     private static readonly Rect s_fallbackBounds = new(-5, -5, 10, 10);
     private static readonly RenderResourceSlot<Particle[]> s_particlesSlot = new();
@@ -63,13 +64,17 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         if (totalBounds.Width <= 0 || totalBounds.Height <= 0)
             return;
 
+        bool requiresClippedLayer = context.TargetDomain is not null
+                                    && RequiresClippedLayer(totalBounds, context.OutputScale);
         RenderResource<Particle[]> particlesToken = context.Borrow(particles);
         TargetCommandDefinition<ParticleCommandState> definition =
             TargetCommandDefinition<ParticleCommandState>.Create(
                 static (session, _) => session.UseResource(
                     s_particlesSlot,
                     current => DrawParticles(session, current)),
-                affectedRegion: TargetRegion.Region(totalBounds),
+                affectedRegion: requiresClippedLayer
+                    ? TargetRegion.Full
+                    : TargetRegion.Region(totalBounds),
                 queryBounds: totalBounds,
                 hitTest: RenderHitTestContract.None,
                 resources: [s_particlesSlot]);
@@ -77,9 +82,11 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             [source],
             definition.Call(default, [s_particlesSlot.Bind(particlesToken)]));
 
-        // Repetition is an engine-controlled target command over a pre-recorded value. The finite
-        // layer turns that ordered painter result back into the single value published by this node.
-        context.Publish(context.Layer([painter], totalBounds));
+        // A union beyond the buffer budget is mostly off-target travel. Preserve the finite layer for
+        // ordinary emitters, but clip an oversized union to its owning target before allocation.
+        context.Publish(requiresClippedLayer
+            ? context.OwningTargetLayer([painter])
+            : context.Layer([painter], totalBounds));
     }
 
     private static RenderFragmentHandle? RecordDrawableSource(
@@ -211,6 +218,26 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         }
 
         return hasBounds ? totalBounds : Rect.Empty;
+    }
+
+    private static bool RequiresClippedLayer(Rect bounds, float scale)
+    {
+        PixelRect footprint = PixelRect.FromRect(bounds, scale);
+        if (footprint.Width > RenderScaleUtilities.MaxBufferDimension
+            || footprint.Height > RenderScaleUtilities.MaxBufferDimension)
+        {
+            return true;
+        }
+
+        try
+        {
+            long bytes = checked((long)footprint.Width * footprint.Height * 8);
+            return bytes > MaximumFiniteLayerBytes;
+        }
+        catch (OverflowException)
+        {
+            return true;
+        }
     }
 
     private static Rect CalculateBounds(

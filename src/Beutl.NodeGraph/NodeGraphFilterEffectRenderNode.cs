@@ -249,17 +249,17 @@ internal sealed class FilterEffectInputBinding : IDisposable
             return;
         }
 
-        if (outputs is [RenderFragmentHandle single]
-            && single.CanBeUsedAsValueInput
-            && single.ValueCardinality.Maximum != 0)
+        if (outputs is [RenderFragmentHandle optional]
+            && optional.CanBeUsedAsValueInput
+            && optional.ValueCardinality.Minimum == 0
+            && optional.ValueCardinality.Maximum != 0)
         {
-            _previews.Add(new DeferredPreview([single], replace));
+            _previews.Add(new DeferredPreview([optional], replace));
             return;
         }
 
-        // A layer preserves painter order and normalizes multiple or mixed subtree outputs
-        // to one readback-eligible value for the deferred preview command. When a raw output cannot
-        // fan out, replace the identity cache as well so later graph outputs share the layer instead.
+        // A layer preserves painter order and guarantees one runtime value for the deferred preview readback.
+        // When a raw output cannot fan out, replace the identity cache so later graph outputs share the layer.
         RenderFragmentHandle layer = NormalizeToLayer(outputs);
         if (outputs.Any(static output => !output.CanBeUsedAsValueInput))
         {

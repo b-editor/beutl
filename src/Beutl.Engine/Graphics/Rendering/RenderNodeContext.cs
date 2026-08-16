@@ -515,7 +515,9 @@ public sealed class RenderNodeContext
         Rect outputBounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
+        bool directReplayAtExactIntegerReduction = false,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
+        bool supportsDirectDstOut = true,
         IEnumerable<RenderResource>? resources = null)
     {
         ArgumentNullException.ThrowIfNull(draw);
@@ -555,7 +557,9 @@ public sealed class RenderNodeContext
             bounds: OpaqueRenderBoundsContract.Source(outputBounds),
             hitTest: hitTest,
             scale: scale,
+            directReplayAtExactIntegerReduction: directReplayAtExactIntegerReduction,
             deviceGridSensitivity: deviceGridSensitivity,
+            supportsDirectDstOut: supportsDirectDstOut,
             resources: declaredResources);
         return OpaqueSource(description);
     }

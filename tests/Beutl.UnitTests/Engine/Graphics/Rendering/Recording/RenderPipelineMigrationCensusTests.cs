@@ -97,6 +97,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/ExecutionIslandAuthorityTests.cs"] = 3,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/FusionBoundaryExecutionTestSupport.cs"] = 6,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/ShaderFallbackTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/DirectBlurFiniteOutputTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GpuPassFusionFeature003RegressionTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GpuPassFusionScaleRegionTests.cs"] = 7,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/LosslessCompositeCoverageTests.cs"] = 1,
@@ -178,7 +179,7 @@ public sealed class RenderPipelineMigrationCensusTests
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
             AssertAllOverridesAreMapped(overrides);
             AssertBaselineInventory("production", 30, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 183, s_testOverrideBaseline, overrides);
+            AssertBaselineInventory("test", 184, s_testOverrideBaseline, overrides);
         }
     }
 

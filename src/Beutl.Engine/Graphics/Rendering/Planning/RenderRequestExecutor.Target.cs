@@ -402,6 +402,7 @@ internal sealed partial class RenderRequestExecutor
 
         private IReadOnlyList<MaterializedRenderValue> MaterializeLayer(
             RenderFragmentReference fragment,
+            ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
             if (_values.TryGetValue(fragment, out IReadOnlyList<MaterializedRenderValue>? existing))
@@ -442,12 +443,25 @@ internal sealed partial class RenderRequestExecutor
                         && IsMatchingTargetLayerScope(fragment.Inputs[0], canvas, domain))
                     {
                         // The finite Layer already provides the target-layer isolation surface.
-                        ReplayTargetLayerScopeIntoExistingLayer(fragment.Inputs[0], canvas);
+                        ReplayTargetLayerScopeIntoExistingLayer(
+                            fragment.Inputs[0],
+                            canvas,
+                            currentTarget);
                     }
                     else
                     {
-                        foreach (RenderFragmentReference input in fragment.Inputs)
-                            Replay(input, canvas);
+                        int backdropSourceCount = _backdropSources.Count;
+                        if (backdropSourceCount != 0)
+                            _backdropSources.Add(currentTarget);
+                        try
+                        {
+                            foreach (RenderFragmentReference input in fragment.Inputs)
+                                Replay(input, canvas);
+                        }
+                        finally
+                        {
+                            RemoveBackdropSources(backdropSourceCount);
+                        }
                     }
                 }
 
@@ -501,21 +515,16 @@ internal sealed partial class RenderRequestExecutor
                            rasterTranslation.X,
                            rasterTranslation.Y)))
                 {
-                    // The capture bounds are recorded in the target's local logical space, so the
-                    // surface has to be placed through the inverse of the target's own transform.
-                    // Under a singular transform no target pixel is visible in local space, so the
-                    // capture stays empty rather than failing.
-                    if (DeviceGridAlignment.TryResolveSurfaceToLogical(currentTarget, out Matrix toLocal))
+                    canvas.ClipRect(bounds);
+                    bool capturesBackingTarget = fragment.Id is { } fragmentId
+                        && _regions.BackingTargetBackdropCaptures.Contains(fragmentId);
+                    if (fragment.Kind == RenderFragmentKind.BuiltInBackdropCapture)
                     {
-                        using RenderTarget source = RenderTarget.GetRenderTarget(currentTarget);
-                        canvas.ClipRect(bounds);
-                        using (canvas.PushTransform(toLocal))
-                        {
-                            canvas.DrawRenderTargetScaledWithoutFlush(
-                                source,
-                                new Rect(0, 0, source.Width, source.Height));
-                        }
+                        foreach (ImmediateCanvas backdropSource in _backdropSources)
+                            DrawTargetIntoCapture(backdropSource, canvas, capturesBackingTarget);
                     }
+
+                    DrawTargetIntoCapture(currentTarget, canvas, capturesBackingTarget);
                 }
 
                 succeeded = true;
@@ -565,8 +574,17 @@ internal sealed partial class RenderRequestExecutor
                            rasterTranslation.X,
                            rasterTranslation.Y)))
                 {
-                    foreach (RenderFragmentReference input in fragment.Inputs)
-                        Replay(input, canvas);
+                    int backdropSourceCount = _backdropSources.Count;
+                    _backdropSources.Add(destination);
+                    try
+                    {
+                        foreach (RenderFragmentReference input in fragment.Inputs)
+                            Replay(input, canvas);
+                    }
+                    finally
+                    {
+                        RemoveBackdropSources(backdropSourceCount);
+                    }
                 }
 
                 DrawValue(value, destination);
@@ -604,15 +622,63 @@ internal sealed partial class RenderRequestExecutor
 
         private void ReplayTargetLayerScopeIntoExistingLayer(
             RenderFragmentReference scope,
-            ImmediateCanvas destination)
+            ImmediateCanvas destination,
+            ImmediateCanvas backdropSource)
         {
             ExecuteReplayIsland(
                 scope,
                 () =>
                 {
-                    foreach (RenderFragmentReference input in scope.Inputs)
-                        Replay(input, destination);
+                    int backdropSourceCount = _backdropSources.Count;
+                    _backdropSources.Add(backdropSource);
+                    try
+                    {
+                        foreach (RenderFragmentReference input in scope.Inputs)
+                            Replay(input, destination);
+                    }
+                    finally
+                    {
+                        RemoveBackdropSources(backdropSourceCount);
+                    }
                 });
+        }
+
+        private static void DrawTargetIntoCapture(
+            ImmediateCanvas sourceCanvas,
+            ImmediateCanvas captureCanvas,
+            bool capturesBackingTarget)
+        {
+            using RenderTarget source = RenderTarget.GetRenderTarget(sourceCanvas);
+            if (capturesBackingTarget)
+            {
+                float sourceDensity = sourceCanvas.SurfaceDensity;
+                captureCanvas.DrawRenderTargetScaledWithoutFlush(
+                    source,
+                    new Rect(
+                        sourceCanvas.DeviceOrigin.X / sourceDensity,
+                        sourceCanvas.DeviceOrigin.Y / sourceDensity,
+                        source.Width / sourceDensity,
+                        source.Height / sourceDensity));
+                return;
+            }
+
+            // Target-local captures are authored in the target's logical space, so place the surface
+            // through the inverse of its transform. A singular transform has no visible local pixels.
+            if (!DeviceGridAlignment.TryResolveSurfaceToLogical(sourceCanvas, out Matrix toLocal))
+                return;
+
+            using (captureCanvas.PushTransform(toLocal))
+            {
+                captureCanvas.DrawRenderTargetScaledWithoutFlush(
+                    source,
+                    new Rect(0, 0, source.Width, source.Height));
+            }
+        }
+
+        private void RemoveBackdropSources(int count)
+        {
+            if (_backdropSources.Count > count)
+                _backdropSources.RemoveRange(count, _backdropSources.Count - count);
         }
 
         private static bool RequiresLocalDestructiveDeviceGrid(RenderFragmentReference fragment)
@@ -636,7 +702,8 @@ internal sealed partial class RenderRequestExecutor
         {
             return fragment.Kind switch
             {
-                RenderFragmentKind.OpaqueSource => true,
+                RenderFragmentKind.OpaqueSource
+                    => ((OpaqueRenderFragmentPayload)fragment.Payload!).Description.SupportsDirectDstOut,
                 RenderFragmentKind.TargetScope
                     => fragment.Inputs.All(CanReplayWithDirectDstOut),
                 RenderFragmentKind.Opacity

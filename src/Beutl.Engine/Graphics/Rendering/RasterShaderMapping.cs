@@ -5,6 +5,14 @@ namespace Beutl.Graphics.Rendering;
 
 internal static class RasterShaderMapping
 {
+    private static readonly SKSamplingOptions s_linearSampling =
+        new(SKFilterMode.Linear, SKMipmapMode.None);
+    private static readonly SKSamplingOptions s_cubicSampling =
+        new(SKCubicResampler.Mitchell);
+
+    public static SKSamplingOptions SamplingFor(float sourceScale, float destinationScale)
+        => destinationScale > sourceScale ? s_cubicSampling : s_linearSampling;
+
     public static SKShader CreateSemanticImageShader(
         SKImage image,
         GRRecordingContext? recordingContext,
