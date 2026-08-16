@@ -38,16 +38,18 @@ public class Profile
 
     public async Task RefreshAsync(CancellationToken cancellationToken, bool self = false)
     {
+        using CancellationTokenSource lifetimeCts = _clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
         using Activity? activity = _clients.ActivitySource.StartActivity("Profile.Refresh", ActivityKind.Client);
 
         if (self)
         {
-            _response.Value = await _clients.Users.GetSelf(cancellationToken);
+            _response.Value = await _clients.Users.GetSelf(token);
             Name = _response.Value.Name;
         }
         else
         {
-            _response.Value = await _clients.Users.GetUser(Name, cancellationToken);
+            _response.Value = await _clients.Users.GetUser(Name, token);
         }
     }
 
@@ -56,14 +58,16 @@ public class Profile
         int start = 0,
         int count = 30)
     {
+        using CancellationTokenSource lifetimeCts = _clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
         using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetPackages", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
         // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
-        return await (await _clients.Users.GetUserPackages(Name, cancellationToken, start, count))
+        return await (await _clients.Users.GetUserPackages(Name, token, start, count))
             .ToObservable()
-            .SelectMany(async x => await _clients.Packages.GetPackage(x.Name, cancellationToken))
+            .SelectMany(async x => await _clients.Packages.GetPackage(x.Name, token))
             .Select(x => new Package(this, x, _clients))
             .ToArray();
     }
