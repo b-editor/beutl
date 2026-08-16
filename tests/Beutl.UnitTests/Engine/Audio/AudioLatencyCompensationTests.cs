@@ -35,8 +35,6 @@ public class AudioLatencyCompensationTests
     private static int LookaheadSamples(float lookaheadMs, int sampleRate = SampleRate)
         => (int)(lookaheadMs / 1000f * sampleRate);
 
-    // Threshold high enough that a unit-scale signal never trips limiting, so the limiter is a pure
-    // lookahead delay and the tail-recovery math is exact.
     private static LimiterNode CreateTransparentLimiter(float lookaheadMs)
         => new()
         {
@@ -59,16 +57,13 @@ public class AudioLatencyCompensationTests
         const int sampleCount = 4096;
         int L = LookaheadSamples(lookaheadMs);
 
-        // A ramp makes every input index identifiable in the (delayed) output.
         using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
 
         using var node = CreateTransparentLimiter(lookaheadMs);
         node.AddInput(new BufferReplayNode(input));
 
-        // Process the clip: output[i] = input[i - L]; the last L inputs stay stuck in the delay line.
         using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
 
-        // Flush, contiguous with the processed chunk, must emit those last L inputs.
         var flushDuration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
         using var tail = node.Flush(Context(flushDuration, sampleCount));
 
@@ -76,7 +71,6 @@ public class AudioLatencyCompensationTests
         var tailData = tail.GetChannelData(0);
         for (int k = 0; k < L; k++)
         {
-            // The j-th flushed sample carries input[sampleCount - L + k].
             Assert.That(tailData[k], Is.EqualTo(inData[sampleCount - L + k]).Within(1e-5f),
                 $"Flushed tail sample {k} must equal the input sample lost off the processed tail.");
         }
@@ -97,8 +91,6 @@ public class AudioLatencyCompensationTests
         using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
         using var tail = node.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
-        // processed[i] = input[i-L] for i>=L; tail[k] = input[sampleCount-L+k]. Concatenating processed
-        // then the first L of tail reproduces input delayed by L with NO samples dropped.
         var inData = input.GetChannelData(0);
         var procData = processed.GetChannelData(0);
         var tailData = tail.GetChannelData(0);
@@ -115,7 +107,6 @@ public class AudioLatencyCompensationTests
     [Test]
     public void Flush_DefaultPassThrough_ReturnsSilence()
     {
-        // A node with no latency and a leaf input drains to silence (nothing held).
         using var gain = new GainNode { Gain = Property.CreateAnimatable(100f) };
         using var buffer = CreateConstantBuffer(0.3f, 64);
         gain.AddInput(new BufferReplayNode(buffer));
@@ -141,8 +132,6 @@ public class AudioLatencyCompensationTests
         node.AddInput(new BufferReplayNode(input));
 
         using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
-        // If Flush were treated as a discontinuity, the limiter would Reset() and emit silence (cold
-        // delay line) instead of the retained tail. A non-silent tail proves contiguity held.
         using var tail = node.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
         var tailData = tail.GetChannelData(0);
@@ -163,7 +152,6 @@ public class AudioLatencyCompensationTests
         const int clipSamples = 4096;
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
 
-        // Source feeds the clip-local range; a sine so the recovered tail is identifiable and non-zero.
         var source = new RangeSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
@@ -171,10 +159,6 @@ public class AudioLatencyCompensationTests
         using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clip.AddInput(limiter);
 
-        // A window that extends L samples past the clip end leaves trailing capacity, so AppendFlushedTail
-        // drains the limiter's held tail into [clipSamples, clipSamples + L) — the region inline
-        // processing drops. A window covering the clip exactly has capacity == 0 and never drains, so the
-        // assertion below would pass on the main slice even if recovery were a no-op.
         using var output = clip.Process(Context(TimeSpan.Zero, clipSamples + L));
 
         var data = output.GetChannelData(0);
@@ -195,7 +179,6 @@ public class AudioLatencyCompensationTests
         const int refOffset = 256;
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
 
-        // No-latency chain: with L==0 the terminal-window drain must change nothing.
         var sourceA = new RangeSineNode(SampleRate);
         using var clipA = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clipA.AddInput(sourceA);
@@ -204,9 +187,6 @@ public class AudioLatencyCompensationTests
         var sourceB = new RangeSineNode(SampleRate);
         using var clipB = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clipB.AddInput(sourceB);
-        // The reference stops short of the clip end, so its terminal-drain branch never runs; clipA
-        // reaches the end and does enter it. Comparing the overlap gives the assertion discriminating
-        // power: if the L==0 terminal path perturbed the main slice, only clipA would differ.
         using var reference = clipB.Process(Context(TimeSpan.Zero, clipSamples - refOffset));
 
         var a = withDrain.GetChannelData(0);
@@ -224,12 +204,10 @@ public class AudioLatencyCompensationTests
         const int sampleCount = 2048;
         int L = LookaheadSamples(lookaheadMs);
 
-        // leaf -> Limiter(delay) -> Gain(0.5). The recovered tail must be scaled by the downstream
-        // gain, not handed back raw — the regression guard for the bypassing default Flush.
         using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 330f * i / SampleRate));
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(new BufferReplayNode(input));
-        using var gain = new GainNode { Gain = Property.CreateAnimatable(50f) }; // 50% = 0.5x
+        using var gain = new GainNode { Gain = Property.CreateAnimatable(50f) };
         gain.AddInput(limiter);
 
         using var processed = gain.Process(Context(TimeSpan.Zero, sampleCount));
@@ -239,7 +217,6 @@ public class AudioLatencyCompensationTests
         var tailData = tail.GetChannelData(0);
         for (int k = 0; k < L; k++)
         {
-            // Tail carries input[sampleCount-L+k] (limiter delay) scaled by 0.5 (downstream gain).
             Assert.That(tailData[k], Is.EqualTo(inData[sampleCount - L + k] * 0.5f).Within(1e-5f),
                 $"Flushed tail sample {k} must have the downstream gain applied.");
         }
@@ -402,7 +379,6 @@ public class AudioLatencyCompensationTests
         const int sampleCount = 1024;
         int L = LookaheadSamples(lookaheadMs);
 
-        // Branch A holds a limiter tail; branch B is silent. The mixer flush must surface A's tail.
         using var inputA = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
         using var limiterA = CreateTransparentLimiter(lookaheadMs);
         limiterA.AddInput(new BufferReplayNode(inputA));
@@ -436,10 +412,6 @@ public class AudioLatencyCompensationTests
         var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
         var earlyEnd = TimeSpan.FromSeconds((double)(sampleCount / 2) / SampleRate);
 
-        // Branch A holds a real limiter tail but its clip ended at the group midpoint — its tail was
-        // already recovered at its own end, so the group's terminal flush must NOT re-emit it seconds
-        // late. Branch B runs to the group end and is silent. With A correctly skipped, the merge is
-        // silent; draining A unconditionally would leak its stale tail into the group pad.
         using var inputA = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
         using var limiterA = CreateTransparentLimiter(lookaheadMs);
         limiterA.AddInput(new BufferReplayNode(inputA));
@@ -680,9 +652,6 @@ public class AudioLatencyCompensationTests
     [Test]
     public void NestedClipNode_Flush_RemapsToClipLocalTime_RecoversTail()
     {
-        // A SoundGroup mixes child clips and then flushes them through the group's own clip in the
-        // GROUP's time domain. A nested ClipNode must remap that drain to its clip-local frame (as
-        // Process does) or the child's cached limiter sees a discontinuity, Reset()s, and drops the tail.
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
         const int clipSamples = 4096;
@@ -695,13 +664,8 @@ public class AudioLatencyCompensationTests
         using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clip.AddInput(limiter);
 
-        // A window ending exactly at the clip end is terminal but leaves no trailing room, so the
-        // clip's own AppendFlushedTail cannot run (capacity == 0) and the limiter keeps holding its tail.
         using var processed = clip.Process(Context(TimeSpan.Zero, clipSamples));
 
-        // The parent flushes in a time domain deliberately unrelated to the child's clip-local time.
-        // The base Flush would forward this start to the limiter, trip the discontinuity guard, and
-        // emit post-reset silence; the clip-local remap keeps the limiter contiguous and drains the tail.
         using var tail = clip.Flush(Context(TimeSpan.FromSeconds(123.0), L));
 
         var tailData = tail.GetChannelData(0);
@@ -719,14 +683,10 @@ public class AudioLatencyCompensationTests
     [Test]
     public void NestedClipNode_Flush_DrainsFromLastProcessedLocalTime_WhenParentTrimsTheClip()
     {
-        // A SoundGroup window can stop before a child's own Duration, trimming it. The child's last
-        // Process then ended at the trim boundary, not its natural end, so the flush must drain from that
-        // last processed local time — draining from Duration would jump past the cached limiter, reset it,
-        // and drop the tail held at the trim boundary.
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        const int clipSamples = 8192;        // the child's natural Duration
-        const int processedSamples = 4096;   // the parent trims the child here, before its end
+        const int clipSamples = 8192;
+        const int processedSamples = 4096;
 
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
         var source = new RangeSineNode(SampleRate);
@@ -736,8 +696,6 @@ public class AudioLatencyCompensationTests
         using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clip.AddInput(limiter);
 
-        // Only the first processedSamples are pulled, so the limiter's last processed local end is there
-        // and its delay line holds the tail from around that trim boundary.
         using var processed = clip.Process(Context(TimeSpan.Zero, processedSamples));
 
         using var tail = clip.Flush(Context(TimeSpan.FromSeconds(99.0), L));
@@ -757,13 +715,9 @@ public class AudioLatencyCompensationTests
     [Test]
     public void NestedClipNode_Flush_ContinuesAfterPartialTailAppend()
     {
-        // A terminal window with some trailing pad — but less than the reported latency — drains only
-        // part of the held tail and advances the upstream chain past Duration. A later parent flush of
-        // the same child must continue from that advanced point; restarting at Duration would step the
-        // cached limiter backward, reset it, and drop the rest of the tail.
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        int pad = L / 2;                     // trailing room < L => only a partial append
+        int pad = L / 2;
         const int clipSamples = 4096;
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
 
@@ -774,7 +728,6 @@ public class AudioLatencyCompensationTests
         using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clip.AddInput(limiter);
 
-        // Window covers the clip plus `pad` samples: AppendFlushedTail drains `pad` of the L held samples.
         using var processed = clip.Process(Context(TimeSpan.Zero, clipSamples + pad));
 
         using var tail = clip.Flush(Context(TimeSpan.FromSeconds(77.0), L));
@@ -814,7 +767,6 @@ public class AudioLatencyCompensationTests
     [Test]
     public void Flush_FanInWithoutOverride_Throws()
     {
-        // A bare multi-input node has no merge semantics; the base Flush must fail loudly, not drop tails.
         using var node = new GainNode { Gain = Property.CreateAnimatable(100f) };
         using var a = CreateConstantBuffer(0.1f, 16);
         using var b = CreateConstantBuffer(0.1f, 16);
@@ -827,8 +779,6 @@ public class AudioLatencyCompensationTests
     [Test]
     public void LimiterNode_AnimatedLookahead_ReportsWorstCaseLatency()
     {
-        // Base 0 ms but automation rising to 20 ms must reserve the full worst-case drain, or the tail
-        // is dropped. A static 0 ms (no animation) still reports 0.
         var animation = new KeyFrameAnimation<float>
         {
             KeyFrames =
@@ -852,7 +802,6 @@ public class AudioLatencyCompensationTests
             Is.EqualTo(LookaheadSamples(LimiterParameters.MaxLookaheadMs)),
             "Animated lookahead must report the worst case so the drain reserves enough room.");
 
-        // The effect-level API a host queries before graph construction must agree with the node.
         var effect = new LimiterEffect();
         effect.Lookahead.Animation = animation;
         Assert.That(effect.GetLatencySamples(SampleRate),
@@ -870,10 +819,6 @@ public class AudioLatencyCompensationTests
 
         using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
 
-        // Lookahead holds 5 ms across the whole clip, then keyframes to 0 one sample past the clip end.
-        // The last L inputs were buffered at the 5 ms delay; a drain that re-samples the now-zero
-        // automation reads delay offset 0 (the flush silence) and drops them. Draining at the lookahead
-        // retained from the clip's terminal sample must still recover them.
         var animation = new KeyFrameAnimation<float>
         {
             KeyFrames =
@@ -959,10 +904,6 @@ public class AudioLatencyCompensationTests
         int L = LookaheadSamples(lookaheadMs);
         var oneSecond = TimeSpan.FromSeconds(1);
 
-        // The sound spans exactly [0, 1s) and carries a 5 ms lookahead limiter. Window 1 covers it
-        // exactly, so the clip's terminal window is full (capacity 0) and the held tail cannot
-        // self-recover. Window 2 excludes the sound (it ended), so only a Composer that flushes the
-        // just-ended sound recovers the tail into the start of window 2.
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
@@ -1006,15 +947,11 @@ public class AudioLatencyCompensationTests
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
-        const int clipSamples = 48000;   // 1s at 48 kHz
-        int padSamples = L / 2;          // trailing room < L => only a partial append
+        const int clipSamples = 48000;
+        int padSamples = L / 2;
         var clipDuration = ExactDuration(clipSamples, SampleRate);
         var window1Duration = ExactDuration(clipSamples + padSamples, SampleRate);
 
-        // The sound ends padSamples before window 1's end. Its terminal clip window therefore has
-        // only padSamples of trailing capacity: ClipNode appends that much of the limiter's held tail
-        // and retains the rest. Window 2 must continue the drain instead of rejecting the entry
-        // because SoundRange.End != previous.End.
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
@@ -1075,8 +1012,6 @@ public class AudioLatencyCompensationTests
             new CompositionEligibility([sound]));
         using var buffer1 = composer.Compose(window1, frame1);
 
-        // The time boundary matches the captured natural end, but the sound is no longer eligible in
-        // the scene (removed, disabled, muted, or excluded by solo policy), so its cached tail must stop.
         var window2 = new TimeRange(oneSecond, oneSecond);
         var frame2 = new CompositionFrame(
             ImmutableArray<EngineObject.Resource>.Empty,
@@ -1119,8 +1054,6 @@ public class AudioLatencyCompensationTests
             eligibility);
         using var buffer1 = composer.Compose(window1, frame1);
 
-        // Moving the still-eligible sound outside the next window must invalidate the old boundary
-        // relationship. The cached graph contains audio from [0, 1s), but the sound now belongs at 10s.
         sound.TimeRange = new TimeRange(TimeSpan.FromSeconds(10), oneSecond);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
@@ -1165,8 +1098,6 @@ public class AudioLatencyCompensationTests
             eligibility);
         using var buffer1 = composer.Compose(window1, frame1);
 
-        // Any tracked sound edit invalidates its cached graph. Because the sound ended at the window
-        // boundary, it is absent from the next frame and cannot be rebuilt before the tail decision.
         sound.Gain.CurrentValue = 50f;
 
         var window2 = new TimeRange(oneSecond, oneSecond);
@@ -1211,8 +1142,6 @@ public class AudioLatencyCompensationTests
             new CompositionEligibility([sound]));
         using var buffer1 = composer.Compose(window1, frame1);
 
-        // The sound is absent from the next contiguous frame even though its captured range continues.
-        // This models a mute, disable, or removal rather than a natural clip end.
         var window2 = new TimeRange(oneSecond, oneSecond);
         var frame2 = new CompositionFrame(
             ImmutableArray<EngineObject.Resource>.Empty,
@@ -1230,10 +1159,6 @@ public class AudioLatencyCompensationTests
         }
     }
 
-    // Guard path 1: a non-contiguous window (seek/scrub/restart) must suppress the ended-sound flush.
-    // Same setup as the boundary test, but window 2 jumps forward so it no longer abuts window 1; the
-    // cached limiter reset on the discontinuity anyway, so flushing it would inject a stale tail at the
-    // wrong time. This pins the IsContiguous early-return in AppendEndedSoundTails.
     [Test]
     public void Composer_DoesNotFlushEndedSoundTail_AfterNonContiguousSeek()
     {
@@ -1259,7 +1184,6 @@ public class AudioLatencyCompensationTests
             eligibility);
         using var buffer1 = composer.Compose(window1, frame1);
 
-        // A forward jump far past the previous window end — not contiguous.
         var window2 = new TimeRange(TimeSpan.FromSeconds(3), oneSecond);
         var frame2 = new CompositionFrame(
             ImmutableArray<EngineObject.Resource>.Empty,
@@ -1277,9 +1201,6 @@ public class AudioLatencyCompensationTests
         }
     }
 
-    // Guard path 2: InvalidateCache must clear the recorded previous window so a subsequent contiguous
-    // window does not flush a stale tail. Identical to the boundary test (contiguous window 2 that
-    // normally recovers the tail) except for the InvalidateCache call, which must suppress the flush.
     [Test]
     public void Composer_InvalidateCache_SuppressesEndedSoundTailFlush()
     {
@@ -1307,7 +1228,6 @@ public class AudioLatencyCompensationTests
 
         composer.InvalidateCache();
 
-        // Contiguous with window 1 — without InvalidateCache this window recovers the tail (boundary test).
         var window2 = new TimeRange(oneSecond, oneSecond);
         var frame2 = new CompositionFrame(
             ImmutableArray<EngineObject.Resource>.Empty,
@@ -1325,8 +1245,6 @@ public class AudioLatencyCompensationTests
         }
     }
 
-    // The three nodes refactored to delegate Process to ProcessTail must still drain correctly on the
-    // base Flush path (draining: true). Each guards buffer ownership and shape, not a specific tail value.
     [Test]
     public void DelayNode_Flush_DrainsThroughProcessTail_NoThrow()
     {
@@ -1374,7 +1292,6 @@ public class AudioLatencyCompensationTests
     [Test]
     public void EqualizerNode_Flush_DrainsThroughProcessTail_NoThrow()
     {
-        // A band present takes the fresh-buffer (non-pass-through) ownership path.
         const int sampleCount = 512;
         using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
         using var node = new EqualizerNode { Bands = [new EqualizerBand()] };
@@ -1387,9 +1304,6 @@ public class AudioLatencyCompensationTests
         Assert.That(tail.SampleCount, Is.EqualTo(sampleCount));
     }
 
-    // Source that honors the requested clip-local range: sample value keyed to the absolute clip-local
-    // index so a downstream node's output is identifiable, and reads past the clip end return silence
-    // (mirrors SourceNode returning silence for out-of-clip reads, the precondition Flush relies on).
     private sealed class RangeSineNode(int sampleRate) : AudioNode
     {
         public override AudioBuffer Process(AudioProcessContext context)

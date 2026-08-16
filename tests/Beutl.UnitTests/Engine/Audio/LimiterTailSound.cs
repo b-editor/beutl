@@ -8,9 +8,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
-// A self-contained Sound (no media file) whose graph is a clip-local sine leaf feeding a lookahead
-// limiter, so a Composer that composes it across two windows exercises the limiter tail held at the
-// clip boundary. Top-level partial so the resource source generator emits its Resource.
+// Resource source generation requires a top-level partial Sound.
 public sealed partial class LimiterTailSound : Sound
 {
     public LimiterTailSound() => ScanProperties<LimiterTailSound>();
@@ -34,8 +32,6 @@ public sealed partial class LimiterTailSound : Sound
         context.MarkAsOutput(clip);
     }
 
-    // A clip-local sine keyed to the absolute sample index, returning silence for reads past the clip
-    // (the precondition Flush relies on). Mirrors the RangeSineNode used by the node-level tests.
     private sealed class ClipLocalSineNode(int sampleRate) : AudioNode
     {
         public override AudioBuffer Process(AudioProcessContext context)

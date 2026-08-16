@@ -28,11 +28,7 @@ public sealed class DelayNode : AudioNode
         return ProcessTail(Inputs[0].Process(context), context, draining: false);
     }
 
-    // Deliberately keeps the base GetLatencySamples of 0: an echo/delay is an intentional, audible
-    // delay (render-tail-time territory), not processing latency that PDC compensates — reporting it
-    // would shift the dry signal earlier and double-count the effect. A consequence is that a wet-only
-    // delay placed after a lookahead limiter is not granted extra flush budget, so its delayed tail can
-    // still be clipped at the clip boundary; recovering that is a separate render-tail-time concern.
+    // Echo delay is intentional render-time delay, not processing latency for compensation.
 
     protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
     {

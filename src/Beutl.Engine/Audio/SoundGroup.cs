@@ -95,8 +95,7 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
                 var shiftNode = context.CreateShiftNode(TimeRange.Start);
                 context.Connect(outputNode, shiftNode);
                 context.Connect(shiftNode, mixerNode);
-                // A child that ends before the group lets the mixer skip its already-recovered tail
-                // instead of re-emitting it late during the group's terminal flush.
+                // Let the mixer skip a child's already-recovered tail.
                 mixerNode.SetBranchEndTime(shiftNode, original.TimeRange.End - TimeRange.Start);
             }
         }

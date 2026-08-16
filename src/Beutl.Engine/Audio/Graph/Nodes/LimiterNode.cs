@@ -36,10 +36,7 @@ public sealed class LimiterNode : AudioNode
     private int _dequeLookahead = -1;
     private long _globalPos;
 
-    // The coefficients the last real-audio sample was processed with. A drain (Flush) following the
-    // clip end keeps its lookahead offset so the held tail is read where it was buffered, while the
-    // other animated parameters continue sampling over the drain range. Invalid after Reset/format
-    // change (cold state).
+    // Retain terminal coefficients so a drain reuses the buffered lookahead; reset invalidates them.
     private DerivedCoefficients _lastDerived;
     private bool _hasLastDerived;
 
@@ -77,12 +74,8 @@ public sealed class LimiterNode : AudioNode
             draining: false);
     }
 
-    // Shared by Process (real upstream audio) and the base Flush (drained tail): the drained block
-    // runs through the same delay-line path, so the lookahead tail still held is emitted. The flush
-    // block abuts the terminal chunk, so the contiguity check below does not reset.
     protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
     {
-        // ProcessTail owns its input on every path, including validation failures.
         using var owned = input;
 
         if (input.SampleRate != context.SampleRate)
@@ -137,10 +130,7 @@ public sealed class LimiterNode : AudioNode
         AudioBuffer output;
         if (draining && Lookahead.Animation != null && _hasLastDerived)
         {
-            // Re-sampling Lookahead over the post-clip drain range reads the wrong delay offset: the held
-            // tail was buffered at the lookahead in effect at the clip end, but the automation may have
-            // moved off it. Keep only that offset fixed; Threshold, Release, and MakeupGain still sample
-            // at their drain-range times so their automation remains live.
+            // Freeze the terminal lookahead while the other parameters remain animated during drain.
             output = DrainWithFrozenLookahead(input, context, _lastDerived.LookaheadSamples);
         }
         else
@@ -169,7 +159,6 @@ public sealed class LimiterNode : AudioNode
     /// </summary>
     public override int GetLatencySamples(int sampleRate)
     {
-        // Explicit guard so a future early-return added before the delegate cannot bypass the rate contract.
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
         return Lookahead.Animation != null
             ? LimiterParameters.ToLatencySamples(LimiterParameters.MaxLookaheadMs, sampleRate)
@@ -410,9 +399,7 @@ public sealed class LimiterNode : AudioNode
         }
     }
 
-    // Drains the held tail at the clip's terminal lookahead while keeping the other parameters
-    // sample-accurate over the drain range. The fixed offset reads the delay line where the tail was
-    // buffered; live Threshold, Release, and MakeupGain preserve their normal automation semantics.
+    // Drain at the terminal lookahead while keeping the other parameters animated.
     private AudioBuffer DrainWithFrozenLookahead(
         AudioBuffer input,
         AudioProcessContext context,
@@ -426,8 +413,7 @@ public sealed class LimiterNode : AudioNode
             Span<float> releases = stackalloc float[scratchSize];
             Span<float> makeups = stackalloc float[scratchSize];
 
-            // The deque does not track this drain block (it reads via ScanWindowPeak like the animated
-            // path), so invalidate it for a later static chunk to rebuild.
+            // Rebuild the static-path deque after this variable-lookahead drain.
             _dequeLookahead = -1;
 
             int channelCount = _delayLines!.Length;
@@ -473,7 +459,6 @@ public sealed class LimiterNode : AudioNode
         }
         catch
         {
-            // Dispose the output the caller never received rather than leak it.
             output.Dispose();
             OutputBuffersDisposedAfterFailure++;
             throw;
@@ -673,7 +658,7 @@ public sealed class LimiterNode : AudioNode
         _currentGain = 1f;
         _lastTimeRangeEnd = null;
 
-        // The delay line is cold; a drain before the next real chunk has no retained coefficients to use.
+        // A reset leaves no terminal coefficients for a drain.
         _hasLastDerived = false;
 
         // Discard the deque. _globalPos restarts at 0 to stay aligned with the cleared _peakBuffer,

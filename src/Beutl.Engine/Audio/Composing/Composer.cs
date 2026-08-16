@@ -12,12 +12,7 @@ public class Composer : IComposer
     private readonly ConditionalWeakTable<Sound, AudioNodeEntry> _audioCache = [];
     private readonly List<AudioNodeEntry> _currentEntry = new();
 
-    // The entries active in the previous Compose window and that window's range. A sound whose captured
-    // range ended at or before the boundary still holds (part of) its latency tail, which the next
-    // window flushes: a sound ending exactly on the boundary cannot self-recover (its terminal clip
-    // window is full, so ClipNode.AppendFlushedTail has no room), and one ending inside the window may
-    // have only partially drained (the terminal window had less trailing capacity than the reported
-    // latency), with ClipNode retaining the rest. An entry absent for any other reason is discarded.
+    // Retain the previous window so contiguous windows can drain complete or partially drained tails.
     private readonly List<AudioNodeEntry> _previousEntry = new();
     private TimeRange? _previousRange;
 
@@ -94,7 +89,6 @@ public class Composer : IComposer
                 // Build final audio graph
                 var result = BuildFinalOutput(timeRange, eligibility);
 
-                // Record this window's active set so the next window can flush sounds that just ended.
                 _previousEntry.Clear();
                 _previousEntry.AddRange(_currentEntry);
                 _previousRange = timeRange;
@@ -130,7 +124,6 @@ public class Composer : IComposer
                 }
             }
 
-            // Recover the latency tail of any sound that ended on the previous window boundary.
             AppendEndedSoundTails(range, eligibility, buffers);
 
             // Mix all buffers
@@ -163,18 +156,13 @@ public class Composer : IComposer
         }
     }
 
-    // Flushes the residual latency tail of every sound that was active last window but not this one, so
-    // a lookahead limiter's held samples land at the start of the window that follows the clip end (the
-    // tail belongs at [windowStart, windowStart + latency)). The drain produces a window-length buffer —
-    // tail at the front, silence after — so it mixes like any other branch.
+    // Drain residual latency tails into a window-length buffer with the tail at the front.
     private void AppendEndedSoundTails(
         TimeRange range,
         CompositionEligibility eligibility,
         List<AudioBuffer> buffers)
     {
-        // Only when this window continues sequentially from the previous one. After a seek/restart the
-        // cached graph no longer abuts the new window (the limiter resets on the discontinuity anyway),
-        // so flushing it would inject a stale tail at the wrong time.
+        // Flush only across contiguous windows; seeks and restarts invalidate cached tail timing.
         if (_previousRange is not { } previous || !IsContiguous(previous.End, range.Start))
             return;
 
@@ -186,12 +174,7 @@ public class Composer : IComposer
                 continue;
             if (entry.OutputNodes is not { } outputNodes)
                 continue;
-            // The sound ended during the previous window (at or before its end, within tick tolerance).
-            // A sound ending exactly at the boundary holds its full tail; one ending inside the window
-            // may have partially drained it (the terminal clip window had less trailing capacity than
-            // the reported latency), and ClipNode retains the rest for a later flush. Either way the
-            // next contiguous window must drain what remains. A sound still active past the boundary
-            // is either in _currentEntry or ineligible, so the other guards handle it.
+            // Entries ending at or before the previous boundary may still hold a partially drained tail.
             if (entry.SoundRange.End.Ticks - previous.End.Ticks > 1)
                 continue;
             if (entry.Sound.TimeRange != entry.SoundRange)
@@ -275,8 +258,7 @@ public class Composer : IComposer
 
         _audioCache.Clear();
 
-        // The recorded entries were just disposed; drop them so the next window does not flush a freed
-        // graph (and treats the post-invalidate window as a fresh, non-contiguous start).
+        // Invalidation also clears previous-window state so disposed graphs cannot be flushed.
         _previousEntry.Clear();
         _previousRange = null;
     }

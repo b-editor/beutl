@@ -24,10 +24,7 @@ internal static class LimiterParameters
     public const float MaxMakeupGainDb = 24f;
     public const float DefaultMakeupGainDb = 0f;
 
-    // Recomputes the ceiling from sampleRate (rather than reading LimiterNode's cached
-    // _maxLookaheadSamples) so latency can be reported before the node initializes its buffers.
-    // Must stay in sync with the clamp in LimiterNode.Derive; kept out of Derive, which runs
-    // per-sample on the animated path and cannot pay this recompute.
+    // Recompute the clamped maximum before node initialization; keep it consistent with Derive.
     public static int ToLatencySamples(float lookaheadMs, int sampleRate)
     {
         if (sampleRate <= 0)

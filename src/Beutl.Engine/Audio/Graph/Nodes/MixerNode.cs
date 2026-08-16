@@ -42,10 +42,7 @@ public sealed class MixerNode : AudioNode
     public override AudioBuffer Process(AudioProcessContext context)
         => Mix(context, drain: false);
 
-    // Fan-in flush: drain every branch and mix the held tails with the same gain fold as Process, so a
-    // lookahead tail in any live branch is recovered (the base Flush's single-input path cannot reach
-    // here). A branch that ended before this drain block is skipped because its tail was already
-    // recovered at the child's own clip end.
+    // Fan-in flush drains and mixes live branch tails using the normal gain fold.
     public override AudioBuffer Flush(AudioProcessContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -61,9 +58,6 @@ public sealed class MixerNode : AudioNode
         if (Inputs.Count == 0)
             throw new InvalidOperationException("Mixer requires at least one input.");
 
-        // A dead branch (its clip ended before this drain block) keeps a null slot: its tail was already
-        // recovered at its own clip end, so re-draining it here would leak a stale tail into the group
-        // pad. Liveness only applies while draining — Process mixes every branch.
         var buffers = new AudioBuffer[Inputs.Count];
         try
         {
@@ -75,7 +69,6 @@ public sealed class MixerNode : AudioNode
                 buffers[i] = drain ? Inputs[i].Flush(context) : Inputs[i].Process(context);
             }
 
-            // The format reference is the first live branch; every branch dead means nothing to drain.
             AudioBuffer? firstBuffer = null;
             foreach (var buffer in buffers)
             {
@@ -89,7 +82,6 @@ public sealed class MixerNode : AudioNode
             if (firstBuffer == null)
                 return CreateSilentFlush(context);
 
-            // Validate live buffers have the same format
             for (int i = 0; i < buffers.Length; i++)
             {
                 var buffer = buffers[i];
@@ -115,7 +107,6 @@ public sealed class MixerNode : AudioNode
                     // Clear output buffer (already cleared in constructor, but being explicit)
                     outData.Clear();
 
-                    // Mix each live input
                     for (int i = 0; i < buffers.Length; i++)
                     {
                         var inBuffer = buffers[i];
@@ -138,16 +129,12 @@ public sealed class MixerNode : AudioNode
             }
             catch
             {
-                // Dispose the output the caller never received rather than leak it
-                // (inputs are released by the outer finally).
                 output.Dispose();
                 throw;
             }
         }
         finally
         {
-            // Dispose every consumed input (also on the validation-throw / dead-branch path, where
-            // slots may be null).
             foreach (var buffer in buffers)
             {
                 buffer?.Dispose();
@@ -160,10 +147,7 @@ public sealed class MixerNode : AudioNode
         if (!_branchEndTimes.TryGetValue(Inputs[index], out TimeSpan branchEndTime))
             return false;
 
-        // Dead = the branch's clip ended before this drain block. The tolerance absorbs sample-tick
-        // rounding so a branch ending exactly at the group end stays live and its tail still drains.
-        // Subtract from the block start with saturation instead of adding to the branch end, so even
-        // TimeSpan.MaxValue cannot overflow into a negative tick count.
+        // Apply the tick tolerance without overflowing at TimeSpan.MinValue.
         long blockStartTicks = context.TimeRange.Start.Ticks;
         long deadBeforeTicks = blockStartTicks < TimeSpan.MinValue.Ticks + BranchLivenessToleranceTicks
             ? TimeSpan.MinValue.Ticks

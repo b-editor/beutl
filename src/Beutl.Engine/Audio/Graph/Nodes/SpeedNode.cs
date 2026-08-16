@@ -53,8 +53,7 @@ public sealed class SpeedNode : AudioNode
             || !double.IsFinite(minimumSpeed)
             || minimumSpeed <= 0)
         {
-            // A stopped or invalid speed has no finite output-domain duration in which every upstream
-            // sample is consumed. Saturate rather than under-report and silently truncate a held tail.
+            // Saturate when no positive finite speed bounds the drain duration.
             return int.MaxValue;
         }
 
@@ -396,11 +395,7 @@ public sealed class SpeedNode : AudioNode
             if (count <= 0)
                 return 0;
 
-            // Derive every timestamp from the exact sample cursor. Accumulating representable
-            // TimeSpan durations loses fractional ticks at rates such as 44.1 kHz and eventually
-            // repeats a source sample. Round up to the first representable tick inside this sample:
-            // a source that truncates TimeSpan lands on _srcReadPos, while the new range remains
-            // within one tick of the previous end so stateful upstream nodes see a continuation.
+            // Derive each sub-range from the exact sample cursor to avoid repeated samples at fractional rates.
             long sourceStartTicks = (long)Math.Ceiling(
                 _srcReadPos * (double)TimeSpan.TicksPerSecond / _sampleRate);
             TimeSpan sourceStart = TimeSpan.FromTicks(sourceStartTicks);
@@ -456,8 +451,7 @@ public sealed class SpeedNode : AudioNode
 
             // Re-set the rate after a seek (resampler just reset) or when the constant speed changes.
             // Never Reset() outside a seek: that zero-fills filter history and silences a continuous
-            // stream. Normal processing promotes a static-speed change to a seek; draining instead
-            // keeps the cursor retained at the upstream clip end and changes only the resampling rate.
+            // Draining keeps the cursor at the upstream end while changing only the resampling rate.
             if (seek || configurationChanged)
             {
                 ConfigureStaticResampling(speed);

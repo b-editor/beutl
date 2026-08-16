@@ -22,15 +22,12 @@ public class AudioLatencyTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        // LimiterNode touches Log on construction/processing; Log.LoggerFactory is write-once (??=).
         if (Log.LoggerFactory is null)
         {
             Log.LoggerFactory = LoggerFactory.Create(_ => { });
         }
     }
 
-    // Reference math the limiter uses to convert a lookahead time to samples (unclamped; every value
-    // exercised here is within the 0..20 ms range, where it matches LimiterNode's clamped result).
     private static int ExpectedLookaheadSamples(float lookaheadMs, int sampleRate)
         => (int)(lookaheadMs / 1000f * sampleRate);
 
@@ -56,9 +53,6 @@ public class AudioLatencyTests
         return new AudioProcessContext(new TimeRange(TimeSpan.Zero, duration), sampleRate, new AnimationSampler(), null);
     }
 
-    // Baseline characterization: drives the real Process path and measures the delay an impulse incurs,
-    // pinning the ground-truth latency the reporting API must reproduce. Runs green against unmodified
-    // code, mirroring LimiterNodeTests.Process_LookaheadDelay_IsAccurate.
     [TestCase(5f)]
     [TestCase(10f)]
     public void Process_DelaysImpulse_ByLookaheadSamples(float lookaheadMs)
@@ -66,8 +60,6 @@ public class AudioLatencyTests
         const int sampleCount = 4096;
         int expected = ExpectedLookaheadSamples(lookaheadMs, SampleRate);
 
-        // An isolated impulse stays below the limiter threshold, so it passes through delayed but
-        // un-attenuated; its peak position is the applied delay.
         using var input = CreateBuffer(2, sampleCount, (_, i) => i == 0 ? 0.5f : 0f);
 
         using var node = CreateLimiterNode(lookaheadMs);
@@ -122,15 +114,11 @@ public class AudioLatencyTests
     [Test]
     public void LimiterNode_GetLatencySamples_QueryableBeforeProcess()
     {
-        // A freshly constructed node has never initialized its delay-line buffers; the report must not
-        // depend on _maxLookaheadSamples being set by a prior Process call.
         using var node = CreateLimiterNode(5f);
 
         Assert.That(node.GetLatencySamples(SampleRate), Is.EqualTo(ExpectedLookaheadSamples(5f, SampleRate)));
     }
 
-    // 20 ms is the MaxLookaheadMs boundary where ToLatencySamples and LimiterNode.Derive both clamp;
-    // driving Process there confirms the report still equals the delay actually applied.
     [TestCase(5f)]
     [TestCase(20f)]
     public void LimiterNode_GetLatencySamples_MatchesActualDelay(float lookaheadMs)
@@ -228,8 +216,6 @@ public class AudioLatencyTests
     [Test]
     public void AudioEffectGroup_GetLatencySamples_DisabledGroupReportsZero()
     {
-        // A disabled group contributes no nodes (Sound.Compose skips its CreateNode), so its pre-graph
-        // latency report is 0 too — consistent with LimiterEffect's own IsEnabled gate.
         var group = new AudioEffectGroup { IsEnabled = false };
         group.Children.Add(CreateLimiterEffect(5f));
         group.Children.Add(CreateLimiterEffect(10f));
@@ -285,8 +271,6 @@ public class AudioLatencyTests
     [Test]
     public void GetTotalLatencySamples_OverFanIn_TakesMax()
     {
-        // A mixer aligns its branches to the slowest, so the total is the max branch latency, not the
-        // sum — guards against double-counting sibling inputs.
         using var bufferA = CreateConstantBuffer(0.1f, 16);
         using var bufferB = CreateConstantBuffer(0.1f, 16);
         using var branchA = CreateLimiterNode(5f);
@@ -440,15 +424,11 @@ public class AudioLatencyTests
         var limiterEffect = CreateLimiterEffect(5f);
         var group = new AudioEffectGroup();
 
-        // Every reporting entry point guards the rate, so the contract is uniform across node types,
-        // not just the ones that reach LimiterParameters.ToLatencySamples.
         Assert.Throws<ArgumentOutOfRangeException>(() => gain.GetLatencySamples(sampleRate));
         Assert.Throws<ArgumentOutOfRangeException>(() => limiterNode.GetLatencySamples(sampleRate));
         Assert.Throws<ArgumentOutOfRangeException>(() => limiterEffect.GetLatencySamples(sampleRate));
         Assert.Throws<ArgumentOutOfRangeException>(() => group.GetLatencySamples(sampleRate));
 
-        // The aggregating entry point guards independently, so an override that folds the upstream
-        // recursion before delegating still honors the contract.
         Assert.Throws<ArgumentOutOfRangeException>(() => gain.GetTotalLatencySamples(sampleRate));
         Assert.Throws<ArgumentOutOfRangeException>(() => limiterNode.GetTotalLatencySamples(sampleRate));
         using var speed = new SpeedNode { Speed = Property.CreateAnimatable(50f) };
