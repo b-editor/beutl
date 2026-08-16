@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Text;
 using Beutl.Api;
+using Beutl.Api.Clients;
 using Beutl.Api.Services;
 
 namespace Beutl.UnitTests.Api;
@@ -136,6 +137,31 @@ public sealed class BeutlApiApplicationTests
         }
     }
 
+    [Test]
+    public async Task CompleteSignInAsync_RestoresAuthorization_WhenGetSelfIsCanceled()
+    {
+        using var cancellationTokenSource = new CancellationTokenSource();
+        using var handler = new DelegateHandler((request, cancellationToken) =>
+        {
+            cancellationTokenSource.Cancel();
+            throw new OperationCanceledException(cancellationToken);
+        });
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var authResponse = new AuthResponse
+        {
+            Token = "new-token",
+            RefreshToken = "new-refresh",
+            Expiration = DateTime.UtcNow.AddHours(1)
+        };
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await app.CompleteSignInAsync(authResponse, cancellationTokenSource.Token));
+
+        Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
+            "the new bearer token must not remain after a canceled sign-in");
+    }
+
     private sealed class CapturingHandler : HttpMessageHandler
     {
         public Uri? LastRequestUri { get; private set; }
@@ -155,5 +181,14 @@ public sealed class BeutlApiApplicationTests
             };
             return Task.FromResult(response);
         }
+    }
+
+    private sealed class DelegateHandler(
+        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
+        : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+            => handler(request, cancellationToken);
     }
 }

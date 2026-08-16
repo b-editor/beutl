@@ -233,15 +233,9 @@ public class BeutlApiApplication
             }, cancellationToken);
             activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", authResponse.Token);
-            ProfileResponse profileResponse = await Users.GetSelf(cancellationToken);
-            var profile = new Profile(profileResponse, this);
-
-            _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
-            SaveUser();
+            AuthenticatedUser user = await CompleteSignInAsync(authResponse, cancellationToken);
             activity?.AddEvent(new("Saved_User"));
-            return _authenticatedUser.Value;
+            return user;
         }
     }
 
@@ -278,16 +272,41 @@ public class BeutlApiApplication
                 }, cancellationToken);
                 activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-                _httpClient.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", authResponse.Token);
-                ProfileResponse profileResponse = await Users.GetSelf(cancellationToken);
-                var profile = new Profile(profileResponse, this);
-
-                _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
-                SaveUser();
+                AuthenticatedUser user = await CompleteSignInAsync(authResponse, cancellationToken);
                 activity?.AddEvent(new("Saved_User"));
-                return _authenticatedUser.Value;
+                return user;
             }
+        }
+    }
+
+    internal async Task<AuthenticatedUser> CompleteSignInAsync(
+        AuthResponse authResponse,
+        CancellationToken cancellationToken)
+    {
+        string? previousAuthorization = _httpClient.DefaultRequestHeaders.Authorization?.ToString();
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", authResponse.Token);
+        try
+        {
+            ProfileResponse profileResponse = await Users.GetSelf(cancellationToken);
+            var profile = new Profile(profileResponse, this);
+
+            _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
+            SaveUser();
+            return _authenticatedUser.Value;
+        }
+        catch
+        {
+            if (previousAuthorization != null)
+            {
+                _httpClient.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(previousAuthorization);
+            }
+            else
+            {
+                _httpClient.DefaultRequestHeaders.Authorization = null;
+            }
+
+            throw;
         }
     }
 
