@@ -114,7 +114,11 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
                         try
                         {
-                            await _handler.UnloadPackages(Package.Name);
+                            if (!await _handler.UnloadPackages(Package.Name))
+                            {
+                                throw new InvalidOperationException(
+                                    $"Package '{Package.Name}' could not be unloaded safely.");
+                            }
                             _handler.DeleteOldVersionFiles(Package.Name);
                             await _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId);
                             NotificationService.ShowInformation(

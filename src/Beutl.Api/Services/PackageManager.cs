@@ -65,6 +65,8 @@ public sealed class PackageManager(
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken operationToken = operationCts.Token;
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
             PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
@@ -74,7 +76,7 @@ public sealed class PackageManager(
 
             for (int i = 0; i < packages.Length; i++)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                operationToken.ThrowIfCancellationRequested();
                 PackageIdentity pkg = packages[i];
                 NuGetVersion version = pkg.Version;
                 string versionStr = version.ToString();
@@ -83,21 +85,21 @@ public sealed class PackageManager(
                     activity?.AddEvent(new("Checking updates"));
                     activity?.SetTag("PackageId", pkg.Id);
                     activity?.SetTag("Version", versionStr);
-                    Package remotePackage = await discover.GetPackage(pkg.Id, cancellationToken).ConfigureAwait(false);
+                    Package remotePackage = await discover.GetPackage(pkg.Id, operationToken).ConfigureAwait(false);
                     activity?.AddEvent(new("Checked updates"));
 
-                    Release[] releases = await remotePackage.GetReleasesAsync(cancellationToken).ConfigureAwait(false);
+                    Release[] releases = await remotePackage.GetReleasesAsync(operationToken).ConfigureAwait(false);
 
                     foreach (Release? item in releases)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
+                        operationToken.ThrowIfCancellationRequested();
                         // 降順
                         if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                         {
                             Release? oldRelease = await Helper
                                 .TryGetOrDefault(
-                                    () => remotePackage.GetReleaseAsync(versionStr, cancellationToken),
-                                    cancellationToken)
+                                    () => remotePackage.GetReleaseAsync(versionStr, operationToken),
+                                    operationToken)
                                 .ConfigureAwait(false);
                             updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
                             _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
@@ -105,7 +107,7 @@ public sealed class PackageManager(
                         }
                     }
                 }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
                 {
                     throw;
                 }
@@ -116,6 +118,7 @@ public sealed class PackageManager(
                 }
             }
 
+            operationToken.ThrowIfCancellationRequested();
             return updates;
         }
     }
@@ -123,6 +126,8 @@ public sealed class PackageManager(
     public async Task<PackageUpdate?> CheckUpdate(string name, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken operationToken = operationCts.Token;
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
             DiscoverService discover = apiApplication.GetResource<DiscoverService>();
@@ -138,21 +143,21 @@ public sealed class PackageManager(
                 activity?.AddEvent(new("Checking updates"));
                 activity?.SetTag("PackageName", pkg.Name);
                 activity?.SetTag("Version", versionStr);
-                Package remotePackage = await discover.GetPackage(pkg.Name, cancellationToken).ConfigureAwait(false);
+                Package remotePackage = await discover.GetPackage(pkg.Name, operationToken).ConfigureAwait(false);
                 activity?.AddEvent(new("Checked updates"));
 
-                Release[] releases = await remotePackage.GetReleasesAsync(cancellationToken).ConfigureAwait(false);
+                Release[] releases = await remotePackage.GetReleasesAsync(operationToken).ConfigureAwait(false);
 
                 foreach (Release? item in releases)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    operationToken.ThrowIfCancellationRequested();
                     // 降順
                     if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                     {
                         Release? oldRelease = await Helper
                             .TryGetOrDefault(
-                                () => remotePackage.GetReleaseAsync(pkg.Version, cancellationToken),
-                                cancellationToken)
+                                () => remotePackage.GetReleaseAsync(pkg.Version, operationToken),
+                                operationToken)
                             .ConfigureAwait(false);
                         _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
                         return new PackageUpdate(remotePackage, oldRelease, item);
@@ -160,6 +165,7 @@ public sealed class PackageManager(
                 }
             }
 
+            operationToken.ThrowIfCancellationRequested();
             return null;
         }
     }

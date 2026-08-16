@@ -301,11 +301,35 @@ public sealed class BeutlApiApplicationTests
         finally
         {
             File.Delete(userFile);
-        }
+         }
+    }
+
+    [Test]
+    public async Task ReadUserAsync_PreCanceledRequestStopsBeforeFileAccess()
+    {
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.Cancel();
+
+        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await app.ReadUserAsync(cancellationTokenSource.Token));
+    }
+
+    [Test]
+    public async Task Dispose_IsIdempotentAndRejectsFurtherResourceResolution()
+    {
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        _ = app.GetResource<PackageManager>();
+
+        Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
+        Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
+        Assert.Throws<ObjectDisposedException>(() => app.GetResource<DiscoverService>());
     }
 
     private sealed class CapturingHandler : HttpMessageHandler
-    {
+     {
         public Uri? LastRequestUri { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(

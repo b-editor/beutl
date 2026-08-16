@@ -17,6 +17,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
     private readonly AuthenticatedUser? _user;
     private readonly BeutlApiApplication _clients;
     private readonly CompositeDisposable _disposables = [];
+    private readonly LifetimeCancellationSource _lifetimeCts = new();
     private readonly LibraryService _service;
     private readonly EditorService _editorService;
     private readonly ProjectService _projectService;
@@ -80,17 +81,17 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 try
                 {
                     IsBusy.Value = true;
-                    using (await _clients.Lock.LockAsync())
+                    using (await _clients.Lock.LockAsync(_lifetimeCts.Token))
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
 
                         if (_user != null)
                         {
-                            await _user.RefreshAsync(CancellationToken.None);
+                            await _user.RefreshAsync(_lifetimeCts.Token);
                         }
 
                         PackageManager manager = _clients.GetResource<PackageManager>();
-                        foreach (PackageUpdate item in await manager.CheckUpdate(CancellationToken.None))
+                        foreach (PackageUpdate item in await manager.CheckUpdate(_lifetimeCts.Token))
                         {
                             LocalUserPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
                                 x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
@@ -118,6 +119,9 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                         }
                     }
                 }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
+                }
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
@@ -144,7 +148,9 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
     public override void Dispose()
     {
+        _lifetimeCts.Cancel();
         _disposables.Dispose();
+        _lifetimeCts.Dispose();
     }
 
     public async Task<Package?> TryFindPackage(LocalPackage localPackage)

@@ -22,7 +22,7 @@ using IUsersClient = Beutl.Api.Clients.IUsersClient;
 
 namespace Beutl.Api;
 
-public class BeutlApiApplication
+public class BeutlApiApplication : IAsyncDisposable
 {
 #if false
     private const string BaseUrl = "http://localhost:3001";
@@ -35,7 +35,11 @@ public class BeutlApiApplication
     private readonly ExtensionProvider _extensionProvider;
     private readonly ReactivePropertySlim<AuthenticatedUser?> _authenticatedUser = new();
     private readonly Dictionary<Type, Lazy<object>> _services = [];
+    private readonly object _disposeGate = new();
+    private readonly CancellationTokenSource _lifetimeCts = new();
     private static readonly ILogger s_logger = Log.CreateLogger<BeutlApiApplication>();
+    private volatile bool _disposed;
+    private Task? _disposeTask;
     private static readonly AsyncLazy<AssetMetadataJson?> s_metadata = new(async () =>
     {
         s_logger.LogInformation("Loading asset metadata");
@@ -129,20 +133,71 @@ public class BeutlApiApplication
     public T GetResource<T>()
         where T : IBeutlApiResource
     {
-        if (_services.TryGetValue(typeof(T), out Lazy<object>? lazy))
+        lock (_disposeGate)
         {
-            return (T)lazy.Value;
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_services.TryGetValue(typeof(T), out Lazy<object>? lazy))
+            {
+                return (T)lazy.Value;
+            }
+
+            foreach (KeyValuePair<Type, Lazy<object>> item in _services)
+            {
+                if (item.Key.IsAssignableTo(typeof(T)))
+                {
+                    return (T)item.Value.Value;
+                }
+            }
+
+            throw new Exception("Resource not found");
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        lock (_disposeGate)
+        {
+            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        List<object> disposableResources;
+        lock (_disposeGate)
+        {
+            _disposed = true;
+            disposableResources = _services.Values
+                .Where(lazy => lazy.IsValueCreated)
+                .Select(lazy => lazy.Value)
+                .Where(resource => resource is IDisposable or IAsyncDisposable)
+                .Distinct(ReferenceEqualityComparer.Instance)
+                .Reverse()
+                .ToList();
         }
 
-        foreach (KeyValuePair<Type, Lazy<object>> item in _services)
+        _lifetimeCts.Cancel();
+
+        foreach (object resource in disposableResources)
         {
-            if (item.Key.IsAssignableTo(typeof(T)))
+            try
             {
-                return (T)item.Value.Value;
+                if (resource is IAsyncDisposable asyncDisposable)
+                    await asyncDisposable.DisposeAsync();
+                else
+                    ((IDisposable)resource).Dispose();
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(
+                    ex,
+                    "Failed to dispose API resource {ResourceType}.",
+                    resource.GetType());
             }
         }
 
-        throw new Exception("Resource not found");
+        _lifetimeCts.Dispose();
+        ActivitySource.Dispose();
     }
 
     private void RegisterAll()
@@ -177,6 +232,17 @@ public class BeutlApiApplication
         where T : IBeutlApiResource
     {
         _services.Add(typeof(T), new Lazy<object>(() => factory()));
+    }
+
+    internal CancellationTokenSource CreateLifetimeLinkedTokenSource(CancellationToken cancellationToken)
+    {
+        lock (_disposeGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCts.Token);
+        }
     }
 
     public void SignOut(bool deleteFile = true)
@@ -356,21 +422,23 @@ public class BeutlApiApplication
 
     public async Task RestoreUserAsync(Activity? activity, CancellationToken cancellationToken)
     {
-        using (await Lock.LockAsync(cancellationToken))
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        using (await Lock.LockAsync(token))
         {
             activity?.AddEvent(new("Entered_AsyncLock"));
 
             string? previousAuthorization = _httpClient.DefaultRequestHeaders.Authorization?.ToString();
             AuthenticatedUser? previousUser = _authenticatedUser.Value;
-            AuthenticatedUser? user = await ReadUserAsync(cancellationToken);
+            AuthenticatedUser? user = await ReadUserAsync(token);
             if (user != null)
             {
                 try
                 {
-                    await user.RefreshAsync(cancellationToken);
+                    await user.RefreshAsync(token);
 
                     _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
-                    await user.Profile.RefreshAsync(cancellationToken, true);
+                    await user.Profile.RefreshAsync(token, true);
                     _authenticatedUser.Value = user;
                     SaveUser();
                 }
@@ -394,28 +462,31 @@ public class BeutlApiApplication
 
     public async ValueTask<AuthenticatedUser?> ReadUserAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        token.ThrowIfCancellationRequested();
         string fileName = Path.Combine(Helper.AppRoot, UserFileName);
         if (File.Exists(fileName))
         {
-            JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName, cancellationToken));
+            JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName, token));
+            token.ThrowIfCancellationRequested();
             DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
 
             if (node != null)
             {
                 ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
-                string? token = (string?)node["token"];
+                string? persistedToken = (string?)node["token"];
                 string? refreshToken = (string?)node["refresh_token"];
                 var expiration = (DateTime?)node["expiration"];
 
                 if (profile != null
-                    && token != null
+                    && persistedToken != null
                     && refreshToken != null
                     && expiration.HasValue)
                 {
                     return new AuthenticatedUser(
                         new Profile(profile, this),
-                        new AuthResponse { Expiration = expiration.Value, RefreshToken = refreshToken, Token = token },
+                        new AuthResponse { Expiration = expiration.Value, RefreshToken = refreshToken, Token = persistedToken },
                         this,
                         _httpClient,
                         lastWriteTime);

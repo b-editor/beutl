@@ -18,6 +18,22 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         var viewmodel = new MainViewModel();
+        bool disposeStarted = false;
+        bool disposeCompleted = false;
+        Closing += async (_, e) =>
+        {
+            if (disposeCompleted)
+                return;
+
+            e.Cancel = true;
+            if (disposeStarted)
+                return;
+
+            disposeStarted = true;
+            await viewmodel.DisposeAsync();
+            disposeCompleted = true;
+            Close();
+        };
 
         DataContext = viewmodel;
         frame.NavigationPageFactory = new MyNavigationPageFactory();

@@ -87,12 +87,28 @@ public partial class UninstallPage : PackageToolPage
                 _cts?.Cancel();
                 _cts = new CancellationTokenSource();
                 CancellationToken token = _cts.Token;
-                await Task.Run(() => viewModel.Run(token));
                 Frame? frame = this.FindAncestorOfType<Frame>();
-                if (frame is { DataContext: MainViewModel main })
+                if (frame is not { DataContext: MainViewModel main })
+                    return;
+
+                try
                 {
-                    object? nextViewModel = main.Next(viewModel, token);
-                    frame.NavigateFromObject(nextViewModel);
+                    await main.RunOperationAsync(
+                        operationToken => Task.Run(() => viewModel.Run(operationToken), operationToken),
+                        () =>
+                        {
+                            object? nextViewModel = main.Next(viewModel, token);
+                            frame.NavigateFromObject(nextViewModel);
+                        },
+                        token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
                 }
             }
         }
