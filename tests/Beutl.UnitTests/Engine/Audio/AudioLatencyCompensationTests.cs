@@ -681,6 +681,30 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void ShiftNode_Flush_RemapsToUpstreamTime_RecoversTail()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        const int clipSamples = 4096;
+        var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
+
+        var source = new RangeSineNode(SampleRate);
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(source);
+
+        using var shift = new ShiftNode { Shift = TimeSpan.FromSeconds(1) };
+        shift.AddInput(limiter);
+        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        clip.AddInput(shift);
+
+        using var processed = clip.Process(Context(TimeSpan.Zero, clipSamples));
+        using var tail = clip.Flush(Context(TimeSpan.FromSeconds(123.0), L));
+
+        Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
+            "A shifted latency chain must preserve upstream continuity during flush.");
+    }
+
+    [Test]
     public void NestedClipNode_Flush_DrainsFromLastProcessedLocalTime_WhenParentTrimsTheClip()
     {
         const float lookaheadMs = 5f;
