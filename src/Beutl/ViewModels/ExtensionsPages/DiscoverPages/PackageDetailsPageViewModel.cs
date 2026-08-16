@@ -363,13 +363,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             return SelectedRelease.Value;
         }
 
-        Release[] releases = await Package.GetReleasesAsync(CancellationToken.None, 0, 1);
-        if (releases.Length == 0)
-        {
-            throw new InvalidOperationException($"Package '{Package.Name}' has no releases.");
-        }
-
-        return releases[0];
+        return await PackageReleaseResolver.GetFirstReleaseAsync(Package, CancellationToken.None);
     }
 
     public Package Package { get; }
