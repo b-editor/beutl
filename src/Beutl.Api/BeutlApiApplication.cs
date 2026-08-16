@@ -109,6 +109,7 @@ public class BeutlApiApplication : IAsyncDisposable
     // 更新があるかどうかをチェックします
     // このアプリケーションがアセットメタデータを持っている場合は、AppUpdateResponseを返します
     // そうでない場合は、CheckForUpdatesResponseを返します
+    // (戻り値はタプルで、該当する方の値がセットされます)
     public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(
         string version,
         CancellationToken cancellationToken)

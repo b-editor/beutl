@@ -38,7 +38,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 try
                 {
                     IsBusy.Value = true;
-                    Task task = RefreshLocalPackages();
+                    Task task = RefreshLocalPackages(_lifetimeCts.Token);
                     DisposeAll(Packages.OfType<IDisposable>());
                     Packages.Clear();
                     Packages.AddRange(Enumerable.Repeat(new DummyItem(), 6));
@@ -178,7 +178,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         obj.Dispose();
     }
 
-    private async Task RefreshLocalPackages()
+    private async Task RefreshLocalPackages(CancellationToken cancellationToken)
     {
         PackageManager manager = _clients.GetResource<PackageManager>();
         DisposeAll(LocalPackages);
@@ -188,6 +188,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         foreach (LocalPackage item in manager.GetLocalSourcePackages()
                      .Concat(await manager.GetPackages()))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (dict.TryGetValue(item.Name, out LocalPackage? localPackage))
             {
                 // itemのほうが新しいバージョン
