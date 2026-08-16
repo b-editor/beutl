@@ -25,7 +25,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
 
                 try
                 {
-                    IReadOnlyList<PackageUpdate> updates = await packageManager.CheckUpdate();
+                    IReadOnlyList<PackageUpdate> updates = await packageManager.CheckUpdate(CancellationToken.None);
                     activity?.SetTag("UpdateCount", updates.Count);
 
                     if (updates.Count > 0)

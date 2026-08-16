@@ -59,8 +59,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         IsBusy.Value = true;
                         await PackageReleaseRefreshCoordinator.RefreshAsync(
                             releasesReady,
-                            Package.RefreshAsync,
-                            package.GetReleasesAsync,
+                            () => Package.RefreshAsync(CancellationToken.None),
+                            (start, count) => package.GetReleasesAsync(
+                                CancellationToken.None,
+                                start,
+                                count),
                             releases =>
                             {
                                 AllReleases.Clear();
@@ -128,7 +131,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 AvaloniaScheduler.Instance,
                 () => SelectedRelease.Value,
                 () => AllReleases,
-                Package.GetReleaseAsync,
+                version => Package.GetReleaseAsync(version, CancellationToken.None),
                 ex => _logger.LogWarning(ex, "Failed to resolve installed release for {PackageId}.", Package.Name))
             .Subscribe(release => CurrentRelease.Value = release)
             .DisposeWith(_disposables);
@@ -351,8 +354,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     {
         if (_app.AuthenticatedUser.Value != null)
         {
-            await _app.AuthenticatedUser.Value.RefreshAsync();
-            await _library.Acquire(Package);
+            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
+            await _library.Acquire(Package, CancellationToken.None);
         }
 
         if (SelectedRelease.Value != null)
@@ -360,7 +363,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             return SelectedRelease.Value;
         }
 
-        return (await Package.GetReleasesAsync())[0];
+        return (await Package.GetReleasesAsync(CancellationToken.None))[0];
     }
 
     public Package Package { get; }

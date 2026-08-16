@@ -29,7 +29,7 @@ public class AuthenticatedUser(
 
     public MyAsyncLock Lock => clients.Lock;
 
-    public async ValueTask RefreshAsync(bool force = false)
+    public async ValueTask RefreshAsync(CancellationToken cancellationToken, bool force = false)
     {
         using Activity? activity = clients.ActivitySource.StartActivity("AuthenticatedUser.Refresh", ActivityKind.Client);
 
@@ -62,7 +62,7 @@ public class AuthenticatedUser(
             {
                 RefreshToken = RefreshToken,
                 Token = Token
-            })
+            }, cancellationToken)
                 .ConfigureAwait(false);
             activity?.AddEvent(new("Refreshed"));
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);

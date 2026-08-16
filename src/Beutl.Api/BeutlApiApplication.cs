@@ -208,7 +208,7 @@ public class BeutlApiApplication
             CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
             {
                 ContinueUri = continueUri
-            });
+            }, cancellationToken);
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
@@ -228,12 +228,12 @@ public class BeutlApiApplication
             {
                 Code = code,
                 SessionId = authUriRes.SessionId
-            });
+            }, cancellationToken);
             activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
             _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", authResponse.Token);
-            ProfileResponse profileResponse = await Users.GetSelf();
+            ProfileResponse profileResponse = await Users.GetSelf(cancellationToken);
             var profile = new Profile(profileResponse, this);
 
             _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
@@ -254,7 +254,7 @@ public class BeutlApiApplication
                 CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
                 {
                     ContinueUri = continueUri
-                });
+                }, cancellationToken);
                 using HttpListener listener = StartListener($"{continueUri}/");
                 activity?.AddEvent(new("Started_Listener"));
 
@@ -273,12 +273,12 @@ public class BeutlApiApplication
                 {
                     Code = code,
                     SessionId = authUriRes.SessionId
-                });
+                }, cancellationToken);
                 activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
                 _httpClient.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue("Bearer", authResponse.Token);
-                ProfileResponse profileResponse = await Users.GetSelf();
+                ProfileResponse profileResponse = await Users.GetSelf(cancellationToken);
                 var profile = new Profile(profileResponse, this);
 
                 _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
@@ -326,10 +326,10 @@ public class BeutlApiApplication
             AuthenticatedUser? user = await ReadUserAsync();
             if (user != null)
             {
-                await user.RefreshAsync();
+                await user.RefreshAsync(CancellationToken.None);
 
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
-                await user.Profile.RefreshAsync(true);
+                await user.Profile.RefreshAsync(CancellationToken.None, true);
                 _authenticatedUser.Value = user;
                 SaveUser();
             }

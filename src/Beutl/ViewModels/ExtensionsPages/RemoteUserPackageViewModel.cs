@@ -71,7 +71,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         if (_app.AuthenticatedUser.Value != null)
                         {
-                            await _app.AuthenticatedUser.Value.RefreshAsync();
+                            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
                         }
 
                         Release release = await AcquirePackage();
@@ -127,7 +127,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         if (_app.AuthenticatedUser.Value != null)
                         {
-                            await _app.AuthenticatedUser.Value.RefreshAsync();
+                            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
                         }
 
                         Release release = await AcquirePackage();
@@ -270,8 +270,8 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         if (_app.AuthenticatedUser.Value != null)
                         {
-                            await _app.AuthenticatedUser.Value.RefreshAsync();
-                            await _library.RemovePackage(Package);
+                            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
+                            await _library.RemovePackage(Package, CancellationToken.None);
                         }
 
                         activity?.AddEvent(new("Removed_PackageFromLibrary"));
@@ -296,10 +296,10 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
     {
         if (_app.AuthenticatedUser.Value != null)
         {
-            return await _library.Acquire(Package);
+            return await _library.Acquire(Package, CancellationToken.None);
         }
 
-        return (await Package.GetReleasesAsync())[0];
+        return (await Package.GetReleasesAsync(CancellationToken.None))[0];
     }
 
     public Package Package { get; }
