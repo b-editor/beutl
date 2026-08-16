@@ -95,6 +95,43 @@ public sealed class ChangesModelTests
         }
     }
 
+    [Test]
+    public async Task Load_CancellationAfterFirstItemLeavesCollectionsEmpty()
+    {
+        var secondRequestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int requestCount = 0;
+        using var handler = new DelegateHandler(async (request, cancellationToken) =>
+        {
+            int count = Interlocked.Increment(ref requestCount);
+            if (count > 1)
+            {
+                secondRequestStarted.TrySetResult();
+                await releaseResponse.Task.WaitAsync(cancellationToken);
+            }
+
+            return CreatePackageResponse(request);
+        });
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var cancellation = new CancellationTokenSource();
+        var model = new ChangesModel();
+
+        Task load = model.Load(
+            app,
+            ["first-package/1.0.0", "second-package/1.0.0"],
+            [],
+            [],
+            cancellation.Token);
+        await secondRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        cancellation.Cancel();
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await load.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.That(model.InstallItems, Is.Empty, "partially parsed items must not be published");
+    }
+
     private static HttpResponseMessage CreatePackageResponse(HttpRequestMessage request)
     {
         string name = request.RequestUri!.Segments[^1];

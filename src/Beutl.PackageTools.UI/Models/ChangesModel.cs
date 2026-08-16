@@ -17,6 +17,7 @@ public class ChangesModel
         string[] updateItems,
         CancellationToken cancellationToken)
     {
+        var installViewModels = new List<PackageChangeModel>();
         var hash = new HashSet<string>();
         foreach (string item in installItems)
         {
@@ -29,10 +30,11 @@ public class ChangesModel
 
             if (itemViewModel != null && hash.Add(itemViewModel.Id))
             {
-                InstallItems.Add(itemViewModel);
+                installViewModels.Add(itemViewModel);
             }
         }
 
+        var updateViewModels = new List<PackageChangeModel>();
         hash.Clear();
         foreach (string item in updateItems)
         {
@@ -45,10 +47,11 @@ public class ChangesModel
 
             if (itemViewModel != null && hash.Add(itemViewModel.Id))
             {
-                UpdateItems.Add(itemViewModel);
+                updateViewModels.Add(itemViewModel);
             }
         }
 
+        var uninstallViewModels = new List<PackageChangeModel>();
         hash.Clear();
         foreach (string item in uninstallItems)
         {
@@ -61,8 +64,23 @@ public class ChangesModel
 
             if (itemViewModel != null && hash.Add(itemViewModel.Id))
             {
-                UninstallItems.Add(itemViewModel);
+                uninstallViewModels.Add(itemViewModel);
             }
+        }
+
+        foreach (PackageChangeModel item in installViewModels)
+        {
+            InstallItems.Add(item);
+        }
+
+        foreach (PackageChangeModel item in updateViewModels)
+        {
+            UpdateItems.Add(item);
+        }
+
+        foreach (PackageChangeModel item in uninstallViewModels)
+        {
+            UninstallItems.Add(item);
         }
     }
 }
