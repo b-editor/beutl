@@ -62,11 +62,11 @@ public sealed class ChangesModelTests
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int requestCount = 0;
-        using var handler = new DelegateHandler(async (request, _) =>
+        using var handler = new DelegateHandler(async (request, cancellationToken) =>
         {
             Interlocked.Increment(ref requestCount);
             requestStarted.TrySetResult();
-            await releaseResponse.Task;
+            await releaseResponse.Task.WaitAsync(cancellationToken);
             return CreatePackageResponse(request);
         });
         using var httpClient = new HttpClient(handler);
@@ -83,9 +83,8 @@ public sealed class ChangesModelTests
         await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         cancellation.Cancel();
-        releaseResponse.TrySetResult();
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        Assert.CatchAsync<OperationCanceledException>(async () =>
             await load.WaitAsync(TimeSpan.FromSeconds(5)));
         using (Assert.EnterMultipleScope())
         {
