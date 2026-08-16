@@ -25,26 +25,35 @@
             <TextBox AcceptsReturn="True"
                      AutomationProperties.Name="{x:Static lang:Strings.AiPrompt}"
                      Height="80"
-                     MaxLength="1000"
+                     MaxLength="4000"
                      Text="{CompiledBinding Prompt.Value}"
                      TextWrapping="Wrap"
                      Watermark="{x:Static lang:Strings.AiVideoPrompt_Placeholder}" />
             <Expander Header="{x:Static lang:Strings.AiPromptDetails}">
                 <StackPanel Margin="0,8,0,0" Spacing="8">
                     <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptStyle}"
+                             MaxLength="4000"
                              Text="{CompiledBinding Style.Value}"
                              Watermark="{x:Static lang:Strings.AiPromptStylePlaceholder}" />
                     <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptComposition}"
+                             MaxLength="4000"
                              Text="{CompiledBinding Composition.Value}"
                              Watermark="{x:Static lang:Strings.AiPromptCompositionPlaceholder}" />
                     <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptMotion}"
+                             MaxLength="4000"
                              Text="{CompiledBinding Motion.Value}"
                              Watermark="{x:Static lang:Strings.AiPromptMotionPlaceholder}" />
                     <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptAvoid}"
+                             MaxLength="4000"
                              Text="{CompiledBinding Exclusions.Value}"
                              Watermark="{x:Static lang:Strings.AiPromptAvoidPlaceholder}" />
                 </StackPanel>
             </Expander>
+            <TextBlock AutomationProperties.LiveSetting="Assertive"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       IsVisible="{CompiledBinding PromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Text="{CompiledBinding PromptValidationError.Value}"
+                       TextWrapping="Wrap" />
             <Expander Header="{x:Static lang:Strings.AiPromptLibrary}">
                 <StackPanel Margin="0,8,0,0" Spacing="8">
                     <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -53,29 +62,29 @@
                     <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptLibrary}"
                               ItemsSource="{CompiledBinding PromptLibrary.Choices}"
                               SelectedItem="{CompiledBinding PromptLibrary.SelectedChoice.Value}" />
-                    <Grid ColumnDefinitions="*,4,*,4,*">
-                        <Button Grid.Column="0"
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Margin="0,0,4,4"
                                 AutomationProperties.Name="{x:Static lang:Strings.AiPromptApply}"
                                 Command="{CompiledBinding PromptLibrary.ApplySelected}"
                                 Content="{x:Static lang:Strings.AiPromptApply}" />
-                        <Button Grid.Column="2"
+                        <Button Margin="0,0,4,4"
                                 AutomationProperties.Name="{x:Static lang:Strings.AiPromptPin}"
                                 Command="{CompiledBinding PromptLibrary.TogglePinSelected}"
                                 Content="{x:Static lang:Strings.AiPromptPin}" />
-                        <Button Grid.Column="4"
+                        <Button Margin="0,0,0,4"
                                 AutomationProperties.Name="{x:Static lang:Strings.Delete}"
                                 Command="{CompiledBinding PromptLibrary.DeleteSelected}"
                                 Content="{x:Static lang:Strings.Delete}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="*,4,Auto">
+                    </WrapPanel>
+                    <StackPanel Spacing="4">
                         <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptTemplateName}"
                                  Text="{CompiledBinding PromptLibrary.TemplateName.Value}"
                                  Watermark="{x:Static lang:Strings.AiPromptTemplateName}" />
-                        <Button Grid.Column="2"
+                        <Button HorizontalAlignment="Left"
                                 AutomationProperties.Name="{x:Static lang:Strings.AiPromptSaveTemplate}"
                                 Command="{CompiledBinding PromptLibrary.SaveTemplate}"
                                 Content="{x:Static lang:Strings.AiPromptSaveTemplate}" />
-                    </Grid>
+                    </StackPanel>
                     <Button HorizontalAlignment="Left"
                             AutomationProperties.Name="{x:Static lang:Strings.AiPromptClearRecent}"
                             Command="{CompiledBinding PromptLibrary.ClearRecent}"
@@ -100,8 +109,8 @@
                         Command="{CompiledBinding CaptureCurrentFrame}"
                         Content="{x:Static lang:Strings.AiVideoUseCurrentFrame}"
                         ToolTip.Tip="{x:Static lang:Strings.AiVideoUseCurrentFrame}" />
-                <Grid ColumnDefinitions="*,8,*">
-                    <StackPanel Grid.Column="0" Spacing="4">
+                <StackPanel Spacing="12">
+                    <StackPanel Spacing="4">
                         <TextBlock Text="{x:Static lang:Strings.AiVideoFirstFrame}" />
                         <Border Height="96"
                                 Background="{DynamicResource ControlFillColorDefaultBrush}"
@@ -119,18 +128,18 @@
                         <TextBlock MaxLines="1"
                                    Text="{CompiledBinding FirstFramePath.Value}"
                                    TextTrimming="CharacterEllipsis" />
-                        <Grid ColumnDefinitions="*,4,Auto">
-                            <Button Grid.Column="0"
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Margin="0,0,4,4"
                                     AutomationProperties.Name="{x:Static lang:Strings.AiVideoBrowseFirstFrame}"
                                     Command="{CompiledBinding SelectFirstFrame}"
                                     Content="{x:Static lang:Strings.AiEditBrowse}" />
-                            <Button Grid.Column="2"
+                            <Button Margin="0,0,0,4"
                                     AutomationProperties.Name="{x:Static lang:Strings.AiVideoClearFirstFrame}"
                                     Command="{CompiledBinding ClearFirstFrame}"
                                     Content="{x:Static lang:Strings.AiClearFrame}" />
-                        </Grid>
+                        </WrapPanel>
                     </StackPanel>
-                    <StackPanel Grid.Column="2" Spacing="4">
+                    <StackPanel Spacing="4">
                         <TextBlock Text="{x:Static lang:Strings.AiVideoLastFrame}" />
                         <Border Height="96"
                                 Background="{DynamicResource ControlFillColorDefaultBrush}"
@@ -148,44 +157,45 @@
                         <TextBlock MaxLines="1"
                                    Text="{CompiledBinding LastFramePath.Value}"
                                    TextTrimming="CharacterEllipsis" />
-                        <Grid ColumnDefinitions="*,4,Auto">
-                            <Button Grid.Column="0"
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Margin="0,0,4,4"
                                     AutomationProperties.Name="{x:Static lang:Strings.AiVideoBrowseLastFrame}"
                                     Command="{CompiledBinding SelectLastFrame}"
                                     Content="{x:Static lang:Strings.AiEditBrowse}" />
-                            <Button Grid.Column="2"
+                            <Button Margin="0,0,0,4"
                                     AutomationProperties.Name="{x:Static lang:Strings.AiVideoClearLastFrame}"
                                     Command="{CompiledBinding ClearLastFrame}"
                                     Content="{x:Static lang:Strings.AiClearFrame}" />
-                        </Grid>
+                        </WrapPanel>
                     </StackPanel>
-                </Grid>
+                </StackPanel>
             </StackPanel>
         </Expander>
 
-        <Grid ColumnDefinitions="*,8,*">
-            <StackPanel Grid.Column="0" Spacing="4">
+        <StackPanel Spacing="8">
+            <StackPanel Spacing="4">
                 <TextBlock Text="{x:Static lang:Strings.AiVideoDuration}" />
                 <ComboBox HorizontalAlignment="Stretch"
                           AutomationProperties.Name="{x:Static lang:Strings.AiVideoDuration}"
                           ItemsSource="{CompiledBinding DurationOptions}"
                           SelectedItem="{CompiledBinding SelectedDuration.Value}" />
             </StackPanel>
-            <StackPanel Grid.Column="2" Spacing="4">
+            <StackPanel Spacing="4">
                 <TextBlock Text="{x:Static lang:Strings.AiVideoResolution}" />
                 <ComboBox HorizontalAlignment="Stretch"
                           AutomationProperties.Name="{x:Static lang:Strings.AiVideoResolution}"
                           ItemsSource="{CompiledBinding ResolutionOptions}"
                           SelectedItem="{CompiledBinding SelectedResolution.Value}" />
             </StackPanel>
-        </Grid>
+        </StackPanel>
 
-        <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="8">
             <StackPanel VerticalAlignment="Center"
                         IsVisible="{CompiledBinding Usage.HasSnapshot.Value}"
                         Spacing="2">
                 <TextBlock Text="{CompiledBinding Usage.MonthlyUsageText.Value}" />
-                <ProgressBar Maximum="100"
+                <ProgressBar MinWidth="0"
+                             Maximum="100"
                              Minimum="0"
                              AutomationProperties.Name="{CompiledBinding Usage.MonthlyUsageText.Value}"
                              Value="{CompiledBinding Usage.UsagePercent.Value}" />
@@ -209,17 +219,21 @@
                            Text="{CompiledBinding EstimatedUsage.Explanation.Value}"
                            TextWrapping="Wrap" />
             </StackPanel>
-            <StackPanel Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Spacing="8">
-                <Button Command="{CompiledBinding Generate}"
+            <WrapPanel Orientation="Horizontal">
+                <Button Margin="0,0,8,8"
+                        Command="{CompiledBinding Generate}"
                         Content="{x:Static lang:Strings.AiGenerate}"
                         IsEnabled="{CompiledBinding CanGenerate.Value}" />
-                <Button Command="{CompiledBinding OpenAiPlan}"
+                <Button Margin="0,0,8,8"
+                        Command="{CompiledBinding StopWaiting}"
+                        Content="{x:Static lang:Strings.Cancel}"
+                        IsVisible="{CompiledBinding IsWaitingForJob.Value}" />
+                <Button Margin="0,0,0,8"
+                        Command="{CompiledBinding OpenAiPlan}"
                         Content="{x:Static lang:Strings.AiManageAndTopUp}"
                         IsVisible="{CompiledBinding Usage.CanUseAi.Value}" />
-            </StackPanel>
-        </Grid>
+            </WrapPanel>
+        </StackPanel>
 
         <Border Height="240"
                 Background="{DynamicResource ControlFillColorDefaultBrush}"
@@ -252,23 +266,22 @@
                    Text="{CompiledBinding Error.Value}"
                    TextWrapping="Wrap" />
 
-        <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}"
-                    Orientation="Horizontal"
-                    Spacing="8">
-            <TextBlock VerticalAlignment="Center"
-                       Text="{x:Static lang:Strings.AiProRequired}"
+        <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}" Spacing="8">
+            <TextBlock Text="{x:Static lang:Strings.AiProRequired}"
                        TextWrapping="Wrap" />
-            <Button Command="{CompiledBinding OpenAiPlan}" Content="{x:Static lang:Strings.AiJoinPro}" />
+            <Button HorizontalAlignment="Left"
+                    Command="{CompiledBinding OpenAiPlan}"
+                    Content="{x:Static lang:Strings.AiJoinPro}" />
         </StackPanel>
 
-        <Grid ColumnDefinitions="*,8,*">
-            <Button Grid.Column="0"
+        <WrapPanel Orientation="Horizontal">
+            <Button Margin="0,0,8,8"
                     Command="{CompiledBinding AddToScene}"
                     Content="{x:Static lang:Strings.AiAddToScene}" />
-            <Button Grid.Column="2"
+            <Button Margin="0,0,0,8"
                     Command="{CompiledBinding SaveToFile}"
                     Content="{x:Static lang:Strings.AiSaveToFile}" />
-        </Grid>
+        </WrapPanel>
     </StackPanel>
     </ScrollViewer>
 </UserControl>

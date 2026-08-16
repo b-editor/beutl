@@ -20,6 +20,7 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
+using Beutl.Services.AI;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -169,11 +170,9 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         BufferStatus = new BufferStatusViewModel(this)
             .DisposeWith(_disposables);
 
-        DockHost = new DockHostViewModel(SceneId, this)
-            .DisposeWith(_disposables);
+        DockHost = new DockHostViewModel(SceneId, this);
 
         _elementAdder = new ElementAdderImpl(this);
-        _elementAdder.DisposeWith(_disposables);
         _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();
 
         _autoSaveService.SaveError
@@ -607,15 +606,23 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
     public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
+        Scene scene = Scene;
 
         // Block any proxy-invalidation flush already posted to the UI thread from running after this
         // nulls Scene / disposes FrameCacheManager below.
         _disposed = true;
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
-        SaveState();
+        if (scene.Uri is not null)
+            SaveState();
         _editorSelection.SelectedObject.Value = null;
         // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
         DisposeCommandStateNotifier();
+        // Tool contexts can own paid-AI operations that still publish through the editor.
+        // Cancel and drain them before retiring element handlers and the player.
+        await DockHost.DisposeAsync();
+        // Retire and cancel UI-initiated element operations before waiting for handler leases.
+        // Awaiting yields the UI thread so cancellation continuations can release those leases.
+        await _elementAdder.DisposeAsync();
         await Player.DisposeAsync();
         _elementNudgeService?.Dispose();
         _historyMutationPlaybackGuard.Dispose();
@@ -624,6 +631,9 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         Player = null!;
         BufferStatus = null!;
 
+        // Imported resources under tmp/unsaved belong exclusively to this scene. A scene that
+        // acquired a URI may still reference those files, so preserve them once the scene is saved.
+        AiResultImporter.CleanupUnsavedSceneResources(scene);
         Scene = null!;
         Commands = null!;
         HistoryManager.Clear();

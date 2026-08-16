@@ -6,8 +6,11 @@ namespace Beutl.Services.AI;
 
 internal sealed class PersistentPromptLibrary : IPromptLibrary
 {
-    internal const int CurrentStorageVersion = 1;
-    internal const int MaxPromptLength = 32_768;
+    internal const int CurrentStorageVersion = 2;
+    private const int LegacyMaxPromptLength = 32_768;
+    // Templates model prompts that can be sent to the paid API. Keeping oversized text here
+    // would create reusable entries that can never pass final request validation.
+    internal const int MaxPromptLength = Beutl.Api.Services.AiRequestLimits.MaxPromptLength;
     internal const int MaxTemplateNameLength = 128;
 
     private static readonly JsonSerializerOptions s_jsonOptions = CreateJsonOptions();
@@ -295,16 +298,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
 
     private static string NormalizePrompt(string prompt, string parameterName)
     {
-        ArgumentNullException.ThrowIfNull(prompt, parameterName);
-        string normalized = prompt
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n')
-            .Trim();
-
-        if (normalized.Length == 0)
-        {
-            throw new ArgumentException("A prompt is required.", parameterName);
-        }
+        string normalized = NormalizePromptText(prompt, parameterName);
 
         if (normalized.Length > MaxPromptLength)
         {
@@ -312,6 +306,19 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
                 $"The prompt cannot exceed {MaxPromptLength} characters.",
                 parameterName);
         }
+
+        return normalized;
+    }
+
+    private static string NormalizePromptText(string prompt, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(prompt, parameterName);
+        string normalized = prompt
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Trim();
+        if (normalized.Length == 0)
+            throw new ArgumentException("A prompt is required.", parameterName);
 
         return normalized;
     }
@@ -359,7 +366,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
                     $"Prompt library version {document.Version} is newer than supported version {CurrentStorageVersion}.");
             }
 
-            if (document.Version != CurrentStorageVersion)
+            if (document.Version < 1)
             {
                 throw new InvalidDataException($"Unsupported prompt library version {document.Version}.");
             }
@@ -370,8 +377,17 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
             }
 
             var ids = new HashSet<Guid>();
-            List<PromptHistoryEntry> history = LoadHistory(document.History, ids, out bool historyChanged);
-            List<PromptTemplate> templates = LoadTemplates(document.Templates, ids, out bool templatesChanged);
+            bool migrateLegacyPrompts = document.Version == 1;
+            List<PromptHistoryEntry> history = LoadHistory(
+                document.History,
+                ids,
+                migrateLegacyPrompts,
+                out bool historyChanged);
+            List<PromptTemplate> templates = LoadTemplates(
+                document.Templates,
+                ids,
+                migrateLegacyPrompts,
+                out bool templatesChanged);
 
             bool retentionChanged = false;
             if (!_options.RetainRecentPromptText)
@@ -386,7 +402,11 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
             _history = history;
             _templates = templates;
 
-            if (historyChanged || templatesChanged || retentionChanged || trimChanged)
+            if (migrateLegacyPrompts
+                || historyChanged
+                || templatesChanged
+                || retentionChanged
+                || trimChanged)
             {
                 WriteDocument(_history, _templates);
             }
@@ -400,6 +420,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     private static List<PromptHistoryEntry> LoadHistory(
         IReadOnlyCollection<StoredHistoryEntry> storedItems,
         HashSet<Guid> ids,
+        bool migrateLegacyPrompts,
         out bool changed)
     {
         var items = new List<PromptHistoryEntry>(storedItems.Count);
@@ -409,10 +430,15 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
         {
             ValidateStoredId(stored.Id, ids);
             PromptTaskKind taskKind = ValidateStoredTaskKind(stored.TaskKind);
-            string prompt = NormalizeStoredPrompt(stored.Prompt);
+            string? prompt = NormalizeStoredPrompt(stored.Prompt, migrateLegacyPrompts);
             if (stored.LastUsedAtUtc is not { } lastUsedAtUtc || stored.UseCount < 1)
             {
                 throw new InvalidDataException("A prompt history entry has invalid usage data.");
+            }
+            if (prompt is null)
+            {
+                changed = true;
+                continue;
             }
 
             DateTimeOffset normalizedTimestamp = lastUsedAtUtc.ToUniversalTime();
@@ -455,6 +481,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     private static List<PromptTemplate> LoadTemplates(
         IReadOnlyCollection<StoredTemplate> storedItems,
         HashSet<Guid> ids,
+        bool migrateLegacyPrompts,
         out bool changed)
     {
         var items = new List<PromptTemplate>(storedItems.Count);
@@ -465,12 +492,17 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
             ValidateStoredId(stored.Id, ids);
             PromptTaskKind taskKind = ValidateStoredTaskKind(stored.TaskKind);
             string name = NormalizeStoredTemplateName(stored.Name);
-            string prompt = NormalizeStoredPrompt(stored.Prompt);
+            string? prompt = NormalizeStoredPrompt(stored.Prompt, migrateLegacyPrompts);
             if (stored.CreatedAtUtc is not { } createdAtUtc
                 || stored.UpdatedAtUtc is not { } updatedAtUtc
                 || createdAtUtc > updatedAtUtc)
             {
                 throw new InvalidDataException("A prompt template has invalid timestamps.");
+            }
+            if (prompt is null)
+            {
+                changed = true;
+                continue;
             }
 
             DateTimeOffset normalizedCreatedAt = createdAtUtc.ToUniversalTime();
@@ -534,11 +566,26 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
         return value;
     }
 
-    private static string NormalizeStoredPrompt(string? prompt)
+    private static string? NormalizeStoredPrompt(string? prompt, bool migrateLegacyPrompt)
     {
         try
         {
-            return NormalizePrompt(prompt!, nameof(prompt));
+            string normalized = NormalizePromptText(prompt!, nameof(prompt));
+            int maximumLength = migrateLegacyPrompt
+                ? LegacyMaxPromptLength
+                : MaxPromptLength;
+            if (normalized.Length > maximumLength)
+            {
+                throw new ArgumentException(
+                    $"The prompt cannot exceed {maximumLength} characters.",
+                    nameof(prompt));
+            }
+            // Version 1 permitted larger prompts. Drop only an entry that the
+            // paid API can no longer submit, rather than treating its siblings
+            // as corrupt or silently changing the prompt's meaning.
+            return migrateLegacyPrompt && normalized.Length > MaxPromptLength
+                ? null
+                : normalized;
         }
         catch (ArgumentException ex)
         {

@@ -14,25 +14,34 @@ internal static class AiPlanReturnRefresh
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(AiPlanReturnRefresh));
 
-    public static IDisposable Attach(Control control, IAiPlanCoordinator coordinator)
+    public static IDisposable Attach(
+        Control control,
+        IAiPlanCoordinator coordinator,
+        Action? refreshed = null)
     {
         ArgumentNullException.ThrowIfNull(control);
         ArgumentNullException.ThrowIfNull(coordinator);
-        return new Subscription(control, coordinator);
+        return new Subscription(control, coordinator, refreshed);
     }
 
     private sealed class Subscription : IDisposable
     {
         private readonly Control _control;
         private readonly IAiPlanCoordinator _coordinator;
+        private readonly Action? _refreshed;
         private readonly CancellationTokenSource _cts = new();
         private WindowBase? _window;
         private bool _disposed;
+        private bool _refreshInProgress;
 
-        public Subscription(Control control, IAiPlanCoordinator coordinator)
+        public Subscription(
+            Control control,
+            IAiPlanCoordinator coordinator,
+            Action? refreshed)
         {
             _control = control;
             _coordinator = coordinator;
+            _refreshed = refreshed;
             _control.Loaded += OnLoaded;
             _control.Unloaded += OnUnloaded;
             if (_control.IsLoaded)
@@ -81,12 +90,15 @@ internal static class AiPlanReturnRefresh
 
         private async void OnActivated(object? sender, EventArgs e)
         {
-            if (_disposed)
+            if (_disposed || _refreshInProgress)
                 return;
 
+            _refreshInProgress = true;
             try
             {
                 await _coordinator.RefreshIfPendingAsync(_cts.Token);
+                if (!_disposed)
+                    _refreshed?.Invoke();
             }
             catch (OperationCanceledException)
             {
@@ -94,6 +106,10 @@ internal static class AiPlanReturnRefresh
             catch (Exception ex)
             {
                 s_logger.LogError(ex, "Failed to reload AI entitlements after returning to the app.");
+            }
+            finally
+            {
+                _refreshInProgress = false;
             }
         }
     }

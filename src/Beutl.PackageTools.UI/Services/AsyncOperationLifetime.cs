@@ -8,12 +8,12 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     private readonly object _gate = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly Action _cancelPendingRequests;
-    private readonly Action _disposeResources;
+    private readonly Func<ValueTask> _disposeResources;
     private readonly HashSet<Task> _operations = [];
     private Task? _disposeTask;
     private bool _stopping;
 
-    public AsyncOperationLifetime(Action cancelPendingRequests, Action disposeResources)
+    public AsyncOperationLifetime(Action cancelPendingRequests, Func<ValueTask> disposeResources)
     {
         _cancelPendingRequests = cancelPendingRequests
             ?? throw new ArgumentNullException(nameof(cancelPendingRequests));
@@ -123,7 +123,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         {
             try
             {
-                _disposeResources();
+                await _disposeResources();
             }
             finally
             {

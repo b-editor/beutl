@@ -9,6 +9,8 @@ public class BeutlToolDockable : Tool, IDisposable
 {
     private readonly IDisposable _isSelectedSubscription;
     private readonly IDisposable _headerSubscription;
+    private readonly object _disposeGate = new();
+    private Task? _disposeTask;
     private bool _isDisposed;
 
     public BeutlToolDockable(IToolContext context, EditViewModel editViewModel)
@@ -63,13 +65,32 @@ public class BeutlToolDockable : Tool, IDisposable
 
     public void Dispose()
     {
-        if (_isDisposed) return;
-        _isDisposed = true;
+        _ = DisposeAsync();
+    }
+
+    internal Task DisposeAsync()
+    {
+        lock (_disposeGate)
+        {
+            if (_disposeTask is not null)
+                return _disposeTask;
+
+            _isDisposed = true;
+            return _disposeTask = DisposeCoreAsync();
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
         PropertyChanged -= OnPropertyChanged;
         _headerSubscription.Dispose();
         _isSelectedSubscription.Dispose();
-        ToolContext.Dispose();
         ToolContent = null;
+
+        if (ToolContext is IAsyncDisposable asyncDisposable)
+            await asyncDisposable.DisposeAsync();
+        else
+            ToolContext.Dispose();
     }
 
     // Resolve empty per-instance/menu headers to a readable display or extension name.

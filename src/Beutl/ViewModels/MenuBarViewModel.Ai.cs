@@ -5,14 +5,19 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(ShowAiJobs), nameof(GenerateImage))]
-    private void InitializeAiCommands()
+    [MemberNotNull(
+        nameof(ShowAiJobs),
+        nameof(GenerateImage),
+        nameof(GenerateSubtitles),
+        nameof(EditImage),
+        nameof(GenerateVideo))]
+    private void InitializeAiCommands(IObservable<bool> isSceneOpened)
     {
         ShowAiJobs = new ReactiveCommandSlim();
-        GenerateImage = new ReactiveCommandSlim();
-        GenerateSubtitles = new ReactiveCommandSlim();
-        EditImage = new ReactiveCommandSlim();
-        GenerateVideo = new ReactiveCommandSlim();
+        GenerateImage = new ReactiveCommandSlim(isSceneOpened);
+        GenerateSubtitles = new ReactiveCommandSlim(isSceneOpened);
+        EditImage = new ReactiveCommandSlim(isSceneOpened);
+        GenerateVideo = new ReactiveCommandSlim(isSceneOpened);
     }
 
     // AI

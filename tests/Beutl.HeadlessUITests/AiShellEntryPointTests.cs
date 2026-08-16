@@ -1,5 +1,5 @@
-﻿using Avalonia.Headless.NUnit;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
+using Avalonia.Headless.NUnit;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -96,6 +96,22 @@ public sealed class AiShellEntryPointTests
         finally
         {
             mainView.DataContext = null;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task AiMenu_WithoutScene_OnlyKeepsJobHistoryEnabled()
+    {
+        await TestReset.ResetShellAsync();
+        MainViewModel mainViewModel = TestShell.MainViewModel;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(mainViewModel.MenuBar.ShowAiJobs.CanExecute(), Is.True);
+            Assert.That(mainViewModel.MenuBar.GenerateImage.CanExecute(), Is.False);
+            Assert.That(mainViewModel.MenuBar.EditImage.CanExecute(), Is.False);
+            Assert.That(mainViewModel.MenuBar.GenerateSubtitles.CanExecute(), Is.False);
+            Assert.That(mainViewModel.MenuBar.GenerateVideo.CanExecute(), Is.False);
         }
     }
 

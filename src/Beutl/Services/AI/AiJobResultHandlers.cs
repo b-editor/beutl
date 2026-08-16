@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.AI;
@@ -26,7 +26,7 @@ internal sealed class AiJobResultContext(
 
     public IAiJobResultEditorContext Editor => _editor;
 
-    public Task CopyContentToAsync(
+    public Task<AiContentDownload> CopyContentToAsync(
         Uri contentUri,
         Stream destination,
         CancellationToken cancellationToken)
@@ -257,21 +257,24 @@ internal sealed class VideoAiJobResultHandler()
         IAiJobResultContext context,
         CancellationToken cancellationToken)
     {
-        string directory = Path.Combine(Path.GetTempPath(), "Beutl", "AI", "Downloads");
-        Directory.CreateDirectory(directory);
-        string temporaryContentPath = Path.Combine(directory, $"{Guid.NewGuid():N}.mp4");
+        (string temporaryContentPath, FileStream destination) = AiTemporaryFileStore.Create(
+            "downloads",
+            "job-video",
+            ".download");
         try
         {
-            await using (FileStream destination = new(
-                temporaryContentPath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                bufferSize: 81920,
-                FileOptions.Asynchronous))
+            AiContentDownload download;
+            await using (destination)
             {
-                await context.CopyContentToAsync(job.ContentUri!, destination, cancellationToken);
+                download = await context.CopyContentToAsync(
+                    job.ContentUri!,
+                    destination,
+                    cancellationToken);
             }
+            AiContentMetadata? metadata = AiContentMetadata.Combine(
+                job.ContentMetadata,
+                download.Metadata);
+            string extension = metadata?.GetFileExtension(".mp4", "video") ?? ".mp4";
 
             int? durationSeconds = AiJobResultInput.GetInt32(job, "durationSeconds");
             IAiJobResultEditorContext editor = context.Editor;
@@ -279,6 +282,7 @@ internal sealed class VideoAiJobResultHandler()
             var importer = new AiResultImporter(editor.Scene, editor.ElementAdder);
             ElementAddResult result = await importer.ImportVideoAsync(
                 temporaryContentPath,
+                extension,
                 new AiResultImportOptions(
                     start,
                     TimeSpan.FromSeconds(durationSeconds ?? 6),

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 

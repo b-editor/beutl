@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Disposables;
-using Avalonia;
 using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
@@ -31,10 +31,14 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
     private readonly object _disposeGate = new();
     private readonly ILogger _logger = Log.CreateLogger<AiVideoGenerationDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
+    private readonly IAiOperationAvailabilityService _availability;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiVideoService _videos;
     private readonly IAuthenticatedContentService _content;
     private readonly IAiJobKindRegistry _jobKinds;
+    private readonly IAiJobMonitor _jobMonitor;
+    private readonly AiOperationAvailabilityTracker _availabilityTracker;
+    private readonly CancellationTokenSource _availabilityLifetimeCts = new();
     private readonly EditViewModel? _editViewModel;
     private readonly HashSet<string> _temporaryFiles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _temporaryFileLeases = new(StringComparer.Ordinal);
@@ -48,18 +52,22 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     public AiVideoGenerationDialogViewModel(
         IAiEntitlementService entitlements,
+        IAiOperationAvailabilityService availability,
         IAiPlanCoordinator aiPlanCoordinator,
         IAiVideoService videos,
         IAuthenticatedContentService content,
         IAiJobKindRegistry jobKinds,
+        IAiJobMonitor jobMonitor,
         EditViewModel? editViewModel = null)
     {
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
+        _availability = availability ?? throw new ArgumentNullException(nameof(availability));
         _aiPlanCoordinator = aiPlanCoordinator
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
         _videos = videos ?? throw new ArgumentNullException(nameof(videos));
         _content = content ?? throw new ArgumentNullException(nameof(content));
         _jobKinds = jobKinds ?? throw new ArgumentNullException(nameof(jobKinds));
+        _jobMonitor = jobMonitor ?? throw new ArgumentNullException(nameof(jobMonitor));
         _editViewModel = editViewModel;
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
         PromptLibrary = new AiPromptLibraryViewModel(
@@ -76,10 +84,15 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         ];
         SelectedDuration = new ReactivePropertySlim<AiVideoDurationOption>(DurationOptions[1])
             .DisposeWith(_disposables);
+        _availabilityTracker = new AiOperationAvailabilityTracker(
+            _availability,
+            _availabilityLifetimeCts.Token);
+        SelectedDuration.Subscribe(option =>
+                _availabilityTracker.Check(new AiOperationAvailabilityRequest.Video(option.Seconds)))
+            .DisposeWith(_disposables);
         EstimatedUsage = new AiUsageEstimateViewModel(
                 Usage,
-                _entitlements.Entitlements.Select(entitlements =>
-                    entitlements?.Availability.CanStart(AiOperations.VideoGeneration) ?? false))
+                _availabilityTracker.IsAvailable)
             .DisposeWith(_disposables);
 
         ResolutionOptions =
@@ -91,6 +104,24 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
             .DisposeWith(_disposables);
 
         IsGenerating = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
+        IsWaitingForJob = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
+
+        PromptValidationError = Prompt
+            .CombineLatest(
+                Style,
+                Composition,
+                Motion,
+                Exclusions,
+                (prompt, style, composition, motion, exclusions) =>
+                    AiPromptComposer.GetValidationError(new AiPromptParts(
+                        prompt,
+                        style,
+                        composition,
+                        motion,
+                        exclusions)))
+            .ToReadOnlyReactivePropertySlim("Enter a prompt.")
             .DisposeWith(_disposables);
 
         SelectFirstFrame = new AsyncReactiveCommand()
@@ -104,9 +135,8 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         ClearLastFrame = new ReactiveCommand();
         ClearLastFrame.Subscribe(() => SetFrame(isFirstFrame: false, null)).DisposeWith(_disposables);
 
-        CanGenerate = Prompt
-            .CombineLatest(IsGenerating, (prompt, generating) =>
-                !string.IsNullOrWhiteSpace(prompt) && !generating)
+        CanGenerate = PromptValidationError
+            .CombineLatest(IsGenerating, (error, generating) => error is null && !generating)
             .CombineLatest(
                 FirstFramePath,
                 LastFramePath,
@@ -118,6 +148,8 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
         Generate = new AsyncReactiveCommand(CanGenerate)
             .WithSubscribe(GenerateCore);
+        StopWaiting = new ReactiveCommand(IsWaitingForJob);
+        StopWaiting.Subscribe(StopWaitingCore).DisposeWith(_disposables);
 
         CanAddToScene = ResultVideoPath
             .Select(x => x != null)
@@ -194,9 +226,15 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     public ReactivePropertySlim<bool> IsGenerating { get; }
 
+    public ReactivePropertySlim<bool> IsWaitingForJob { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> PromptValidationError { get; }
+
     public ReadOnlyReactivePropertySlim<bool> CanGenerate { get; }
 
     public AsyncReactiveCommand Generate { get; }
+
+    public ReactiveCommand StopWaiting { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanAddToScene { get; }
 
@@ -210,6 +248,10 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     internal IAiPlanCoordinator AiPlanCoordinator => _aiPlanCoordinator;
 
+    internal void RefreshAvailability()
+        => _availabilityTracker.Refresh(new AiOperationAvailabilityRequest.Video(
+            SelectedDuration.Value.Seconds));
+
     public ReactivePropertySlim<string?> ResultVideoPath { get; } = new();
 
     public ReactivePropertySlim<string> StatusText { get; } = new(Strings.AiVideoIdle);
@@ -221,6 +263,12 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
     internal AiPromptLibraryViewModel PromptLibrary { get; }
 
     internal Func<CancellationToken, Task<Bitmap>>? CurrentFrameRenderer { get; set; }
+
+    internal Func<TimeSpan, CancellationToken, Task> PollDelayAsync { get; set; } = Task.Delay;
+
+    internal TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(5);
+
+    internal TimeSpan MaximumTransientPollDelay { get; set; } = TimeSpan.FromSeconds(30);
 
     public ReadOnlyReactivePropertySlim<bool> ShowJoinPro { get; }
 
@@ -252,6 +300,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     private async Task DisposeCoreAsync()
     {
+        _availabilityLifetimeCts.Cancel();
         await _operations.DisposeAsync();
 
         string[] temporaryFiles;
@@ -285,6 +334,8 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         Error.Dispose();
         IsSelected.Dispose();
         _disposables.Dispose();
+        _availabilityTracker.Dispose();
+        _availabilityLifetimeCts.Dispose();
         foreach (string path in temporaryFiles)
         {
             DeleteTemporaryFile(path);
@@ -349,11 +400,17 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                 : await _editViewModel.Player.DrawFrameAtFullScale();
             lifetimeToken.ThrowIfCancellationRequested();
 
-            string directory = Path.Combine(Path.GetTempPath(), "Beutl", "AI", "Inputs");
-            Directory.CreateDirectory(directory);
             lifetimeToken.ThrowIfCancellationRequested();
-            unpublishedPath = Path.Combine(directory, $"frame-{Guid.NewGuid():N}.png");
-            bitmap.Save(unpublishedPath, EncodedImageFormat.Png);
+            (unpublishedPath, FileStream stream) = AiTemporaryFileStore.Create(
+                "inputs",
+                "frame",
+                ".png");
+            using (stream)
+            {
+                bitmap.Save(stream, EncodedImageFormat.Png);
+            }
+            if (new FileInfo(unpublishedPath).Length > AiRequestLimits.MaxFrameUploadBytes)
+                throw new AiFileTooLargeException();
             lifetimeToken.ThrowIfCancellationRequested();
 
             bool published = operation.TryPublish(() =>
@@ -380,6 +437,10 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         catch (OperationCanceledException) when (lifetimeToken.IsCancellationRequested)
         {
         }
+        catch (AiFileTooLargeException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to capture the current frame for AI video generation.");
@@ -402,6 +463,14 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     private void SetFrameCore(bool isFirstFrame, string? path, string? sourceElementId)
     {
+        if (!string.IsNullOrEmpty(path)
+            && File.Exists(path)
+            && new FileInfo(path).Length > AiRequestLimits.MaxFrameUploadBytes)
+        {
+            Error.Value = Strings.AiFileTooLarge;
+            return;
+        }
+
         ReactivePropertySlim<string?> pathProperty = isFirstFrame ? FirstFramePath : LastFramePath;
         ReactivePropertySlim<Ref<Bitmap>?> previewProperty = isFirstFrame ? FirstFramePreview : LastFramePreview;
         string? previousPath = pathProperty.Value;
@@ -470,6 +539,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
             return;
         }
 
+        bool persistedServerJob = false;
         try
         {
             string prompt = ComposePrompt();
@@ -481,6 +551,11 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
             string? lastFrameElementId = _lastFrameElementId;
             using IDisposable firstFrameLease = AcquireTemporaryFileLease(firstFramePath);
             using IDisposable lastFrameLease = AcquireTemporaryFileLease(lastFramePath);
+            bool available = await _availabilityTracker.CheckNowAsync(
+                new AiOperationAvailabilityRequest.Video(durationSeconds),
+                operation.CancellationToken);
+            if (!available)
+                throw new AiUsageLimitExceededException();
             AiVideoGenerationResult response = await _videos.CreateAsync(
                 new AiVideoGenerationRequest(
                     prompt,
@@ -489,6 +564,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                     firstFramePath is null ? null : AiUploadSource.FromFile(firstFramePath),
                     lastFramePath is null ? null : AiUploadSource.FromFile(lastFramePath)),
                 operation.CancellationToken);
+            persistedServerJob = true;
 
             var pendingSnapshot = new AiVideoResultSnapshot(durationSeconds);
             if (!operation.TryPublish(() =>
@@ -521,8 +597,14 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         {
             operation.TryPublish(() => Error.Value = Strings.AiVideoJobLimitReached);
         }
+        catch (AiFileTooLargeException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
+        }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
+            if (persistedServerJob)
+                await RefreshJobHistoryAfterLocalStopAsync();
         }
         catch (Exception ex)
         {
@@ -549,12 +631,26 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
             _pollingCts = pollingCts;
         }
         CancellationToken token = pollingCts.Token;
+        operation.TryPublish(() => IsWaitingForJob.Value = true);
 
+        int transientFailures = 0;
         try
         {
             while (!token.IsCancellationRequested)
             {
-                AiVideoJob job = await _videos.GetAsync(jobId, token);
+                AiVideoJob job;
+                try
+                {
+                    job = await _videos.GetAsync(jobId, token);
+                    transientFailures = 0;
+                }
+                catch (Exception ex) when (IsTransientPollingFailure(ex))
+                {
+                    transientFailures++;
+                    operation.TryPublish(() => StatusText.Value = Strings.AiVideoProcessing);
+                    await PollDelayAsync(GetTransientPollDelay(transientFailures), token);
+                    continue;
+                }
                 AiJobStatusSemantics status = _jobKinds.GetStatus(AiJobKinds.Video, job.Status);
                 if (status.Outcome == AiJobOutcomes.Succeeded)
                 {
@@ -563,7 +659,10 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                         throw new InvalidOperationException("A successful video job did not provide content.");
                     }
 
-                    string? localPath = await DownloadVideoAsync(contentUri, operation);
+                    string? localPath = await DownloadVideoAsync(
+                        contentUri,
+                        job.ContentMetadata,
+                        operation);
                     if (localPath is null)
                         return;
 
@@ -591,11 +690,19 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                 }
 
                 operation.TryPublish(() => StatusText.Value = Strings.AiVideoProcessing);
-                await Task.Delay(TimeSpan.FromSeconds(5), token);
+                await PollDelayAsync(PollInterval, token);
             }
+        }
+        catch (OperationCanceledException) when (
+            pollingCts.IsCancellationRequested
+            && !operation.CancellationToken.IsCancellationRequested)
+        {
+            await RefreshJobHistoryAfterLocalStopAsync();
+            operation.TryPublish(() => StatusText.Value = Strings.AiVideoWaitStopped);
         }
         finally
         {
+            operation.TryPublish(() => IsWaitingForJob.Value = false);
             lock (_lifetimeGate)
             {
                 if (ReferenceEquals(_pollingCts, pollingCts))
@@ -608,25 +715,33 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     private async Task<string?> DownloadVideoAsync(
         Uri contentUri,
+        AiContentMetadata? declaredMetadata,
         AsyncOperationLifetime.Operation operation)
     {
         string? filePath = null;
         try
         {
-            string projectDir = Path.Combine(Path.GetTempPath(), "Beutl", "AI", "Results");
-            Directory.CreateDirectory(projectDir);
-            string fileName = $"ai-video-{Guid.NewGuid():N}.mp4";
-            filePath = Path.Combine(projectDir, fileName);
-            await using (FileStream destination = new(
-                filePath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                bufferSize: 81920,
-                FileOptions.Asynchronous))
+            (string stagingPath, FileStream destination) = AiTemporaryFileStore.Create(
+                "results",
+                "ai-video",
+                ".download");
+            filePath = stagingPath;
+            AiContentDownload download;
+            await using (destination)
             {
-                await _content.CopyToAsync(contentUri, destination, operation.CancellationToken);
+                download = await _content.CopyToAsync(
+                    contentUri,
+                    destination,
+                    operation.CancellationToken);
             }
+            AiContentMetadata? metadata = AiContentMetadata.Combine(
+                declaredMetadata,
+                download.Metadata);
+            string extension = metadata?.GetFileExtension(".mp4", "video") ?? ".mp4";
+            string completedPath = Path.ChangeExtension(stagingPath, extension);
+            File.Move(stagingPath, completedPath);
+            AiTemporaryFileStore.EnsurePrivateFile(completedPath);
+            filePath = completedPath;
 
             if (!operation.TryPublish(() =>
                 {
@@ -661,6 +776,43 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
             operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
             return null;
         }
+    }
+
+    private void StopWaitingCore()
+    {
+        lock (_lifetimeGate)
+        {
+            _pollingCts?.Cancel();
+        }
+    }
+
+    private async Task RefreshJobHistoryAfterLocalStopAsync()
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await _jobMonitor.RefreshAsync(timeout.Token);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Failed to refresh AI job history after stopping a local wait.");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private static bool IsTransientPollingFailure(Exception exception)
+        => exception is HttpRequestException
+            || exception is AiException { IsTransient: true };
+
+    private TimeSpan GetTransientPollDelay(int failureCount)
+    {
+        double multiplier = Math.Pow(2, Math.Min(failureCount - 1, 10));
+        double milliseconds = Math.Min(
+            PollInterval.TotalMilliseconds * multiplier,
+            MaximumTransientPollDelay.TotalMilliseconds);
+        return TimeSpan.FromMilliseconds(Math.Max(0, milliseconds));
     }
 
     private IDisposable AcquireTemporaryFileLease(string? path)
@@ -824,7 +976,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         FilePickerSaveOptions options = SharedFilePickerOptions.SaveVideo();
         options.SuggestedFileName = $"AI Video {DateTime.Now:yyyy-MM-dd HHmmss}";
         options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Videos);
-        options.DefaultExtension = "mp4";
+        options.DefaultExtension = Path.GetExtension(filePath).TrimStart('.');
 
         IStorageFile? file = await storage.SaveFilePickerAsync(options);
         if (file == null)

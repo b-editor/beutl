@@ -680,7 +680,7 @@
     <comment/>
   </data>
   <data name="AiPlan_AdditionalCreditDebt" xml:space="preserve">
-    <value>Credit reversal debt</value>
+    <value>Credits awaiting settlement</value>
     <comment/>
   </data>
   <data name="AiPlan_ManageAndTopUp" xml:space="preserve">

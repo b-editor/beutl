@@ -1,4 +1,5 @@
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
+using Beutl.Api.Services;
 using Beutl.Extensibility;
 
 namespace Beutl.Editor.Services.Captions;
@@ -18,14 +19,19 @@ public sealed record CaptionCatalogExtensionFailure(
 /// Provides one reusable, dynamically updated view of the caption codecs and templates available
 /// to the editor. Package-owned implementations remain only in lease-backed registry states.
 /// </summary>
-public sealed class CaptionCatalog : IDisposable
+public sealed class CaptionCatalog : IAsyncDisposable
 {
     private readonly object _gate = new();
     private readonly IExtensionProvider? _extensionProvider;
     private readonly CaptionCodecRegistration[] _hostCodecRegistrations;
     private readonly CaptionTemplateRegistration? _defaultTemplateRegistration;
     private readonly Action<CaptionCatalogExtensionFailure>? _reportFailure;
+    private readonly HashSet<CaptionCodecExtension> _activeCodecExtensions =
+        new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<CaptionTemplateExtension> _activeTemplateExtensions =
+        new(ReferenceEqualityComparer.Instance);
     private CaptionTemplateRegistration[] _hostTemplateRegistrations;
+    private Task? _disposeTask;
     private bool _disposed;
 
     public CaptionCatalog(
@@ -132,21 +138,76 @@ public sealed class CaptionCatalog : IDisposable
         }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
+    {
+        if (_extensionProvider is IExtensionRegistry registry)
+        {
+            ValueTask result = default;
+            registry.SynchronizeMutation(() => result = StartDispose());
+            return result;
+        }
+
+        return StartDispose();
+    }
+
+    private ValueTask StartDispose()
     {
         lock (_gate)
         {
+            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
+        }
+    }
+
+    private Task DisposeCoreAsync()
+    {
+        CaptionCodecExtension[] codecExtensions;
+        CaptionTemplateExtension[] templateExtensions;
+        ValueTask codecDrain;
+        ValueTask templateDrain;
+        lock (_gate)
+        {
             if (_disposed)
-                return;
+                return Task.CompletedTask;
 
             _disposed = true;
             if (_extensionProvider is not null)
             {
                 _extensionProvider.AllExtensions.CollectionChanged -= OnExtensionsChanged;
-                Codecs.Replace(_hostCodecRegistrations);
-                Templates.Replace(_hostTemplateRegistrations);
+                codecExtensions = _activeCodecExtensions.ToArray();
+                templateExtensions = _activeTemplateExtensions.ToArray();
+                _activeCodecExtensions.Clear();
+                _activeTemplateExtensions.Clear();
+                CaptionRegistryDrain<Extension> retiredCodecs = Codecs.ReplaceOwned(
+                    _hostCodecRegistrations,
+                    new Dictionary<CaptionFormatId, IReadOnlyCollection<Extension>>());
+                CaptionRegistryDrain<Extension> retiredTemplates = Templates.ReplaceOwned(
+                    _hostTemplateRegistrations,
+                    new Dictionary<CaptionTemplateId, Extension>());
+                codecDrain = retiredCodecs.All;
+                templateDrain = retiredTemplates.All;
+                foreach (CaptionCodecExtension extension in codecExtensions)
+                {
+                    ExtensionRegistrationLifetimes.Retire(
+                        extension,
+                        () => new ValueTask(retiredCodecs.DrainOwnerAsync(extension)));
+                }
+                foreach (CaptionTemplateExtension extension in templateExtensions)
+                {
+                    ExtensionRegistrationLifetimes.Retire(
+                        extension,
+                        () => new ValueTask(retiredTemplates.DrainOwnerAsync(extension)));
+                }
+            }
+            else
+            {
+                codecExtensions = [];
+                templateExtensions = [];
+                codecDrain = ValueTask.CompletedTask;
+                templateDrain = ValueTask.CompletedTask;
             }
         }
+
+        return Combine(codecDrain, templateDrain).AsTask();
     }
 
     private void OnExtensionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -163,34 +224,79 @@ public sealed class CaptionCatalog : IDisposable
         }
     }
 
-    private void RebuildCore()
+    private ValueTask RebuildCore()
     {
         IExtensionProvider extensionProvider = _extensionProvider
             ?? throw new InvalidOperationException("The caption catalog is not dynamically composed.");
+        CaptionCodecExtension[] previousCodecExtensions = _activeCodecExtensions.ToArray();
+        CaptionTemplateExtension[] previousTemplateExtensions = _activeTemplateExtensions.ToArray();
         List<CaptionCodecRegistration> codecRegistrations = [.. _hostCodecRegistrations];
-        foreach (CaptionCodecExtension extension
-                 in extensionProvider.GetExtensions<CaptionCodecExtension>())
+        var codecOwners = new Dictionary<CaptionFormatId, HashSet<Extension>>();
+        CaptionCodecExtension[] codecExtensions =
+            extensionProvider.GetExtensions<CaptionCodecExtension>();
+        foreach (CaptionCodecExtension extension in codecExtensions)
         {
-            TryAddCodecExtension(extension, codecRegistrations);
+            TryAddCodecExtension(extension, codecRegistrations, codecOwners);
         }
 
         List<CaptionTemplateRegistration> templateRegistrations = [.. _hostTemplateRegistrations];
-        foreach (CaptionTemplateExtension extension
-                 in extensionProvider.GetExtensions<CaptionTemplateExtension>())
+        var templateOwners = new Dictionary<CaptionTemplateId, Extension>();
+        CaptionTemplateExtension[] templateExtensions =
+            extensionProvider.GetExtensions<CaptionTemplateExtension>();
+        foreach (CaptionTemplateExtension extension in templateExtensions)
         {
-            TryAddTemplateExtension(extension, templateRegistrations);
+            TryAddTemplateExtension(extension, templateRegistrations, templateOwners);
         }
 
-        // Replacing a state first prevents new calls from resolving a removed package. Each
-        // replacement then waits for calls holding the retired state before this collection
-        // notification returns to PackageManager and Extension.Unload() can run.
-        Codecs.Replace(codecRegistrations);
-        Templates.Replace(templateRegistrations);
+        _activeCodecExtensions.Clear();
+        _activeCodecExtensions.UnionWith(codecExtensions);
+        _activeTemplateExtensions.Clear();
+        _activeTemplateExtensions.UnionWith(templateExtensions);
+
+        // Each replacement synchronously publishes a state that excludes removed packages. The
+        // returned tasks drain calls that still hold the retired package-owned state.
+        CaptionRegistryDrain<Extension> retiredCodecs =
+            Codecs.ReplaceOwned(
+                codecRegistrations,
+                codecOwners.ToDictionary(
+                    pair => pair.Key,
+                    pair => (IReadOnlyCollection<Extension>)pair.Value.ToArray()));
+        CaptionRegistryDrain<Extension> retiredTemplates =
+            Templates.ReplaceOwned(templateRegistrations, templateOwners);
+        ValueTask codecDrain = retiredCodecs.All;
+        ValueTask templateDrain = retiredTemplates.All;
+        // Track every replaced category state against the extensions that could be retained by
+        // that state. This also covers an older state retired by a host-template refresh long
+        // before its package is removed.
+        foreach (CaptionCodecExtension extension in previousCodecExtensions)
+        {
+            ExtensionRegistrationLifetimes.Retire(
+                extension,
+                () => new ValueTask(retiredCodecs.DrainOwnerAsync(extension)));
+        }
+
+        foreach (CaptionTemplateExtension extension in previousTemplateExtensions)
+        {
+            ExtensionRegistrationLifetimes.Retire(
+                extension,
+                () => new ValueTask(retiredTemplates.DrainOwnerAsync(extension)));
+        }
+
+        return Combine(codecDrain, templateDrain);
+    }
+
+    private static ValueTask Combine(ValueTask first, ValueTask second)
+    {
+        if (first.IsCompletedSuccessfully && second.IsCompletedSuccessfully)
+            return ValueTask.CompletedTask;
+
+        return new ValueTask(Task.WhenAll(first.AsTask(), second.AsTask()));
     }
 
     private void TryAddCodecExtension(
         CaptionCodecExtension extension,
-        List<CaptionCodecRegistration> accepted)
+        List<CaptionCodecRegistration> accepted,
+        Dictionary<CaptionFormatId, HashSet<Extension>> owners)
     {
         try
         {
@@ -199,8 +305,19 @@ public sealed class CaptionCatalog : IDisposable
                 "A caption codec extension returned a null registration collection.",
                 "A caption codec extension returned a null registration.");
             var candidate = new CaptionCodecRegistry(accepted.Concat(registrations));
-            candidate.Replace([]);
             accepted.AddRange(registrations);
+            foreach (CaptionCodecRegistration registration in registrations)
+            {
+                CaptionFormatId format = registration.Contribution.Format;
+                if (registration.Mode == CaptionCodecRegistrationMode.Replace)
+                    owners.Remove(format);
+                if (!owners.TryGetValue(format, out HashSet<Extension>? formatOwners))
+                {
+                    formatOwners = new HashSet<Extension>(ReferenceEqualityComparer.Instance);
+                    owners.Add(format, formatOwners);
+                }
+                formatOwners.Add(extension);
+            }
         }
         catch (Exception ex)
         {
@@ -210,7 +327,8 @@ public sealed class CaptionCatalog : IDisposable
 
     private void TryAddTemplateExtension(
         CaptionTemplateExtension extension,
-        List<CaptionTemplateRegistration> accepted)
+        List<CaptionTemplateRegistration> accepted,
+        Dictionary<CaptionTemplateId, Extension> owners)
     {
         try
         {
@@ -219,9 +337,15 @@ public sealed class CaptionCatalog : IDisposable
                 "A caption template extension returned a null registration collection.",
                 "A caption template extension returned a null registration.");
             var candidate = new CaptionTemplateRegistry();
-            candidate.Replace(accepted.Concat(registrations));
-            candidate.Replace([]);
+            ValueTask validation = candidate.ReplaceAsync(accepted.Concat(registrations));
+            if (!validation.IsCompletedSuccessfully)
+            {
+                throw new InvalidOperationException(
+                    "Caption template registration validation unexpectedly required an asynchronous drain.");
+            }
             accepted.AddRange(registrations);
+            foreach (CaptionTemplateRegistration registration in registrations)
+                owners[registration.Contribution.Id] = extension;
         }
         catch (Exception ex)
         {

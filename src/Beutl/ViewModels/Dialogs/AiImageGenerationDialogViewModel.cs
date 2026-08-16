@@ -1,6 +1,6 @@
 ﻿using System.Reactive.Disposables;
-using Avalonia;
 using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
@@ -30,6 +30,7 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
     private readonly object _disposeGate = new();
     private readonly ILogger _logger = Log.CreateLogger<AiImageGenerationDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
+    private readonly IAiOperationAvailabilityService _availability;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiImageGenerationService _images;
     private readonly IAuthenticatedContentService _content;
@@ -38,12 +39,14 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     public AiImageGenerationDialogViewModel(
         IAiEntitlementService entitlements,
+        IAiOperationAvailabilityService availability,
         IAiPlanCoordinator aiPlanCoordinator,
         IAiImageGenerationService images,
         IAuthenticatedContentService content,
         EditViewModel? editViewModel = null)
     {
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
+        _availability = availability ?? throw new ArgumentNullException(nameof(availability));
         _aiPlanCoordinator = aiPlanCoordinator
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
         _images = images ?? throw new ArgumentNullException(nameof(images));
@@ -79,9 +82,22 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
             .ToReadOnlyReactivePropertySlim(Strings.AiGenerate)
             .DisposeWith(_disposables);
 
-        CanGenerate = Prompt
-            .CombineLatest(IsGenerating, (prompt, generating) =>
-                !string.IsNullOrWhiteSpace(prompt) && !generating)
+        PromptValidationError = Prompt
+            .CombineLatest(
+                Style,
+                Composition,
+                Exclusions,
+                (prompt, style, composition, exclusions) =>
+                    AiPromptComposer.GetValidationError(new AiPromptParts(
+                        prompt,
+                        style,
+                        composition,
+                        Exclusions: exclusions)))
+            .ToReadOnlyReactivePropertySlim("Enter a prompt.")
+            .DisposeWith(_disposables);
+
+        CanGenerate = PromptValidationError
+            .CombineLatest(IsGenerating, (error, generating) => error is null && !generating)
             .CombineLatest(EstimatedUsage.CanAfford, (canGenerate, canAfford) => canGenerate && canAfford)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -132,6 +148,8 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
     public ReactivePropertySlim<bool> IsGenerating { get; }
 
     public ReadOnlyReactivePropertySlim<string> GenerateButtonText { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> PromptValidationError { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanGenerate { get; }
 
@@ -249,6 +267,12 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         {
             string prompt = ComposePrompt();
             string size = SelectedSize.Value.Value;
+            if (!await _availability.CheckAsync(
+                    new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration),
+                    operation.CancellationToken))
+            {
+                throw new AiUsageLimitExceededException();
+            }
             AiImageResult response = await _images.GenerateAsync(
                 new AiImageGenerationRequest(
                     prompt,

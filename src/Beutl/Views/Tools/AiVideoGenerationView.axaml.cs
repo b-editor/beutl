@@ -17,7 +17,16 @@ public partial class AiVideoGenerationView : UserControl
     {
         _planReturnRefresh?.Dispose();
         _planReturnRefresh = DataContext is AiVideoGenerationDialogViewModel viewModel
-            ? AiPlanReturnRefresh.Attach(this, viewModel.AiPlanCoordinator)
+            ? AiPlanReturnRefresh.Attach(
+                this,
+                viewModel.AiPlanCoordinator,
+                viewModel.RefreshAvailability)
             : null;
+    }
+
+    protected override void OnLoaded(Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+        (DataContext as AiVideoGenerationDialogViewModel)?.RefreshAvailability();
     }
 }

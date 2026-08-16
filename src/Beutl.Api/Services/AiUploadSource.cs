@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 
 namespace Beutl.Api.Services;
 
@@ -13,11 +13,14 @@ public sealed class AiUploadSource
     public AiUploadSource(
         string fileName,
         string mediaType,
-        Func<CancellationToken, ValueTask<Stream>> openReadAsync)
+        Func<CancellationToken, ValueTask<Stream>> openReadAsync,
+        long? length = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
         ArgumentException.ThrowIfNullOrWhiteSpace(mediaType);
         ArgumentNullException.ThrowIfNull(openReadAsync);
+        if (length < 0)
+            throw new ArgumentOutOfRangeException(nameof(length));
         string normalizedFileName = fileName.Trim();
         if (Path.GetFileName(normalizedFileName) != normalizedFileName)
             throw new ArgumentException("The upload filename cannot contain a path.", nameof(fileName));
@@ -26,6 +29,7 @@ public sealed class AiUploadSource
 
         FileName = normalizedFileName;
         MediaType = parsedMediaType.ToString();
+        Length = length;
         _openReadAsync = openReadAsync;
     }
 
@@ -33,10 +37,13 @@ public sealed class AiUploadSource
 
     public string MediaType { get; }
 
+    public long? Length { get; }
+
     public static AiUploadSource FromFile(string filePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         string fullPath = Path.GetFullPath(filePath);
+        long length = new FileInfo(fullPath).Length;
         return new AiUploadSource(
             Path.GetFileName(fullPath),
             AiMediaTypes.Get(fullPath),
@@ -51,7 +58,8 @@ public sealed class AiUploadSource
                     bufferSize: 81920,
                     FileOptions.Asynchronous | FileOptions.SequentialScan);
                 return ValueTask.FromResult(stream);
-            });
+            },
+            length);
     }
 
     /// <summary>

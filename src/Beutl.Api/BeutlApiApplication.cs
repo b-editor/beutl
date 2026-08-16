@@ -22,7 +22,7 @@ using IUsersClient = Beutl.Api.Clients.IUsersClient;
 
 namespace Beutl.Api;
 
-public class BeutlApiApplication : IDisposable
+public class BeutlApiApplication : IAsyncDisposable
 {
 #if false
     private const string BaseUrl = "http://localhost:3001";
@@ -43,6 +43,7 @@ public class BeutlApiApplication : IDisposable
     private readonly IDisposable _authenticationSubscription;
     private static readonly ILogger s_logger = Log.CreateLogger<BeutlApiApplication>();
     private volatile bool _disposed;
+    private Task? _disposeTask;
     private CancellationTokenSource? _authenticationSessionCts;
     private long _authenticationGeneration;
     private long _authenticationAttemptVersion;
@@ -119,17 +120,34 @@ public class BeutlApiApplication : IDisposable
 
     public IReadOnlyReactiveProperty<AuthenticatedUser?> AuthenticatedUser => _readOnlyAuthenticatedUser;
 
+    public bool IsDisposed => _disposed;
+
     // Check for updates. Return AppUpdateResponse when this application has asset metadata;
     // otherwise, return CheckForUpdatesResponse.
-    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(string version)
+    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(
+        string version,
+        CancellationToken cancellationToken)
     {
-        var metadata = await LoadMetadata();
-        if (metadata == null) return (await App.CheckForUpdates(version), null);
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        var metadata = await LoadMetadata().WaitAsync(token);
+        if (metadata == null)
+        {
+            var updateResponse = await App.CheckForUpdates(version, token);
+            token.ThrowIfCancellationRequested();
+            return (updateResponse, null);
+        }
+
         var update = await App.GetUpdate(
-            version, metadata.Type, metadata.OS, metadata.Arch,
-            metadata.Standalone, "false");
+            version, ToServerType(metadata.Type), metadata.OS, metadata.Arch,
+            metadata.Standalone, "false", token);
+        token.ThrowIfCancellationRequested();
         return (null, update);
     }
+
+    // The server accepts archive types, while local metadata records the Flatpak package type.
+    // Flatpak releases are produced from the standalone zip archive used by the update endpoint.
+    internal static string ToServerType(string type) => type == "flatpak" ? "zip" : type;
 
     public static async Task<AssetMetadataJson?> LoadMetadata()
     {
@@ -159,20 +177,25 @@ public class BeutlApiApplication : IDisposable
         }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
-        List<IDisposable> disposableResources;
         lock (_disposeGate)
         {
-            if (_disposed)
-                return;
+            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
+        }
+    }
 
+    private async Task DisposeCoreAsync()
+    {
+        List<object> disposableResources;
+        lock (_disposeGate)
+        {
             _disposed = true;
             disposableResources = _services.Values
                 .Where(lazy => lazy.IsValueCreated)
                 .Select(lazy => lazy.Value)
-                .OfType<IDisposable>()
-                .Distinct((IEqualityComparer<IDisposable>)ReferenceEqualityComparer.Instance)
+                .Where(resource => resource is IDisposable or IAsyncDisposable)
+                .Distinct(ReferenceEqualityComparer.Instance)
                 .Reverse()
                 .ToList();
         }
@@ -191,11 +214,14 @@ public class BeutlApiApplication : IDisposable
 
         authenticationSession?.Cancel();
 
-        foreach (IDisposable resource in disposableResources)
+        foreach (object resource in disposableResources)
         {
             try
             {
-                resource.Dispose();
+                if (resource is IAsyncDisposable asyncDisposable)
+                    await asyncDisposable.DisposeAsync();
+                else
+                    ((IDisposable)resource).Dispose();
             }
             catch (Exception ex)
             {
@@ -232,6 +258,7 @@ public class BeutlApiApplication : IDisposable
         Register(() => new AiEntitlementService(
             this,
             GetResource<AiEntitlementStore>()));
+        Register(() => new AiOperationAvailabilityService(this));
         Register(() => new AiImageGenerationService(
             this,
             GetResource<AiJobChangeNotifier>()));
@@ -253,6 +280,7 @@ public class BeutlApiApplication : IDisposable
             GetResource<IAiImageGenerationService>(),
             GetResource<IAiVideoService>(),
             GetResource<IAiEntitlementService>(),
+            GetResource<IAiOperationAvailabilityService>(),
             GetResource<IExtensionRegistry>()));
         Register(() => new AiJobMonitor(
             this,
@@ -907,6 +935,7 @@ public sealed class AssetMetadataJson
 
     [JsonPropertyName("standalone")] public required string Standalone { get; init; }
 
-    // zip,debian,installer,app
+    // Metadata values: zip,debian,installer,app,flatpak.
+    // Server query values (see ToServerType): zip,debian,installer,app.
     [JsonPropertyName("type")] public required string Type { get; init; }
 }

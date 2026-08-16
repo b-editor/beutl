@@ -223,6 +223,64 @@ public sealed class PersistentPromptLibraryTests
     }
 
     [Test]
+    public void VersionOne_OversizedPromptIsDroppedWithoutResettingValidEntries()
+    {
+        Guid oversizedId = Guid.NewGuid();
+        Guid validHistoryId = Guid.NewGuid();
+        Guid validTemplateId = Guid.NewGuid();
+        string oversizedPrompt = new('x', 4_001);
+        string contents = $$"""
+            {
+              "version": 1,
+              "history": [
+                {
+                  "id": "{{oversizedId}}",
+                  "taskKind": "image",
+                  "prompt": "{{oversizedPrompt}}",
+                  "lastUsedAtUtc": "2026-08-09T01:00:00Z",
+                  "useCount": 1,
+                  "isPinned": true
+                },
+                {
+                  "id": "{{validHistoryId}}",
+                  "taskKind": "video",
+                  "prompt": "keep history",
+                  "lastUsedAtUtc": "2026-08-09T00:00:00Z",
+                  "useCount": 2,
+                  "isPinned": true
+                }
+              ],
+              "templates": [
+                {
+                  "id": "{{validTemplateId}}",
+                  "name": "Keep template",
+                  "taskKind": "imageEdit",
+                  "prompt": "keep template",
+                  "createdAtUtc": "2026-08-09T00:00:00Z",
+                  "updatedAtUtc": "2026-08-09T00:00:00Z",
+                  "isPinned": false
+                }
+              ]
+            }
+            """;
+        File.WriteAllText(_storagePath, contents);
+
+        var library = new PersistentPromptLibrary(_storagePath);
+
+        using JsonDocument migrated = JsonDocument.Parse(File.ReadAllText(_storagePath));
+        Assert.Multiple(() =>
+        {
+            Assert.That(library.RecoveredCorruptFilePath, Is.Null);
+            Assert.That(library.History.Select(item => item.Id), Is.EqualTo(new[] { validHistoryId }));
+            Assert.That(library.Templates.Select(item => item.Id), Is.EqualTo(new[] { validTemplateId }));
+            Assert.That(
+                migrated.RootElement.GetProperty("version").GetInt32(),
+                Is.EqualTo(PersistentPromptLibrary.CurrentStorageVersion));
+            Assert.That(File.ReadAllText(_storagePath), Does.Not.Contain(oversizedPrompt));
+        });
+    }
+
+    [Test]
     public void JsonSchema_ContainsNoAuthenticationOrGeneratedAssetFieldsAndLeavesNoTempFiles()
     {
         var library = new PersistentPromptLibrary(
@@ -324,6 +382,10 @@ public sealed class PersistentPromptLibraryTests
                 library.SaveTemplate("line\nbreak", PromptTaskKind.Image, "prompt"));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 library.Record((PromptTaskKind)int.MaxValue, "prompt"));
+            Assert.Throws<ArgumentException>(() => library.SaveTemplate(
+                "Oversized",
+                PromptTaskKind.Video,
+                new string('x', 4_001)));
         });
 
         Assert.That(File.Exists(_storagePath), Is.False);

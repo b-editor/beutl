@@ -31,7 +31,7 @@ public sealed class ProfileTests
                 """));
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         Profile profile = SetAuthenticatedUser(app);
 
         await profile.RefreshAsync(CancellationToken.None, self: true);
@@ -55,7 +55,7 @@ public sealed class ProfileTests
             return JsonResponse(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         Profile profile = SetAuthenticatedUser(app);
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -92,7 +92,7 @@ public sealed class ProfileTests
             return await secondResponse.Task.WaitAsync(cancellationToken);
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var profile = new Profile(CreateProfileResponse("test", "Original"), app);
 
         Task olderRefresh = profile.RefreshAsync(CancellationToken.None);
@@ -157,7 +157,7 @@ public sealed class ProfileTests
             return JsonResponse(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var profile = new Profile(CreateProfileResponse("test", "Test User"), app);
         using var cancellationTokenSource = new CancellationTokenSource();
 

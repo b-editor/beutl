@@ -16,16 +16,18 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services;
 using Beutl.Threading;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
 
-internal sealed class ElementAdderImpl : IElementAdder, IDisposable
+internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<ElementAdderImpl>();
     private readonly EditViewModel _context;
     private readonly ElementSourceHandlerRegistry _sourceHandlers;
+    private readonly AsyncOperationLifetime _operations = new();
 
     public ElementAdderImpl(EditViewModel context)
     {
@@ -52,12 +54,22 @@ internal sealed class ElementAdderImpl : IElementAdder, IDisposable
 
     public IElementSourceHandlerRegistry SourceHandlers => _sourceHandlers;
 
-    public void Dispose() => _sourceHandlers.Dispose();
+    public async ValueTask DisposeAsync()
+    {
+        await _operations.DisposeAsync();
+        await _sourceHandlers.DisposeAsync();
+    }
 
     public async ValueTask<ElementAddResult> AddAsync(
         IReadOnlyList<ElementDescription> descriptions,
         CancellationToken cancellationToken)
     {
+        using AsyncOperationLifetime.Operation operation = _operations.TryEnter()
+            ?? throw new ObjectDisposedException(nameof(ElementAdderImpl));
+        using CancellationTokenSource linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            operation.CancellationToken);
+        CancellationToken operationToken = linkedCancellation.Token;
         var handlerLeases = new List<IElementSourceHandlerLease>();
         var preflightLeases = new List<IElementSourcePreflight>();
         var materializationResources = new List<ElementMaterializationResource>();
@@ -69,7 +81,7 @@ internal sealed class ElementAdderImpl : IElementAdder, IDisposable
                 handlerLeases,
                 preflightLeases,
                 materializationResources,
-                cancellationToken);
+                operationToken);
             return result;
         }
         finally

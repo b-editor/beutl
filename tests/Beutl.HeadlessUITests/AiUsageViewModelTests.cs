@@ -1,7 +1,7 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
-using Beutl.Testing.Headless;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.SettingsPages;
@@ -19,10 +19,12 @@ public sealed class AiUsageViewModelTests
         Beutl.Api.BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
         await using var viewModel = new AiVideoGenerationDialogViewModel(
             clients.GetResource<IAiEntitlementService>(),
+            clients.GetResource<IAiOperationAvailabilityService>(),
             new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
             clients.GetResource<IAiVideoService>(),
             clients.GetResource<IAuthenticatedContentService>(),
-            clients.GetResource<IAiJobKindRegistry>());
+            clients.GetResource<IAiJobKindRegistry>(),
+            clients.GetResource<IAiJobMonitor>());
 
         using (Assert.EnterMultipleScope())
         {

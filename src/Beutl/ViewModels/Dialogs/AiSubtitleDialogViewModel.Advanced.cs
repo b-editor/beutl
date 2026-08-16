@@ -13,6 +13,10 @@ using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
+using Beutl.Media.Decoding;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.AI;
@@ -29,19 +33,26 @@ public sealed partial class AiSubtitleDialogViewModel
     private readonly CompositeDisposable _captionDisposables = [];
     private readonly ObservableCollection<EditableCaptionCueViewModel> _editableCues = [];
     private readonly ReactivePropertySlim<long> _transcriptionEstimateRevision = new();
-    private readonly ReactivePropertySlim<bool> _canStartTranslation = new();
+    private readonly ReactivePropertySlim<long> _translationEstimateRevision = new();
+    private readonly ReactivePropertySlim<bool> _canDeleteCue = new();
+    private readonly ReactivePropertySlim<bool> _canSplitCue = new();
+    private readonly ReactivePropertySlim<bool> _canMergeCue = new();
     private string? _lastCaptionLanguage;
     private TimeSpan _sceneMixChunkDuration = s_sceneMixChunkDuration;
     private long _captionDocumentRevision;
+    private long _sceneAudioRevision;
     private RecoverableCaptionResult? _partialResult;
     private TranslationOperation? _pendingTranslation;
     private SceneTranscriptionOperation? _pendingSceneTranscription;
+    private SourceTranscriptionOperation? _pendingSourceTranscription;
     private AiCaptionHistoryResult? _pendingHistoryResult;
     private ICaptionDraftSession? _captionDraftSession;
     private CaptionDraftScope? _captionDraftBaseScope;
     private string? _captionDraftJobId;
     private long _captionDraftScopeRevision;
     private bool _captionDraftScopeInitialized;
+    private AiOperationAvailabilityTracker _transcriptionAvailability = null!;
+    private AiOperationAvailabilityTracker _translationAvailability = null!;
 
     internal void LoadHistoryResult(AiCaptionHistoryResult result)
     {
@@ -83,6 +94,7 @@ public sealed partial class AiSubtitleDialogViewModel
         ChangeCaptionDraftJob(result.JobId.Value, deleteCurrent: true);
         _pendingTranslation = null;
         _pendingSceneTranscription = null;
+        _pendingSourceTranscription = null;
         _partialResult = null;
         HasPartialResult.Value = false;
         PartialResultMessage.Value = null;
@@ -107,6 +119,8 @@ public sealed partial class AiSubtitleDialogViewModel
     internal Func<TimeSpan, TimeSpan, CancellationToken, Task<AudioFrameSnapshot?>>?
         SceneMixAudioComposer
     { get; set; }
+
+    internal long SceneAudioRevision => Interlocked.Read(ref _sceneAudioRevision);
 
     public ReadOnlyObservableCollection<EditableCaptionCueViewModel> Cues { get; private set; } = null!;
 
@@ -223,24 +237,33 @@ public sealed partial class AiSubtitleDialogViewModel
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_captionDisposables);
 
-        IObservable<(AudioSourceItem? Source, string Start, string End, AiEntitlements? Entitlements)>
-            transcriptionInputs = SelectedAudioSource
-            .CombineLatest(
+        _transcriptionAvailability = new AiOperationAvailabilityTracker(
+            _availability,
+            _lifetimeCts.Token);
+        _translationAvailability = new AiOperationAvailabilityTracker(
+            _availability,
+            _lifetimeCts.Token);
+        IObservable<(AudioSourceItem? Source, string Start, string End, long Revision)>
+            transcriptionInputs = SelectedAudioSource.CombineLatest(
                 SceneRangeStartText,
                 SceneRangeEndText,
-                _entitlements.Entitlements,
-                (source, start, end, entitlements) => (source, start, end, entitlements));
-        // The server decides whether a transcription can start; the client no longer
-        // knows the per-minute price, so it only tracks that there is input to send.
-        IObservable<bool> canStartTranscription = transcriptionInputs.CombineLatest(
-            _transcriptionEstimateRevision,
-            (input, _) =>
-                input.Source is not null
-                && (input.Entitlements?.Availability.CanStart(AiOperations.Transcription)
-                    ?? false));
-        TranscriptionEstimate = new AiUsageEstimateViewModel(Usage, canStartTranscription)
+                _transcriptionEstimateRevision,
+                (source, start, end, revision) => (source, start, end, revision));
+        transcriptionInputs.Subscribe(input =>
+                _transcriptionAvailability.Check(CreateTranscriptionAvailabilityRequest(
+                    input.Source,
+                    input.Start,
+                    input.End)))
             .DisposeWith(_captionDisposables);
-        TranslationEstimate = new AiUsageEstimateViewModel(Usage, _canStartTranslation)
+        _translationEstimateRevision.Subscribe(_ => RefreshTranslationAvailability())
+            .DisposeWith(_captionDisposables);
+        TranscriptionEstimate = new AiUsageEstimateViewModel(
+                Usage,
+                _transcriptionAvailability.IsAvailable)
+            .DisposeWith(_captionDisposables);
+        TranslationEstimate = new AiUsageEstimateViewModel(
+                Usage,
+                _translationAvailability.IsAvailable)
             .DisposeWith(_captionDisposables);
 
         CanTranslate = HasTimingValidCues
@@ -269,11 +292,14 @@ public sealed partial class AiSubtitleDialogViewModel
             .DisposeWith(_captionDisposables);
         AddCue = new ReactiveCommand().DisposeWith(_captionDisposables);
         AddCue.Subscribe(AddCueCore).DisposeWith(_captionDisposables);
-        DeleteCue = new ReactiveCommand().DisposeWith(_captionDisposables);
+        DeleteCue = new ReactiveCommand(_canDeleteCue, initialValue: false)
+            .DisposeWith(_captionDisposables);
         DeleteCue.Subscribe(DeleteCueCore).DisposeWith(_captionDisposables);
-        SplitCue = new ReactiveCommand().DisposeWith(_captionDisposables);
+        SplitCue = new ReactiveCommand(_canSplitCue, initialValue: false)
+            .DisposeWith(_captionDisposables);
         SplitCue.Subscribe(SplitCueCore).DisposeWith(_captionDisposables);
-        MergeCue = new ReactiveCommand().DisposeWith(_captionDisposables);
+        MergeCue = new ReactiveCommand(_canMergeCue, initialValue: false)
+            .DisposeWith(_captionDisposables);
         MergeCue.Subscribe(MergeCueCore).DisposeWith(_captionDisposables);
         WrapCues = new ReactiveCommand().DisposeWith(_captionDisposables);
         WrapCues.Subscribe(WrapCuesCore).DisposeWith(_captionDisposables);
@@ -282,14 +308,23 @@ public sealed partial class AiSubtitleDialogViewModel
         MaximumLineLength.Subscribe(_ => RefreshCaptionState()).DisposeWith(_captionDisposables);
         MaximumLineCount.Subscribe(_ => RefreshCaptionState()).DisposeWith(_captionDisposables);
         SelectedCaptionTemplate.Subscribe(_ => RefreshTemplatePreview()).DisposeWith(_captionDisposables);
-        SelectedCue.Subscribe(_ => RefreshTemplatePreview()).DisposeWith(_captionDisposables);
-        SelectedSourceLanguage.Subscribe(_ => RefreshTranslationEstimate()).DisposeWith(_captionDisposables);
+        SelectedCue.Subscribe(_ =>
+        {
+            RefreshCueCommandStates();
+            RefreshTemplatePreview();
+        }).DisposeWith(_captionDisposables);
+        SelectedSourceLanguage.Subscribe(_ => InvalidatePartialResultResume()).DisposeWith(_captionDisposables);
         SelectedTargetLanguage.Subscribe(_ => RefreshTranslationEstimate()).DisposeWith(_captionDisposables);
-        _entitlements.Entitlements.Subscribe(_ => RefreshTranslationEstimate()).DisposeWith(_captionDisposables);
         _captionDraftScopes
             .DistinctUntilChanged()
             .Subscribe(HandleCaptionDraftScopeChanged)
             .DisposeWith(_captionDisposables);
+        if (_editViewModel is { } editViewModel)
+        {
+            editViewModel.Scene.Edited += OnCaptionSceneEdited;
+            Disposable.Create(() => editViewModel.Scene.Edited -= OnCaptionSceneEdited)
+                .DisposeWith(_captionDisposables);
+        }
     }
 
     private void DisposeCaptionEditing()
@@ -303,12 +338,21 @@ public sealed partial class AiSubtitleDialogViewModel
         _captionDraftSession = null;
         _captionDisposables.Dispose();
         _transcriptionEstimateRevision.Dispose();
-        _canStartTranslation.Dispose();
+        _translationEstimateRevision.Dispose();
+        _transcriptionAvailability.Dispose();
+        _translationAvailability.Dispose();
+        _canDeleteCue.Dispose();
+        _canSplitCue.Dispose();
+        _canMergeCue.Dispose();
+    }
+
+    private void OnCaptionSceneEdited(object? sender, EventArgs e)
+    {
+        Interlocked.Increment(ref _sceneAudioRevision);
     }
 
     private async Task TranscribeSelectedSourceAsync(AudioSourceItem source)
     {
-        ChangeCaptionDraftJob(null, deleteCurrent: true);
         long captionRevision = Interlocked.Read(ref _captionDocumentRevision);
         long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
         string? language = SelectedSourceLanguage.Value.Code;
@@ -321,37 +365,150 @@ public sealed partial class AiSubtitleDialogViewModel
         if (source.FilePath is not { } filePath)
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
-        AiTranscriptionResponse response = await _aiService.TranscribeAsync(
-            new AiTranscriptionRequest(AiUploadSource.FromFile(filePath), language),
-            _lifetimeCts.Token);
-        string? resultLanguage = response.Language ?? language;
-        AiTranscriptionSegment[] mappedSegments = source.MapSegmentsToScene(response.Segments);
-        RecordCaptionDraftJob(response.JobId, draftScopeRevision);
+        await TranscribeSourceFileAsync(
+            source,
+            filePath,
+            language,
+            captionRevision,
+            draftScopeRevision);
+    }
+
+    private async Task TranscribeSourceFileAsync(
+        AudioSourceItem source,
+        string filePath,
+        string? language,
+        long captionRevision,
+        long draftScopeRevision)
+    {
+        SourceAudioFingerprint fingerprint = GetSourceAudioFingerprint(filePath);
+        using MediaReader reader = MediaReader.Open(
+            filePath,
+            new MediaOptions(MediaMode.Audio) { PreferProxy = false });
+        if (!reader.HasAudio)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        int sampleRate = reader.AudioInfo.SampleRate;
+        if (sampleRate <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        long totalSamples = GetSourceSampleCount(reader.AudioInfo, source.Duration);
+        int chunkSamples = checked((int)Math.Ceiling(
+            SceneMixChunkDuration.TotalSeconds * sampleRate));
+        if (totalSamples <= 0 || chunkSamples <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        int chunkCount = checked((int)Math.Ceiling(totalSamples / (double)chunkSamples));
+        bool canResume = CanResumeSourceTranscription(
+            source,
+            filePath,
+            language,
+            sampleRate,
+            totalSamples,
+            chunkSamples,
+            chunkCount,
+            fingerprint,
+            draftScopeRevision);
+        if (!canResume)
+            ChangeCaptionDraftJob(null, deleteCurrent: false);
+
+        SourceTranscriptionOperation operation = canResume
+            ? _pendingSourceTranscription!
+            : new SourceTranscriptionOperation(
+                source,
+                filePath,
+                source.ElementId,
+                fingerprint.FileLength,
+                fingerprint.LastWriteTimeUtcTicks,
+                language,
+                sampleRate,
+                totalSamples,
+                chunkSamples,
+                chunkCount,
+                captionRevision,
+                draftScopeRevision);
+        operation.Source = source;
+        _pendingSourceTranscription = operation;
+        _pendingSceneTranscription = null;
+
+        for (int chunkIndex = operation.CompletedChunkCount;
+            chunkIndex < operation.ChunkCount;
+            chunkIndex++)
+        {
+            _lifetimeCts.Token.ThrowIfCancellationRequested();
+            long chunkOffset = checked((long)chunkIndex * operation.ChunkSamples);
+            int requestedSamples = checked((int)Math.Min(
+                operation.ChunkSamples,
+                operation.TotalSamples - chunkOffset));
+            (string path, FileStream stream) = AiTemporaryFileStore.Create(
+                "audio",
+                "source",
+                ".wav");
+            try
+            {
+                SpeechWaveChunkResult chunk;
+                using (stream)
+                {
+                    chunk = WriteSpeechWave(
+                        reader,
+                        checked((int)chunkOffset),
+                        requestedSamples,
+                        stream,
+                        _lifetimeCts.Token);
+                }
+                if (chunk.SourceSampleCount <= 0)
+                    throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+                if (chunk.SourceSampleCount < requestedSamples)
+                {
+                    operation.TotalSamples = chunkOffset + chunk.SourceSampleCount;
+                    operation.ChunkCount = chunkIndex + 1;
+                }
+
+                await EnsureAvailableAsync(
+                    new AiOperationAvailabilityRequest.Transcription(chunk.Duration.TotalSeconds));
+                AiTranscriptionResponse response = await _aiService.TranscribeAsync(
+                    new AiTranscriptionRequest(AiUploadSource.FromFile(path), language),
+                    _lifetimeCts.Token);
+                operation.DetectedLanguage ??= response.Language;
+                double offsetSeconds = chunkOffset / (double)operation.SampleRate;
+                foreach (AiTranscriptionSegment segment in response.Segments)
+                {
+                    operation.SourceSegments.Add(new AiTranscriptionSegment
+                    {
+                        Start = offsetSeconds + segment.Start,
+                        End = offsetSeconds + segment.End,
+                        Text = segment.Text,
+                    });
+                }
+                RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
+                operation.CompletedChunkCount++;
+                if (!PublishSourceTranscriptionPartial(operation))
+                    return;
+            }
+            finally
+            {
+                DeleteTemporaryAudio(path);
+            }
+        }
+
+        string? resultLanguage = operation.DetectedLanguage ?? language;
+        AiTranscriptionSegment[] mappedSegments = source.MapSegmentsToScene(
+            operation.SourceSegments);
         if (!ReferenceEquals(SelectedAudioSource.Value, source)
-            || captionRevision != Interlocked.Read(ref _captionDocumentRevision)
-            || !IsCurrentCaptionDraftScope(draftScopeRevision)
+            || operation.ExpectedCaptionRevision != Interlocked.Read(ref _captionDocumentRevision)
+            || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision)
             || !string.Equals(
                 SelectedSourceLanguage.Value.Code,
-                language,
+                operation.Language,
                 StringComparison.Ordinal))
         {
-            if (SetPartialResult(new RecoverableCaptionResult(
-                CreateCaptionDocument(mappedSegments, resultLanguage),
-                resultLanguage,
-                mappedSegments,
-                PartialResultKind.Transcription,
-                1,
-                1,
-                draftScopeRevision)))
-            {
-                PartialResultMessage.Value = Strings.AiSubtitle_CompletedResultAvailable;
-            }
             return;
         }
 
         _lastCaptionLanguage = resultLanguage;
         DetectedLanguageText.Value = CreateDetectedLanguageText(_lastCaptionLanguage);
         ResultSegments.Value = mappedSegments;
+        _pendingSourceTranscription = null;
         ClearPartialResult();
     }
 
@@ -369,14 +526,18 @@ public sealed partial class AiSubtitleDialogViewModel
         }
 
         int chunkCount = (int)Math.Ceiling(duration.TotalSeconds / SceneMixChunkDuration.TotalSeconds);
-        SceneTranscriptionOperation operation = CanResumeSceneTranscription(
+        bool canResume = CanResumeSceneTranscription(
             source,
             startText,
             endText,
             language,
             rangeStart,
             duration,
-            chunkCount)
+            chunkCount);
+        if (!canResume)
+            ChangeCaptionDraftJob(null, deleteCurrent: false);
+
+        SceneTranscriptionOperation operation = canResume
             ? _pendingSceneTranscription!
             : new SceneTranscriptionOperation(
                 source,
@@ -389,9 +550,11 @@ public sealed partial class AiSubtitleDialogViewModel
                 chunkCount,
                 Interlocked.Read(ref _captionDocumentRevision),
                 draftScopeRevision,
+                Interlocked.Read(ref _sceneAudioRevision),
                 _editViewModel.Scene.Id);
         operation.Source = source;
         _pendingSceneTranscription = operation;
+        _pendingSourceTranscription = null;
 
         for (int index = operation.CompletedChunkCount; index < chunkCount; index++)
         {
@@ -408,12 +571,19 @@ public sealed partial class AiSubtitleDialogViewModel
             if (snapshot is null || snapshot.SampleCount == 0)
                 throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
-            string directory = Path.Combine(Path.GetTempPath(), "Beutl", "AI", "Audio");
-            Directory.CreateDirectory(directory);
-            string path = Path.Combine(directory, $"scene-mix-{Guid.NewGuid():N}.wav");
+            await EnsureAvailableAsync(
+                new AiOperationAvailabilityRequest.Transcription(chunkDuration.TotalSeconds));
+
+            (string path, FileStream stream) = AiTemporaryFileStore.Create(
+                "audio",
+                "scene-mix",
+                ".wav");
             try
             {
-                WriteSpeechWave(snapshot, path, _lifetimeCts.Token);
+                using (stream)
+                {
+                    WriteSpeechWave(snapshot, stream, _lifetimeCts.Token);
+                }
                 AiTranscriptionResponse response = await _aiService.TranscribeAsync(
                     new AiTranscriptionRequest(AiUploadSource.FromFile(path), language),
                     _lifetimeCts.Token);
@@ -434,14 +604,7 @@ public sealed partial class AiSubtitleDialogViewModel
             }
             finally
             {
-                try
-                {
-                    File.Delete(path);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Failed to remove temporary scene-mix audio {Path}.", path);
-                }
+                DeleteTemporaryAudio(path);
             }
         }
 
@@ -453,6 +616,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 operation.Language,
                 StringComparison.Ordinal)
             || operation.ExpectedCaptionRevision != Interlocked.Read(ref _captionDocumentRevision)
+            || operation.ExpectedSceneAudioRevision != Interlocked.Read(ref _sceneAudioRevision)
             || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
         {
             return;
@@ -502,6 +666,7 @@ public sealed partial class AiSubtitleDialogViewModel
             for (int index = operation.CompletedBatchCount; index < operation.Batches.Count; index++)
             {
                 TranslationBatch batch = operation.Batches[index];
+                await EnsureAvailableAsync(CreateTranslationAvailabilityRequest(batch));
                 AiCaptionTranslationResponse response = await _aiService.TranslateAsync(
                     new AiCaptionTranslationRequest(
                         batch.Pieces.Select(piece => new AiCaptionTranslationSegment
@@ -522,6 +687,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 operation.CompletedBatchCount++;
                 if (!PublishTranslationPartial(operation))
                     return;
+                RefreshTranslationEstimate();
             }
 
             if (operation.ExpectedCaptionRevision != Interlocked.Read(ref _captionDocumentRevision)
@@ -735,6 +901,7 @@ public sealed partial class AiSubtitleDialogViewModel
             && operation.ChunkDuration == SceneMixChunkDuration
             && operation.ChunkCount == chunkCount
             && IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision)
+            && operation.ExpectedSceneAudioRevision == Interlocked.Read(ref _sceneAudioRevision)
             && operation.SceneId == _editViewModel?.Scene.Id;
 
     private bool PublishSceneTranscriptionPartial(SceneTranscriptionOperation operation)
@@ -764,6 +931,106 @@ public sealed partial class AiSubtitleDialogViewModel
             operation.ChunkCount);
         _transcriptionEstimateRevision.Value++;
         return true;
+    }
+
+    private bool CanResumeSourceTranscription(
+        AudioSourceItem source,
+        string filePath,
+        string? language,
+        int sampleRate,
+        long totalSamples,
+        int chunkSamples,
+        int chunkCount,
+        SourceAudioFingerprint fingerprint,
+        long draftScopeRevision)
+        => _pendingSourceTranscription is
+        {
+            CompletedChunkCount: > 0,
+        } operation
+            && operation.CompletedChunkCount < operation.ChunkCount
+            && (operation.Source is null || AudioSourceItem.CanResume(source, operation.Source))
+            && AudioSourceItem.FilePathsEqual(operation.FilePath, filePath)
+            && operation.ElementId == source.ElementId
+            && operation.Language == language
+            && operation.SampleRate == sampleRate
+            && operation.TotalSamples == totalSamples
+            && operation.ChunkSamples == chunkSamples
+            && operation.ChunkCount == chunkCount
+            && operation.FileLength == fingerprint.FileLength
+            && operation.LastWriteTimeUtcTicks == fingerprint.LastWriteTimeUtcTicks
+            && operation.ExpectedDraftScopeRevision == draftScopeRevision
+            && IsCurrentCaptionDraftScope(draftScopeRevision);
+
+    private bool PublishSourceTranscriptionPartial(SourceTranscriptionOperation operation)
+    {
+        if (!IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
+            return false;
+
+        _pendingSourceTranscription = operation;
+        if (operation.Source is not { } source)
+            return false;
+
+        string? detectedLanguage = operation.DetectedLanguage ?? operation.Language;
+        AiTranscriptionSegment[] mappedSegments = source.MapSegmentsToScene(
+            operation.SourceSegments);
+        if (!SetPartialResult(new RecoverableCaptionResult(
+                CreateCaptionDocument(mappedSegments, detectedLanguage),
+                detectedLanguage,
+                mappedSegments,
+                PartialResultKind.Transcription,
+                operation.CompletedChunkCount,
+                operation.ChunkCount,
+                operation.ExpectedDraftScopeRevision)))
+        {
+            return false;
+        }
+        PartialResultMessage.Value = string.Format(
+            operation.CompletedChunkCount == operation.ChunkCount
+                ? Strings.AiSubtitle_CompletedResultAvailable
+                : Strings.AiSubtitle_PartialTranscriptionAvailable,
+            operation.CompletedChunkCount,
+            operation.ChunkCount);
+        _transcriptionEstimateRevision.Value++;
+        return true;
+    }
+
+    private static long GetSourceSampleCount(AudioStreamInfo audioInfo, TimeSpan fallbackDuration)
+    {
+        if (audioInfo.SampleRate <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        double samples = audioInfo.NumSamples.ToDouble();
+        if (!double.IsFinite(samples) || samples <= 0)
+            samples = fallbackDuration.TotalSeconds * audioInfo.SampleRate;
+        if (!double.IsFinite(samples) || samples <= 0 || samples > int.MaxValue)
+            throw new SubtitleInputException("The source audio duration is unsupported.");
+        return Math.Max(1, checked((long)Math.Ceiling(samples)));
+    }
+
+    private static SourceAudioFingerprint GetSourceAudioFingerprint(string filePath)
+    {
+        var info = new FileInfo(filePath);
+        if (!info.Exists || info.Length <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        return new SourceAudioFingerprint(info.Length, info.LastWriteTimeUtc.Ticks);
+    }
+
+    internal static bool HasMatchingSourceAudioFingerprint(
+        string filePath,
+        SourceAudioFingerprint expected)
+        => GetSourceAudioFingerprint(filePath) == expected;
+
+    private void DeleteTemporaryAudio(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to remove temporary audio {Path}.", path);
+        }
     }
 
     private static CaptionDocument CreateCaptionDocument(
@@ -844,6 +1111,34 @@ public sealed partial class AiSubtitleDialogViewModel
                 scene.CompletedChunkCount);
         }
 
+        CaptionSourceTranscriptionResume? sourceResume = null;
+        if (result.Kind == PartialResultKind.Transcription
+            && result.Segments is { } sourceResultSegments
+            && _pendingSourceTranscription is { } sourceTranscription
+            && sourceTranscription.CompletedChunkCount == result.CompletedSteps
+            && sourceTranscription.CompletedChunkCount < sourceTranscription.ChunkCount
+            && sourceTranscription.ChunkCount == result.TotalSteps
+            && (sourceTranscription.Source is null
+                || SegmentsEqual(
+                    sourceTranscription.Source.MapSegmentsToScene(
+                        sourceTranscription.SourceSegments),
+                    sourceResultSegments)))
+        {
+            sourceResume = new CaptionSourceTranscriptionResume(
+                sourceTranscription.FilePath,
+                sourceTranscription.ElementId,
+                sourceTranscription.FileLength,
+                sourceTranscription.LastWriteTimeUtcTicks,
+                sourceTranscription.Language,
+                sourceTranscription.SampleRate,
+                sourceTranscription.TotalSamples,
+                sourceTranscription.ChunkSamples,
+                sourceTranscription.ChunkCount,
+                CloneSegments(sourceTranscription.SourceSegments),
+                sourceTranscription.DetectedLanguage,
+                sourceTranscription.CompletedChunkCount);
+        }
+
         return new CaptionDraft(
             FileCaptionDraftStore.CurrentVersion,
             StoreCues(result.Document.Cues),
@@ -855,7 +1150,8 @@ public sealed partial class AiSubtitleDialogViewModel
             result.CompletedSteps,
             result.TotalSteps,
             translationResume,
-            sceneResume);
+            sceneResume,
+            sourceResume);
     }
 
     private void RestoreCaptionDraft()
@@ -959,27 +1255,38 @@ public sealed partial class AiSubtitleDialogViewModel
 
             if (draft.SceneTranscriptionResume is { } scene)
             {
-                _pendingSceneTranscription = new SceneTranscriptionOperation(
-                    null,
-                    scene.StartText,
-                    scene.EndText,
-                    scene.Language,
-                    scene.RangeStart,
-                    scene.Duration,
-                    scene.ChunkDuration,
-                    scene.ChunkCount,
-                    Interlocked.Read(ref _captionDocumentRevision),
-                    draftScopeRevision,
-                    scene.SceneId)
-                {
-                    CompletedChunkCount = scene.CompletedChunkCount,
-                    DetectedLanguage = scene.DetectedLanguage,
-                };
-                _pendingSceneTranscription.Segments.AddRange(CloneSegments(scene.Segments));
+                // The paid partial remains applicable, but scene audio has no durable
+                // content fingerprint. Never append newly composed chunks after a restart.
                 SceneRangeStartText.Value = scene.StartText;
                 SceneRangeEndText.Value = scene.EndText;
                 CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
                     string.Equals(option.Code, scene.Language, StringComparison.Ordinal));
+                if (sourceOption is not null)
+                    SelectedSourceLanguage.Value = sourceOption;
+            }
+
+            if (draft.SourceTranscriptionResume is { } source)
+            {
+                _pendingSourceTranscription = new SourceTranscriptionOperation(
+                    null,
+                    source.FilePath,
+                    source.ElementId,
+                    source.FileLength,
+                    source.LastWriteTimeUtcTicks,
+                    source.Language,
+                    source.SampleRate,
+                    source.TotalSamples,
+                    source.ChunkSamples,
+                    source.ChunkCount,
+                    Interlocked.Read(ref _captionDocumentRevision),
+                    draftScopeRevision)
+                {
+                    CompletedChunkCount = source.CompletedChunkCount,
+                    DetectedLanguage = source.DetectedLanguage,
+                };
+                _pendingSourceTranscription.SourceSegments.AddRange(CloneSegments(source.Segments));
+                CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
+                    string.Equals(option.Code, source.Language, StringComparison.Ordinal));
                 if (sourceOption is not null)
                     SelectedSourceLanguage.Value = sourceOption;
             }
@@ -1069,6 +1376,12 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             transcription.ExpectedCaptionRevision = Interlocked.Read(ref _captionDocumentRevision);
         }
+        else if (result.Kind == PartialResultKind.Transcription
+            && _pendingSourceTranscription is { } sourceTranscription)
+        {
+            sourceTranscription.ExpectedCaptionRevision = Interlocked.Read(
+                ref _captionDocumentRevision);
+        }
         Error.Value = null;
         if (result.CompletedSteps == result.TotalSteps)
         {
@@ -1087,6 +1400,7 @@ public sealed partial class AiSubtitleDialogViewModel
         PartialResultMessage.Value = null;
         _pendingTranslation = null;
         _pendingSceneTranscription = null;
+        _pendingSourceTranscription = null;
         try
         {
             _captionDraftSession?.Delete();
@@ -1278,6 +1592,7 @@ public sealed partial class AiSubtitleDialogViewModel
         _partialResult = null;
         _pendingTranslation = null;
         _pendingSceneTranscription = null;
+        _pendingSourceTranscription = null;
         _pendingHistoryResult = null;
         _lastCaptionLanguage = null;
         HasPartialResult.Value = false;
@@ -1359,12 +1674,10 @@ public sealed partial class AiSubtitleDialogViewModel
             return;
 
         CaptionCue cue = document[index];
-        TimeSpan splitTime = _editViewModel?.Player.CurrentFrame.Value ?? default;
-        if (splitTime <= cue.Start || splitTime >= cue.End)
-        {
-            splitTime = cue.Start + TimeSpan.FromTicks((cue.End - cue.Start).Ticks / 2);
-        }
-        int textOffset = FindProportionalTextOffset(cue.Text, cue.Start, cue.End, splitTime);
+        int textOffset = selected.CaretIndex;
+        if (!TryGetCueSplitTime(cue, textOffset, out TimeSpan splitTime))
+            return;
+
         document.SplitCue(index, splitTime, textOffset);
         ReplaceCues(document);
         SelectedCue.Value = _editableCues[index + 1];
@@ -1436,10 +1749,17 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void OnCuePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(EditableCaptionCueViewModel.CaretIndex))
+        {
+            RefreshCueCommandStates();
+            return;
+        }
+
         if (e.PropertyName != nameof(EditableCaptionCueViewModel.Number))
         {
             MarkCaptionDocumentChanged();
         }
+        RefreshCueCommandStates();
         RefreshCaptionState();
     }
 
@@ -1481,10 +1801,51 @@ public sealed partial class AiSubtitleDialogViewModel
         RefreshTemplatePreview();
     }
 
+    private void RefreshCueCommandStates()
+    {
+        EditableCaptionCueViewModel? selected = SelectedCue.Value;
+        int index = selected is null ? -1 : _editableCues.IndexOf(selected);
+        _canDeleteCue.Value = index >= 0;
+        _canMergeCue.Value = index >= 0
+            && index < _editableCues.Count - 1
+            && TryBuildCaptionDocumentCore(out _, out _);
+        _canSplitCue.Value = index >= 0
+            && TryBuildCaptionDocumentCore(out CaptionDocument? document, out _)
+            && document is not null
+            && TryGetCueSplitTime(document[index], selected!.CaretIndex, out _);
+    }
+
+    private static bool TryGetCueSplitTime(
+        CaptionCue cue,
+        int textOffset,
+        out TimeSpan splitTime)
+    {
+        splitTime = default;
+        if (textOffset <= 0 || textOffset >= cue.Text.Length)
+            return false;
+
+        int[] boundaries = StringInfo.ParseCombiningCharacters(cue.Text);
+        int boundaryIndex = Array.BinarySearch(boundaries, textOffset);
+        long durationTicks = (cue.End - cue.Start).Ticks;
+        if (boundaryIndex <= 0 || durationTicks <= 1)
+            return false;
+
+        long offsetTicks = (long)Math.Round(
+            durationTicks * (boundaryIndex / (double)boundaries.Length),
+            MidpointRounding.AwayFromZero);
+        offsetTicks = Math.Clamp(offsetTicks, 1, durationTicks - 1);
+        splitTime = cue.Start + TimeSpan.FromTicks(offsetTicks);
+        return true;
+    }
+
     private void RefreshTranslationEstimate()
     {
-        bool serverAllows = _entitlements.Entitlements.Value?.Availability.CanStart(
-            AiOperations.CaptionTranslation) ?? false;
+        _translationEstimateRevision.Value++;
+    }
+
+    private void RefreshTranslationAvailability()
+    {
+        AiOperationAvailabilityRequest? request = null;
         if (_pendingTranslation is { } operation
             && operation.CompletedBatchCount < operation.Batches.Count
             && operation.ExpectedCaptionRevision == Interlocked.Read(ref _captionDocumentRevision)
@@ -1498,13 +1859,18 @@ public sealed partial class AiSubtitleDialogViewModel
                 SelectedSourceLanguage.Value.Code,
                 StringComparison.Ordinal))
         {
-            _canStartTranslation.Value = serverAllows
-                && operation.Batches.Skip(operation.CompletedBatchCount).Any();
-            return;
+            request = CreateTranslationAvailabilityRequest(
+                operation.Batches[operation.CompletedBatchCount]);
+        }
+        else if (TryBuildCaptionDocumentCore(out CaptionDocument? document, out _)
+                 && document is { Count: > 0 })
+        {
+            request = CreateTranslationBatches(document).FirstOrDefault() is { } batch
+                ? CreateTranslationAvailabilityRequest(batch)
+                : null;
         }
 
-        _canStartTranslation.Value = serverAllows
-            && _editableCues.Any(cue => !string.IsNullOrWhiteSpace(cue.Text));
+        _translationAvailability.Check(request);
     }
 
     private void RefreshTemplatePreview()
@@ -1609,100 +1975,63 @@ public sealed partial class AiSubtitleDialogViewModel
         return result;
     }
 
-    private int CalculateRemainingTranscriptionUnits(
+    private AiOperationAvailabilityRequest? CreateTranscriptionAvailabilityRequest(
         AudioSourceItem? source,
         string startText,
-        string endText,
-        int rate)
+        string endText)
     {
-        if (rate <= 0
-            || source is null
-            || _pendingSceneTranscription is not { } operation
-            || operation.CompletedChunkCount >= operation.ChunkCount
-            || !(operation.Source is null && source.IsSceneMix
-                || ReferenceEquals(operation.Source, source))
-            || operation.StartText != startText
-            || operation.EndText != endText
-            || operation.Language != SelectedSourceLanguage.Value.Code
-            || operation.ChunkDuration != SceneMixChunkDuration
-            || operation.SceneId != _editViewModel?.Scene.Id)
-        {
-            return CalculateTranscriptionUnits(source, startText, endText, rate);
-        }
-
-        int units = 0;
-        for (int index = operation.CompletedChunkCount; index < operation.ChunkCount; index++)
-        {
-            TimeSpan offset = TimeSpan.FromTicks(Math.Min(
-                operation.Duration.Ticks,
-                index * operation.ChunkDuration.Ticks));
-            TimeSpan chunkDuration = TimeSpan.FromTicks(Math.Min(
-                operation.ChunkDuration.Ticks,
-                operation.Duration.Ticks - offset.Ticks));
-            units += Math.Max(1, (int)Math.Ceiling(chunkDuration.TotalMinutes)) * rate;
-        }
-        return units;
-    }
-
-    private static int CalculateTranscriptionUnits(
-        AudioSourceItem? source,
-        string startText,
-        string endText,
-        int rate)
-    {
-        if (source is null || rate <= 0)
-            return 0;
+        if (source is null)
+            return null;
         TimeSpan duration = source.Duration;
         if (source.IsSceneMix
             && (!TryGetSceneRange(startText, endText, out _, out duration) || duration <= TimeSpan.Zero))
         {
-            return 0;
+            return null;
         }
-        return Math.Max(1, (int)Math.Ceiling(duration.TotalMinutes)) * rate;
+        if (source.IsSceneMix)
+        {
+            TryGetSceneRange(startText, endText, out TimeSpan rangeStart, out _);
+            int chunkCount = (int)Math.Ceiling(
+                duration.TotalSeconds / SceneMixChunkDuration.TotalSeconds);
+            int completed = CanResumeSceneTranscription(
+                source,
+                startText,
+                endText,
+                SelectedSourceLanguage.Value.Code,
+                rangeStart,
+                duration,
+                chunkCount)
+                ? _pendingSceneTranscription!.CompletedChunkCount
+                : 0;
+            TimeSpan offset = TimeSpan.FromTicks(Math.Min(
+                duration.Ticks,
+                completed * SceneMixChunkDuration.Ticks));
+            duration = TimeSpan.FromTicks(Math.Min(
+                SceneMixChunkDuration.Ticks,
+                duration.Ticks - offset.Ticks));
+        }
+        else
+        {
+            duration = duration <= TimeSpan.Zero
+                ? duration
+                : TimeSpan.FromTicks(Math.Min(duration.Ticks, SceneMixChunkDuration.Ticks));
+        }
+        return duration > TimeSpan.Zero
+            ? new AiOperationAvailabilityRequest.Transcription(duration.TotalSeconds)
+            : null;
     }
 
-    internal static int CalculateTranslationUnits(IEnumerable<string> texts, int rate)
+    private static AiOperationAvailabilityRequest.Translation CreateTranslationAvailabilityRequest(
+        TranslationBatch batch)
+        => new(batch.Pieces.Sum(piece => piece.Text.Length));
+
+    private async Task EnsureAvailableAsync(AiOperationAvailabilityRequest request)
     {
-        if (rate <= 0)
-            return 0;
-
-        int units = 0;
-        int segmentCount = 0;
-        int characters = 0;
-        foreach (string text in texts.Where(text => !string.IsNullOrWhiteSpace(text)))
-        {
-            foreach (string part in SplitTranslationText(text))
-            {
-                if (segmentCount == TranslationBatchSegmentLimit
-                    || characters + part.Length > TranslationBatchCharacterLimit)
-                {
-                    units += Math.Max(1, (int)Math.Ceiling(characters / 1000d)) * rate;
-                    segmentCount = 0;
-                    characters = 0;
-                }
-                segmentCount++;
-                characters += part.Length;
-            }
-        }
-        if (segmentCount > 0)
-        {
-            units += Math.Max(1, (int)Math.Ceiling(characters / 1000d)) * rate;
-        }
-        return units;
-    }
-
-    private static int CalculateTranslationBatchUnits(
-        IEnumerable<TranslationBatch> batches,
-        int rate)
-    {
-        if (rate <= 0)
-            return 0;
-
-        return batches.Sum(batch =>
-        {
-            int characters = batch.Pieces.Sum(piece => piece.Text.Length);
-            return Math.Max(1, (int)Math.Ceiling(characters / 1000d)) * rate;
-        });
+        AiOperationAvailabilityTracker tracker = request is AiOperationAvailabilityRequest.Translation
+            ? _translationAvailability
+            : _transcriptionAvailability;
+        if (!await tracker.CheckNowAsync(request, _lifetimeCts.Token))
+            throw new AiUsageLimitExceededException();
     }
 
     private static bool TryGetSceneRange(
@@ -1788,24 +2117,19 @@ public sealed partial class AiSubtitleDialogViewModel
         }
     }
 
-    private static int FindProportionalTextOffset(
-        string text,
-        TimeSpan start,
-        TimeSpan end,
-        TimeSpan split)
+    internal static void WriteSpeechWave(
+        AudioFrameSnapshot snapshot,
+        string path,
+        CancellationToken cancellationToken)
     {
-        int[] boundaries = StringInfo.ParseCombiningCharacters(text);
-        if (boundaries.Length <= 1)
-            return text.Length;
-
-        double fraction = (split - start).TotalSeconds / (end - start).TotalSeconds;
-        int elementIndex = Math.Clamp((int)Math.Round(boundaries.Length * fraction), 1, boundaries.Length - 1);
-        return boundaries[elementIndex];
+        cancellationToken.ThrowIfCancellationRequested();
+        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        WriteSpeechWave(snapshot, stream, cancellationToken);
     }
 
     internal static void WriteSpeechWave(
         AudioFrameSnapshot snapshot,
-        string path,
+        Stream stream,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -1816,8 +2140,7 @@ public sealed partial class AiSubtitleDialogViewModel
         double sourceFramesPerOutputFrame = snapshot.SampleRate / (double)outputRate;
         int outputFrames = Math.Max(1, (int)Math.Floor(snapshot.SampleCount / sourceFramesPerOutputFrame));
         int dataLength = checked(outputFrames * sizeof(short));
-        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        using var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: false);
+        using var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true);
         writer.Write(Encoding.ASCII.GetBytes("RIFF"));
         writer.Write(36 + dataLength);
         writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
@@ -1850,6 +2173,108 @@ public sealed partial class AiSubtitleDialogViewModel
             mono = Math.Clamp(mono / snapshot.ChannelCount, -1, 1);
             writer.Write((short)Math.Round(mono * short.MaxValue));
         }
+    }
+
+    internal static SpeechWaveChunkResult WriteSpeechWave(
+        MediaReader reader,
+        int startSample,
+        int requestedSamples,
+        Stream stream,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(stream);
+        if (startSample < 0)
+            throw new ArgumentOutOfRangeException(nameof(startSample));
+        if (requestedSamples <= 0)
+            throw new ArgumentOutOfRangeException(nameof(requestedSamples));
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!stream.CanWrite || !stream.CanSeek)
+        {
+            throw new ArgumentException(
+                "The destination stream must be writable and seekable.",
+                nameof(stream));
+        }
+
+        int sourceRate = reader.AudioInfo.SampleRate;
+        if (sourceRate <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        const int outputRate = 16_000;
+        const int waveHeaderLength = 44;
+        using var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true);
+        writer.Write(Encoding.ASCII.GetBytes("RIFF"));
+        writer.Write(0);
+        writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
+        writer.Write(16);
+        writer.Write((short)1);
+        writer.Write((short)1);
+        writer.Write(outputRate);
+        writer.Write(outputRate * sizeof(short));
+        writer.Write((short)sizeof(short));
+        writer.Write((short)16);
+        writer.Write(Encoding.ASCII.GetBytes("data"));
+        writer.Write(0);
+
+        int sourceSamplesWritten = 0;
+        int outputSamplesWritten = 0;
+        int decodeBlockSize = Math.Max(1, Math.Min(sourceRate, requestedSamples));
+        double nextOutputSourcePosition = 0;
+        while (sourceSamplesWritten < requestedSamples)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int length = Math.Min(decodeBlockSize, requestedSamples - sourceSamplesWritten);
+            if (!reader.ReadAudio(
+                    checked(startSample + sourceSamplesWritten),
+                    length,
+                    out Ref<IPcm>? audioRef))
+            {
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+            }
+
+            using (audioRef)
+            {
+                if (audioRef.Value is not Pcm<Stereo32BitFloat> pcm)
+                    throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+                int decodedSamples = Math.Min(pcm.NumSamples, length);
+                if (decodedSamples == 0)
+                    break;
+
+                Span<Stereo32BitFloat> source = pcm.DataSpan[..decodedSamples];
+                double blockEnd = sourceSamplesWritten + decodedSamples;
+                while (nextOutputSourcePosition < blockEnd)
+                {
+                    int sourceIndex = Math.Clamp(
+                        (int)Math.Floor(nextOutputSourcePosition - sourceSamplesWritten),
+                        0,
+                        decodedSamples - 1);
+                    Stereo32BitFloat sample = source[sourceIndex];
+                    double mono = (sample.Left + sample.Right) / 2d;
+                    mono = double.IsFinite(mono) ? Math.Clamp(mono, -1, 1) : 0;
+                    writer.Write((short)Math.Round(mono * short.MaxValue));
+                    outputSamplesWritten++;
+                    nextOutputSourcePosition = outputSamplesWritten * sourceRate / (double)outputRate;
+                }
+                sourceSamplesWritten += decodedSamples;
+                if (decodedSamples < length)
+                    break;
+            }
+        }
+
+        if (sourceSamplesWritten == 0 || outputSamplesWritten == 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        int dataLength = checked(outputSamplesWritten * sizeof(short));
+        stream.Position = 4;
+        writer.Write(checked(waveHeaderLength - 8 + dataLength));
+        stream.Position = 40;
+        writer.Write(dataLength);
+        stream.Position = waveHeaderLength + dataLength;
+        return new SpeechWaveChunkResult(
+            sourceSamplesWritten,
+            outputSamplesWritten,
+            TimeSpan.FromSeconds(sourceSamplesWritten / (double)sourceRate));
     }
 
     private FilePickerFileType CreateCaptionFileType()
@@ -1924,6 +2349,7 @@ public sealed partial class AiSubtitleDialogViewModel
         int chunkCount,
         long expectedCaptionRevision,
         long expectedDraftScopeRevision,
+        long expectedSceneAudioRevision,
         Guid sceneId)
     {
         public AudioSourceItem? Source { get; set; } = source;
@@ -1946,9 +2372,56 @@ public sealed partial class AiSubtitleDialogViewModel
 
         public long ExpectedDraftScopeRevision { get; } = expectedDraftScopeRevision;
 
+        public long ExpectedSceneAudioRevision { get; } = expectedSceneAudioRevision;
+
         public Guid SceneId { get; } = sceneId;
 
         public List<AiTranscriptionSegment> Segments { get; } = [];
+
+        public string? DetectedLanguage { get; set; }
+
+        public int CompletedChunkCount { get; set; }
+    }
+
+    private sealed class SourceTranscriptionOperation(
+        AudioSourceItem? source,
+        string filePath,
+        Guid elementId,
+        long fileLength,
+        long lastWriteTimeUtcTicks,
+        string? language,
+        int sampleRate,
+        long totalSamples,
+        int chunkSamples,
+        int chunkCount,
+        long expectedCaptionRevision,
+        long expectedDraftScopeRevision)
+    {
+        public AudioSourceItem? Source { get; set; } = source;
+
+        public string FilePath { get; } = filePath;
+
+        public Guid ElementId { get; } = elementId;
+
+        public long FileLength { get; } = fileLength;
+
+        public long LastWriteTimeUtcTicks { get; } = lastWriteTimeUtcTicks;
+
+        public string? Language { get; } = language;
+
+        public int SampleRate { get; } = sampleRate;
+
+        public long TotalSamples { get; set; } = totalSamples;
+
+        public int ChunkSamples { get; } = chunkSamples;
+
+        public int ChunkCount { get; set; } = chunkCount;
+
+        public long ExpectedCaptionRevision { get; set; } = expectedCaptionRevision;
+
+        public long ExpectedDraftScopeRevision { get; } = expectedDraftScopeRevision;
+
+        public List<AiTranscriptionSegment> SourceSegments { get; } = [];
 
         public string? DetectedLanguage { get; set; }
 
@@ -1970,6 +2443,15 @@ public sealed partial class AiSubtitleDialogViewModel
         Transcription,
     }
 }
+
+internal readonly record struct SpeechWaveChunkResult(
+    int SourceSampleCount,
+    int OutputSampleCount,
+    TimeSpan Duration);
+
+internal readonly record struct SourceAudioFingerprint(
+    long FileLength,
+    long LastWriteTimeUtcTicks);
 
 internal sealed class SubtitleInputException : Exception
 {

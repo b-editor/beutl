@@ -1,6 +1,7 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Collections;
 using Beutl.Editor.Models;
+using Beutl.Extensibility;
 
 namespace Beutl.Editor.Services.Captions;
 
@@ -116,12 +117,14 @@ public sealed class CaptionTemplateRegistry
     public CaptionTemplateRegistry(IEnumerable<CaptionTemplateContribution> contributions)
     {
         ArgumentNullException.ThrowIfNull(contributions);
-        Replace(contributions.Select(contribution => new CaptionTemplateRegistration(contribution)));
+        _state = State.Create(
+            contributions.Select(contribution => new CaptionTemplateRegistration(contribution)));
+        _templates.Replace(_state.Templates);
     }
 
     public ICoreReadOnlyList<CaptionTemplateDescriptor> Templates => _templates;
 
-    public void Register(
+    public ValueTask RegisterAsync(
         CaptionTemplateContribution contribution,
         CaptionTemplateRegistrationMode mode = CaptionTemplateRegistrationMode.Add)
     {
@@ -129,6 +132,7 @@ public sealed class CaptionTemplateRegistry
         var registration = new CaptionTemplateRegistration(contribution, mode);
         lock (_mutationGate)
         {
+            IReadOnlyDictionary<CaptionTemplateId, Extension> owners;
             CaptionTemplateRegistration[] registrations;
             lock (_stateGate)
             {
@@ -137,22 +141,40 @@ public sealed class CaptionTemplateRegistry
                     .. _state.Contributions.Select(item => new CaptionTemplateRegistration(item)),
                     registration,
                 ];
+                owners = _state.Owners;
             }
 
-            SwapState(State.Create(registrations));
+            return SwapState(State.Create(registrations, owners)).All;
         }
     }
 
     /// <summary>
     /// Atomically replaces every registration and drains calls using the previous state.
     /// </summary>
-    public void Replace(IEnumerable<CaptionTemplateRegistration> registrations)
+    public ValueTask ReplaceAsync(IEnumerable<CaptionTemplateRegistration> registrations)
     {
         ArgumentNullException.ThrowIfNull(registrations);
         CaptionTemplateRegistration[] snapshot = registrations.ToArray();
         lock (_mutationGate)
         {
-            SwapState(State.Create(snapshot));
+            IReadOnlyDictionary<CaptionTemplateId, Extension> owners;
+            lock (_stateGate)
+                owners = _state.Owners;
+
+            return SwapState(State.Create(snapshot, owners)).All;
+        }
+    }
+
+    internal CaptionRegistryDrain<Extension> ReplaceOwned(
+        IEnumerable<CaptionTemplateRegistration> registrations,
+        IReadOnlyDictionary<CaptionTemplateId, Extension> owners)
+    {
+        ArgumentNullException.ThrowIfNull(registrations);
+        ArgumentNullException.ThrowIfNull(owners);
+        CaptionTemplateRegistration[] snapshot = registrations.ToArray();
+        lock (_mutationGate)
+        {
+            return SwapState(State.Create(snapshot, owners));
         }
     }
 
@@ -183,18 +205,19 @@ public sealed class CaptionTemplateRegistry
                     $"No caption template is registered with identifier '{id}'.");
             }
 
-            return new CaptionTemplateLease(contribution, state.AcquireLease());
+            return new CaptionTemplateLease(
+                contribution,
+                state.AcquireLease(state.GetOwners(contribution)));
         }
     }
 
-    private void SwapState(State next)
+    private CaptionRegistryDrain<Extension> SwapState(State next)
     {
         State previous;
         lock (_stateGate)
         {
             previous = _state;
             _state = next;
-            previous.Retire();
         }
 
         try
@@ -206,15 +229,17 @@ public sealed class CaptionTemplateRegistry
             // The metadata state is already replaced. A UI observer must not prevent package
             // teardown from draining executable template leases.
         }
-        finally
-        {
-            previous.WaitForLeases();
-        }
+
+        return new CaptionRegistryDrain<Extension>(
+            previous.RetireAsync(),
+            previous.DrainOwnerAsync);
     }
 
-    private sealed class State : CaptionRegistryLeaseState
+    private sealed class State : CaptionRegistryLeaseState<Extension>
     {
-        private State(Dictionary<CaptionTemplateId, CaptionTemplateContribution> contributions)
+        private State(
+            Dictionary<CaptionTemplateId, CaptionTemplateContribution> contributions,
+            IReadOnlyDictionary<CaptionTemplateId, Extension> owners)
         {
             ContributionsById = contributions;
             Contributions = contributions.Values.ToArray();
@@ -224,6 +249,7 @@ public sealed class CaptionTemplateRegistry
                 .ThenBy(template => template.Id.Value, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
             TemplatesById = Templates.ToDictionary(template => template.Id);
+            Owners = owners;
         }
 
         public IReadOnlyList<CaptionTemplateContribution> Contributions { get; }
@@ -234,7 +260,16 @@ public sealed class CaptionTemplateRegistry
 
         public Dictionary<CaptionTemplateId, CaptionTemplateDescriptor> TemplatesById { get; }
 
-        public static State Create(IEnumerable<CaptionTemplateRegistration> registrations)
+        public IReadOnlyDictionary<CaptionTemplateId, Extension> Owners { get; }
+
+        public IReadOnlyCollection<Extension> GetOwners(CaptionTemplateContribution contribution)
+            => Owners.TryGetValue(contribution.Id, out Extension? owner)
+                ? [owner]
+                : [];
+
+        public static State Create(
+            IEnumerable<CaptionTemplateRegistration> registrations,
+            IReadOnlyDictionary<CaptionTemplateId, Extension>? owners = null)
         {
             var contributions = new Dictionary<CaptionTemplateId, CaptionTemplateContribution>();
             foreach (CaptionTemplateRegistration registration in registrations)
@@ -242,7 +277,9 @@ public sealed class CaptionTemplateRegistry
                 Apply(registration, contributions);
             }
 
-            return new State(contributions);
+            return new State(
+                contributions,
+                owners ?? new Dictionary<CaptionTemplateId, Extension>());
         }
 
         private static void Apply(
@@ -271,4 +308,5 @@ public sealed class CaptionTemplateRegistry
             contributions[contribution.Id] = contribution;
         }
     }
+
 }

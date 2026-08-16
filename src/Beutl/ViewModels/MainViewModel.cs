@@ -37,10 +37,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
     private readonly AiJobCompletionNotifier _aiJobCompletionNotifier;
     private readonly Action<BeutlApiApplication> _shutdownHandoff;
-    private int _disposeRequested;
-    private int _apiClientsDisposed;
+    private readonly object _disposeGate = new();
+    private readonly object _apiClientDisposeGate = new();
     private int _shutdownCompleted;
-    private bool _disposeClientsOnExit;
+    private Task? _disposeTask;
+    private Task? _apiClientDisposeTask;
 
     public MainViewModel()
         : this(null)
@@ -179,6 +180,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     internal AiImageGenerationDialogViewModel CreateAiImageGenerationToolViewModel(EditViewModel editViewModel)
         => new(
             _beutlClients.GetResource<IAiEntitlementService>(),
+            _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiImageGenerationService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>(),
@@ -187,6 +189,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     internal AiImageEditDialogViewModel CreateAiImageEditToolViewModel(EditViewModel editViewModel)
         => new(
             _beutlClients.GetResource<IAiEntitlementService>(),
+            _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiImageEditingService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>(),
@@ -199,6 +202,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 typeof(Beutl.Graphics.Drawable)));
         return new AiSubtitleDialogViewModel(
             _beutlClients.GetResource<IAiEntitlementService>(),
+            _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiTranscriptionService>(),
             _beutlClients.GetResource<IAiCaptionTranslationService>(),
@@ -220,10 +224,12 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     internal AiVideoGenerationDialogViewModel CreateAiVideoGenerationToolViewModel(EditViewModel editViewModel)
         => new(
             _beutlClients.GetResource<IAiEntitlementService>(),
+            _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiVideoService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>(),
             _beutlClients.GetResource<IAiJobKindRegistry>(),
+            _beutlClients.GetResource<IAiJobMonitor>(),
             editViewModel);
 
     public Startup RunStartupTask()
@@ -247,21 +253,93 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public override void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposeRequested, 1) != 0)
-            return;
-
-        _aiJobCompletionNotifier.Dispose();
-        CommandPalette.Dispose();
-        _agentHostEndpoint.RequestStop();
-        _projectService.CloseProject();
-        _aiJobResultHandlers.Dispose();
-        _captionCatalog.Dispose();
-        BeutlApplication.Current.Items.Clear();
-
-        if (!_disposeClientsOnExit)
+        lock (_disposeGate)
         {
-            DisposeApiClients();
+            _disposeTask ??= DisposeCoreAsync();
         }
+    }
+
+    internal Task WaitForDisposalAsync()
+    {
+        lock (_disposeGate)
+        {
+            return _disposeTask ?? Task.CompletedTask;
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        try
+        {
+            // The host uses project/editor services, so join its complete lifecycle before
+            // closing either service.
+            await _agentHostEndpoint.StopAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to stop the agent host during shutdown.");
+        }
+
+        try
+        {
+            _aiJobCompletionNotifier.Dispose();
+            CommandPalette.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to dispose shell notification services during shutdown.");
+        }
+
+        try
+        {
+            _projectService.CloseProject();
+            await EditorHost.WaitForPendingProjectChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to close the active project during shutdown.");
+        }
+
+        try
+        {
+            await _aiJobResultHandlers.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to drain AI job result handlers during shutdown.");
+        }
+
+        try
+        {
+            await _captionCatalog.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to drain caption registrations during shutdown.");
+        }
+
+        try
+        {
+            if (ProxyMediaServices.Current is { } proxyMediaServices)
+            {
+                await proxyMediaServices.DisposeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
+        }
+
+        try
+        {
+            BeutlApplication.Current.Items.Clear();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clear application services during shutdown.");
+        }
+
+        await CompleteShutdownAsync();
     }
 
     internal void OpenAiJobCenter()
@@ -333,38 +411,34 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     internal void RegisterExitHandler(IControlledApplicationLifetime lifetime)
     {
         ArgumentNullException.ThrowIfNull(lifetime);
-        _disposeClientsOnExit = true;
         lifetime.Exit -= OnExit;
         lifetime.Exit += OnExit;
     }
 
     internal void CompleteShutdown()
+        => Dispose();
+
+    private async Task CompleteShutdownAsync()
     {
         if (Interlocked.Exchange(ref _shutdownCompleted, 1) != 0)
             return;
 
-        _agentHostEndpoint.RequestStop();
         try
         {
             _shutdownHandoff(_beutlClients);
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to hand package changes to the shutdown helper.");
+        }
         finally
         {
-            DisposeApiClients();
+            await DisposeApiClientsAsync();
         }
     }
 
     private void PerformShutdownHandoff(BeutlApiApplication clients)
     {
-        try
-        {
-            ProxyMediaServices.Current?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
-        }
-
         PackageChangesQueue queue = clients.GetResource<PackageChangesQueue>();
         PackageIdentity[] installs = queue.GetInstalls().ToArray();
         PackageIdentity[] uninstalls = queue.GetUninstalls().ToArray();
@@ -401,13 +475,24 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         Process.Start(startInfo);
     }
 
-    private void DisposeApiClients()
+    private Task DisposeApiClientsAsync()
     {
-        if (Interlocked.Exchange(ref _apiClientsDisposed, 1) != 0)
-            return;
+        lock (_apiClientDisposeGate)
+        {
+            return _apiClientDisposeTask ??= DisposeApiClientsCoreAsync();
+        }
+    }
 
-        _beutlClients.Dispose();
-        _authHttpClient.Dispose();
+    private async Task DisposeApiClientsCoreAsync()
+    {
+        try
+        {
+            await _beutlClients.DisposeAsync();
+        }
+        finally
+        {
+            _authHttpClient.Dispose();
+        }
     }
 
     public void Execute(ContextCommandExecution execution)

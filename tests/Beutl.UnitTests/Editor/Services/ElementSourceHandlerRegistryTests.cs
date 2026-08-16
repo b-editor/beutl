@@ -1,4 +1,4 @@
-using Beutl.Api.Services;
+﻿using Beutl.Api.Services;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 
@@ -8,14 +8,14 @@ namespace Beutl.UnitTests.Editor.Services;
 public sealed class ElementSourceHandlerRegistryTests
 {
     [Test]
-    public void Register_OrdersHandlersAndRequiresExplicitReplacement()
+    public async Task Register_OrdersHandlersAndRequiresExplicitReplacement()
     {
-        var registry = new ElementSourceHandlerRegistry();
+        await using var registry = new ElementSourceHandlerRegistry();
         var original = new TestHandler(typeof(FirstSource));
         var other = new TestHandler(typeof(SecondSource));
-        using IElementSourceHandlerRegistration originalRegistration = registry.Register(
+        await using IElementSourceHandlerRegistration originalRegistration = registry.Register(
             new ElementSourceHandlerRegistration(original, order: 20));
-        using IElementSourceHandlerRegistration otherRegistration = registry.Register(
+        await using IElementSourceHandlerRegistration otherRegistration = registry.Register(
             new ElementSourceHandlerRegistration(other, order: -10));
 
         Assert.That(registry.Handlers, Is.EqualTo(new[] { other, original }));
@@ -36,7 +36,7 @@ public sealed class ElementSourceHandlerRegistryTests
         }
         Assert.That(registry.Handlers, Is.EqualTo(new[] { other, replacement }));
 
-        replacementRegistration.Dispose();
+        await replacementRegistration.DisposeAsync();
         Assert.That(registry.TryAcquire(typeof(FirstSource), out lease), Is.True);
         using (lease)
         {
@@ -45,9 +45,9 @@ public sealed class ElementSourceHandlerRegistryTests
     }
 
     [Test]
-    public void Register_ReplaceRequiresAnExistingHandler()
+    public async Task Register_ReplaceRequiresAnExistingHandler()
     {
-        var registry = new ElementSourceHandlerRegistry();
+        await using var registry = new ElementSourceHandlerRegistry();
 
         Assert.Throws<ArgumentException>(() => registry.Register(
             new ElementSourceHandlerRegistration(
@@ -58,10 +58,10 @@ public sealed class ElementSourceHandlerRegistryTests
     [Test]
     public async Task RegistrationDispose_RetiresBeforeWaitingAndDrainsActiveLeases()
     {
-        var registry = new ElementSourceHandlerRegistry();
+        await using var registry = new ElementSourceHandlerRegistry();
         var fallback = new TestHandler(typeof(FirstSource));
         var replacement = new TestHandler(typeof(FirstSource));
-        using IElementSourceHandlerRegistration fallbackRegistration = registry.Register(
+        await using IElementSourceHandlerRegistration fallbackRegistration = registry.Register(
             new ElementSourceHandlerRegistration(fallback));
         IElementSourceHandlerRegistration replacementRegistration = registry.Register(
             new ElementSourceHandlerRegistration(
@@ -72,7 +72,7 @@ public sealed class ElementSourceHandlerRegistryTests
             Is.True);
         IElementSourceHandlerLease lease = activeLease!;
 
-        Task disposeTask = Task.Run(replacementRegistration.Dispose);
+        Task disposeTask = replacementRegistration.DisposeAsync().AsTask();
         try
         {
             await WaitUntilAsync(IsFallbackActive, TimeSpan.FromSeconds(5));
@@ -104,10 +104,10 @@ public sealed class ElementSourceHandlerRegistryTests
     }
 
     [Test]
-    public void ExtensionRegistrations_AreComposedAndRetiredWhenPackageIsRemoved()
+    public async Task ExtensionRegistrations_AreComposedAndRetiredWhenPackageIsRemoved()
     {
         var provider = new ExtensionProvider();
-        using var registry = new ElementSourceHandlerRegistry([], provider);
+        await using var registry = new ElementSourceHandlerRegistry([], provider);
         var handler = new TestHandler(typeof(FirstSource));
         var extension = new TestExtension(
         [
@@ -122,18 +122,18 @@ public sealed class ElementSourceHandlerRegistryTests
             Assert.That(lease!.Handler, Is.SameAs(handler));
         }
 
-        provider.RemoveExtensions(1);
+        await provider.RemoveExtensions(1).DrainAsync();
 
         Assert.That(registry.TryAcquire(typeof(FirstSource), out lease), Is.False);
     }
 
     [Test]
-    public void InvalidExtensionRegistration_RollsBackPartialContributions()
+    public async Task InvalidExtensionRegistration_RollsBackPartialContributions()
     {
         var provider = new ExtensionProvider();
         var failures = new List<ElementSourceHandlerExtensionFailure>();
         var hostHandler = new TestHandler(typeof(FirstSource));
-        using var registry = new ElementSourceHandlerRegistry(
+        await using var registry = new ElementSourceHandlerRegistry(
         [
             new ElementSourceHandlerRegistration(hostHandler),
         ],

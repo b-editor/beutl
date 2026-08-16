@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Beutl.Language;
 
 namespace Beutl.Api.Services;
@@ -8,11 +8,13 @@ internal static class BuiltInAiJobKinds
     public static IReadOnlyList<AiJobKindDescriptor> Create(
         IAiImageGenerationService images,
         IAiVideoService videos,
-        IAiEntitlementService entitlements)
+        IAiEntitlementService entitlements,
+        IAiOperationAvailabilityService availability)
     {
         ArgumentNullException.ThrowIfNull(images);
         ArgumentNullException.ThrowIfNull(videos);
         ArgumentNullException.ThrowIfNull(entitlements);
+        ArgumentNullException.ThrowIfNull(availability);
 
         var statuses = new AiJobStatusMap(
         [
@@ -35,7 +37,7 @@ internal static class BuiltInAiJobKinds
                 AiJobKinds.Image,
                 statuses)
             {
-                RetryHandler = new AiImageJobRetryHandler(images, entitlements),
+                RetryHandler = new AiImageJobRetryHandler(images, entitlements, availability),
             },
             new AiJobKindDescriptor(
                 AiJobKinds.ImageEdit,
@@ -51,7 +53,7 @@ internal static class BuiltInAiJobKinds
                 statuses)
             {
                 RefreshHandler = new AiVideoJobRefreshHandler(videos),
-                RetryHandler = new AiVideoJobRetryHandler(videos, entitlements),
+                RetryHandler = new AiVideoJobRetryHandler(videos, entitlements, availability),
             },
         ];
     }
@@ -90,7 +92,8 @@ internal static class AiJobInputParameters
 
 internal abstract class MeteredAiJobRetryHandler(
     AiOperationId operation,
-    IAiEntitlementService entitlementService) : IAiJobRetryHandler
+    IAiEntitlementService entitlementService,
+    IAiOperationAvailabilityService availabilityService) : IAiJobRetryHandler
 {
     public bool CanRetry(AiJob job, AiJobStatusSemantics status)
         => status.Outcome == AiJobOutcomes.Failed
@@ -112,7 +115,10 @@ internal abstract class MeteredAiJobRetryHandler(
         {
             result = new AiJobRetryPreflight(true, false, Strings.AiProRequired);
         }
-        else if (!entitlements.Availability.CanStart(operation))
+        else if (!entitlements.Availability.CanStart(operation)
+                 || !await availabilityService.CheckAsync(
+                     CreateAvailabilityRequest(job),
+                     cancellationToken))
         {
             result = new AiJobRetryPreflight(true, false, Strings.AiEstimatedUsageInsufficient);
         }
@@ -130,14 +136,35 @@ internal abstract class MeteredAiJobRetryHandler(
     public abstract Task RetryAsync(
         AiJob job,
         CancellationToken cancellationToken);
+
+    protected abstract AiOperationAvailabilityRequest CreateAvailabilityRequest(AiJob job);
+
+    protected async Task EnsureAvailableAsync(
+        AiJob job,
+        CancellationToken cancellationToken)
+    {
+        if (!await availabilityService.CheckAsync(
+                CreateAvailabilityRequest(job),
+                cancellationToken))
+        {
+            throw new AiUsageLimitExceededException();
+        }
+    }
 }
 
 internal sealed class AiImageJobRetryHandler(
     IAiImageGenerationService images,
-    IAiEntitlementService entitlementService)
-    : MeteredAiJobRetryHandler(AiOperations.ImageGeneration, entitlementService)
+    IAiEntitlementService entitlementService,
+    IAiOperationAvailabilityService availabilityService)
+    : MeteredAiJobRetryHandler(
+        AiOperations.ImageGeneration,
+        entitlementService,
+        availabilityService)
 {
-    public override Task RetryAsync(
+    protected override AiOperationAvailabilityRequest CreateAvailabilityRequest(AiJob job)
+        => new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration);
+
+    public override async Task RetryAsync(
         AiJob job,
         CancellationToken cancellationToken)
     {
@@ -147,7 +174,8 @@ internal sealed class AiImageJobRetryHandler(
         string size = imageSize is "1024x1024" or "1024x1536" or "1536x1024"
             ? imageSize
             : "1024x1024";
-        return images.GenerateAsync(
+        await EnsureAvailableAsync(job, cancellationToken);
+        await images.GenerateAsync(
             new AiImageGenerationRequest(prompt, new AiImageSizeId(size)),
             cancellationToken);
     }
@@ -155,23 +183,37 @@ internal sealed class AiImageJobRetryHandler(
 
 internal sealed class AiVideoJobRetryHandler(
     IAiVideoService videos,
-    IAiEntitlementService entitlementService)
-    : MeteredAiJobRetryHandler(AiOperations.VideoGeneration, entitlementService)
+    IAiEntitlementService entitlementService,
+    IAiOperationAvailabilityService availabilityService)
+    : MeteredAiJobRetryHandler(
+        AiOperations.VideoGeneration,
+        entitlementService,
+        availabilityService)
 {
-    public override Task RetryAsync(
+    protected override AiOperationAvailabilityRequest CreateAvailabilityRequest(AiJob job)
+        => new AiOperationAvailabilityRequest.Video(GetDurationSeconds(job));
+
+    public override async Task RetryAsync(
         AiJob job,
         CancellationToken cancellationToken)
     {
         string prompt = AiJobInputParameters.GetString(job, "prompt")
             ?? throw new InvalidOperationException("The retained video prompt is missing.");
-        int? durationSeconds = AiJobInputParameters.GetInt32(job, "durationSeconds");
+        int durationSeconds = GetDurationSeconds(job);
         string? resolution = AiJobInputParameters.GetString(job, "resolution");
-        return videos.CreateAsync(
+        await EnsureAvailableAsync(job, cancellationToken);
+        await videos.CreateAsync(
             new AiVideoGenerationRequest(
                 prompt,
-                durationSeconds is 4 or 6 or 8 ? durationSeconds.Value : 6,
+                durationSeconds,
                 new AiVideoResolutionId(resolution is "720p" or "1080p" ? resolution : "720p")),
             cancellationToken);
+    }
+
+    private static int GetDurationSeconds(AiJob job)
+    {
+        int? durationSeconds = AiJobInputParameters.GetInt32(job, "durationSeconds");
+        return durationSeconds is 4 or 6 or 8 ? durationSeconds.Value : 6;
     }
 }
 

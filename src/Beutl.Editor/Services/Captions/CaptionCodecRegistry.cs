@@ -1,4 +1,5 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Extensibility;
 
 namespace Beutl.Editor.Services.Captions;
 
@@ -52,7 +53,8 @@ public sealed class CaptionCodecRegistry
 
     public CaptionCodecRegistry(IEnumerable<CaptionCodecRegistration> registrations)
     {
-        Replace(registrations);
+        ArgumentNullException.ThrowIfNull(registrations);
+        _state = State.Create(registrations);
     }
 
     public IReadOnlyList<CaptionCodecInfo> Codecs
@@ -64,11 +66,12 @@ public sealed class CaptionCodecRegistry
         }
     }
 
-    public void Register(CaptionCodecRegistration registration)
+    public ValueTask RegisterAsync(CaptionCodecRegistration registration)
     {
         ArgumentNullException.ThrowIfNull(registration);
         lock (_mutationGate)
         {
+            IReadOnlyDictionary<CaptionFormatId, IReadOnlyCollection<Extension>> owners;
             CaptionCodecRegistration[] registrations;
             lock (_stateGate)
             {
@@ -78,22 +81,40 @@ public sealed class CaptionCodecRegistry
                         new CaptionCodecRegistration(contribution)),
                     registration,
                 ];
+                owners = _state.Owners;
             }
 
-            SwapState(State.Create(registrations));
+            return SwapState(State.Create(registrations, owners)).All;
         }
     }
 
     /// <summary>
     /// Atomically replaces every registration and drains calls using the previous state.
     /// </summary>
-    public void Replace(IEnumerable<CaptionCodecRegistration> registrations)
+    public ValueTask ReplaceAsync(IEnumerable<CaptionCodecRegistration> registrations)
     {
         ArgumentNullException.ThrowIfNull(registrations);
         CaptionCodecRegistration[] snapshot = registrations.ToArray();
         lock (_mutationGate)
         {
-            SwapState(State.Create(snapshot));
+            IReadOnlyDictionary<CaptionFormatId, IReadOnlyCollection<Extension>> owners;
+            lock (_stateGate)
+                owners = _state.Owners;
+
+            return SwapState(State.Create(snapshot, owners)).All;
+        }
+    }
+
+    internal CaptionRegistryDrain<Extension> ReplaceOwned(
+        IEnumerable<CaptionCodecRegistration> registrations,
+        IReadOnlyDictionary<CaptionFormatId, IReadOnlyCollection<Extension>> owners)
+    {
+        ArgumentNullException.ThrowIfNull(registrations);
+        ArgumentNullException.ThrowIfNull(owners);
+        CaptionCodecRegistration[] snapshot = registrations.ToArray();
+        lock (_mutationGate)
+        {
+            return SwapState(State.Create(snapshot, owners));
         }
     }
 
@@ -144,8 +165,8 @@ public sealed class CaptionCodecRegistry
     public CaptionImportResult Decode(CaptionFormatId format, string content)
     {
         ArgumentNullException.ThrowIfNull(content);
-        using StateLease lease = AcquireState();
-        CaptionCodecContribution contribution = lease.State.GetRequired(format);
+        using StateLease lease = AcquireState(format);
+        CaptionCodecContribution contribution = lease.Contribution;
         ICaptionDecoder decoder = contribution.Decoder
             ?? throw new NotSupportedException($"Caption format '{format}' does not support decoding.");
         return decoder.Decode(content)
@@ -156,8 +177,8 @@ public sealed class CaptionCodecRegistry
     public string Encode(CaptionFormatId format, CaptionDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
-        using StateLease lease = AcquireState();
-        CaptionCodecContribution contribution = lease.State.GetRequired(format);
+        using StateLease lease = AcquireState(format);
+        CaptionCodecContribution contribution = lease.Contribution;
         ICaptionEncoder encoder = contribution.Encoder
             ?? throw new NotSupportedException($"Caption format '{format}' does not support encoding.");
         return encoder.Encode(document)
@@ -165,26 +186,30 @@ public sealed class CaptionCodecRegistry
                    $"Caption encoder '{format}' returned null export content.");
     }
 
-    private StateLease AcquireState()
+    private StateLease AcquireState(CaptionFormatId format)
     {
         lock (_stateGate)
         {
             State state = _state;
-            return new StateLease(state, state.AcquireLease());
+            CaptionCodecContribution contribution = state.GetRequired(format);
+            return new StateLease(
+                contribution,
+                state.AcquireLease(state.GetOwners(contribution)));
         }
     }
 
-    private void SwapState(State next)
+    private CaptionRegistryDrain<Extension> SwapState(State next)
     {
         State previous;
         lock (_stateGate)
         {
             previous = _state;
             _state = next;
-            previous.Retire();
         }
 
-        previous.WaitForLeases();
+        return new CaptionRegistryDrain<Extension>(
+            previous.RetireAsync(),
+            previous.DrainOwnerAsync);
     }
 
     private static string NormalizeExtension(string extension)
@@ -203,11 +228,12 @@ public sealed class CaptionCodecRegistry
         return normalized;
     }
 
-    private sealed class State : CaptionRegistryLeaseState
+    private sealed class State : CaptionRegistryLeaseState<Extension>
     {
         private State(
             Dictionary<CaptionFormatId, CaptionCodecContribution> contributions,
-            Dictionary<string, CaptionFormatId> formatsByExtension)
+            Dictionary<string, CaptionFormatId> formatsByExtension,
+            IReadOnlyDictionary<CaptionFormatId, IReadOnlyCollection<Extension>> owners)
         {
             ContributionsByFormat = contributions;
             Contributions = contributions.Values.ToArray();
@@ -219,6 +245,7 @@ public sealed class CaptionCodecRegistry
                 .ToArray();
             Codecs = Array.AsReadOnly(codecs);
             CodecsByFormat = codecs.ToDictionary(codec => codec.Format);
+            Owners = owners;
         }
 
         public IReadOnlyList<CaptionCodecContribution> Contributions { get; }
@@ -231,6 +258,15 @@ public sealed class CaptionCodecRegistry
 
         public Dictionary<string, CaptionFormatId> FormatsByExtension { get; }
 
+        public IReadOnlyDictionary<CaptionFormatId, IReadOnlyCollection<Extension>> Owners { get; }
+
+        public IReadOnlyCollection<Extension> GetOwners(CaptionCodecContribution contribution)
+            => Owners.TryGetValue(
+                    contribution.Format,
+                    out IReadOnlyCollection<Extension>? owners)
+                ? owners
+                : [];
+
         public CaptionCodecContribution GetRequired(CaptionFormatId format)
         {
             if (ContributionsByFormat.TryGetValue(format, out CaptionCodecContribution? contribution))
@@ -240,7 +276,9 @@ public sealed class CaptionCodecRegistry
                 $"No caption contribution is registered for format '{format}'.");
         }
 
-        public static State Create(IEnumerable<CaptionCodecRegistration> registrations)
+        public static State Create(
+            IEnumerable<CaptionCodecRegistration> registrations,
+            IReadOnlyDictionary<CaptionFormatId, IReadOnlyCollection<Extension>>? owners = null)
         {
             var contributions = new Dictionary<CaptionFormatId, CaptionCodecContribution>();
             var formatsByExtension = new Dictionary<string, CaptionFormatId>(StringComparer.OrdinalIgnoreCase);
@@ -249,7 +287,10 @@ public sealed class CaptionCodecRegistry
                 Apply(registration, contributions, formatsByExtension);
             }
 
-            return new State(contributions, formatsByExtension);
+            return new State(
+                contributions,
+                formatsByExtension,
+                owners ?? new Dictionary<CaptionFormatId, IReadOnlyCollection<Extension>>());
         }
 
         private static void Apply(
@@ -355,17 +396,21 @@ public sealed class CaptionCodecRegistry
         }
     }
 
-    private sealed class StateLease(State state, IDisposable lifetime) : IDisposable
+    private sealed class StateLease(
+        CaptionCodecContribution contribution,
+        IDisposable lifetime) : IDisposable
     {
-        private State? _state = state;
+        private CaptionCodecContribution? _contribution = contribution;
         private IDisposable? _lifetime = lifetime;
 
-        public State State => _state ?? throw new ObjectDisposedException(nameof(StateLease));
+        public CaptionCodecContribution Contribution
+            => _contribution ?? throw new ObjectDisposedException(nameof(StateLease));
 
         public void Dispose()
         {
-            _state = null;
+            _contribution = null;
             Interlocked.Exchange(ref _lifetime, null)?.Dispose();
         }
     }
+
 }

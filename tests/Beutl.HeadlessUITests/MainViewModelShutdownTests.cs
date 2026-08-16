@@ -1,6 +1,8 @@
 ﻿using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
+using Beutl.ProjectSystem;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
 
@@ -10,7 +12,7 @@ namespace Beutl.HeadlessUITests;
 public sealed class MainViewModelShutdownTests
 {
     [AvaloniaTest]
-    public async Task ClosingRealShell_PreservesPackageQueueUntilExitThenDisposesClientsIdempotently()
+    public async Task ClosingRealShell_HandsOffPackageQueueAndDisposesClientsIdempotently()
     {
         await TestReset.ResetShellAsync();
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
@@ -28,11 +30,8 @@ public sealed class MainViewModelShutdownTests
         {
             window.Show();
             window.Close();
-
-            Assert.DoesNotThrow(() =>
-                viewModel._beutlClients.GetResource<PackageChangesQueue>());
-
-            viewModel.CompleteShutdown();
+            await viewModel.WaitForDisposalAsync();
+            await WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(5));
 
             Assert.That(handedOffQueue, Is.Not.Null);
             Assert.Throws<ObjectDisposedException>(() =>
@@ -48,6 +47,54 @@ public sealed class MainViewModelShutdownTests
             }
             viewModel.Dispose();
             viewModel.CompleteShutdown();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ClosingRealShell_WaitsForOpenEditorTabsToDispose()
+    {
+        await TestReset.ResetShellAsync();
+        using var lifetime = new ClassicDesktopStyleApplicationLifetime();
+        var viewModel = new MainViewModel();
+        var window = new MainWindow { DataContext = viewModel, Content = null };
+        viewModel.RegisterExitHandler(lifetime);
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-editor");
+        Directory.CreateDirectory(workspace);
+        Project project = (await viewModel.ProjectService.CreateProject(
+            640, 480, 30, 44_100, "shutdown-editor", workspace))!;
+        Scene scene = project.Items.OfType<Scene>().Single();
+        viewModel.EditorService.ActivateTabItem(scene);
+        HeadlessTestHelpers.Settle();
+
+        try
+        {
+            window.Show();
+            window.Close();
+            await viewModel.WaitForDisposalAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            await WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(5));
+
+            Assert.That(viewModel.EditorService.TabItems, Is.Empty);
+        }
+        finally
+        {
+            if (window.IsVisible)
+            {
+                window.Close();
+            }
+            viewModel.Dispose();
+            await viewModel.WaitForDisposalAsync();
+            viewModel.CompleteShutdown();
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> predicate, TimeSpan timeout)
+    {
+        DateTime deadline = DateTime.UtcNow + timeout;
+        while (!predicate())
+        {
+            if (DateTime.UtcNow >= deadline)
+                throw new TimeoutException("The shell did not finish closing.");
+            await Task.Delay(10);
         }
     }
 

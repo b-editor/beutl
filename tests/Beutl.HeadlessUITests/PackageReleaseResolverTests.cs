@@ -16,6 +16,22 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PackageReleaseResolverTests
 {
+    private readonly HttpClient _httpClient;
+    private readonly BeutlApiApplication _clients;
+
+    public PackageReleaseResolverTests()
+    {
+        _httpClient = new HttpClient();
+        _clients = new BeutlApiApplication(_httpClient, new ExtensionProvider());
+    }
+
+    [OneTimeTearDown]
+    public async Task OneTimeTearDown()
+    {
+        await _clients.DisposeAsync();
+        _httpClient.Dispose();
+    }
+
     [Test]
     public async Task ObserveLatest_IgnoresCompletionFromSupersededRequest()
     {
@@ -271,10 +287,8 @@ public class PackageReleaseResolverTests
         return new PackageIdentity("Package", NuGetVersion.Parse(version));
     }
 
-    private static Release CreateRelease(string version)
+    private Release CreateRelease(string version)
     {
-        using var httpClient = new HttpClient();
-        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var ownerResponse = new ProfileResponse
         {
             Id = "owner",
@@ -284,7 +298,7 @@ public class PackageReleaseResolverTests
             IconId = null,
             IconUrl = null,
         };
-        var owner = new Profile(ownerResponse, clients);
+        var owner = new Profile(ownerResponse, _clients);
         var package = new Package(owner, new PackageResponse
         {
             Id = "package",
@@ -302,7 +316,7 @@ public class PackageReleaseResolverTests
             Price = null,
             Paid = false,
             Owned = true,
-        }, clients);
+        }, _clients);
 
         return new Release(package, new ReleaseResponse
         {
@@ -313,7 +327,7 @@ public class PackageReleaseResolverTests
             TargetVersion = null,
             FileId = null,
             FileUrl = null,
-        }, clients);
+        }, _clients);
     }
 
     private static async Task WaitForAsync(Func<bool> condition)

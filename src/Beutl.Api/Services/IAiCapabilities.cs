@@ -9,6 +9,13 @@ public interface IAiEntitlementService : IBeutlApiResource
     Task<AiEntitlements?> RefreshAsync(CancellationToken cancellationToken);
 }
 
+public interface IAiOperationAvailabilityService : IBeutlApiResource
+{
+    Task<bool> CheckAsync(
+        AiOperationAvailabilityRequest request,
+        CancellationToken cancellationToken);
+}
+
 public interface IAiImageGenerationService : IBeutlApiResource
 {
     Task<AiImageResult> GenerateAsync(
@@ -54,7 +61,7 @@ public interface IAuthenticatedContentService : IBeutlApiResource
     /// Streams authenticated content into a caller-owned writable destination. The destination
     /// remains open and ownership never transfers to the service.
     /// </summary>
-    Task CopyToAsync(
+    Task<AiContentDownload> CopyToAsync(
         Uri contentUri,
         Stream destination,
         CancellationToken cancellationToken);

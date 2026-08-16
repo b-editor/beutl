@@ -12,5 +12,9 @@ internal sealed record AiVideoJobResponse
 
     [JsonPropertyName("url")] public string? Url { get; init; }
 
+    [JsonPropertyName("fileName")] public string? FileName { get; init; }
+
+    [JsonPropertyName("contentType")] public string? ContentType { get; init; }
+
     [JsonPropertyName("error")] public string? Error { get; init; }
 }

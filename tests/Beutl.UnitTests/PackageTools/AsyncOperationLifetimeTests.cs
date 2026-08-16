@@ -15,7 +15,11 @@ public sealed class AsyncOperationLifetimeTests
         bool resourcesDisposed = false;
         var lifetime = new AsyncOperationLifetime(
             () => requestsCanceled = true,
-            () => resourcesDisposed = true);
+            () =>
+            {
+                resourcesDisposed = true;
+                return ValueTask.CompletedTask;
+            });
         Task operation = lifetime.RunAsync(async cancellationToken =>
         {
             operationStarted.TrySetResult();
@@ -53,7 +57,11 @@ public sealed class AsyncOperationLifetimeTests
         int disposeCount = 0;
         var lifetime = new AsyncOperationLifetime(
             static () => { },
-            () => disposeCount++);
+            () =>
+            {
+                disposeCount++;
+                return ValueTask.CompletedTask;
+            });
 
         Task first = lifetime.DisposeAsync().AsTask();
         Task second = lifetime.DisposeAsync().AsTask();

@@ -70,5 +70,11 @@ public enum ApiErrorCode
 
     AiJobNotFound,
 
+    AiJobIsActive,
+
     AiJobLimitReached,
+
+    AiRequestInProgress,
+
+    AiRequestWasDeleted,
 }

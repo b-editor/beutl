@@ -14,7 +14,10 @@ public sealed class AiErrorConverterTests
     [TestCase("aiUsageLimitExceeded", typeof(AiUsageLimitExceededException))]
     [TestCase("fileIsTooLarge", typeof(AiFileTooLargeException))]
     [TestCase("aiProviderError", typeof(AiProviderErrorException))]
+    [TestCase("aiJobIsActive", typeof(AiJobIsActiveException))]
     [TestCase("aiJobLimitReached", typeof(AiJobLimitReachedException))]
+    [TestCase("aiRequestInProgress", typeof(AiRequestInProgressException))]
+    [TestCase("aiRequestWasDeleted", typeof(AiRequestWasDeletedException))]
     public async Task ConvertAsync_MapsEveryKnownAiError(
         string errorCode,
         Type expectedType)

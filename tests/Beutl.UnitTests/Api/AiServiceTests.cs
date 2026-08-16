@@ -27,15 +27,16 @@ public sealed class AiCapabilityServiceTests
         """;
 
     [Test]
-    public void Application_RegistersEachCapabilityIndependently()
+    public async Task Application_RegistersEachCapabilityIndependently()
     {
         using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
 
         object[] services =
         [
             app.GetResource<IAiEntitlementService>(),
+            app.GetResource<IAiOperationAvailabilityService>(),
             app.GetResource<IAiImageGenerationService>(),
             app.GetResource<IAiImageEditingService>(),
             app.GetResource<IAiTranscriptionService>(),
@@ -64,11 +65,135 @@ public sealed class AiCapabilityServiceTests
     }
 
     [Test]
+    public async Task Availability_SerializesEachDiscriminatedRequestWithoutPricingOrIdempotency()
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse(
+            HttpStatusCode.OK,
+            "{ \"available\": true }"));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        IAiOperationAvailabilityService service =
+            app.GetResource<IAiOperationAvailabilityService>();
+
+        bool[] results =
+        [
+            await service.CheckAsync(
+                new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration),
+                CancellationToken.None),
+            await service.CheckAsync(
+                new AiOperationAvailabilityRequest.Video(4),
+                CancellationToken.None),
+            await service.CheckAsync(
+                new AiOperationAvailabilityRequest.Transcription(1.5),
+                CancellationToken.None),
+            await service.CheckAsync(
+                new AiOperationAvailabilityRequest.Translation(123),
+                CancellationToken.None),
+        ];
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(results, Is.All.True);
+            Assert.That(handler.Requests.Select(request => request.Body), Is.EqualTo(new[]
+            {
+                "{\"operation\":\"image.generate\"}",
+                "{\"operation\":\"video.generate\",\"durationSeconds\":4}",
+                "{\"operation\":\"audio.transcribe\",\"durationSeconds\":1.5}",
+                "{\"operation\":\"subtitle.translate\",\"characterCount\":123}",
+            }));
+            Assert.That(handler.Requests, Has.All.Property(nameof(RecordedRequest.IdempotencyKey)).Null);
+        }
+    }
+
+    [Test]
+    public async Task PaidPosts_SendOneUniqueUuidPerLogicalInvocation_AndGetsDoNot()
+    {
+        using var handler = new RecordingHandler(request => request.Path switch
+        {
+            "/api/v3/ai/images" or "/api/v3/ai/images/edit" => JsonResponse(HttpStatusCode.OK, """
+                {
+                  "jobId": "image-job",
+                  "fileId": "image-file",
+                  "url": "https://beutl.beditor.net/api/contents/image-file"
+                }
+                """),
+            "/api/v3/ai/transcriptions" => JsonResponse(HttpStatusCode.OK, """
+                { "jobId": "transcription-job", "segments": [], "language": "en" }
+                """),
+            "/api/v3/ai/translations" => JsonResponse(HttpStatusCode.OK, """
+                { "jobId": "translation-job", "segments": [] }
+                """),
+            "/api/v3/ai/videos" or "/api/v3/ai/videos/frames" => JsonResponse(HttpStatusCode.OK, """
+                { "jobId": "video-job", "status": "queued" }
+                """),
+            "/api/v3/ai/videos/video-job" => JsonResponse(HttpStatusCode.OK, """
+                { "jobId": "video-job", "status": "running" }
+                """),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        AiUploadSource Upload(string name, string mediaType) => new(
+            name,
+            mediaType,
+            _ => ValueTask.FromResult<Stream>(new MemoryStream([1, 2, 3])),
+            3);
+
+        IAiImageGenerationService images = app.GetResource<IAiImageGenerationService>();
+        await images.GenerateAsync(
+            new AiImageGenerationRequest("first", new AiImageSizeId("1024x1024")),
+            CancellationToken.None);
+        await images.GenerateAsync(
+            new AiImageGenerationRequest("second", new AiImageSizeId("1024x1024")),
+            CancellationToken.None);
+        await app.GetResource<IAiImageEditingService>().EditAsync(
+            new AiImageEditRequest(Upload("image.png", "image/png"), new AiImageEditTaskId("upscale")),
+            CancellationToken.None);
+        await app.GetResource<IAiTranscriptionService>().TranscribeAsync(
+            new AiTranscriptionRequest(Upload("audio.wav", "audio/wav")),
+            CancellationToken.None);
+        await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
+            new AiCaptionTranslationRequest(
+                [new AiCaptionTranslationSegment { Id = "1", Text = "Hello" }],
+                "ja"),
+            CancellationToken.None);
+        IAiVideoService videos = app.GetResource<IAiVideoService>();
+        await videos.CreateAsync(
+            new AiVideoGenerationRequest("plain", 4, new AiVideoResolutionId("720p")),
+            CancellationToken.None);
+        await videos.CreateAsync(
+            new AiVideoGenerationRequest(
+                "framed",
+                8,
+                new AiVideoResolutionId("1080p"),
+                Upload("frame.png", "image/png")),
+            CancellationToken.None);
+        await videos.GetAsync(new AiJobId("video-job"), CancellationToken.None);
+
+        RecordedRequest[] paid = handler.Requests
+            .Where(request => request.Method == HttpMethod.Post)
+            .ToArray();
+        string[] keys = paid.Select(request => request.IdempotencyKey!).ToArray();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(paid, Has.Length.EqualTo(7));
+            Assert.That(keys, Has.All.Not.Null.And.Not.Empty);
+            Assert.That(keys.Select(Guid.Parse).Count(), Is.EqualTo(7));
+            Assert.That(keys.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(7));
+            Assert.That(
+                handler.Requests.Single(request => request.Method == HttpMethod.Get).IdempotencyKey,
+                Is.Null);
+        }
+    }
+
+    [Test]
     public async Task Entitlements_WhenSignedOut_ReturnsNullWithoutTransportRequest()
     {
         using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
 
         AiEntitlements? result = await app.GetResource<IAiEntitlementService>()
             .RefreshAsync(CancellationToken.None);
@@ -98,7 +223,7 @@ public sealed class AiCapabilityServiceTests
             }
             """));
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAiEntitlementService service = app.GetResource<IAiEntitlementService>();
 
@@ -135,7 +260,7 @@ public sealed class AiCapabilityServiceTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAiEntitlementService entitlements = app.GetResource<IAiEntitlementService>();
         await entitlements.RefreshAsync(CancellationToken.None);
@@ -177,7 +302,7 @@ public sealed class AiCapabilityServiceTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAiEntitlementService entitlements = app.GetResource<IAiEntitlementService>();
         await entitlements.RefreshAsync(CancellationToken.None);
@@ -212,7 +337,7 @@ public sealed class AiCapabilityServiceTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
 
         AiCaptionTranslationResponse result = await app.GetResource<IAiCaptionTranslationService>()
@@ -264,7 +389,7 @@ public sealed class AiCapabilityServiceTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         var stream = new TrackingMemoryStream([1, 2, 3]);
         var source = new AiUploadSource(
@@ -305,13 +430,15 @@ public sealed class AiCapabilityServiceTests
                   "status": "succeeded",
                   "fileId": "video-file-1",
                   "url": "https://beutl.beditor.net/api/contents/video-file-1",
+                  "fileName": "generated-video.webm",
+                  "contentType": "video/webm",
                   "error": null
                 }
                 """),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAiVideoService service = app.GetResource<IAiVideoService>();
 
@@ -325,6 +452,15 @@ public sealed class AiCapabilityServiceTests
             Assert.That(created.Status, Is.EqualTo(AiJobStatuses.Queued));
             Assert.That(completed.Status, Is.EqualTo(AiJobStatuses.Succeeded));
             Assert.That(completed.FileId, Is.EqualTo(new AiContentId("video-file-1")));
+            Assert.That(completed.ContentMetadata?.FileName, Is.EqualTo("generated-video.webm"));
+            Assert.That(completed.ContentMetadata?.ContentType, Is.EqualTo("video/webm"));
+            Assert.That(completed.ContentMetadata?.GetFileExtension(".mp4", "video"), Is.EqualTo(".webm"));
+            Assert.Throws<AiException>(() =>
+                new AiContentMetadata("payload.png", "image/png")
+                    .GetFileExtension(".mp4", "video"));
+            Assert.Throws<AiException>(() =>
+                new AiContentMetadata("payload.webm", "application/octet-stream")
+                    .GetFileExtension(".mp4", "video"));
             Assert.That(handler.Requests.Select(request => request.Path),
                 Does.Contain("/api/v3/ai/videos/video-job-1"));
         }
@@ -355,7 +491,7 @@ public sealed class AiCapabilityServiceTests
                 }
                 """));
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAiJobClient client = app.GetResource<IAiJobClient>();
 
@@ -376,12 +512,18 @@ public sealed class AiCapabilityServiceTests
     [Test]
     public async Task AuthenticatedContent_RejectsForeignOriginsAndUsesCapturedBearer()
     {
-        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        using var handler = new RecordingHandler(_ =>
         {
-            Content = new ByteArrayContent([4, 5, 6]),
+            var content = new ByteArrayContent([4, 5, 6]);
+            content.Headers.ContentType = new("video/webm");
+            content.Headers.ContentDisposition = new("attachment")
+            {
+                FileNameStar = "generated-video.webm",
+            };
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         IAuthenticatedContentService service = app.GetResource<IAuthenticatedContentService>();
 
@@ -393,7 +535,7 @@ public sealed class AiCapabilityServiceTests
                 CancellationToken.None));
         // Derive the accepted origin from the client so the assertion holds for
         // both the local and production API base addresses.
-        await service.CopyToAsync(
+        AiContentDownload download = await service.CopyToAsync(
             new Uri(app.HttpClient.BaseAddress!, "/api/contents/file-1"),
             destination,
             CancellationToken.None);
@@ -402,7 +544,39 @@ public sealed class AiCapabilityServiceTests
         {
             Assert.That(destination.ToArray(), Is.EqualTo(new byte[] { 4, 5, 6 }));
             Assert.That(handler.Requests.Single().Authorization, Is.EqualTo("Bearer token"));
+            Assert.That(download.Metadata?.FileName, Is.EqualTo("generated-video.webm"));
+            Assert.That(download.Metadata?.ContentType, Is.EqualTo("video/webm"));
         }
+    }
+
+    [Test]
+    public void RequestValidation_EnforcesPromptVideoDurationAndKnownFrameSize()
+    {
+        var size = new AiImageSizeId("1024x1024");
+        Assert.DoesNotThrow(() => new AiImageGenerationRequest(new string('a', 4_000), size));
+        ArgumentException promptError = Assert.Throws<ArgumentException>(() =>
+            new AiImageGenerationRequest(new string('a', 4_001), size))!;
+        Assert.That(promptError.Message, Does.Contain("4000"));
+
+        Assert.DoesNotThrow(() => new AiVideoGenerationRequest(
+            "prompt",
+            4,
+            new AiVideoResolutionId("720p")));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new AiVideoGenerationRequest(
+            "prompt",
+            5,
+            new AiVideoResolutionId("720p")));
+
+        var oversized = new AiUploadSource(
+            "frame.png",
+            "image/png",
+            _ => ValueTask.FromResult<Stream>(Stream.Null),
+            AiRequestLimits.MaxFrameUploadBytes + 1);
+        Assert.Throws<AiFileTooLargeException>(() => new AiVideoGenerationRequest(
+            "prompt",
+            4,
+            new AiVideoResolutionId("720p"),
+            oversized));
     }
 
     private static string EntitlementsJson() => $$"""
@@ -451,6 +625,7 @@ public sealed class AiCapabilityServiceTests
         string Path,
         string Query,
         string? Authorization,
+        string? IdempotencyKey,
         string? ContentType,
         string Body);
 
@@ -470,6 +645,9 @@ public sealed class AiCapabilityServiceTests
                 request.RequestUri?.AbsolutePath ?? string.Empty,
                 request.RequestUri?.Query ?? string.Empty,
                 request.Headers.Authorization?.ToString(),
+                request.Headers.TryGetValues("Idempotency-Key", out IEnumerable<string>? values)
+                    ? values.SingleOrDefault()
+                    : null,
                 request.Content?.Headers.ContentType?.ToString(),
                 request.Content is null
                     ? string.Empty

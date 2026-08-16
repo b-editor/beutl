@@ -12,6 +12,8 @@ public class EditorHostViewModel
     private readonly ILogger _logger = Log.CreateLogger<EditorHostViewModel>();
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
+    private readonly object _projectChangeGate = new();
+    private Task _projectChangeTask = Task.CompletedTask;
 
     public EditorHostViewModel(ProjectService projectService, EditorService editorService)
     {
@@ -27,12 +29,47 @@ public class EditorHostViewModel
         // when the notification comes from a background thread.
         if (Dispatcher.UIThread.CheckAccess())
         {
-            _ = OnProjectChangedAsync(@new, old);
+            QueueProjectChange(@new, old);
         }
         else
         {
-            Dispatcher.UIThread.Post(() => _ = OnProjectChangedAsync(@new, old));
+            Dispatcher.UIThread.Post(() => QueueProjectChange(@new, old));
         }
+    }
+
+    internal Task WaitForPendingProjectChangesAsync()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            return Dispatcher.UIThread.InvokeAsync(WaitForPendingProjectChangesAsync);
+        }
+
+        lock (_projectChangeGate)
+        {
+            return _projectChangeTask;
+        }
+    }
+
+    private void QueueProjectChange(Project? @new, Project? old)
+    {
+        lock (_projectChangeGate)
+        {
+            _projectChangeTask = AwaitPreviousAndApplyAsync(_projectChangeTask, @new, old);
+        }
+    }
+
+    private async Task AwaitPreviousAndApplyAsync(Task previous, Project? @new, Project? old)
+    {
+        try
+        {
+            await previous;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "A previous project change failed before the next change could run.");
+        }
+
+        await OnProjectChangedAsync(@new, old);
     }
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;

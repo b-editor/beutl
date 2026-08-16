@@ -676,7 +676,7 @@
     <comment/>
   </data>
   <data name="AiPlan_AdditionalCreditDebt" xml:space="preserve">
-    <value>返金・異議申立てによる債務</value>
+    <value>未精算の使用済みクレジット</value>
     <comment/>
   </data>
   <data name="AiPlan_ManageAndTopUp" xml:space="preserve">

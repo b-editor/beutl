@@ -16,9 +16,9 @@ internal sealed record AiResultImportOptions(
 
 internal sealed class AiResultImporter
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<AiResultImporter>();
     private readonly Scene _scene;
     private readonly IElementAdder _elementAdder;
-    private readonly ILogger _logger = Log.CreateLogger<AiResultImporter>();
 
     public AiResultImporter(Scene scene, IElementAdder elementAdder)
     {
@@ -36,10 +36,10 @@ internal sealed class AiResultImporter
 
         string path = await StageAsync(
             ".png",
-            temporaryPath =>
+            stream =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                bitmap.Save(temporaryPath, EncodedImageFormat.Png);
+                bitmap.Save(stream, EncodedImageFormat.Png);
                 return Task.CompletedTask;
             },
             cancellationToken);
@@ -61,10 +61,11 @@ internal sealed class AiResultImporter
         AiResultImportOptions options,
         CancellationToken cancellationToken = default)
         => ImportVideoCoreAsync(
-            async temporaryPath =>
+            async stream =>
             {
-                await File.WriteAllBytesAsync(temporaryPath, bytes.ToArray(), cancellationToken);
+                await stream.WriteAsync(bytes, cancellationToken);
             },
+            ".mp4",
             options,
             cancellationToken);
 
@@ -72,32 +73,39 @@ internal sealed class AiResultImporter
         string sourcePath,
         AiResultImportOptions options,
         CancellationToken cancellationToken = default)
+        => ImportVideoAsync(
+            sourcePath,
+            Path.GetExtension(sourcePath),
+            options,
+            cancellationToken);
+
+    public Task<ElementAddResult> ImportVideoAsync(
+        string sourcePath,
+        string extension,
+        AiResultImportOptions options,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
         return ImportVideoCoreAsync(
-            async temporaryPath =>
+            async destination =>
             {
                 await using FileStream source = File.OpenRead(sourcePath);
-                await using FileStream destination = new(
-                    temporaryPath,
-                    FileMode.CreateNew,
-                    FileAccess.Write,
-                    FileShare.None,
-                    bufferSize: 81920,
-                    useAsync: true);
                 await source.CopyToAsync(destination, cancellationToken);
             },
+            extension,
             options,
             cancellationToken);
     }
 
     private async Task<ElementAddResult> ImportVideoCoreAsync(
-        Func<string, Task> writer,
+        Func<Stream, Task> writer,
+        string extension,
         AiResultImportOptions options,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
-        string path = await StageAsync(".mp4", writer, cancellationToken);
+        string normalizedExtension = NormalizeVideoExtension(extension);
+        string path = await StageAsync(normalizedExtension, writer, cancellationToken);
         return await AddStagedResultAsync(path, options, cancellationToken);
     }
 
@@ -134,7 +142,7 @@ internal sealed class AiResultImporter
 
     private async Task<string> StageAsync(
         string extension,
-        Func<string, Task> writer,
+        Func<Stream, Task> writer,
         CancellationToken cancellationToken)
     {
         string directory = GetResourceDirectory();
@@ -145,7 +153,20 @@ internal sealed class AiResultImporter
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await writer(temporaryPath);
+            var streamOptions = new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew,
+                Access = FileAccess.Write,
+                Share = FileShare.None,
+                BufferSize = 81920,
+                Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
+            };
+            if (!OperatingSystem.IsWindows())
+                streamOptions.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            await using (var stream = new FileStream(temporaryPath, streamOptions))
+            {
+                await writer(stream);
+            }
             cancellationToken.ThrowIfCancellationRequested();
             File.Move(temporaryPath, destinationPath);
             return destinationPath;
@@ -156,12 +177,51 @@ internal sealed class AiResultImporter
         }
     }
 
+    internal static string GetUnsavedSceneDirectory(Guid sceneId)
+        => Path.Combine(
+            BeutlEnvironment.GetHomeDirectoryPath(),
+            "tmp",
+            "unsaved",
+            sceneId.ToString("N"));
+
+    internal static void CleanupUnsavedSceneResources(Scene scene)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        if (scene.Uri is not null)
+            return;
+
+        string directory = GetUnsavedSceneDirectory(scene.Id);
+        try
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(
+                ex,
+                "Failed to remove AI resources owned by unsaved scene {SceneId} from {Path}.",
+                scene.Id,
+                directory);
+        }
+    }
+
     private string GetResourceDirectory()
     {
         string projectDirectory = _scene.Uri?.LocalPath is { } scenePath
             ? Path.GetDirectoryName(scenePath)!
-            : Path.Combine(Path.GetTempPath(), "Beutl", "Unsaved", _scene.Id.ToString("N"));
+            : GetUnsavedSceneDirectory(_scene.Id);
         return Path.Combine(projectDirectory, "resources", "ai");
+    }
+
+    private static string NormalizeVideoExtension(string extension)
+    {
+        string normalized = string.IsNullOrWhiteSpace(extension)
+            ? ".mp4"
+            : extension.StartsWith('.') ? extension.ToLowerInvariant() : $".{extension.ToLowerInvariant()}";
+        return normalized is ".mp4" or ".webm" or ".mov" or ".mkv"
+            ? normalized
+            : throw new ArgumentException("The AI video format is unsupported.", nameof(extension));
     }
 
     private void TryDelete(string path)
@@ -172,7 +232,7 @@ internal sealed class AiResultImporter
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to remove unused AI project resource {Path}.", path);
+            s_logger.LogWarning(ex, "Failed to remove unused AI project resource {Path}.", path);
         }
     }
 }

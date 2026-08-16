@@ -18,7 +18,7 @@ public sealed class MainViewModelLifetimeTests
         int cancelRequestsCount = 0;
         int disposeResourcesCount = 0;
         using var httpClient = new HttpClient();
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var viewModel = CreateViewModel(
             httpClient,
             app,
@@ -31,7 +31,11 @@ public sealed class MainViewModelLifetimeTests
                     releaseInitialization);
             },
             () => Interlocked.Increment(ref cancelRequestsCount),
-            () => Interlocked.Increment(ref disposeResourcesCount));
+            () =>
+            {
+                Interlocked.Increment(ref disposeResourcesCount);
+                return ValueTask.CompletedTask;
+            });
 
         try
         {
@@ -78,13 +82,17 @@ public sealed class MainViewModelLifetimeTests
         int disposeResourcesCount = 0;
         int navigationCount = 0;
         using var httpClient = new HttpClient();
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var viewModel = CreateViewModel(
             httpClient,
             app,
             static _ => Task.CompletedTask,
             () => Interlocked.Increment(ref cancelRequestsCount),
-            () => Interlocked.Increment(ref disposeResourcesCount));
+            () =>
+            {
+                Interlocked.Increment(ref disposeResourcesCount);
+                return ValueTask.CompletedTask;
+            });
 
         try
         {
@@ -153,7 +161,7 @@ public sealed class MainViewModelLifetimeTests
         BeutlApiApplication app,
         Func<CancellationToken, Task> initialize,
         Action cancelPendingRequests,
-        Action disposeResources)
+        Func<ValueTask> disposeResources)
     {
         return new PackageToolsMainViewModel(
             httpClient,

@@ -1,6 +1,9 @@
-﻿using Avalonia.Controls.Presenters;
+﻿using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
 using Avalonia.Headless.NUnit;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
@@ -18,7 +21,9 @@ using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Tools;
 using AvaloniaComboBox = Avalonia.Controls.ComboBox;
 using AvaloniaControl = Avalonia.Controls.Control;
+using AvaloniaListBox = Avalonia.Controls.ListBox;
 using AvaloniaTextBlock = Avalonia.Controls.TextBlock;
+using AvaloniaTextBox = Avalonia.Controls.TextBox;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Beutl.HeadlessUITests;
@@ -60,13 +65,13 @@ public class AiSubtitleTemplateTests
     }
 
     [Test]
-    public void CreateCaptionTemplates_UsesExplicitRegistryOrderAndTextTemplatesOnly()
+    public async Task CreateCaptionTemplates_UsesExplicitRegistryOrderAndTextTemplatesOnly()
     {
         ObjectTemplateItem zulu = ObjectTemplateItem.CreateFromInstance(new TextBlock(), "Zulu");
         ObjectTemplateItem shape = ObjectTemplateItem.CreateFromInstance(new EllipseShape(), "Shape");
         ObjectTemplateItem alpha = ObjectTemplateItem.CreateFromInstance(new TextBlock(), "Alpha");
 
-        using CaptionCatalog catalog = CaptionCatalog.Compose(
+        await using CaptionCatalog catalog = CaptionCatalog.Compose(
             "Default",
             [zulu, shape, alpha],
             new ExtensionProvider());
@@ -160,6 +165,70 @@ public class AiSubtitleTemplateTests
     }
 
     [AvaloniaTest]
+    public async Task CueEditor_NarrowWidthKeepsFieldsUsableAndBindsCaretForSplit()
+    {
+        await TestReset.ResetShellAsync();
+        using AiSubtitleDialogViewModel viewModel =
+            TestShell.MainViewModel.CreateAiSubtitleToolViewModel(null);
+        viewModel.ResultSegments.Value =
+        [
+            new AiTranscriptionSegment { Start = 0, End = 4, Text = "hello world" },
+        ];
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new AvaloniaWindow { Content = view, Width = 280, Height = 640 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            AvaloniaTextBox[] cueFields = view.GetVisualDescendants()
+                .OfType<AvaloniaTextBox>()
+                .Where(textBox =>
+                {
+                    string? name = AutomationProperties.GetName(textBox);
+                    return name == Beutl.Language.Strings.AiSubtitle_CueStart
+                        || name == Beutl.Language.Strings.AiSubtitle_CueEnd
+                        || name == Beutl.Language.Strings.AiSubtitle_Speaker
+                        || name == Beutl.Language.Strings.AiSubtitle_Language
+                        || name == Beutl.Language.Strings.AiSubtitle_Text;
+                })
+                .ToArray();
+            AvaloniaTextBox captionText = cueFields.Single(textBox =>
+                AutomationProperties.GetName(textBox) == Beutl.Language.Strings.AiSubtitle_Text);
+            AvaloniaListBox cueList = view.GetLogicalDescendants()
+                .OfType<AvaloniaListBox>()
+                .Single(listBox => listBox.Name == "CaptionCueList");
+            double rightmostFieldEdge = cueFields.Max(field =>
+                field.TranslatePoint(new Avalonia.Point(field.Bounds.Width, 0), cueList)?.X
+                ?? double.PositiveInfinity);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(cueFields, Has.Length.EqualTo(5));
+                Assert.That(cueFields.All(field => field.Bounds.Width > 0), Is.True);
+                Assert.That(rightmostFieldEdge,
+                    Is.LessThanOrEqualTo(cueList.Bounds.Width + 1));
+                Assert.That(viewModel.SplitCue.CanExecute(), Is.False);
+            }
+
+            captionText.CaretIndex = 5;
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.Cues[0].CaretIndex, Is.EqualTo(5));
+                Assert.That(viewModel.SplitCue.CanExecute(), Is.True);
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task SelectingAnotherAudioSource_ClearsTranscriptionResult()
     {
         await TestReset.ResetShellAsync();
@@ -178,6 +247,69 @@ public class AiSubtitleTemplateTests
 
         Assert.That(viewModel.ResultSegments.Value, Is.Null);
         Assert.That(viewModel.CanAddToScene.Value, Is.False);
+    }
+
+    [Test]
+    public void AudioSourceResumeIdentity_RequiresEquivalentTimelineMapping()
+    {
+        Guid elementId = Guid.NewGuid();
+        var first = new AudioSourceItem(
+            "First",
+            "/tmp/source.flac",
+            TimeSpan.FromSeconds(30),
+            elementStart: TimeSpan.FromSeconds(2),
+            elementLength: TimeSpan.FromSeconds(10),
+            sourceOffset: TimeSpan.FromSeconds(1),
+            speed: 125,
+            elementId: elementId);
+        var equivalent = new AudioSourceItem(
+            "Renamed",
+            "/tmp/source.flac",
+            TimeSpan.FromSeconds(30),
+            elementStart: TimeSpan.FromSeconds(2),
+            elementLength: TimeSpan.FromSeconds(10),
+            sourceOffset: TimeSpan.FromSeconds(1),
+            speed: 125,
+            elementId: elementId);
+        var changedMapping = new AudioSourceItem(
+            "Changed",
+            "/tmp/source.flac",
+            TimeSpan.FromSeconds(30),
+            elementStart: TimeSpan.FromSeconds(3),
+            elementLength: TimeSpan.FromSeconds(10),
+            sourceOffset: TimeSpan.FromSeconds(1),
+            speed: 125,
+            elementId: elementId);
+        var anotherElement = new AudioSourceItem(
+            "Other element",
+            "/tmp/source.flac",
+            TimeSpan.FromSeconds(30),
+            elementStart: TimeSpan.FromSeconds(2),
+            elementLength: TimeSpan.FromSeconds(10),
+            sourceOffset: TimeSpan.FromSeconds(1),
+            speed: 125,
+            elementId: Guid.NewGuid());
+        string relativePath = Path.GetRelativePath(
+            Environment.CurrentDirectory,
+            Path.GetFullPath("/tmp/source.flac"));
+        var equivalentRelativePath = new AudioSourceItem(
+            "Relative",
+            relativePath,
+            TimeSpan.FromSeconds(30),
+            elementStart: TimeSpan.FromSeconds(2),
+            elementLength: TimeSpan.FromSeconds(10),
+            sourceOffset: TimeSpan.FromSeconds(1),
+            speed: 125,
+            elementId: elementId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(AudioSourceItem.CanResume(equivalent, first), Is.True);
+            Assert.That(AudioSourceItem.CanResume(equivalentRelativePath, first), Is.True);
+            Assert.That(AudioSourceItem.CanResume(changedMapping, first), Is.False);
+            Assert.That(AudioSourceItem.CanResume(anotherElement, first), Is.False);
+            Assert.That(AudioSourceItem.CanResume(null, first), Is.False);
+        });
     }
 
     [AvaloniaTest]

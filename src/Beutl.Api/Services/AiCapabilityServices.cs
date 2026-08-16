@@ -54,6 +54,76 @@ internal sealed class AiEntitlementService(
     }
 }
 
+internal sealed class AiOperationAvailabilityService(BeutlApiApplication application)
+    : IAiOperationAvailabilityService
+{
+    public async Task<bool> CheckAsync(
+        AiOperationAvailabilityRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        using CancellationTokenSource operationCts =
+            application.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = operationCts.Token;
+        token.ThrowIfCancellationRequested();
+        using Activity? activity = application.ActivitySource.StartActivity(
+            "AiOperationAvailabilityService.Check",
+            ActivityKind.Client);
+        activity?.SetTag("operation", request.Operation.Value);
+
+        Func<string, CancellationToken, Task<AiOperationAvailabilityResponse>> send = request switch
+        {
+            AiOperationAvailabilityRequest.Fixed fixedRequest =>
+                (authorization, requestToken) => application.Ai.CheckFixedAvailability(
+                    authorization,
+                    new AiFixedOperationAvailabilityRequestDto
+                    {
+                        Operation = fixedRequest.Operation.Value,
+                    },
+                    requestToken),
+            AiOperationAvailabilityRequest.Video videoRequest =>
+                (authorization, requestToken) => application.Ai.CheckVideoAvailability(
+                    authorization,
+                    new AiVideoOperationAvailabilityRequestDto
+                    {
+                        Operation = videoRequest.Operation.Value,
+                        DurationSeconds = videoRequest.DurationSeconds,
+                    },
+                    requestToken),
+            AiOperationAvailabilityRequest.Transcription transcriptionRequest =>
+                (authorization, requestToken) => application.Ai.CheckTranscriptionAvailability(
+                    authorization,
+                    new AiTranscriptionOperationAvailabilityRequestDto
+                    {
+                        Operation = transcriptionRequest.Operation.Value,
+                        DurationSeconds = transcriptionRequest.DurationSeconds,
+                    },
+                    requestToken),
+            AiOperationAvailabilityRequest.Translation translationRequest =>
+                (authorization, requestToken) => application.Ai.CheckTranslationAvailability(
+                    authorization,
+                    new AiTranslationOperationAvailabilityRequestDto
+                    {
+                        Operation = translationRequest.Operation.Value,
+                        CharacterCount = translationRequest.CharacterCount,
+                    },
+                    requestToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(request)),
+        };
+
+        try
+        {
+            AuthenticatedApiResult<AiOperationAvailabilityResponse> response =
+                await application.SendAuthenticatedAsync(send, token);
+            return response.Value.Available;
+        }
+        catch (ApiException ex)
+        {
+            throw await AiErrorConverter.ConvertAsync(ex, activity);
+        }
+    }
+}
+
 internal sealed class AiImageGenerationService(
     BeutlApiApplication application,
     AiJobChangeNotifier jobChangeNotifier)
@@ -65,10 +135,12 @@ internal sealed class AiImageGenerationService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        string idempotencyKey = CreateIdempotencyKey();
         return ExecuteAsync(
             "AiImageGenerationService.Generate",
             (authorization, token) => Application.Ai.CreateImage(
                 authorization,
+                idempotencyKey,
                 new CreateAiImageRequest
                 {
                     Prompt = request.Prompt,
@@ -93,6 +165,7 @@ internal sealed class AiImageEditingService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        string idempotencyKey = CreateIdempotencyKey();
         cancellationToken.ThrowIfCancellationRequested();
         await using Stream stream = await request.Image.OpenReadAsync(cancellationToken);
         var filePart = new StreamPart(
@@ -103,6 +176,7 @@ internal sealed class AiImageEditingService(
             "AiImageEditingService.Edit",
             (authorization, token) => Application.Ai.EditImage(
                 authorization,
+                idempotencyKey,
                 filePart,
                 request.Task.Value,
                 request.Prompt,
@@ -124,6 +198,7 @@ internal sealed class AiTranscriptionService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        string idempotencyKey = CreateIdempotencyKey();
         cancellationToken.ThrowIfCancellationRequested();
         await using Stream stream = await request.Audio.OpenReadAsync(cancellationToken);
         var filePart = new StreamPart(
@@ -134,6 +209,7 @@ internal sealed class AiTranscriptionService(
             "AiTranscriptionService.Transcribe",
             (authorization, token) => Application.Ai.Transcribe(
                 authorization,
+                idempotencyKey,
                 filePart,
                 request.Language,
                 token),
@@ -154,6 +230,7 @@ internal sealed class AiCaptionTranslationService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        string idempotencyKey = CreateIdempotencyKey();
         var dto = new AiCaptionTranslationRequestDto
         {
             SourceLanguage = request.SourceLanguage,
@@ -175,7 +252,11 @@ internal sealed class AiCaptionTranslationService(
         };
         return ExecuteAsync(
             "AiCaptionTranslationService.Translate",
-            (authorization, token) => Application.Ai.Translate(authorization, dto, token),
+            (authorization, token) => Application.Ai.Translate(
+                authorization,
+                idempotencyKey,
+                dto,
+                token),
             AiModelMapper.ToModel,
             cancellationToken,
             activity =>
@@ -196,12 +277,14 @@ internal sealed class AiVideoService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        string idempotencyKey = CreateIdempotencyKey();
         if (request.FirstFrame is null)
         {
             return await ExecuteAsync(
                 "AiVideoService.Create",
                 (authorization, token) => Application.Ai.CreateVideo(
                     authorization,
+                    idempotencyKey,
                     new CreateAiVideoRequest
                     {
                         Prompt = request.Prompt,
@@ -215,10 +298,12 @@ internal sealed class AiVideoService(
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        await using Stream firstStream = await request.FirstFrame.OpenReadAsync(cancellationToken);
+        await using Stream firstStream = await OpenFrameStreamAsync(
+            request.FirstFrame,
+            cancellationToken);
         await using Stream? lastStream = request.LastFrame is null
             ? null
-            : await request.LastFrame.OpenReadAsync(cancellationToken);
+            : await OpenFrameStreamAsync(request.LastFrame, cancellationToken);
         var firstPart = new StreamPart(
             firstStream,
             request.FirstFrame.FileName,
@@ -233,6 +318,7 @@ internal sealed class AiVideoService(
             "AiVideoService.CreateFromFrames",
             (authorization, token) => Application.Ai.CreateVideoFromFrames(
                 authorization,
+                idempotencyKey,
                 firstPart,
                 lastPart,
                 request.Prompt,
@@ -269,12 +355,62 @@ internal sealed class AiVideoService(
         activity?.SetTag("hasFirstFrame", request.FirstFrame is not null);
         activity?.SetTag("hasLastFrame", request.LastFrame is not null);
     }
+
+    private static async ValueTask<Stream> OpenFrameStreamAsync(
+        AiUploadSource source,
+        CancellationToken cancellationToken)
+    {
+        Stream stream = await source.OpenReadAsync(cancellationToken);
+        try
+        {
+            if (source.Length > AiRequestLimits.MaxFrameUploadBytes
+                || stream.CanSeek
+                && stream.Length - stream.Position > AiRequestLimits.MaxFrameUploadBytes)
+            {
+                throw new AiFileTooLargeException();
+            }
+
+            if (stream.CanSeek)
+                return stream;
+
+            var buffered = new MemoryStream();
+            try
+            {
+                byte[] buffer = new byte[81920];
+                long total = 0;
+                while (true)
+                {
+                    int read = await stream.ReadAsync(buffer, cancellationToken);
+                    if (read == 0)
+                        break;
+                    total += read;
+                    if (total > AiRequestLimits.MaxFrameUploadBytes)
+                        throw new AiFileTooLargeException();
+                    await buffered.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                }
+
+                buffered.Position = 0;
+                await stream.DisposeAsync();
+                return buffered;
+            }
+            catch
+            {
+                await buffered.DisposeAsync();
+                throw;
+            }
+        }
+        catch
+        {
+            await stream.DisposeAsync();
+            throw;
+        }
+    }
 }
 
 internal sealed class AuthenticatedContentService(BeutlApiApplication application)
     : IAuthenticatedContentService
 {
-    public async Task CopyToAsync(
+    public async Task<AiContentDownload> CopyToAsync(
         Uri contentUri,
         Stream destination,
         CancellationToken cancellationToken)
@@ -286,7 +422,8 @@ internal sealed class AuthenticatedContentService(BeutlApiApplication applicatio
         Uri downloadUri = ValidateContentUri(contentUri);
         using CancellationTokenSource operationCts =
             application.CreateLifetimeLinkedTokenSource(cancellationToken);
-        await application.SendAuthenticatedAsync(
+        AuthenticatedApiResult<AiContentDownload> result =
+            await application.SendAuthenticatedAsync(
             async (authorization, requestToken) =>
             {
                 using HttpRequestMessage request = new(HttpMethod.Get, downloadUri);
@@ -297,11 +434,19 @@ internal sealed class AuthenticatedContentService(BeutlApiApplication applicatio
                         HttpCompletionOption.ResponseHeadersRead,
                         requestToken);
                 response.EnsureSuccessStatusCode();
+                string? fileName = NormalizeContentDispositionFileName(
+                    response.Content.Headers.ContentDisposition);
+                string? contentType = response.Content.Headers.ContentType?.MediaType;
+                AiContentMetadata? metadata = string.IsNullOrWhiteSpace(fileName)
+                    && string.IsNullOrWhiteSpace(contentType)
+                        ? null
+                        : new AiContentMetadata(fileName, contentType);
                 await using Stream source = await response.Content.ReadAsStreamAsync(requestToken);
                 await source.CopyToAsync(destination, requestToken);
-                return true;
+                return new AiContentDownload(metadata);
             },
             operationCts.Token);
+        return result.Value;
     }
 
     private Uri ValidateContentUri(Uri contentUri)
@@ -322,6 +467,28 @@ internal sealed class AuthenticatedContentService(BeutlApiApplication applicatio
 
         return contentUri;
     }
+
+    private static string? NormalizeContentDispositionFileName(
+        System.Net.Http.Headers.ContentDispositionHeaderValue? disposition)
+    {
+        if (disposition is null)
+            return null;
+
+        string? encoded = disposition.FileNameStar;
+        if (!string.IsNullOrWhiteSpace(encoded))
+        {
+            try
+            {
+                encoded = Uri.UnescapeDataString(encoded);
+            }
+            catch (UriFormatException ex)
+            {
+                throw new AiException("The AI response contains an invalid content filename.", ex);
+            }
+        }
+
+        return (encoded ?? disposition.FileName)?.Trim().Trim('"');
+    }
 }
 
 internal abstract class AiMeteredCapabilityService(
@@ -329,6 +496,8 @@ internal abstract class AiMeteredCapabilityService(
     AiJobChangeNotifier jobChangeNotifier)
 {
     protected BeutlApiApplication Application { get; } = application;
+
+    protected static string CreateIdempotencyKey() => Guid.NewGuid().ToString("D");
 
     protected async Task<TResult> ExecuteAsync<TResponse, TResult>(
         string activityName,

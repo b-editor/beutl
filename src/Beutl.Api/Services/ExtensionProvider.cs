@@ -1,4 +1,7 @@
-﻿using Beutl.Collections;
+﻿using System.Collections;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 
@@ -11,7 +14,7 @@ public sealed class ExtensionProvider : IExtensionRegistry
     private readonly Dictionary<int, Extension[]> _allExtensions = [];
     private readonly ExtensionConfig _config = GlobalConfiguration.Instance.ExtensionConfig;
     private readonly Dictionary<Type, Array> _cache = [];
-    private readonly CoreList<Extension> _extensions = [];
+    private readonly ExtensionCollection _extensions = new();
     private readonly object _lock = new();
     private readonly object _mutationGate = new();
     private Extension[] _snapshot = [];
@@ -37,6 +40,16 @@ public sealed class ExtensionProvider : IExtensionRegistry
                 _cache[typeof(TExtension)] = exts;
                 return exts;
             }
+        }
+    }
+
+    public IReadOnlyList<Extension> GetPackageExtensions(int packageId)
+    {
+        lock (_lock)
+        {
+            return _allExtensions.TryGetValue(packageId, out Extension[]? extensions)
+                ? [.. extensions]
+                : [];
         }
     }
 
@@ -131,11 +144,41 @@ public sealed class ExtensionProvider : IExtensionRegistry
 
             // Collection observers may perform package-lifetime cleanup. Run them without the
             // provider lock so an in-flight extension operation can still query the provider.
-            _extensions.AddRange(ownedExtensions);
+            try
+            {
+                _extensions.AddRange(ownedExtensions);
+            }
+            catch (Exception registrationFailure)
+            {
+                lock (_lock)
+                {
+                    _allExtensions.Remove(packageId);
+                    var ownedSet = new HashSet<Extension>(
+                        ownedExtensions,
+                        ReferenceEqualityComparer.Instance);
+                    _snapshot = _snapshot
+                        .Where(extension => !ownedSet.Contains(extension))
+                        .ToArray();
+                    _cache.Clear();
+                }
+                try
+                {
+                    _extensions.RemoveAll(ownedExtensions);
+                }
+                catch (Exception removalFailure)
+                {
+                    registrationFailure = new AggregateException(
+                        registrationFailure,
+                        removalFailure);
+                }
+                throw new ExtensionRegistrationNotificationException(
+                    new ExtensionRemoval(ownedExtensions),
+                    registrationFailure);
+            }
         }
     }
 
-    public IReadOnlyList<Extension> RemoveExtensions(int packageId)
+    public ExtensionRemoval RemoveExtensions(int packageId)
     {
         lock (_mutationGate)
         {
@@ -143,7 +186,9 @@ public sealed class ExtensionProvider : IExtensionRegistry
             lock (_lock)
             {
                 if (!_allExtensions.Remove(packageId, out Extension[]? removed))
-                    return Array.Empty<Extension>();
+                {
+                    return new ExtensionRemoval([]);
+                }
 
                 extensions = removed;
                 var removedSet = new HashSet<Extension>(extensions, ReferenceEqualityComparer.Instance);
@@ -153,8 +198,186 @@ public sealed class ExtensionProvider : IExtensionRegistry
 
             // Caption and other dynamic catalogs retire their package-owned registrations from
             // this synchronous notification before PackageManager invokes Extension.Unload().
-            _extensions.RemoveAll(extensions);
-            return extensions;
+            Exception? notificationFailure = null;
+            try
+            {
+                _extensions.RemoveAll(extensions);
+            }
+            catch (Exception ex)
+            {
+                notificationFailure = ex;
+            }
+            ExtensionRemoval removal = new(extensions);
+            if (notificationFailure is not null)
+                throw new ExtensionRemovalNotificationException(removal, notificationFailure);
+
+            return removal;
+        }
+    }
+
+    public void SynchronizeMutation(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        lock (_mutationGate)
+        {
+            action();
+        }
+    }
+
+    private sealed class ExtensionCollection : ICoreReadOnlyList<Extension>
+    {
+        private static readonly PropertyChangedEventArgs s_countChanged = new(nameof(Count));
+        private static readonly PropertyChangedEventArgs s_indexerChanged = new("Item[]");
+        private readonly List<Extension> _items = [];
+        private readonly object _gate = new();
+
+        public event NotifyCollectionChangedEventHandler? CollectionChanged;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public int Count
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _items.Count;
+                }
+            }
+        }
+
+        public Extension this[int index]
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _items[index];
+                }
+            }
+        }
+
+        public IEnumerator<Extension> GetEnumerator()
+        {
+            lock (_gate)
+            {
+                return ((IEnumerable<Extension>)_items.ToArray()).GetEnumerator();
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public void AddRange(IReadOnlyList<Extension> extensions)
+        {
+            if (extensions.Count == 0)
+                return;
+
+            Extension[] added = extensions.ToArray();
+            int index;
+            lock (_gate)
+            {
+                index = _items.Count;
+                _items.AddRange(added);
+            }
+
+            NotifyObservers(new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Add,
+                (IList)added,
+                index));
+        }
+
+        public void RemoveAll(IReadOnlyList<Extension> extensions)
+        {
+            if (extensions.Count == 0)
+                return;
+
+            var removedSet = new HashSet<Extension>(
+                extensions,
+                ReferenceEqualityComparer.Instance);
+            Extension[] removed;
+            int firstIndex;
+            bool contiguous;
+            lock (_gate)
+            {
+                var removedIndices = new List<int>();
+                var removedItems = new List<Extension>();
+                for (int index = 0; index < _items.Count; index++)
+                {
+                    if (removedSet.Contains(_items[index]))
+                    {
+                        removedIndices.Add(index);
+                        removedItems.Add(_items[index]);
+                    }
+                }
+
+                if (removedItems.Count == 0)
+                    return;
+
+                firstIndex = removedIndices[0];
+                contiguous = removedIndices
+                    .Select((index, offset) => index == firstIndex + offset)
+                    .All(result => result);
+                _items.RemoveAll(removedSet.Contains);
+                removed = removedItems.ToArray();
+            }
+
+            NotifyCollectionChangedEventArgs args = contiguous
+                ? new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Remove,
+                    (IList)removed,
+                    firstIndex)
+                : new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset);
+            NotifyObservers(args);
+        }
+
+        private void NotifyObservers(NotifyCollectionChangedEventArgs collectionArgs)
+        {
+            List<Exception>? failures = null;
+            NotifyPropertyChanged(s_indexerChanged, ref failures);
+            NotifyCollectionChanged(collectionArgs, ref failures);
+            NotifyPropertyChanged(s_countChanged, ref failures);
+            if (failures is not null)
+                throw new AggregateException("One or more extension collection observers failed.", failures);
+        }
+
+        private void NotifyPropertyChanged(
+            PropertyChangedEventArgs args,
+            ref List<Exception>? failures)
+        {
+            if (PropertyChanged is not { } observers)
+                return;
+
+            foreach (PropertyChangedEventHandler observer in observers.GetInvocationList())
+            {
+                try
+                {
+                    observer(this, args);
+                }
+                catch (Exception ex)
+                {
+                    (failures ??= []).Add(ex);
+                }
+            }
+        }
+
+        private void NotifyCollectionChanged(
+            NotifyCollectionChangedEventArgs args,
+            ref List<Exception>? failures)
+        {
+            if (CollectionChanged is not { } observers)
+                return;
+
+            foreach (NotifyCollectionChangedEventHandler observer in observers.GetInvocationList())
+            {
+                try
+                {
+                    observer(this, args);
+                }
+                catch (Exception ex)
+                {
+                    (failures ??= []).Add(ex);
+                }
+            }
         }
     }
 }

@@ -45,7 +45,8 @@
             <StackPanel Spacing="3">
                 <TextBlock FontSize="11"
                            Text="{CompiledBinding Usage.MonthlyUsageText.Value}" />
-                <ProgressBar Maximum="100"
+                <ProgressBar MinWidth="0"
+                             Maximum="100"
                              Minimum="0"
                              AutomationProperties.Name="{CompiledBinding Usage.MonthlyUsageText.Value}"
                              Value="{CompiledBinding Usage.UsagePercent.Value}" />
@@ -79,24 +80,25 @@
                            AutomationProperties.Name="{CompiledBinding ConfirmationMessage.Value}"
                            Text="{CompiledBinding ConfirmationMessage.Value}"
                            TextWrapping="Wrap" />
-                <StackPanel HorizontalAlignment="Right"
-                            Orientation="Horizontal"
-                            Spacing="8">
+                <WrapPanel HorizontalAlignment="Right" Orientation="Horizontal">
                     <ui:ProgressRing Width="18"
                                      Height="18"
+                                     Margin="0,0,8,8"
                                      AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_CheckingRetryCost}"
                                      IsIndeterminate="True"
                                      IsVisible="{CompiledBinding IsConfirmationLoading.Value}" />
                     <Button x:Name="ConfirmationCancelButton"
+                            Margin="0,0,8,8"
                             AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                             Click="OnCancelConfirmationClick"
                             Content="{x:Static lang:Strings.Cancel}" />
                     <Button x:Name="ConfirmationConfirmButton"
+                            Margin="0,0,0,8"
                             AutomationProperties.Name="{CompiledBinding ConfirmationActionText.Value}"
                             Click="OnConfirmClick"
                             Content="{CompiledBinding ConfirmationActionText.Value}"
                             IsEnabled="{CompiledBinding CanConfirm.Value}" />
-                </StackPanel>
+                </WrapPanel>
             </StackPanel>
         </Border>
 
@@ -172,9 +174,8 @@
                                                IsVisible="{CompiledBinding IsFailed}"
                                                Text="{CompiledBinding Error}"
                                                TextWrapping="Wrap" />
-                                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-                                        <Button Grid.Column="0"
-                                                Margin="0,0,6,0"
+                                    <WrapPanel Orientation="Horizontal">
+                                        <Button Margin="0,0,6,6"
                                                 AutomationProperties.Name="{x:Static lang:Strings.AiAddToScene}"
                                                 Click="OnAddToSceneClick"
                                                 Content="{x:Static lang:Strings.AiAddToScene}"
@@ -182,8 +183,7 @@
                                                 IsVisible="{CompiledBinding CanAddToScene}"
                                                 Tag="{Binding}"
                                                 ToolTip.Tip="{x:Static lang:Strings.AiAddToScene}" />
-                                        <Button Grid.Column="1"
-                                                Margin="0,0,6,0"
+                                        <Button Margin="0,0,6,6"
                                                 AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_Retry}"
                                                 Click="OnRetryClick"
                                                 Content="{x:Static lang:Strings.AiJobCenter_Retry}"
@@ -191,7 +191,7 @@
                                                 IsVisible="{CompiledBinding CanRetry}"
                                                 Tag="{Binding}"
                                                 ToolTip.Tip="{x:Static lang:Strings.AiJobCenter_Retry}" />
-                                        <Button Grid.Column="2"
+                                        <Button Margin="0,0,6,6"
                                                 AutomationProperties.Name="{x:Static lang:Strings.Delete}"
                                                 Click="OnDeleteClick"
                                                 Content="{x:Static lang:Strings.Delete}"
@@ -199,32 +199,32 @@
                                                 IsVisible="{CompiledBinding CanDelete}"
                                                 Tag="{Binding}"
                                                 ToolTip.Tip="{x:Static lang:Strings.Delete}" />
-                                        <ui:ProgressRing Grid.Column="4"
-                                                         Width="18"
+                                        <ui:ProgressRing Width="18"
                                                          Height="18"
+                                                         Margin="0,0,6,6"
                                                          AutomationProperties.Name="{CompiledBinding StatusDisplayName}"
                                                          IsIndeterminate="True"
                                                          IsVisible="{CompiledBinding ShouldPoll}" />
-                                        <ui:ProgressRing Grid.Column="4"
-                                                         Width="18"
+                                        <ui:ProgressRing Width="18"
                                                          Height="18"
+                                                         Margin="0,0,0,6"
                                                          AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_StatusRunning}"
                                                          IsIndeterminate="True"
                                                          IsVisible="{CompiledBinding IsBusy.Value}" />
-                                    </Grid>
+                                    </WrapPanel>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <StackPanel Grid.Row="1"
-                            Margin="8,0,8,8"
-                            HorizontalAlignment="Center"
-                            IsVisible="{CompiledBinding ShowListFooter.Value}"
-                            Orientation="Horizontal"
-                            Spacing="8">
+                <WrapPanel Grid.Row="1"
+                           Margin="8,0,8,8"
+                           HorizontalAlignment="Center"
+                           IsVisible="{CompiledBinding ShowListFooter.Value}"
+                           Orientation="Horizontal">
                     <Button x:Name="LoadMoreButton"
+                            Margin="0,0,8,8"
                             AutomationProperties.Name="{x:Static lang:Strings.AiJobCenter_LoadMore}"
                             Command="{CompiledBinding LoadMore}"
                             Content="{x:Static lang:Strings.AiJobCenter_LoadMore}"
@@ -232,10 +232,11 @@
                             ToolTip.Tip="{x:Static lang:Strings.AiJobCenter_LoadMore}" />
                     <ui:ProgressRing Width="18"
                                      Height="18"
+                                     Margin="0,0,0,8"
                                      AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
                                      IsIndeterminate="True"
                                      IsVisible="{CompiledBinding IsListLoading.Value}" />
-                </StackPanel>
+                </WrapPanel>
             </Grid>
 
             <ui:ProgressRing Width="28"

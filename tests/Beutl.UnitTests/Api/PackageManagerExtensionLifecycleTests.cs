@@ -1,4 +1,5 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Collections;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
@@ -21,6 +22,8 @@ public class PackageManagerExtensionLifecycleTests
         FailingViewExtension.Reset();
         BlockingCaptionCodecExtension.Reset();
         BlockingCaptionTemplateExtension.Reset();
+        FaultedDrainViewExtension.Reset();
+        LeaseManagedAiJobKindExtension.Reset();
     }
 
     [Test]
@@ -98,8 +101,8 @@ public class PackageManagerExtensionLifecycleTests
             loadContext: null,
             [typeof(SuccessfulViewExtension)]);
 
-        // Drop only the provider entry so the second load passes AddExtensions but trips the
-        // _loadedPackages.TryAdd guard, exercising the "already loaded" rollback branch.
+        // Drop only the provider entry. The second load rejects the already tracked package
+        // before exposing its new extensions to observers.
         provider.RemoveExtensions(package.LocalId);
         SuccessfulViewExtension.Reset();
 
@@ -112,10 +115,81 @@ public class PackageManagerExtensionLifecycleTests
                 [typeof(SuccessfulViewExtension)]));
 
         Assert.That(exception!.Message, Does.Contain("already loaded"));
-        Assert.That(SuccessfulViewExtension.LoadCount, Is.EqualTo(1));
-        Assert.That(SuccessfulViewExtension.UnloadCount, Is.EqualTo(1));
+        Assert.That(SuccessfulViewExtension.LoadCount, Is.Zero);
+        Assert.That(SuccessfulViewExtension.UnloadCount, Is.Zero);
         Assert.That(provider.GetExtensions<SuccessfulViewExtension>(), Is.Empty);
-        Assert.That(commandManager.GetDefinitions(typeof(SuccessfulViewExtension)), Is.Empty);
+        Assert.That(commandManager.GetDefinitions(typeof(SuccessfulViewExtension)), Is.Not.Empty);
+    }
+
+    [Test]
+    public async Task LoadExtensionsAndRegister_DoesNotExecutePluginCodeForConcurrentDuplicateLoad()
+    {
+        PackageManager manager = CreatePackageManager(out _, out _);
+        var package = new LocalPackage { Name = "ConcurrentDuplicate" };
+        using var loadStarted = new ManualResetEventSlim();
+        using var releaseLoad = new ManualResetEventSlim();
+        BlockingLoadViewExtension.Configure(loadStarted, releaseLoad);
+
+        Task first = Task.Run(() => manager.LoadExtensionsAndRegister(
+            activity: null,
+            package,
+            assemblies: [],
+            loadContext: null,
+            [typeof(BlockingLoadViewExtension)]));
+        Assert.That(loadStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            manager.LoadExtensionsAndRegister(
+                activity: null,
+                package,
+                assemblies: [],
+                loadContext: null,
+                [typeof(SuccessfulViewExtension)]));
+        releaseLoad.Set();
+        await first.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(exception!.Message, Does.Contain("loading"));
+        Assert.That(SuccessfulViewExtension.LoadCount, Is.Zero);
+    }
+
+    [Test]
+    public async Task LoadExtensionsAndRegister_DrainsObserverLeaseBeforeRollbackUnload()
+    {
+        PackageManager manager = CreatePackageManager(
+            out _,
+            out ExtensionProvider provider);
+        var package = new LocalPackage { Name = "ObserverRollback" };
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        provider.AllExtensions.CollectionChanged += (_, _) =>
+        {
+            if (provider.GetExtensions<LeaseManagedAiJobKindExtension>().SingleOrDefault() is { } extension)
+            {
+                ExtensionRegistrationLifetimes.Retire(
+                    extension,
+                    () => new ValueTask(releaseLease.Task));
+            }
+        };
+        provider.AllExtensions.CollectionChanged += (_, _) =>
+            throw new InvalidOperationException("observer failure");
+
+        Assert.Throws<ExtensionRegistrationNotificationException>(() =>
+            manager.LoadExtensionsAndRegister(
+                activity: null,
+                package,
+                assemblies: [],
+                loadContext: null,
+                [typeof(LeaseManagedAiJobKindExtension)]));
+
+        Assert.That(LeaseManagedAiJobKindExtension.UnloadCount, Is.Zero);
+        releaseLease.SetResult();
+        Assert.That(
+            SpinWait.SpinUntil(
+                () => LeaseManagedAiJobKindExtension.UnloadCount == 1,
+                TimeSpan.FromSeconds(5)),
+            Is.True);
+        await Task.Yield();
+        Assert.That(manager.LoadedPackage, Is.Empty);
     }
 
     [Test]
@@ -125,7 +199,11 @@ public class PackageManagerExtensionLifecycleTests
         PackageManager manager = CreatePackageManager(diagnostics, out _, out _);
         var package = new LocalPackage { Name = "CleanUnload" };
         manager.LoadExtensionsAndRegister(
-            activity: null, package, assemblies: [], loadContext: null, [typeof(SuccessfulViewExtension)]);
+            activity: null,
+            package,
+            assemblies: [],
+            loadContext: null,
+            [typeof(LeaseManagedAiJobKindExtension)]);
 
         bool unloaded = await manager.Unload(package);
 
@@ -138,10 +216,57 @@ public class PackageManagerExtensionLifecycleTests
     }
 
     [Test]
+    public async Task Unload_SupportsAlternativeExtensionRegistryImplementations()
+    {
+        var registry = new DelegatingExtensionRegistry();
+        PackageManager manager = CreatePackageManager(registry, out _);
+        var package = new LocalPackage { Name = "AlternativeRegistry" };
+        manager.LoadExtensionsAndRegister(
+            activity: null,
+            package,
+            assemblies: [],
+            loadContext: null,
+            [typeof(LeaseManagedAiJobKindExtension)]);
+
+        bool unloaded = await manager.Unload(package);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(unloaded, Is.True);
+            Assert.That(registry.SynchronizationCount, Is.GreaterThan(0));
+            Assert.That(registry.GetExtensions<LeaseManagedAiJobKindExtension>(), Is.Empty);
+            Assert.That(LeaseManagedAiJobKindExtension.UnloadCount, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public async Task Unload_RequiresRestartForLongLivedExtensionFamilies()
+    {
+        PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
+        var package = new LocalPackage { Name = "LongLivedView" };
+        manager.LoadExtensionsAndRegister(
+            activity: null,
+            package,
+            assemblies: [],
+            loadContext: null,
+            [typeof(SuccessfulViewExtension)]);
+
+        bool unloaded = await manager.Unload(package);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(unloaded, Is.False);
+            Assert.That(SuccessfulViewExtension.UnloadCount, Is.Zero);
+            Assert.That(provider.GetExtensions<SuccessfulViewExtension>(), Has.Length.EqualTo(1));
+            Assert.That(manager.LoadedPackage, Does.Contain(package));
+        }
+    }
+
+    [Test]
     public async Task Unload_WaitsForActiveCaptionLeaseBeforeCallingExtensionUnload()
     {
         PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], provider);
+        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], provider);
         var package = new LocalPackage { Name = "BlockingCaption" };
         manager.LoadExtensionsAndRegister(
             activity: null,
@@ -194,7 +319,7 @@ public class PackageManagerExtensionLifecycleTests
     public async Task Unload_WaitsForActiveCaptionTemplateLeaseBeforeCallingExtensionUnload()
     {
         PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], provider);
+        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], provider);
         var package = new LocalPackage { Name = "BlockingCaptionTemplate" };
         manager.LoadExtensionsAndRegister(
             activity: null,
@@ -249,6 +374,41 @@ public class PackageManagerExtensionLifecycleTests
         });
     }
 
+    [Test]
+    public async Task Unload_QuarantinesPackageWithoutCallingUnload_WhenRegistrationDrainFails()
+    {
+        PackageManager manager = CreatePackageManager(
+            out ContextCommandManager commandManager,
+            out ExtensionProvider provider);
+        var package = new LocalPackage { Name = "FaultedDrain" };
+        manager.LoadExtensionsAndRegister(
+            activity: null,
+            package,
+            assemblies: [],
+            loadContext: null,
+            [typeof(FaultedDrainViewExtension)]);
+        FaultedDrainViewExtension extension = provider
+            .GetExtensions<FaultedDrainViewExtension>()
+            .Single();
+        ExtensionRegistrationLifetimes.Retire(
+            extension,
+            () => new ValueTask(Task.FromException(
+                new InvalidOperationException("synthetic drain failure"))));
+
+        bool unloaded = await manager.Unload(package);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(unloaded, Is.False);
+            Assert.That(FaultedDrainViewExtension.UnloadCount, Is.Zero);
+            Assert.That(provider.GetExtensions<FaultedDrainViewExtension>(), Is.Empty);
+            Assert.That(manager.LoadedPackage, Does.Contain(package));
+        }
+
+        Assert.That(await manager.Unload(package), Is.False);
+        Assert.That(FaultedDrainViewExtension.UnloadCount, Is.Zero);
+    }
+
     private static PackageManager CreatePackageManager(
         out ContextCommandManager commandManager,
         out ExtensionProvider extensionProvider)
@@ -272,6 +432,51 @@ public class PackageManagerExtensionLifecycleTests
             commandManager,
             apiApplication: null!,
             diagnostics);
+    }
+
+    private static PackageManager CreatePackageManager(
+        IExtensionRegistry extensionRegistry,
+        out ContextCommandManager commandManager)
+    {
+        commandManager = new ContextCommandManager(
+            new ContextCommandSettingsStore(),
+            new ContextCommandHandlerRegistry());
+        return new PackageManager(
+            new InstalledPackageRepository(),
+            extensionRegistry,
+            commandManager,
+            apiApplication: null!);
+    }
+
+    private sealed class DelegatingExtensionRegistry : IExtensionRegistry
+    {
+        private readonly ExtensionProvider _inner = new();
+
+        public int SynchronizationCount { get; private set; }
+
+        public ICoreReadOnlyList<Extension> AllExtensions => _inner.AllExtensions;
+
+        public void AddExtensions(int packageId, IReadOnlyList<Extension> extensions)
+            => _inner.AddExtensions(packageId, extensions);
+
+        public IReadOnlyList<Extension> GetPackageExtensions(int packageId)
+            => _inner.GetPackageExtensions(packageId);
+
+        public TExtension[] GetExtensions<TExtension>()
+            where TExtension : Extension
+            => _inner.GetExtensions<TExtension>();
+
+        public EditorExtension? MatchEditorExtension(string file)
+            => _inner.MatchEditorExtension(file);
+
+        public ExtensionRemoval RemoveExtensions(int packageId)
+            => _inner.RemoveExtensions(packageId);
+
+        public void SynchronizeMutation(Action action)
+        {
+            SynchronizationCount++;
+            _inner.SynchronizeMutation(action);
+        }
     }
 
     private sealed class RecordingUnloadDiagnostics : ILoadContextUnloadDiagnostics
@@ -339,6 +544,62 @@ public class PackageManagerExtensionLifecycleTests
         public override void Unload()
         {
             UnloadCount++;
+        }
+    }
+
+    [Export]
+    private sealed class FaultedDrainViewExtension : AiJobKindExtension
+    {
+        public static int UnloadCount { get; private set; }
+
+        public override AiJobKindDescriptor Descriptor { get; } = new(
+            new AiJobKindId("beutl.tests.faulted-drain"),
+            new AiJobStatusMap([]));
+
+        public override AiJobKindRegistrationMode RegistrationMode
+            => AiJobKindRegistrationMode.Add;
+
+        public static void Reset() => UnloadCount = 0;
+
+        public override void Unload() => UnloadCount++;
+    }
+
+    [Export]
+    private sealed class LeaseManagedAiJobKindExtension : AiJobKindExtension
+    {
+        public static int UnloadCount { get; private set; }
+
+        public override AiJobKindDescriptor Descriptor { get; } = new(
+            new AiJobKindId("beutl.tests.lease-managed"),
+            new AiJobStatusMap([]));
+
+        public override AiJobKindRegistrationMode RegistrationMode
+            => AiJobKindRegistrationMode.Add;
+
+        public override void Unload() => UnloadCount++;
+
+        public static void Reset() => UnloadCount = 0;
+    }
+
+    [Export]
+    private sealed class BlockingLoadViewExtension : ViewExtension
+    {
+        private static ManualResetEventSlim? s_loadStarted;
+        private static ManualResetEventSlim? s_releaseLoad;
+
+        public static void Configure(
+            ManualResetEventSlim loadStarted,
+            ManualResetEventSlim releaseLoad)
+        {
+            s_loadStarted = loadStarted;
+            s_releaseLoad = releaseLoad;
+        }
+
+        public override void Load()
+        {
+            s_loadStarted!.Set();
+            if (!s_releaseLoad!.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The blocking extension load was not released.");
         }
     }
 

@@ -20,13 +20,22 @@ internal static class AiErrorConverter
                 ApiErrorCode.AiUsageLimitExceeded => new AiUsageLimitExceededException(exception),
                 ApiErrorCode.FileIsTooLarge => new AiFileTooLargeException(exception),
                 ApiErrorCode.AiProviderError => new AiProviderErrorException(exception),
+                ApiErrorCode.AiJobIsActive => new AiJobIsActiveException(exception),
                 ApiErrorCode.AiJobLimitReached => new AiJobLimitReachedException(exception),
-                _ => new AiException(error?.Message ?? exception.Message, exception),
+                ApiErrorCode.AiRequestInProgress => new AiRequestInProgressException(exception),
+                ApiErrorCode.AiRequestWasDeleted => new AiRequestWasDeletedException(exception),
+                _ => new AiException(
+                    error?.Message ?? exception.Message,
+                    exception,
+                    isTransient: (int)exception.StatusCode >= 500),
             };
         }
         catch (Exception parseException)
         {
-            var converted = new AiException(exception.Message, exception);
+            var converted = new AiException(
+                exception.Message,
+                exception,
+                isTransient: (int)exception.StatusCode >= 500);
             converted.Data[nameof(parseException)] = parseException;
             return converted;
         }

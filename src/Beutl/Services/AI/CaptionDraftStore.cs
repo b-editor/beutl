@@ -42,6 +42,20 @@ internal sealed record CaptionSceneTranscriptionResume(
     string? DetectedLanguage,
     int CompletedChunkCount);
 
+internal sealed record CaptionSourceTranscriptionResume(
+    string FilePath,
+    Guid ElementId,
+    long FileLength,
+    long LastWriteTimeUtcTicks,
+    string? Language,
+    int SampleRate,
+    long TotalSamples,
+    int ChunkSamples,
+    int ChunkCount,
+    AiTranscriptionSegment[] Segments,
+    string? DetectedLanguage,
+    int CompletedChunkCount);
+
 internal sealed record CaptionDraft(
     int Version,
     StoredCaptionCue[] Cues,
@@ -51,7 +65,8 @@ internal sealed record CaptionDraft(
     int CompletedSteps,
     int TotalSteps,
     CaptionTranslationResume? TranslationResume,
-    CaptionSceneTranscriptionResume? SceneTranscriptionResume);
+    CaptionSceneTranscriptionResume? SceneTranscriptionResume,
+    CaptionSourceTranscriptionResume? SourceTranscriptionResume = null);
 
 internal sealed record CaptionDraftScope
 {
@@ -318,7 +333,8 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         {
             CaptionDraftKind.Translation => draft.Cues.Length > 0
                 && IsValid(draft.TranslationResume)
-                && draft.SceneTranscriptionResume is null,
+                && draft.SceneTranscriptionResume is null
+                && draft.SourceTranscriptionResume is null,
             CaptionDraftKind.Transcription => IsValidTranscriptionDraft(draft),
             _ => false,
         };
@@ -328,7 +344,11 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         => draft.TranslationResume is null
             && draft.Segments is not null
             && (IsValid(draft.SceneTranscriptionResume)
+                && draft.SourceTranscriptionResume is null
+                || IsValid(draft.SourceTranscriptionResume)
+                && draft.SceneTranscriptionResume is null
                 || draft.SceneTranscriptionResume is null
+                && draft.SourceTranscriptionResume is null
                 && draft.CompletedSteps == draft.TotalSteps);
 
     private static bool IsValid(CaptionTranslationResume? resume)
@@ -365,6 +385,33 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             && !string.IsNullOrWhiteSpace(resume.EndText)
             && duration > TimeSpan.Zero
             && chunkDuration > TimeSpan.Zero
+            && resume.Segments.All(segment => segment is not null
+                && double.IsFinite(segment.Start)
+                && double.IsFinite(segment.End)
+                && segment.End > segment.Start
+                && segment.Text is not null
+                && segment.Text.Length <= MaximumCueTextLength);
+
+    private static bool IsValid(CaptionSourceTranscriptionResume? resume)
+        => resume is
+        {
+            SampleRate: > 0,
+            TotalSamples: > 0 and <= int.MaxValue,
+            ChunkSamples: > 0,
+            ChunkCount: > 0,
+            CompletedChunkCount: > 0,
+            Segments: not null,
+        }
+            && resume.CompletedChunkCount < resume.ChunkCount
+            && resume.TotalSamples > (long)resume.ChunkSamples
+                * resume.CompletedChunkCount
+            && resume.ChunkCount == checked((int)Math.Ceiling(
+                resume.TotalSamples / (double)resume.ChunkSamples))
+            && !string.IsNullOrWhiteSpace(resume.FilePath)
+            && Path.IsPathFullyQualified(resume.FilePath)
+            && resume.FileLength > 0
+            && resume.LastWriteTimeUtcTicks >= 0
+            && resume.LastWriteTimeUtcTicks <= DateTime.MaxValue.Ticks
             && resume.Segments.All(segment => segment is not null
                 && double.IsFinite(segment.Start)
                 && double.IsFinite(segment.End)

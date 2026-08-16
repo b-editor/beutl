@@ -15,6 +15,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private readonly string _sceneId;
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<DockHostViewModel>();
+    private readonly object _disposeGate = new();
+    private Task? _disposeTask;
     private bool _layoutInitialized;
 
     // Set only while ApplyLayout is walking a restore, so a failure mid-walk can dispose the tools
@@ -181,11 +183,39 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     }
 
     public void Dispose()
+        => _ = DisposeAsync();
+
+    internal Task DisposeAsync()
+    {
+        lock (_disposeGate)
+        {
+            return _disposeTask ??= DisposeCoreAsync();
+        }
+    }
+
+    private async Task DisposeCoreAsync()
     {
         _logger.LogInformation("Disposing DockHostViewModel ({SceneId})", _sceneId);
-        foreach (var dockable in Factory.EnumerateTools().ToList())
+        BeutlToolDockable[] dockables = Factory.EnumerateTools().ToArray();
+        foreach (BeutlToolDockable dockable in dockables)
         {
             Factory.CloseDockable(dockable);
+        }
+
+        foreach (BeutlToolDockable dockable in dockables)
+        {
+            try
+            {
+                await dockable.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to dispose tool tab '{ToolName}'. ({SceneId})",
+                    dockable.ToolContext.Extension.Name,
+                    _sceneId);
+            }
         }
     }
 

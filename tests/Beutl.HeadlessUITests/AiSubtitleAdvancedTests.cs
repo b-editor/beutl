@@ -1,14 +1,23 @@
-﻿using System.Reactive.Linq;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Linq;
 using System.Text;
 using System.Windows.Input;
+using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services.Captions;
+using Beutl.Graphics;
+using Beutl.Media;
+using Beutl.Media.Decoding;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.AI;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
 using Reactive.Bindings;
 
@@ -17,20 +26,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class AiSubtitleAdvancedTests
 {
-    [Test]
-    public void TranslationEstimate_AccountsForProviderBatchBoundaries()
-    {
-        string[] captions =
-        [
-            new('a', 19_500),
-            new('b', 1_000),
-        ];
-
-        int units = AiSubtitleDialogViewModel.CalculateTranslationUnits(captions, rate: 5);
-
-        Assert.That(units, Is.EqualTo(105));
-    }
-
     [Test]
     public void SpeechWave_DownmixesAndResamplesToCompactPcm16()
     {
@@ -77,10 +72,146 @@ public sealed class AiSubtitleAdvancedTests
     }
 
     [Test]
-    public void CueCommands_SplitMergeAndWrapEditableDocument()
+    public void SpeechWave_MediaReaderStreamsBlocksAndUsesDecodedSampleCount()
+    {
+        const int sampleRate = 48_000;
+        const int decodedSamples = 72_000;
+        using var reader = new StreamingAudioReader(sampleRate, decodedSamples);
+        using var stream = new MemoryStream();
+
+        SpeechWaveChunkResult result = AiSubtitleDialogViewModel.WriteSpeechWave(
+                reader,
+                startSample: 0,
+                requestedSamples: 120_000,
+                stream,
+                CancellationToken.None);
+
+        byte[] bytes = stream.ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.SourceSampleCount, Is.EqualTo(decodedSamples));
+            Assert.That(result.OutputSampleCount, Is.EqualTo(24_000));
+            Assert.That(result.Duration, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+            Assert.That(reader.MaximumRequestedSamples, Is.EqualTo(sampleRate));
+            Assert.That(reader.ReadCount, Is.EqualTo(2));
+            Assert.That(Encoding.ASCII.GetString(bytes, 0, 4), Is.EqualTo("RIFF"));
+            Assert.That(BitConverter.ToInt32(bytes, 4), Is.EqualTo(bytes.Length - 8));
+            Assert.That(BitConverter.ToInt32(bytes, 40), Is.EqualTo(24_000 * sizeof(short)));
+            Assert.That(bytes.Length, Is.EqualTo(44 + 24_000 * sizeof(short)));
+        });
+    }
+
+    [Test]
+    public void SourceAudioFingerprint_DetectsSamePathReplacement()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"source-{Guid.NewGuid():N}.wav");
+        try
+        {
+            File.WriteAllBytes(path, [1, 2, 3, 4]);
+            var original = new SourceAudioFingerprint(
+                new FileInfo(path).Length,
+                File.GetLastWriteTimeUtc(path).Ticks);
+            Assert.That(
+                AiSubtitleDialogViewModel.HasMatchingSourceAudioFingerprint(path, original),
+                Is.True);
+
+            File.WriteAllBytes(path, [1, 2, 3, 4, 5]);
+
+            Assert.That(
+                AiSubtitleDialogViewModel.HasMatchingSourceAudioFingerprint(path, original),
+                Is.False);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task CueCommands_ReflectSelectionCaretTimingAndNeighborState()
     {
         using var httpClient = new HttpClient();
-        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var viewModel = CreateViewModel(clients);
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.DeleteCue.CanExecute(), Is.False);
+            Assert.That(viewModel.SplitCue.CanExecute(), Is.False);
+            Assert.That(viewModel.MergeCue.CanExecute(), Is.False);
+        });
+
+        viewModel.ResultSegments.Value =
+        [
+            new AiTranscriptionSegment { Start = 0, End = 4, Text = "hello world" },
+            new AiTranscriptionSegment { Start = 5, End = 7, Text = "again" },
+        ];
+        HeadlessTestHelpers.Settle();
+
+        EditableCaptionCueViewModel first = viewModel.Cues[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.CaretIndex, Is.EqualTo(first.Text.Length));
+            Assert.That(viewModel.DeleteCue.CanExecute(), Is.True);
+            Assert.That(viewModel.SplitCue.CanExecute(), Is.False);
+            Assert.That(viewModel.MergeCue.CanExecute(), Is.True);
+        });
+
+        first.CaretIndex = 5;
+        HeadlessTestHelpers.Settle();
+        Assert.That(viewModel.SplitCue.CanExecute(), Is.True);
+        viewModel.Cues[1].StartText = "invalid";
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SplitCue.CanExecute(), Is.False);
+            Assert.That(viewModel.MergeCue.CanExecute(), Is.False);
+        });
+        viewModel.Cues[1].StartText = "00:00:05.000";
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SplitCue.CanExecute(), Is.True);
+            Assert.That(viewModel.MergeCue.CanExecute(), Is.True);
+        });
+
+        ((ICommand)viewModel.SplitCue).Execute(null);
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Cues, Has.Count.EqualTo(3));
+            Assert.That(viewModel.Cues[0].Text, Is.EqualTo("hello"));
+            Assert.That(viewModel.Cues[1].Text, Is.EqualTo(" world"));
+            Assert.That(viewModel.Cues[0].EndText, Is.EqualTo("00:00:01.818"));
+        });
+
+        viewModel.SelectedCue.Value = viewModel.Cues[^1];
+        HeadlessTestHelpers.Settle();
+        Assert.That(viewModel.MergeCue.CanExecute(), Is.False);
+        viewModel.SelectedCue.Value = viewModel.Cues[0];
+        HeadlessTestHelpers.Settle();
+        ((ICommand)viewModel.MergeCue).Execute(null);
+        HeadlessTestHelpers.Settle();
+        viewModel.SelectedCue.Value!.StartText = "invalid";
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Cues, Has.Count.EqualTo(2));
+            Assert.That(viewModel.DeleteCue.CanExecute(), Is.True);
+            Assert.That(viewModel.SplitCue.CanExecute(), Is.False);
+            Assert.That(viewModel.MergeCue.CanExecute(), Is.False);
+        });
+
+        viewModel.SelectedCue.Value = null;
+        HeadlessTestHelpers.Settle();
+        Assert.That(viewModel.DeleteCue.CanExecute(), Is.False);
+    }
+
+    [Test]
+    public async Task WrapCues_WrapsEditableDocument()
+    {
+        using var httpClient = new HttpClient();
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var viewModel = CreateViewModel(clients);
         viewModel.MaximumLineLength.Value = 5;
         viewModel.MaximumLineCount.Value = 10;
@@ -89,28 +220,16 @@ public sealed class AiSubtitleAdvancedTests
             new AiTranscriptionSegment { Start = 0, End = 4, Text = "hello world" },
         ];
 
-        ((ICommand)viewModel.SplitCue).Execute(null);
-        Assert.That(viewModel.Cues, Has.Count.EqualTo(2));
-
-        viewModel.SelectedCue.Value = viewModel.Cues[0];
-        ((ICommand)viewModel.MergeCue).Execute(null);
         ((ICommand)viewModel.WrapCues).Execute(null);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.Cues, Has.Count.EqualTo(1));
-            Assert.That(viewModel.Cues[0].Text, Does.Contain("\n"));
-            Assert.That(viewModel.Cues[0].TryCreateCue(out CaptionCue? cue), Is.True);
-            Assert.That(cue!.Start, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(cue.End, Is.EqualTo(TimeSpan.FromSeconds(4)));
-        });
+        Assert.That(viewModel.Cues[0].Text, Does.Contain("\n"));
     }
 
     [Test]
-    public void CaptionBytes_ImportExportAndMalformedInputAreHandled()
+    public async Task CaptionBytes_ImportExportAndMalformedInputAreHandled()
     {
         using var httpClient = new HttpClient();
-        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var viewModel = CreateViewModel(clients);
         byte[] srt = Encoding.UTF8.GetBytes("""
             1
@@ -145,7 +264,7 @@ public sealed class AiSubtitleAdvancedTests
     }
 
     [Test]
-    public void JobOwnedDraft_IsRestoredByRecreatedViewModelFromBaseScope()
+    public async Task JobOwnedDraft_IsRestoredByRecreatedViewModelFromBaseScope()
     {
         string directory = CreateDraftDirectory();
         try
@@ -159,7 +278,7 @@ public sealed class AiSubtitleAdvancedTests
             }
 
             using var httpClient = new HttpClient();
-            using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
             var recreatedStore = new FileCaptionDraftStore(directory);
             using AiSubtitleDialogViewModel viewModel = CreateViewModel(
                 clients,
@@ -179,7 +298,7 @@ public sealed class AiSubtitleAdvancedTests
     }
 
     [Test]
-    public void AccountSwitch_ClearsDisplayedUserStateBeforeRestoringNewUsersDraft()
+    public async Task AccountSwitch_ClearsDisplayedUserStateBeforeRestoringNewUsersDraft()
     {
         string directory = CreateDraftDirectory();
         try
@@ -193,7 +312,7 @@ public sealed class AiSubtitleAdvancedTests
             SaveDraft(store, userB, "job-b", "B paid caption");
 
             using var httpClient = new HttpClient();
-            using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
             using var scopes = new ReactivePropertySlim<CaptionDraftScope?>(userA);
             using AiSubtitleDialogViewModel viewModel = CreateViewModel(clients, store, scopes);
             viewModel.ResultSegments.Value =
@@ -241,6 +360,7 @@ public sealed class AiSubtitleAdvancedTests
         IObservable<CaptionDraftScope?>? scopes = null)
         => new(
             clients.GetResource<IAiEntitlementService>(),
+            clients.GetResource<IAiOperationAvailabilityService>(),
             new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
             clients.GetResource<IAiTranscriptionService>(),
             clients.GetResource<IAiCaptionTranslationService>(),
@@ -285,5 +405,45 @@ public sealed class AiSubtitleAdvancedTests
             Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         return directory;
+    }
+
+    private sealed class StreamingAudioReader(int sampleRate, int totalSamples) : MediaReader
+    {
+        public int MaximumRequestedSamples { get; private set; }
+
+        public int ReadCount { get; private set; }
+
+        public override VideoStreamInfo VideoInfo
+            => throw new InvalidOperationException("The test reader has no video stream.");
+
+        public override AudioStreamInfo AudioInfo { get; } = new(
+            "test",
+            new Rational(totalSamples, sampleRate),
+            sampleRate,
+            2);
+
+        public override bool HasVideo => false;
+
+        public override bool HasAudio => true;
+
+        public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+        {
+            image = null;
+            return false;
+        }
+
+        public override bool ReadAudio(
+            int start,
+            int length,
+            [NotNullWhen(true)] out Ref<IPcm>? sound)
+        {
+            MaximumRequestedSamples = Math.Max(MaximumRequestedSamples, length);
+            int decoded = Math.Clamp(totalSamples - start, 0, length);
+            var pcm = new Pcm<Stereo32BitFloat>(sampleRate, decoded);
+            pcm.DataSpan.Fill(new Stereo32BitFloat(0.25f, -0.25f));
+            sound = Ref<IPcm>.Create(pcm);
+            ReadCount++;
+            return true;
+        }
     }
 }

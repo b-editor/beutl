@@ -285,6 +285,10 @@ public sealed class AiJobCenterViewModel : IToolContext
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
         }
+        catch (AiUsageLimitExceededException)
+        {
+            SetOperationError(Strings.AiUsageLimitExceeded);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to retry AI job {JobId}", item.Id);

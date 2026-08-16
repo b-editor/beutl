@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Api.Services;
 using Beutl.Editor.Models;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
@@ -187,7 +188,7 @@ public interface IElementSourceHandler
 /// Contributes element source handlers from an extension package. Registrations are dynamically
 /// composed for every open editor and retired before the package unloads.
 /// </summary>
-public abstract class ElementSourceHandlerExtension : Extension
+public abstract class ElementSourceHandlerExtension : Extension, ILiveUnloadExtension
 {
     public abstract IReadOnlyCollection<ElementSourceHandlerRegistration> Registrations { get; }
 }
@@ -198,10 +199,10 @@ public sealed record ElementSourceHandlerExtensionFailure(
 
 /// <summary>
 /// Owns a source-handler registration. Retain this object while the handler is available and
-/// dispose it before unloading handler-owned resources. Disposal retires the handler, prevents
-/// new operation leases, and waits for existing operation leases to finish.
+/// asynchronously dispose it before unloading handler-owned resources. Disposal first retires
+/// the handler synchronously, then asynchronously waits for existing operation leases to finish.
 /// </summary>
-public interface IElementSourceHandlerRegistration : IDisposable
+public interface IElementSourceHandlerRegistration : IAsyncDisposable
 {
 }
 

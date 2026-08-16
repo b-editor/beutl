@@ -16,11 +16,11 @@ namespace Beutl.UnitTests.Api;
 public sealed class AiJobMonitorTests
 {
     [Test]
-    public void PublishedSnapshot_IsBackedByReadOnlyReactiveAndImmutableJobState()
+    public async Task PublishedSnapshot_IsBackedByReadOnlyReactiveAndImmutableJobState()
     {
         using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         using (Assert.EnterMultipleScope())
@@ -38,7 +38,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         await service.RefreshAsync(CancellationToken.None);
@@ -75,7 +75,7 @@ public sealed class AiJobMonitorTests
             return JsonResponse(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         SetAuthenticatedUser(app, httpClient);
@@ -153,7 +153,7 @@ public sealed class AiJobMonitorTests
                 """);
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
         SetAuthenticatedUser(app, httpClient);
         await service.RefreshAsync(CancellationToken.None);
@@ -200,7 +200,7 @@ public sealed class AiJobMonitorTests
                 }
                 """));
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
         SetAuthenticatedUser(app, httpClient);
         await service.RefreshAsync(CancellationToken.None);
@@ -248,7 +248,7 @@ public sealed class AiJobMonitorTests
                 """);
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
         SetAuthenticatedUser(app, httpClient);
@@ -296,7 +296,7 @@ public sealed class AiJobMonitorTests
                 """);
         });
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var service = new AiJobMonitor(
             app,
             app.GetResource<IAiJobClient>(),
@@ -317,7 +317,7 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var client = new RecordingJobClient
         {
             Page = new AiJobPage(
@@ -360,10 +360,10 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app, httpClient);
         var client = new RecordingJobClient();
-        using var jobKinds = new AiJobKindRegistry();
+        await using var jobKinds = new AiJobKindRegistry();
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app,
@@ -387,10 +387,10 @@ public sealed class AiJobMonitorTests
     {
         using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
-        using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app, httpClient);
         var client = new ExtensibleJobClient();
-        using var jobKinds = new AiJobKindRegistry();
+        await using var jobKinds = new AiJobKindRegistry();
         var refreshHandler = new ExtensibleRefreshHandler(client);
         var descriptor = new AiJobKindDescriptor(
             new AiJobKindId("vendor.render"),
@@ -409,7 +409,7 @@ public sealed class AiJobMonitorTests
         {
             RefreshHandler = refreshHandler,
         };
-        using IAiJobKindRegistration registration = jobKinds.Register(descriptor);
+        await using IAiJobKindRegistration registration = jobKinds.Register(descriptor);
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(
             app,
@@ -433,15 +433,15 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
-    public void KindRegistry_RequiresExplicitReplacementAndRestoresPreviousRegistration()
+    public async Task KindRegistry_RequiresExplicitReplacementAndRestoresPreviousRegistration()
     {
-        using var registry = new AiJobKindRegistry();
+        await using var registry = new AiJobKindRegistry();
         AiJobKindDescriptor first = CreateDescriptor("vendor.render", "first");
         AiJobKindDescriptor replacement = CreateDescriptor("VENDOR.RENDER", "replacement");
-        using IAiJobKindRegistration registration = registry.Register(first);
+        await using IAiJobKindRegistration registration = registry.Register(first);
 
         Assert.Throws<ArgumentException>(() => registry.Register(replacement));
-        using IAiJobKindRegistration replacementRegistration = registry.Register(
+        await using IAiJobKindRegistration replacementRegistration = registry.Register(
             replacement,
             AiJobKindRegistrationMode.Replace);
         Assert.That(registry.TryAcquire(first.Kind, out IAiJobKindLease? replacementLease), Is.True);
@@ -450,7 +450,7 @@ public sealed class AiJobMonitorTests
             Assert.That(replacementLease!.Descriptor, Is.SameAs(replacement));
         }
 
-        replacementRegistration.Dispose();
+        await replacementRegistration.DisposeAsync();
 
         Assert.That(registry.TryAcquire(first.Kind, out IAiJobKindLease? firstLease), Is.True);
         using (firstLease)
@@ -462,17 +462,17 @@ public sealed class AiJobMonitorTests
     [Test]
     public async Task RegistrationDispose_RetiresBeforeWaitingAndDrainsActiveLeases()
     {
-        using var registry = new AiJobKindRegistry();
+        await using var registry = new AiJobKindRegistry();
         AiJobKindDescriptor fallback = CreateDescriptor("vendor.render", "Fallback");
         AiJobKindDescriptor replacement = CreateDescriptor("vendor.render", "Replacement");
-        using IAiJobKindRegistration fallbackRegistration = registry.Register(fallback);
+        await using IAiJobKindRegistration fallbackRegistration = registry.Register(fallback);
         IAiJobKindRegistration replacementRegistration = registry.Register(
             replacement,
             AiJobKindRegistrationMode.Replace);
         Assert.That(registry.TryAcquire(replacement.Kind, out IAiJobKindLease? activeLease), Is.True);
         IAiJobKindLease lease = activeLease!;
 
-        Task disposeTask = Task.Run(replacementRegistration.Dispose);
+        Task disposeTask = replacementRegistration.DisposeAsync().AsTask();
         try
         {
             await WaitUntilAsync(IsFallbackActive, TimeSpan.FromSeconds(5));
@@ -507,7 +507,7 @@ public sealed class AiJobMonitorTests
     public async Task PackageExtensionRemoval_DrainsLeasesBeforeExtensionUnload()
     {
         var extensions = new ExtensionProvider();
-        using var registry = new AiJobKindRegistry(extensions);
+        await using var registry = new AiJobKindRegistry(extensions);
         AiJobKindDescriptor descriptor = CreateDescriptor("vendor.package", "Package render");
         var extension = new TestAiJobKindExtension(
             descriptor,
@@ -516,13 +516,16 @@ public sealed class AiJobMonitorTests
         Assert.That(registry.TryAcquire(descriptor.Kind, out IAiJobKindLease? activeLease), Is.True);
         IAiJobKindLease lease = activeLease!;
 
-        Task removalTask = Task.Run(() =>
+        Task removalTask = RemoveAndUnloadAsync();
+        async Task RemoveAndUnloadAsync()
         {
-            foreach (Extension removed in extensions.RemoveExtensions(101))
+            ExtensionRemoval removal = extensions.RemoveExtensions(101);
+            await removal.DrainAsync();
+            foreach (Extension removed in removal.Extensions)
             {
                 removed.Unload();
             }
-        });
+        }
         try
         {
             await WaitUntilAsync(IsContributionRetired, TimeSpan.FromSeconds(5));
@@ -553,13 +556,13 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
-    public void PackageExtension_AddCollision_DoesNotDisplaceCurrentDescriptor()
+    public async Task PackageExtension_AddCollision_DoesNotDisplaceCurrentDescriptor()
     {
         var extensions = new ExtensionProvider();
-        using var registry = new AiJobKindRegistry(extensions);
+        await using var registry = new AiJobKindRegistry(extensions);
         AiJobKindDescriptor host = CreateDescriptor("vendor.package", "Host render");
         AiJobKindDescriptor package = CreateDescriptor("vendor.package", "Package render");
-        using IAiJobKindRegistration hostRegistration = registry.Register(host);
+        await using IAiJobKindRegistration hostRegistration = registry.Register(host);
         var extension = new TestAiJobKindExtension(package, AiJobKindRegistrationMode.Add);
 
         extensions.AddExtensions(102, [extension]);
@@ -570,17 +573,17 @@ public sealed class AiJobMonitorTests
             Assert.That(lease!.Descriptor, Is.SameAs(host));
         }
 
-        extensions.RemoveExtensions(102);
+        await extensions.RemoveExtensions(102).DrainAsync();
     }
 
     [Test]
-    public void PackageExtension_ExplicitReplace_RestoresCurrentDescriptorOnRemoval()
+    public async Task PackageExtension_ExplicitReplace_RestoresCurrentDescriptorOnRemoval()
     {
         var extensions = new ExtensionProvider();
-        using var registry = new AiJobKindRegistry(extensions);
+        await using var registry = new AiJobKindRegistry(extensions);
         AiJobKindDescriptor host = CreateDescriptor("vendor.package", "Host render");
         AiJobKindDescriptor package = CreateDescriptor("vendor.package", "Package render");
-        using IAiJobKindRegistration hostRegistration = registry.Register(host);
+        await using IAiJobKindRegistration hostRegistration = registry.Register(host);
         var extension = new TestAiJobKindExtension(package, AiJobKindRegistrationMode.Replace);
 
         extensions.AddExtensions(103, [extension]);
@@ -591,7 +594,7 @@ public sealed class AiJobMonitorTests
             Assert.That(replacementLease!.Descriptor, Is.SameAs(package));
         }
 
-        extensions.RemoveExtensions(103);
+        await extensions.RemoveExtensions(103).DrainAsync();
 
         Assert.That(registry.TryAcquire(host.Kind, out IAiJobKindLease? restoredLease), Is.True);
         using (restoredLease)
@@ -640,9 +643,9 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
-    public void UnregisteredKind_HasUnknownNonPollingSemanticsAndNoDescriptorLease()
+    public async Task UnregisteredKind_HasUnknownNonPollingSemanticsAndNoDescriptorLease()
     {
-        using var registry = new AiJobKindRegistry();
+        await using var registry = new AiJobKindRegistry();
         var job = new AiJob(
             new AiJobId("unknown-job"),
             new AiJobKindId("vendor.unknown"),
@@ -663,9 +666,9 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
-    public void UnretainedRegistration_DoesNotRootExtensionOwnedComponents()
+    public async Task UnretainedRegistration_DoesNotRootExtensionOwnedComponents()
     {
-        using var registry = new AiJobKindRegistry();
+        await using var registry = new AiJobKindRegistry();
         WeakReference resolverReference = RegisterEphemeralDescriptor(registry);
 
         CollectUntilDead(resolverReference);
@@ -678,9 +681,9 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
-    public void AbandonedRegistration_CannotBeReacquiredWhileItsLeaseFinishes()
+    public async Task AbandonedRegistration_CannotBeReacquiredWhileItsLeaseFinishes()
     {
-        using var registry = new AiJobKindRegistry();
+        await using var registry = new AiJobKindRegistry();
         (WeakReference registrationReference, WeakReference resolverReference, IAiJobKindLease lease)
             = RegisterEphemeralDescriptorWithLease(registry);
 

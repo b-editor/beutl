@@ -18,8 +18,17 @@ public partial class AiSubtitleView : UserControl
     {
         _planReturnRefresh?.Dispose();
         _planReturnRefresh = DataContext is AiSubtitleDialogViewModel viewModel
-            ? AiPlanReturnRefresh.Attach(this, viewModel.AiPlanCoordinator)
+            ? AiPlanReturnRefresh.Attach(
+                this,
+                viewModel.AiPlanCoordinator,
+                viewModel.RefreshAvailability)
             : null;
+    }
+
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+        (DataContext as AiSubtitleDialogViewModel)?.RefreshAvailability();
     }
 
     private void OnConfirmHistoryOverwriteClick(object? sender, RoutedEventArgs e)

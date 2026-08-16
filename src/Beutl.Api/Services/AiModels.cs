@@ -38,6 +38,94 @@ public static class AiOperations
         => new($"image.edit.{task.Value}");
 }
 
+public abstract record AiOperationAvailabilityRequest
+{
+    private AiOperationAvailabilityRequest(AiOperationId operation)
+    {
+        if (operation.Value.Length == 0)
+            throw new ArgumentException("An AI operation is required.", nameof(operation));
+        Operation = operation;
+    }
+
+    public AiOperationId Operation { get; }
+
+    public sealed record Fixed : AiOperationAvailabilityRequest
+    {
+        public Fixed(AiOperationId operation)
+            : base(operation)
+        {
+            if (operation != AiOperations.ImageGeneration
+                && !operation.Value.StartsWith("image.edit.", StringComparison.Ordinal))
+            {
+                throw new ArgumentException("The operation does not use fixed availability.", nameof(operation));
+            }
+        }
+    }
+
+    public sealed record Video : AiOperationAvailabilityRequest
+    {
+        public Video(int durationSeconds)
+            : base(AiOperations.VideoGeneration)
+        {
+            if (durationSeconds is not (4 or 6 or 8))
+                throw new ArgumentOutOfRangeException(nameof(durationSeconds));
+            DurationSeconds = durationSeconds;
+        }
+
+        public int DurationSeconds { get; }
+    }
+
+    public sealed record Transcription : AiOperationAvailabilityRequest
+    {
+        public Transcription(double durationSeconds)
+            : base(AiOperations.Transcription)
+        {
+            if (!double.IsFinite(durationSeconds) || durationSeconds <= 0)
+                throw new ArgumentOutOfRangeException(nameof(durationSeconds));
+            DurationSeconds = durationSeconds;
+        }
+
+        public double DurationSeconds { get; }
+    }
+
+    public sealed record Translation : AiOperationAvailabilityRequest
+    {
+        public Translation(int characterCount)
+            : base(AiOperations.CaptionTranslation)
+        {
+            if (characterCount is <= 0 or > 20_000)
+                throw new ArgumentOutOfRangeException(nameof(characterCount));
+            CharacterCount = characterCount;
+        }
+
+        public int CharacterCount { get; }
+    }
+}
+
+public static class AiRequestLimits
+{
+    public const int MaxPromptLength = 4_000;
+
+    public const long MaxFrameUploadBytes = 5L * 1024 * 1024;
+
+    internal static string ValidatePrompt(string prompt, string parameterName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(prompt, parameterName);
+        string normalized = prompt.Trim();
+        if (normalized.Length > MaxPromptLength)
+        {
+            throw new ArgumentException(
+                $"The final prompt cannot exceed {MaxPromptLength} characters.",
+                parameterName);
+        }
+
+        return normalized;
+    }
+
+    internal static string? ValidateOptionalPrompt(string? prompt, string parameterName)
+        => string.IsNullOrWhiteSpace(prompt) ? null : ValidatePrompt(prompt, parameterName);
+}
+
 public readonly struct AiImageSizeId : IEquatable<AiImageSizeId>
 {
     private readonly string? _value;
@@ -105,10 +193,9 @@ public sealed record AiImageGenerationRequest
 {
     public AiImageGenerationRequest(string prompt, AiImageSizeId size)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
         if (size.Value.Length == 0)
             throw new ArgumentException("An image size is required.", nameof(size));
-        Prompt = prompt;
+        Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
         Size = size;
     }
 
@@ -129,7 +216,7 @@ public sealed record AiImageEditRequest
             throw new ArgumentException("An image edit task is required.", nameof(task));
         Image = image;
         Task = task;
-        Prompt = prompt;
+        Prompt = AiRequestLimits.ValidateOptionalPrompt(prompt, nameof(prompt));
     }
 
     public AiUploadSource Image { get; }
@@ -190,15 +277,18 @@ public sealed record AiVideoGenerationRequest
         AiUploadSource? firstFrame = null,
         AiUploadSource? lastFrame = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
-        if (durationSeconds <= 0)
+        if (durationSeconds is not (4 or 6 or 8))
             throw new ArgumentOutOfRangeException(nameof(durationSeconds));
         if (resolution.Value.Length == 0)
             throw new ArgumentException("A video resolution is required.", nameof(resolution));
         if (lastFrame is not null && firstFrame is null)
             throw new ArgumentException("A last frame requires a first frame.", nameof(lastFrame));
+        if (firstFrame?.Length > AiRequestLimits.MaxFrameUploadBytes)
+            throw new AiFileTooLargeException();
+        if (lastFrame?.Length > AiRequestLimits.MaxFrameUploadBytes)
+            throw new AiFileTooLargeException();
 
-        Prompt = prompt;
+        Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
         DurationSeconds = durationSeconds;
         Resolution = resolution;
         FirstFrame = firstFrame;
@@ -268,7 +358,8 @@ public sealed record AiEntitlements(
 public sealed record AiImageResult(
     AiJobId? JobId,
     AiContentId FileId,
-    Uri ContentUri);
+    Uri ContentUri,
+    AiContentMetadata? ContentMetadata = null);
 
 public sealed record AiVideoGenerationResult(
     AiJobId JobId,
@@ -279,7 +370,123 @@ public sealed record AiVideoJob(
     AiJobStatusId Status,
     AiContentId? FileId,
     Uri? ContentUri,
-    string? Error);
+    string? Error,
+    AiContentMetadata? ContentMetadata = null);
+
+public sealed record AiContentMetadata
+{
+    public AiContentMetadata(string? fileName, string? contentType)
+    {
+        FileName = AiContentMetadataValidator.NormalizeFileName(fileName);
+        ContentType = AiContentMetadataValidator.NormalizeContentType(contentType);
+    }
+
+    public string? FileName { get; }
+
+    public string? ContentType { get; }
+
+    public static AiContentMetadata? Combine(
+        AiContentMetadata? declared,
+        AiContentMetadata? downloaded)
+    {
+        if (declared is null)
+            return downloaded;
+        if (downloaded is null)
+            return declared;
+
+        if (declared.FileName is not null
+            && downloaded.FileName is not null
+            && !StringComparer.Ordinal.Equals(declared.FileName, downloaded.FileName))
+        {
+            throw new AiException("The downloaded AI content filename does not match its job metadata.");
+        }
+
+        if (declared.ContentType is not null
+            && downloaded.ContentType is not null
+            && !StringComparer.OrdinalIgnoreCase.Equals(declared.ContentType, downloaded.ContentType))
+        {
+            throw new AiException("The downloaded AI content type does not match its job metadata.");
+        }
+
+        return new AiContentMetadata(
+            downloaded.FileName ?? declared.FileName,
+            downloaded.ContentType ?? declared.ContentType);
+    }
+
+    public string GetFileExtension(string fallbackExtension, string requiredMediaKind)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(requiredMediaKind);
+        string normalizedFallback = NormalizeExtension(fallbackExtension);
+        string? contentTypeExtension = ContentType?.ToLowerInvariant() switch
+        {
+            "image/png" => ".png",
+            "image/jpeg" => ".jpg",
+            "image/webp" => ".webp",
+            "image/gif" => ".gif",
+            "video/mp4" => ".mp4",
+            "video/webm" => ".webm",
+            "video/quicktime" => ".mov",
+            "video/x-matroska" => ".mkv",
+            "audio/wav" or "audio/x-wav" => ".wav",
+            "audio/mpeg" => ".mp3",
+            "audio/flac" => ".flac",
+            "audio/mp4" => ".m4a",
+            "audio/ogg" => ".ogg",
+            "audio/webm" => ".webm",
+            _ => null,
+        };
+        if (ContentType is not null && contentTypeExtension is null)
+            throw new AiException("The AI content type is unsupported.");
+
+        string? fileNameExtension = string.IsNullOrWhiteSpace(FileName)
+            ? null
+            : NormalizeExtension(Path.GetExtension(FileName));
+
+        if (contentTypeExtension is not null
+            && fileNameExtension is not null
+            && !StringComparer.OrdinalIgnoreCase.Equals(contentTypeExtension, fileNameExtension)
+            && !(contentTypeExtension == ".jpg" && fileNameExtension == ".jpeg"))
+        {
+            throw new AiException("The AI content filename and content type describe different formats.");
+        }
+
+        string result = contentTypeExtension ?? fileNameExtension ?? normalizedFallback;
+        bool mediaKindMatches = requiredMediaKind switch
+        {
+            "image" => result is ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif",
+            "video" => result is ".mp4" or ".webm" or ".mov" or ".mkv",
+            "audio" => result is ".wav" or ".mp3" or ".flac" or ".m4a" or ".ogg" or ".webm",
+            _ => throw new ArgumentException("The required media kind is invalid.", nameof(requiredMediaKind)),
+        };
+        if (!mediaKindMatches)
+            throw new AiException($"The AI content is not valid {requiredMediaKind} media.");
+        return result;
+    }
+
+    private static string NormalizeExtension(string extension)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(extension);
+        string normalized = extension.StartsWith('.') ? extension : $".{extension}";
+        if (normalized.Length is < 2 or > 11
+            || normalized.Skip(1).Any(character => !char.IsAsciiLetterOrDigit(character)))
+        {
+            throw new ArgumentException("The file extension is invalid.", nameof(extension));
+        }
+
+        normalized = normalized.ToLowerInvariant();
+        if (normalized is not (
+            ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif"
+            or ".mp4" or ".webm" or ".mov" or ".mkv"
+            or ".wav" or ".mp3" or ".flac" or ".m4a" or ".ogg"))
+        {
+            throw new AiException("The AI content uses an unsupported file format.");
+        }
+
+        return normalized;
+    }
+}
+
+public sealed record AiContentDownload(AiContentMetadata? Metadata);
 
 public sealed record AiTranscriptionResponse(
     AiJobId? JobId,
@@ -397,7 +604,8 @@ internal static class AiModelMapper
         => new(
             ToOptionalJobId(response.JobId),
             new AiContentId(response.FileId),
-            ParseContentUri(response.Url));
+            ParseContentUri(response.Url),
+            ToContentMetadata(response.FileName, response.ContentType));
 
     public static AiVideoGenerationResult ToModel(CreateAiVideoResponse response)
         => new(
@@ -410,7 +618,8 @@ internal static class AiModelMapper
             new AiJobStatusId(response.Status),
             string.IsNullOrWhiteSpace(response.FileId) ? null : new AiContentId(response.FileId),
             string.IsNullOrWhiteSpace(response.Url) ? null : ParseContentUri(response.Url),
-            response.Error);
+            response.Error,
+            ToContentMetadata(response.FileName, response.ContentType));
 
     public static AiTranscriptionResponse ToModel(AiTranscriptionResponseDto response)
         => new(
@@ -456,7 +665,8 @@ internal static class AiModelMapper
             response.Error,
             response.CanRetry,
             response.CreatedAt.ToUniversalTime(),
-            response.UpdatedAt.ToUniversalTime());
+            response.UpdatedAt.ToUniversalTime(),
+            ToContentMetadata(response.FileName, response.ContentType));
 
     private static AiJobId? ToOptionalJobId(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : new AiJobId(value);
@@ -466,10 +676,51 @@ internal static class AiModelMapper
             ? uri
             : throw new AiException("The AI response contains an invalid content URI.");
 
+    private static AiContentMetadata? ToContentMetadata(string? fileName, string? contentType)
+        => string.IsNullOrWhiteSpace(fileName) && string.IsNullOrWhiteSpace(contentType)
+            ? null
+            : new AiContentMetadata(fileName, contentType);
+
     private static DateTimeOffset? ParseTimestamp(string? value)
         => string.IsNullOrWhiteSpace(value)
             ? null
             : DateTimeOffset.TryParse(value, out DateTimeOffset timestamp)
                 ? timestamp.ToUniversalTime()
                 : throw new AiException("The AI entitlement response contains an invalid timestamp.");
+}
+
+internal static class AiContentMetadataValidator
+{
+    public static string? NormalizeFileName(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            return null;
+        string normalized = fileName.Trim();
+        if (normalized.Length > 255
+            || normalized.Contains('/')
+            || normalized.Contains('\\')
+            || normalized.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || Path.IsPathRooted(normalized)
+            || Path.GetFileName(normalized) != normalized
+            || normalized is "." or "..")
+        {
+            throw new AiException("The AI response contains an invalid content filename.");
+        }
+
+        return normalized;
+    }
+
+    public static string? NormalizeContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+            return null;
+        if (!System.Net.Http.Headers.MediaTypeHeaderValue.TryParse(
+                contentType.Trim(),
+                out System.Net.Http.Headers.MediaTypeHeaderValue? parsed))
+        {
+            throw new AiException("The AI response contains an invalid content type.");
+        }
+
+        return parsed.MediaType;
+    }
 }

@@ -1,4 +1,4 @@
-using Beutl.Api.Services;
+﻿using Beutl.Api.Services;
 using Beutl.Editor.Services.AI;
 
 namespace Beutl.UnitTests.Api;
@@ -37,18 +37,18 @@ public sealed class AiJobKindAbstractionsTests
     }
 
     [Test]
-    public void EditorResultHandlers_UseExplicitReplacementAndRestoreThePreviousContribution()
+    public async Task EditorResultHandlers_UseExplicitReplacementAndRestoreThePreviousContribution()
     {
         var original = new TestResultHandler();
         var replacement = new TestResultHandler();
-        using var registry = new AiJobResultHandlerRegistry(
+        await using var registry = new AiJobResultHandlerRegistry(
         [
             new AiJobResultHandlerRegistration(new AiJobResultContribution(
                 new AiJobKindId("tests.result"),
                 original)),
         ]);
 
-        IDisposable registration = registry.Register(new AiJobResultHandlerRegistration(
+        IAiJobResultHandlerRegistration registration = registry.Register(new AiJobResultHandlerRegistration(
             new AiJobResultContribution(new AiJobKindId("tests.result"), replacement),
             AiJobResultHandlerRegistrationMode.Replace));
         try
@@ -61,7 +61,7 @@ public sealed class AiJobKindAbstractionsTests
         }
         finally
         {
-            registration.Dispose();
+            await registration.DisposeAsync();
         }
 
         Assert.That(registry.TryAcquire(new AiJobKindId("tests.result"), out IAiJobResultHandlerLease? restoredLease), Is.True);

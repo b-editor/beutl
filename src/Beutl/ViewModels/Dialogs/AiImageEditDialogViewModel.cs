@@ -1,6 +1,6 @@
 ﻿using System.Reactive.Disposables;
-using Avalonia;
 using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
@@ -30,6 +30,7 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
     private readonly object _disposeGate = new();
     private readonly ILogger _logger = Log.CreateLogger<AiImageEditDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
+    private readonly IAiOperationAvailabilityService _availability;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiImageEditingService _images;
     private readonly IAuthenticatedContentService _content;
@@ -39,12 +40,14 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
 
     public AiImageEditDialogViewModel(
         IAiEntitlementService entitlements,
+        IAiOperationAvailabilityService availability,
         IAiPlanCoordinator aiPlanCoordinator,
         IAiImageEditingService images,
         IAuthenticatedContentService content,
         EditViewModel? editViewModel = null)
     {
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
+        _availability = availability ?? throw new ArgumentNullException(nameof(availability));
         _aiPlanCoordinator = aiPlanCoordinator
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
         _images = images ?? throw new ArgumentNullException(nameof(images));
@@ -114,6 +117,13 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         IsEditing = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
 
+        PromptValidationError = SelectedTask
+            .CombineLatest(
+                Prompt,
+                (task, prompt) => GetPromptValidationError(task.Value, prompt))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         SelectSourceFileCommand = new AsyncReactiveCommand()
             .WithSubscribe(SelectSourceFileAsync);
 
@@ -122,11 +132,7 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         CanEdit = SourceFilePath
             .Select(x => !string.IsNullOrEmpty(x))
             .CombineLatest(IsEditing, (hasSource, editing) => hasSource && !editing)
-            .CombineLatest(
-                RequiresPrompt,
-                Prompt,
-                (canEdit, requiresPrompt, prompt) =>
-                    canEdit && (!requiresPrompt || !string.IsNullOrWhiteSpace(prompt)))
+            .CombineLatest(PromptValidationError, (canEdit, error) => canEdit && error is null)
             .CombineLatest(EstimatedUsage.CanAfford, (canEdit, canAfford) => canEdit && canAfford)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -207,6 +213,8 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
     public ReadOnlyReactivePropertySlim<bool> ShowOutpaintExpansion { get; }
 
     public ReadOnlyReactivePropertySlim<string> PromptWatermark { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> PromptValidationError { get; }
 
     public ReactivePropertySlim<string?> SourceFilePath { get; } = new();
 
@@ -401,6 +409,14 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
                 prompt = $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt}";
             }
 
+            if (!await _availability.CheckAsync(
+                    new AiOperationAvailabilityRequest.Fixed(
+                        AiOperations.ImageEdit(new AiImageEditTaskId(task))),
+                    operation.CancellationToken))
+            {
+                throw new AiUsageLimitExceededException();
+            }
+
             AiImageResult response = await _images.EditAsync(
                 new AiImageEditRequest(
                     AiUploadSource.FromFile(uploadPath),
@@ -481,11 +497,27 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         int horizontal = Math.Max(1, (int)Math.Round(source.Width * expansionPercent / 100d));
         int vertical = Math.Max(1, (int)Math.Round(source.Height * expansionPercent / 100d));
         using Bitmap expanded = source.MakeBorder(vertical, vertical, horizontal, horizontal);
-        string directory = Path.Combine(Path.GetTempPath(), "Beutl", "AI", "Inputs");
-        Directory.CreateDirectory(directory);
-        string result = Path.Combine(directory, $"outpaint-{Guid.NewGuid():N}.png");
-        expanded.Save(result, EncodedImageFormat.Png);
+        (string result, FileStream stream) = AiTemporaryFileStore.Create("inputs", "outpaint", ".png");
+        using (stream)
+        {
+            expanded.Save(stream, EncodedImageFormat.Png);
+        }
         return result;
+    }
+
+    private static string? GetPromptValidationError(string task, string prompt)
+    {
+        if (task is not ("restyle" or "remove_object" or "outpaint"))
+            return null;
+        if (string.IsNullOrWhiteSpace(prompt))
+            return "Enter a prompt.";
+
+        string finalPrompt = task == "outpaint"
+            ? $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt.Trim()}"
+            : prompt.Trim();
+        return finalPrompt.Length > AiRequestLimits.MaxPromptLength
+            ? $"The final composed prompt cannot exceed {AiRequestLimits.MaxPromptLength} characters."
+            : null;
     }
 
     private async Task AddToSceneCore()

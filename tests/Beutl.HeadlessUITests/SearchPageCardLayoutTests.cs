@@ -65,10 +65,10 @@ public class SearchPageCardLayoutTests
     }
 
     [AvaloniaTest]
-    public void Long_card_text_ellipsizes_wraps_and_stays_bounded()
+    public async Task Long_card_text_ellipsizes_wraps_and_stays_bounded()
     {
         using var httpClient = new HttpClient();
-        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var viewModel = new SearchPageViewModel(new DiscoverService(clients), "search");
         viewModel.Packages.Add(CreatePackage(clients));
 

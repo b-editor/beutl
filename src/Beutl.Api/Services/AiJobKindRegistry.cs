@@ -1,4 +1,4 @@
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using Beutl.Extensibility;
 using Beutl.Logging;
@@ -8,12 +8,10 @@ namespace Beutl.Api.Services;
 
 /// <summary>
 /// Owns a job-kind registration. The caller must retain this object for as long as the kind is
-/// available and dispose it during unload. The registry keeps only a weak reference to this owner,
-/// so an abandoned extension and its descriptor remain collectible. Disposing the registration
-/// retires it, prevents new leases, and blocks until all leases already using its descriptor have
-/// been released. An extension can therefore dispose descriptor-owned resources after this owner.
+/// available and asynchronously dispose it during unload. Disposal retires the registration
+/// synchronously, then waits without blocking until every existing descriptor lease is released.
 /// </summary>
-public interface IAiJobKindRegistration : IDisposable
+public interface IAiJobKindRegistration : IAsyncDisposable
 {
 }
 
@@ -48,16 +46,17 @@ public interface IAiJobKindRegistry : IBeutlApiResource
     AiJobStatusSemantics GetStatus(AiJobKindId kind, AiJobStatusId status);
 }
 
-public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
+public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
 {
     private readonly Dictionary<AiJobKindId, List<WeakReference<Registration>>> _registrations = [];
-    private readonly List<IAiJobKindRegistration> _ownedRegistrations = [];
-    private readonly Dictionary<AiJobKindExtension, IAiJobKindRegistration> _extensionRegistrations
+    private readonly List<Registration> _ownedRegistrations = [];
+    private readonly Dictionary<AiJobKindExtension, Registration> _extensionRegistrations
         = new(ReferenceEqualityComparer.Instance);
     private readonly object _extensionCompositionGate = new();
     private readonly object _gate = new();
     private static readonly ILogger s_logger = Log.CreateLogger<AiJobKindRegistry>();
     private IExtensionProvider? _extensionProvider;
+    private Task? _disposeTask;
     private volatile bool _disposed;
 
     public AiJobKindRegistry()
@@ -73,16 +72,22 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
         IAiImageGenerationService images,
         IAiVideoService videos,
         IAiEntitlementService entitlements,
+        IAiOperationAvailabilityService availability,
         IExtensionProvider? extensionProvider = null)
     {
         ArgumentNullException.ThrowIfNull(images);
         ArgumentNullException.ThrowIfNull(videos);
         ArgumentNullException.ThrowIfNull(entitlements);
+        ArgumentNullException.ThrowIfNull(availability);
 
         var registry = new AiJobKindRegistry();
-        foreach (AiJobKindDescriptor descriptor in BuiltInAiJobKinds.Create(images, videos, entitlements))
+        foreach (AiJobKindDescriptor descriptor in BuiltInAiJobKinds.Create(
+                     images,
+                     videos,
+                     entitlements,
+                     availability))
         {
-            registry._ownedRegistrations.Add(registry.Register(descriptor));
+            registry._ownedRegistrations.Add((Registration)registry.Register(descriptor));
         }
 
         if (extensionProvider is not null)
@@ -195,16 +200,36 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
         }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
-        IAiJobKindRegistration[] ownedRegistrations;
-        IAiJobKindRegistration[] extensionRegistrations;
+        if (_extensionProvider is IExtensionRegistry registry)
+        {
+            ValueTask result = default;
+            registry.SynchronizeMutation(() => result = StartDispose());
+            return result;
+        }
+
+        return StartDispose();
+    }
+
+    private ValueTask StartDispose()
+    {
+        lock (_extensionCompositionGate)
+        {
+            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
+        }
+    }
+
+    private Task DisposeCoreAsync()
+    {
+        Registration[] ownedRegistrations;
+        KeyValuePair<AiJobKindExtension, Registration>[] extensionRegistrations;
         lock (_extensionCompositionGate)
         {
             lock (_gate)
             {
                 if (_disposed)
-                    return;
+                    return Task.CompletedTask;
 
                 _disposed = true;
                 _registrations.Clear();
@@ -218,19 +243,18 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
                 _extensionProvider = null;
             }
 
-            extensionRegistrations = _extensionRegistrations.Values.ToArray();
+            extensionRegistrations = _extensionRegistrations.ToArray();
             _extensionRegistrations.Clear();
-
-            foreach (IAiJobKindRegistration registration in extensionRegistrations)
-            {
-                registration.Dispose();
-            }
         }
 
-        foreach (IAiJobKindRegistration registration in ownedRegistrations)
+        foreach ((AiJobKindExtension extension, Registration registration)
+                 in extensionRegistrations)
         {
-            registration.Dispose();
+            ExtensionRegistrationLifetimes.Retire(extension, registration.DisposeAsync);
         }
+
+        return DisposeRegistrationsAsync(
+            ownedRegistrations.Concat(extensionRegistrations.Select(pair => pair.Value)));
     }
 
     private void AttachExtensionProvider(IExtensionProvider extensionProvider)
@@ -277,9 +301,8 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
             currentExtensions,
             ReferenceEqualityComparer.Instance);
 
-        IAiJobKindRegistration[] removedRegistrations = _extensionRegistrations
+        KeyValuePair<AiJobKindExtension, Registration>[] removedRegistrations = _extensionRegistrations
             .Where(pair => !currentSet.Contains(pair.Key))
-            .Select(pair => pair.Value)
             .ToArray();
         foreach (AiJobKindExtension extension in _extensionRegistrations.Keys
                      .Where(extension => !currentSet.Contains(extension))
@@ -288,9 +311,10 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
             _extensionRegistrations.Remove(extension);
         }
 
-        foreach (IAiJobKindRegistration registration in removedRegistrations)
+        foreach ((AiJobKindExtension extension, Registration registration)
+                 in removedRegistrations)
         {
-            registration.Dispose();
+            ExtensionRegistrationLifetimes.Retire(extension, registration.DisposeAsync);
         }
 
         foreach (AiJobKindExtension extension in currentExtensions)
@@ -300,7 +324,7 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
 
             try
             {
-                IAiJobKindRegistration registration = Register(
+                var registration = (Registration)Register(
                     extension.Descriptor,
                     extension.RegistrationMode);
                 _extensionRegistrations.Add(extension, registration);
@@ -315,11 +339,12 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
         }
     }
 
-    private void UnregisterAndDrain(Registration registration, RegistrationState state)
+    private Task UnregisterAsync(Registration registration, RegistrationState state)
     {
+        Task drain;
         lock (_gate)
         {
-            state.Retire();
+            drain = state.RetireAsync();
             if (_registrations.TryGetValue(state.Kind, out List<WeakReference<Registration>>? registrations))
             {
                 for (int index = registrations.Count - 1; index >= 0; index--)
@@ -338,8 +363,11 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
             }
         }
 
-        state.WaitForLeaseDrain();
+        return drain;
     }
+
+    private static Task DisposeRegistrationsAsync(IEnumerable<Registration> registrations)
+        => Task.WhenAll(registrations.Select(registration => registration.DisposeAsync().AsTask()));
 
     private static void RemoveCollectedRegistrations(
         List<WeakReference<Registration>> registrations)
@@ -361,6 +389,7 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
         AiJobKindDescriptor descriptor)
     {
         private readonly object _gate = new();
+        private TaskCompletionSource? _drained;
         private int _activeLeases;
         private bool _retired;
 
@@ -384,89 +413,75 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IDisposable
             }
         }
 
-        public void Retire()
+        public Task RetireAsync()
         {
             lock (_gate)
             {
                 _retired = true;
-            }
-        }
-
-        public void WaitForLeaseDrain()
-        {
-            lock (_gate)
-            {
-                while (_activeLeases > 0)
-                {
-                    Monitor.Wait(_gate);
-                }
+                return _activeLeases == 0
+                    ? Task.CompletedTask
+                    : (_drained ??= new TaskCompletionSource(
+                        TaskCreationOptions.RunContinuationsAsynchronously)).Task;
             }
         }
 
         public void ReleaseLease()
         {
+            TaskCompletionSource? drained = null;
             lock (_gate)
             {
                 _activeLeases--;
-                if (_activeLeases == 0)
+                if (_activeLeases == 0 && _retired)
                 {
-                    Monitor.PulseAll(_gate);
+                    drained = _drained;
                 }
             }
+
+            drained?.TrySetResult();
         }
     }
 
-    private sealed class Registration(
-        AiJobKindRegistry registry,
-        RegistrationState state) : IAiJobKindRegistration
+    private sealed class Registration : IAiJobKindRegistration
     {
-        private readonly object _disposeGate = new();
-        private RegistrationOwner? _owner = new(registry, state);
-        private bool _disposing;
+        private readonly Lazy<Task> _retirement;
+        private RegistrationOwner? _owner;
+
+        public Registration(AiJobKindRegistry registry, RegistrationState state)
+        {
+            _owner = new RegistrationOwner(registry, state);
+            _retirement = new Lazy<Task>(
+                RetireCoreAsync,
+                LazyThreadSafetyMode.ExecutionAndPublication);
+        }
 
         public bool TryAcquire([NotNullWhen(true)] out DescriptorLease? lease)
         {
-            lock (_disposeGate)
+            RegistrationOwner? owner = Volatile.Read(ref _owner);
+            if (_retirement.IsValueCreated || owner is null)
             {
-                if (_disposing || _owner is null)
-                {
-                    lease = null;
-                    return false;
-                }
-
-                return _owner.State.TryAcquire(out lease);
+                lease = null;
+                return false;
             }
+
+            return owner.State.TryAcquire(out lease);
         }
 
-        public void Dispose()
+        public ValueTask DisposeAsync()
+            => new(_retirement.Value);
+
+        private async Task RetireCoreAsync()
         {
-            RegistrationOwner owner;
-            lock (_disposeGate)
-            {
-                while (_disposing)
-                {
-                    Monitor.Wait(_disposeGate);
-                }
-
-                if (_owner is null)
-                    return;
-
-                _disposing = true;
-                owner = _owner;
-            }
+            RegistrationOwner? owner = Volatile.Read(ref _owner);
+            if (owner is null)
+                return;
 
             try
             {
-                owner.Registry.UnregisterAndDrain(this, owner.State);
+                await owner.Registry.UnregisterAsync(this, owner.State).ConfigureAwait(false);
             }
             finally
             {
-                lock (_disposeGate)
-                {
-                    _owner = null;
-                    _disposing = false;
-                    Monitor.PulseAll(_disposeGate);
-                }
+                Interlocked.Exchange(ref _owner, null);
             }
         }
 

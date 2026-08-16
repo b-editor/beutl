@@ -196,4 +196,62 @@ public sealed class CaptionDraftStoreTests
                 "en",
                 1));
     }
+
+    [Test]
+    public void SourceTranscriptionResume_RoundTripsIncompleteProgress()
+    {
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        var segment = new AiTranscriptionSegment
+        {
+            Start = 0,
+            End = 1,
+            Text = "decoded source",
+        };
+        var draft = new CaptionDraft(
+            FileCaptionDraftStore.CurrentVersion,
+            [new StoredCaptionCue(0, TimeSpan.FromSeconds(1).Ticks, segment.Text, null, "en", [])],
+            "en",
+            [segment],
+            CaptionDraftKind.Transcription,
+            1,
+            2,
+            null,
+            null,
+            new CaptionSourceTranscriptionResume(
+                Path.GetFullPath("source.flac"),
+                Guid.Empty,
+                1_024,
+                DateTime.UtcNow.Ticks,
+                "en",
+                48_000,
+                57_600_000,
+                28_800_000,
+                2,
+                [segment],
+                "en",
+                1));
+
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(new CaptionDraftEntry("job-source", draft));
+        }
+
+        Assert.That(store.TryOpen(scope, out session), Is.True);
+        using (session)
+        {
+            CaptionDraftEntry? restored = session!.Load();
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored, Is.Not.Null);
+                Assert.That(restored!.Draft.SourceTranscriptionResume, Is.Not.Null);
+                Assert.That(
+                    restored.Draft.SourceTranscriptionResume!.CompletedChunkCount,
+                    Is.EqualTo(1));
+                Assert.That(restored.Draft.SourceTranscriptionResume.Segments[0].Text,
+                    Is.EqualTo("decoded source"));
+            });
+        }
+    }
 }

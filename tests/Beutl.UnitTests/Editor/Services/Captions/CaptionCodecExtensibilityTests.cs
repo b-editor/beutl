@@ -9,7 +9,7 @@ public class CaptionCodecExtensibilityTests
     private static readonly CaptionFormatId s_pipeFormat = new("example.pipe");
 
     [Test]
-    public void Registry_CustomContributionResolvesByTypedIdAndFileName()
+    public async Task Registry_CustomContributionResolvesByTypedIdAndFileName()
     {
         var codec = new PipeCaptionCodec();
         var contribution = new CaptionCodecContribution(
@@ -19,7 +19,7 @@ public class CaptionCodecExtensibilityTests
             codec);
         CaptionCodecRegistry registry = CaptionCatalog.CreateDefault("Default").Codecs;
 
-        registry.Register(new CaptionCodecRegistration(contribution));
+        await registry.RegisterAsync(new CaptionCodecRegistration(contribution));
 
         Assert.Multiple(() =>
         {
@@ -90,23 +90,23 @@ public class CaptionCodecExtensibilityTests
     }
 
     [Test]
-    public void Registry_MergesIndependentDirectionsAndRejectsOnlyDuplicateDirectionsOrDescriptor()
+    public async Task Registry_MergesIndependentDirectionsAndRejectsOnlyDuplicateDirectionsOrDescriptor()
     {
         var decoder = new PipeCaptionCodec();
         var encoder = new PipeCaptionCodec();
         var registry = new CaptionCodecRegistry();
-        registry.Register(new CaptionCodecRegistration(
+        await registry.RegisterAsync(new CaptionCodecRegistration(
             new CaptionCodecContribution(s_pipeFormat, decoder: decoder)));
         CaptionCodecInfo capabilityOnly = registry.GetRequired(s_pipeFormat);
         Assert.That(capabilityOnly.CanDecode, Is.True);
         Assert.That(capabilityOnly.CanEncode, Is.False);
         Assert.That(capabilityOnly.FileExtensions, Is.Empty);
-        registry.Register(new CaptionCodecRegistration(
+        await registry.RegisterAsync(new CaptionCodecRegistration(
             new CaptionCodecContribution(
                 s_pipeFormat,
                 descriptor: new CaptionCodecDescriptor(s_pipeFormat, [".pipe"])),
             CaptionCodecRegistrationMode.Merge));
-        registry.Register(new CaptionCodecRegistration(
+        await registry.RegisterAsync(new CaptionCodecRegistration(
             new CaptionCodecContribution(s_pipeFormat, encoder: encoder),
             CaptionCodecRegistrationMode.Merge));
 
@@ -121,13 +121,13 @@ public class CaptionCodecExtensibilityTests
             Assert.That(byExtension!.Format, Is.EqualTo(merged.Format));
         }
 
-        Assert.Throws<ArgumentException>(() => registry.Register(new CaptionCodecRegistration(
+        Assert.ThrowsAsync<ArgumentException>(async () => await registry.RegisterAsync(new CaptionCodecRegistration(
             new CaptionCodecContribution(s_pipeFormat, decoder: new PipeCaptionCodec()),
             CaptionCodecRegistrationMode.Merge)));
-        Assert.Throws<ArgumentException>(() => registry.Register(new CaptionCodecRegistration(
+        Assert.ThrowsAsync<ArgumentException>(async () => await registry.RegisterAsync(new CaptionCodecRegistration(
             new CaptionCodecContribution(s_pipeFormat, encoder: new PipeCaptionCodec()),
             CaptionCodecRegistrationMode.Merge)));
-        Assert.Throws<ArgumentException>(() => registry.Register(new CaptionCodecRegistration(
+        Assert.ThrowsAsync<ArgumentException>(async () => await registry.RegisterAsync(new CaptionCodecRegistration(
             new CaptionCodecContribution(
                 s_pipeFormat,
                 descriptor: new CaptionCodecDescriptor(s_pipeFormat, [".other"])),
@@ -135,7 +135,7 @@ public class CaptionCodecExtensibilityTests
     }
 
     [Test]
-    public void Registry_ConflictingFormatOrExtensionIsRejectedWithoutPartialRegistration()
+    public async Task Registry_ConflictingFormatOrExtensionIsRejectedWithoutPartialRegistration()
     {
         var codec = new PipeCaptionCodec();
         var first = new CaptionCodecContribution(
@@ -145,12 +145,12 @@ public class CaptionCodecExtensibilityTests
             codec);
         var registry = new CaptionCodecRegistry([new CaptionCodecRegistration(first)]);
 
-        Assert.Throws<ArgumentException>(() => registry.Register(new CaptionCodecRegistration(
+        Assert.ThrowsAsync<ArgumentException>(async () => await registry.RegisterAsync(new CaptionCodecRegistration(
             new CaptionCodecContribution(
                 new CaptionFormatId("EXAMPLE.PIPE"),
                 new CaptionCodecDescriptor(new CaptionFormatId("EXAMPLE.PIPE"), [".duplicate"]),
                 new PipeCaptionCodec()))));
-        Assert.Throws<ArgumentException>(() => registry.Register(new CaptionCodecRegistration(
+        Assert.ThrowsAsync<ArgumentException>(async () => await registry.RegisterAsync(new CaptionCodecRegistration(
             new CaptionCodecContribution(
                 new CaptionFormatId("other"),
                 new CaptionCodecDescriptor(new CaptionFormatId("other"), ["PIPE"]),
@@ -164,7 +164,7 @@ public class CaptionCodecExtensibilityTests
     }
 
     [Test]
-    public void Registry_ReplacementAndOrderingAreExplicitAndDeterministic()
+    public async Task Registry_ReplacementAndOrderingAreExplicitAndDeterministic()
     {
         var originalCodec = new PipeCaptionCodec();
         var replacementCodec = new PipeCaptionCodec();
@@ -190,7 +190,7 @@ public class CaptionCodecExtensibilityTests
             replacementCodec,
             order: -10);
 
-        registry.Register(new CaptionCodecRegistration(
+        await registry.RegisterAsync(new CaptionCodecRegistration(
             replacement,
             CaptionCodecRegistrationMode.Replace));
 
@@ -206,6 +206,34 @@ public class CaptionCodecExtensibilityTests
                 registry.Codecs.Select(codec => codec.Format),
                 Is.EqualTo(new[] { s_pipeFormat, otherFormat }));
         }
+    }
+
+    [Test]
+    public async Task Registry_ReplaceAsyncWaitsForOwnerlessDecodeLease()
+    {
+        var decoder = new BlockingDecoder();
+        var registry = new CaptionCodecRegistry(
+        [
+            new CaptionCodecRegistration(new CaptionCodecContribution(
+                s_pipeFormat,
+                decoder: decoder)),
+        ]);
+        Task<CaptionImportResult> decode = Task.Run(() => registry.Decode(s_pipeFormat, "caption"));
+        Assert.That(decoder.Started.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+        Task replace = registry.ReplaceAsync([]).AsTask();
+        try
+        {
+            await Task.Delay(50);
+            Assert.That(replace.IsCompleted, Is.False);
+        }
+        finally
+        {
+            decoder.Release.Set();
+        }
+
+        await replace.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That((await decode).IsSuccess, Is.True);
     }
 
     [Test]
@@ -236,5 +264,23 @@ public class CaptionCodecExtensibilityTests
         }
 
         public string Encode(CaptionDocument document) => document[0].Text;
+    }
+
+    private sealed class BlockingDecoder : ICaptionDecoder
+    {
+        public ManualResetEventSlim Started { get; } = new();
+
+        public ManualResetEventSlim Release { get; } = new();
+
+        public CaptionImportResult Decode(string content)
+        {
+            Started.Set();
+            if (!Release.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The blocking decoder was not released.");
+            return CaptionImportResult.Imported(new CaptionDocument(
+            [
+                new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), content),
+            ]));
+        }
     }
 }

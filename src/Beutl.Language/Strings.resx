@@ -2047,6 +2047,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiPromptTemplateInvalid" xml:space="preserve">
     <value>Enter both a template name and a prompt before saving.</value>
   </data>
+  <data name="AiVideoWaitStopped" xml:space="preserve">
+    <value>Local waiting stopped. The server job remains available in AI job history.</value>
+  </data>
   <data name="AiEditRestyle" xml:space="preserve">
     <value>Restyle with a reference</value>
   </data>

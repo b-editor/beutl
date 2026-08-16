@@ -1,4 +1,4 @@
-using Beutl.Extensibility;
+﻿using Beutl.Extensibility;
 
 namespace Beutl.Api.Services;
 
@@ -7,7 +7,7 @@ namespace Beutl.Api.Services;
 /// registration mode when the extension is added, retains the resulting registration for the
 /// package lifetime, and drains active descriptor leases before <see cref="Extension.Unload"/>.
 /// </summary>
-public abstract class AiJobKindExtension : Extension
+public abstract class AiJobKindExtension : Extension, ILiveUnloadExtension
 {
     /// <summary>
     /// Gets the complete behavior descriptor contributed by this extension.

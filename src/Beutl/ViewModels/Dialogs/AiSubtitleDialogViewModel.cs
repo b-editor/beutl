@@ -1,6 +1,6 @@
-﻿using Beutl.Animation;
+﻿using System.Text.Json.Nodes;
+using Beutl.Animation;
 using Beutl.Api;
-using System.Text.Json.Nodes;
 using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Collections;
@@ -31,6 +31,7 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
     private readonly ILogger _logger = Log.CreateLogger<AiSubtitleDialogViewModel>();
     private readonly SubtitleAiCapabilities _aiService;
     private readonly IAiEntitlementService _entitlements;
+    private readonly IAiOperationAvailabilityService _availability;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly EditViewModel? _editViewModel;
     private readonly CaptionCodecRegistry _captionCodecs;
@@ -42,6 +43,7 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
 
     internal AiSubtitleDialogViewModel(
         IAiEntitlementService entitlements,
+        IAiOperationAvailabilityService availability,
         IAiPlanCoordinator aiPlanCoordinator,
         IAiTranscriptionService transcription,
         IAiCaptionTranslationService translation,
@@ -51,6 +53,7 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         EditViewModel? editViewModel = null)
     {
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
+        _availability = availability ?? throw new ArgumentNullException(nameof(availability));
         _aiPlanCoordinator = aiPlanCoordinator
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
         _aiService = new SubtitleAiCapabilities(
@@ -149,6 +152,12 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
 
     internal IAiPlanCoordinator AiPlanCoordinator => _aiPlanCoordinator;
 
+    internal void RefreshAvailability()
+    {
+        _transcriptionEstimateRevision.Value++;
+        RefreshTranslationEstimate();
+    }
+
     public ReactivePropertySlim<AiTranscriptionSegment[]?> ResultSegments { get; } = new();
 
     internal AiUsageViewModel Usage { get; }
@@ -244,7 +253,8 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
                         element.Length,
                         sound.OffsetPosition.CurrentValue,
                         sound.Speed.CurrentValue,
-                        sound.Speed.Animation as KeyFrameAnimation<float>));
+                        sound.Speed.Animation as KeyFrameAnimation<float>,
+                        elementId: element.Id));
                 }
             }
         }
@@ -389,6 +399,7 @@ public sealed class AudioSourceItem
     private readonly TimeSpan _sourceOffset;
     private readonly float _speed;
     private readonly KeyFrameAnimation<float>? _speedAnimation;
+    private readonly Guid _elementId;
 
     public AudioSourceItem(
         string name,
@@ -398,11 +409,13 @@ public sealed class AudioSourceItem
         TimeSpan? elementLength = null,
         TimeSpan sourceOffset = default,
         float speed = 100,
-        KeyFrameAnimation<float>? speedAnimation = null)
+        KeyFrameAnimation<float>? speedAnimation = null,
+        Guid elementId = default)
     {
         Name = name;
         FilePath = filePath;
         Duration = duration;
+        _elementId = elementId;
         _elementStart = elementStart;
         _elementLength = elementLength ?? duration;
         _sourceOffset = sourceOffset;
@@ -432,8 +445,37 @@ public sealed class AudioSourceItem
 
     public TimeSpan SceneStart { get; }
 
+    internal Guid ElementId => _elementId;
+
     internal static AudioSourceItem CreateSceneMix(string name, TimeSpan sceneStart, TimeSpan duration)
         => new(name, sceneStart, duration);
+
+    internal static bool CanResume(AudioSourceItem? candidate, AudioSourceItem? previous)
+    {
+        if (candidate is null || previous is null)
+            return false;
+        if (ReferenceEquals(candidate, previous))
+            return true;
+        if (candidate.IsSceneMix || previous.IsSceneMix)
+            return false;
+
+        return FilePathsEqual(candidate.FilePath!, previous.FilePath!)
+            && candidate.Duration == previous.Duration
+            && candidate._elementId == previous._elementId
+            && candidate._elementStart == previous._elementStart
+            && candidate._elementLength == previous._elementLength
+            && candidate._sourceOffset == previous._sourceOffset
+            && candidate._speed == previous._speed
+            && ReferenceEquals(candidate._speedAnimation, previous._speedAnimation);
+    }
+
+    internal static bool FilePathsEqual(string first, string second)
+        => GetFilePathComparer().Equals(Path.GetFullPath(first), Path.GetFullPath(second));
+
+    private static StringComparer GetFilePathComparer()
+        => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
 
     internal AiTranscriptionSegment[] MapSegmentsToScene(IEnumerable<AiTranscriptionSegment> segments)
     {

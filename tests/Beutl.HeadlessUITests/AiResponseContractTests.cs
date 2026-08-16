@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Beutl.Api.Services;
 
 namespace Beutl.HeadlessUITests;

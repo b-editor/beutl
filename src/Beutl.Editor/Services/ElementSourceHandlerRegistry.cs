@@ -1,5 +1,6 @@
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
+using Beutl.Api.Services;
 using Beutl.Extensibility;
 
 namespace Beutl.Editor.Services;
@@ -8,15 +9,16 @@ namespace Beutl.Editor.Services;
 /// Resolves source handlers from host and package contributions. Removing a contribution retires
 /// it before package unload and waits for active materialization calls to finish.
 /// </summary>
-public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry, IDisposable
+public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry, IAsyncDisposable
 {
     private readonly Dictionary<Type, List<Registration>> _handlers = [];
-    private readonly Dictionary<ElementSourceHandlerExtension, List<IDisposable>> _extensionRegistrations =
+    private readonly Dictionary<ElementSourceHandlerExtension, List<Registration>> _extensionRegistrations =
         new(ReferenceEqualityComparer.Instance);
     private readonly object _extensionCompositionGate = new();
     private readonly object _gate = new();
     private readonly Action<ElementSourceHandlerExtensionFailure>? _reportFailure;
     private IExtensionProvider? _extensionProvider;
+    private Task? _disposeTask;
     private long _registrationSequence;
     private bool _disposed;
 
@@ -138,15 +140,36 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
         }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
+    {
+        if (_extensionProvider is IExtensionRegistry registry)
+        {
+            ValueTask result = default;
+            registry.SynchronizeMutation(() => result = StartDispose());
+            return result;
+        }
+
+        return StartDispose();
+    }
+
+    private ValueTask StartDispose()
+    {
+        lock (_extensionCompositionGate)
+        {
+            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
+        }
+    }
+
+    private Task DisposeCoreAsync()
     {
         Registration[] registrations;
+        KeyValuePair<ElementSourceHandlerExtension, List<Registration>>[] extensionRegistrations;
         lock (_extensionCompositionGate)
         {
             lock (_gate)
             {
                 if (_disposed)
-                    return;
+                    return Task.CompletedTask;
 
                 _disposed = true;
                 registrations = _handlers.Values.SelectMany(value => value).ToArray();
@@ -159,13 +182,19 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
                 _extensionProvider = null;
             }
 
+            extensionRegistrations = _extensionRegistrations.ToArray();
             _extensionRegistrations.Clear();
         }
 
-        foreach (Registration registration in registrations)
+        foreach ((ElementSourceHandlerExtension extension, List<Registration> owned)
+                 in extensionRegistrations)
         {
-            registration.Dispose();
+            ExtensionRegistrationLifetimes.Retire(
+                extension,
+                () => DisposeRegistrationsAsync(owned));
         }
+
+        return DisposeRegistrationsAsync(registrations).AsTask();
     }
 
     private void AttachExtensionProvider(IExtensionProvider extensionProvider)
@@ -213,9 +242,9 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
             currentExtensions,
             ReferenceEqualityComparer.Instance);
 
-        List<IDisposable>[] removedRegistrations = _extensionRegistrations
+        KeyValuePair<ElementSourceHandlerExtension, List<Registration>>[] removedRegistrations =
+            _extensionRegistrations
             .Where(pair => !currentSet.Contains(pair.Key))
-            .Select(pair => pair.Value)
             .ToArray();
         foreach (ElementSourceHandlerExtension extension in _extensionRegistrations.Keys
                      .Where(extension => !currentSet.Contains(extension))
@@ -224,12 +253,12 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
             _extensionRegistrations.Remove(extension);
         }
 
-        foreach (List<IDisposable> registrations in removedRegistrations)
+        foreach ((ElementSourceHandlerExtension extension, List<Registration> registrations)
+                 in removedRegistrations)
         {
-            foreach (IDisposable registration in registrations)
-            {
-                registration.Dispose();
-            }
+            ExtensionRegistrationLifetimes.Retire(
+                extension,
+                () => DisposeRegistrationsAsync(registrations));
         }
 
         foreach (ElementSourceHandlerExtension extension in currentExtensions)
@@ -237,33 +266,33 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
             if (_extensionRegistrations.ContainsKey(extension))
                 continue;
 
-            var registrations = new List<IDisposable>();
+            var registrations = new List<Registration>();
             try
             {
                 foreach (ElementSourceHandlerRegistration registration in ValidateRegistrations(extension))
                 {
-                    registrations.Add(Register(registration));
+                    registrations.Add((Registration)Register(registration));
                 }
 
                 _extensionRegistrations.Add(extension, registrations);
             }
             catch (Exception ex)
             {
-                foreach (IDisposable registration in registrations)
-                {
-                    registration.Dispose();
-                }
+                ExtensionRegistrationLifetimes.Retire(
+                    extension,
+                    () => DisposeRegistrationsAsync(registrations));
 
                 ReportFailure(extension, ex);
             }
         }
     }
 
-    private void UnregisterAndDrain(Registration registration, RegistrationState state)
+    private Task UnregisterAsync(Registration registration, RegistrationState state)
     {
+        Task drain;
         lock (_gate)
         {
-            state.Retire();
+            drain = state.RetireAsync();
             if (_handlers.TryGetValue(state.SourceType, out List<Registration>? entries))
             {
                 entries.Remove(registration);
@@ -274,7 +303,17 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
             }
         }
 
-        state.WaitForLeaseDrain();
+        return drain;
+    }
+
+    private static ValueTask DisposeRegistrationsAsync(IEnumerable<Registration> registrations)
+    {
+        Task[] drains = registrations
+            .Select(registration => registration.DisposeAsync().AsTask())
+            .ToArray();
+        return drains.Length == 0
+            ? ValueTask.CompletedTask
+            : new ValueTask(Task.WhenAll(drains));
     }
 
     private static ElementSourceHandlerRegistration[] ValidateRegistrations(
@@ -321,6 +360,7 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
         long sequence)
     {
         private readonly object _gate = new();
+        private TaskCompletionSource? _drained;
         private int _activeLeases;
         private bool _retired;
 
@@ -348,92 +388,78 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
             }
         }
 
-        public void Retire()
+        public Task RetireAsync()
         {
             lock (_gate)
             {
                 _retired = true;
-            }
-        }
-
-        public void WaitForLeaseDrain()
-        {
-            lock (_gate)
-            {
-                while (_activeLeases > 0)
-                {
-                    Monitor.Wait(_gate);
-                }
+                return _activeLeases == 0
+                    ? Task.CompletedTask
+                    : (_drained ??= new TaskCompletionSource(
+                        TaskCreationOptions.RunContinuationsAsynchronously)).Task;
             }
         }
 
         public void ReleaseLease()
         {
+            TaskCompletionSource? drained = null;
             lock (_gate)
             {
                 _activeLeases--;
-                if (_activeLeases == 0)
+                if (_activeLeases == 0 && _retired)
                 {
-                    Monitor.PulseAll(_gate);
+                    drained = _drained;
                 }
             }
+
+            drained?.TrySetResult();
         }
     }
 
-    private sealed class Registration(
-        ElementSourceHandlerRegistry owner,
-        RegistrationState state) : IElementSourceHandlerRegistration
+    private sealed class Registration : IElementSourceHandlerRegistration
     {
-        private readonly object _disposeGate = new();
-        private RegistrationOwner? _owner = new(owner, state);
-        private bool _disposing;
+        private readonly Lazy<Task> _retirement;
+        private RegistrationOwner? _owner;
 
-        public RegistrationState State => _owner?.State
+        public Registration(ElementSourceHandlerRegistry owner, RegistrationState state)
+        {
+            _owner = new RegistrationOwner(owner, state);
+            _retirement = new Lazy<Task>(
+                RetireCoreAsync,
+                LazyThreadSafetyMode.ExecutionAndPublication);
+        }
+
+        public RegistrationState State => Volatile.Read(ref _owner)?.State
             ?? throw new ObjectDisposedException(nameof(IElementSourceHandlerRegistration));
 
         public bool TryAcquire([NotNullWhen(true)] out HandlerLease? lease)
         {
-            lock (_disposeGate)
+            RegistrationOwner? current = Volatile.Read(ref _owner);
+            if (_retirement.IsValueCreated || current is null)
             {
-                if (_disposing || _owner is null)
-                {
-                    lease = null;
-                    return false;
-                }
-
-                return _owner.State.TryAcquire(out lease);
+                lease = null;
+                return false;
             }
+
+            return current.State.TryAcquire(out lease);
         }
 
-        public void Dispose()
+        public ValueTask DisposeAsync()
+            => new(_retirement.Value);
+
+        private async Task RetireCoreAsync()
         {
-            RegistrationOwner owner;
-            lock (_disposeGate)
-            {
-                while (_disposing)
-                {
-                    Monitor.Wait(_disposeGate);
-                }
-
-                if (_owner is null)
-                    return;
-
-                _disposing = true;
-                owner = _owner;
-            }
+            RegistrationOwner? current = Volatile.Read(ref _owner);
+            if (current is null)
+                return;
 
             try
             {
-                owner.Registry.UnregisterAndDrain(this, owner.State);
+                await current.Registry.UnregisterAsync(this, current.State).ConfigureAwait(false);
             }
             finally
             {
-                lock (_disposeGate)
-                {
-                    _owner = null;
-                    _disposing = false;
-                    Monitor.PulseAll(_disposeGate);
-                }
+                Interlocked.Exchange(ref _owner, null);
             }
         }
 

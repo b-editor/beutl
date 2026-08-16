@@ -1,4 +1,6 @@
-﻿namespace Beutl.Services;
+﻿using Beutl.Api.Services;
+
+namespace Beutl.Services;
 
 internal sealed record AiPromptParts(
     string Main,
@@ -19,7 +21,28 @@ internal static class AiPromptComposer
         AddSection(sections, "Composition", parts.Composition);
         AddSection(sections, "Motion", parts.Motion);
         AddSection(sections, "Avoid", parts.Exclusions);
-        return string.Join("\n", sections);
+        string result = string.Join("\n", sections);
+        if (result.Length > AiRequestLimits.MaxPromptLength)
+        {
+            throw new ArgumentException(
+                $"The final composed prompt cannot exceed {AiRequestLimits.MaxPromptLength} characters.",
+                nameof(parts));
+        }
+        return result;
+    }
+
+    public static string? GetValidationError(AiPromptParts parts)
+    {
+        try
+        {
+            return string.IsNullOrWhiteSpace(Compose(parts))
+                ? "Enter a prompt."
+                : null;
+        }
+        catch (ArgumentException ex)
+        {
+            return ex.Message.Split(Environment.NewLine, 2)[0];
+        }
     }
 
     private static void AddSection(List<string> sections, string? label, string? value)

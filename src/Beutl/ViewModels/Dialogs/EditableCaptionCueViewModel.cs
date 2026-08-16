@@ -11,6 +11,7 @@ public sealed class EditableCaptionCueViewModel : INotifyPropertyChanged
     private string _startText;
     private string _endText;
     private string _text;
+    private int _caretIndex;
     private string _speaker;
     private string _language;
     private readonly CaptionMetadata _metadata;
@@ -23,6 +24,7 @@ public sealed class EditableCaptionCueViewModel : INotifyPropertyChanged
         _startText = FormatTime(cue.Start);
         _endText = FormatTime(cue.End);
         _text = cue.Text;
+        _caretIndex = cue.Text.Length;
         _speaker = cue.Speaker ?? string.Empty;
         _language = cue.Language ?? string.Empty;
         _metadata = cue.Metadata;
@@ -51,7 +53,23 @@ public sealed class EditableCaptionCueViewModel : INotifyPropertyChanged
     public string Text
     {
         get => _text;
-        set => SetField(ref _text, value ?? string.Empty);
+        set
+        {
+            string normalized = value ?? string.Empty;
+            if (!SetField(ref _text, normalized))
+                return;
+
+            if (_caretIndex > normalized.Length)
+            {
+                CaretIndex = normalized.Length;
+            }
+        }
+    }
+
+    public int CaretIndex
+    {
+        get => _caretIndex;
+        set => SetField(ref _caretIndex, Math.Clamp(value, 0, Text.Length));
     }
 
     public string Speaker
@@ -167,13 +185,14 @@ public sealed class EditableCaptionCueViewModel : INotifyPropertyChanged
     private static string? NormalizeOptional(string value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
-            return;
+            return false;
 
         field = value;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        return true;
     }
 }
 

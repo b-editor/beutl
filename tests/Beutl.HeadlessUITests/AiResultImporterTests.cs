@@ -83,6 +83,33 @@ public sealed class AiResultImporterTests
     }
 
     [AvaloniaTest]
+    public async Task ImportVideoPath_PreservesWebmExtension()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-webm-importer");
+        var adder = new CapturingElementAdder(producedElementCount: 1);
+        var importer = new AiResultImporter(editor.Scene, adder);
+        string sourcePath = Path.Combine(Path.GetTempPath(), $"source-{Guid.NewGuid():N}.webm");
+        await File.WriteAllBytesAsync(sourcePath, [1, 2, 3]);
+        try
+        {
+            await importer.ImportVideoAsync(
+                sourcePath,
+                new AiResultImportOptions(
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(4),
+                    0,
+                    "AI video"));
+
+            Assert.That(adder.StagedPath, Does.EndWith(".webm"));
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task RejectedVideoBatch_RemovesStagedProjectResource()
     {
         await TestReset.ResetShellAsync();
@@ -105,6 +132,88 @@ public sealed class AiResultImporterTests
             Assert.That(adder.StagedPath, Is.Not.Null);
             Assert.That(File.Exists(adder.StagedPath), Is.False);
         });
+    }
+
+    [AvaloniaTest]
+    public async Task ClosingUnsavedScene_RemovesOnlyItsOwnedTemporaryDirectory()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-unsaved-resource-cleanup");
+        var tab = TestShell.Editor.SelectedTabItem.Value!;
+        Scene scene = editor.Scene;
+        scene.Uri = null;
+        var adder = new CapturingElementAdder(producedElementCount: 1);
+        var importer = new AiResultImporter(scene, adder);
+        string unrelatedDirectory = AiResultImporter.GetUnsavedSceneDirectory(Guid.NewGuid());
+        string unrelatedFile = Path.Combine(unrelatedDirectory, "keep.txt");
+        Directory.CreateDirectory(unrelatedDirectory);
+        await File.WriteAllTextAsync(unrelatedFile, "unrelated");
+
+        try
+        {
+            await importer.ImportVideoAsync(
+                new byte[] { 1, 2, 3, 4 },
+                new AiResultImportOptions(
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(4),
+                    0,
+                    "AI video"));
+            string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+            Assert.That(File.Exists(adder.StagedPath), Is.True);
+
+            await TestShell.Editor.CloseTabItem(tab);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(Directory.Exists(ownedDirectory), Is.False);
+                Assert.That(File.Exists(unrelatedFile), Is.True);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(unrelatedDirectory))
+                Directory.Delete(unrelatedDirectory, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ClosingSavedScene_PreservesReferencedUnsavedTemporaryResource()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-saved-resource-preservation");
+        var tab = TestShell.Editor.SelectedTabItem.Value!;
+        Scene scene = editor.Scene;
+        Uri savedUri = scene.Uri!;
+        scene.Uri = null;
+        var adder = new CapturingElementAdder(producedElementCount: 1);
+        var importer = new AiResultImporter(scene, adder);
+        string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+
+        try
+        {
+            await importer.ImportVideoAsync(
+                new byte[] { 1, 2, 3, 4 },
+                new AiResultImportOptions(
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(4),
+                    0,
+                    "AI video"));
+            string resourcePath = adder.StagedPath!;
+            scene.Uri = savedUri;
+
+            await TestShell.Editor.CloseTabItem(tab);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(Directory.Exists(ownedDirectory), Is.True);
+                Assert.That(File.Exists(resourcePath), Is.True);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(ownedDirectory))
+                Directory.Delete(ownedDirectory, recursive: true);
+        }
     }
 
     private sealed class CapturingElementAdder(int producedElementCount) : IElementAdder

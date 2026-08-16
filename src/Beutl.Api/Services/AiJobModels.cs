@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Beutl.Api.Services;
 
@@ -124,7 +124,8 @@ public sealed record AiJob(
     string? Error,
     bool CanRetry,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    AiContentMetadata? ContentMetadata = null);
 
 internal static class AiIdentifier
 {

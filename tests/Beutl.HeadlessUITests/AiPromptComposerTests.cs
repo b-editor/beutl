@@ -33,4 +33,22 @@ public sealed class AiPromptComposerTests
 
         Assert.That(result, Is.EqualTo("Product photo"));
     }
+
+    [Test]
+    public void Compose_RejectsFinalPromptWhenOptionalSectionsCrossServerLimit()
+    {
+        var parts = new AiPromptParts(
+            "subject",
+            Style: new string('s', 2_000),
+            Exclusions: new string('x', 2_000));
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(() =>
+            AiPromptComposer.Compose(parts))!;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exception.Message, Does.Contain("4000"));
+            Assert.That(AiPromptComposer.GetValidationError(parts), Does.Contain("4000"));
+        }
+    }
 }

@@ -12,7 +12,7 @@ namespace Beutl.HeadlessUITests;
 public sealed class AiJobCompletionNotifierTests
 {
     [Test]
-    public void ActiveToTerminalTransition_NotifiesOnceAndProvidesJobCenterAction()
+    public async Task ActiveToTerminalTransition_NotifiesOnceAndProvidesJobCenterAction()
     {
         INotificationServiceHandler? previousHandler = NotificationService.Handler;
         var handler = new CaptureNotificationHandler();
@@ -20,8 +20,8 @@ public sealed class AiJobCompletionNotifierTests
         try
         {
             using var snapshots = new Subject<AiJobMonitorSnapshot>();
-            using AiJobKindRegistry jobKinds = CreateBuiltInRegistry();
-            using var resultHandlers = CreateBuiltInResultHandlers();
+            await using AiJobKindRegistry jobKinds = CreateBuiltInRegistry();
+            await using var resultHandlers = CreateBuiltInResultHandlers();
             int openCount = 0;
             using var notifier = new AiJobCompletionNotifier(
                 snapshots,
@@ -55,7 +55,7 @@ public sealed class AiJobCompletionNotifierTests
     }
 
     [Test]
-    public void FailedTransition_ShowsUsageRestoredWarning()
+    public async Task FailedTransition_ShowsUsageRestoredWarning()
     {
         INotificationServiceHandler? previousHandler = NotificationService.Handler;
         var handler = new CaptureNotificationHandler();
@@ -63,8 +63,8 @@ public sealed class AiJobCompletionNotifierTests
         try
         {
             using var snapshots = new Subject<AiJobMonitorSnapshot>();
-            using AiJobKindRegistry jobKinds = CreateBuiltInRegistry();
-            using var resultHandlers = CreateBuiltInResultHandlers();
+            await using AiJobKindRegistry jobKinds = CreateBuiltInRegistry();
+            await using var resultHandlers = CreateBuiltInResultHandlers();
             using var notifier = new AiJobCompletionNotifier(
                 snapshots,
                 jobKinds,
@@ -93,7 +93,7 @@ public sealed class AiJobCompletionNotifierTests
     }
 
     [Test]
-    public void CanceledTransition_ShowsNeutralCanceledNotification()
+    public async Task CanceledTransition_ShowsNeutralCanceledNotification()
     {
         INotificationServiceHandler? previousHandler = NotificationService.Handler;
         var handler = new CaptureNotificationHandler();
@@ -101,8 +101,8 @@ public sealed class AiJobCompletionNotifierTests
         try
         {
             using var snapshots = new Subject<AiJobMonitorSnapshot>();
-            using AiJobKindRegistry jobKinds = CreateBuiltInRegistry();
-            using var resultHandlers = CreateBuiltInResultHandlers();
+            await using AiJobKindRegistry jobKinds = CreateBuiltInRegistry();
+            await using var resultHandlers = CreateBuiltInResultHandlers();
             using var notifier = new AiJobCompletionNotifier(
                 snapshots,
                 jobKinds,
@@ -140,14 +140,14 @@ public sealed class AiJobCompletionNotifierTests
     }
 
     [Test]
-    public void CustomKind_ControlsTerminalOutcomePresentationAndCompletion()
+    public async Task CustomKind_ControlsTerminalOutcomePresentationAndCompletion()
     {
         INotificationServiceHandler? previousHandler = NotificationService.Handler;
         var notificationHandler = new CaptureNotificationHandler();
         NotificationService.Handler = notificationHandler;
         try
         {
-            using var jobKinds = new AiJobKindRegistry();
+            await using var jobKinds = new AiJobKindRegistry();
             var descriptor = new AiJobKindDescriptor(
                 new AiJobKindId("vendor.upscale"),
                 new AiJobStatusMap(
@@ -162,8 +162,8 @@ public sealed class AiJobCompletionNotifierTests
                             false,
                             new AiJobOutcomeId("vendor.review"))),
                 ]));
-            using IAiJobKindRegistration registration = jobKinds.Register(descriptor);
-            using var resultHandlers = new AiJobResultHandlerRegistry(
+            await using IAiJobKindRegistration registration = jobKinds.Register(descriptor);
+            await using var resultHandlers = new AiJobResultHandlerRegistry(
             [
                 new AiJobResultHandlerRegistration(new AiJobResultContribution(
                     new AiJobKindId("vendor.upscale"),
@@ -204,7 +204,8 @@ public sealed class AiJobCompletionNotifierTests
         => AiJobKindRegistry.CreateBuiltIn(
             new UnusedImageGenerationService(),
             new UnusedVideoService(),
-            new UnusedEntitlementService());
+            new UnusedEntitlementService(),
+            new UnusedAvailabilityService());
 
     private static AiJobResultHandlerRegistry CreateBuiltInResultHandlers()
         => new(BuiltInAiJobResultHandlers.Create());
@@ -288,6 +289,14 @@ public sealed class AiJobCompletionNotifierTests
             new ReactivePropertySlim<AiEntitlements?>();
 
         public Task<AiEntitlements?> RefreshAsync(CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedAvailabilityService : IAiOperationAvailabilityService
+    {
+        public Task<bool> CheckAsync(
+            AiOperationAvailabilityRequest request,
+            CancellationToken cancellationToken)
             => throw new NotSupportedException();
     }
 }

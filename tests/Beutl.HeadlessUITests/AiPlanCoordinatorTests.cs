@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Services;
@@ -65,7 +65,11 @@ public sealed class AiPlanCoordinatorTests
         var control = new Border();
         var host = new Window { Content = control };
         var other = new Window();
-        IDisposable subscription = AiPlanReturnRefresh.Attach(control, coordinator);
+        int refreshCallbacks = 0;
+        IDisposable subscription = AiPlanReturnRefresh.Attach(
+            control,
+            coordinator,
+            () => refreshCallbacks++);
         try
         {
             host.Show();
@@ -81,9 +85,11 @@ public sealed class AiPlanCoordinatorTests
             HeadlessTestHelpers.Settle();
             host.Content = control;
             HeadlessTestHelpers.Settle();
+            int callbacksBeforeSecondActivation = refreshCallbacks;
             other.Activate();
             host.Activate();
             await WaitUntilAsync(() => coordinator.RefreshCount == initialCount + 2);
+            await WaitUntilAsync(() => refreshCallbacks == callbacksBeforeSecondActivation + 1);
 
             subscription.Dispose();
             int disposedCount = coordinator.RefreshCount;

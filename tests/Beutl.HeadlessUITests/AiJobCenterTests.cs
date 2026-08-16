@@ -40,15 +40,16 @@ public sealed class AiJobCenterTests
         _jobKinds = AiJobKindRegistry.CreateBuiltIn(
             new UnusedImageGenerationService(),
             new UnusedVideoService(),
-            new UnusedEntitlementService());
+            new UnusedEntitlementService(),
+            new UnusedAvailabilityService());
         _resultHandlers = new AiJobResultHandlerRegistry(BuiltInAiJobResultHandlers.Create());
     }
 
     [TearDown]
-    public void TearDown()
+    public async Task TearDown()
     {
-        _resultHandlers.Dispose();
-        _jobKinds.Dispose();
+        await _resultHandlers.DisposeAsync();
+        await _jobKinds.DisposeAsync();
     }
 
     [Test]
@@ -280,16 +281,28 @@ public sealed class AiJobCenterTests
                 Content = item,
                 ContentTemplate = template,
             };
-            itemWindow = new Window { Content = content, Width = 340, Height = 320 };
+            itemWindow = new Window { Content = content, Width = 220, Height = 360 };
             itemWindow.Show();
             HeadlessTestHelpers.Render();
 
             List<Button> buttons = content.GetVisualDescendants().OfType<Button>().ToList();
-            AssertAction(buttons.Single(button => Equals(button.Content, Strings.AiAddToScene)), Strings.AiAddToScene);
+            Button addButton = buttons.Single(button => Equals(button.Content, Strings.AiAddToScene));
+            Button retryButton = buttons.Single(button => Equals(button.Content, Strings.AiJobCenter_Retry));
+            Button deleteButton = buttons.Single(button => Equals(button.Content, Strings.Delete));
+            AssertAction(addButton, Strings.AiAddToScene);
             AssertAction(
-                buttons.Single(button => Equals(button.Content, Strings.AiJobCenter_Retry)),
+                retryButton,
                 Strings.AiJobCenter_Retry);
-            AssertAction(buttons.Single(button => Equals(button.Content, Strings.Delete)), Strings.Delete);
+            AssertAction(deleteButton, Strings.Delete);
+            Assert.That(
+                new[] { addButton.Parent, retryButton.Parent, deleteButton.Parent },
+                Is.All.TypeOf<WrapPanel>(),
+                "Job actions must wrap instead of clipping in a narrow dock pane.");
+            var actionPanel = (WrapPanel)addButton.Parent!;
+            Assert.That(
+                new[] { addButton, retryButton, deleteButton }.Select(button => button.Bounds.Right),
+                Is.All.LessThanOrEqualTo(actionPanel.Bounds.Width + 1),
+                "Every wrapped job action must remain inside the narrow card.");
         }
         finally
         {
@@ -310,6 +323,9 @@ public sealed class AiJobCenterTests
         using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/user/ai-availability" => JsonResponse(
+                HttpStatusCode.OK,
+                """{ "available": true }"""),
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, JobsJson(deleted)),
             "/api/v3/ai/images" => RetryImage(),
             "/api/v3/ai/jobs/job-failed" when request.Method == HttpMethod.Delete => DeleteJob(),
@@ -317,7 +333,7 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateJobCenter(editor, clients);
 
@@ -387,7 +403,7 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateJobCenter(editor, clients);
         using var item = CreateItem(CreateJob(
@@ -415,12 +431,15 @@ public sealed class AiJobCenterTests
                 Interlocked.Increment(ref entitlementRequests) < 3
                     ? EntitlementsJson(canStartImage: true, usedPercent: 0)
                     : EntitlementsJson(canStartImage: false, usedPercent: 50)),
+            "/api/v3/user/ai-availability" => JsonResponse(
+                HttpStatusCode.OK,
+                """{ "available": true }"""),
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, """{ "jobs": [], "nextCursor": null }"""),
             "/api/v3/ai/images" => RetryImage(),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
         using var viewModel = CreateJobCenter(editor, clients);
         using var item = CreateItem(CreateJob(
@@ -464,6 +483,69 @@ public sealed class AiJobCenterTests
     }
 
     [AvaloniaTest]
+    public async Task VideoRetry_RechecksDurationSpecificAvailabilityBeforeSubmission()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-video-retry-availability");
+        int availabilityRequests = 0;
+        int retryRequests = 0;
+        var availabilityBodies = new List<string>();
+        using var handler = new StubHandler(request =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/user/ai-availability":
+                    availabilityRequests++;
+                    availabilityBodies.Add(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+                    return JsonResponse(
+                        HttpStatusCode.OK,
+                        availabilityRequests < 3
+                            ? """{ "available": true }"""
+                            : """{ "available": false }""");
+                case "/api/v3/ai/jobs":
+                    return JsonResponse(
+                        HttpStatusCode.OK,
+                        """{ "jobs": [], "nextCursor": null }""");
+                case "/api/v3/ai/videos":
+                    retryRequests++;
+                    return JsonResponse(
+                        HttpStatusCode.OK,
+                        """{ "jobId": "retry-video", "status": "queued" }""");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateJobCenter(editor, clients);
+        using var item = CreateItem(CreateJob(
+            kind: "video",
+            status: "failed",
+            inputParams: ParseInput(
+                """{ "prompt": "Retry video", "durationSeconds": 8, "resolution": "1080p" }"""),
+            canRetry: true));
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+
+        await viewModel.RequestRetryConfirmationAsync(item);
+        Assert.That(viewModel.CanConfirm.Value, Is.True);
+
+        await viewModel.ConfirmPendingActionAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(availabilityRequests, Is.EqualTo(3));
+            Assert.That(retryRequests, Is.Zero);
+            Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiUsageLimitExceeded));
+            Assert.That(
+                availabilityBodies,
+                Is.All.EqualTo("""{"operation":"video.generate","durationSeconds":8}"""));
+        }
+    }
+
+    [AvaloniaTest]
     public async Task CustomKind_ControlsPresentationRetryAndResultHandling()
     {
         await TestReset.ResetShellAsync();
@@ -477,7 +559,7 @@ public sealed class AiJobCenterTests
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
-        using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
 
         IAiJobKindRegistry jobKinds = clients.GetResource<IAiJobKindRegistry>();
@@ -503,8 +585,8 @@ public sealed class AiJobCenterTests
         {
             RetryHandler = retryHandler,
         };
-        using IAiJobKindRegistration registration = jobKinds.Register(descriptor);
-        using IDisposable resultRegistration = _resultHandlers.Register(
+        await using IAiJobKindRegistration registration = jobKinds.Register(descriptor);
+        await using IAiJobResultHandlerRegistration resultRegistration = _resultHandlers.Register(
             new AiJobResultHandlerRegistration(new AiJobResultContribution(
                 new AiJobKindId("vendor.upscale"),
                 resultHandler)));
@@ -772,6 +854,14 @@ public sealed class AiJobCenterTests
             new ReactivePropertySlim<AiEntitlements?>();
 
         public Task<AiEntitlements?> RefreshAsync(CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedAvailabilityService : IAiOperationAvailabilityService
+    {
+        public Task<bool> CheckAsync(
+            AiOperationAvailabilityRequest request,
+            CancellationToken cancellationToken)
             => throw new NotSupportedException();
     }
 

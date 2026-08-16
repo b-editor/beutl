@@ -9,4 +9,8 @@ internal sealed record AiImageResponse
     [JsonPropertyName("fileId")] public required string FileId { get; init; }
 
     [JsonPropertyName("url")] public required string Url { get; init; }
+
+    [JsonPropertyName("fileName")] public string? FileName { get; init; }
+
+    [JsonPropertyName("contentType")] public string? ContentType { get; init; }
 }
