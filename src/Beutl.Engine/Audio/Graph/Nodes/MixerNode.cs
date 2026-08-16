@@ -78,12 +78,13 @@ public sealed class MixerNode : AudioNode
         {
             for (int i = 0; i < Inputs.Count; i++)
             {
+                bool branchEnded = IsBranchEndedByTime(i, context);
                 bool drainBranch = drain || IsBranchEnded(i, context);
                 if (drainBranch && IsBranchDead(i, context))
                     continue;
 
                 buffers[i] = drainBranch ? Inputs[i].Flush(context) : Inputs[i].Process(context);
-                if (!drainBranch)
+                if (!drainBranch && !branchEnded)
                     _processedBranches.Add(Inputs[i]);
             }
 
@@ -184,8 +185,10 @@ public sealed class MixerNode : AudioNode
     }
 
     private bool IsBranchEnded(int index, AudioProcessContext context)
+        => IsBranchEndedByTime(index, context) && _processedBranches.Contains(Inputs[index]);
+
+    private bool IsBranchEndedByTime(int index, AudioProcessContext context)
         => _branchEndTimes.TryGetValue(Inputs[index], out TimeSpan branchEndTime)
-            && _processedBranches.Contains(Inputs[index])
             && context.TimeRange.Start >= branchEndTime;
 
     protected override void OnInputAdded(AudioNode input, int index)

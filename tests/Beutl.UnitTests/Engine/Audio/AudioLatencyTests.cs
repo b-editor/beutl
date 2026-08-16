@@ -309,6 +309,18 @@ public class AudioLatencyTests
     }
 
     [Test]
+    public void AddInput_ReentrantHookFailure_RestoresTheCompleteInputList()
+    {
+        using var node = new ReentrantInputNode();
+        using var input = new FixedLatencyNode(0);
+
+        Assert.Throws<InvalidOperationException>(() => node.AddInput(input));
+
+        Assert.That(node.Inputs, Is.Empty,
+            "A failed reentrant input hook must remove both the original and any auxiliary inputs it appended.");
+    }
+
+    [Test]
     public void SpeedNode_GetTotalLatencySamples_NegativeChildTotalThrows()
     {
         using var child = new FixedLatencyNode(-1, overrideTotal: true);
@@ -538,4 +550,22 @@ internal sealed class FixedLatencyNode(int latencySamples, bool overrideTotal = 
 
     public override int GetTotalLatencySamples(int sampleRate)
         => overrideTotal ? latencySamples : base.GetTotalLatencySamples(sampleRate);
+}
+
+internal sealed class ReentrantInputNode : AudioNode
+{
+    private bool _nested;
+
+    public override AudioBuffer Process(AudioProcessContext context)
+        => new(context.SampleRate, 2, context.GetSampleCount());
+
+    protected override void OnInputAdded(AudioNode input, int index)
+    {
+        if (!_nested)
+        {
+            _nested = true;
+            AddInput(new FixedLatencyNode(0));
+            throw new InvalidOperationException("The input hook failed after a reentrant mutation.");
+        }
+    }
 }

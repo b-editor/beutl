@@ -21,10 +21,7 @@ public sealed class ResampleNode : AudioNode
             if (_sourceSampleRate != value)
             {
                 _sourceSampleRate = value;
-                _resampleProvider?.Dispose();
-                _resampleProvider = null;
-                _lastTimeRangeEnd = null;
-                _sourceSampleCursor = null;
+                ResetStreamingState();
             }
         }
     }
@@ -96,10 +93,7 @@ public sealed class ResampleNode : AudioNode
         }
         catch
         {
-            _resampleProvider?.Dispose();
-            _resampleProvider = null;
-            _lastTimeRangeEnd = null;
-            _sourceSampleCursor = null;
+            ResetStreamingState();
             throw;
         }
     }
@@ -108,9 +102,7 @@ public sealed class ResampleNode : AudioNode
     {
         if (_lastTimeRangeEnd is { } previousEnd && !context.ContinuesFrom(previousEnd))
         {
-            _resampleProvider?.Dispose();
-            _resampleProvider = null;
-            _sourceSampleCursor = null;
+            ResetStreamingState();
         }
 
         sourceStart = _sourceSampleCursor
@@ -144,14 +136,29 @@ public sealed class ResampleNode : AudioNode
         return (long)Math.Ceiling(samples);
     }
 
+    private void ResetStreamingState()
+    {
+        _resampleProvider?.Dispose();
+        _resampleProvider = null;
+        _lastSampleRate = 0;
+        _lastTimeRangeEnd = null;
+        _sourceSampleCursor = null;
+    }
+
+    protected override void OnInputAdded(AudioNode input, int index)
+        => ResetStreamingState();
+
+    protected override void OnInputRemoved(AudioNode input, int index)
+        => ResetStreamingState();
+
+    protected override void OnInputsCleared()
+        => ResetStreamingState();
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            _resampleProvider?.Dispose();
-            _resampleProvider = null;
-            _lastTimeRangeEnd = null;
-            _sourceSampleCursor = null;
+            ResetStreamingState();
         }
 
         base.Dispose(disposing);

@@ -14,6 +14,7 @@ public abstract class AudioNode : IDisposable
         if (IndexOfInput(input) >= 0)
             return;
 
+        AudioNode[] previousInputs = [.. _inputs];
         int index = _inputs.Count;
         _inputs.Add(input);
         try
@@ -22,7 +23,8 @@ public abstract class AudioNode : IDisposable
         }
         catch
         {
-            _inputs.RemoveAt(index);
+            _inputs.Clear();
+            _inputs.AddRange(previousInputs);
             throw;
         }
     }

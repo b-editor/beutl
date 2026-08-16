@@ -147,8 +147,7 @@ public class Composer : IComposer
             AudioBuffer? mixedBuffer = null;
             try
             {
-                if (eligibility is { } currentEligibility)
-                    _lastEligibility = currentEligibility;
+                _lastEligibility = eligibility ?? CompositionEligibility.Empty;
 
                 var context = new AudioProcessContext(range, SampleRate, _animationSampler, range);
                 var entries = GetRetainedEntries();
@@ -368,7 +367,14 @@ public class Composer : IComposer
         int latency = 0;
         foreach (AudioNode outputNode in outputNodes)
         {
-            latency = Math.Max(latency, outputNode.GetTotalLatencySamples(sampleRate));
+            int outputLatency = outputNode.GetTotalLatencySamples(sampleRate);
+            if (outputLatency < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{outputNode.GetType().Name} returned negative total latency {outputLatency}.");
+            }
+
+            latency = Math.Max(latency, outputLatency);
         }
 
         return latency;

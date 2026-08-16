@@ -243,6 +243,32 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void ResampleNode_ReplacingInput_ResetsStreamingState()
+    {
+        const int sourceSampleRate = 48000;
+        const int outputSampleRate = 44100;
+        const int blockSamples = 1024;
+        const int sourceSamples = 8192;
+
+        using var sourceBufferA = CreateConstantBuffer(0.75f, sourceSamples, sampleRate: sourceSampleRate);
+        using var sourceBufferB = CreateConstantBuffer(-0.75f, sourceSamples, sampleRate: sourceSampleRate);
+        using var sourceA = new BufferReplayNode(sourceBufferA);
+        using var sourceB = new BufferReplayNode(sourceBufferB);
+        using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
+        resample.AddInput(sourceA);
+
+        using var first = resample.Process(ExactContext(TimeSpan.Zero, blockSamples, outputSampleRate));
+
+        resample.ClearInputs();
+        resample.AddInput(sourceB);
+        using var second = resample.Process(
+            ExactContext(ExactDuration(blockSamples, outputSampleRate), blockSamples, outputSampleRate));
+
+        Assert.That(second.GetChannelData(0)[128..].ToArray(), Has.All.EqualTo(-0.75f).Within(1e-3f),
+            "Replacing a same-format source must discard the previous resampler queue and filter history.");
+    }
+
+    [Test]
     public void ResampleNode_PartialBlocksRequestNonOverlappingTimestampRanges()
     {
         const int sourceSampleRate = 48000;
@@ -582,9 +608,16 @@ public class AudioLatencyCompensationTests
         using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
         var seekStart = branchEnd + TimeSpan.FromMilliseconds(1);
         using var seekOutput = mixer.Process(ExactContext(seekStart, seekSamples, SampleRate));
+        using var nextOutput = mixer.Process(
+            ExactContext(seekStart + ExactDuration(seekSamples, SampleRate), seekSamples, SampleRate));
 
-        Assert.That(seekOutput.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
-            "A discontinuous process must clear branch drain state instead of emitting a cached tail at the seek destination.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(seekOutput.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
+                "A discontinuous process must clear branch drain state instead of emitting a cached tail at the seek destination.");
+            Assert.That(nextOutput.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
+                "An ended branch must remain unprocessed after a seek instead of rearming its stale cached tail on the next block.");
+        });
     }
 
     [Test]
@@ -1310,6 +1343,29 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_GetTotalLatencySamples_RejectsNegativeOutputLatency()
+    {
+        var sound = new NegativeLatencySound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var frame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            range,
+            default,
+            new CompositionEligibility([sound]));
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        using var output = composer.Compose(range, frame);
+
+        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(
+            () => composer.GetTotalLatencySamples(SampleRate));
+        Assert.That(exception!.Message, Does.Contain("NegativeLatencyNode").And.Contain("-1"));
+    }
+
+    [Test]
     public void Composer_DoesNotResurrectPartiallyDrainedTailAfterEligibilityLoss()
     {
         const float lookaheadMs = 20f;
@@ -1399,9 +1455,9 @@ public class AudioLatencyCompensationTests
         using var processed = composer.Compose(composeRange, frame);
 
         var firstRange = new TimeRange(clipDuration, chunkDuration);
-        using var firstTail = composer.Flush(firstRange);
+        using var firstTail = composer.Flush(firstRange, eligibility);
         var secondRange = new TimeRange(clipDuration + chunkDuration, chunkDuration);
-        using var secondTail = composer.Flush(secondRange);
+        using var secondTail = composer.Flush(secondRange, eligibility);
 
         Assert.That(firstTail, Is.Not.Null);
         Assert.That(secondTail, Is.Not.Null);
@@ -1409,6 +1465,41 @@ public class AudioLatencyCompensationTests
             "The first partial Composer.Flush must emit the beginning of the retained tail.");
         Assert.That(HasNonZero(secondTail!.GetChannelData(0)), Is.True,
             "A subsequent partial Composer.Flush must continue the retained tail instead of returning silence.");
+    }
+
+    [Test]
+    public void Composer_Flush_WithoutEligibility_DoesNotDrainStaleTail()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var processed = composer.Compose(firstRange, frame);
+
+        using var tail = composer.Flush(new TimeRange(oneSecond, oneSecond));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tail, Is.Not.Null);
+            Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
+                "A flush without a current eligibility snapshot must fail closed instead of reusing stale eligibility.");
+            Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0));
+        });
     }
 
     [Test]
@@ -1435,7 +1526,7 @@ public class AudioLatencyCompensationTests
         using var processed = composer.Compose(firstRange, frame);
 
         var seekRange = new TimeRange(TimeSpan.FromSeconds(3), oneSecond);
-        using var tail = composer.Flush(seekRange);
+        using var tail = composer.Flush(seekRange, (CompositionEligibility)frame.Eligibility!);
 
         Assert.That(tail, Is.Not.Null);
         Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
@@ -1468,7 +1559,7 @@ public class AudioLatencyCompensationTests
 
         var subMillisecondGap = TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond / 2);
         var seekRange = new TimeRange(oneSecond + subMillisecondGap, oneSecond);
-        using var tail = composer.Flush(seekRange);
+        using var tail = composer.Flush(seekRange, (CompositionEligibility)frame.Eligibility!);
 
         Assert.That(tail, Is.Not.Null);
         Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
@@ -1501,7 +1592,7 @@ public class AudioLatencyCompensationTests
 
         sound.Gain.CurrentValue = 50f;
 
-        using var tail = composer.Flush(new TimeRange(oneSecond, oneSecond));
+        using var tail = composer.Flush(new TimeRange(oneSecond, oneSecond), (CompositionEligibility)frame.Eligibility!);
 
         Assert.That(tail, Is.Not.Null);
         Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
