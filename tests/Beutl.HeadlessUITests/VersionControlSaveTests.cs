@@ -723,6 +723,87 @@ public class VersionControlSaveTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Close_is_refused_when_an_editor_cannot_save_for_the_close_snapshot()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = true;
+            config.UseLfsWhenAvailable = false;
+
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-close-refused");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "close-refused",
+                location))!;
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                TestShell.Project.CurrentProject.Value!,
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
+            Assert.That(initialized, Is.True);
+
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            int commitsBeforeClose = await CountCommitsAsync(gitPath, projectRoot);
+            var failedCommands = new FailedSaveCommands();
+            var failedItem = new Scene
+            {
+                Uri = new Uri(Path.Combine(projectRoot, "refuses-to-save.scene")),
+            };
+            TestShell.Editor.TabItems.Add(new EditorTabItem(
+                new FailedSaveEditorContext(failedItem, failedCommands)));
+
+            Exception? closeFailure = null;
+            try
+            {
+                await TestShell.Project.CloseProject();
+            }
+            catch (Exception ex)
+            {
+                closeFailure = ex;
+            }
+
+            int closeSnapshots = await CountCloseSnapshotsAsync(gitPath, projectRoot);
+            int commitsAfterClose = await CountCommitsAsync(gitPath, projectRoot);
+            Assert.Multiple(() =>
+            {
+                Assert.That(closeFailure, Is.Not.Null);
+                Assert.That(failedCommands.SaveCalls, Is.EqualTo(1));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(closeSnapshots, Is.Zero);
+                Assert.That(commitsAfterClose, Is.EqualTo(commitsBeforeClose));
+            });
+        }
+        finally
+        {
+            // Cleared before the reset: the tab that refuses to save is still open, so the reset's
+            // own close would be refused too and leave the project open for the next case.
+            config.AutoCommitOnClose = false;
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
     private static string ProbeGitOrIgnore()
     {
         var startInfo = new ProcessStartInfo("git")

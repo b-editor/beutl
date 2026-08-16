@@ -483,7 +483,16 @@ public sealed class VersionControlCoordinator :
             return;
         }
 
-        await TrySaveOpenProjectAsync(project, cancellationToken).ConfigureAwait(false);
+        // Aborting the close is the only way to keep the edits: continuing would dispose the tabs
+        // and let the close snapshot record the half-saved project as the version to come back to.
+        if (!await TrySaveOpenProjectAsync(project, cancellationToken).ConfigureAwait(false))
+        {
+            PublishNotification(() =>
+                NotificationService.ShowWarning(
+                    Strings.VersionControl,
+                    MessageStrings.OperationFailed));
+            throw new InvalidOperationException(MessageStrings.OperationFailed);
+        }
     }
 
     private async Task CompletePreparedCloseBarrierAsync(
