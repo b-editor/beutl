@@ -114,7 +114,6 @@ public sealed partial class SceneSound : Sound
 
     private sealed class SceneNode(Resource? resource) : AudioNode
     {
-        // Referenced scenes do not expose internal latency to the outer composer.
         internal Resource? _resource = resource;
         private Composer? _composer;
 
@@ -154,6 +153,16 @@ public sealed partial class SceneSound : Sound
                 Resource.Exit(scene);
             }
         }
+
+        public override AudioBuffer Flush(AudioProcessContext context)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            return _composer?.Flush(context.TimeRange)
+                ?? CreateSilentFlush(context);
+        }
+
+        public override int GetTotalLatencySamples(int sampleRate)
+            => _composer?.GetTotalLatencySamples(sampleRate) ?? 0;
 
         protected override void Dispose(bool disposing)
         {

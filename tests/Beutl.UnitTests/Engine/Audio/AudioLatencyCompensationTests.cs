@@ -145,6 +145,52 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void ResampleNode_GetTotalLatencySamples_ConvertsSourceLatencyToOutputRate()
+    {
+        const int sourceSampleRate = 48000;
+        const int outputSampleRate = 44100;
+        const float lookaheadMs = 5f;
+        int sourceLatency = LookaheadSamples(lookaheadMs, sourceSampleRate);
+        int expected = (int)Math.Ceiling(sourceLatency * (double)outputSampleRate / sourceSampleRate);
+
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
+        resample.AddInput(limiter);
+
+        Assert.That(resample.GetTotalLatencySamples(outputSampleRate), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void ResampleNode_Flush_DrainsUpstreamAtSourceRate()
+    {
+        const int sourceSampleRate = 48000;
+        const int outputSampleRate = 44100;
+        const float lookaheadMs = 5f;
+        const int processSamples = 4096;
+        const int flushSamples = 1024;
+
+        using var source = new RangeSineNode(sourceSampleRate);
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(source);
+        using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
+        resample.AddInput(limiter);
+
+        using var processed = resample.Process(Context(TimeSpan.Zero, processSamples, outputSampleRate));
+        using var tail = resample.Flush(Context(
+            TimeSpan.FromSeconds((double)processSamples / outputSampleRate),
+            flushSamples,
+            outputSampleRate));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(processed.SampleRate, Is.EqualTo(outputSampleRate));
+            Assert.That(tail.SampleRate, Is.EqualTo(outputSampleRate));
+            Assert.That(HasNonZero(tail.GetChannelData(0)[..LookaheadSamples(lookaheadMs, outputSampleRate)]), Is.True,
+                "ResampleNode.Flush must preserve the upstream limiter tail across the source-rate drain.");
+        });
+    }
+
+    [Test]
     public void ClipNode_TerminalWindow_AppendsRecoveredTail()
     {
         const float lookaheadMs = 5f;

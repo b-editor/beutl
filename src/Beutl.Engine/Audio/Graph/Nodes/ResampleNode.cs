@@ -24,15 +24,38 @@ public sealed class ResampleNode : AudioNode
         }
     }
 
-    // Flush assumes latency-bearing nodes run after this resampler at the output sample rate.
     public override AudioBuffer Process(AudioProcessContext context)
     {
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Resample node requires exactly one input.");
 
         var newContext = new AudioProcessContext(context.TimeRange, SourceSampleRate, context.AnimationSampler, context.OriginalTimeRange);
-        var input = Inputs[0].Process(newContext);
+        return Resample(context, Inputs[0].Process(newContext));
+    }
 
+    public override AudioBuffer Flush(AudioProcessContext context)
+    {
+        if (Inputs.Count != 1)
+            throw new InvalidOperationException("Resample node requires exactly one input.");
+
+        var newContext = new AudioProcessContext(context.TimeRange, SourceSampleRate, context.AnimationSampler, context.OriginalTimeRange);
+        return Resample(context, Inputs[0].Flush(newContext));
+    }
+
+    public override int GetTotalLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int sourceLatency = base.GetTotalLatencySamples(SourceSampleRate);
+        if (sourceLatency == 0 || sourceLatency == int.MaxValue)
+            return sourceLatency;
+
+        double scaled = Math.Ceiling(sourceLatency * (double)sampleRate / SourceSampleRate);
+        return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
+    }
+
+    private AudioBuffer Resample(AudioProcessContext context, AudioBuffer input)
+    {
         // Same rate: pass the input through (caller owns it, don't dispose).
         if (input.SampleRate == context.SampleRate)
             return input;

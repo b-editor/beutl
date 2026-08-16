@@ -106,6 +106,87 @@ public class Composer : IComposer
         }
     }
 
+    /// <summary>
+    /// Reports the largest latency among the output nodes retained by the most recent composition.
+    /// </summary>
+    public int GetTotalLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int total = 0;
+        foreach (var entry in _currentEntry)
+        {
+            if (entry.OutputNodes is not { } outputNodes)
+                continue;
+
+            foreach (AudioNode outputNode in outputNodes)
+            {
+                total = Math.Max(total, outputNode.GetTotalLatencySamples(sampleRate));
+            }
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// Drains the output nodes retained by the most recent composition at the beginning of
+    /// <paramref name="range"/> and mixes the recovered tails into a buffer of that range's length.
+    /// </summary>
+    public AudioBuffer? Flush(TimeRange range)
+    {
+        if (IsAudioRendering)
+            return default;
+
+        try
+        {
+            IsAudioRendering = true;
+            var buffers = new List<AudioBuffer>();
+            AudioBuffer? mixedBuffer = null;
+            try
+            {
+                var context = new AudioProcessContext(range, SampleRate, _animationSampler, range);
+                foreach (var entry in _currentEntry.ToArray())
+                {
+                    if (entry.OutputNodes is not { } outputNodes)
+                        continue;
+
+                    foreach (AudioNode outputNode in outputNodes)
+                    {
+                        if (outputNode.GetTotalLatencySamples(SampleRate) <= 0)
+                            continue;
+
+                        buffers.Add(outputNode.Flush(context));
+                    }
+                }
+
+                mixedBuffer = MixBuffers(buffers)
+                    ?? new AudioBuffer(SampleRate, 2, AudioProcessContext.GetSampleCount(range, SampleRate));
+                ApplyMasterEffects(mixedBuffer);
+
+                _currentEntry.Clear();
+                _previousEntry.Clear();
+                _previousRange = null;
+                return mixedBuffer;
+            }
+            catch
+            {
+                mixedBuffer?.Dispose();
+                throw;
+            }
+            finally
+            {
+                foreach (var buffer in buffers)
+                {
+                    buffer.Dispose();
+                }
+            }
+        }
+        finally
+        {
+            IsAudioRendering = false;
+        }
+    }
+
     private AudioBuffer? BuildFinalOutput(TimeRange range, CompositionEligibility eligibility)
     {
         // Multiple contexts - need to mix

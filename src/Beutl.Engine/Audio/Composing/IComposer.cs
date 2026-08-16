@@ -12,4 +12,10 @@ public interface IComposer : IDisposable
     int SampleRate { get; }
 
     AudioBuffer? Compose(TimeRange range, CompositionFrame frame);
+
+    /// <summary>Reports the largest latency among the nodes retained by the latest composition.</summary>
+    int GetTotalLatencySamples(int sampleRate);
+
+    /// <summary>Drains retained node tails into a buffer covering <paramref name="range"/>.</summary>
+    AudioBuffer? Flush(TimeRange range);
 }
