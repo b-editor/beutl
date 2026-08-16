@@ -60,12 +60,14 @@ public class AuthenticatedUser(
 
         if (force || IsExpired)
         {
-            _response = await clients.Account.Refresh(new RefreshTokenRequest
+            AuthResponse response = await clients.Account.Refresh(new RefreshTokenRequest
             {
                 RefreshToken = RefreshToken,
                 Token = Token
             }, token)
                 .ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            _response = response;
             activity?.AddEvent(new("Refreshed"));
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
 

@@ -44,12 +44,16 @@ public class Profile
 
         if (self)
         {
-            _response.Value = await _clients.Users.GetSelf(token);
+            ProfileResponse response = await _clients.Users.GetSelf(token);
+            token.ThrowIfCancellationRequested();
+            _response.Value = response;
             Name = _response.Value.Name;
         }
         else
         {
-            _response.Value = await _clients.Users.GetUser(Name, token);
+            ProfileResponse response = await _clients.Users.GetUser(Name, token);
+            token.ThrowIfCancellationRequested();
+            _response.Value = response;
         }
     }
 
