@@ -23,6 +23,9 @@ public sealed class PublicApiCancellationTests
     private static readonly string[] s_releaseOperations =
         ["RefreshAsync", "GetAssetAsync"];
 
+    private static readonly string[] s_profileOperations =
+        ["RefreshAsync"];
+
     [Test]
     public void HighLevelOperations_RequireCancellationTokens()
     {
@@ -30,6 +33,7 @@ public sealed class PublicApiCancellationTests
         AssertRequiredCancellationTokens(typeof(LibraryService), s_libraryOperations);
         AssertRequiredCancellationTokens(typeof(Package), s_packageOperations);
         AssertRequiredCancellationTokens(typeof(Release), s_releaseOperations);
+        AssertRequiredCancellationTokens(typeof(Profile), s_profileOperations);
         AssertRequiredCancellationTokens(typeof(IFilesClient), ["GetFile"]);
     }
 
@@ -169,6 +173,21 @@ public sealed class PublicApiCancellationTests
         await AssertTransportCancellation(operation, handler, cancellationTokenSource);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ProfileRefreshAsync_PropagatesCancellationToTransport(bool self)
+    {
+        using var handler = new BlockingHandler();
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var cancellationTokenSource = new CancellationTokenSource();
+        Profile profile = CreateProfile(app);
+
+        Task operation = profile.RefreshAsync(cancellationTokenSource.Token, self);
+
+        await AssertTransportCancellation(operation, handler, cancellationTokenSource);
+    }
+
     private const string SimplePackageJson = """
         {
           "id": "package-id",
@@ -259,6 +278,20 @@ public sealed class PublicApiCancellationTests
             Owned = false,
         };
         return new Package(owner, packageResponse, app);
+    }
+
+    private static Profile CreateProfile(BeutlApiApplication app)
+    {
+        ProfileResponse response = new()
+        {
+            Id = "profile-id",
+            Name = "profile-name",
+            DisplayName = "Profile",
+            Bio = null,
+            IconId = null,
+            IconUrl = null,
+        };
+        return new Profile(response, app);
     }
 
     private static Release CreateRelease(BeutlApiApplication app)

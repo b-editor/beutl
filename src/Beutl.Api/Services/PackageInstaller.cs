@@ -414,6 +414,10 @@ public partial class PackageInstaller : IBeutlApiResource
                 await user.RefreshAsync(cancellationToken);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to refresh authenticated user. Proceeding without authentication.");

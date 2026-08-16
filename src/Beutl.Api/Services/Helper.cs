@@ -154,6 +154,10 @@ internal static class Helper
         {
             return func();
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch
         {
             return default;
@@ -165,6 +169,10 @@ internal static class Helper
         try
         {
             return await func().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {

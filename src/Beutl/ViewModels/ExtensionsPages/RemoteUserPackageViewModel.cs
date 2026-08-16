@@ -299,7 +299,13 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
             return await _library.Acquire(Package, CancellationToken.None);
         }
 
-        return (await Package.GetReleasesAsync(CancellationToken.None))[0];
+        Release[] releases = await Package.GetReleasesAsync(CancellationToken.None, 0, 1);
+        if (releases.Length == 0)
+        {
+            throw new InvalidOperationException($"Package '{Package.Name}' has no releases.");
+        }
+
+        return releases[0];
     }
 
     public Package Package { get; }

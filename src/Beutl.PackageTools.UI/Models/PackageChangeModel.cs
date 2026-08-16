@@ -105,6 +105,10 @@ public record PackageChangeModel(
                     Conflict = CheckLocalSource(pkg)
                 };
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 s_logger.LogError(ex, "An exception occurred while discovering package {PackageId}", pkg.Id);
@@ -147,6 +151,10 @@ public record PackageChangeModel(
                 {
                     s_logger.LogWarning("No releases found for package {PackageId}", s);
                 }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
