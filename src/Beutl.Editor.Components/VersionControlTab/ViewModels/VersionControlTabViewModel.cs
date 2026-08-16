@@ -264,7 +264,8 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public string Header => Strings.VersionControl;
+    public IReadOnlyReactiveProperty<string> Header { get; } =
+        new ReactivePropertySlim<string>(Strings.VersionControl);
 
     public ReactivePropertySlim<bool> IsTracked { get; }
 

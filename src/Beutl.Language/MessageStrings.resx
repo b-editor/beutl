@@ -412,4 +412,19 @@ Do you want to restart the application?</value>
   <data name="ScriptValidationUnavailable" xml:space="preserve">
     <value>Validation is unavailable here (no graphics context); the script was not checked.</value>
   </data>
+  <data name="WindowCapture_RecordingStarted" xml:space="preserve">
+    <value>Recording started: {0}x{1} @ {2}fps</value>
+  </data>
+  <data name="WindowCapture_NoActiveSession" xml:space="preserve">
+    <value>No active capture session.</value>
+  </data>
+  <data name="WindowCapture_Saved" xml:space="preserve">
+    <value>Saved: {0}&#10;Captured {1} frames (dropped {2}).</value>
+  </data>
+  <data name="WindowCapture_AlreadyRunning" xml:space="preserve">
+    <value>A capture session is already running. Stop it before starting a new one.</value>
+  </data>
+  <data name="WindowCapture_FfmpegNotFound" xml:space="preserve">
+    <value>ffmpeg executable was not found. Install ffmpeg and ensure it is on PATH.</value>
+  </data>
 </root>

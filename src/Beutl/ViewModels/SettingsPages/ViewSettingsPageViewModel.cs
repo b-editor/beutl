@@ -3,7 +3,6 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
-using Beutl.Extensibility;
 using FluentAvalonia.Styling;
 using Reactive.Bindings;
 
@@ -50,11 +49,16 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
             })
             .DisposeWith(_disposables);
 
+        // The combo box matches items by CultureInfo equality, so a stored es-MX has to be mapped
+        // onto the neutral "es" entry or the box renders with nothing selected. Skip(1) keeps that
+        // display-only mapping from being written back as if the user had chosen it.
         SelectedLanguage = _config.GetObservable(ViewConfig.UICultureProperty)
+            .Select(x => LocalizeService.Instance.ResolveSupportedCulture(x) ?? x)
             .ToReactiveProperty()
             .DisposeWith(_disposables)!;
 
-        SelectedLanguage.Subscribe(ci => _config.UICulture = ci)
+        SelectedLanguage.Skip(1)
+            .Subscribe(ci => _config.UICulture = ci)
             .DisposeWith(_disposables);
 
         GetPredefColors();

@@ -13,7 +13,7 @@ internal sealed class CoreObjectSubject<T> : LightweightObservableBase<T>
     {
         _object = o;
         _property = property;
-        o.PropertyChanged += Object_PropertyChanged;
+        // Subscribe only between Initialize and Deinitialize; subscribing here would leak the source.
     }
 
     protected override void Deinitialize()

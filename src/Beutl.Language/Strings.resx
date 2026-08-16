@@ -1859,4 +1859,40 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
     <value>Project files are being updated by version control. Wait for the operation to finish, then try again.</value>
   </data>
+  <data name="ToolTabHeaderFormat" xml:space="preserve">
+    <value>{0} - {1}</value>
+  </data>
+  <data name="Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Debug" xml:space="preserve">
+    <value>Debug</value>
+  </data>
+  <data name="AudioVisualizer_Display" xml:space="preserve">
+    <value>Display</value>
+  </data>
+  <data name="WindowCapture" xml:space="preserve">
+    <value>Window Capture</value>
+  </data>
+  <data name="AudioVisualizer_MinDecibels" xml:space="preserve">
+    <value>Min dB</value>
+  </data>
+  <data name="WindowCapture_RenderScale" xml:space="preserve">
+    <value>Render scale</value>
+  </data>
+  <data name="WindowCapture_FrameRate" xml:space="preserve">
+    <value>Frame rate (fps)</value>
+  </data>
+  <data name="WindowCapture_OutputFile" xml:space="preserve">
+    <value>Output file (.mp4)</value>
+  </data>
+  <data name="Browse" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="ClickBrowse" xml:space="preserve">
+    <value>Click Browse...</value>
+  </data>
+  <data name="Materials" xml:space="preserve">
+    <value>Materials</value>
+  </data>
 </root>

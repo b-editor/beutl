@@ -1,0 +1,200 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="StartTutorial" xml:space="preserve">
+    <value>Iniciar tutorial</value>
+  </data>
+  <data name="TutorialStep" xml:space="preserve">
+    <value>Paso {0} de {1}</value>
+  </data>
+  <data name="TutorialNext" xml:space="preserve">
+    <value>Siguiente</value>
+  </data>
+  <data name="TutorialPrevious" xml:space="preserve">
+    <value>Anterior</value>
+  </data>
+  <data name="TutorialFinish" xml:space="preserve">
+    <value>Finalizar</value>
+  </data>
+  <data name="TutorialSkip" xml:space="preserve">
+    <value>Omitir tutorial</value>
+  </data>
+  <data name="LearnBeutlBasics" xml:space="preserve">
+    <value>Aprende los conceptos básicos de Beutl</value>
+  </data>
+  <data name="NoTutorialsAvailable" xml:space="preserve">
+    <value>No hay tutoriales disponibles</value>
+  </data>
+  <data name="Tutorial_Welcome_Title" xml:space="preserve">
+    <value>Bienvenido a Beutl</value>
+  </data>
+  <data name="Tutorial_Welcome_Content" xml:space="preserve">
+    <value>Beutl es un editor de video multiplataforma. Este tutorial te guiará a través de los conceptos básicos.</value>
+  </data>
+  <data name="Tutorial_Welcome_MenuBar_Title" xml:space="preserve">
+    <value>Barra de menú</value>
+  </data>
+  <data name="Tutorial_Welcome_MenuBar_Content" xml:space="preserve">
+    <value>La barra de menú contiene opciones para la gestión de archivos, edición y más.</value>
+  </data>
+  <data name="Tutorial_Welcome_Create_Title" xml:space="preserve">
+    <value>Crear nuevo</value>
+  </data>
+  <data name="Tutorial_Welcome_Create_Content" xml:space="preserve">
+    <value>Haz clic aquí para crear un nuevo proyecto o escena y comenzar a editar.</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Title" xml:space="preserve">
+    <value>Conceptos básicos de edición de escenas</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Description" xml:space="preserve">
+    <value>Aprende a agregar elementos, editar propiedades y crear animaciones</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step1_Title" xml:space="preserve">
+    <value>Agregar una elipse</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step1_Content" xml:space="preserve">
+    <value>Haz clic derecho en la línea de tiempo y agrega un elemento de elipse. También puedes arrastrarlo y soltarlo desde la biblioteca.</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step2_Title" xml:space="preserve">
+    <value>Seleccionar el elemento</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step2_Content" xml:space="preserve">
+    <value>Haz clic en el elemento que acabas de agregar en la línea de tiempo para seleccionarlo.</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step3_Title" xml:space="preserve">
+    <value>Propiedades</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step3_Content" xml:space="preserve">
+    <value>Esta es la pestaña de propiedades. Puedes ver y editar las propiedades del elemento seleccionado aquí.</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step4_Title" xml:space="preserve">
+    <value>Habilitar animación</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step4_Content" xml:space="preserve">
+    <value>Busca la propiedad Width y haz clic en el icono de menú junto a ella para habilitar la animación. Puedes habilitarla con "Editar animación" o "Editar animación en vista en línea".</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step5_Title" xml:space="preserve">
+    <value>Agregar un fotograma clave</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step5_Content" xml:space="preserve">
+    <value>La posición de reproducción se ha movido hacia adelante. Haz clic en el icono de diamante para agregar un fotograma clave en esta posición.</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step6_Title" xml:space="preserve">
+    <value>Cambiar el valor</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step6_Content" xml:space="preserve">
+    <value>El valor de Width se ha cambiado a 300. Esto crea una animación de 100 a 300 con el tiempo.</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step7_Title" xml:space="preserve">
+    <value>Vista previa de la animación</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step7_Content" xml:space="preserve">
+    <value>Pulsa el botón Reproducir en el reproductor para previsualizar tu animación.</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step8_Title" xml:space="preserve">
+    <value>¡Tutorial completado!</value>
+  </data>
+  <data name="Tutorial_SceneEdit_Step8_Content" xml:space="preserve">
+    <value>¡Felicidades! Has aprendido a agregar elementos, editar propiedades y crear animaciones. ¡Explora más funciones por tu cuenta!</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Title" xml:space="preserve">
+    <value>Edición de animaciones</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Description" xml:space="preserve">
+    <value>Aprende edición avanzada de animaciones con el editor de gráficos</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step1_Title" xml:space="preserve">
+    <value>Seleccionar un objeto</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step1_Content" xml:space="preserve">
+    <value>Selecciona el elemento que quieres animar en la línea de tiempo.</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step2_Title" xml:space="preserve">
+    <value>Agregar traslación</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step2_Content" xml:space="preserve">
+    <value>Haz clic en el botón + de la propiedad Transform y agrega "Translate".</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step3_Title" xml:space="preserve">
+    <value>Habilitar animación X</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step3_Content" xml:space="preserve">
+    <value>Haz clic en el icono de menú de la propiedad X y selecciona "Editar animación".</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step4_Title" xml:space="preserve">
+    <value>Agregar un fotograma clave</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step4_Content" xml:space="preserve">
+    <value>La posición de reproducción se ha movido hacia adelante. Haz clic en el icono de diamante para agregar un fotograma clave en esta posición.</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step5_Title" xml:space="preserve">
+    <value>Aplicar suavizado</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step5_Content" xml:space="preserve">
+    <value>Arrastrar una función de suavizado desde el panel Biblioteca (pestaña Suavizado) y soltarla en el editor de gráficos agrega fotogramas clave con esa función. Soltarla en la misma posición que un fotograma clave existente cambia la función de suavizado de ese fotograma.</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step6_Title" xml:space="preserve">
+    <value>Descripción general del editor de gráficos</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step6_Content" xml:space="preserve">
+    <value>En el editor de gráficos, los iconos redondos representan puntos de control de suavizado. Muévelos a la izquierda o derecha para revelar los iconos de diamante (fotogramas clave) debajo.</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step7_Title" xml:space="preserve">
+    <value>Mover fotogramas clave</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step7_Content" xml:space="preserve">
+    <value>Puedes arrastrar los iconos de diamante para cambiar el tiempo y el valor de los fotogramas clave.</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step8_Title" xml:space="preserve">
+    <value>Vista previa de la animación</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step8_Content" xml:space="preserve">
+    <value>Pulsa el botón Reproducir para previsualizar tu animación.</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step9_Title" xml:space="preserve">
+    <value>Copiar animación</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step9_Content" xml:space="preserve">
+    <value>Haz clic derecho en el fondo del editor de gráficos y selecciona "Copiar todo" para copiar todos los fotogramas clave.</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step10_Title" xml:space="preserve">
+    <value>Habilitar animación Y</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step10_Content" xml:space="preserve">
+    <value>Haz clic en el icono de menú de la propiedad Y y selecciona "Editar animación".</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step11_Title" xml:space="preserve">
+    <value>Pegar animación</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step11_Content" xml:space="preserve">
+    <value>Haz clic derecho en el editor de gráficos de la propiedad Y y selecciona "Pegar" para aplicar la animación copiada.</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step12_Title" xml:space="preserve">
+    <value>Vista previa final</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step12_Content" xml:space="preserve">
+    <value>Pulsa el botón Reproducir de nuevo para verificar que las animaciones X e Y funcionan juntas.</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step13_Title" xml:space="preserve">
+    <value>¡Tutorial completado!</value>
+  </data>
+  <data name="Tutorial_AnimationEdit_Step13_Content" xml:space="preserve">
+    <value>Has aprendido edición avanzada de animaciones con el editor de gráficos, aplicar funciones de suavizado y copiar/pegar animaciones. ¡Explora más funciones por tu cuenta!</value>
+  </data>
+</root>

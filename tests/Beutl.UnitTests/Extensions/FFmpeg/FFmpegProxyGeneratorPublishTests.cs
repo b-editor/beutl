@@ -1,4 +1,5 @@
-﻿using Beutl.Extensions.FFmpeg.Encoding;
+﻿using Beutl.Extensions.FFmpeg;
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Extensions.FFmpeg.Proxy;
 using Beutl.FFmpegIpc;
 using Beutl.Media;
@@ -22,6 +23,27 @@ public sealed class FFmpegProxyGeneratorPublishTests
         FFmpegProxyGenerator.Configure(controller, videoInfo, new PixelSize(1920, 1080), ProxyPreset.Half);
 
         Assert.That(controller.VideoSettings.Options.Any(o => o.Name == "level"), Is.False);
+    }
+
+    [Test]
+    public void IsAvailable_RemainsFalseDuringVerification()
+    {
+        FFmpegInstallNotifier.MarkInstalled();
+        var generator = new FFmpegProxyGenerator(new TransitionRecordingStore(CreateRoot()));
+
+        try
+        {
+            Assert.That(generator.IsAvailable, Is.True);
+
+            FFmpegInstallNotifier.MarkVerificationStarted();
+
+            Assert.That(generator.IsAvailable, Is.False,
+                "proxy generation must stay paused while FFmpeg installation is being verified");
+        }
+        finally
+        {
+            FFmpegInstallNotifier.MarkInstalled();
+        }
     }
 
     // An animated APNG/GIF/WebP is exposed as multi-frame video by the animated-image readers, so the

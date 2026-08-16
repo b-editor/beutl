@@ -1,0 +1,630 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SignOut" xml:space="preserve">
+    <value>Cerrar sesión</value>
+    <comment />
+  </data>
+  <data name="ChangeAccountSettings" xml:space="preserve">
+    <value>Cambiar la configuración de la cuenta</value>
+    <comment />
+  </data>
+  <data name="SignIn" xml:space="preserve">
+    <value>Iniciar sesión</value>
+    <comment />
+  </data>
+  <data name="SignInWith" xml:space="preserve">
+    <value>Inicia sesión con tus cuentas sociales</value>
+    <comment />
+  </data>
+  <data name="SignInViaBrowser" xml:space="preserve">
+    <value>Iniciar sesión mediante el navegador</value>
+    <comment />
+  </data>
+  <data name="Editor_Extension_Priority" xml:space="preserve">
+    <value>Prioridad de extensión del editor</value>
+    <comment />
+  </data>
+  <data name="Higher" xml:space="preserve">
+    <value>Más alta</value>
+    <comment />
+  </data>
+  <data name="Lower" xml:space="preserve">
+    <value>Más baja</value>
+    <comment />
+  </data>
+  <data name="All_Editor_Extensions" xml:space="preserve">
+    <value>Todas las extensiones del editor</value>
+    <comment />
+  </data>
+  <data name="Add_file_extension" xml:space="preserve">
+    <value>Agregar extensión de archivo</value>
+    <comment />
+  </data>
+  <data name="Theme_Tip" xml:space="preserve">
+    <value>Selecciona el tema de la aplicación que quieres mostrar.</value>
+    <comment />
+  </data>
+  <data name="Please_enter_a_file_extension" xml:space="preserve">
+    <value>Introduce una extensión de archivo.</value>
+    <comment />
+  </data>
+  <data name="The_following_characters_are_not_allowed" xml:space="preserve">
+    <value>No se permiten los siguientes caracteres (" &gt; &lt; | : ? * \\ /)</value>
+    <comment />
+  </data>
+  <data name="This_file_extension_already_exists" xml:space="preserve">
+    <value>Esta extensión de archivo ya existe.</value>
+    <comment />
+  </data>
+  <data name="CopyVersionInfo" xml:space="preserve">
+    <value>Copiar información de versión</value>
+    <comment />
+  </data>
+  <data name="DeviceInformation" xml:space="preserve">
+    <value>Información del dispositivo</value>
+  </data>
+  <data name="EditorSettings" xml:space="preserve">
+    <value>Configuración del editor</value>
+    <comment />
+  </data>
+  <data name="DecoderPriority" xml:space="preserve">
+    <value>Prioridad del decodificador</value>
+    <comment />
+  </data>
+  <data name="DecoderPriority_Description" xml:space="preserve">
+    <value>Puedes cambiar el orden de prioridad de los decodificadores. El decodificador superior tiene prioridad.</value>
+    <comment />
+  </data>
+  <data name="AccentColor" xml:space="preserve">
+    <value>Color de acento</value>
+    <comment />
+  </data>
+  <data name="CustomColor" xml:space="preserve">
+    <value>Color personalizado</value>
+    <comment />
+  </data>
+  <data name="UseCustomAccentColor" xml:space="preserve">
+    <value>Usar color de acento personalizado</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Beutl_Application" xml:space="preserve">
+    <value>Aplicación</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
+    <value>Se recopila la siguiente información para mejorar el rendimiento de la aplicación: hora de inicio de la aplicación, tiempo transcurrido de la operación y número de elementos recuperados por la API</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
+    <value>Gestión de paquetes</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Description_Beutl_PackageManagement" xml:space="preserve">
+    <value>Recopila el tiempo que se tarda en instalar y cargar las extensiones.</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Beutl_Api_Client" xml:space="preserve">
+    <value>Cliente de API</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Description_Beutl_Api_Client" xml:space="preserve">
+    <value>Recopila los tiempos de llamada a la API utilizados por la tienda de extensiones y las funciones de la cuenta.</value>
+    <comment />
+  </data>
+  <data name="Telemetry" xml:space="preserve">
+    <value>Telemetría</value>
+    <comment />
+  </data>
+  <data name="Telemetry_ShortDescription" xml:space="preserve">
+    <value>Configuración sobre los datos que se recopilarán</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Description" xml:space="preserve">
+    <value>Para mejorar Beutl, recopilamos datos de uso anónimos. Esta configuración se aplicará después de reiniciar la aplicación. Para obtener más información, consulta las siguientes páginas.</value>
+    <comment />
+  </data>
+  <data name="ShowExactBoundaries_Description" xml:space="preserve">
+    <value>Muestra los límites de los elementos con precisión durante la vista previa. Habilitar esta configuración puede hacer que el borde sea invisible.</value>
+    <comment />
+  </data>
+  <data name="ShowExactBoundaries" xml:space="preserve">
+    <value>Mostrar límites precisos</value>
+    <comment />
+  </data>
+  <data name="AutoAdjustSceneDuration" xml:space="preserve">
+    <value>Ajustar automáticamente la duración de la escena</value>
+    <comment />
+  </data>
+  <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
+    <value>Cuando se agregan elementos, si es necesario ajustar la duración de la escena, se hará automáticamente.</value>
+    <comment />
+  </data>
+  <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
+    <value>Algunos ajustes se han movido.</value>
+    <comment />
+  </data>
+  <data name="EnablePointerLockInProperty" xml:space="preserve">
+    <value>Habilitar bloqueo de puntero</value>
+    <comment />
+  </data>
+  <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
+    <value>Oculta el cursor durante las operaciones de arrastre en el editor de propiedades. (Solo Windows)</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Beutl_Logging" xml:space="preserve">
+    <value>Registro</value>
+    <comment />
+  </data>
+  <data name="Telemetry_Description_Beutl_Logging" xml:space="preserve">
+    <value>Se recopila información de uso más detallada. Los registros enviados también se almacenan en el directorio ".beutl/log".</value>
+    <comment />
+  </data>
+  <data name="EnableAutoSave" xml:space="preserve">
+    <value>Habilitar guardado automático</value>
+    <comment />
+  </data>
+  <data name="EnableAutoSave_Description" xml:space="preserve">
+    <value>El archivo se guarda automáticamente después de realizar la operación.</value>
+    <comment />
+  </data>
+  <data name="ProxyMedia" xml:space="preserve">
+    <value>Medios proxy</value>
+    <comment />
+  </data>
+  <data name="ProxyStoreRootPath" xml:space="preserve">
+    <value>Ubicación de almacenamiento</value>
+    <comment />
+  </data>
+  <data name="ProxyStoreRootPath_Description" xml:space="preserve">
+    <value>Los archivos proxy se almacenan en esta carpeta. Los cambios surten efecto después de reiniciar.</value>
+    <comment />
+  </data>
+  <data name="ProxyStoreMaxTotalGiB" xml:space="preserve">
+    <value>Tamaño máximo de almacenamiento</value>
+    <comment />
+  </data>
+  <data name="ProxyStoreMaxTotalGiB_Description" xml:space="preserve">
+    <value>Los proxies usados menos recientemente se eliminan cuando el almacenamiento supera este tamaño. Los cambios surten efecto después de reiniciar.</value>
+    <comment />
+  </data>
+  <data name="ProxyDefaultPreset" xml:space="preserve">
+    <value>Ajuste preestablecido predeterminado</value>
+    <comment />
+  </data>
+  <data name="ProxyDefaultPreset_Description" xml:space="preserve">
+    <value>Ajuste preestablecido seleccionado por defecto en la pestaña de herramientas Proxies.</value>
+    <comment />
+  </data>
+  <data name="FrameCacheMaxSize" xml:space="preserve">
+    <value>Bytes máximos</value>
+    <comment />
+  </data>
+  <data name="FrameCacheMaxSize_Description" xml:space="preserve">
+    <value>El número de cachés se ajustará para que no supere este número de bytes.</value>
+    <comment />
+  </data>
+  <data name="FrameCacheScale" xml:space="preserve">
+    <value>Escala</value>
+    <comment />
+  </data>
+  <data name="FrameCacheScale_Original" xml:space="preserve">
+    <value>Original</value>
+    <comment />
+  </data>
+  <data name="FrameCacheScale_FitToPreviewer" xml:space="preserve">
+    <value>Ajustar a la pantalla de vista previa</value>
+    <comment />
+  </data>
+  <data name="FrameCacheScale_Half" xml:space="preserve">
+    <value>Mitad</value>
+    <comment />
+  </data>
+  <data name="FrameCacheScale_Quarter" xml:space="preserve">
+    <value>Cuarto</value>
+    <comment />
+  </data>
+  <data name="FrameCacheColorType" xml:space="preserve">
+    <value>Espacio de color</value>
+    <comment />
+  </data>
+  <data name="PropertyEditor" xml:space="preserve">
+    <value>Editor de propiedades</value>
+    <comment />
+  </data>
+  <data name="EnableFrameCache" xml:space="preserve">
+    <value>Habilitar caché de fotogramas</value>
+    <comment />
+  </data>
+  <data name="NodeCache" xml:space="preserve">
+    <value>Caché de nodos</value>
+    <comment />
+  </data>
+  <data name="EnableNodeCache" xml:space="preserve">
+    <value>Habilitar caché de nodos</value>
+    <comment />
+  </data>
+  <data name="NodeCacheMaxPixels" xml:space="preserve">
+    <value>Píxeles máximos</value>
+    <comment />
+  </data>
+  <data name="NodeCacheMinPixels" xml:space="preserve">
+    <value>Píxeles mínimos</value>
+    <comment />
+  </data>
+  <data name="SwapTimelineScrollDirection" xml:space="preserve">
+    <value>Invertir la dirección de desplazamiento de la línea de tiempo</value>
+    <comment />
+  </data>
+  <data name="TimelineAutoScrollMode" xml:space="preserve">
+    <value>Desplazamiento automático de la línea de tiempo durante la reproducción</value>
+    <comment />
+  </data>
+  <data name="TimelineAutoScrollMode_Description" xml:space="preserve">
+    <value>Desplaza automáticamente la línea de tiempo para seguir la posición de reproducción</value>
+    <comment />
+  </data>
+  <data name="TimelineAutoScrollMode_None" xml:space="preserve">
+    <value>Desactivado</value>
+    <comment />
+  </data>
+  <data name="TimelineAutoScrollMode_AlwaysFollow" xml:space="preserve">
+    <value>Seguir siempre</value>
+    <comment />
+  </data>
+  <data name="TimelineAutoScrollMode_PageScroll" xml:space="preserve">
+    <value>Desplazamiento por página</value>
+    <comment />
+  </data>
+  <data name="ClampResizeToOriginalLength" xml:space="preserve">
+    <value>Limitar el cambio de tamaño a la duración original del medio</value>
+    <comment />
+  </data>
+  <data name="ClampResizeToOriginalLength_Description" xml:space="preserve">
+    <value>Evita que los elementos de la línea de tiempo se redimensionen más allá de la duración original del medio</value>
+    <comment />
+  </data>
+  <data name="Graphics" xml:space="preserve">
+    <value>Gráficos</value>
+    <comment />
+  </data>
+  <data name="SelectedGpu" xml:space="preserve">
+    <value>GPU</value>
+    <comment />
+  </data>
+  <data name="SelectedGpu_Description" xml:space="preserve">
+    <value>Selecciona la GPU que se usará para el renderizado. Los cambios surtirán efecto después de reiniciar.</value>
+    <comment />
+  </data>
+  <data name="SelectedGpu_Auto" xml:space="preserve">
+    <value>Automático</value>
+    <comment />
+  </data>
+  <data name="Account" xml:space="preserve">
+    <value>Cuenta</value>
+  </data>
+  <data name="ColorPalette" xml:space="preserve">
+    <value>Paleta de colores</value>
+  </data>
+  <data name="AvailableGPUs" xml:space="preserve">
+    <value>GPU disponibles</value>
+  </data>
+  <data name="AvailableMemory" xml:space="preserve">
+    <value>Memoria disponible</value>
+  </data>
+  <data name="Dark" xml:space="preserve">
+    <value>Oscuro</value>
+  </data>
+  <data name="DarkClassic" xml:space="preserve">
+    <value>Oscuro (clásico)</value>
+  </data>
+  <data name="ExtensionsSettings" xml:space="preserve">
+    <value>Configuración de extensiones</value>
+  </data>
+  <data name="Keymap" xml:space="preserve">
+    <value>Mapa de teclas</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Idioma</value>
+  </data>
+  <data name="License" xml:space="preserve">
+    <value>Licencia</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Enlaces</value>
+  </data>
+  <data name="PrivacyPolicy" xml:space="preserve">
+    <value>Política de privacidad</value>
+  </data>
+  <data name="TermsOfService" xml:space="preserve">
+    <value>Términos de servicio</value>
+  </data>
+  <data name="Theme" xml:space="preserve">
+    <value>Tema</value>
+  </data>
+  <data name="ThirdPartyLicenses" xml:space="preserve">
+    <value>Licencias de terceros</value>
+  </data>
+  <data name="VulkanVersion" xml:space="preserve">
+    <value>Versión de Vulkan</value>
+  </data>
+  <data name="EnabledExtensions" xml:space="preserve">
+    <value>Extensiones habilitadas</value>
+  </data>
+  <data name="Light" xml:space="preserve">
+    <value>Claro</value>
+  </data>
+  <data name="HighContrast" xml:space="preserve">
+    <value>Alto contraste</value>
+  </data>
+  <data name="FollowSystem" xml:space="preserve">
+    <value>Seguir sistema</value>
+  </data>
+  <data name="SourceCode" xml:space="preserve">
+    <value>Código fuente</value>
+  </data>
+  <data name="Font" xml:space="preserve">
+    <value>Fuente</value>
+  </data>
+  <data name="ToneMapping" xml:space="preserve">
+    <value>Mapeo de tonos</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode" xml:space="preserve">
+    <value>Mapeo de tonos</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_Description" xml:space="preserve">
+    <value>Selecciona el operador de mapeo de tonos para la vista previa</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_None" xml:space="preserve">
+    <value>Ninguno</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_Reinhard" xml:space="preserve">
+    <value>Reinhard</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_ACES" xml:space="preserve">
+    <value>ACES</value>
+    <comment />
+  </data>
+  <data name="ToneMappingMode_Hable" xml:space="preserve">
+    <value>Hable</value>
+    <comment />
+  </data>
+  <data name="ToneMappingExposure" xml:space="preserve">
+    <value>Exposición</value>
+    <comment />
+  </data>
+  <data name="ToneMappingExposure_Description" xml:space="preserve">
+    <value>Ajusta el nivel de exposición para el mapeo de tonos</value>
+    <comment />
+  </data>
+  <data name="UseHdrPreview" xml:space="preserve">
+    <value>Vista previa HDR</value>
+    <comment />
+  </data>
+  <data name="UseHdrPreview_Description" xml:space="preserve">
+    <value>Usa renderizado HDR para el reproductor de vista previa (las operaciones del mouse, etc., estarán restringidas)</value>
+    <comment />
+  </data>
+  <data name="AiAgents" xml:space="preserve">
+    <value>Agentes de IA</value>
+    <comment />
+  </data>
+  <data name="AiAgents_PageDescription" xml:space="preserve">
+    <value>Configura agentes de codificación de IA (como Claude Code) para editar proyectos de Beutl: instala habilidades, subagentes y entradas del servidor MCP en las carpetas del agente.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Target" xml:space="preserve">
+    <value>Destino de instalación</value>
+    <comment />
+  </data>
+  <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
+    <value>Raíz del espacio de trabajo</value>
+    <comment />
+  </data>
+  <data name="AiAgents_WorkspaceRoot_Description" xml:space="preserve">
+    <value>Carpeta en la que el servidor MCP puede crear y editar proyectos</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Components" xml:space="preserve">
+    <value>Componentes</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Skills" xml:space="preserve">
+    <value>Habilidades</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Skills_Description" xml:space="preserve">
+    <value>Conocimientos de edición de Beutl que el agente carga bajo demanda</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Subagents" xml:space="preserve">
+    <value>Subagentes</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Subagents_Description" xml:space="preserve">
+    <value>Definiciones de agentes especializados para tareas de línea de tiempo, apariencia y revisión de calidad</value>
+    <comment />
+  </data>
+  <data name="AiAgents_StdioMcp" xml:space="preserve">
+    <value>Servidor MCP Stdio</value>
+    <comment />
+  </data>
+  <data name="AiAgents_StdioMcp_Description" xml:space="preserve">
+    <value>Servidor sin interfaz opcional que edita archivos de proyecto sin iniciar la GUI</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcp" xml:space="preserve">
+    <value>Servidor MCP en vivo</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcp_Description" xml:space="preserve">
+    <value>Recomendado: conecta agentes a este editor en ejecución; las ediciones aparecen en vivo en la vista previa y el historial de deshacer</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcp_NotRunning" xml:space="preserve">
+    <value>El punto de conexión MCP en vivo no está en ejecución</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcpUrl" xml:space="preserve">
+    <value>URL de MCP en vivo</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcpUrl_Description" xml:space="preserve">
+    <value>URL de conexión para clientes MCP. Envía el encabezado de autenticación de abajo con cada solicitud; trátalo como una contraseña</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Advanced" xml:space="preserve">
+    <value>Avanzado</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Advanced_Description" xml:space="preserve">
+    <value>Anulaciones para nombres de carpeta y el archivo de configuración MCP, y la línea de comandos del servidor stdio. Los campos vacíos usan los valores predeterminados del agente seleccionado</value>
+    <comment />
+  </data>
+  <data name="AiAgents_SkillsDirectory" xml:space="preserve">
+    <value>Carpeta de habilidades</value>
+    <comment />
+  </data>
+  <data name="AiAgents_SubagentsDirectory" xml:space="preserve">
+    <value>Carpeta de subagentes</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpConfigFileName" xml:space="preserve">
+    <value>Archivo de configuración MCP</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpServersPropertyName" xml:space="preserve">
+    <value>Propiedad de servidores</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpCommand" xml:space="preserve">
+    <value>Comando</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpArguments" xml:space="preserve">
+    <value>Argumentos (uno por línea)</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Install" xml:space="preserve">
+    <value>Instalar</value>
+    <comment />
+  </data>
+  <data name="AiAgents_InstallCompleted" xml:space="preserve">
+    <value>Se instalaron {0} archivo(s).</value>
+    <comment />
+  </data>
+  <data name="AiAgents_InstalledFiles" xml:space="preserve">
+    <value>Archivos instalados</value>
+    <comment />
+  </data>
+  <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
+    <value>Selecciona la raíz del espacio de trabajo</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Agent" xml:space="preserve">
+    <value>Agente</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Agent_Description" xml:space="preserve">
+    <value>El agente de codificación de IA para el que instalar el kit de herramientas (las convenciones de carpeta siguen a cada agente)</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Agent_Custom" xml:space="preserve">
+    <value>Personalizado (rutas manuales)</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Scope" xml:space="preserve">
+    <value>Ámbito de instalación</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Scope_Description" xml:space="preserve">
+    <value>Las instalaciones de proyecto van a una carpeta de proyecto; las globales van a tu perfil de usuario</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Scope_Project" xml:space="preserve">
+    <value>Proyecto</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Scope_Global" xml:space="preserve">
+    <value>Global (perfil de usuario)</value>
+    <comment />
+  </data>
+  <data name="AiAgents_ProjectFolder" xml:space="preserve">
+    <value>Carpeta del proyecto</value>
+    <comment />
+  </data>
+  <data name="AiAgents_ProjectFolder_Description" xml:space="preserve">
+    <value>Carpeta del repositorio o proyecto en la que se ejecuta el agente</value>
+    <comment />
+  </data>
+  <data name="AiAgents_SelectProjectFolder" xml:space="preserve">
+    <value>Selecciona la carpeta del proyecto</value>
+    <comment />
+  </data>
+  <data name="AiAgents_ProjectFolderMissing" xml:space="preserve">
+    <value>Selecciona primero una carpeta de proyecto.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Destinations" xml:space="preserve">
+    <value>Destinos de instalación</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Destinations_Description" xml:space="preserve">
+    <value>Dónde coloca cada componente el agente y ámbito seleccionados</value>
+    <comment />
+  </data>
+  <data name="AiAgents_NotSupported" xml:space="preserve">
+    <value>No compatible con este agente</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpManual" xml:space="preserve">
+    <value>La configuración MCP de este agente no se puede escribir automáticamente. Registra el servidor MCP manualmente en la configuración del propio agente.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_CliFailed" xml:space="preserve">
+    <value>El registro MCP a través de la CLI del agente falló. Ejecuta el comando manualmente:
+{0}</value>
+    <comment />
+  </data>
+  <data name="AiAgents_StdioMissing" xml:space="preserve">
+    <value>No se encontró el binario del servidor MCP stdio junto a la aplicación. Introduce un comando en Avanzado o reinstala Beutl.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_LiveMcpAuthHeader" xml:space="preserve">
+    <value>Encabezado de autenticación</value>
+    <comment />
+  </data>
+  <data name="AiAgents_UpdateAvailable_Title" xml:space="preserve">
+    <value>Se actualizaron los recursos del agente de IA</value>
+    <comment />
+  </data>
+  <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
+    <value>Esta versión de Beutl incluye habilidades y subagentes más nuevos que los que instalaste. ¿Reinstalarlos ahora con tu configuración guardada? Los archivos que editaste manualmente en el destino se sobrescribirán.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Reinstall" xml:space="preserve">
+    <value>Reinstalar</value>
+    <comment />
+  </data>
+</root>

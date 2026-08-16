@@ -228,7 +228,13 @@ public class ResourceRelocationService
     [ExcludeFromCodeCoverage]
     private static IEnumerable<string> FindFontFiles(string fontFamilyName)
     {
-        IReadOnlyList<string> fontDirs = GlobalConfiguration.Instance.FontConfig.FontDirectories;
+        // A material package installs its fonts under the home directory, which is not one
+        // of the OS font directories the user configures.
+        IReadOnlyList<string> fontDirs =
+        [
+            .. GlobalConfiguration.Instance.FontConfig.FontDirectories,
+            BeutlEnvironment.GetMaterialsDirectoryPath()
+        ];
         List<string> foundFiles = [];
 
         foreach (string fontDir in fontDirs)
@@ -236,16 +242,10 @@ public class ResourceRelocationService
             if (!Directory.Exists(fontDir))
                 continue;
 
-            foreach (string file in Directory.GetFiles(fontDir, "*.*", SearchOption.AllDirectories))
+            // An unreadable subtree under a scanned root would otherwise throw and discard
+            // the matches already collected from the other font directories.
+            foreach (string file in FontManager.EnumerateFontCandidates(fontDir))
             {
-                ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
-                if (!ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase) &&
-                    !ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase) &&
-                    !ext.Equals(".otf", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 try
                 {
                     using SKTypeface? typeface = SKTypeface.FromFile(file);
@@ -271,7 +271,7 @@ public class ResourceRelocationService
 
             try
             {
-                foreach (string file in Directory.GetFiles(fontDir, "*.*", SearchOption.AllDirectories))
+                foreach (string file in Directory.EnumerateFiles(fontDir, "*.*", SearchOption.AllDirectories))
                 {
                     ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
                     if (!ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase) &&

@@ -407,4 +407,19 @@
   <data name="ScriptValidationUnavailable" xml:space="preserve">
     <value>ここでは検証を利用できません（グラフィックスコンテキストがないため）。スクリプトはチェックされていません。</value>
   </data>
+  <data name="WindowCapture_RecordingStarted" xml:space="preserve">
+    <value>録画を開始しました: {0}x{1} @ {2}fps</value>
+  </data>
+  <data name="WindowCapture_NoActiveSession" xml:space="preserve">
+    <value>アクティブなキャプチャセッションがありません。</value>
+  </data>
+  <data name="WindowCapture_Saved" xml:space="preserve">
+    <value>保存しました: {0}&#10;キャプチャ {1} フレーム (ドロップ {2})。</value>
+  </data>
+  <data name="WindowCapture_AlreadyRunning" xml:space="preserve">
+    <value>キャプチャセッションは既に実行中です。新しいセッションを開始する前に停止してください。</value>
+  </data>
+  <data name="WindowCapture_FfmpegNotFound" xml:space="preserve">
+    <value>ffmpeg 実行ファイルが見つかりませんでした。ffmpeg をインストールして PATH に追加してください。</value>
+  </data>
 </root>

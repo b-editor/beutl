@@ -86,13 +86,13 @@
 
                             <!-- Spectrum section -->
                             <StackPanel Margin="16,12,16,8" Spacing="10">
-                                <TextBlock Classes="section" Text="Spectrum" />
+                                <TextBlock Classes="section" Text="{x:Static lang:Strings.Spectrum}" />
 
                                 <Grid ColumnDefinitions="92,*"
                                       RowDefinitions="Auto,Auto"
                                       ColumnSpacing="12"
                                       RowSpacing="8">
-                                    <TextBlock Classes="field" Text="FFT Size" />
+                                    <TextBlock Classes="field" Text="{x:Static lang:GraphicsStrings.AudioVisualizer_FftSize}" />
                                     <ComboBox Grid.Column="1"
                                               HorizontalAlignment="Stretch"
                                               ItemsSource="{Binding AvailableFftSizes}"
@@ -101,7 +101,7 @@
                                               PointerPressed="OnSettingPointerPressed"
                                               ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_ResetTooltip}" />
 
-                                    <TextBlock Grid.Row="1" Classes="field" Text="Shape" />
+                                    <TextBlock Grid.Row="1" Classes="field" Text="{x:Static lang:GraphicsStrings.AudioVisualizer_Shape}" />
                                     <ComboBox Grid.Row="1" Grid.Column="1"
                                               HorizontalAlignment="Stretch"
                                               ItemsSource="{Binding AvailableSpectrumShapes}"
@@ -116,7 +116,7 @@
                                             PointerPressed="OnSettingPointerPressed"
                                             ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_ResetTooltip}">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Classes="field" Text="Smoothing" />
+                                        <TextBlock Classes="field" Text="{x:Static lang:GraphicsStrings.AudioVisualizer_Smoothing}" />
                                         <Border Grid.Column="1" Classes="value-badge">
                                             <TextBlock Text="{Binding Smoothing.Value, StringFormat={}{0:0}%}" />
                                         </Border>
@@ -132,14 +132,14 @@
 
                             <!-- Display section -->
                             <StackPanel Margin="16,8,16,12" Spacing="10">
-                                <TextBlock Classes="section" Text="Display" />
+                                <TextBlock Classes="section" Text="{x:Static lang:Strings.AudioVisualizer_Display}" />
 
                                 <StackPanel Spacing="4"
                                             Tag="MinDecibels"
                                             PointerPressed="OnSettingPointerPressed"
                                             ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_ResetTooltip}">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Classes="field" Text="Min dB" />
+                                        <TextBlock Classes="field" Text="{x:Static lang:Strings.AudioVisualizer_MinDecibels}" />
                                         <Border Grid.Column="1" Classes="value-badge">
                                             <TextBlock Text="{Binding MinDecibels.Value, StringFormat={}{0:0} dB}" />
                                         </Border>

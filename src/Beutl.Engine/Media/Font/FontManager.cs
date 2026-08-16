@@ -70,20 +70,18 @@ public sealed class FontManager
             return Typeface.FromSKTypeface(sk);
         }
 
-        _fontDirs = [.. GlobalConfiguration.Instance.FontConfig.FontDirectories];
+        // A material package installs its fonts under the home directory, which is not one
+        // of the OS font directories the user configures.
+        _fontDirs =
+        [
+            .. GlobalConfiguration.Instance.FontConfig.FontDirectories,
+            BeutlEnvironment.GetMaterialsDirectoryPath()
+        ];
         var list = new List<SKTypeface>();
 
         foreach (string file in _fontDirs
             .Where(dir => Directory.Exists(dir))
-            .Select(dir => Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories))
-            .SelectMany(files => files)
-            .Where(file =>
-            {
-                ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
-                return ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
-                    || ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
-                    || ext.Equals(".otf", StringComparison.OrdinalIgnoreCase);
-            }))
+            .SelectMany(EnumerateFontCandidates))
         {
             SKTypeface? face = LoadFont(file);
 
@@ -189,6 +187,60 @@ public sealed class FontManager
         }
     }
 
+    /// <summary>
+    /// Enumerates the font files under <paramref name="root"/>, skipping entries the
+    /// process cannot read.
+    /// </summary>
+    /// <remarks>
+    /// A material package can leave an unreadable subdirectory or a disconnected mount
+    /// under the scanned root. <see cref="FontManager"/> builds its map during static
+    /// initialization, so letting that surface would keep the process from starting.
+    /// </remarks>
+    public static IEnumerable<string> EnumerateFontCandidates(string root)
+    {
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = FileAttributes.System
+        };
+
+        IEnumerator<string> enumerator;
+        try
+        {
+            enumerator = Directory.EnumerateFiles(root, "*.*", options).GetEnumerator();
+        }
+        catch (Exception)
+        {
+            yield break;
+        }
+
+        using (enumerator)
+        {
+            while (true)
+            {
+                string file;
+                try
+                {
+                    if (!enumerator.MoveNext()) break;
+                    file = enumerator.Current;
+                }
+                catch (Exception)
+                {
+                    yield break;
+                }
+
+                ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
+                if (ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
+                    || ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
+                    || ext.Equals(".otf", StringComparison.OrdinalIgnoreCase))
+                {
+                    yield return file;
+                }
+            }
+        }
+    }
+
     private SKTypeface? LoadFont(string file)
     {
         try
@@ -225,13 +277,16 @@ internal static class TypefaceCollection
 {
     public static FrozenDictionary<Typeface, SKTypeface> Create(SKTypeface[] typefaces)
     {
-        var list = new List<KeyValuePair<Typeface, SKTypeface>>(typefaces.Length);
+        // Two files can describe the same family/style/weight — a material package
+        // shipping a font the system already has, say — and ToFrozenDictionary throws on
+        // a duplicate key, which would take out the whole FontManager initializer.
+        var map = new Dictionary<Typeface, SKTypeface>(typefaces.Length);
         foreach (SKTypeface typeface in typefaces)
         {
-            list.Add(new(Typeface.FromSKTypeface(typeface), typeface));
+            map.TryAdd(Typeface.FromSKTypeface(typeface), typeface);
         }
 
-        return list.ToFrozenDictionary();
+        return map.ToFrozenDictionary();
     }
 
     public static SKTypeface Get(this FrozenDictionary<Typeface, SKTypeface> typefaces, Typeface typeface)

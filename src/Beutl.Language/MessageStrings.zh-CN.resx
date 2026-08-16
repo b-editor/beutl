@@ -1,0 +1,431 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ItemsSaved" xml:space="preserve">
+    <value>已保存 {0} 个项目。</value>
+  </data>
+  <data name="ItemSaved" xml:space="preserve">
+    <value>{0} 已保存。</value>
+  </data>
+  <data name="OperationFailed" xml:space="preserve">
+    <value>无法执行该操作。</value>
+  </data>
+  <data name="OperationCompletedSuccessfully" xml:space="preserve">
+    <value>操作已成功完成。</value>
+  </data>
+  <data name="NoDockLayoutPresets" xml:space="preserve">
+    <value>尚未保存任何停靠布局。</value>
+  </data>
+  <data name="DockLayoutSaved" xml:space="preserve">
+    <value>已保存停靠布局“{0}”。</value>
+  </data>
+  <data name="ExportProjectPartialFailure" xml:space="preserve">
+    <value>导出已完成，但 {0} 个资源复制失败。导出的包可能不完整。</value>
+  </data>
+  <data name="ConfirmDeleteDirectory" xml:space="preserve">
+    <value>是否要删除此目录？</value>
+  </data>
+  <data name="ConfirmDeleteFile" xml:space="preserve">
+    <value>是否要删除此文件？</value>
+  </data>
+  <data name="ConfirmExcludeItem" xml:space="preserve">
+    <value>是否要将此项目从项目中排除？</value>
+  </data>
+  <data name="FailedToOpenFileWithExtension" xml:space="preserve">
+    <value>无法使用“{0}”打开以下文件。
+“{1}”</value>
+  </data>
+  <data name="CannotDisplayContext" xml:space="preserve">
+    <value>无法显示此上下文。</value>
+  </data>
+  <data name="ContextNotCreated" xml:space="preserve">
+    <value>上下文未创建。</value>
+  </data>
+  <data name="EditorContextAlreadyCreated" xml:space="preserve">
+    <value>编辑器上下文已创建。</value>
+  </data>
+  <data name="EditorContextNull" xml:space="preserve">
+    <value>为编辑器上下文指定了 null。</value>
+  </data>
+  <data name="InputRequired" xml:space="preserve">
+    <value>请输入字符串。</value>
+  </data>
+  <data name="InvalidString" xml:space="preserve">
+    <value>无效的字符串。</value>
+  </data>
+  <data name="MultipleTypesAvailable" xml:space="preserve">
+    <value>有多个可用类型。</value>
+  </data>
+  <data name="AnimationIsEnabled" xml:space="preserve">
+    <value>动画已启用</value>
+  </data>
+  <data name="AlreadyExists" xml:space="preserve">
+    <value>它已存在。</value>
+  </data>
+  <data name="ValueLessThanOrEqualToZero" xml:space="preserve">
+    <value>不能指定小于或等于 0 的值。</value>
+  </data>
+  <data name="ValueLessThanZero" xml:space="preserve">
+    <value>不能指定小于 0 的值。</value>
+  </data>
+  <data name="RenameConflict" xml:space="preserve">
+    <value>无法将“{0}”重命名为“{1}”
+因为新名称与现有文件夹冲突。</value>
+  </data>
+  <data name="FileDoesNotExist" xml:space="preserve">
+    <value>文件不存在。</value>
+  </data>
+  <data name="FailedToOpenProject" xml:space="preserve">
+    <value>无法打开项目。</value>
+  </data>
+  <data name="ProjectStateDiverged" xml:space="preserve">
+    <value>项目无法保存，更改也无法撤销。编辑器不再与保存的文件一致——请重新打开项目。</value>
+  </data>
+  <data name="ApiErrorOccurred" xml:space="preserve">
+    <value>发生 API 错误。</value>
+  </data>
+  <data name="UnexpectedError" xml:space="preserve">
+    <value>发生了意外错误。</value>
+  </data>
+  <data name="ConfirmLoadSideloadExtensions" xml:space="preserve">
+    <value>是否要加载旁加载扩展？</value>
+  </data>
+  <data name="AndMorePackages" xml:space="preserve">
+    <value>... 以及另外 {0} 个包</value>
+  </data>
+  <data name="UnableToSaveFile" xml:space="preserve">
+    <value>无法保存文件。</value>
+  </data>
+  <data name="FailedToLoadPackage" xml:space="preserve">
+    <value>加载包失败。</value>
+  </data>
+  <data name="FailedToLoadNPackages" xml:space="preserve">
+    <value>加载 {0} 个包失败。</value>
+  </data>
+  <data name="AudioPlaybackException" xml:space="preserve">
+    <value>音频播放期间发生异常。</value>
+  </data>
+  <data name="FrameDrawingException" xml:space="preserve">
+    <value>绘制帧时发生异常。</value>
+  </data>
+  <data name="OutputException" xml:space="preserve">
+    <value>输出期间发生异常。</value>
+  </data>
+  <data name="PreviousSessionErrorTitle" xml:space="preserve">
+    <value>上次似乎以错误结束。</value>
+  </data>
+  <data name="CrashRecoveryDescription" xml:space="preserve">
+    <value>上次 Beutl 意外关闭。选择如何启动此会话。</value>
+  </data>
+  <data name="CrashRecoveryRestoreOption" xml:space="preserve">
+    <value>重新打开上一个项目“{0}”。</value>
+  </data>
+  <data name="CrashRecoveryRestrictedModeOption" xml:space="preserve">
+    <value>以受限模式运行（不加载扩展）。</value>
+  </data>
+  <data name="PackageChangesInProgress" xml:space="preserve">
+    <value>包的更改正在进行中。</value>
+  </data>
+  <data name="OpeningBeutl" xml:space="preserve">
+    <value>正在打开 Beutl</value>
+  </data>
+  <data name="ClosePackageToolsToOpenBeutl" xml:space="preserve">
+    <value>要打开 Beutl，请关闭 Beutl.PackageTools。</value>
+  </data>
+  <data name="NewVersionAvailable" xml:space="preserve">
+    <value>有新版本可用。</value>
+  </data>
+  <data name="UpdateCheckTimedOut" xml:space="preserve">
+    <value>更新检查超时。请检查您的网络连接。</value>
+  </data>
+  <data name="RestoreFailedTypeNotFound" xml:space="preserve">
+    <value>无法还原，因为找不到该类型。</value>
+  </data>
+  <data name="RestoreFailedDeserializationError" xml:space="preserve">
+    <value>无法还原，因为反序列化期间发生异常。</value>
+  </data>
+  <data name="UpgradeRequired" xml:space="preserve">
+    <value>必须升级才能继续使用</value>
+  </data>
+  <data name="VersionDiscontinued" xml:space="preserve">
+    <value>出于兼容性原因，此版本已停止使用。请升级到较新版本。</value>
+  </data>
+  <data name="DoubleClickToHideGroup" xml:space="preserve">
+    <value>双击以隐藏组</value>
+  </data>
+  <data name="NoSupportedExtensionsFound" xml:space="preserve">
+    <value>未找到受支持的扩展</value>
+  </data>
+  <data name="PropertyUnset" xml:space="preserve">
+    <value>属性未设置。</value>
+  </data>
+  <data name="RightClickToShowMenu" xml:space="preserve">
+    <value>右键单击以显示菜单</value>
+  </data>
+  <data name="FailedToSaveImage" xml:space="preserve">
+    <value>保存图像失败。</value>
+  </data>
+  <data name="OpeningProject" xml:space="preserve">
+    <value>正在打开项目</value>
+  </data>
+  <data name="PleaseWaitAMoment" xml:space="preserve">
+    <value>请稍候。</value>
+  </data>
+  <data name="OpeningProjectMessage" xml:space="preserve">
+    <value>正在打开“{0}”。
+请稍候。</value>
+  </data>
+  <data name="FileSaveException" xml:space="preserve">
+    <value>保存文件时发生异常。</value>
+  </data>
+  <data name="FilesAutoSaved" xml:space="preserve">
+    <value>文件会自动保存。</value>
+  </data>
+  <data name="ViewStateSaveSuppressed" xml:space="preserve">
+    <value>无法保存编辑器布局，因为现有布局文件不可读。请重新启动 Beutl 重试，或删除 .beutl/view-state 下的 *.config 文件。</value>
+  </data>
+  <data name="DefaultTabsOpenFailed" xml:space="preserve">
+    <value>无法打开默认编辑器布局。某些工具选项卡可能缺失——有关详细信息，请参阅日志。</value>
+  </data>
+  <data name="SvgPathParsingException" xml:space="preserve">
+    <value>解析 SVG 路径时发生异常。</value>
+  </data>
+  <data name="SigninInvalid" xml:space="preserve">
+    <value>登录已失效。请重新登录。</value>
+  </data>
+  <data name="FileNotSelected" xml:space="preserve">
+    <value>未选择文件</value>
+  </data>
+  <data name="CheckDifferentVersion_Title" xml:space="preserve">
+    <value>打开在先前版本中打开过的文件可能会导致文件损坏。</value>
+  </data>
+  <data name="CheckDifferentVersion_Content" xml:space="preserve">
+    <value>您运行的版本与上次不同。</value>
+  </data>
+  <data name="ProjectVersionMismatch_Title" xml:space="preserve">
+    <value>版本不匹配</value>
+  </data>
+  <data name="ProjectVersionMismatch_Content" xml:space="preserve">
+    <value>此项目是使用较新版本的 Beutl (&gt;= {0}) 创建的。请更新 Beutl 以打开此项目。</value>
+  </data>
+  <data name="FailedToLoadMetadata" xml:space="preserve">
+    <value>检索元数据失败。</value>
+  </data>
+  <data name="DownloadFailed" xml:space="preserve">
+    <value>下载失败。</value>
+  </data>
+  <data name="FailedToLoadScript" xml:space="preserve">
+    <value>加载脚本失败。</value>
+  </data>
+  <data name="ExportMissingSourceFile" xml:space="preserve">
+    <value>无法开始导出，因为引用的源文件缺失：{0}（缺少 {1} 个）。</value>
+  </data>
+  <data name="SaveFrameMissingSourceFile" xml:space="preserve">
+    <value>无法渲染帧，因为引用的源文件缺失：{0}（缺少 {1} 个）。</value>
+  </data>
+  <data name="ApplicationRestartRequired" xml:space="preserve">
+    <value>需要重新启动应用程序。
+是否要重新启动应用程序？</value>
+  </data>
+  <data name="StartInstaller" xml:space="preserve">
+    <value>启动安装程序，</value>
+  </data>
+  <data name="Downloading" xml:space="preserve">
+    <value>正在下载...</value>
+  </data>
+  <data name="DownloadComplete" xml:space="preserve">
+    <value>下载完成。</value>
+  </data>
+  <data name="Canceled" xml:space="preserve">
+    <value>已取消。</value>
+  </data>
+  <data name="Extracting" xml:space="preserve">
+    <value>正在解压...</value>
+  </data>
+  <data name="ExtractionComplete" xml:space="preserve">
+    <value>解压完成。</value>
+  </data>
+  <data name="ScriptErrorTerminated" xml:space="preserve">
+    <value>发生错误。终止脚本。</value>
+  </data>
+  <data name="PressEnterToContinue" xml:space="preserve">
+    <value>按 Enter 继续...</value>
+  </data>
+  <data name="UpdateDirectoryNotFound" xml:space="preserve">
+    <value>错误：更新目录不存在。</value>
+  </data>
+  <data name="ExitApplication" xml:space="preserve">
+    <value>退出应用程序 (Beutl)。</value>
+  </data>
+  <data name="PressEnterWhenFinished" xml:space="preserve">
+    <value>完成后按 Enter 键。</value>
+  </data>
+  <data name="AcquiringLock" xml:space="preserve">
+    <value>正在获取锁...</value>
+  </data>
+  <data name="LockAcquired" xml:space="preserve">
+    <value>已获取锁。</value>
+  </data>
+  <data name="FailedToAcquireLock" xml:space="preserve">
+    <value>获取锁失败。</value>
+  </data>
+  <data name="CreatingBackup" xml:space="preserve">
+    <value>创建当前应用程序的备份：</value>
+  </data>
+  <data name="FailedToCreateBackup" xml:space="preserve">
+    <value>创建备份失败。</value>
+  </data>
+  <data name="UpdatingFiles" xml:space="preserve">
+    <value>正在就地更新文件...</value>
+  </data>
+  <data name="UpdateFailedRestoringBackup" xml:space="preserve">
+    <value>更新失败。正在还原备份...</value>
+  </data>
+  <data name="UpdateCompleted" xml:space="preserve">
+    <value>更新已完成。</value>
+  </data>
+  <data name="LockReleased" xml:space="preserve">
+    <value>已解锁。</value>
+  </data>
+  <data name="UpdateCompletedLaunchPrompt" xml:space="preserve">
+    <value>更新完成。是否要启动应用程序？(y/n)：</value>
+  </data>
+  <data name="LaunchingApplication" xml:space="preserve">
+    <value>正在启动应用程序...</value>
+  </data>
+  <data name="FailedToChangePermissions" xml:space="preserve">
+    <value>更改应用程序执行权限失败。</value>
+  </data>
+  <data name="ApplicationPathNotSpecified" xml:space="preserve">
+    <value>未指定应用程序执行路径。</value>
+  </data>
+  <data name="ApplicationNotLaunched" xml:space="preserve">
+    <value>应用程序未启动。</value>
+  </data>
+  <data name="ClickOkAfterCompletion" xml:space="preserve">
+    <value>完成后单击“确定”</value>
+  </data>
+  <data name="UpdateCompletedLaunchConfirm" xml:space="preserve">
+    <value>更新完成。是否要启动应用程序？</value>
+  </data>
+  <data name="FailedToRestoreBackup" xml:space="preserve">
+    <value>还原备份失败。</value>
+  </data>
+  <data name="FailedToDeleteBackup" xml:space="preserve">
+    <value>删除备份失败。</value>
+  </data>
+  <data name="ConfirmInstall" xml:space="preserve">
+    <value>是否要安装？
+（更新功能是实验性功能。）</value>
+  </data>
+  <data name="ExpressionIsSet" xml:space="preserve">
+    <value>已设置表达式</value>
+  </data>
+  <data name="PackageUpdatesAvailable" xml:space="preserve">
+    <value>有可用的包更新。</value>
+  </data>
+  <data name="PackagesCanBeUpdated" xml:space="preserve">
+    <value>有 {0} 个包可以更新。</value>
+  </data>
+  <data name="IsNotValid" xml:space="preserve">
+    <value>{0} 无效。</value>
+  </data>
+  <data name="InvalidJson" xml:space="preserve">
+    <value>无效的 JSON。</value>
+  </data>
+  <data name="ColorGradingMissing" xml:space="preserve">
+    <value>未选择颜色分级效果。</value>
+  </data>
+  <data name="ColorCurvesMissing" xml:space="preserve">
+    <value>未选择颜色曲线效果。</value>
+  </data>
+  <data name="FailedToCopyKeyframe" xml:space="preserve">
+    <value>复制关键帧失败</value>
+  </data>
+  <data name="FailedToPasteKeyframe" xml:space="preserve">
+    <value>粘贴关键帧失败</value>
+  </data>
+  <data name="FailedToCopyAnimation" xml:space="preserve">
+    <value>复制动画失败</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat" xml:space="preserve">
+    <value>无效的关键帧数据格式。</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_MissingType" xml:space="preserve">
+    <value>无效的关键帧数据格式。缺少 $type。</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>无效的关键帧数据格式。$type 不是 KeyFrame。</value>
+  </data>
+  <data name="KeyframePropertyTypeMismatch_EasingApplied" xml:space="preserve">
+    <value>粘贴的关键帧的属性类型不匹配。仅应用了缓动。</value>
+  </data>
+  <data name="InvalidJSON_MissingType" xml:space="preserve">
+    <value>无效的 JSON：缺少 $type</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrameAnimation" xml:space="preserve">
+    <value>无效的 JSON：$type 不是 KeyFrameAnimation</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>无效的 JSON：$type 不是 KeyFrame</value>
+  </data>
+  <data name="AnimationPropertyTypeMismatch" xml:space="preserve">
+    <value>粘贴的动画的属性类型不匹配。（预期：{0}，实际：{1}）</value>
+  </data>
+  <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
+    <value>粘贴位置已存在关键帧。缓动和值已更新。</value>
+  </data>
+  <data name="CannotPasteFromClipboard" xml:space="preserve">
+    <value>无法粘贴：剪贴板不包含兼容的对象。</value>
+  </data>
+  <data name="ExportCompleted_File" xml:space="preserve">
+    <value>导出完成：{0}</value>
+  </data>
+  <data name="SupersamplingExceedsMaxRenderSize" xml:space="preserve">
+    <value>超采样 {0}× 需要 {1}×{2} px 的渲染表面，超过了每轴 {3} px 的限制。请选择较低的超采样系数。</value>
+  </data>
+  <data name="SaveImageExceedsMaxRenderSize" xml:space="preserve">
+    <value>缩放 {0}× 需要 {1}×{2} px 的渲染表面，超过了每轴 {3} px 的限制。请选择较低的缩放。</value>
+  </data>
+  <data name="SaveImageElementRendersNothing" xml:space="preserve">
+    <value>所选元素不渲染任何内容（0 × 0 px），因此无法保存为图像。</value>
+  </data>
+  <data name="SceneSettings_ApplyCanceledInputsInvalid" xml:space="preserve">
+    <value>暂停播放期间场景设置变得无效，因此取消了应用。</value>
+  </data>
+  <data name="ScriptValidationUnavailable" xml:space="preserve">
+    <value>此处无法进行验证（没有图形上下文）；脚本未检查。</value>
+  </data>
+  <data name="WindowCapture_RecordingStarted" xml:space="preserve">
+    <value>录制已开始：{0}x{1} @ {2}fps</value>
+  </data>
+  <data name="WindowCapture_NoActiveSession" xml:space="preserve">
+    <value>没有活动的捕获会话。</value>
+  </data>
+  <data name="WindowCapture_Saved" xml:space="preserve">
+    <value>已保存：{0}
+捕获了 {1} 帧（丢弃了 {2} 帧）。</value>
+  </data>
+  <data name="WindowCapture_AlreadyRunning" xml:space="preserve">
+    <value>捕获会话已在运行。在开始新会话之前请先停止它。</value>
+  </data>
+  <data name="WindowCapture_FfmpegNotFound" xml:space="preserve">
+    <value>未找到 ffmpeg 可执行文件。请安装 ffmpeg 并确保它在 PATH 中。</value>
+  </data>
+</root>

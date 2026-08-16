@@ -1,8 +1,10 @@
 ﻿using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
 using Avalonia.Data.Converters;
+using Avalonia.Threading;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
@@ -30,6 +32,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
     private readonly FavoritesManager _favoritesManager = new();
     private readonly MediaFileSearcher _mediaSearcher = new();
     private string? _projectDirectory;
+    private int _decoderRefreshQueued;
+    private volatile bool _disposed;
 
     internal string? ProjectDirectory => _projectDirectory;
 
@@ -46,9 +50,15 @@ public sealed class FileBrowserTabViewModel : IToolContext
             }
         };
 
+        DecoderRegistry.DecodersChanged += OnDecodersChanged;
+
         // ディレクトリ変更時にリフレッシュ
         _directoryWatcher.Changed += () =>
         {
+            // A debounced refresh can arrive after disposal.
+            if (_disposed)
+                return;
+
             if (IsHomeView.Value)
                 RefreshHomeView();
             else
@@ -57,6 +67,10 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
         // プロジェクトディレクトリの取得
         _projectDirectory = GetProjectDirectory();
+
+        Header = RootPath.Select(CreateHeader)
+            .ToReadOnlyReactivePropertySlim(CreateHeader(RootPath.Value))
+            .AddTo(_disposables)!;
 
         RootPath.Subscribe(path =>
         {
@@ -70,6 +84,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             _directoryWatcher.Watch(path);
         }).AddTo(_disposables);
 
+        // IsHomeView subscriptions replay immediately, so this performs the initial home-view build.
         IsHomeView.Subscribe(isHome =>
         {
             if (isHome)
@@ -87,17 +102,13 @@ public sealed class FileBrowserTabViewModel : IToolContext
                 RefreshItems();
             }
         }).AddTo(_disposables);
-
-        // 初期化: ホームビューで起動（RootPathは設定しない）
-        RefreshHomeView();
-        _directoryWatcher.Watch(_projectDirectory);
     }
 
     public ToolTabExtension Extension => FileBrowserTabExtension.Instance;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public string Header => Strings.FileBrowser;
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ReactiveProperty<FileBrowserViewMode> ViewMode { get; } = new(FileBrowserViewMode.Icon);
 
@@ -115,7 +126,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public ObservableCollection<FileSystemItemViewModel> SelectedItems { get; } = [];
 
-    public ObservableCollection<string> Favorites => _favoritesManager.Favorites;
+    public ReadOnlyObservableCollection<string> Favorites => _favoritesManager.Favorites;
 
     public ObservableCollection<FileSystemItemViewModel> FavoriteItems => _favoritesManager.FavoriteItems;
 
@@ -132,6 +143,18 @@ public sealed class FileBrowserTabViewModel : IToolContext
     public ReactivePropertySlim<bool> IsProjectDirIconView { get; } = new(false);
 
     public ReactivePropertySlim<bool> IsMediaFilesIconView { get; } = new(true);
+
+    // Empty RootPath denotes the home view.
+    internal static string CreateHeader(string rootPath)
+    {
+        if (string.IsNullOrEmpty(rootPath))
+            return Strings.FileBrowser;
+
+        string trimmed = rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string name = Path.GetFileName(trimmed);
+        // Filesystem roots have no filename component.
+        return string.IsNullOrEmpty(name) ? rootPath : name;
+    }
 
     private string? GetProjectDirectory()
     {
@@ -153,6 +176,32 @@ public sealed class FileBrowserTabViewModel : IToolContext
                 return sceneDir;
         }
         return null;
+    }
+
+    // Each item classifies itself once, when it is built. Decoding extensions register on a
+    // background task after the tab is already live, so anything materialized before that keeps a
+    // non-media icon and no thumbnail until the list is rebuilt.
+    private void OnDecodersChanged(object? sender, EventArgs e)
+    {
+        if (_disposed || Interlocked.Exchange(ref _decoderRefreshQueued, 1) != 0)
+            return;
+
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                Interlocked.Exchange(ref _decoderRefreshQueued, 0);
+
+                // The tab can close between the post and the dispatcher running it; refreshing then
+                // would repopulate disposed managers and start per-file work for a closed tab.
+                if (!_disposed)
+                {
+                    // A file probed before its decoder registered cached a size-only placeholder and
+                    // no thumbnail; rebuilding the items would just read those back.
+                    FileThumbnailService.Instance.ClearCache();
+                    Refresh();
+                }
+            },
+            DispatcherPriority.Background);
     }
 
     private void RefreshItems()
@@ -450,13 +499,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void AddPathsToFavorites(IEnumerable<string> paths)
     {
-        foreach (string path in paths)
-        {
-            if (!Favorites.Contains(path))
-            {
-                Favorites.Add(path);
-            }
-        }
+        _favoritesManager.AddRange(paths);
     }
 
     public void CopyFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
@@ -634,6 +677,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void Dispose()
     {
+        _disposed = true;
+        DecoderRegistry.DecodersChanged -= OnDecodersChanged;
         _mediaSearcher.Dispose();
         _favoritesManager.Dispose();
         _directoryWatcher.Dispose();

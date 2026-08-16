@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Beutl.Controls.Converters;
 using Beutl.Editor.Components.ColorGradingProperties.ViewModels;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.ColorGradingProperties.Views;
@@ -44,8 +45,12 @@ public sealed partial class ColorGradingPropertiesEditor : UserControl
             context.GetService<IEditorContext>() is { } editorContext &&
             context.TryGetColorGrading() is { } colorGrading)
         {
-            var toolTab = editorContext.FindToolTab<ColorGradingTabViewModel>() ??
-                          new ColorGradingTabViewModel(editorContext);
+            var toolTab = ToolTabReuse.Find<ColorGradingTabViewModel>(
+                              editorContext,
+                              t => t.Effect.Value == colorGrading,
+                              t => t.Effect.Value is null,
+                              retargetAnyOpen: true)
+                          ?? new ColorGradingTabViewModel(editorContext);
 
             toolTab.Effect.Value = colorGrading;
 

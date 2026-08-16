@@ -68,6 +68,36 @@ public class CoreObjectExtensionsTests
     }
 
     [Test]
+    public void GetObservable_EmitsOncePerChange()
+    {
+        var obj = new TestCoreObject { Name = "init" };
+        var values = new List<string?>();
+
+        using IDisposable sub = obj.GetObservable(CoreObject.NameProperty).Subscribe(values.Add);
+        obj.Name = "next";
+
+        Assert.That(values, Is.EqualTo(new[] { "init", "next" }));
+    }
+
+    [Test]
+    public void GetObservable_LeavesNoHandlerBehindAfterUnsubscribing()
+    {
+        var obj = new TestCoreObject { Name = "init" };
+        IObservable<string> observable = obj.GetObservable(CoreObject.NameProperty);
+
+        for (int i = 0; i < 3; i++)
+        {
+            observable.Subscribe(_ => { }).Dispose();
+        }
+
+        var values = new List<string?>();
+        using IDisposable sub = observable.Subscribe(values.Add);
+        obj.Name = "next";
+
+        Assert.That(values, Is.EqualTo(new[] { "init", "next" }));
+    }
+
+    [Test]
     public void Find_PredicateNull_Throws()
     {
         var obj = new TestCoreObject();

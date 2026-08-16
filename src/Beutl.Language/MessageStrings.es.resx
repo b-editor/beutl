@@ -1,0 +1,431 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ItemsSaved" xml:space="preserve">
+    <value>Se guardaron {0} elementos.</value>
+  </data>
+  <data name="ItemSaved" xml:space="preserve">
+    <value>Se guardó {0}.</value>
+  </data>
+  <data name="OperationFailed" xml:space="preserve">
+    <value>No se pudo ejecutar la operación.</value>
+  </data>
+  <data name="OperationCompletedSuccessfully" xml:space="preserve">
+    <value>La operación se completó correctamente.</value>
+  </data>
+  <data name="NoDockLayoutPresets" xml:space="preserve">
+    <value>Aún no se han guardado diseños de acoplamiento.</value>
+  </data>
+  <data name="DockLayoutSaved" xml:space="preserve">
+    <value>Se guardó el diseño de acoplamiento '{0}'.</value>
+  </data>
+  <data name="ExportProjectPartialFailure" xml:space="preserve">
+    <value>La exportación se completó, pero {0} recursos no se pudieron copiar. El paquete exportado puede estar incompleto.</value>
+  </data>
+  <data name="ConfirmDeleteDirectory" xml:space="preserve">
+    <value>¿Quieres eliminar este directorio?</value>
+  </data>
+  <data name="ConfirmDeleteFile" xml:space="preserve">
+    <value>¿Quieres eliminar este archivo?</value>
+  </data>
+  <data name="ConfirmExcludeItem" xml:space="preserve">
+    <value>¿Quieres excluir este elemento del proyecto?</value>
+  </data>
+  <data name="FailedToOpenFileWithExtension" xml:space="preserve">
+    <value>No se pudo abrir el siguiente archivo con '{0}'.
+'{1}'</value>
+  </data>
+  <data name="CannotDisplayContext" xml:space="preserve">
+    <value>No se puede mostrar este contexto.</value>
+  </data>
+  <data name="ContextNotCreated" xml:space="preserve">
+    <value>No se creó el contexto.</value>
+  </data>
+  <data name="EditorContextAlreadyCreated" xml:space="preserve">
+    <value>El contexto del editor ya se ha creado.</value>
+  </data>
+  <data name="EditorContextNull" xml:space="preserve">
+    <value>Se especificó null para el contexto del editor.</value>
+  </data>
+  <data name="InputRequired" xml:space="preserve">
+    <value>Introduce una cadena.</value>
+  </data>
+  <data name="InvalidString" xml:space="preserve">
+    <value>Cadena no válida.</value>
+  </data>
+  <data name="MultipleTypesAvailable" xml:space="preserve">
+    <value>Hay varios tipos disponibles.</value>
+  </data>
+  <data name="AnimationIsEnabled" xml:space="preserve">
+    <value>La animación está habilitada</value>
+  </data>
+  <data name="AlreadyExists" xml:space="preserve">
+    <value>Ya existe.</value>
+  </data>
+  <data name="ValueLessThanOrEqualToZero" xml:space="preserve">
+    <value>No se puede especificar un valor menor o igual a 0.</value>
+  </data>
+  <data name="ValueLessThanZero" xml:space="preserve">
+    <value>No se puede especificar un valor menor que 0.</value>
+  </data>
+  <data name="RenameConflict" xml:space="preserve">
+    <value>No se puede renombrar de "{0}" a "{1}"
+porque el nuevo nombre entra en conflicto con una carpeta existente.</value>
+  </data>
+  <data name="FileDoesNotExist" xml:space="preserve">
+    <value>El archivo no existe.</value>
+  </data>
+  <data name="FailedToOpenProject" xml:space="preserve">
+    <value>No se pudo abrir el proyecto.</value>
+  </data>
+  <data name="ProjectStateDiverged" xml:space="preserve">
+    <value>El proyecto no se pudo guardar y el cambio no se pudo deshacer. El editor ya no coincide con el archivo guardado; vuelve a abrir el proyecto.</value>
+  </data>
+  <data name="ApiErrorOccurred" xml:space="preserve">
+    <value>Se produjo un error de API.</value>
+  </data>
+  <data name="UnexpectedError" xml:space="preserve">
+    <value>Se ha producido un error inesperado.</value>
+  </data>
+  <data name="ConfirmLoadSideloadExtensions" xml:space="preserve">
+    <value>¿Quieres cargar las extensiones de carga lateral?</value>
+  </data>
+  <data name="AndMorePackages" xml:space="preserve">
+    <value>... y {0} paquetes más</value>
+  </data>
+  <data name="UnableToSaveFile" xml:space="preserve">
+    <value>No se puede guardar el archivo.</value>
+  </data>
+  <data name="FailedToLoadPackage" xml:space="preserve">
+    <value>No se pudo cargar el paquete.</value>
+  </data>
+  <data name="FailedToLoadNPackages" xml:space="preserve">
+    <value>No se pudieron cargar {0} paquetes.</value>
+  </data>
+  <data name="AudioPlaybackException" xml:space="preserve">
+    <value>Se produjo una excepción durante la reproducción de audio.</value>
+  </data>
+  <data name="FrameDrawingException" xml:space="preserve">
+    <value>Se produjo una excepción al dibujar el fotograma.</value>
+  </data>
+  <data name="OutputException" xml:space="preserve">
+    <value>Se produjo una excepción durante la salida.</value>
+  </data>
+  <data name="PreviousSessionErrorTitle" xml:space="preserve">
+    <value>Parece que la última vez terminó con un error.</value>
+  </data>
+  <data name="CrashRecoveryDescription" xml:space="preserve">
+    <value>Beutl se cerró inesperadamente la última vez. Elige cómo iniciar esta sesión.</value>
+  </data>
+  <data name="CrashRecoveryRestoreOption" xml:space="preserve">
+    <value>Volver a abrir el proyecto anterior "{0}".</value>
+  </data>
+  <data name="CrashRecoveryRestrictedModeOption" xml:space="preserve">
+    <value>Ejecutar en modo restringido (las extensiones no se cargan).</value>
+  </data>
+  <data name="PackageChangesInProgress" xml:space="preserve">
+    <value>Los cambios del paquete están en curso.</value>
+  </data>
+  <data name="OpeningBeutl" xml:space="preserve">
+    <value>Abriendo Beutl</value>
+  </data>
+  <data name="ClosePackageToolsToOpenBeutl" xml:space="preserve">
+    <value>Para abrir Beutl, cierra Beutl.PackageTools.</value>
+  </data>
+  <data name="NewVersionAvailable" xml:space="preserve">
+    <value>Hay una nueva versión disponible.</value>
+  </data>
+  <data name="UpdateCheckTimedOut" xml:space="preserve">
+    <value>La comprobación de actualización agotó el tiempo. Comprueba tu conexión de red.</value>
+  </data>
+  <data name="RestoreFailedTypeNotFound" xml:space="preserve">
+    <value>No se pudo restaurar porque no se encontró el tipo.</value>
+  </data>
+  <data name="RestoreFailedDeserializationError" xml:space="preserve">
+    <value>No se pudo restaurar porque se produjo una excepción durante la deserialización.</value>
+  </data>
+  <data name="UpgradeRequired" xml:space="preserve">
+    <value>Debes actualizar para continuar usando</value>
+  </data>
+  <data name="VersionDiscontinued" xml:space="preserve">
+    <value>Esta versión se ha interrumpido por motivos de compatibilidad. Actualiza a una versión más reciente.</value>
+  </data>
+  <data name="DoubleClickToHideGroup" xml:space="preserve">
+    <value>Doble clic para ocultar el grupo</value>
+  </data>
+  <data name="NoSupportedExtensionsFound" xml:space="preserve">
+    <value>No se encontraron extensiones compatibles</value>
+  </data>
+  <data name="PropertyUnset" xml:space="preserve">
+    <value>La propiedad no está establecida.</value>
+  </data>
+  <data name="RightClickToShowMenu" xml:space="preserve">
+    <value>Clic derecho para mostrar el menú</value>
+  </data>
+  <data name="FailedToSaveImage" xml:space="preserve">
+    <value>No se pudo guardar la imagen.</value>
+  </data>
+  <data name="OpeningProject" xml:space="preserve">
+    <value>Abriendo un proyecto</value>
+  </data>
+  <data name="PleaseWaitAMoment" xml:space="preserve">
+    <value>Espera un momento.</value>
+  </data>
+  <data name="OpeningProjectMessage" xml:space="preserve">
+    <value>Abriendo '{0}'.
+Espera un momento.</value>
+  </data>
+  <data name="FileSaveException" xml:space="preserve">
+    <value>Se produjo una excepción al guardar el archivo.</value>
+  </data>
+  <data name="FilesAutoSaved" xml:space="preserve">
+    <value>Los archivos se guardan automáticamente.</value>
+  </data>
+  <data name="ViewStateSaveSuppressed" xml:space="preserve">
+    <value>No se pudo guardar el diseño del editor porque el archivo de diseño existente no se puede leer. Reinicia Beutl para reintentar o elimina el archivo *.config en .beutl/view-state.</value>
+  </data>
+  <data name="DefaultTabsOpenFailed" xml:space="preserve">
+    <value>No se pudo abrir el diseño predeterminado del editor. Es posible que falten algunas pestañas de herramientas; consulta el registro para obtener más detalles.</value>
+  </data>
+  <data name="SvgPathParsingException" xml:space="preserve">
+    <value>Se produjo una excepción al analizar la ruta SVG.</value>
+  </data>
+  <data name="SigninInvalid" xml:space="preserve">
+    <value>El inicio de sesión ha dejado de ser válido. Vuelve a iniciar sesión.</value>
+  </data>
+  <data name="FileNotSelected" xml:space="preserve">
+    <value>No se seleccionó ningún archivo</value>
+  </data>
+  <data name="CheckDifferentVersion_Title" xml:space="preserve">
+    <value>Abrir un archivo que se abrió en una versión anterior puede provocar daños en el archivo.</value>
+  </data>
+  <data name="CheckDifferentVersion_Content" xml:space="preserve">
+    <value>Estás ejecutando una versión diferente a la última vez.</value>
+  </data>
+  <data name="ProjectVersionMismatch_Title" xml:space="preserve">
+    <value>Desajuste de versión</value>
+  </data>
+  <data name="ProjectVersionMismatch_Content" xml:space="preserve">
+    <value>El proyecto se creó con una versión más reciente de Beutl (&gt;= {0}). Actualiza Beutl para abrir el proyecto.</value>
+  </data>
+  <data name="FailedToLoadMetadata" xml:space="preserve">
+    <value>No se pudieron recuperar los metadatos.</value>
+  </data>
+  <data name="DownloadFailed" xml:space="preserve">
+    <value>La descarga falló.</value>
+  </data>
+  <data name="FailedToLoadScript" xml:space="preserve">
+    <value>No se pudo cargar el script.</value>
+  </data>
+  <data name="ExportMissingSourceFile" xml:space="preserve">
+    <value>La exportación no puede comenzar porque falta un archivo de origen referenciado: {0} ({1} faltantes).</value>
+  </data>
+  <data name="SaveFrameMissingSourceFile" xml:space="preserve">
+    <value>No se puede renderizar el fotograma porque falta un archivo de origen referenciado: {0} ({1} faltantes).</value>
+  </data>
+  <data name="ApplicationRestartRequired" xml:space="preserve">
+    <value>La aplicación debe reiniciarse.
+¿Quieres reiniciar la aplicación?</value>
+  </data>
+  <data name="StartInstaller" xml:space="preserve">
+    <value>Iniciar el instalador,</value>
+  </data>
+  <data name="Downloading" xml:space="preserve">
+    <value>Descargando...</value>
+  </data>
+  <data name="DownloadComplete" xml:space="preserve">
+    <value>La descarga está completa.</value>
+  </data>
+  <data name="Canceled" xml:space="preserve">
+    <value>Cancelado.</value>
+  </data>
+  <data name="Extracting" xml:space="preserve">
+    <value>Extrayendo...</value>
+  </data>
+  <data name="ExtractionComplete" xml:space="preserve">
+    <value>La extracción está completa.</value>
+  </data>
+  <data name="ScriptErrorTerminated" xml:space="preserve">
+    <value>Se ha producido un error. Terminar el script.</value>
+  </data>
+  <data name="PressEnterToContinue" xml:space="preserve">
+    <value>Pulsa Enter para continuar...</value>
+  </data>
+  <data name="UpdateDirectoryNotFound" xml:space="preserve">
+    <value>Error: el directorio de actualización no existe.</value>
+  </data>
+  <data name="ExitApplication" xml:space="preserve">
+    <value>Salir de la aplicación (Beutl).</value>
+  </data>
+  <data name="PressEnterWhenFinished" xml:space="preserve">
+    <value>Pulsa la tecla Enter cuando termines.</value>
+  </data>
+  <data name="AcquiringLock" xml:space="preserve">
+    <value>Obteniendo un bloqueo...</value>
+  </data>
+  <data name="LockAcquired" xml:space="preserve">
+    <value>Bloqueo adquirido.</value>
+  </data>
+  <data name="FailedToAcquireLock" xml:space="preserve">
+    <value>No se pudo adquirir el bloqueo.</value>
+  </data>
+  <data name="CreatingBackup" xml:space="preserve">
+    <value>Crear copia de seguridad de la aplicación actual:</value>
+  </data>
+  <data name="FailedToCreateBackup" xml:space="preserve">
+    <value>No se pudo crear la copia de seguridad.</value>
+  </data>
+  <data name="UpdatingFiles" xml:space="preserve">
+    <value>Actualizando archivos en su lugar...</value>
+  </data>
+  <data name="UpdateFailedRestoringBackup" xml:space="preserve">
+    <value>La colocación de la actualización falló. Restaurando copia de seguridad...</value>
+  </data>
+  <data name="UpdateCompleted" xml:space="preserve">
+    <value>La actualización se ha completado.</value>
+  </data>
+  <data name="LockReleased" xml:space="preserve">
+    <value>Desbloqueado.</value>
+  </data>
+  <data name="UpdateCompletedLaunchPrompt" xml:space="preserve">
+    <value>Actualización completada. ¿Quieres iniciar la aplicación? (s/n):</value>
+  </data>
+  <data name="LaunchingApplication" xml:space="preserve">
+    <value>Iniciando la aplicación...</value>
+  </data>
+  <data name="FailedToChangePermissions" xml:space="preserve">
+    <value>No se pudieron cambiar los permisos de ejecución de la aplicación.</value>
+  </data>
+  <data name="ApplicationPathNotSpecified" xml:space="preserve">
+    <value>No se especificó la ruta de ejecución de la aplicación.</value>
+  </data>
+  <data name="ApplicationNotLaunched" xml:space="preserve">
+    <value>La aplicación no se inició.</value>
+  </data>
+  <data name="ClickOkAfterCompletion" xml:space="preserve">
+    <value>Haz clic en Aceptar después de completar</value>
+  </data>
+  <data name="UpdateCompletedLaunchConfirm" xml:space="preserve">
+    <value>Actualización completada. ¿Quieres iniciar la aplicación?</value>
+  </data>
+  <data name="FailedToRestoreBackup" xml:space="preserve">
+    <value>No se pudo restaurar la copia de seguridad.</value>
+  </data>
+  <data name="FailedToDeleteBackup" xml:space="preserve">
+    <value>No se pudo eliminar la copia de seguridad.</value>
+  </data>
+  <data name="ConfirmInstall" xml:space="preserve">
+    <value>¿Quieres instalar?
+(La función de actualización es una característica experimental.)</value>
+  </data>
+  <data name="ExpressionIsSet" xml:space="preserve">
+    <value>La expresión está establecida</value>
+  </data>
+  <data name="PackageUpdatesAvailable" xml:space="preserve">
+    <value>Hay actualizaciones de paquetes disponibles.</value>
+  </data>
+  <data name="PackagesCanBeUpdated" xml:space="preserve">
+    <value>Se pueden actualizar {0} paquete(s).</value>
+  </data>
+  <data name="IsNotValid" xml:space="preserve">
+    <value>{0} no es válido.</value>
+  </data>
+  <data name="InvalidJson" xml:space="preserve">
+    <value>JSON no válido.</value>
+  </data>
+  <data name="ColorGradingMissing" xml:space="preserve">
+    <value>No se seleccionó ningún efecto de gradación de color.</value>
+  </data>
+  <data name="ColorCurvesMissing" xml:space="preserve">
+    <value>No se seleccionó ningún efecto de curvas de color.</value>
+  </data>
+  <data name="FailedToCopyKeyframe" xml:space="preserve">
+    <value>No se pudo copiar el fotograma clave</value>
+  </data>
+  <data name="FailedToPasteKeyframe" xml:space="preserve">
+    <value>No se pudo pegar el fotograma clave</value>
+  </data>
+  <data name="FailedToCopyAnimation" xml:space="preserve">
+    <value>No se pudo copiar la animación</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat" xml:space="preserve">
+    <value>Formato de datos de fotograma clave no válido.</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_MissingType" xml:space="preserve">
+    <value>Formato de datos de fotograma clave no válido. Falta $type.</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>Formato de datos de fotograma clave no válido. $type no es KeyFrame.</value>
+  </data>
+  <data name="KeyframePropertyTypeMismatch_EasingApplied" xml:space="preserve">
+    <value>El tipo de propiedad del fotograma clave pegado no coincide. Solo se aplicó el suavizado.</value>
+  </data>
+  <data name="InvalidJSON_MissingType" xml:space="preserve">
+    <value>JSON no válido: falta $type</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrameAnimation" xml:space="preserve">
+    <value>JSON no válido: $type no es KeyFrameAnimation</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>JSON no válido: $type no es KeyFrame</value>
+  </data>
+  <data name="AnimationPropertyTypeMismatch" xml:space="preserve">
+    <value>El tipo de propiedad de la animación pegada no coincide. (Esperado: {0}, Real: {1})</value>
+  </data>
+  <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
+    <value>Ya existe un fotograma clave en la posición de pegado. El suavizado y el valor se han actualizado.</value>
+  </data>
+  <data name="CannotPasteFromClipboard" xml:space="preserve">
+    <value>No se puede pegar: el portapapeles no contiene un objeto compatible.</value>
+  </data>
+  <data name="ExportCompleted_File" xml:space="preserve">
+    <value>Exportación completada: {0}</value>
+  </data>
+  <data name="SupersamplingExceedsMaxRenderSize" xml:space="preserve">
+    <value>El supermuestreo {0}× requiere una superficie de renderizado de {1}×{2} px, que supera el límite de {3} px por eje. Elige un factor de supermuestreo más bajo.</value>
+  </data>
+  <data name="SaveImageExceedsMaxRenderSize" xml:space="preserve">
+    <value>La escala {0}× requiere una superficie de renderizado de {1}×{2} px, que supera el límite de {3} px por eje. Elige una escala más baja.</value>
+  </data>
+  <data name="SaveImageElementRendersNothing" xml:space="preserve">
+    <value>El elemento seleccionado no renderiza nada (0 × 0 px), por lo que no se puede guardar como imagen.</value>
+  </data>
+  <data name="SceneSettings_ApplyCanceledInputsInvalid" xml:space="preserve">
+    <value>Se canceló la aplicación porque la configuración de la escena se volvió no válida al pausar la reproducción.</value>
+  </data>
+  <data name="ScriptValidationUnavailable" xml:space="preserve">
+    <value>La validación no está disponible aquí (sin contexto gráfico); el script no se comprobó.</value>
+  </data>
+  <data name="WindowCapture_RecordingStarted" xml:space="preserve">
+    <value>Grabación iniciada: {0}x{1} @ {2}fps</value>
+  </data>
+  <data name="WindowCapture_NoActiveSession" xml:space="preserve">
+    <value>No hay una sesión de captura activa.</value>
+  </data>
+  <data name="WindowCapture_Saved" xml:space="preserve">
+    <value>Guardado: {0}
+Se capturaron {1} fotogramas (se descartaron {2}).</value>
+  </data>
+  <data name="WindowCapture_AlreadyRunning" xml:space="preserve">
+    <value>Ya hay una sesión de captura en ejecución. Detenla antes de iniciar una nueva.</value>
+  </data>
+  <data name="WindowCapture_FfmpegNotFound" xml:space="preserve">
+    <value>No se encontró el ejecutable de ffmpeg. Instala ffmpeg y asegúrate de que esté en PATH.</value>
+  </data>
+</root>
