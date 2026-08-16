@@ -32,6 +32,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private readonly PackageResolver _resolver;
 
     private readonly Dictionary<PackageIdentity, PackageInstallContext> _installingContexts = [];
+    private readonly object _gate = new();
+    private readonly HashSet<Task> _operations = [];
+    private Task? _disposeTask;
+    private bool _disposed;
 
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
@@ -102,13 +106,81 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
+        lock (_gate)
+        {
+            _disposed = true;
+            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        while (true)
+        {
+            Task[] operations;
+            lock (_gate)
+            {
+                operations = _operations.ToArray();
+            }
+
+            if (operations.Length == 0)
+                break;
+
+            try
+            {
+                await Task.WhenAll(operations).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Awaiting observes operation failures. Each caller reports its own operation error;
+                // resource teardown must still run after every task has drained.
+            }
+
+            lock (_gate)
+            {
+                _operations.RemoveWhere(task => task.IsCompleted);
+            }
+        }
+
         _cacheContext.Dispose();
         if (_ownsHttpClient)
         {
             _httpClient.Dispose();
         }
+    }
 
-        return ValueTask.CompletedTask;
+    private Task TrackAsync(Func<Task> operation)
+        => TrackAsyncCore(operation);
+
+    private Task<T> TrackAsync<T>(Func<Task<T>> operation)
+        => TrackAsyncCore(operation);
+
+    private Task TrackAsyncCore(Func<Task> operation)
+    {
+        Task task;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _operations.RemoveWhere(task => task.IsCompleted);
+            task = operation();
+            _operations.Add(task);
+        }
+
+        return task;
+    }
+
+    private Task<T> TrackAsyncCore<T>(Func<Task<T>> operation)
+    {
+        Task<T> task;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _operations.RemoveWhere(task => task.IsCompleted);
+            task = operation();
+            _operations.Add(task);
+        }
+
+        return task;
     }
 
     private static void CreateLocalSourceDirectory()
@@ -119,10 +191,16 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
-    public async Task<PackageInstallContext> PrepareForInstall(
+    public Task<PackageInstallContext> PrepareForInstall(
         Release release,
         bool force = false,
         CancellationToken cancellationToken = default)
+        => TrackAsync(() => PrepareForInstallCoreAsync(release, force, cancellationToken));
+
+    private async Task<PackageInstallContext> PrepareForInstallCoreAsync(
+        Release release,
+        bool force,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -181,10 +259,16 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
-    public async Task DownloadPackageFile(
+    public Task DownloadPackageFile(
         PackageInstallContext context,
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
+        => TrackAsync(() => DownloadPackageFileCoreAsync(context, progress, cancellationToken));
+
+    private async Task DownloadPackageFileCoreAsync(
+        PackageInstallContext context,
+        IProgress<double>? progress,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if ((int)context.Phase <= (int)PackageInstallPhase.Downloading)
@@ -205,10 +289,16 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
-    public async Task VerifyPackageFile(
+    public Task VerifyPackageFile(
         PackageInstallContext context,
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
+        => TrackAsync(() => VerifyPackageFileCoreAsync(context, progress, cancellationToken));
+
+    private async Task VerifyPackageFileCoreAsync(
+        PackageInstallContext context,
+        IProgress<double>? progress,
+        CancellationToken cancellationToken)
     {
         async Task<bool> Varify(HashAlgorithm algorithm, Stream stream, long totalLength, string hashValue)
         {
@@ -296,20 +386,32 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
-    public async Task ReResolveDependencies(
+    public Task ReResolveDependencies(
         PackageIdentity package,
         ILogger? logger,
         CancellationToken cancellationToken = default)
+        => TrackAsync(() => ReResolveDependenciesCoreAsync(package, logger, cancellationToken));
+
+    private async Task ReResolveDependenciesCoreAsync(
+        PackageIdentity package,
+        ILogger? logger,
+        CancellationToken cancellationToken)
     {
         var context = PrepareForInstall(
             package.Id, package.Version.ToString(), force: true, cancellationToken);
         await ResolveDependencies(context, logger, cancellationToken);
     }
 
-    public async Task ResolveDependencies(
+    public Task ResolveDependencies(
         PackageInstallContext context,
         ILogger? logger,
         CancellationToken cancellationToken = default)
+        => TrackAsync(() => ResolveDependenciesCoreAsync(context, logger, cancellationToken));
+
+    private async Task ResolveDependenciesCoreAsync(
+        PackageInstallContext context,
+        ILogger? logger,
+        CancellationToken cancellationToken)
     {
         PackageIdentity? package = null;
         try
