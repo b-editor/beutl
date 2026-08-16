@@ -533,6 +533,33 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_Process_DrainsEndedBranchTail()
+    {
+        const float lookaheadMs = 20f;
+        const int processSamples = 4096;
+        const int drainSamples = 1024;
+        int L = LookaheadSamples(lookaheadMs);
+        var branchEnd = ExactDuration(processSamples, SampleRate);
+
+        using var input = CreateBuffer(2, processSamples, (_, i) =>
+            0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(new BufferReplayNode(input));
+        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = branchEnd };
+        clip.AddInput(limiter);
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(clip);
+        mixer.SetBranchEndTime(clip, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+        using var tail = mixer.Process(ExactContext(branchEnd, drainSamples, SampleRate));
+
+        Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
+            "A branch that ended at the previous block must drain its retained tail during normal mixer processing.");
+    }
+
+    [Test]
     public void MixerNode_Flush_SkipsBranchThatEndedBeforeTheTerminalSlice()
     {
         const float lookaheadMs = 5f;
@@ -1206,6 +1233,69 @@ public class AudioLatencyCompensationTests
             Assert.That(HasNonZero(tail!.GetChannelData(0)), Is.True,
                 $"The retained limiter tail must remain available in partial window {i + 1}.");
         }
+    }
+
+    [Test]
+    public void Composer_DoesNotResurrectPartiallyDrainedTailAfterEligibilityLoss()
+    {
+        const float lookaheadMs = 20f;
+        const int clipSamples = 48000;
+        int chunkSamples = LookaheadSamples(lookaheadMs) / 4;
+        var clipDuration = ExactDuration(clipSamples, SampleRate);
+        var chunkDuration = ExactDuration(chunkSamples, SampleRate);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var eligibility = new CompositionEligibility([sound]);
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        var partialRange = new TimeRange(clipDuration, chunkDuration);
+        var partialFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            partialRange,
+            default,
+            eligibility);
+        using var partial = composer.Compose(partialRange, partialFrame);
+        Assert.That(HasNonZero(partial!.GetChannelData(0)), Is.True,
+            "The setup must retain a partially drained tail before eligibility is lost.");
+
+        var mutedRange = new TimeRange(clipDuration + chunkDuration, chunkDuration);
+        var mutedFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            mutedRange,
+            default,
+            CompositionEligibility.Empty);
+        using var muted = composer.Compose(mutedRange, mutedFrame);
+
+        var reenabledRange = new TimeRange(clipDuration + (chunkDuration * 2), chunkDuration);
+        var reenabledFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            reenabledRange,
+            default,
+            eligibility);
+        using var reenabled = composer.Compose(reenabledRange, reenabledFrame);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(muted, Is.Not.Null);
+            Assert.That(reenabled, Is.Not.Null);
+            Assert.That(muted!.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
+                "An ineligible window must not emit the retained tail.");
+            Assert.That(reenabled!.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
+                "A tail made ineligible must be discarded instead of resurfacing after re-enablement.");
+        });
     }
 
     [Test]

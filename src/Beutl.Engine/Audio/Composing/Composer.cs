@@ -331,7 +331,14 @@ public class Composer : IComposer
         {
             if (contiguous && entry.RemainingTailSamples > 0 && !_currentEntry.Contains(entry))
             {
-                _previousEntry.Add(entry);
+                if (CanFlushEntry(entry))
+                {
+                    _previousEntry.Add(entry);
+                }
+                else
+                {
+                    entry.RemainingTailSamples = 0;
+                }
             }
         }
 

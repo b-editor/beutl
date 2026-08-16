@@ -9,6 +9,8 @@ public sealed class MixerNode : AudioNode
     private float[] _gains = Array.Empty<float>();
     private readonly Dictionary<AudioNode, TimeSpan> _branchEndTimes =
         new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<AudioNode> _processedBranches =
+        new(ReferenceEqualityComparer.Instance);
 
     public float[] Gains
     {
@@ -26,6 +28,7 @@ public sealed class MixerNode : AudioNode
         EnsureConnectedInput(input);
 
         _branchEndTimes[input] = endTime;
+        _processedBranches.Remove(input);
     }
 
     /// <summary>
@@ -63,10 +66,13 @@ public sealed class MixerNode : AudioNode
         {
             for (int i = 0; i < Inputs.Count; i++)
             {
-                if (drain && IsBranchDead(i, context))
+                bool drainBranch = drain || IsBranchEnded(i, context);
+                if (drainBranch && IsBranchDead(i, context))
                     continue;
 
-                buffers[i] = drain ? Inputs[i].Flush(context) : Inputs[i].Process(context);
+                buffers[i] = drainBranch ? Inputs[i].Flush(context) : Inputs[i].Process(context);
+                if (!drainBranch)
+                    _processedBranches.Add(Inputs[i]);
             }
 
             AudioBuffer? firstBuffer = null;
@@ -165,6 +171,11 @@ public sealed class MixerNode : AudioNode
         return tailEndTicks < deadBeforeTicks;
     }
 
+    private bool IsBranchEnded(int index, AudioProcessContext context)
+        => _branchEndTimes.TryGetValue(Inputs[index], out TimeSpan branchEndTime)
+            && _processedBranches.Contains(Inputs[index])
+            && context.TimeRange.Start >= branchEndTime;
+
     protected override void OnInputAdded(AudioNode input, int index)
     {
         AppendDefaultIfConfigured(ref _gains, index, 1f);
@@ -174,12 +185,14 @@ public sealed class MixerNode : AudioNode
     {
         _gains = RemoveAt(_gains, index);
         _branchEndTimes.Remove(input);
+        _processedBranches.Remove(input);
     }
 
     protected override void OnInputsCleared()
     {
         _gains = Array.Empty<float>();
         _branchEndTimes.Clear();
+        _processedBranches.Clear();
     }
 
     protected override void Dispose(bool disposing)
@@ -188,6 +201,7 @@ public sealed class MixerNode : AudioNode
         {
             _gains = Array.Empty<float>();
             _branchEndTimes.Clear();
+            _processedBranches.Clear();
         }
 
         base.Dispose(disposing);
