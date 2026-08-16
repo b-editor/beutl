@@ -109,7 +109,7 @@ public class BeutlApiApplication
         string version,
         CancellationToken cancellationToken)
     {
-        var metadata = await LoadMetadata();
+        var metadata = await LoadMetadata().WaitAsync(cancellationToken);
         if (metadata == null) return (await App.CheckForUpdates(version, cancellationToken), null);
         var update = await App.GetUpdate(
             version, ToServerType(metadata.Type), metadata.OS, metadata.Arch,

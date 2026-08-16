@@ -97,6 +97,45 @@ public sealed class BeutlApiApplicationTests
         }
     }
 
+    [Test]
+    public async Task CheckForUpdatesAsync_PreCanceledTokenStopsBeforeMetadataRead()
+    {
+        // LoadMetadata reads asset_metadata.json from AppContext.BaseDirectory (cached per process).
+        string metadataPath = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
+        string? originalContent = File.Exists(metadataPath) ? File.ReadAllText(metadataPath) : null;
+        try
+        {
+            File.WriteAllText(metadataPath, """
+                {
+                  "id": "test-id",
+                  "os": "linux",
+                  "arch": "x64",
+                  "version": "2.0.0-preview.6",
+                  "standalone": "true",
+                  "type": "flatpak"
+                }
+                """);
+            using var httpClient = new HttpClient();
+            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.Cancel();
+
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await app.CheckForUpdatesAsync("2.0.0-preview.6", cancellationTokenSource.Token));
+        }
+        finally
+        {
+            if (originalContent != null)
+            {
+                File.WriteAllText(metadataPath, originalContent);
+            }
+            else
+            {
+                File.Delete(metadataPath);
+            }
+        }
+    }
+
     private sealed class CapturingHandler : HttpMessageHandler
     {
         public Uri? LastRequestUri { get; private set; }
