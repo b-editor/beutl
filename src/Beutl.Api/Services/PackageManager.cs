@@ -95,7 +95,9 @@ public sealed class PackageManager(
                         if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                         {
                             Release? oldRelease = await Helper
-                                .TryGetOrDefault(() => remotePackage.GetReleaseAsync(versionStr, cancellationToken))
+                                .TryGetOrDefault(
+                                    () => remotePackage.GetReleaseAsync(versionStr, cancellationToken),
+                                    cancellationToken)
                                 .ConfigureAwait(false);
                             updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
                             _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
@@ -148,7 +150,9 @@ public sealed class PackageManager(
                     if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                     {
                         Release? oldRelease = await Helper
-                            .TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version, cancellationToken))
+                            .TryGetOrDefault(
+                                () => remotePackage.GetReleaseAsync(pkg.Version, cancellationToken),
+                                cancellationToken)
                             .ConfigureAwait(false);
                         _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
                         return new PackageUpdate(remotePackage, oldRelease, item);
