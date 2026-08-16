@@ -155,6 +155,12 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private Task<T> TrackAsync<T>(Func<Task<T>> operation)
         => TrackAsyncCore(operation);
 
+    public Task TrackInstallOperationAsync(Func<Task> operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        return TrackAsync(operation);
+    }
+
     private Task TrackAsyncCore(Func<Task> operation)
     {
         Task task;

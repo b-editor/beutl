@@ -42,35 +42,41 @@ internal class PackageOperationHandler
         PackageIdentity packageId,
         CancellationToken cancellationToken)
     {
-        PackageInstallContext context = await _packageInstaller.PrepareForInstall(
-            release,
-            force: true,
-            cancellationToken);
-        await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken);
-        await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken);
-        await _packageInstaller.ResolveDependencies(context, null, cancellationToken);
+        await _packageInstaller.TrackInstallOperationAsync(async () =>
+        {
+            PackageInstallContext context = await _packageInstaller.PrepareForInstall(
+                release,
+                force: true,
+                cancellationToken);
+            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken);
+            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken);
+            await _packageInstaller.ResolveDependencies(context, null, cancellationToken);
 
-        _installedPackageRepository.UpgradePackages(packageId);
+            _installedPackageRepository.UpgradePackages(packageId);
 
-        ActivateInstalledPackage(packageId);
+            ActivateInstalledPackage(packageId);
+        });
     }
 
     public async Task DownloadAndLoadPackage(
         PackageIdentity packageId,
         CancellationToken cancellationToken)
     {
-        PackageInstallContext context = _packageInstaller.PrepareForInstall(
-            packageId.Id,
-            packageId.Version.ToString(),
-            force: true,
-            cancellationToken);
-        await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken);
-        await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken);
-        await _packageInstaller.ResolveDependencies(context, null, cancellationToken);
+        await _packageInstaller.TrackInstallOperationAsync(async () =>
+        {
+            PackageInstallContext context = _packageInstaller.PrepareForInstall(
+                packageId.Id,
+                packageId.Version.ToString(),
+                force: true,
+                cancellationToken);
+            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken);
+            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken);
+            await _packageInstaller.ResolveDependencies(context, null, cancellationToken);
 
-        _installedPackageRepository.UpgradePackages(packageId);
+            _installedPackageRepository.UpgradePackages(packageId);
 
-        ActivateInstalledPackage(packageId);
+            ActivateInstalledPackage(packageId);
+        });
     }
 
     private void ActivateInstalledPackage(PackageIdentity packageId)
