@@ -32,7 +32,7 @@ public sealed class SpeedNode : AudioNode
     /// <summary>
     /// Converts upstream latency from source-domain samples to the output-domain samples that a caller
     /// must reserve to drain it through this speed mapping. Static speed uses its current value;
-    /// keyframed speed uses each easing's conservative output range to bound every interval.
+    /// keyframed speed and animations that expose a conservative output range use their slowest value.
     /// </summary>
     public override int GetTotalLatencySamples(int sampleRate)
     {
@@ -67,6 +67,26 @@ public sealed class SpeedNode : AudioNode
         if (speedAnimation is null)
         {
             minimumSpeed = (Speed?.CurrentValue ?? 100f) / 100d;
+            return true;
+        }
+
+        if (speedAnimation is IAnimationRange<float> range)
+        {
+            if (!range.TryGetOutputRange(out float rangeMinimum, out float rangeMaximum))
+            {
+                minimumSpeed = default;
+                return false;
+            }
+
+            if (!float.IsFinite(rangeMinimum)
+                || !float.IsFinite(rangeMaximum)
+                || rangeMinimum > rangeMaximum)
+            {
+                minimumSpeed = default;
+                return false;
+            }
+
+            minimumSpeed = rangeMinimum / 100d;
             return true;
         }
 
@@ -195,7 +215,6 @@ public sealed class SpeedNode : AudioNode
         bool forceReanchor)
     {
         var animation = Speed?.Animation!;
-        var keyFrameAnimation = (KeyFrameAnimation<float>)animation;
 
         // ClipNode 通過後の context.TimeRange.Start は要素ローカル時刻。
         // SpeedIntegrator.Integrate(t) は「時刻 0 から t までの累積積分」を返すため、
@@ -205,14 +224,14 @@ public sealed class SpeedNode : AudioNode
         // owner.TimeRange.Start を一律加算してグローバル時刻へ変換する。
         var ownerStart = Speed?.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
         TimeSpan sourceStartTime;
-        if (keyFrameAnimation.UseGlobalClock)
+        if (animation.UseGlobalClock)
         {
-            sourceStartTime = _integrator.Integrate(context.TimeRange.Start + ownerStart, keyFrameAnimation)
-                            - _integrator.Integrate(ownerStart, keyFrameAnimation);
+            sourceStartTime = _integrator.Integrate(context.TimeRange.Start + ownerStart, animation)
+                            - _integrator.Integrate(ownerStart, animation);
         }
         else
         {
-            sourceStartTime = _integrator.Integrate(context.TimeRange.Start, keyFrameAnimation);
+            sourceStartTime = _integrator.Integrate(context.TimeRange.Start, animation);
         }
 
         // Per-sample speed buffer, sized to expectedOutputSampleCount and allocated every render —

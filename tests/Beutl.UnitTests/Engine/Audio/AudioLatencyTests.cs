@@ -323,6 +323,52 @@ public class AudioLatencyTests
     }
 
     [Test]
+    public void SpeedNode_GetTotalLatencySamples_BoundedCustomAnimationUsesMinimum()
+    {
+        var speedProperty = Property.CreateAnimatable(100f);
+        var animation = new Mock<IAnimationRange<float>>();
+        float minimum = 50f;
+        float maximum = 200f;
+        animation.Setup(x => x.TryGetOutputRange(out minimum, out maximum)).Returns(true);
+        speedProperty.Animation = animation.Object;
+
+        using var limiter = CreateLimiterNode(5f);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(limiter);
+
+        int upstreamLatency = ExpectedLookaheadSamples(5f, SampleRate);
+
+        Assert.That(speed.GetTotalLatencySamples(SampleRate), Is.EqualTo(upstreamLatency * 2));
+    }
+
+    [Test]
+    public void SpeedNode_ProcessAndFlush_BoundedCustomAnimationUsesAnimationValues()
+    {
+        var speedProperty = Property.CreateAnimatable(100f);
+        var animation = new Mock<IAnimationRange<float>>();
+        float minimum = 50f;
+        float maximum = 200f;
+        animation.Setup(x => x.TryGetOutputRange(out minimum, out maximum)).Returns(true);
+        animation.SetupGet(x => x.UseGlobalClock).Returns(false);
+        animation.Setup(x => x.GetAnimatedValue(It.IsAny<TimeSpan>())).Returns(100f);
+        animation.Setup(x => x.Interpolate(It.IsAny<TimeSpan>())).Returns(100f);
+        speedProperty.Animation = animation.Object;
+
+        using var input = CreateConstantBuffer(0.1f, 16);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(new BufferReplayNode(input));
+
+        using AudioBuffer output = speed.Process(CreateContext(16));
+        using AudioBuffer tail = speed.Flush(CreateContext(16));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output.SampleCount, Is.EqualTo(16));
+            Assert.That(tail.SampleCount, Is.EqualTo(16));
+        });
+    }
+
+    [Test]
     public void SpeedNode_GetTotalLatencySamples_BackEaseUsesItsOvershootBound()
     {
         var easing = new BackEaseIn();
