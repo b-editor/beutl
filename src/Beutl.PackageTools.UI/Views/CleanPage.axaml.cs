@@ -75,12 +75,28 @@ public partial class CleanPage : PackageToolPage
                     {
                         cancelButton.IsEnabled = true;
                         runButton.IsEnabled = false;
-                        await Task.Run(() => viewModel.Run(token));
                         Frame? frame = this.FindAncestorOfType<Frame>();
-                        if (frame is { DataContext: MainViewModel main })
+                        if (frame is not { DataContext: MainViewModel main })
+                            return;
+
+                        try
                         {
-                            object? nextViewModel = main.Result();
-                            frame.NavigateFromObject(nextViewModel);
+                            await main.RunOperationAsync(
+                                operationToken => Task.Run(() => viewModel.Run(operationToken), operationToken),
+                                () =>
+                                {
+                                    object? nextViewModel = main.Result();
+                                    frame.NavigateFromObject(nextViewModel);
+                                },
+                                token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            return;
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            return;
                         }
                     }
                     finally

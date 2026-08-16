@@ -114,11 +114,13 @@ public class BeutlApiApplication : IAsyncDisposable
         string version,
         CancellationToken cancellationToken)
     {
-        var metadata = await LoadMetadata().WaitAsync(cancellationToken);
-        if (metadata == null) return (await App.CheckForUpdates(version, cancellationToken), null);
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        var metadata = await LoadMetadata().WaitAsync(token);
+        if (metadata == null) return (await App.CheckForUpdates(version, token), null);
         var update = await App.GetUpdate(
             version, ToServerType(metadata.Type), metadata.OS, metadata.Arch,
-            metadata.Standalone, "false", cancellationToken);
+            metadata.Standalone, "false", token);
         return (null, update);
     }
 
@@ -177,7 +179,15 @@ public class BeutlApiApplication : IAsyncDisposable
                 .ToList();
         }
 
-        _lifetimeCts.Cancel();
+        Exception? cancellationFailure = null;
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            cancellationFailure = ex;
+        }
 
         foreach (object resource in disposableResources)
         {
@@ -199,6 +209,11 @@ public class BeutlApiApplication : IAsyncDisposable
 
         _lifetimeCts.Dispose();
         ActivitySource.Dispose();
+
+        if (cancellationFailure != null)
+        {
+            throw cancellationFailure;
+        }
     }
 
     private void RegisterAll()
