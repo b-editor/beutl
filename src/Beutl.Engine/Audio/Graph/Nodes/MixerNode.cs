@@ -378,9 +378,8 @@ public sealed class MixerNode : AudioNode
         long remainingTicks = tailEndTicks - processedEnd.Ticks;
         int remainingSamples = remainingTicks <= 0
             ? 0
-            : Math.Min(branchLatency, (int)Math.Round(
-                remainingTicks * (double)sampleRate / TimeSpan.TicksPerSecond,
-                MidpointRounding.AwayFromZero));
+            : Math.Min(branchLatency, (int)Math.Ceiling(
+                remainingTicks * (double)sampleRate / TimeSpan.TicksPerSecond));
         _branchTailBudgets[branch] = new BranchTailBudget
         {
             RemainingSamples = remainingSamples,

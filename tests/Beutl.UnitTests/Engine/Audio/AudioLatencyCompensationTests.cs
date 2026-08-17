@@ -897,8 +897,13 @@ public class AudioLatencyCompensationTests
         const int processSamples = 1024;
         const int branchEndSamples = 900;
         const int branchLatency = 240;
-        int expectedRemaining = branchEndSamples + branchLatency - processSamples;
         var branchEnd = ExactDuration(branchEndSamples, SampleRate);
+        var processEnd = ExactDuration(processSamples, SampleRate);
+        var tailEnd = branchEnd + TimeSpan.FromTicks((long)Math.Ceiling(
+            branchLatency * (double)TimeSpan.TicksPerSecond / SampleRate));
+        int expectedRemaining = AudioProcessContext.GetSampleCount(
+            new TimeRange(processEnd, tailEnd - processEnd),
+            SampleRate);
 
         using var branch = new RecordingLatencyNode(branchLatency);
         using var mixer = new MixerNode();
@@ -909,6 +914,25 @@ public class AudioLatencyCompensationTests
 
         Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(expectedRemaining),
             "A branch that ends inside the last process block must report only the tail after that block.");
+    }
+
+    [Test]
+    public void MixerNode_GetDrainLatencySamples_CeilsFractionalRemainingTail()
+    {
+        const int sampleRate = 44100;
+        const int branchLatency = 240;
+        TimeSpan processedEnd = ExactDuration(1, sampleRate);
+        TimeSpan branchEnd = processedEnd - TimeSpan.FromTicks(114);
+
+        using var branch = new RecordingLatencyNode(branchLatency);
+        using var mixer = new MixerNode();
+        mixer.AddInput(branch);
+        mixer.SetBranchEndTime(branch, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, 1, sampleRate));
+
+        Assert.That(mixer.GetDrainLatencySamples(sampleRate), Is.EqualTo(branchLatency),
+            "A fractional remaining tail still occupies the final sample and must use ceiling coverage.");
     }
 
     [Test]
