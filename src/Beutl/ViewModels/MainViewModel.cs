@@ -187,6 +187,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 else
                 {
                     _logger.LogWarning("Package installer did not drain within the shutdown deadline.");
+                    // Disposal keeps installer resources alive until the tracked work
+                    // stops, so fallback queueing for a still-running install/update can
+                    // still happen after the deadline. Wait for actual idleness so the
+                    // snapshot below reflects every queued recovery.
+                    installer.WaitUntilIdleAsync().GetAwaiter().GetResult();
                 }
             }
         }

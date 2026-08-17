@@ -442,6 +442,36 @@ public sealed class PackageInstallerDisposeTests
             "the installer must dispose its HttpClient after the tracked operation stopped");
     }
 
+    [Test]
+    public async Task WaitUntilIdleAsync_WaitsForOperationsThatOutlivedTheDrainDeadline()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new ShortDeadlinePackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        // An operation that never completes, so disposal ends at its deadline.
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task operation = installer.TrackInstallOperationAsync(async () => await release.Task);
+
+        await installer.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(10));
+
+        // WaitUntilIdleAsync must keep waiting for the operation that outlived the
+        // drain deadline; it must not return while the operation is still running.
+        Task idle = installer.WaitUntilIdleAsync();
+        await Task.Delay(300);
+        Assert.That(idle.IsCompleted, Is.False,
+            "waiting for idleness must not complete while an operation is still running");
+
+        release.TrySetResult();
+        await Task.WhenAll(idle, operation).WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
     {
         long deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;

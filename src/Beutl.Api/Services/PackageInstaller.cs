@@ -217,6 +217,36 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
+    // Waits until every admitted operation has actually stopped, without the drain
+    // deadline: when Disposal ended at its deadline with operations still running,
+    // their fallback queueing must be observable before the shutdown snapshot of
+    // PackageChangesQueue is taken.
+    internal async Task WaitUntilIdleAsync()
+    {
+        while (true)
+        {
+            Task[] operations;
+            lock (_gate)
+            {
+                _operations.RemoveWhere(task => task.IsCompleted);
+                operations = _operations.ToArray();
+            }
+
+            if (operations.Length == 0)
+                return;
+
+            try
+            {
+                await Task.WhenAll(operations).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Awaiting observes operation faults; the loop must keep waiting for
+                // every admitted operation to stop before the queue snapshot.
+            }
+        }
+    }
+
     // Virtual so tests can shorten the drain window; production keeps the 30-second budget.
     protected virtual long DrainDeadlineMilliseconds => 30_000;
 
