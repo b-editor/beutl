@@ -206,36 +206,40 @@ public class BeutlApiApplication
     {
         using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client))
         {
-            string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-            CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
+            using (await Lock.LockAsync(cancellationToken))
             {
-                ContinueUri = continueUri
-            }, cancellationToken);
-            using HttpListener listener = StartListener($"{continueUri}/");
-            activity?.AddEvent(new("Started_Listener"));
+                activity?.AddEvent(new("Entered_AsyncLock"));
+                string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
+                CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
+                {
+                    ContinueUri = continueUri
+                }, cancellationToken);
+                using HttpListener listener = StartListener($"{continueUri}/");
+                activity?.AddEvent(new("Started_Listener"));
 
-            string uri =
-                $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
+                string uri =
+                    $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
 
-            Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
+                Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
-            string? code = await GetResponseFromListener(listener, cancellationToken);
-            activity?.AddEvent(new("Received_Code"));
-            if (string.IsNullOrWhiteSpace(code))
-            {
-                throw new Exception("The returned code was empty.");
+                string? code = await GetResponseFromListener(listener, cancellationToken);
+                activity?.AddEvent(new("Received_Code"));
+                if (string.IsNullOrWhiteSpace(code))
+                {
+                    throw new Exception("The returned code was empty.");
+                }
+
+                AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
+                {
+                    Code = code,
+                    SessionId = authUriRes.SessionId
+                }, cancellationToken);
+                activity?.AddEvent(new("Done_CodeToJwtAsync"));
+
+                AuthenticatedUser user = await CompleteSignInAsync(authResponse, cancellationToken);
+                activity?.AddEvent(new("Saved_User"));
+                return user;
             }
-
-            AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
-            {
-                Code = code,
-                SessionId = authUriRes.SessionId
-            }, cancellationToken);
-            activity?.AddEvent(new("Done_CodeToJwtAsync"));
-
-            AuthenticatedUser user = await CompleteSignInAsync(authResponse, cancellationToken);
-            activity?.AddEvent(new("Saved_User"));
-            return user;
         }
     }
 
