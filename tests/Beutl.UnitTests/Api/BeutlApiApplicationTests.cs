@@ -580,19 +580,21 @@ public sealed class BeutlApiApplicationTests
         var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         _ = app.GetResource<PackageManager>();
 
-        int reentrantDisposeCount = 0;
+        Task? reentrantTask = null;
         using CancellationTokenSource linked = app.CreateLifetimeLinkedTokenSource(CancellationToken.None);
         using var registration = linked.Token.Register(() =>
         {
             // A cancellation callback that re-enters DisposeAsync must observe the
             // original disposal task instead of starting a second pipeline.
-            Interlocked.Increment(ref reentrantDisposeCount);
-            app.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            reentrantTask = app.DisposeAsync().AsTask();
         });
 
-        await app.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Task outer = app.DisposeAsync().AsTask();
+        await outer.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.That(reentrantDisposeCount, Is.EqualTo(1));
+        Assert.That(reentrantTask, Is.Not.Null);
+        Assert.That(reentrantTask, Is.SameAs(outer),
+            "the reentrant call must observe the original disposal task");
     }
 
     private sealed class DelegateHandler(
