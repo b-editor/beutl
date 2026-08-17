@@ -409,6 +409,9 @@ public class Composer : IComposer
                 outputNode,
                 SampleRate,
                 out int inlineDrain);
+            if (!inlineDrainAttempted)
+                continue;
+
             if (outputLatency == int.MaxValue)
                 inlineDrain = 0;
             else

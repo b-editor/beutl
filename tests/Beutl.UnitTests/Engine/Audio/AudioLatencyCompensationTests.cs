@@ -772,6 +772,34 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_Process_TracksRemainingTailInSamplesAtNonIntegerRate()
+    {
+        const int sampleRate = 44100;
+        const int latencySamples = 882;
+        const int processSamples = 4096;
+        const int firstDrainSamples = 221;
+        const int finalBlockSamples = 662;
+        var branchEnd = ExactDuration(processSamples, sampleRate);
+
+        using var branch = new RecordingLatencyNode(latencySamples);
+        using var mixer = new MixerNode();
+        mixer.AddInput(branch);
+        mixer.SetBranchEndTime(branch, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, sampleRate));
+        using var firstDrain = mixer.Process(ExactContext(branchEnd, firstDrainSamples, sampleRate));
+        using var finalDrain = mixer.Process(
+            ExactContext(branchEnd + ExactDuration(firstDrainSamples, sampleRate), finalBlockSamples, sampleRate));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(branch.LastFlushSampleCount, Is.EqualTo(latencySamples - firstDrainSamples),
+                "Mixer tail accounting must subtract the exact samples already drained, without timestamp re-rounding.");
+            Assert.That(finalDrain.SampleCount, Is.EqualTo(finalBlockSamples));
+        });
+    }
+
+    [Test]
     public void MixerNode_Process_BoundsUnknownBranchDrainToOneAttempt()
     {
         const int processSamples = 4096;
@@ -818,6 +846,28 @@ public class AudioLatencyCompensationTests
 
         Assert.That(branch.FlushCount, Is.EqualTo(2),
             "A discontinuous replay must clear the prior unknown-drain attempt so the new tail can be flushed.");
+    }
+
+    [Test]
+    public void MixerNode_GetDrainLatencySamples_ExcludesBranchWhoseTailEndedDuringProcess()
+    {
+        const int sampleCount = 1024;
+        const int activeLatencySamples = 120;
+        var groupEnd = ExactDuration(sampleCount, SampleRate);
+        var earlyEnd = ExactDuration(sampleCount / 2, SampleRate);
+
+        using var earlyBranch = new RecordingLatencyNode(240);
+        using var activeBranch = new RecordingLatencyNode(activeLatencySamples);
+        using var mixer = new MixerNode();
+        mixer.AddInput(earlyBranch);
+        mixer.AddInput(activeBranch);
+        mixer.SetBranchEndTime(earlyBranch, earlyEnd);
+        mixer.SetBranchEndTime(activeBranch, groupEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, sampleCount, SampleRate));
+
+        Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(activeLatencySamples),
+            "A branch whose tail ended inside the processed block must not keep the mixer drain budget alive.");
     }
 
     [Test]
@@ -1517,6 +1567,42 @@ public class AudioLatencyCompensationTests
 
         Assert.That(HasNonZero(second!.GetChannelData(0)), Is.True,
             "The downstream limiter tail must remain eligible for the following window.");
+    }
+
+    [Test]
+    public void Composer_PreservesUnknownOutputWithoutInlineDrain()
+    {
+        const int clipSamples = SampleRate;
+        const int drainSamples = 240;
+        var clipDuration = ExactDuration(clipSamples, SampleRate);
+        var drainDuration = ExactDuration(drainSamples, SampleRate);
+
+        var sound = new MixedInlineUnknownTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+        MixedInlineUnknownTailSound.ResetFlushCount();
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            new TimeRange(TimeSpan.Zero, clipDuration),
+            default,
+            eligibility);
+        using var first = composer.Compose(firstFrame.Time, firstFrame);
+
+        var secondRange = new TimeRange(clipDuration, drainDuration);
+        var secondFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, secondFrame);
+
+        Assert.That(MixedInlineUnknownTailSound.UnknownFlushCount, Is.EqualTo(1),
+            "An unknown output without an inline drain must retain its independent follow-up drain.");
     }
 
     [Test]
