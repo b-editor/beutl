@@ -36,7 +36,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private readonly HashSet<Task> _operations = [];
     private Task? _disposeTask;
     private bool _disposed;
-    private int _admittedTransactions;
+    private static readonly AsyncLocal<bool> s_inTransaction = new();
 
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
@@ -164,10 +164,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             _operations.RemoveWhere(task => task.IsCompleted);
-            _admittedTransactions++;
-            // Run on the thread pool so the transaction never captures a UI synchronization
-            // context; shutdown can then block on DisposeAsync without deadlocking it.
-            task = Task.Run(() => RunTransactionAsync(operation));
+            // Run in the caller's context so plugin activation inside the operation keeps its
+            // original synchronization context; the operation's awaits use ConfigureAwait(false)
+            // so shutdown can block on DisposeAsync without deadlocking the UI thread.
+            task = RunTransactionAsync(operation);
             _operations.Add(task);
         }
 
@@ -176,16 +176,15 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
     private async Task RunTransactionAsync(Func<Task> operation)
     {
+        bool previous = s_inTransaction.Value;
+        s_inTransaction.Value = true;
         try
         {
             await operation().ConfigureAwait(false);
         }
         finally
         {
-            lock (_gate)
-            {
-                _admittedTransactions--;
-            }
+            s_inTransaction.Value = previous;
         }
     }
 
@@ -196,7 +195,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         {
             // Nested phases of an already admitted transaction must still be tracked while
             // disposal drains it; only brand-new work is rejected after disposal.
-            if (_disposed && _admittedTransactions == 0)
+            if (_disposed && !s_inTransaction.Value)
             {
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
@@ -213,7 +212,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         Task<T> task;
         lock (_gate)
         {
-            if (_disposed && _admittedTransactions == 0)
+            if (_disposed && !s_inTransaction.Value)
             {
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
