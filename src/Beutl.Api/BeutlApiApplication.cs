@@ -165,6 +165,8 @@ public class BeutlApiApplication : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
+        TaskCompletionSource? proxy = null;
+        Task disposeTask;
         lock (_disposeGate)
         {
             // Publish a completion proxy before cancellation fires: DisposeCoreAsync runs
@@ -172,12 +174,20 @@ public class BeutlApiApplication : IAsyncDisposable
             // observe the original teardown instead of starting a second pipeline.
             if (_disposeTask == null)
             {
-                TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                proxy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 _disposeTask = proxy.Task;
-                _ = RunDisposeCoreAsync(proxy);
             }
-            return new ValueTask(_disposeTask);
+            disposeTask = _disposeTask;
         }
+
+        // Start the teardown after releasing the lock so cancellation callbacks that
+        // re-enter disposal or other resource operations do not deadlock against it.
+        if (proxy != null)
+        {
+            _ = RunDisposeCoreAsync(proxy);
+        }
+
+        return new ValueTask(disposeTask);
     }
 
     private async Task RunDisposeCoreAsync(TaskCompletionSource proxy)
