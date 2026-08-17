@@ -54,7 +54,11 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         lock (_gate)
         {
             _stopping = true;
-            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
+            // Publish the shared disposal task before cancellation fires, so a cancellation
+            // callback that re-enters DisposeAsync observes the original teardown instead of
+            // starting a second pipeline over the same resource snapshot.
+            _disposeTask ??= DisposeCoreAsync();
+            return new ValueTask(_disposeTask);
         }
     }
 
