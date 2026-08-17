@@ -130,7 +130,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         try
         {
             // Run independently so a throwing token callback cannot skip cancelling
-            // pending HTTP requests; both failures are preserved below.
+            // pending HTTP requests; the first failure is preserved for rethrow.
             _cancelPendingRequests();
         }
         catch (Exception ex)
