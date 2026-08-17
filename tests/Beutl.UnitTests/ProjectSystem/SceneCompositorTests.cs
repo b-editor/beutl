@@ -1,5 +1,6 @@
 ﻿using Beutl.Audio;
 using Beutl.Audio.Composing;
+using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Engine;
@@ -869,6 +870,51 @@ public class SceneCompositorTests
                 tail!.GetChannelData(0)[..lookaheadSamples].ToArray(),
                 Has.All.EqualTo(0f),
                 "A referenced scene muted before the terminal drain must not emit its retained limiter tail.");
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void EvaluateAudio_TrimmedReferencedSceneUsesTerminalNestedDrainLatency()
+    {
+        const int sampleRate = 48000;
+        const int childSamples = sampleRate;
+        const int parentSamples = sampleRate / 2;
+        var childDuration = AudioProcessContext.GetDurationForSampleCount(childSamples, sampleRate);
+        var parentDuration = AudioProcessContext.GetDurationForSampleCount(parentSamples, sampleRate);
+        string basePath = GetTempPath();
+
+        try
+        {
+            Scene childScene = CreateScene(basePath);
+            var childSound = new TrimmedSceneTailSound();
+            Element childElement = CreateElement(basePath, isEnabled: true, childSound);
+            childElement.Length = childDuration;
+            childScene.Children.Add(childElement);
+
+            Scene parentScene = CreateScene(basePath);
+            var sceneSound = new SceneSound();
+            sceneSound.ReferencedScene.CurrentValue = childScene;
+            Element parentElement = CreateElement(basePath, isEnabled: true, sceneSound);
+            parentElement.Length = parentDuration;
+            parentScene.Children.Add(parentElement);
+
+            using var compositor = new SceneCompositor(parentScene);
+            using var composer = new Composer { SampleRate = sampleRate };
+
+            var firstRange = new TimeRange(TimeSpan.Zero, parentDuration);
+            using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
+
+            var tailRange = new TimeRange(parentDuration, AudioProcessContext.GetDurationForSampleCount(960, sampleRate));
+            using AudioBuffer? tail = composer.Compose(tailRange, compositor.EvaluateAudio(tailRange));
+
+            Assert.That(first, Is.Not.Null);
+            Assert.That(tail, Is.Not.Null);
+            Assert.That(tail!.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
+                "A trimmed referenced scene whose limiter is at terminal zero latency must not flush excess zero-fed stateful delay blocks.");
         }
         finally
         {
