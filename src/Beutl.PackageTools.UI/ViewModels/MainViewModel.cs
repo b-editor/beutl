@@ -125,7 +125,7 @@ public class MainViewModel : IAsyncDisposable
             {
                 // The attach loop blocks until a debugger connects; keep it off the UI
                 // thread so the window can still paint and close while waiting.
-                await Task.Run(() => AttachDebugger(), cancellationToken);
+                await Task.Run(() => AttachDebugger(cancellationToken), cancellationToken);
             }
 
             await _model.Load(
@@ -179,10 +179,11 @@ public class MainViewModel : IAsyncDisposable
     }
 
     [Conditional("DEBUG")]
-    private static void AttachDebugger()
+    private static void AttachDebugger(CancellationToken cancellationToken)
     {
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             Thread.Sleep(100);
 
             if (Debugger.Launch())
