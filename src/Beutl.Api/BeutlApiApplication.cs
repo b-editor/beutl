@@ -117,10 +117,17 @@ public class BeutlApiApplication : IAsyncDisposable
         using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = lifetimeCts.Token;
         var metadata = await LoadMetadata().WaitAsync(token);
-        if (metadata == null) return (await App.CheckForUpdates(version, token), null);
+        if (metadata == null)
+        {
+            var updateResponse = await App.CheckForUpdates(version, token);
+            token.ThrowIfCancellationRequested();
+            return (updateResponse, null);
+        }
+
         var update = await App.GetUpdate(
             version, ToServerType(metadata.Type), metadata.OS, metadata.Arch,
             metadata.Standalone, "false", token);
+        token.ThrowIfCancellationRequested();
         return (null, update);
     }
 
