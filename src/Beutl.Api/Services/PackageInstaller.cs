@@ -188,11 +188,13 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             _operations.RemoveWhere(task => task.IsCompleted);
             // Register before invoking so a re-entrant DisposeAsync drains this transaction.
             _operations.Add(task);
-            // Run in the caller context; the operation's awaits use ConfigureAwait(false)
-            // so shutdown can block without deadlocking.
-            _ = RunTransactionAsync(operation, proxy);
         }
 
+        // Invoke outside the lock: a delegate that blocks before its first incomplete await
+        // must not hold the gate, or a concurrent DisposeAsync could not even start its
+        // drain deadline. The operation's awaits use ConfigureAwait(false) so shutdown can
+        // block without deadlocking.
+        _ = RunTransactionAsync(operation, proxy);
         return task;
     }
 
@@ -398,6 +400,15 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         bool force = false,
         CancellationToken cancellationToken = default)
     {
+        return TrackSyncOperation(() => PrepareForInstallCore(name, version, force, cancellationToken));
+    }
+
+    private PackageInstallContext PrepareForInstallCore(
+        string name,
+        string version,
+        bool force,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         var packageId = new PackageIdentity(name, new NuGetVersion(version));
 
@@ -559,9 +570,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         ILogger? logger,
         CancellationToken cancellationToken)
     {
-        var context = PrepareForInstall(
-            package.Id, package.Version.ToString(), force: true, cancellationToken);
         // Call the core directly; the outer operation is already admitted.
+        var context = PrepareForInstallCore(
+            package.Id, package.Version.ToString(), force: true, cancellationToken);
         await ResolveDependenciesCoreAsync(context, logger, cancellationToken);
     }
 

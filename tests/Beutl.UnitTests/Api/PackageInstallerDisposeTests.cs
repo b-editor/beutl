@@ -346,6 +346,65 @@ public sealed class PackageInstallerDisposeTests
         await installer.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
     }
 
+    [Test]
+    public async Task PrepareForInstall_StringOverload_RejectsAdmissionAfterDisposal()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+        await installer.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        // The string-based overload must be admitted like every other synchronous entry
+        // point, so a cached installer cannot mint a context after disposal completed.
+        Assert.Throws<ObjectDisposedException>(() =>
+            installer.PrepareForInstall("Beutl.Package.PostDisposal", "1.0.0"));
+    }
+
+    [Test]
+    public async Task DisposeAsync_StartsDraining_WhenTheTransactionBlocksBeforeItsFirstAwait()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new ShortDeadlinePackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseOperation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        // The delegate blocks synchronously before its first incomplete await, so the
+        // admission call itself blocks; run it on a worker so disposal can be observed.
+        Task operation = Task.Run(() =>
+            installer.TrackInstallOperationAsync(async () =>
+            {
+                // Block synchronously before the first incomplete await: the transaction
+                // runner must not hold the gate, or disposal could not even start draining.
+                operationStarted.TrySetResult();
+                releaseOperation.Task.Wait();
+                await Task.CompletedTask;
+            }));
+        await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Disposal must be able to acquire the gate and start its drain deadline even
+        // though the transaction is still blocked in its synchronous prefix.
+        Task dispose = installer.DisposeAsync().AsTask();
+        await Task.Delay(300);
+        Assert.That(dispose.IsCompleted, Is.False,
+            "disposal must start draining while the transaction blocks before its first await");
+
+        releaseOperation.TrySetResult();
+        await Task.WhenAll(operation, dispose).WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
     private sealed class ShortDeadlinePackageInstaller : PackageInstaller
     {
         public ShortDeadlinePackageInstaller(
