@@ -259,6 +259,38 @@ public abstract class AudioNode : IDisposable
         return total >= int.MaxValue ? int.MaxValue : (int)total;
     }
 
+    internal virtual int GetDrainLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int upstream = 0;
+        foreach (AudioNode input in _inputs)
+        {
+            int inputTotal = input.GetDrainLatencySamples(sampleRate);
+            if (inputTotal < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative drain latency {inputTotal}.");
+            }
+
+            if (inputTotal > upstream)
+                upstream = inputTotal;
+        }
+
+        int ownLatency = GetLatencySamples(sampleRate);
+        if (ownLatency < 0)
+        {
+            throw new InvalidOperationException(
+                $"{GetType().Name} returned negative latency {ownLatency}.");
+        }
+
+        if (upstream == int.MaxValue || ownLatency == int.MaxValue)
+            return int.MaxValue;
+
+        long total = (long)ownLatency + upstream;
+        return total >= int.MaxValue ? int.MaxValue : (int)total;
+    }
+
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposed)

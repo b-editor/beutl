@@ -1407,6 +1407,45 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_UsesTerminalAnimatedLimiterLatencyForInlineDrain()
+    {
+        const int sampleRate = SampleRate;
+        var clipDuration = ExactDuration(sampleRate, sampleRate);
+        var oneSample = ExactDuration(1, sampleRate);
+        var drainDuration = ExactDuration(240, sampleRate);
+
+        var sound = new AnimatedLimiterDelayTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(0),
+            "Composer must use the limiter's terminal animated lookahead, not its worst-case reservation.");
+
+        var secondRange = new TimeRange(firstRange.End, drainDuration);
+        var secondFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, secondFrame);
+
+        Assert.That(HasNonZero(second!.GetChannelData(0)), Is.False,
+            "A zero terminal lookahead must not feed unnecessary zero blocks into a stateful delay effect.");
+    }
+
+    [Test]
     public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
     {
         const float lookaheadMs = 20f;

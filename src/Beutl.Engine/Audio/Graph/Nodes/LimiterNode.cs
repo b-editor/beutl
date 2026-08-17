@@ -165,6 +165,41 @@ public sealed class LimiterNode : AudioNode
             : LimiterParameters.ToLatencySamples(Lookahead.CurrentValue, sampleRate);
     }
 
+    internal override int GetDrainLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int upstream = 0;
+        foreach (AudioNode input in Inputs)
+        {
+            int inputTotal = input.GetDrainLatencySamples(sampleRate);
+            if (inputTotal < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative drain latency {inputTotal}.");
+            }
+
+            upstream = Math.Max(upstream, inputTotal);
+        }
+
+        int ownLatency = Lookahead.Animation != null
+            && _hasLastDerived
+            && _lastSampleRate == sampleRate
+            ? _lastDerived.LookaheadSamples
+            : GetLatencySamples(sampleRate);
+        if (ownLatency < 0)
+        {
+            throw new InvalidOperationException(
+                $"{GetType().Name} returned negative latency {ownLatency}.");
+        }
+
+        if (upstream == int.MaxValue || ownLatency == int.MaxValue)
+            return int.MaxValue;
+
+        long total = (long)upstream + ownLatency;
+        return total >= int.MaxValue ? int.MaxValue : (int)total;
+    }
+
     private void InitializeBuffers(int sampleRate, int channelCount)
     {
         // Null the fields up front so a throw in the construction loop below can't leave us

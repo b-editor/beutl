@@ -74,6 +74,37 @@ public sealed class SpeedNode : AudioNode
         return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
     }
 
+    internal override int GetDrainLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int upstreamLatency = 0;
+        foreach (AudioNode input in Inputs)
+        {
+            int inputTotal = input.GetDrainLatencySamples(sampleRate);
+            if (inputTotal < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative drain latency {inputTotal}.");
+            }
+
+            upstreamLatency = Math.Max(upstreamLatency, inputTotal);
+        }
+
+        if (upstreamLatency == 0 || upstreamLatency == int.MaxValue)
+            return upstreamLatency;
+
+        if (!TryGetMinimumSpeedFactor(out double minimumSpeed)
+            || !double.IsFinite(minimumSpeed)
+            || minimumSpeed <= 0)
+        {
+            return int.MaxValue;
+        }
+
+        double scaled = Math.Ceiling(upstreamLatency / minimumSpeed);
+        return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
+    }
+
     private bool TryGetMinimumSpeedFactor(out double minimumSpeed)
     {
         IAnimation<float>? speedAnimation = Speed?.Animation;

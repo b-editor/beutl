@@ -60,6 +60,30 @@ public sealed class ResampleNode : AudioNode
         return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
     }
 
+    internal override int GetDrainLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int sourceLatency = 0;
+        foreach (AudioNode input in Inputs)
+        {
+            int inputTotal = input.GetDrainLatencySamples(SourceSampleRate);
+            if (inputTotal < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative drain latency {inputTotal}.");
+            }
+
+            sourceLatency = Math.Max(sourceLatency, inputTotal);
+        }
+
+        if (sourceLatency == 0 || sourceLatency == int.MaxValue)
+            return sourceLatency;
+
+        double scaled = Math.Ceiling(sourceLatency * (double)sampleRate / SourceSampleRate);
+        return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
+    }
+
     private AudioBuffer Resample(AudioProcessContext context, AudioBuffer input)
     {
         // Same rate: pass the input through (caller owns it, don't dispose).

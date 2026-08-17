@@ -330,13 +330,13 @@ public class Composer : IComposer
     private void RecordInlineDrainBudget(AudioNodeEntry entry, AudioNode[] outputNodes)
     {
         bool hasInlineDrain = outputNodes.Any(static outputNode =>
-            outputNode is ClipNode { InlineDrainedSamples: > 0 });
+            outputNode is ClipNode { InlineDrainAttempted: true });
         if (!hasInlineDrain)
             return;
 
         foreach (AudioNode outputNode in outputNodes)
         {
-            int outputLatency = outputNode.GetTotalLatencySamples(SampleRate);
+            int outputLatency = outputNode.GetDrainLatencySamples(SampleRate);
             if (outputLatency < 0)
             {
                 throw new InvalidOperationException(
@@ -448,8 +448,6 @@ public class Composer : IComposer
         budget.IsKnown = true;
         if (latency == int.MaxValue)
         {
-            // The sentinel is an unknown/uncompensatable budget. Bound the work to one drain attempt
-            // instead of retaining an entry that would be flushed forever.
             budget.RemainingSamples = 0;
             budget.StopFurtherDrains = true;
         }
