@@ -158,4 +158,41 @@ public sealed class AsyncOperationLifetimeTests
 
         Assert.That(completionCount, Is.EqualTo(1));
     }
+
+    [Test]
+    public async Task DisposeAsync_RunsCancelPendingRequests_WhenTokenCallbackThrows()
+    {
+        var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allowOperationToFinish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool requestsCanceled = false;
+        var lifetime = new AsyncOperationLifetime(
+            () => requestsCanceled = true,
+            static () => ValueTask.CompletedTask);
+
+        Task operation = lifetime.RunAsync(async cancellationToken =>
+        {
+            operationStarted.TrySetResult();
+            using var registration = cancellationToken.Register(static () =>
+                throw new InvalidOperationException("callback failed"));
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+
+            await allowOperationToFinish.Task;
+        });
+        await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task dispose = lifetime.DisposeAsync().AsTask();
+        allowOperationToFinish.TrySetResult();
+
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.CatchAsync<Exception>(async () =>
+            await dispose.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.That(requestsCanceled, Is.True,
+            "CancelPendingRequests must run even when a token callback throws");
+    }
 }

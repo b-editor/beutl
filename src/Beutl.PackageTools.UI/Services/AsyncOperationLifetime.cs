@@ -91,11 +91,21 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         try
         {
             _lifetimeCancellation.Cancel();
-            _cancelPendingRequests();
         }
         catch (Exception ex)
         {
             cancellationFailure = ex;
+        }
+
+        try
+        {
+            // Run independently so a throwing token callback cannot skip cancelling
+            // pending HTTP requests; both failures are preserved below.
+            _cancelPendingRequests();
+        }
+        catch (Exception ex)
+        {
+            cancellationFailure ??= ex;
         }
 
         try
