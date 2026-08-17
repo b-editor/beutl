@@ -30,7 +30,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         IsBusy.Value = true;
-                        await Profile.RefreshAsync();
+                        await Profile.RefreshAsync(CancellationToken.None);
                         await RefreshPackages();
                     }
                 }
@@ -90,7 +90,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
 
     private async Task RefreshPackages()
     {
-        Package[] array = await Profile.GetPackagesAsync(0, 30);
+        Package[] array = await Profile.GetPackagesAsync(CancellationToken.None, 0, 30);
         Packages.Clear();
         Packages.AddRange(array);
 
@@ -103,7 +103,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
     private async Task MoreLoadPackages()
     {
         Packages.RemoveAt(Packages.Count - 1);
-        Package[] array = await Profile.GetPackagesAsync(Packages.Count, 30);
+        Package[] array = await Profile.GetPackagesAsync(CancellationToken.None, Packages.Count, 30);
         Packages.AddRange(array);
 
         if (array.Length == 30)

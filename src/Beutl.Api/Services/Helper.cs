@@ -154,17 +154,27 @@ internal static class Helper
         {
             return func();
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch
         {
             return default;
         }
     }
 
-    public static async Task<T?> TryGetOrDefault<T>(Func<Task<T>> func)
+    public static async Task<T?> TryGetOrDefault<T>(
+        Func<Task<T>> func,
+        CancellationToken cancellationToken)
     {
         try
         {
             return await func().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {

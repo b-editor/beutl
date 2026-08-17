@@ -105,13 +105,15 @@ public class BeutlApiApplication
     // 更新があるかどうかをチェックします
     // このアプリケーションがアセットメタデータを持っている場合は、AppUpdateResponseを返します
     // そうでない場合は、CheckForUpdatesResponseを返します
-    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(string version)
+    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(
+        string version,
+        CancellationToken cancellationToken)
     {
-        var metadata = await LoadMetadata();
-        if (metadata == null) return (await App.CheckForUpdates(version), null);
+        var metadata = await LoadMetadata().WaitAsync(cancellationToken);
+        if (metadata == null) return (await App.CheckForUpdates(version, cancellationToken), null);
         var update = await App.GetUpdate(
             version, ToServerType(metadata.Type), metadata.OS, metadata.Arch,
-            metadata.Standalone, "false");
+            metadata.Standalone, "false", cancellationToken);
         return (null, update);
     }
 
@@ -208,7 +210,7 @@ public class BeutlApiApplication
             CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
             {
                 ContinueUri = continueUri
-            });
+            }, cancellationToken);
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
@@ -228,18 +230,18 @@ public class BeutlApiApplication
             {
                 Code = code,
                 SessionId = authUriRes.SessionId
-            });
+            }, cancellationToken);
             activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", authResponse.Token);
-            ProfileResponse profileResponse = await Users.GetSelf();
-            var profile = new Profile(profileResponse, this);
-
-            _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
-            SaveUser();
-            activity?.AddEvent(new("Saved_User"));
-            return _authenticatedUser.Value;
+            // Serialize only the authentication state transition; the OAuth wait above must
+            // not hold the application-wide lock.
+            using (await Lock.LockAsync(cancellationToken))
+            {
+                activity?.AddEvent(new("Entered_AsyncLock"));
+                AuthenticatedUser user = await CompleteSignInAsync(authResponse, cancellationToken);
+                activity?.AddEvent(new("Saved_User"));
+                return user;
+            }
         }
     }
 
@@ -254,7 +256,7 @@ public class BeutlApiApplication
                 CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
                 {
                     ContinueUri = continueUri
-                });
+                }, cancellationToken);
                 using HttpListener listener = StartListener($"{continueUri}/");
                 activity?.AddEvent(new("Started_Listener"));
 
@@ -273,19 +275,54 @@ public class BeutlApiApplication
                 {
                     Code = code,
                     SessionId = authUriRes.SessionId
-                });
+                }, cancellationToken);
                 activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-                _httpClient.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", authResponse.Token);
-                ProfileResponse profileResponse = await Users.GetSelf();
-                var profile = new Profile(profileResponse, this);
-
-                _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
-                SaveUser();
+                AuthenticatedUser user = await CompleteSignInAsync(authResponse, cancellationToken);
                 activity?.AddEvent(new("Saved_User"));
-                return _authenticatedUser.Value;
+                return user;
             }
+        }
+    }
+
+    internal async Task<AuthenticatedUser> CompleteSignInAsync(
+        AuthResponse authResponse,
+        CancellationToken cancellationToken)
+    {
+        string? previousAuthorization = _httpClient.DefaultRequestHeaders.Authorization?.ToString();
+        AuthenticatedUser? previousUser = _authenticatedUser.Value;
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", authResponse.Token);
+        AuthenticatedUser? attemptedUser = null;
+        try
+        {
+            ProfileResponse profileResponse = await Users.GetSelf(cancellationToken);
+            var profile = new Profile(profileResponse, this);
+
+            attemptedUser = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
+            _authenticatedUser.Value = attemptedUser;
+            SaveUser();
+            return _authenticatedUser.Value;
+        }
+        catch
+        {
+            // Only roll back state still owned by this failing attempt: a SignOut or a
+            // later successful sign-in may have replaced the user while GetSelf was pending,
+            // and must not be overwritten by the stale snapshot.
+            if (ReferenceEquals(_authenticatedUser.Value, attemptedUser))
+            {
+                _authenticatedUser.Value = previousUser;
+                if (previousAuthorization != null)
+                {
+                    _httpClient.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(previousAuthorization);
+                }
+                else
+                {
+                    _httpClient.DefaultRequestHeaders.Authorization = null;
+                }
+            }
+
+            throw;
         }
     }
 
@@ -317,31 +354,51 @@ public class BeutlApiApplication
         }
     }
 
-    public async Task RestoreUserAsync(Activity? activity)
+    public async Task RestoreUserAsync(Activity? activity, CancellationToken cancellationToken)
     {
-        using (await Lock.LockAsync())
+        using (await Lock.LockAsync(cancellationToken))
         {
             activity?.AddEvent(new("Entered_AsyncLock"));
 
-            AuthenticatedUser? user = await ReadUserAsync();
+            string? previousAuthorization = _httpClient.DefaultRequestHeaders.Authorization?.ToString();
+            AuthenticatedUser? previousUser = _authenticatedUser.Value;
+            AuthenticatedUser? user = await ReadUserAsync(cancellationToken);
             if (user != null)
             {
-                await user.RefreshAsync();
+                try
+                {
+                    await user.RefreshAsync(cancellationToken);
 
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
-                await user.Profile.RefreshAsync(true);
-                _authenticatedUser.Value = user;
-                SaveUser();
+                    _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
+                    await user.Profile.RefreshAsync(cancellationToken, true);
+                    _authenticatedUser.Value = user;
+                    SaveUser();
+                }
+                catch
+                {
+                    _authenticatedUser.Value = previousUser;
+                    if (previousAuthorization != null)
+                    {
+                        _httpClient.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(previousAuthorization);
+                    }
+                    else
+                    {
+                        _httpClient.DefaultRequestHeaders.Authorization = null;
+                    }
+
+                    throw;
+                }
             }
         }
     }
 
-    public async ValueTask<AuthenticatedUser?> ReadUserAsync()
+    public async ValueTask<AuthenticatedUser?> ReadUserAsync(CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string fileName = Path.Combine(Helper.AppRoot, UserFileName);
         if (File.Exists(fileName))
         {
-            JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName));
+            JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName, cancellationToken));
             DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
 
             if (node != null)

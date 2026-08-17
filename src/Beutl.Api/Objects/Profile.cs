@@ -36,31 +36,34 @@ public class Profile
 
     public MyAsyncLock Lock => _clients.Lock;
 
-    public async Task RefreshAsync(bool self = false)
+    public async Task RefreshAsync(CancellationToken cancellationToken, bool self = false)
     {
         using Activity? activity = _clients.ActivitySource.StartActivity("Profile.Refresh", ActivityKind.Client);
 
         if (self)
         {
-            _response.Value = await _clients.Users.GetSelf();
+            _response.Value = await _clients.Users.GetSelf(cancellationToken);
             Name = _response.Value.Name;
         }
         else
         {
-            _response.Value = await _clients.Users.GetUser(Name);
+            _response.Value = await _clients.Users.GetUser(Name, cancellationToken);
         }
     }
 
-    public async Task<Package[]> GetPackagesAsync(int start = 0, int count = 30)
+    public async Task<Package[]> GetPackagesAsync(
+        CancellationToken cancellationToken,
+        int start = 0,
+        int count = 30)
     {
         using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetPackages", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
         // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
-        return await (await _clients.Users.GetUserPackages(Name, start, count))
+        return await (await _clients.Users.GetUserPackages(Name, cancellationToken, start, count))
             .ToObservable()
-            .SelectMany(async x => await _clients.Packages.GetPackage(x.Name))
+            .SelectMany(async x => await _clients.Packages.GetPackage(x.Name, cancellationToken))
             .Select(x => new Package(this, x, _clients))
             .ToArray();
     }

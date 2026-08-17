@@ -48,7 +48,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
                         if (_user != null)
                         {
-                            await _user.RefreshAsync();
+                            await _user.RefreshAsync(CancellationToken.None);
                         }
 
                         await RefreshPackages(_user != null);
@@ -86,11 +86,11 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
                         if (_user != null)
                         {
-                            await _user.RefreshAsync();
+                            await _user.RefreshAsync(CancellationToken.None);
                         }
 
                         PackageManager manager = _clients.GetResource<PackageManager>();
-                        foreach (PackageUpdate item in await manager.CheckUpdate())
+                        foreach (PackageUpdate item in await manager.CheckUpdate(CancellationToken.None))
                         {
                             LocalUserPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
                                 x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
@@ -154,7 +154,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
             DiscoverService discover = _clients.GetResource<DiscoverService>();
             try
             {
-                return await discover.GetPackage(localPackage.Name);
+                return await discover.GetPackage(localPackage.Name, CancellationToken.None);
             }
             catch
             {
@@ -214,7 +214,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
             {
                 try
                 {
-                    remote = await discover.GetPackage(name);
+                    remote = await discover.GetPackage(name, CancellationToken.None);
                 }
                 catch
                 {
@@ -237,11 +237,11 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
     private async Task<List<Package>> LoadAll()
     {
         var list = new List<Package>();
-        Package[] array = await _service.GetPackages(0, 30);
+        Package[] array = await _service.GetPackages(CancellationToken.None, 0, 30);
         list.AddRange(array);
         while (array.Length == 30)
         {
-            array = await _service.GetPackages(list.Count, 30);
+            array = await _service.GetPackages(CancellationToken.None, list.Count, 30);
             list.AddRange(array);
         }
 

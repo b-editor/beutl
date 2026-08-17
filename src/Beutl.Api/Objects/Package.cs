@@ -85,28 +85,31 @@ public class Package
         };
     }
 
-    public async Task RefreshAsync()
+    public async Task RefreshAsync(CancellationToken cancellationToken)
     {
         using Activity? activity = _clients.ActivitySource.StartActivity("Package.Refresh", ActivityKind.Client);
 
-        _response.Value = await _clients.Packages.GetPackage(Name);
+        _response.Value = await _clients.Packages.GetPackage(Name, cancellationToken);
         _isDeleted.Value = false;
     }
 
-    public async Task<Release> GetReleaseAsync(string version)
+    public async Task<Release> GetReleaseAsync(string version, CancellationToken cancellationToken)
     {
         using Activity? activity = _clients.ActivitySource.StartActivity("Package.GetRelease", ActivityKind.Client);
-        ReleaseResponse response = await _clients.Releases.GetRelease(Name, version);
+        ReleaseResponse response = await _clients.Releases.GetRelease(Name, version, cancellationToken);
         return new Release(this, response, _clients);
     }
 
-    public async Task<Release[]> GetReleasesAsync(int start = 0, int count = 30)
+    public async Task<Release[]> GetReleasesAsync(
+        CancellationToken cancellationToken,
+        int start = 0,
+        int count = 30)
     {
         using Activity? activity = _clients.ActivitySource.StartActivity("Package.GetReleases", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
-        return (await _clients.Releases.GetReleases(Name, start, count))
+        return (await _clients.Releases.GetReleases(Name, cancellationToken, start, count))
             .Select(x => new Release(this, x, _clients))
             .ToArray();
     }

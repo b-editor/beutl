@@ -54,7 +54,7 @@ public class MainViewModel
             IsBusy.Value = true;
             try
             {
-                await _app.RestoreUserAsync(null);
+                await _app.RestoreUserAsync(null, CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -70,7 +70,7 @@ public class MainViewModel
 
             try
             {
-                await _model.Load(_app, installItems, uninstallItems, updateItems);
+                await _model.Load(_app, installItems, uninstallItems, updateItems, CancellationToken.None);
 
                 _viewModels.AddRange(InstallItems.Concat(UpdateItems)
                     .Concat(UninstallItems)

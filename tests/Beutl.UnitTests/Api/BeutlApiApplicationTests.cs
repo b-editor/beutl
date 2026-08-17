@@ -1,7 +1,11 @@
 ﻿using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using Beutl.Api;
+using Beutl.Api.Clients;
+using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Testing.Headless;
 
 namespace Beutl.UnitTests.Api;
 
@@ -76,7 +80,7 @@ public sealed class BeutlApiApplicationTests
             using var httpClient = new HttpClient(handler);
             var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
 
-            var (v1, v3) = await app.CheckForUpdatesAsync("2.0.0-preview.6");
+            var (v1, v3) = await app.CheckForUpdatesAsync("2.0.0-preview.6", CancellationToken.None);
 
             Assert.That(handler.LastRequestUri, Is.Not.Null);
             Assert.That(handler.LastRequestUri!.Query, Does.Contain("type=zip"));
@@ -94,6 +98,209 @@ public sealed class BeutlApiApplicationTests
             {
                 File.Delete(metadataPath);
             }
+        }
+    }
+
+    [Test]
+    public async Task CheckForUpdatesAsync_PreCanceledTokenStopsBeforeMetadataRead()
+    {
+        // LoadMetadata reads asset_metadata.json from AppContext.BaseDirectory (cached per process).
+        string metadataPath = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
+        string? originalContent = File.Exists(metadataPath) ? File.ReadAllText(metadataPath) : null;
+        try
+        {
+            File.WriteAllText(metadataPath, """
+                {
+                  "id": "test-id",
+                  "os": "linux",
+                  "arch": "x64",
+                  "version": "2.0.0-preview.6",
+                  "standalone": "true",
+                  "type": "flatpak"
+                }
+                """);
+            using var httpClient = new HttpClient();
+            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.Cancel();
+
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await app.CheckForUpdatesAsync("2.0.0-preview.6", cancellationTokenSource.Token));
+        }
+        finally
+        {
+            if (originalContent != null)
+            {
+                File.WriteAllText(metadataPath, originalContent);
+            }
+            else
+            {
+                File.Delete(metadataPath);
+            }
+        }
+    }
+
+    [Test]
+    public async Task CompleteSignInAsync_RestoresAuthorization_WhenGetSelfIsCanceled()
+    {
+        using var cancellationTokenSource = new CancellationTokenSource();
+        using var handler = new DelegateHandler((request, cancellationToken) =>
+        {
+            cancellationTokenSource.Cancel();
+            throw new OperationCanceledException(cancellationToken);
+        });
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var authResponse = new AuthResponse
+        {
+            Token = "new-token",
+            RefreshToken = "new-refresh",
+            Expiration = DateTime.UtcNow.AddHours(1)
+        };
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await app.CompleteSignInAsync(authResponse, cancellationTokenSource.Token));
+
+        Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
+            "the new bearer token must not remain after a canceled sign-in");
+    }
+
+    [Test]
+    public async Task CompleteSignInAsync_RestoresAuthenticatedUser_WhenPersistenceFails()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+        string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
+        Directory.CreateDirectory(userFile); // SaveUser's File.Create fails on a directory.
+        try
+        {
+            using var handler = new DelegateHandler((request, cancellationToken) =>
+                Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new ProfileResponse
+                    {
+                        Id = "new-profile",
+                        Name = "new-name",
+                        DisplayName = "New Name",
+                        Bio = null,
+                        IconId = null,
+                        IconUrl = null,
+                    })
+                }));
+            using var httpClient = new HttpClient(handler);
+            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            var authResponse = new AuthResponse
+            {
+                Token = "new-token",
+                RefreshToken = "new-refresh",
+                Expiration = DateTime.UtcNow.AddHours(1)
+            };
+
+            Assert.CatchAsync<Exception>(async () =>
+                await app.CompleteSignInAsync(authResponse, CancellationToken.None));
+
+            Assert.That(app.AuthenticatedUser.Value, Is.Null,
+                "the failed sign-in must not leave a signed-in user");
+            Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
+                "the new bearer token must not remain after a failed sign-in");
+        }
+        finally
+        {
+            Directory.Delete(userFile, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task CompleteSignInAsync_DoesNotResurrectUser_WhenSignedOutDuringGetSelf()
+    {
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new DelegateHandler(async (request, cancellationToken) =>
+        {
+            requestStarted.TrySetResult();
+            await releaseRequest.Task;
+            throw new HttpRequestException("request failed");
+        });
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var authResponse = new AuthResponse
+        {
+            Token = "new-token",
+            RefreshToken = "new-refresh",
+            Expiration = DateTime.UtcNow.AddHours(1)
+        };
+
+        Task<AuthenticatedUser> signIn = app.CompleteSignInAsync(authResponse, CancellationToken.None);
+        await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // SignOut while GetSelf is pending; the failing attempt must not resurrect the user.
+        app.SignOut(false);
+        releaseRequest.TrySetResult();
+
+        Assert.CatchAsync<Exception>(async () =>
+            await signIn.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.That(app.AuthenticatedUser.Value, Is.Null,
+            "SignOut must not be undone by the failing sign-in");
+    }
+
+    [Test]
+    public async Task RestoreUserAsync_RestoresAuthorization_WhenProfileRefreshIsCanceled()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+        string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
+        string original = """
+            {
+              "token": "restored-token",
+              "refresh_token": "restored-refresh",
+              "expiration": "2027-01-01T00:00:00Z",
+              "profile": {
+                "id": "restored-profile",
+                "name": "restored-name",
+                "displayName": "Restored Name",
+                "bio": null,
+                "iconId": null,
+                "iconUrl": null
+              }
+            }
+            """;
+        File.WriteAllText(userFile, original);
+        try
+        {
+            using var cancellationTokenSource = new CancellationTokenSource();
+            using var handler = new DelegateHandler((request, cancellationToken) =>
+            {
+                if (request.RequestUri!.PathAndQuery.StartsWith("/api/v3/user"))
+                {
+                    cancellationTokenSource.Cancel();
+                    throw new OperationCanceledException(cancellationToken);
+                }
+
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new ProfileResponse
+                    {
+                        Id = "restored-profile",
+                        Name = "restored-name",
+                        DisplayName = "Restored Name",
+                        Bio = null,
+                        IconId = null,
+                        IconUrl = null,
+                    })
+                });
+            });
+            using var httpClient = new HttpClient(handler);
+            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await app.RestoreUserAsync(null, cancellationTokenSource.Token));
+
+            Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
+                "the restored bearer token must not remain after a canceled restoration");
+            Assert.That(app.AuthenticatedUser.Value, Is.Null,
+                "the restored user must not remain after a canceled restoration");
+        }
+        finally
+        {
+            File.Delete(userFile);
         }
     }
 
@@ -116,5 +323,14 @@ public sealed class BeutlApiApplicationTests
             };
             return Task.FromResult(response);
         }
+    }
+
+    private sealed class DelegateHandler(
+        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
+        : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+            => handler(request, cancellationToken);
     }
 }

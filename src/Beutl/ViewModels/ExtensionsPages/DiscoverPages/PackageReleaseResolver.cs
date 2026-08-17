@@ -8,6 +8,17 @@ namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 internal static class PackageReleaseResolver
 {
+    public static async Task<Release> GetFirstReleaseAsync(Package package, CancellationToken cancellationToken)
+    {
+        Release[] releases = await package.GetReleasesAsync(cancellationToken, 0, 1);
+        if (releases.Length == 0)
+        {
+            throw new InvalidOperationException($"Package '{package.Name}' has no releases.");
+        }
+
+        return releases[0];
+    }
+
     public static IObservable<PackageIdentity?> ObserveWhenReleasesReady(
         IObservable<PackageIdentity?> installedPackages,
         IObservable<bool> releasesReady,

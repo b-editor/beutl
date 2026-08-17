@@ -88,7 +88,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
     private async Task<Package[]> SearchPackages(int start, int count)
     {
-        return await _discoverService.Search(Keyword, start, count, Kind.Selected);
+        return await _discoverService.Search(Keyword, CancellationToken.None, start, count, Kind.Selected);
     }
 
     private async Task RefreshPackages()

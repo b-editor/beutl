@@ -146,7 +146,7 @@ public sealed class CheckForUpdatesTask : StartupTask
     {
         try
         {
-            return await _beutlApiApplication.CheckForUpdatesAsync(BeutlApplication.Version);
+            return await _beutlApiApplication.CheckForUpdatesAsync(BeutlApplication.Version, CancellationToken.None);
         }
         catch (Exception ex)
         {

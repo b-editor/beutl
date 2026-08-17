@@ -118,7 +118,7 @@ public partial class PackageInstaller : IBeutlApiResource
         }
         else
         {
-            var asset = await release.GetAssetAsync().ConfigureAwait(false);
+            var asset = await release.GetAssetAsync(cancellationToken).ConfigureAwait(false);
 
             context = new PackageInstallContext(name, version, asset.DownloadUrl)
             {
@@ -411,8 +411,12 @@ public partial class PackageInstaller : IBeutlApiResource
         {
             try
             {
-                await user.RefreshAsync();
+                await user.RefreshAsync(cancellationToken);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
