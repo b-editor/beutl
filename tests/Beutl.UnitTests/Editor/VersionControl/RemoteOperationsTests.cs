@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.VersionControl;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -2623,11 +2624,11 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Pending_pull_recovery_accepts_case_variant_paths_on_case_insensitive_macos_volumes()
+    public async Task Pending_pull_recovery_accepts_case_variant_paths_on_case_insensitive_volumes()
     {
-        if (!OperatingSystem.IsMacOS())
+        if (!FileSystemPathComparison.IsCaseInsensitive)
         {
-            Assert.Ignore("This regression covers macOS volume casing semantics.");
+            Assert.Ignore("This regression covers case-insensitive volume semantics.");
         }
 
         await CommitFileAsync("project.bep", "base\n", "initial");

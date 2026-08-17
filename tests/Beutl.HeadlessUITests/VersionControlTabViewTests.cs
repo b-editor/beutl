@@ -987,8 +987,10 @@ public class VersionControlTabViewTests
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
+        // The states waited on here are reached behind real git subprocesses, which take longer
+        // than five seconds under the load of a full-suite run even though they are not stuck.
         var timeout = Stopwatch.StartNew();
-        while (!condition() && timeout.Elapsed < TimeSpan.FromSeconds(5))
+        while (!condition() && timeout.Elapsed < TimeSpan.FromSeconds(30))
         {
             HeadlessTestHelpers.Settle();
             await Task.Delay(25);

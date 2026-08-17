@@ -146,7 +146,10 @@ internal static class RepositoryPathComparer
         string component,
         string candidate)
     {
-        if (!OperatingSystem.IsMacOS() || !Path.Exists(candidate))
+        // Every case-insensitive platform, not just macOS: canonical paths are compared ordinally,
+        // so a component left in the caller's casing makes two spellings of one Windows directory
+        // compare as different repositories.
+        if (!FileSystemPathComparison.IsCaseInsensitive || !Path.Exists(candidate))
         {
             return candidate;
         }

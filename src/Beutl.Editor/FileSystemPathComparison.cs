@@ -7,7 +7,7 @@ public static class FileSystemPathComparison
     // whether two spellings name the same directory must match it or it contradicts
     // Path.GetRelativePath. Note it is a per-platform default, not a per-volume fact: a
     // case-sensitive APFS volume compares case-insensitively here, exactly as System.IO does.
-    private static bool IsCaseInsensitive
+    public static bool IsCaseInsensitive
         => OperatingSystem.IsWindows()
            || OperatingSystem.IsMacOS()
            || OperatingSystem.IsMacCatalyst()
