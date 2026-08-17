@@ -167,11 +167,29 @@ public class BeutlApiApplication : IAsyncDisposable
     {
         lock (_disposeGate)
         {
-            // Publish the shared disposal task before cancellation fires, so a cancellation
-            // callback that re-enters DisposeAsync observes the original teardown instead of
-            // starting a second disposal pipeline over the same resource snapshot.
-            _disposeTask ??= DisposeCoreAsync();
+            // Publish a completion proxy before cancellation fires: DisposeCoreAsync runs
+            // synchronously through _lifetimeCts.Cancel(), and a re-entrant callback must
+            // observe the original teardown instead of starting a second pipeline.
+            if (_disposeTask == null)
+            {
+                TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = proxy.Task;
+                _ = RunDisposeCoreAsync(proxy);
+            }
             return new ValueTask(_disposeTask);
+        }
+    }
+
+    private async Task RunDisposeCoreAsync(TaskCompletionSource proxy)
+    {
+        try
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+            proxy.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
         }
     }
 
