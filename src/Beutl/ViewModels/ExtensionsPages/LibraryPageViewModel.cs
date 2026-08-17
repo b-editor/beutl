@@ -94,8 +94,11 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                         }
 
                         PackageManager manager = _clients.GetResource<PackageManager>();
-                        foreach (PackageUpdate item in await manager.CheckUpdate(_lifetimeCts.Token))
+                        IReadOnlyList<PackageUpdate> updates = await manager.CheckUpdate(_lifetimeCts.Token);
+                        _lifetimeCts.Token.ThrowIfCancellationRequested();
+                        foreach (PackageUpdate item in updates)
                         {
+                            _lifetimeCts.Token.ThrowIfCancellationRequested();
                             LocalUserPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
                                 x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
 
