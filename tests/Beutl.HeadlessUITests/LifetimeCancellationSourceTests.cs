@@ -1,4 +1,5 @@
-﻿using Beutl.Api;
+﻿using Avalonia.Headless.NUnit;
+using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Services;
 using Beutl.Services.StartupTasks;
@@ -46,6 +47,28 @@ public sealed class LifetimeCancellationSourceTests
         // ObjectDisposedException; the task must treat that as a normal shutdown and
         // complete without error telemetry or a timeout notification.
         var task = new CheckForUpdatesTask(app);
+
+        await task.Task.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [AvaloniaTest]
+    public async Task CheckForPackageUpdatesTask_ShutdownCancellation_IsNotReportedAsAnError()
+    {
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var editorService = new EditorService(new ExtensionProvider());
+        var projectService = new ProjectService();
+
+        // Startup must be constructed before disposal: its constructor registers all
+        // startup tasks, which lazily resolve their resources through the app.
+        var startup = new Startup(app, projectService, editorService);
+        var packageManager = app.GetResource<PackageManager>();
+        await app.DisposeAsync();
+
+        // CheckUpdate links the application lifetime, so after disposal it throws
+        // ObjectDisposedException; the task must treat that as a normal shutdown and
+        // complete without error telemetry or a notification.
+        var task = new CheckForPackageUpdatesTask(startup, packageManager, app);
 
         await task.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
