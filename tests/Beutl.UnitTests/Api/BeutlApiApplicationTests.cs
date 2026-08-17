@@ -301,7 +301,49 @@ public sealed class BeutlApiApplicationTests
         finally
         {
             File.Delete(userFile);
-         }
+        }
+    }
+
+    [Test]
+    public async Task CompleteSignInAsync_Rethrows_WhenCancelledAfterProfileResponse()
+    {
+        var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        BeutlApiApplication? appRef = null;
+        using var handler = new DelegateHandler((request, cancellationToken) =>
+        {
+            requestCompleted.TrySetResult();
+            // Dispose while the profile response is being processed, so the lifetime token
+            // is cancelled before CompleteSignInAsync publishes the signed-in state.
+            appRef?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new ProfileResponse
+                {
+                    Id = "new-profile",
+                    Name = "new-name",
+                    DisplayName = "New Name",
+                    Bio = null,
+                    IconId = null,
+                    IconUrl = null,
+                })
+            });
+        });
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        appRef = app;
+        var authResponse = new AuthResponse
+        {
+            Token = "new-token",
+            RefreshToken = "new-refresh",
+            Expiration = DateTime.UtcNow.AddHours(1)
+        };
+
+        using CancellationTokenSource lifetimeCts = app.CreateLifetimeLinkedTokenSource(CancellationToken.None);
+        Task<AuthenticatedUser> signIn = app.CompleteSignInAsync(authResponse, lifetimeCts.Token);
+        await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await signIn.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
     [Test]
@@ -380,7 +422,7 @@ public sealed class BeutlApiApplicationTests
     }
 
     private sealed class CapturingHandler : HttpMessageHandler
-     {
+    {
         public Uri? LastRequestUri { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(
@@ -400,6 +442,58 @@ public sealed class BeutlApiApplicationTests
         }
     }
 
+    [Test]
+    public async Task RemovePackage_Rethrows_WhenCancelledAfterDelete()
+    {
+        var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        BeutlApiApplication? appRef = null;
+        using var handler = new DelegateHandler((request, cancellationToken) =>
+        {
+            requestCompleted.TrySetResult();
+            // Dispose while the delete response is being processed, so the lifetime token
+            // is cancelled before RemovePackage returns.
+            appRef?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{}")
+            });
+        });
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        appRef = app;
+        var library = app.GetResource<LibraryService>();
+        var owner = new Profile(CreateProfileResponse(), app);
+        var package = new Package(owner, CreatePackageResponse(), app);
+
+        Task remove = library.RemovePackage(package, CancellationToken.None);
+        await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await remove.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [Test]
+    public async Task DisposeAsync_ReentrantCallback_ObservesTheOriginalTeardown()
+    {
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        _ = app.GetResource<PackageManager>();
+
+        int reentrantDisposeCount = 0;
+        using CancellationTokenSource linked = app.CreateLifetimeLinkedTokenSource(CancellationToken.None);
+        using var registration = linked.Token.Register(() =>
+        {
+            // A cancellation callback that re-enters DisposeAsync must observe the
+            // original disposal task instead of starting a second pipeline.
+            Interlocked.Increment(ref reentrantDisposeCount);
+            app.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        });
+
+        await app.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(reentrantDisposeCount, Is.EqualTo(1));
+    }
+
     private sealed class DelegateHandler(
         Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
         : HttpMessageHandler
@@ -407,5 +501,40 @@ public sealed class BeutlApiApplicationTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
             => handler(request, cancellationToken);
+    }
+
+    private static ProfileResponse CreateProfileResponse()
+    {
+        return new ProfileResponse
+        {
+            Id = "profile-id",
+            Name = "profile-name",
+            DisplayName = "Profile Name",
+            Bio = null,
+            IconId = null,
+            IconUrl = null,
+        };
+    }
+
+    private static PackageResponse CreatePackageResponse()
+    {
+        return new PackageResponse
+        {
+            Id = "package-id",
+            Owner = CreateProfileResponse(),
+            Name = "package-name",
+            DisplayName = "Package Name",
+            Description = "Description",
+            ShortDescription = "Short description",
+            WebSite = null,
+            Tags = [],
+            LogoId = null,
+            LogoUrl = null,
+            Screenshots = [],
+            Currency = null,
+            Price = null,
+            Paid = false,
+            Owned = false,
+        };
     }
 }
