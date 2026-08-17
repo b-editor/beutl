@@ -175,13 +175,21 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             // The transaction's activation callback is queued on the UI dispatcher; pump
             // jobs while draining so it can complete instead of deadlocking the blocked
             // UI thread.
-            while (!drain.IsCompleted)
+            long deadline = Environment.TickCount64 + 30_000;
+            while (!drain.IsCompleted && Environment.TickCount64 < deadline)
             {
                 Avalonia.Threading.Dispatcher.UIThread.RunJobs();
                 Thread.Sleep(10);
             }
 
-            drain.GetAwaiter().GetResult();
+            if (drain.IsCompleted)
+            {
+                drain.GetAwaiter().GetResult();
+            }
+            else
+            {
+                _logger.LogWarning("Package installer did not drain within the shutdown deadline.");
+            }
         }
         catch (Exception ex)
         {

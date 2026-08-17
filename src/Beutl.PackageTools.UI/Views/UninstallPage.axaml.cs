@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.PackageTools.UI.ViewModels;
 
@@ -97,8 +98,13 @@ public partial class UninstallPage : PackageToolPage
                         operationToken => Task.Run(() => viewModel.Run(operationToken)),
                         () =>
                         {
-                            object? nextViewModel = main.Next(viewModel, token);
-                            frame.NavigateFromObject(nextViewModel);
+                            // Navigation must run on the UI thread; the completion callback
+                            // may be invoked from a thread-pool thread after Task.Run.
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                object? nextViewModel = main.Next(viewModel, token);
+                                frame.NavigateFromObject(nextViewModel);
+                            });
                         },
                         token);
                 }

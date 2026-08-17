@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 
+using Beutl.Logging;
 using Beutl.PackageTools.UI.ViewModels;
 
 using FluentAvalonia.UI.Controls;
@@ -33,6 +34,10 @@ public partial class MainWindow : Window
             try
             {
                 await viewmodel.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.CreateLogger<MainWindow>().LogWarning(ex, "Failed to dispose the main view model during shutdown.");
             }
             finally
             {
