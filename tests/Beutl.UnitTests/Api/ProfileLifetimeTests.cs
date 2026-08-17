@@ -4,6 +4,7 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Testing.Headless;
 
 namespace Beutl.UnitTests.Api;
 
@@ -104,6 +105,54 @@ public sealed class ProfileLifetimeTests
 
         Assert.CatchAsync<OperationCanceledException>(async () =>
             await getPackages.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [Test]
+    public async Task AuthenticatedUserRefresh_Rethrows_WhenCancelledAfterFileRead()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+        string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
+        File.WriteAllText(userFile, """
+            {
+              "token": "stale-token",
+              "refresh_token": "stale-refresh",
+              "expiration": "2027-01-01T00:00:00Z",
+              "profile": {
+                "id": "profile-id",
+                "name": "profile-name",
+                "displayName": "Profile Name",
+                "bio": null,
+                "iconId": null,
+                "iconUrl": null
+              }
+            }
+            """);
+        try
+        {
+            using var httpClient = new HttpClient();
+            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            var profile = new Profile(CreateProfileResponse(), app);
+            var authResponse = new AuthResponse
+            {
+                Token = "stale-token",
+                RefreshToken = "stale-refresh",
+                Expiration = DateTime.UtcNow.AddDays(1)
+            };
+            var user = new AuthenticatedUser(profile, authResponse, app, httpClient, DateTime.UtcNow.AddDays(-1));
+
+            // A stale write-time forces the persisted-file branch; cancel before the
+            // continuation resumes so the recheck throws instead of mutating state.
+            using var cancellation = new CancellationTokenSource();
+            Task refresh = user.RefreshAsync(cancellation.Token).AsTask();
+            cancellation.Cancel();
+
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await refresh.WaitAsync(TimeSpan.FromSeconds(5)));
+        }
+        finally
+        {
+            File.Delete(userFile);
+        }
     }
 
     private static ProfileResponse CreateProfileResponse()

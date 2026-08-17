@@ -42,6 +42,7 @@ public class AuthenticatedUser(
             if (_writeTime < lastWriteTime)
             {
                 AuthenticatedUser? fileUser = await clients.ReadUserAsync(token);
+                token.ThrowIfCancellationRequested();
                 if (fileUser?.Profile?.Id == Profile.Id)
                 {
                     _response = fileUser._response;
