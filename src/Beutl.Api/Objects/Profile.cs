@@ -69,10 +69,14 @@ public class Profile
         activity?.SetTag("count", count);
 
         // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
-        return await (await _clients.Users.GetUserPackages(Name, token, start, count))
+        SimplePackageResponse[] packages = await _clients.Users.GetUserPackages(Name, token, start, count);
+        token.ThrowIfCancellationRequested();
+        Package[] result = await packages
             .ToObservable()
             .SelectMany(async x => await _clients.Packages.GetPackage(x.Name, token))
             .Select(x => new Package(this, x, _clients))
             .ToArray();
+        token.ThrowIfCancellationRequested();
+        return result;
     }
 }

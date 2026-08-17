@@ -78,6 +78,34 @@ public sealed class ProfileLifetimeTests
             await refresh.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
+    [Test]
+    public async Task GetPackagesAsync_Rethrows_WhenCancelledAfterEmptyResponse()
+    {
+        var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        BeutlApiApplication? appRef = null;
+        using var handler = new DelegateHandler((request, cancellationToken) =>
+        {
+            requestCompleted.TrySetResult();
+            // Dispose the application while the empty response is being processed, so the
+            // lifetime token is cancelled before GetPackagesAsync returns its final array.
+            appRef?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]")
+            });
+        });
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        appRef = app;
+        var profile = new Profile(CreateProfileResponse(), app);
+
+        Task<Package[]> getPackages = profile.GetPackagesAsync(CancellationToken.None);
+        await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await getPackages.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
     private static ProfileResponse CreateProfileResponse()
     {
         return new ProfileResponse
