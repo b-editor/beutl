@@ -63,6 +63,7 @@ public sealed class MixerNode : AudioNode
     {
         EnsureConnectedInput(input);
         _branchTailBudgets.Remove(input);
+        _unknownDrainAttempts.Remove(input);
         return _branchEndTimes.Remove(input);
     }
 

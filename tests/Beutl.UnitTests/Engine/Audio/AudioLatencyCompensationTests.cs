@@ -871,6 +871,29 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_ClearBranchEndTime_RearmsUnknownDrainState()
+    {
+        const int processSamples = 4096;
+        const int drainSamples = 256;
+        var branchEnd = ExactDuration(processSamples, SampleRate);
+
+        using var branch = new RecordingLatencyNode(int.MaxValue);
+        using var mixer = new MixerNode();
+        mixer.AddInput(branch);
+        mixer.SetBranchEndTime(branch, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+        using var drain = mixer.Process(ExactContext(branchEnd, drainSamples, SampleRate));
+        Assert.That(mixer.ClearBranchEndTime(branch), Is.True);
+
+        using var live = mixer.Process(
+            ExactContext(branchEnd + ExactDuration(drainSamples, SampleRate), drainSamples, SampleRate));
+
+        Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(int.MaxValue),
+            "Clearing a branch end must make an unknown-latency branch visible to enclosing drain reports again.");
+    }
+
+    [Test]
     public void MixerNode_RemoveInput_KeepsBranchEndTimeAligned()
     {
         const float lookaheadMs = 5f;
@@ -1567,6 +1590,48 @@ public class AudioLatencyCompensationTests
 
         Assert.That(HasNonZero(second!.GetChannelData(0)), Is.True,
             "The downstream limiter tail must remain eligible for the following window.");
+    }
+
+    [Test]
+    public void Composer_SubtractsTerminalPaddingFromDownstreamLatency()
+    {
+        const int clipSamples = SampleRate;
+        const int tailSamples = 240;
+        const int paddingSamples = 120;
+        var clipDuration = ExactDuration(clipSamples, SampleRate);
+        var firstDuration = ExactDuration(clipSamples + paddingSamples, SampleRate);
+        var drainDuration = ExactDuration(tailSamples, SampleRate);
+
+        var sound = new LimiterAfterClipTailSound
+        {
+            LookaheadMs = 5f,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, firstDuration);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(tailSamples - paddingSamples),
+            "Trailing clip padding already consumed part of the downstream limiter latency.");
+
+        var secondRange = new TimeRange(firstRange.End, drainDuration);
+        var secondFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, secondFrame);
+
+        Assert.That(HasNonZero(second!.GetChannelData(0)[..(tailSamples - paddingSamples)]), Is.True,
+            "Only the downstream limiter tail that remains after terminal padding should be flushed.");
     }
 
     [Test]

@@ -408,7 +408,8 @@ public class Composer : IComposer
             bool inlineDrainAttempted = TryGetInlineDrain(
                 outputNode,
                 SampleRate,
-                out int inlineDrain);
+                out int inlineDrain,
+                outputLatency);
             if (!inlineDrainAttempted)
                 continue;
 
@@ -428,9 +429,10 @@ public class Composer : IComposer
     private static bool TryGetInlineDrain(
         AudioNode outputNode,
         int sampleRate,
-        out int inlineDrain)
+        out int inlineDrain,
+        int outputLatency = 0)
     {
-        var branches = new List<(int LatencySamples, int DrainedSamples)>();
+        var branches = new List<(int LatencySamples, int DrainedSamples, int PaddingSamples)>();
         CollectInlineDrainBranches(
             outputNode,
             sampleRate,
@@ -442,12 +444,16 @@ public class Composer : IComposer
             return false;
         }
 
-        int maximumLatency = 0;
+        int maximumLatency = branches.Max(branch => branch.LatencySamples);
+        int downstreamLatency = outputLatency == int.MaxValue
+            ? 0
+            : Math.Max(0, outputLatency - maximumLatency);
         int remainingLatency = 0;
-        foreach ((int latency, int drained) in branches)
+        foreach ((int latency, int drained, int padding) in branches)
         {
-            maximumLatency = Math.Max(maximumLatency, latency);
-            int remaining = SubtractTail(latency, drained);
+            int upstreamRemaining = SubtractTail(latency, drained);
+            int downstreamRemaining = Math.Max(0, downstreamLatency - padding);
+            long remaining = (long)upstreamRemaining + downstreamRemaining;
             if (remaining == int.MaxValue)
             {
                 remainingLatency = int.MaxValue;
@@ -455,19 +461,19 @@ public class Composer : IComposer
                 break;
             }
 
-            remainingLatency = Math.Max(remainingLatency, remaining);
+            remainingLatency = Math.Max(remainingLatency, (int)remaining);
         }
 
         inlineDrain = remainingLatency == int.MaxValue
             ? 0
-            : Math.Max(0, maximumLatency - remainingLatency);
+            : Math.Max(0, outputLatency - remainingLatency);
         return true;
     }
 
     private static void CollectInlineDrainBranches(
         AudioNode node,
         int sampleRate,
-        List<(int LatencySamples, int DrainedSamples)> branches,
+        List<(int LatencySamples, int DrainedSamples, int PaddingSamples)> branches,
         HashSet<AudioNode> visited)
     {
         if (!visited.Add(node))
@@ -482,7 +488,7 @@ public class Composer : IComposer
                     $"{clipNode.GetType().Name} returned negative drain latency {latency}.");
             }
 
-            branches.Add((latency, clipNode.InlineDrainedSamples));
+            branches.Add((latency, clipNode.InlineDrainedSamples, clipNode.InlinePaddingSamples));
             return;
         }
 

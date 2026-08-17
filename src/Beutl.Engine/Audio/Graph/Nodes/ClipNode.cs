@@ -12,6 +12,8 @@ public class ClipNode : AudioNode
 
     internal int InlineDrainedSamples { get; private set; }
 
+    internal int InlinePaddingSamples { get; private set; }
+
     public TimeSpan Start { get; set; } = TimeSpan.Zero;
 
     public TimeSpan Duration { get; set; } = TimeSpan.Zero;
@@ -20,6 +22,7 @@ public class ClipNode : AudioNode
     {
         InlineDrainAttempted = false;
         InlineDrainedSamples = 0;
+        InlinePaddingSamples = 0;
 
         var range = new TimeRange(Start, Duration);
         TimeRange newRange;
@@ -67,6 +70,7 @@ public class ClipNode : AudioNode
             if (newRange.End == range.End)
             {
                 InlineDrainAttempted = true;
+                InlinePaddingSamples = Math.Max(0, newBuffer.SampleCount - (offset + copyCount));
                 AppendFlushedTail(context, newBuffer, offset + copyCount);
             }
 
