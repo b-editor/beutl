@@ -66,6 +66,7 @@ public class ClipNode : AudioNode
             // Drain held latency into the trailing pad while keeping the effect chain contiguous.
             if (newRange.End == range.End)
             {
+                InlineDrainAttempted = true;
                 AppendFlushedTail(context, newBuffer, offset + copyCount);
             }
 
@@ -104,8 +105,6 @@ public class ClipNode : AudioNode
         int capacity = newBuffer.SampleCount - writeOffset;
         if (capacity <= 0)
             return;
-
-        InlineDrainAttempted = true;
 
         int latency = Inputs[0].GetDrainLatencySamples(context.SampleRate);
         int drainCount = Math.Min(latency, capacity);

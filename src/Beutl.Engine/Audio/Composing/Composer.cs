@@ -347,7 +347,12 @@ public class Composer : IComposer
             int inlineDrain = outputNode is ClipNode clipNode
                 ? clipNode.InlineDrainedSamples
                 : 0;
-            SetTailBudget(entry, outputNode, outputLatency, inlineDrain, allowUnknownFollowUp: inlineDrain > 0);
+            SetTailBudget(
+                entry,
+                outputNode,
+                outputLatency,
+                inlineDrain,
+                allowUnknownFollowUp: outputNode is ClipNode { InlineDrainAttempted: true });
         }
     }
 

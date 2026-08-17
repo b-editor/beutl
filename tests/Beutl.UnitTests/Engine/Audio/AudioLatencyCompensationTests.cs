@@ -586,6 +586,33 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_Process_AtExactTailBoundary_SkipsZeroLatencyStatefulBranch()
+    {
+        const int sampleCount = 256;
+        var branchEnd = ExactDuration(sampleCount, SampleRate);
+
+        using var sourceBuffer = CreateConstantBuffer(1f, sampleCount);
+        using var delay = new DelayNode
+        {
+            DelayTime = Property.Create(0f),
+            Feedback = Property.Create(100f),
+            DryMix = Property.Create(0f),
+            WetMix = Property.Create(100f),
+        };
+        delay.AddInput(new BufferReplayNode(sourceBuffer));
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(delay);
+        mixer.SetBranchEndTime(delay, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, sampleCount, SampleRate));
+        using var tail = mixer.Process(ExactContext(branchEnd, sampleCount, SampleRate));
+
+        Assert.That(tail.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
+            "At branchEnd + reported latency, the mixer must not flush a zero-latency stateful branch.");
+    }
+
+    [Test]
     public void MixerNode_Process_AfterSeek_DoesNotDrainStaleBranchTail()
     {
         const float lookaheadMs = 20f;
@@ -1443,6 +1470,44 @@ public class AudioLatencyCompensationTests
 
         Assert.That(HasNonZero(second!.GetChannelData(0)), Is.False,
             "A zero terminal lookahead must not feed unnecessary zero blocks into a stateful delay effect.");
+    }
+
+    [Test]
+    public void Composer_UsesTerminalAnimatedLimiterLatency_WhenTerminalWindowHasNoInlineCapacity()
+    {
+        const int sampleRate = SampleRate;
+        var clipDuration = ExactDuration(sampleRate, sampleRate);
+        var drainDuration = ExactDuration(240, sampleRate);
+
+        var sound = new AnimatedLimiterDelayTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(0),
+            "A terminal block with no trailing capacity must still seed the actual terminal drain latency.");
+
+        var secondRange = new TimeRange(clipDuration, drainDuration);
+        var secondFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, secondFrame);
+
+        Assert.That(HasNonZero(second!.GetChannelData(0)), Is.False,
+            "A zero terminal lookahead must not flush a stateful nested delay after an exact-boundary clip.");
     }
 
     [Test]
