@@ -95,13 +95,41 @@ public sealed class SceneCompositor : ICompositor
             allResources.AddRange(flow.Span);
         }
 
-        return new CompositionFrame([.. allResources], new(time, TimeSpan.FromTicks(1)), Scene.FrameSize);
+        return new CompositionFrame(
+            [.. allResources],
+            new(time, TimeSpan.FromTicks(1)),
+            Scene.FrameSize,
+            null);
     }
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)
     {
+        using var eligibleElements = new PooledList<Element>();
+        LayerSnapshot snapshot = GetLayerSnapshot();
+        foreach (Element item in Scene.Children)
+        {
+            if (!item.IsEnabled) continue;
+            if (ShouldSkipLayer(item.ZIndex, CompositionTarget.Audio, snapshot.HasSolo, snapshot.ByZIndex)) continue;
+            eligibleElements.OrderedAdd(item, x => x.ZIndex);
+        }
+
         using var currentElements = new PooledList<Element>();
         SortLayers(timeRange, currentElements, CompositionTarget.Audio);
+
+        var activeElementSet = new HashSet<Element>(ReferenceEqualityComparer.Instance);
+        foreach (Element element in currentElements)
+        {
+            activeElementSet.Add(element);
+        }
+
+        using var eligibleObjects = new PooledList<EngineObject>();
+        foreach (Element element in eligibleElements)
+        {
+            if (!activeElementSet.Contains(element))
+            {
+                element.CollectObjects(CompositionTarget.Audio, eligibleObjects);
+            }
+        }
 
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
@@ -116,9 +144,17 @@ public sealed class SceneCompositor : ICompositor
             CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
 
             allResources.AddRange(flow.Span);
+            foreach (EngineObject.Resource resource in flow.Span)
+            {
+                eligibleObjects.Add(resource.GetOriginal());
+            }
         }
 
-        return new CompositionFrame([.. allResources], timeRange, Scene.FrameSize);
+        return new CompositionFrame(
+            [.. allResources],
+            timeRange,
+            Scene.FrameSize,
+            new CompositionEligibility(eligibleObjects));
     }
 
     private void CollectResourcesFromElement(

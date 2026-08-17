@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Animation.Easings;
 
-public sealed class SineEaseInOut : Easing
+public sealed class SineEaseInOut : UnitRangeEasing
 {
     public override float Ease(float progress)
     {

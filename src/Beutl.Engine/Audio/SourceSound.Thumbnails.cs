@@ -113,7 +113,11 @@ public sealed partial class SourceSound : IThumbnailsProvider
         var cacheThreshold = TimeSpan.FromSeconds(chunkDurationSecs * 0.5);
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var frame = new CompositionFrame([resource], TimeRange, default);
+        var frame = new CompositionFrame(
+            [resource],
+            TimeRange,
+            default,
+            new CompositionEligibility([resource.GetOriginal()]));
 
         for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
         {

@@ -4,31 +4,410 @@ public abstract class AudioNode : IDisposable
 {
     private readonly List<AudioNode> _inputs = new();
     private bool _disposed;
+    private bool _inputClearTransaction;
+    private bool _inputTopologyCommitCallback;
 
     public IReadOnlyList<AudioNode> Inputs => _inputs;
 
     public void AddInput(AudioNode input)
     {
+        ThrowIfInputTopologyCommitCallback();
         ArgumentNullException.ThrowIfNull(input);
 
-        if (_inputs.Contains(input))
+        if (IndexOfInput(input) >= 0)
             return;
 
+        AudioNode[] previousInputs = [.. _inputs];
+        int index = _inputs.Count;
         _inputs.Add(input);
+        try
+        {
+            OnInputAdded(input, index);
+        }
+        catch
+        {
+            _inputs.Clear();
+            _inputs.AddRange(previousInputs);
+            throw;
+        }
+    }
+
+    internal void RestoreInput(AudioNode input, int index)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        if (IndexOfInput(input) >= 0)
+            return;
+        if ((uint)index > (uint)_inputs.Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
+
+        _inputs.Insert(index, input);
+        try
+        {
+            OnInputAdded(input, index);
+        }
+        catch
+        {
+            _inputs.RemoveAt(index);
+            throw;
+        }
+    }
+
+    internal void RestoreInputOrder(AudioNode input, int index)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        int currentIndex = IndexOfInput(input);
+        if (currentIndex < 0)
+            throw new ArgumentException("The input is not connected to this node.", nameof(input));
+        if ((uint)index >= (uint)_inputs.Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
+        if (currentIndex == index)
+            return;
+
+        _inputs.RemoveAt(currentIndex);
+        _inputs.Insert(index, input);
+    }
+
+    internal object? CaptureInputStateForRollback(AudioNode input, int index)
+        => CaptureInputState(input, index);
+
+    internal void RestoreInputStateForRollback(AudioNode input, int index, object? state)
+        => RestoreInputState(input, index, state);
+
+    protected bool IsInputTopologyTransaction => _inputClearTransaction;
+
+    internal void BeginInputTopologyTransaction()
+    {
+        _inputClearTransaction = true;
+    }
+
+    internal void BeginInputTopologyCommit()
+    {
+        if (_inputClearTransaction)
+            BeginInputTopologyCommitGuard();
+    }
+
+    internal void BeginInputTopologyCommitGuard()
+    {
+        _inputTopologyCommitCallback = true;
+    }
+
+    internal Exception? CompleteInputTopologyCommit()
+    {
+        if (!_inputClearTransaction)
+            return null;
+
+        try
+        {
+            _inputTopologyCommitCallback = true;
+            OnInputClearTransactionCommitted();
+            return null;
+        }
+        catch (Exception exception)
+        {
+            // The topology is already validated at this point. Keep the transaction committed and
+            // report the hook failure after all nodes have completed their lifecycle notification.
+            return exception;
+        }
+    }
+
+    internal void EndInputTopologyCommit()
+    {
+        EndInputTopologyCommitGuard();
+        _inputClearTransaction = false;
+    }
+
+    internal void EndInputTopologyCommitGuard()
+    {
+        _inputTopologyCommitCallback = false;
+    }
+
+    internal void RollbackInputTopologyTransaction()
+    {
+        if (!_inputClearTransaction)
+            return;
+
+        try
+        {
+            OnInputClearTransactionRolledBack();
+        }
+        finally
+        {
+            _inputTopologyCommitCallback = false;
+            _inputClearTransaction = false;
+        }
     }
 
     public void RemoveInput(AudioNode input)
     {
+        ThrowIfInputTopologyCommitCallback();
         ArgumentNullException.ThrowIfNull(input);
-        _inputs.Remove(input);
+
+        int index = IndexOfInput(input);
+        if (index < 0)
+            return;
+
+        AudioNode[] previousInputs = [.. _inputs];
+        _inputs.RemoveAt(index);
+        try
+        {
+            OnInputRemoved(input, index);
+        }
+        catch
+        {
+            _inputs.Clear();
+            _inputs.AddRange(previousInputs);
+            throw;
+        }
     }
 
     public void ClearInputs()
     {
+        ThrowIfInputTopologyCommitCallback();
+        AudioNode[] previousInputs = [.. _inputs];
         _inputs.Clear();
+        try
+        {
+            OnInputsCleared();
+        }
+        catch
+        {
+            _inputs.Clear();
+            _inputs.AddRange(previousInputs);
+            throw;
+        }
+    }
+
+    /// <summary>Called after an input is appended, allowing derived nodes to keep connection metadata
+    /// aligned with <see cref="Inputs"/>. If this hook throws, the input list is restored to its
+    /// pre-call state. An override that mutates its own state must provide the same strong exception
+    /// guarantee by undoing those mutations before it propagates an exception.</summary>
+    protected virtual void OnInputAdded(AudioNode input, int index)
+    {
+    }
+
+    /// <summary>Captures metadata associated with an input before a graph transaction removes it.</summary>
+    /// <remarks>
+    /// The returned state is supplied to <see cref="RestoreInputState"/> if the enclosing graph
+    /// transaction rolls back. Overrides should return <see langword="null"/> when no metadata needs
+    /// restoration.
+    /// </remarks>
+    protected virtual object? CaptureInputState(AudioNode input, int index) => null;
+
+    /// <summary>Restores metadata captured by <see cref="CaptureInputState"/> after an input is reinserted.</summary>
+    protected virtual void RestoreInputState(AudioNode input, int index, object? state)
+    {
+    }
+
+    /// <summary>Called after an input is removed, with its former position in
+    /// <see cref="Inputs"/>. If this hook throws, the input list is restored to its pre-call
+    /// state. An override that mutates its own state must provide the same strong exception guarantee
+    /// by undoing those mutations before it propagates an exception.</summary>
+    protected virtual void OnInputRemoved(AudioNode input, int index)
+    {
+    }
+
+    /// <summary>Called whenever <see cref="ClearInputs"/> is invoked, including when there were no
+    /// inputs. This hook is not part of disposal; derived nodes that own disposable connection
+    /// metadata must release it from <see cref="Dispose(bool)"/>. If this hook throws, the input list
+    /// is restored to its pre-call state. An override that mutates its own state must provide the same
+    /// strong exception guarantee by undoing those mutations before it propagates an exception.</summary>
+    protected virtual void OnInputsCleared()
+    {
+    }
+
+    /// <summary>Called after an AudioContext input-topology transaction commits.</summary>
+    protected virtual void OnInputClearTransactionCommitted()
+    {
+    }
+
+    /// <summary>Called after an AudioContext input-topology transaction rolls back.</summary>
+    protected virtual void OnInputClearTransactionRolledBack()
+    {
+    }
+
+    private int IndexOfInput(AudioNode input)
+    {
+        for (int i = 0; i < _inputs.Count; i++)
+        {
+            if (ReferenceEquals(_inputs[i], input))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private void ThrowIfInputTopologyCommitCallback()
+    {
+        if (_inputTopologyCommitCallback)
+        {
+            throw new InvalidOperationException(
+                "Audio input topology cannot be mutated from an input-topology commit callback.");
+        }
     }
 
     public abstract AudioBuffer Process(AudioProcessContext context);
+
+    /// <summary>
+    /// Applies this node's own processing to an already-produced <paramref name="input"/> buffer
+    /// instead of pulling <see cref="Inputs"/>[0] itself. <see cref="Process"/> feeds it real upstream
+    /// audio (<paramref name="draining"/> is <see langword="false"/>); <see cref="Flush"/> feeds it the
+    /// drained tail (<paramref name="draining"/> is <see langword="true"/>), so a transforming node
+    /// processes the tail the same way it processes the body. A node whose output geometry is driven by
+    /// an animated parameter (a lookahead delay) must, while draining, hold that parameter at the value
+    /// retained from the clip's terminal sample rather than re-sampling automation over the post-clip
+    /// range — otherwise it reads the wrong tail. The default is pass-through (returns
+    /// <paramref name="input"/> unchanged), keeping the zero-processing path byte-identical.
+    /// Ownership of <paramref name="input"/> transfers to this method on entry. An override that returns
+    /// a fresh buffer must dispose <paramref name="input"/> before returning, and an override that throws
+    /// must dispose it before propagating the exception. Returning <paramref name="input"/> transfers
+    /// that same buffer to the caller.
+    /// </summary>
+    protected virtual AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining) => input;
+
+    /// <summary>Channel layout this node's last <see cref="Process"/> emitted; the silent-flush
+    /// fallback matches it so a flush never changes the channel count a downstream node just saw.</summary>
+    protected int LastProcessedChannelCount { get; private set; } = 2;
+
+    /// <summary>Records the channel count emitted by <see cref="Process"/> so
+    /// <see cref="CreateSilentFlush"/> can produce matching silence. Zero-input custom nodes must call
+    /// this method when they emit a non-stereo layout.</summary>
+    protected void RecordProcessedChannelCount(int channelCount) => LastProcessedChannelCount = channelCount;
+
+    /// <summary>Records and returns a successfully emitted buffer for transforming nodes.</summary>
+    protected AudioBuffer RecordProcessedOutput(AudioBuffer output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        RecordProcessedChannelCount(output.ChannelCount);
+        return output;
+    }
+
+    /// <summary>The silence a node with no live source emits when flushed; sized to the last processed
+    /// channel layout. Override for a node whose flush silence needs a different shape.</summary>
+    protected virtual AudioBuffer CreateSilentFlush(AudioProcessContext context)
+        => new(context.SampleRate, LastProcessedChannelCount, context.GetSampleCount());
+
+    /// <summary>
+    /// Drains the latency this node and its <see cref="Inputs"/> still hold, as the
+    /// <paramref name="context"/>-sized block that follows the clip's last <see cref="Process"/> output.
+    /// The real source is treated as exhausted — a node with no inputs returns silence — so the only
+    /// non-silent content is what delay lines / lookahead buffers release; that is why a trimmed clip
+    /// cannot bleed real audio here. Callers must invoke it immediately after the terminal
+    /// <see cref="Process"/> with a context that abuts it, so the cached node sees no discontinuity.
+    /// A single-input node runs its upstream's drain through its own <see cref="ProcessTail"/>, so
+    /// downstream effects still shape the tail; a fan-in node must override to drain and merge branches.
+    /// </summary>
+    public virtual AudioBuffer Flush(AudioProcessContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (_inputs.Count == 0)
+            return CreateSilentFlush(context);
+
+        if (_inputs.Count == 1)
+        {
+            return ProcessTail(_inputs[0].Flush(context), context, draining: true);
+        }
+
+        throw new InvalidOperationException(
+            $"{GetType().Name} has {_inputs.Count} inputs; override Flush to drain and merge them.");
+    }
+
+    /// <summary>
+    /// Reports the processing latency this node alone introduces at <paramref name="sampleRate"/>, in
+    /// samples (a lookahead/delay-line node returns the samples its output lags its input; pass-through
+    /// nodes return 0). Report-only: it never affects <see cref="Process"/> output. Pass the output
+    /// (post-resample) sample rate, since latency is rate-dependent. Valid results are in the inclusive
+    /// range 0..<see cref="int.MaxValue"/>; <see cref="int.MaxValue"/> denotes an unbounded or saturated
+    /// latency budget.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="sampleRate"/> is not positive.</exception>
+    public virtual int GetLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        return 0;
+    }
+
+    /// <summary>
+    /// Latency accumulated along the path feeding this node's output: this node's own latency plus the
+    /// largest total latency among its <see cref="Inputs"/>. A single-input cascade therefore sums,
+    /// while a fan-in node (a mixer) takes the slowest branch — the alignment a compensator would use.
+    /// Override to impose a different upstream fold (e.g. a weighted-sum mixer). Requires an acyclic
+    /// input graph, the same precondition <see cref="Process"/> already relies on.
+    /// <see cref="int.MaxValue"/> denotes an unbounded or saturated budget and is propagated without
+    /// overflow.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="sampleRate"/> is not positive.</exception>
+    public virtual int GetTotalLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int upstream = 0;
+        foreach (AudioNode input in _inputs)
+        {
+            int inputTotal = input.GetTotalLatencySamples(sampleRate);
+            if (inputTotal < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative total latency {inputTotal}.");
+            }
+
+            if (inputTotal > upstream)
+                upstream = inputTotal;
+        }
+
+        int ownLatency = GetLatencySamples(sampleRate);
+        if (ownLatency < 0)
+        {
+            throw new InvalidOperationException(
+                $"{GetType().Name} returned negative latency {ownLatency}.");
+        }
+
+        if (upstream == int.MaxValue || ownLatency == int.MaxValue)
+            return int.MaxValue;
+
+        long total = (long)ownLatency + upstream;
+        return total >= int.MaxValue ? int.MaxValue : (int)total;
+    }
+
+    /// <summary>
+    /// Reports the latency still held by this node immediately after its terminal process call.
+    /// Unlike <see cref="GetTotalLatencySamples"/>, an implementation may use values latched from
+    /// the terminal sample of an animation instead of a conservative whole-animation reservation.
+    /// Derived nodes in other assemblies can override this hook for referenced or plugin-owned graphs.
+    /// </summary>
+    public virtual int GetDrainLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int upstream = 0;
+        foreach (AudioNode input in _inputs)
+        {
+            int inputTotal = input.GetDrainLatencySamples(sampleRate);
+            if (inputTotal < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative drain latency {inputTotal}.");
+            }
+
+            if (inputTotal > upstream)
+                upstream = inputTotal;
+        }
+
+        int ownLatency = GetLatencySamples(sampleRate);
+        if (ownLatency < 0)
+        {
+            throw new InvalidOperationException(
+                $"{GetType().Name} returned negative latency {ownLatency}.");
+        }
+
+        if (upstream == int.MaxValue || ownLatency == int.MaxValue)
+            return int.MaxValue;
+
+        long total = (long)ownLatency + upstream;
+        return total >= int.MaxValue ? int.MaxValue : (int)total;
+    }
 
     protected virtual void Dispose(bool disposing)
     {
@@ -45,6 +424,7 @@ public abstract class AudioNode : IDisposable
 
     public void Dispose()
     {
+        ThrowIfInputTopologyCommitCallback();
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
