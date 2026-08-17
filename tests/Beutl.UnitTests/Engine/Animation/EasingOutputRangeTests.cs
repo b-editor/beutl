@@ -67,6 +67,21 @@ public class EasingOutputRangeTests
         Assert.That(easing.TryGetOutputRange(out _, out _), Is.False);
     }
 
+    [Test]
+    public void BackEaseRanges_ContainFloatingPointEndpoints()
+    {
+        var easeIn = new BackEaseIn();
+        var easeOut = new BackEaseOut();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(easeIn.TryGetOutputRange(out _, out float easeInMaximum), Is.True);
+            Assert.That(easeIn.Ease(1f), Is.LessThanOrEqualTo(easeInMaximum));
+            Assert.That(easeOut.TryGetOutputRange(out float easeOutMinimum, out _), Is.True);
+            Assert.That(easeOut.Ease(0f), Is.GreaterThanOrEqualTo(easeOutMinimum));
+        });
+    }
+
     private sealed class UnknownRangeEasing : Easing
     {
         public override float Ease(float progress) => progress;

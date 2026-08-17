@@ -4,7 +4,7 @@ public sealed class BackEaseOut : Easing
 {
     public override bool TryGetOutputRange(out float minimum, out float maximum)
     {
-        minimum = 0;
+        minimum = -0.000001f;
         maximum = 1.39f;
         return true;
     }
