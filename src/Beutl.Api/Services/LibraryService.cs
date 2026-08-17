@@ -76,5 +76,6 @@ public class LibraryService(BeutlApiApplication clients) : IBeutlApiResource
         using Activity? activity = clients.ActivitySource.StartActivity("LibraryService.RemovePackage", ActivityKind.Client);
 
         await clients.Library.DeleteLibraryPackage(package.Name, token);
+        token.ThrowIfCancellationRequested();
     }
 }
