@@ -18,6 +18,8 @@ public sealed class AudioContext : IDisposable
     private AudioNode? _currentNode;
     private bool _disposed;
 
+    private sealed record InputSnapshot(AudioNode Node, AudioNode[] Inputs, object?[] States);
+
     /// <summary>
     /// Gets the sample rate for the audio context.
     /// </summary>
@@ -446,15 +448,57 @@ public sealed class AudioContext : IDisposable
     {
         ThrowIfDisposed();
 
-        // Clear connections only
+        var snapshots = new List<InputSnapshot>(_nodes.Count);
+        foreach (AudioNode node in _nodes)
+        {
+            AudioNode[] inputs = [.. node.Inputs];
+            object?[] states = new object?[inputs.Length];
+            for (int i = 0; i < inputs.Length; i++)
+            {
+                states[i] = node.CaptureInputStateForRollback(inputs[i], i);
+            }
+
+            snapshots.Add(new InputSnapshot(node, inputs, states));
+        }
+
+        var cleared = new List<InputSnapshot>(_nodes.Count);
+        try
+        {
+            foreach (InputSnapshot snapshot in snapshots)
+            {
+                snapshot.Node.ClearInputs();
+                cleared.Add(snapshot);
+            }
+        }
+        catch (Exception clearException)
+        {
+            List<Exception>? rollbackFailures = null;
+            for (int i = cleared.Count - 1; i >= 0; i--)
+            {
+                try
+                {
+                    RestoreInputs(cleared[i]);
+                }
+                catch (Exception rollbackException)
+                {
+                    (rollbackFailures ??= []).Add(rollbackException);
+                }
+            }
+
+            if (rollbackFailures is { Count: > 0 })
+            {
+                rollbackFailures.Insert(0, clearException);
+                throw new AggregateException(
+                    "Audio connection clearing failed and rollback encountered one or more errors.",
+                    rollbackFailures);
+            }
+
+            throw;
+        }
+
         foreach (var list in _connections.Values)
         {
             list.Clear();
-        }
-
-        foreach (var node in _nodes)
-        {
-            node.ClearInputs();
         }
 
         _outputNodes.Clear();
@@ -611,6 +655,22 @@ public sealed class AudioContext : IDisposable
         }
 
         return false;
+    }
+
+    private static void RestoreInputs(InputSnapshot snapshot)
+    {
+        for (int i = 0; i < snapshot.Inputs.Length; i++)
+        {
+            AudioNode input = snapshot.Inputs[i];
+            int currentIndex = IndexOfReference(snapshot.Node.Inputs, input);
+            if (currentIndex < 0)
+            {
+                snapshot.Node.RestoreInput(input, i);
+                currentIndex = i;
+            }
+
+            snapshot.Node.RestoreInputStateForRollback(input, currentIndex, snapshot.States[i]);
+        }
     }
 
     private void ThrowIfDisposed()

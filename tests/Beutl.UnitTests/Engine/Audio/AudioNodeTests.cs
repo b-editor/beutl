@@ -120,6 +120,44 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextClearConnections_WhenHookThrows_RestoresGraphForRetry()
+    {
+        using var context = new AudioContext(48000, 2);
+        using var source = new ValueNode();
+        using var first = new ThrowingHookNode();
+        using var failing = new ThrowingHookNode { ThrowOnClear = true };
+        context.Connect(source, first);
+        context.Connect(source, failing);
+        context.MarkAsOutput(first);
+        context.SetCurrent(first);
+
+        Assert.Throws<InvalidOperationException>(() => context.ClearConnections());
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Inputs, Has.Count.EqualTo(1));
+            Assert.That(first.Inputs[0], Is.SameAs(source));
+            Assert.That(failing.Inputs, Has.Count.EqualTo(1));
+            Assert.That(failing.Inputs[0], Is.SameAs(source));
+            Assert.That(context.GetOutputNodes(), Has.Member(first),
+                "Output bookkeeping must remain unchanged when clearing hooks fail.");
+        });
+
+        using var retrySink = new ValueNode();
+        Assert.DoesNotThrow(() => context.ConnectTo(retrySink),
+            "The current node and source connection must remain usable after a failed clear.");
+
+        failing.ThrowOnClear = false;
+        Assert.DoesNotThrow(() => context.ClearConnections());
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Inputs, Is.Empty);
+            Assert.That(failing.Inputs, Is.Empty);
+            Assert.That(retrySink.Inputs, Is.Empty);
+            Assert.That(context.GetOutputNodes(), Is.Empty);
+        });
+    }
+
+    [Test]
     public void RemoveInput_WhenHookThrows_RestoresTopologyAndAllowsRetry()
     {
         using var node = new ThrowingHookNode();
