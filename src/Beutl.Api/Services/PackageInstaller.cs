@@ -115,7 +115,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
-    private async Task DisposeCoreAsync()
+    protected virtual async Task DisposeCoreAsync()
     {
         long deadline = Environment.TickCount64 + 30_000;
         bool drained = false;
@@ -189,6 +189,14 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         return task;
     }
 
+    private void EnsureNotDisposed()
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_drained || _disposed, this);
+        }
+    }
+
     private async Task RunTransactionAsync(Func<Task> operation, TaskCompletionSource proxy)
     {
         PackageInstaller? previous = s_transactionOwner.Value;
@@ -197,6 +205,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         {
             await operation().ConfigureAwait(false);
             proxy.TrySetResult();
+        }
+        catch (OperationCanceledException ex)
+        {
+            proxy.TrySetCanceled(ex.CancellationToken);
         }
         catch (Exception ex)
         {

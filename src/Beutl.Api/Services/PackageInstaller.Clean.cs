@@ -54,6 +54,7 @@ public partial class PackageInstaller
 
     public PackageCleanContext PrepareForClean(IEnumerable<PackageIdentity>? excludedPackages = null, CancellationToken cancellationToken = default)
     {
+        EnsureNotDisposed();
         cancellationToken.ThrowIfCancellationRequested();
         excludedPackages ??= [];
 
@@ -87,6 +88,7 @@ public partial class PackageInstaller
         IProgress<double> progress,
         CancellationToken cancellationToken = default)
     {
+        EnsureNotDisposed();
         cancellationToken.ThrowIfCancellationRequested();
 
         var failedPackages = new List<string>();

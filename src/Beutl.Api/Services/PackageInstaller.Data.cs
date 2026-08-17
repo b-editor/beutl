@@ -15,6 +15,7 @@ public partial class PackageInstaller
     /// </summary>
     public void InstallDataPackage(LocalPackage package)
     {
+        EnsureNotDisposed();
         if (string.IsNullOrEmpty(package.InstalledPath))
         {
             throw new ArgumentException(
@@ -81,6 +82,7 @@ public partial class PackageInstaller
     /// </remarks>
     public bool UninstallDataPackage(string packageName)
     {
+        EnsureNotDisposed();
         string name = ValidatePackageName(packageName);
         bool templates = DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name));
         bool materials = DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name));

@@ -12,6 +12,7 @@ public partial class PackageInstaller
         bool clean = true,
         CancellationToken cancellationToken = default)
     {
+        EnsureNotDisposed();
         cancellationToken.ThrowIfCancellationRequested();
 
         _logger.LogInformation("Preparing for uninstall. Installed path: {InstalledPath}, Clean: {Clean}", installedPath, clean);
@@ -60,6 +61,7 @@ public partial class PackageInstaller
         IProgress<double> progress,
         CancellationToken cancellationToken = default)
     {
+        EnsureNotDisposed();
         cancellationToken.ThrowIfCancellationRequested();
 
         var failedPackages = new List<string>();
