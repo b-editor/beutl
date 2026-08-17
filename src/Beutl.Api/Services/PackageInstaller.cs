@@ -119,19 +119,21 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     {
         long deadline = Environment.TickCount64 + DrainDeadlineMilliseconds;
         bool drained = false;
-        while (Environment.TickCount64 < deadline)
+        while (!drained && Environment.TickCount64 < deadline)
         {
             Task[] operations;
             lock (_gate)
             {
+                _operations.RemoveWhere(task => task.IsCompleted);
+                if (_operations.Count == 0)
+                {
+                    drained = true;
+                }
                 operations = _operations.ToArray();
             }
 
-            if (operations.Length == 0)
-            {
-                drained = true;
+            if (drained)
                 break;
-            }
 
             try
             {
@@ -151,16 +153,63 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             }
         }
 
-        if (!drained)
-        {
-            _logger.LogWarning("Package installer did not drain within the shutdown deadline.");
-        }
-
         lock (_gate)
         {
             _drained = true;
         }
 
+        if (drained)
+        {
+            DisposeResources();
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Package installer did not drain within the shutdown deadline; "
+                + "keeping resources alive until tracked work stops.");
+            _ = DisposeResourcesWhenIdleAsync();
+        }
+    }
+
+    // Waits until every admitted operation has actually stopped before releasing the
+    // installer resources, so a slow download or NuGet phase that outlived the drain
+    // deadline never sees its cache context or HttpClient disposed underneath it.
+    private async Task DisposeResourcesWhenIdleAsync()
+    {
+        try
+        {
+            while (true)
+            {
+                Task[] operations;
+                lock (_gate)
+                {
+                    _operations.RemoveWhere(task => task.IsCompleted);
+                    operations = _operations.ToArray();
+                }
+
+                if (operations.Length == 0)
+                    break;
+
+                try
+                {
+                    await Task.WhenAll(operations).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Awaiting observes operation faults; resource disposal must still run.
+                }
+            }
+
+            DisposeResources();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to dispose package installer resources after tracked work stopped.");
+        }
+    }
+
+    private void DisposeResources()
+    {
         _cacheContext.Dispose();
         if (_ownsHttpClient)
         {

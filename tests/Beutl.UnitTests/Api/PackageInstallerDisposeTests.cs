@@ -405,6 +405,54 @@ public sealed class PackageInstallerDisposeTests
         await Task.WhenAll(operation, dispose).WaitAsync(TimeSpan.FromSeconds(10));
     }
 
+    [Test]
+    public async Task DisposeAsync_KeepsInstallerResourcesAlive_UntilTrackedWorkStops()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var handler = new BlockingHandler();
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new ShortDeadlinePackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        Task operation = installer.DownloadPackageFile(
+            new PackageInstallContext(
+                "Beutl.Package.KeepAlive", "1.0.0", "https://example.com/package.nupkg"),
+            cancellationToken: CancellationToken.None);
+
+        await handler.Entered.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Disposal stops waiting at its deadline, but the installer resources must
+        // not be released while the tracked operation is still running.
+        Task dispose = installer.DisposeAsync().AsTask();
+        await dispose.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.That(handler.Disposed, Is.False,
+            "the installer must keep its HttpClient alive while a tracked operation is still running");
+
+        // Once the tracked work stops, the resource teardown must run to completion.
+        handler.Release();
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await WaitUntilAsync(() => handler.Disposed, TimeSpan.FromSeconds(10));
+        Assert.That(handler.Disposed, Is.True,
+            "the installer must dispose its HttpClient after the tracked operation stopped");
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        long deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
+        while (!condition() && Environment.TickCount64 < deadline)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.That(condition(), Is.True, "condition did not become true within the timeout");
+    }
+
     private sealed class ShortDeadlinePackageInstaller : PackageInstaller
     {
         public ShortDeadlinePackageInstaller(
