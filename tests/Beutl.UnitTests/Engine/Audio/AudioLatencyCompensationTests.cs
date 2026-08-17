@@ -1481,6 +1481,45 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_PreservesLatencyAddedAfterClipInlineDrain()
+    {
+        const int clipSamples = SampleRate;
+        const int tailSamples = 240;
+        var clipDuration = ExactDuration(clipSamples, SampleRate);
+        var drainDuration = ExactDuration(tailSamples, SampleRate);
+
+        var sound = new LimiterAfterClipTailSound
+        {
+            LookaheadMs = 5f,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            new TimeRange(TimeSpan.Zero, clipDuration),
+            default,
+            eligibility);
+        using var first = composer.Compose(firstFrame.Time, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(tailSamples),
+            "Inline drain accounting must retain latency introduced after the descendant clip.");
+
+        var secondRange = new TimeRange(clipDuration, drainDuration);
+        var secondFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, secondFrame);
+
+        Assert.That(HasNonZero(second!.GetChannelData(0)), Is.True,
+            "The downstream limiter tail must remain eligible for the following window.");
+    }
+
+    [Test]
     public void Composer_DrainsEachOutputOnlyWhileItsOwnTailRemains()
     {
         const int shortLatency = 240;
