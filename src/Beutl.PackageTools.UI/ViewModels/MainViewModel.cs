@@ -123,7 +123,9 @@ public class MainViewModel : IAsyncDisposable
 
             if (!Debugger.IsAttached && launchDebugger)
             {
-                AttachDebugger();
+                // The attach loop blocks until a debugger connects; keep it off the UI
+                // thread so the window can still paint and close while waiting.
+                await Task.Run(() => AttachDebugger(), cancellationToken);
             }
 
             await _model.Load(
@@ -268,7 +270,7 @@ public class MainViewModel : IAsyncDisposable
     public ValueTask DisposeAsync()
         => _operationLifetime.DisposeAsync();
 
-    private async ValueTask DisposeOwnedResources()
+    protected virtual async ValueTask DisposeOwnedResources()
     {
         foreach (Process process in _beutlProcesses.Concat(_pkgProcesses))
         {
