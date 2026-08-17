@@ -181,6 +181,12 @@ internal interface IProjectVersionControlTransaction
     /// </summary>
     Task PrefetchBranchLfsObjectsAsync(string name, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The same prefetch for a target commit, so pull and restore do not reach the network from
+    /// their uncancellable checkout either. Best effort, exactly like the branch variant.
+    /// </summary>
+    Task PrefetchCommitLfsObjectsAsync(string sha, CancellationToken cancellationToken);
+
     Task SwitchBranchAsync(string name, CancellationToken cancellationToken);
 
     Task<FastForwardPullResult> PullFastForwardAsync(

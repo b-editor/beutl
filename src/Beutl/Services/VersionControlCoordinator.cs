@@ -1492,6 +1492,13 @@ public sealed class VersionControlCoordinator :
                         CheckedOutBranchTip expectedCurrentHead = originalHead;
                         PendingPullRecovery? pendingRecovery = null;
                         PullTransitionState pullTransitionState = PullTransitionState.Unchanged;
+                        // Same reason as the restore and branch-switch paths: the fast-forward
+                        // checkout runs uncancellable with the project closed, so the objects its
+                        // LFS smudge filter needs are pulled in here, while this is still
+                        // cancellable and the project is still open.
+                        await service.PrefetchBranchLfsObjectsAsync(
+                            GetLocalBranchName(originalHead.RefName),
+                            cancellationToken);
                         try
                         {
                             await CloseProjectForOperationAsync(transition, CancellationToken.None);
@@ -2394,6 +2401,11 @@ public sealed class VersionControlCoordinator :
 
                     CheckedOutBranchTip expectedResultTip = originalTip;
                     bool projectClosed = false;
+                    // The checkout below runs uncancellable with the project closed, and its LFS
+                    // smudge filter would download missing objects there - a stalled endpoint would
+                    // strand the closed project. Pull them in first, while the operation is still
+                    // cancellable and the project is still open.
+                    await service.PrefetchCommitLfsObjectsAsync(sha, cancellationToken);
                     try
                     {
                         await CloseProjectForOperationAsync(transition, CancellationToken.None);

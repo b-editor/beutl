@@ -4658,6 +4658,64 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Restore_prefetches_lfs_objects_while_the_project_is_still_open()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-restore-lfs-prefetch");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            const string TargetSha = "2222222222222222222222222222222222222222";
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [],
+                    HasConflicts: false),
+            };
+            bool? projectWasOpenDuringPrefetch = null;
+            backend.PrefetchCommitLfsObserver = () =>
+                projectWasOpenDuringPrefetch = TestShell.Project.CurrentProject.Value is not null;
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            await coordinator.RestoreAsync(TargetSha);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(backend.PrefetchCommitLfsCalls, Is.EqualTo(1));
+                // The restore checkout runs uncancellable with the project closed, so the download
+                // has to have happened before the close.
+                Assert.That(projectWasOpenDuringPrefetch, Is.True);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Branch_switch_prefetches_lfs_objects_while_the_project_is_still_open()
     {
         await TestReset.ResetShellAsync();
@@ -9764,6 +9822,10 @@ public class VersionControlRestoreTests
 
         public Action? PrefetchBranchLfsObserver { get; set; }
 
+        public int PrefetchCommitLfsCalls { get; private set; }
+
+        public Action? PrefetchCommitLfsObserver { get; set; }
+
         public int RetirementCalls => Volatile.Read(ref _retirementCalls);
 
         public int RemoveRecoverableLockCalls { get; private set; }
@@ -10249,6 +10311,13 @@ public class VersionControlRestoreTests
         {
             PrefetchBranchLfsCalls++;
             PrefetchBranchLfsObserver?.Invoke();
+            return Task.CompletedTask;
+        }
+
+        public Task PrefetchCommitLfsObjectsAsync(string sha, CancellationToken cancellationToken)
+        {
+            PrefetchCommitLfsCalls++;
+            PrefetchCommitLfsObserver?.Invoke();
             return Task.CompletedTask;
         }
 

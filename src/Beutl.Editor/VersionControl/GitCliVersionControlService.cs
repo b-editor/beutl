@@ -4595,11 +4595,26 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private async Task PrefetchBranchLfsObjectsCoreAsync(
+    private Task PrefetchBranchLfsObjectsCoreAsync(
         string name,
         CancellationToken cancellationToken)
     {
         ValidateSwitchBranchName(name);
+        return PrefetchLfsObjectsCoreAsync(name, cancellationToken);
+    }
+
+    private Task PrefetchCommitLfsObjectsCoreAsync(
+        string sha,
+        CancellationToken cancellationToken)
+    {
+        GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
+        return PrefetchLfsObjectsCoreAsync(sha, cancellationToken);
+    }
+
+    private async Task PrefetchLfsObjectsCoreAsync(
+        string reference,
+        CancellationToken cancellationToken)
+    {
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         if (!await IsLfsActiveAsync(repository, runner, cancellationToken).ConfigureAwait(false))
@@ -4618,18 +4633,18 @@ internal sealed class GitCliVersionControlService :
         {
             await runner.RunAsync(
                 repository,
-                ["lfs", "fetch", remotes[0].Name, name],
+                ["lfs", "fetch", remotes[0].Name, reference],
                 GitCommandOptions.Network,
                 cancellationToken).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
         {
             // Best effort: the objects may already be cached, and a prefetch failure must not turn
-            // an otherwise working branch change into an error.
+            // an otherwise working transition into an error.
             _logger.LogWarning(
                 ex,
-                "Could not prefetch Git LFS objects for branch '{Branch}'.",
-                name);
+                "Could not prefetch Git LFS objects for '{Reference}'.",
+                reference);
         }
     }
 
@@ -8886,6 +8901,9 @@ internal sealed class GitCliVersionControlService :
 
         public Task PrefetchBranchLfsObjectsAsync(string name, CancellationToken cancellationToken)
             => _service.PrefetchBranchLfsObjectsCoreAsync(name, cancellationToken);
+
+        public Task PrefetchCommitLfsObjectsAsync(string sha, CancellationToken cancellationToken)
+            => _service.PrefetchCommitLfsObjectsCoreAsync(sha, cancellationToken);
 
         public Task SwitchBranchAsync(string name, CancellationToken cancellationToken)
             => _service.SwitchBranchCoreAsync(name, cancellationToken);
