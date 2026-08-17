@@ -51,14 +51,40 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
+        TaskCompletionSource? proxy = null;
+        Task disposeTask;
         lock (_gate)
         {
             _stopping = true;
             // Publish the shared disposal task before cancellation fires, so a cancellation
             // callback that re-enters DisposeAsync observes the original teardown instead of
             // starting a second pipeline over the same resource snapshot.
-            _disposeTask ??= DisposeCoreAsync();
-            return new ValueTask(_disposeTask);
+            if (_disposeTask == null)
+            {
+                proxy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = proxy.Task;
+            }
+            disposeTask = _disposeTask;
+        }
+
+        if (proxy != null)
+        {
+            _ = RunDisposeCoreAsync(proxy);
+        }
+
+        return new ValueTask(disposeTask);
+    }
+
+    private async Task RunDisposeCoreAsync(TaskCompletionSource proxy)
+    {
+        try
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+            proxy.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
         }
     }
 
