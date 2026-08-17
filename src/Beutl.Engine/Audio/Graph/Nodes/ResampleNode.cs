@@ -60,7 +60,7 @@ public sealed class ResampleNode : AudioNode
         return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
     }
 
-    internal override int GetDrainLatencySamples(int sampleRate)
+    public override int GetDrainLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 

@@ -369,6 +369,40 @@ public class AudioLatencyTests
     }
 
     [Test]
+    public void SpeedNode_GetDrainLatencySamples_UsesTerminalAnimatedSpeed()
+    {
+        const int processSamples = SampleRate;
+        var duration = AudioProcessContext.GetDurationForSampleCount(processSamples, SampleRate);
+        var terminalSample = AudioProcessContext.GetDurationForSampleCount(1, SampleRate);
+        var speedProperty = Property.CreateAnimatable(100f);
+        speedProperty.Animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50f },
+                new KeyFrame<float> { KeyTime = duration - terminalSample - terminalSample, Value = 100f },
+            },
+        };
+
+        using var limiter = CreateLimiterNode(5f);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(limiter);
+        using var input = CreateConstantBuffer(0.1f, processSamples);
+        limiter.AddInput(new BufferReplayNode(input));
+
+        using var processed = speed.Process(CreateContext(processSamples));
+
+        int upstreamLatency = ExpectedLookaheadSamples(5f, SampleRate);
+        Assert.Multiple(() =>
+        {
+            Assert.That(speed.GetTotalLatencySamples(SampleRate), Is.EqualTo(upstreamLatency * 2),
+                "The public report must remain conservative for the slowest animated speed.");
+            Assert.That(speed.GetDrainLatencySamples(SampleRate), Is.EqualTo(upstreamLatency),
+                "The drain report must use the speed latched at the terminal sample.");
+        });
+    }
+
+    [Test]
     public void SpeedNode_GetTotalLatencySamples_BoundedCustomAnimationUsesMinimum()
     {
         var speedProperty = Property.CreateAnimatable(100f);

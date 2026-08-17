@@ -165,7 +165,7 @@ public sealed class LimiterNode : AudioNode
             : LimiterParameters.ToLatencySamples(Lookahead.CurrentValue, sampleRate);
     }
 
-    internal override int GetDrainLatencySamples(int sampleRate)
+    public override int GetDrainLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 

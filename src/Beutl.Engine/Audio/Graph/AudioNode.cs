@@ -259,7 +259,13 @@ public abstract class AudioNode : IDisposable
         return total >= int.MaxValue ? int.MaxValue : (int)total;
     }
 
-    internal virtual int GetDrainLatencySamples(int sampleRate)
+    /// <summary>
+    /// Reports the latency still held by this node immediately after its terminal process call.
+    /// Unlike <see cref="GetTotalLatencySamples"/>, an implementation may use values latched from
+    /// the terminal sample of an animation instead of a conservative whole-animation reservation.
+    /// Derived nodes in other assemblies can override this hook for referenced or plugin-owned graphs.
+    /// </summary>
+    public virtual int GetDrainLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 

@@ -180,6 +180,9 @@ public sealed partial class SceneSound : Sound
         public override int GetTotalLatencySamples(int sampleRate)
             => _composer?.GetTotalLatencySamples(sampleRate) ?? 0;
 
+        public override int GetDrainLatencySamples(int sampleRate)
+            => _composer?.GetTotalLatencySamples(sampleRate) ?? 0;
+
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
