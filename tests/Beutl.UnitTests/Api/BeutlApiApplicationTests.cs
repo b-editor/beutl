@@ -605,6 +605,19 @@ public sealed class BeutlApiApplicationTests
             "the reentrant call must observe the original disposal task");
     }
 
+    [Test]
+    public void Subclass_CanAdmitWorkThroughTheLifetimePrimitive()
+    {
+        using var httpClient = new HttpClient();
+        var app = new LifetimeAdmissionSubclass(httpClient, new ExtensionProvider());
+
+        using CancellationTokenSource linked = app.AdmitOperation();
+        Assert.That(app.IsDisposed, Is.False);
+
+        app.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        Assert.That(app.IsDisposed, Is.True);
+    }
+
     private sealed class DelegateHandler(
         Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
         : HttpMessageHandler
@@ -612,6 +625,17 @@ public sealed class BeutlApiApplicationTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
             => handler(request, cancellationToken);
+    }
+
+    private sealed class LifetimeAdmissionSubclass : BeutlApiApplication
+    {
+        public LifetimeAdmissionSubclass(HttpClient httpClient, ExtensionProvider extensionProvider)
+            : base(httpClient, extensionProvider)
+        {
+        }
+
+        public CancellationTokenSource AdmitOperation()
+            => CreateLifetimeLinkedTokenSource(CancellationToken.None);
     }
 
     private static ProfileResponse CreateProfileResponse()

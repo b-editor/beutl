@@ -345,7 +345,7 @@ public class BeutlApiApplication : IAsyncDisposable
         _services.Add(typeof(T), new Lazy<object>(() => factory()));
     }
 
-    internal CancellationTokenSource CreateLifetimeLinkedTokenSource(CancellationToken cancellationToken)
+    protected internal CancellationTokenSource CreateLifetimeLinkedTokenSource(CancellationToken cancellationToken)
     {
         lock (_disposeGate)
         {
