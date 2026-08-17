@@ -13,12 +13,18 @@ public sealed class SpeedNode : AudioNode
     private int _lastSampleRate;
     private List<AudioNode>? _upstreamSnapshot;
     private bool _mappingInvalidated;
+    private double _lastAnimatedSpeed;
+    private bool _hasLastAnimatedSpeed;
 
     private readonly SpeedIntegrator _integrator;
 
     public SpeedNode()
     {
-        _integrator = new SpeedIntegrator(0, () => _mappingInvalidated = true);
+        _integrator = new SpeedIntegrator(0, () =>
+        {
+            _mappingInvalidated = true;
+            _hasLastAnimatedSpeed = false;
+        });
     }
 
     public IProperty<float>? Speed { get; set; }
@@ -220,10 +226,25 @@ public sealed class SpeedNode : AudioNode
         {
             // The rented array can be larger than requested, so always slice before passing it.
             Span<double> speeds = speedsArray.AsSpan(0, expectedOutputSampleCount);
-            for (int i = 0; i < expectedOutputSampleCount; i++)
+            // A drain represents retained upstream samples after the clip ended; future animation
+            // values must not change the mapping of that tail.
+            if (draining && _hasLastAnimatedSpeed)
             {
-                speeds[i] = animation.GetAnimatedValue(
-                    ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
+                speeds.Fill(_lastAnimatedSpeed);
+            }
+            else
+            {
+                for (int i = 0; i < expectedOutputSampleCount; i++)
+                {
+                    speeds[i] = animation.GetAnimatedValue(
+                        ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
+                }
+
+                if (!draining && expectedOutputSampleCount > 0)
+                {
+                    _lastAnimatedSpeed = speeds[^1];
+                    _hasLastAnimatedSpeed = true;
+                }
             }
 
             // sourceStartTime only seeds the read cursor on the first chunk / after a seek; context
@@ -287,6 +308,7 @@ public sealed class SpeedNode : AudioNode
         _integrator.Dispose();
         _processor = null;
         _upstreamSnapshot = null;
+        _hasLastAnimatedSpeed = false;
         base.Dispose(disposing);
     }
 

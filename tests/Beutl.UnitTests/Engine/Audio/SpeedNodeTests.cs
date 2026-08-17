@@ -238,6 +238,60 @@ public class SpeedNodeTests
         Assert.That(maximum, Is.EqualTo(200f));
     }
 
+    [Test]
+    public void ProcessAnimatedSpeed_FlushUsesTerminalSpeedAfterAnimationContinues()
+    {
+        const int sampleRate = 1000;
+        const int sampleCount = 256;
+        var speed = Property.CreateAnimatable(50f);
+        speed.SetAttributes("Speed", []);
+        speed.Animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float>
+                {
+                    KeyTime = TimeSpan.Zero,
+                    Value = 50f,
+                    Easing = new LinearEasing()
+                },
+                new KeyFrame<float>
+                {
+                    KeyTime = TimeSpan.FromSeconds((double)sampleCount / sampleRate),
+                    Value = 50f,
+                    Easing = new LinearEasing()
+                },
+                new KeyFrame<float>
+                {
+                    KeyTime = TimeSpan.FromSeconds(1),
+                    Value = 200f,
+                    Easing = new LinearEasing()
+                }
+            }
+        };
+
+        using var node = new SpeedNode { Speed = speed };
+        node.AddInput(new FlushRampInputNode(sampleRate));
+        var sampler = new AnimationSampler();
+        var duration = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
+
+        using AudioBuffer _ = node.Process(
+            new AudioProcessContext(new TimeRange(TimeSpan.Zero, duration), sampleRate, sampler, null));
+        using AudioBuffer tail = node.Flush(
+            new AudioProcessContext(new TimeRange(duration, duration), sampleRate, sampler, null));
+
+        Span<float> left = tail.GetChannelData(0);
+        double totalSlope = 0;
+        for (int i = 64; i < left.Length; i++)
+        {
+            float slope = left[i] - left[i - 1];
+            totalSlope += slope;
+        }
+
+        Assert.That(totalSlope / (left.Length - 64), Is.EqualTo(0.005).Within(0.0005),
+            "Animated drain must use the terminal speed on average instead of future automation.");
+    }
+
     // Deterministic finite stereo source: a ramp for the first _length samples, silence beyond. Models
     // SourceNode zero-filling past end-of-source.
     private sealed class FiniteRampInputNode : AudioNode
@@ -264,6 +318,30 @@ public class SpeedNodeTests
                 float v = idx >= 0 && idx < _length ? idx * 0.01f : 0f;
                 left[i] = v;
                 right[i] = -v;
+            }
+
+            return buffer;
+        }
+    }
+
+    private sealed class FlushRampInputNode(int sampleRate) : AudioNode
+    {
+        public override AudioBuffer Process(AudioProcessContext context) => CreateRamp(context);
+
+        public override AudioBuffer Flush(AudioProcessContext context) => CreateRamp(context);
+
+        private AudioBuffer CreateRamp(AudioProcessContext context)
+        {
+            int count = context.GetSampleCount();
+            var buffer = new AudioBuffer(sampleRate, 2, count);
+            long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate);
+            Span<float> left = buffer.GetChannelData(0);
+            Span<float> right = buffer.GetChannelData(1);
+            for (int i = 0; i < count; i++)
+            {
+                float value = (startIndex + i) * 0.01f;
+                left[i] = value;
+                right[i] = -value;
             }
 
             return buffer;

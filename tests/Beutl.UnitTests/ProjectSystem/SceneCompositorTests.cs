@@ -170,6 +170,68 @@ public class SceneCompositorTests
     }
 
     [Test]
+    public void EvaluateAudio_InactiveFlowOperator_DoesNotConsumeEndedSound()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var group = new SoundGroup();
+            Element groupElement = CreateElement(basePath, isEnabled: true, group);
+            groupElement.Start = TimeSpan.FromSeconds(2);
+            groupElement.ZIndex = 0;
+            groupElement.Length = TimeSpan.FromSeconds(1);
+            ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+
+            var child = new LimiterTailSound();
+            Element childElement = CreateElement(basePath, isEnabled: true, child);
+            childElement.ZIndex = 1;
+            childElement.Length = TimeSpan.FromSeconds(1);
+
+            scene.Children.Add(groupElement);
+            scene.Children.Add(childElement);
+            using var compositor = new SceneCompositor(scene);
+
+            CompositionFrame frame = compositor.EvaluateAudio(
+                new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)));
+            CompositionEligibility eligibility = frame.Eligibility
+                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+
+            Assert.That(eligibility.Contains(child), Is.True,
+                "An inactive flow operator must not consume an ended standalone Sound during eligibility evaluation.");
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void EvaluateAudio_DoesNotMaterializeOutOfRangeAudioObjectsForEligibility()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var inactive = new CountingAudioObject();
+            Element element = CreateElement(basePath, isEnabled: true, inactive);
+            element.Start = TimeSpan.FromSeconds(2);
+            element.Length = TimeSpan.FromSeconds(1);
+            scene.Children.Add(element);
+            using var compositor = new SceneCompositor(scene);
+
+            _ = compositor.EvaluateAudio(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+
+            Assert.That(inactive.UpdateCount, Is.EqualTo(0),
+                "Eligibility collection must not materialize an out-of-range audio resource.");
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void EvaluateGraphics_TogglingIsEnabled_UpdatesFrameContents()
     {
         string basePath = GetTempPath();
@@ -832,6 +894,21 @@ public class SceneCompositorTests
         public override bool Equals(object? obj) => obj is ValueEqualEligibilityObject;
 
         public override int GetHashCode() => 0;
+    }
+}
+
+internal sealed partial class CountingAudioObject : EngineObject
+{
+    public int UpdateCount { get; private set; }
+
+    public override CompositionTarget GetCompositionTarget() => CompositionTarget.Audio;
+
+    public partial class Resource
+    {
+        partial void PostUpdate(CountingAudioObject obj, CompositionContext context)
+        {
+            obj.UpdateCount++;
+        }
     }
 }
 

@@ -104,7 +104,7 @@ public sealed class SceneCompositor : ICompositor
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)
     {
-        CompositionEligibility eligibility = CollectEligibility(timeRange.Start, CompositionTarget.Audio);
+        CompositionEligibility eligibility = CollectEligibility(timeRange, CompositionTarget.Audio);
         using var currentElements = new PooledList<Element>();
         SortLayers(timeRange, currentElements, CompositionTarget.Audio);
 
@@ -126,7 +126,7 @@ public sealed class SceneCompositor : ICompositor
         return new CompositionFrame([.. allResources], timeRange, Scene.FrameSize, eligibility);
     }
 
-    private CompositionEligibility CollectEligibility(TimeSpan time, CompositionTarget target)
+    private CompositionEligibility CollectEligibility(TimeRange timeRange, CompositionTarget target)
     {
         using var eligibleObjects = new PooledList<EngineObject>();
         using var currentElements = new PooledList<Element>();
@@ -139,14 +139,33 @@ public sealed class SceneCompositor : ICompositor
             currentElements.OrderedAdd(item, x => x.ZIndex);
         }
 
+        bool hasActiveFlowOperator = currentElements.Any(
+            item => item.Range.Intersects(timeRange) && HasFlowOperator(item));
+        if (!hasActiveFlowOperator)
+        {
+            foreach (Element item in currentElements)
+            {
+                item.CollectObjects(target, eligibleObjects);
+            }
+
+            return new CompositionEligibility(eligibleObjects);
+        }
+
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
-        var context = new CompositorContext(time, this, flow, currentElements, target);
+        var context = new CompositorContext(timeRange.Start, this, flow, currentElements, target);
 
         for (int index = 0; index < currentElements.Count; index++)
         {
+            Element item = currentElements[index];
+            if (!item.Range.Intersects(timeRange) || !HasFlowOperator(item))
+            {
+                item.CollectObjects(target, eligibleObjects);
+                continue;
+            }
+
             flow.Clear();
-            CollectResourcesFromElement(currentElements[index], context, tmpObjects);
+            CollectResourcesFromElement(item, context, tmpObjects);
             foreach (EngineObject.Resource resource in flow.Span)
             {
                 eligibleObjects.Add(resource.GetOriginal());
@@ -155,6 +174,9 @@ public sealed class SceneCompositor : ICompositor
 
         return new CompositionEligibility(eligibleObjects);
     }
+
+    private static bool HasFlowOperator(Element element)
+        => element.Objects.Any(obj => obj is IFlowOperator);
 
     private void CollectResourcesFromElement(
         Element element, CompositorContext context, PooledList<EngineObject> tmpObjects)
