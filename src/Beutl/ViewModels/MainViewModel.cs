@@ -171,24 +171,27 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         // below; otherwise PackageTools is launched without the queued recovery.
         try
         {
-            Task drain = _beutlClients.GetResource<PackageInstaller>().DisposeAsync().AsTask();
-            // The transaction's activation callback is queued on the UI dispatcher; pump
-            // jobs while draining so it can complete instead of deadlocking the blocked
-            // UI thread.
-            long deadline = Environment.TickCount64 + 30_000;
-            while (!drain.IsCompleted && Environment.TickCount64 < deadline)
+            if (_beutlClients.TryGetResource<PackageInstaller>() is { } installer)
             {
-                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-                Thread.Sleep(10);
-            }
+                Task drain = installer.DisposeAsync().AsTask();
+                // The transaction's activation callback is queued on the UI dispatcher; pump
+                // jobs while draining so it can complete instead of deadlocking the blocked
+                // UI thread.
+                long deadline = Environment.TickCount64 + 30_000;
+                while (!drain.IsCompleted && Environment.TickCount64 < deadline)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                    Thread.Sleep(10);
+                }
 
-            if (drain.IsCompleted)
-            {
-                drain.GetAwaiter().GetResult();
-            }
-            else
-            {
-                _logger.LogWarning("Package installer did not drain within the shutdown deadline.");
+                if (drain.IsCompleted)
+                {
+                    drain.GetAwaiter().GetResult();
+                }
+                else
+                {
+                    _logger.LogWarning("Package installer did not drain within the shutdown deadline.");
+                }
             }
         }
         catch (Exception ex)

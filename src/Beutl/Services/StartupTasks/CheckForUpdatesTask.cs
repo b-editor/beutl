@@ -154,6 +154,13 @@ public sealed class CheckForUpdatesTask : StartupTask
             _logger.LogError(ex, "An error occurred while checking for updates");
             if (ex is OperationCanceledException)
             {
+                if (_beutlApiApplication.IsDisposed)
+                {
+                    // Shutdown cancelled the update request through the application
+                    // lifetime; that is not a network timeout and must not show a message.
+                    return default;
+                }
+
                 // HttpClient timeouts surface as TaskCanceledException or, on modern .NET,
                 // sometimes as plain OperationCanceledException. No external CancellationToken
                 // is passed here, so any OCE is effectively a network timeout — show a

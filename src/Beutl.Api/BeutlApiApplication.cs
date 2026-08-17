@@ -106,6 +106,8 @@ public class BeutlApiApplication : IAsyncDisposable
 
     public IReadOnlyReactiveProperty<AuthenticatedUser?> AuthenticatedUser => _authenticatedUser;
 
+    public bool IsDisposed => _disposed;
+
     // 更新があるかどうかをチェックします
     // このアプリケーションがアセットメタデータを持っている場合は、AppUpdateResponseを返します
     // そうでない場合は、CheckForUpdatesResponseを返します
@@ -160,6 +162,31 @@ public class BeutlApiApplication : IAsyncDisposable
             }
 
             throw new Exception("Resource not found");
+        }
+    }
+
+    public T? TryGetResource<T>()
+        where T : class, IBeutlApiResource
+    {
+        lock (_disposeGate)
+        {
+            if (_disposed)
+                return null;
+
+            if (_services.TryGetValue(typeof(T), out Lazy<object>? lazy) && lazy.IsValueCreated)
+            {
+                return (T)lazy.Value;
+            }
+
+            foreach (KeyValuePair<Type, Lazy<object>> item in _services)
+            {
+                if (item.Key.IsAssignableTo(typeof(T)) && item.Value.IsValueCreated)
+                {
+                    return (T)item.Value.Value;
+                }
+            }
+
+            return null;
         }
     }
 
