@@ -192,7 +192,7 @@ public class BeutlApiApplication : IAsyncDisposable
     // uncreated resource is not available yet, so the resolver-style name would conflate
     // that state with unavailable. The sole production use is a shutdown-time probe for
     // resources that must have been created by then.
-    public T? TryGetCreatedResource<T>()
+    internal T? TryGetCreatedResource<T>()
         where T : class, IBeutlApiResource
     {
         lock (_disposeGate)
