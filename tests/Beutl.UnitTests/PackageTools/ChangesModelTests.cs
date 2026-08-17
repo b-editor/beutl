@@ -132,6 +132,36 @@ public sealed class ChangesModelTests
         Assert.That(model.InstallItems, Is.Empty, "partially parsed items must not be published");
     }
 
+    [Test]
+    public async Task Load_CancellationAfterParsingLeavesCollectionsEmpty()
+    {
+        var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellation = new CancellationTokenSource();
+        using var handler = new DelegateHandler((request, cancellationToken) =>
+        {
+            HttpResponseMessage response = CreatePackageResponse(request);
+            // Cancel while the response is being processed, before the publish loops run.
+            cancellation.Cancel();
+            requestCompleted.TrySetResult();
+            return Task.FromResult(response);
+        });
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var model = new ChangesModel();
+
+        Task load = model.Load(
+            app,
+            ["parsed-package/1.0.0"],
+            [],
+            [],
+            cancellation.Token);
+        await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await load.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.That(model.InstallItems, Is.Empty, "items must not be published after cancellation");
+    }
+
     private static HttpResponseMessage CreatePackageResponse(HttpRequestMessage request)
     {
         string name = request.RequestUri!.Segments[^1];

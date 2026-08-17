@@ -68,6 +68,7 @@ public class ChangesModel
             }
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         foreach (PackageChangeModel item in installViewModels)
         {
             InstallItems.Add(item);
