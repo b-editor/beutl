@@ -346,15 +346,34 @@ public class BeutlApiApplication
         {
             activity?.AddEvent(new("Entered_AsyncLock"));
 
+            string? previousAuthorization = _httpClient.DefaultRequestHeaders.Authorization?.ToString();
+            AuthenticatedUser? previousUser = _authenticatedUser.Value;
             AuthenticatedUser? user = await ReadUserAsync(cancellationToken);
             if (user != null)
             {
-                await user.RefreshAsync(cancellationToken);
+                try
+                {
+                    await user.RefreshAsync(cancellationToken);
 
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
-                await user.Profile.RefreshAsync(cancellationToken, true);
-                _authenticatedUser.Value = user;
-                SaveUser();
+                    _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
+                    await user.Profile.RefreshAsync(cancellationToken, true);
+                    _authenticatedUser.Value = user;
+                    SaveUser();
+                }
+                catch
+                {
+                    _authenticatedUser.Value = previousUser;
+                    if (previousAuthorization != null)
+                    {
+                        _httpClient.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(previousAuthorization);
+                    }
+                    else
+                    {
+                        _httpClient.DefaultRequestHeaders.Authorization = null;
+                    }
+
+                    throw;
+                }
             }
         }
     }

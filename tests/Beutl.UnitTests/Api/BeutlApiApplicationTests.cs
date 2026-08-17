@@ -208,7 +208,69 @@ public sealed class BeutlApiApplicationTests
         }
     }
 
-    private sealed class CapturingHandler : HttpMessageHandler
+     [Test]
+     public async Task RestoreUserAsync_RestoresAuthorization_WhenProfileRefreshIsCanceled()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+        string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
+        string original = """
+            {
+              "token": "restored-token",
+              "refresh_token": "restored-refresh",
+              "expiration": "2027-01-01T00:00:00Z",
+              "profile": {
+                "id": "restored-profile",
+                "name": "restored-name",
+                "displayName": "Restored Name",
+                "bio": null,
+                "iconId": null,
+                "iconUrl": null
+              }
+            }
+            """;
+        File.WriteAllText(userFile, original);
+        try
+        {
+            using var cancellationTokenSource = new CancellationTokenSource();
+            using var handler = new DelegateHandler((request, cancellationToken) =>
+            {
+                if (request.RequestUri!.PathAndQuery.StartsWith("/api/v3/user"))
+                {
+                    cancellationTokenSource.Cancel();
+                    throw new OperationCanceledException(cancellationToken);
+                }
+
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new ProfileResponse
+                    {
+                        Id = "restored-profile",
+                        Name = "restored-name",
+                        DisplayName = "Restored Name",
+                        Bio = null,
+                        IconId = null,
+                        IconUrl = null,
+                    })
+                });
+            });
+            using var httpClient = new HttpClient(handler);
+            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await app.RestoreUserAsync(null, cancellationTokenSource.Token));
+
+            Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
+                "the restored bearer token must not remain after a canceled restoration");
+            Assert.That(app.AuthenticatedUser.Value, Is.Null,
+                "the restored user must not remain after a canceled restoration");
+        }
+        finally
+        {
+            File.Delete(userFile);
+        }
+    }
+
+     private sealed class CapturingHandler : HttpMessageHandler
     {
         public Uri? LastRequestUri { get; private set; }
 
