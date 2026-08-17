@@ -939,6 +939,36 @@ public class SceneCompositorTests
     }
 
     [Test]
+    public void SceneSound_LatencyQueriesValidateSampleRateBeforeNestedComposerExists()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene childScene = CreateScene(basePath);
+            var sceneSound = new SceneSound();
+            sceneSound.ReferencedScene.CurrentValue = childScene;
+            sceneSound.TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+            using var resource = (SceneSound.Resource)sceneSound.ToResource(CompositionContext.Default);
+            using var context = new AudioContext(48000, 2);
+
+            sceneSound.Compose(context, resource);
+            AudioNode nestedNode = context.GetOutputNodes().Single();
+            while (nestedNode.Inputs.Count == 1)
+                nestedNode = nestedNode.Inputs[0];
+
+            Assert.Multiple(() =>
+            {
+                Assert.Throws<ArgumentOutOfRangeException>(() => nestedNode.GetTotalLatencySamples(0));
+                Assert.Throws<ArgumentOutOfRangeException>(() => nestedNode.GetDrainLatencySamples(-1));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void EvaluateAudio_ReferencedSceneFlushesNestedLimiterTail()
     {
         const int sampleRate = 48000;

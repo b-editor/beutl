@@ -178,10 +178,16 @@ public sealed partial class SceneSound : Sound
         }
 
         public override int GetTotalLatencySamples(int sampleRate)
-            => _composer?.GetTotalLatencySamples(sampleRate) ?? 0;
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+            return _composer?.GetTotalLatencySamples(sampleRate) ?? 0;
+        }
 
         public override int GetDrainLatencySamples(int sampleRate)
-            => _composer?.GetDrainLatencySamples(sampleRate) ?? 0;
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+            return _composer?.GetDrainLatencySamples(sampleRate) ?? 0;
+        }
 
         protected override void Dispose(bool disposing)
         {
