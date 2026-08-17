@@ -8,12 +8,16 @@ public class ClipNode : AudioNode
     // Flush from the clip-local end of the last processed window, including parent-trimmed clips.
     private TimeSpan? _lastProcessedLocalEnd;
 
+    internal int InlineDrainedSamples { get; private set; }
+
     public TimeSpan Start { get; set; } = TimeSpan.Zero;
 
     public TimeSpan Duration { get; set; } = TimeSpan.Zero;
 
     public override AudioBuffer Process(AudioProcessContext context)
     {
+        InlineDrainedSamples = 0;
+
         var range = new TimeRange(Start, Duration);
         TimeRange newRange;
         if (context.TimeRange.Intersects(range))
@@ -102,6 +106,8 @@ public class ClipNode : AudioNode
         int drainCount = Math.Min(latency, capacity);
         if (drainCount <= 0)
             return;
+
+        InlineDrainedSamples = drainCount;
 
         var drainContext = new AudioProcessContext(
             new TimeRange(

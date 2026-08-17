@@ -1255,6 +1255,49 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_DoesNotReflushTailAfterClipInlineDrain()
+    {
+        const float lookaheadMs = 5f;
+        const int clipSamples = SampleRate;
+        int inlineDrainSamples = LookaheadSamples(lookaheadMs);
+        int windowSamples = clipSamples + inlineDrainSamples;
+        var clipDuration = ExactDuration(clipSamples, SampleRate);
+        var windowDuration = ExactDuration(windowSamples, SampleRate);
+
+        var sound = new LimiterDelayTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, windowDuration);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0),
+            "The terminal ClipNode already drained the limiter's full reported latency into the first window.");
+
+        var secondRange = new TimeRange(windowDuration, windowDuration);
+        var secondFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, secondFrame);
+
+        Assert.That(second, Is.Not.Null);
+        Assert.That(HasNonZero(second!.GetChannelData(0)), Is.False,
+            "A zero-latency stateful effect after the limiter must not be flushed again after the inline tail is exhausted.");
+    }
+
+    [Test]
     public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
     {
         const float lookaheadMs = 20f;
