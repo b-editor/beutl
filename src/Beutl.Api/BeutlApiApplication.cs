@@ -284,6 +284,7 @@ public class BeutlApiApplication
         CancellationToken cancellationToken)
     {
         string? previousAuthorization = _httpClient.DefaultRequestHeaders.Authorization?.ToString();
+        AuthenticatedUser? previousUser = _authenticatedUser.Value;
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", authResponse.Token);
         try
@@ -297,6 +298,7 @@ public class BeutlApiApplication
         }
         catch
         {
+            _authenticatedUser.Value = previousUser;
             if (previousAuthorization != null)
             {
                 _httpClient.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(previousAuthorization);

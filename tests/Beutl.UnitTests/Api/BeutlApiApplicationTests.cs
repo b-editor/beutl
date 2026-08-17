@@ -1,8 +1,10 @@
 ﻿using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
+using Beutl.Testing.Headless;
 
 namespace Beutl.UnitTests.Api;
 
@@ -160,6 +162,50 @@ public sealed class BeutlApiApplicationTests
 
         Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
             "the new bearer token must not remain after a canceled sign-in");
+    }
+
+    [Test]
+    public async Task CompleteSignInAsync_RestoresAuthenticatedUser_WhenPersistenceFails()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+        string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
+        Directory.CreateDirectory(userFile); // SaveUser's File.Create fails on a directory.
+        try
+        {
+            using var handler = new DelegateHandler((request, cancellationToken) =>
+                Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new ProfileResponse
+                    {
+                        Id = "new-profile",
+                        Name = "new-name",
+                        DisplayName = "New Name",
+                        Bio = null,
+                        IconId = null,
+                        IconUrl = null,
+                    })
+                }));
+            using var httpClient = new HttpClient(handler);
+            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            var authResponse = new AuthResponse
+            {
+                Token = "new-token",
+                RefreshToken = "new-refresh",
+                Expiration = DateTime.UtcNow.AddHours(1)
+            };
+
+            Assert.CatchAsync<Exception>(async () =>
+                await app.CompleteSignInAsync(authResponse, CancellationToken.None));
+
+            Assert.That(app.AuthenticatedUser.Value, Is.Null,
+                "the failed sign-in must not leave a signed-in user");
+            Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
+                "the new bearer token must not remain after a failed sign-in");
+        }
+        finally
+        {
+            Directory.Delete(userFile, recursive: true);
+        }
     }
 
     private sealed class CapturingHandler : HttpMessageHandler
