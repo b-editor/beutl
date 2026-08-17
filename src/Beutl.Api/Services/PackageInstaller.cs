@@ -268,6 +268,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             await operation().ConfigureAwait(false);
             proxy.TrySetResult();
         }
+        catch (OperationCanceledException ex)
+        {
+            proxy.TrySetCanceled(ex.CancellationToken);
+        }
         catch (Exception ex)
         {
             proxy.TrySetException(ex);
@@ -282,10 +286,15 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             proxy.TrySetResult(result);
             return result;
         }
+        catch (OperationCanceledException ex)
+        {
+            proxy.TrySetCanceled(ex.CancellationToken);
+            return default!;
+        }
         catch (Exception ex)
         {
             proxy.TrySetException(ex);
-            throw;
+            return default!;
         }
     }
 
@@ -505,7 +514,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     {
         var context = PrepareForInstall(
             package.Id, package.Version.ToString(), force: true, cancellationToken);
-        await ResolveDependencies(context, logger, cancellationToken);
+        // Call the core method directly: the outer operation is already admitted and
+        // tracked, so the nested phase must not re-enter the admission guard.
+        await ResolveDependenciesCoreAsync(context, logger, cancellationToken);
     }
 
     public Task ResolveDependencies(

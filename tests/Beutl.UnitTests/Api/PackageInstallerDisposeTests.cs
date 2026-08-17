@@ -1,5 +1,7 @@
 ﻿using System.Net;
 using Beutl.Api;
+using Beutl.Api.Clients;
+using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Testing.Headless;
 
@@ -188,6 +190,45 @@ public sealed class PackageInstallerDisposeTests
         await Task.WhenAll(phase, dispose).WaitAsync(TimeSpan.FromSeconds(10));
     }
 
+    [Test]
+    public async Task TrackedGenericPhase_PreservesCancellationState()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var handler = new BlockingHandler();
+        handler.Release();
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        var owner = new Profile(CreateProfileResponse(), app);
+        var package = new Package(owner, CreatePackageResponse(), app);
+        var release = new Release(
+            package,
+            new ReleaseResponse
+            {
+                Id = "release-id",
+                Version = "1.0.0",
+                Title = "Release",
+                Description = "Description",
+                TargetVersion = null,
+                FileId = null,
+                FileUrl = null,
+            },
+            app);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Task<PackageInstallContext> phase = installer.PrepareForInstall(release, cancellationToken: cancellation.Token);
+
+        Assert.That(phase.IsCanceled, Is.True,
+            "a canceled tracked phase must surface as a canceled task, not a faulted one");
+    }
+
     private sealed class BlockingHandler : HttpMessageHandler
     {
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -215,5 +256,40 @@ public sealed class PackageInstallerDisposeTests
             base.Dispose(disposing);
             Disposed = true;
         }
+    }
+
+    private static ProfileResponse CreateProfileResponse()
+    {
+        return new ProfileResponse
+        {
+            Id = "profile-id",
+            Name = "profile-name",
+            DisplayName = "Profile Name",
+            Bio = null,
+            IconId = null,
+            IconUrl = null,
+        };
+    }
+
+    private static PackageResponse CreatePackageResponse()
+    {
+        return new PackageResponse
+        {
+            Id = "package-id",
+            Owner = CreateProfileResponse(),
+            Name = "package-name",
+            DisplayName = "Package Name",
+            Description = "Description",
+            ShortDescription = "Short description",
+            WebSite = null,
+            Tags = [],
+            LogoId = null,
+            LogoUrl = null,
+            Screenshots = [],
+            Currency = null,
+            Price = null,
+            Paid = false,
+            Owned = false,
+        };
     }
 }
