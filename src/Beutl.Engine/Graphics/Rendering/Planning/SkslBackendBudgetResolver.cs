@@ -8,19 +8,21 @@ internal enum SkslBackendCapabilityClass : byte
     Portable,
     Vulkan,
     Metal,
+    SpirvVulkan,
 }
 
 /// <summary>
-/// Selects a finite fusion budget for the active Skia backend.
+/// Selects finite fusion budgets for the active Skia backend and the Vulkan-native lowering.
 /// </summary>
 /// <remarks>
-/// SkiaSharp exposes the backend family but not its fragment-uniform, sampler, or runtime-effect child
+/// SkiaSharp exposes the Skia backend family but not its fragment-uniform, sampler, or runtime-effect child
 /// ceilings. These profiles are therefore conservative engine policies rather than exact driver limits.
 /// <see cref="Portable"/> is the common-denominator profile used when target-less rasterization has not
 /// allocated a backend surface yet. Backend-specific profiles may raise its limits but must not lower them.
 /// Their capability classes remain part of backend program identities even when individual limits coincide.
 /// Source and token limits bound fusion-generated program growth; a valid single stage remains eligible for
-/// the compatibility path when it exceeds one of those limits.
+/// the compatibility path when it exceeds one of those limits. <see cref="SpirvVulkan"/> records the smaller
+/// complete subset supported by the first native lowering in this same policy mechanism.
 /// </remarks>
 internal static class SkslBackendBudgetResolver
 {
@@ -32,8 +34,15 @@ internal static class SkslBackendBudgetResolver
     private static readonly SkslBackendBudget s_portable = Create(SkslBackendCapabilityClass.Portable);
     private static readonly SkslBackendBudget s_vulkan = Create(SkslBackendCapabilityClass.Vulkan);
     private static readonly SkslBackendBudget s_metal = Create(SkslBackendCapabilityClass.Metal);
+    private static readonly SkslBackendBudget s_spirvVulkan = Create(SkslBackendCapabilityClass.SpirvVulkan);
 
     public static SkslBackendBudget Portable => s_portable;
+
+    /// <summary>
+    /// Gets the initial Vulkan-native lowering budget. Native snippet fusion is not yet enabled, so one lowered
+    /// stage is the complete supported program rather than an accidental unbounded subset.
+    /// </summary>
+    public static SkslBackendBudget SpirvVulkan => s_spirvVulkan;
 
     public static SkslBackendBudget Resolve(GRBackend? backend)
         => backend switch
@@ -67,13 +76,23 @@ internal static class SkslBackendBudgetResolver
             SkslBackendCapabilityClass.Portable => (12, 12),
             SkslBackendCapabilityClass.Vulkan => (12, 12),
             SkslBackendCapabilityClass.Metal => (12, 12),
+            SkslBackendCapabilityClass.SpirvVulkan => (1, 1),
             _ => throw new ArgumentOutOfRangeException(nameof(capabilityClass)),
         };
 
+        int maxStages = capabilityClass == SkslBackendCapabilityClass.SpirvVulkan
+            ? 1
+            : MaxStages;
+        // Vulkan guarantees 128 push-constant bytes. The native source mapping reserves one vec4, leaving seven
+        // vec4 slots for description uniforms without relying on a larger device-specific limit.
+        int maxUniformVectors = capabilityClass == SkslBackendCapabilityClass.SpirvVulkan
+            ? 7
+            : MaxUniformVectors;
+
         return new SkslBackendBudget(
             capabilityClass,
-            MaxStages,
-            MaxUniformVectors,
+            maxStages,
+            maxUniformVectors,
             maxSamplers,
             maxChildren,
             MaxSourceBytes,

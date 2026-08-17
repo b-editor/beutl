@@ -108,6 +108,11 @@ internal sealed partial class RenderRequestExecutor
             CompiledShaderRun run,
             ImmediateCanvas destination)
         {
+            // The Vulkan-native path consumes and produces pooled RGBA16F textures. Keep it behind the ordinary
+            // materialization boundary instead of recording GPU work directly into a Skia replay destination.
+            if (ShouldDeferDirectReplayToSpirv(run))
+                return false;
+
             if (!ReferenceEquals(run.Output, fragment)
                 || !_roots.Contains(fragment)
                 || !fragment.ContributesValuesToTarget
@@ -520,6 +525,7 @@ internal sealed partial class RenderRequestExecutor
                 _shaderRunExecutions,
                 _shaderStageExecutions,
                 _fusedShaderRunExecutions,
+                _spirvShaderRunExecutions,
                 _intermediateTargetAcquisitions,
                 _programCacheHits,
                 _synchronizations);

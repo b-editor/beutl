@@ -11,6 +11,7 @@ internal readonly record struct RenderExecutionStatistics(
     int ShaderRunExecutions,
     int ShaderStageExecutions,
     int FusedShaderRunExecutions,
+    int SpirvShaderRunExecutions,
     int IntermediateTargetAcquisitions,
     int ProgramCacheHits,
     int Synchronizations);
@@ -19,6 +20,8 @@ internal sealed partial class RenderRequestExecutor
 {
     private readonly RenderTargetLeaseSession _targets;
     private readonly ProgramCache<CachedSkRuntimeEffect>? _programCache;
+    private readonly ProgramCache<GLSLFilterPipeline>? _spirvProgramCache;
+    private readonly ShaderBackendPreference _shaderBackendPreference;
     private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
 
     public RenderExecutionStatistics Statistics { get; private set; }
@@ -32,11 +35,17 @@ internal sealed partial class RenderRequestExecutor
     public RenderRequestExecutor(
         RenderTargetLeaseSession targets,
         ProgramCache<CachedSkRuntimeEffect>? programCache = null,
-        Action<RenderFragmentKind>? afterCaptureAllocation = null)
+        Action<RenderFragmentKind>? afterCaptureAllocation = null,
+        ProgramCache<GLSLFilterPipeline>? spirvProgramCache = null,
+        ShaderBackendPreference shaderBackendPreference = ShaderBackendPreference.Auto)
     {
         _targets = targets ?? throw new ArgumentNullException(nameof(targets));
         _programCache = programCache;
+        _spirvProgramCache = spirvProgramCache;
         _afterCaptureAllocation = afterCaptureAllocation;
+        if (!Enum.IsDefined(shaderBackendPreference))
+            throw new ArgumentOutOfRangeException(nameof(shaderBackendPreference));
+        _shaderBackendPreference = shaderBackendPreference;
     }
 
     public void Execute(
@@ -56,6 +65,11 @@ internal sealed partial class RenderRequestExecutor
             ? SkRuntimeEffectProgramCache.Create()
             : null;
         ProgramCache<CachedSkRuntimeEffect> familyProgramCache = _programCache ?? localProgramCache!;
+        ProgramCache<GLSLFilterPipeline>? localSpirvProgramCache = _spirvProgramCache is null
+            ? SpirvShaderProgramCache.Create()
+            : null;
+        ProgramCache<GLSLFilterPipeline> familySpirvProgramCache =
+            _spirvProgramCache ?? localSpirvProgramCache!;
         var frames = new List<FamilyExecutionFrame>();
         var cleanupFailures = new List<Exception>();
         ExceptionDispatchInfo? primaryFailure = null;
@@ -71,6 +85,7 @@ internal sealed partial class RenderRequestExecutor
                     replayBounds ?? request.SelectedOutputBounds,
                     finalizeOutput,
                     familyProgramCache,
+                    familySpirvProgramCache,
                     frames,
                     cleanupFailures,
                     ref nestedRootAcquisitions);
@@ -119,6 +134,18 @@ internal sealed partial class RenderRequestExecutor
                 try
                 {
                     localProgramCache.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    AppendCleanupFailures(cleanupFailures, ex);
+                }
+            }
+
+            if (localSpirvProgramCache is not null)
+            {
+                try
+                {
+                    localSpirvProgramCache.Dispose();
                 }
                 catch (Exception ex)
                 {
@@ -273,6 +300,8 @@ internal sealed partial class RenderRequestExecutor
         private readonly RenderTargetLeaseSession _targets;
         private readonly RenderCacheDeviceContextIdentity _programCacheContext;
         private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
+        private readonly ProgramCache<GLSLFilterPipeline> _spirvProgramCache;
+        private readonly ShaderBackendPreference _shaderBackendPreference;
         private readonly DrawableBrushMaterializer _drawableBrushMaterializer;
         private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
         private readonly HashSet<ExecutionIslandId> _regionEmptyIslands;
@@ -298,6 +327,7 @@ internal sealed partial class RenderRequestExecutor
         private int _shaderRunExecutions;
         private int _shaderStageExecutions;
         private int _fusedShaderRunExecutions;
+        private int _spirvShaderRunExecutions;
         private int _intermediateTargetAcquisitions;
         private int _programCacheHits;
         private int _synchronizations;
@@ -317,6 +347,8 @@ internal sealed partial class RenderRequestExecutor
             RenderCacheResolution cacheResolution,
             RenderTargetLeaseSession targets,
             ProgramCache<CachedSkRuntimeEffect> programCache,
+            ProgramCache<GLSLFilterPipeline> spirvProgramCache,
+            ShaderBackendPreference shaderBackendPreference,
             Action<RenderFragmentKind>? afterCaptureAllocation)
         {
             _options = options;
@@ -340,6 +372,8 @@ internal sealed partial class RenderRequestExecutor
             _targets = targets;
             _programCacheContext = targets.CacheDeviceContextIdentity;
             _programCache = programCache;
+            _spirvProgramCache = spirvProgramCache;
+            _shaderBackendPreference = shaderBackendPreference;
             _drawableBrushMaterializer = MaterializeDrawableBrush;
             _afterCaptureAllocation = afterCaptureAllocation;
             _cacheHits = cacheResolution.Hits.ToDictionary(static item => item.OriginalProducerId);
@@ -572,6 +606,7 @@ internal sealed partial class RenderRequestExecutor
     private sealed class MaterializedRenderValue : IDisposable
     {
         private readonly RenderTargetLease? _lease;
+        private readonly EffectTargetRenderTargetLease? _effectTargetLease;
 
         public MaterializedRenderValue(
             RenderTarget target,
@@ -626,6 +661,34 @@ internal sealed partial class RenderRequestExecutor
             OwnsTarget = true;
         }
 
+        public MaterializedRenderValue(
+            EffectTargetRenderTargetLease lease,
+            Rect bounds,
+            EffectiveScale effectiveScale,
+            PixelRect deviceBounds,
+            Vector deviceGridOffset = default,
+            Rect? completeBounds = null,
+            bool preserveLegacyRasterPlacement = false)
+        {
+            ArgumentNullException.ThrowIfNull(lease);
+            ValidatePhysicalFootprint(
+                lease.Target,
+                bounds,
+                effectiveScale,
+                deviceBounds,
+                deviceGridOffset,
+                preserveLegacyRasterPlacement);
+            _effectTargetLease = lease;
+            Target = lease.Target;
+            Bounds = bounds;
+            CompleteBounds = completeBounds ?? bounds;
+            EffectiveScale = effectiveScale;
+            DeviceBounds = deviceBounds;
+            DeviceGridOffset = deviceGridOffset;
+            OwnsTarget = true;
+            PreserveLegacyRasterPlacement = preserveLegacyRasterPlacement;
+        }
+
         public RenderTarget Target { get; }
 
         public Rect Bounds { get; set; }
@@ -649,6 +712,8 @@ internal sealed partial class RenderRequestExecutor
 
         public RenderTarget TransferToAcceptedCache()
         {
+            if (_effectTargetLease is not null)
+                return _effectTargetLease.TransferToAcceptedCache();
             if (_lease is null)
             {
                 throw new InvalidOperationException(
@@ -660,7 +725,9 @@ internal sealed partial class RenderRequestExecutor
 
         public void Dispose()
         {
-            if (_lease is not null)
+            if (_effectTargetLease is not null)
+                _effectTargetLease.Dispose();
+            else if (_lease is not null)
                 _lease.Dispose();
             else if (OwnsTarget)
                 Target.Dispose();

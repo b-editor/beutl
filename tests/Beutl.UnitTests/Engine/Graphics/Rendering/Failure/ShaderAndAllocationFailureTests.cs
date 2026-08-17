@@ -237,7 +237,7 @@ public sealed class ShaderAndAllocationFailureTests
 
         void Acquire(string source)
         {
-            var identity = new SkslMergedProgramIdentity(
+            ShaderProgramIdentity identity = ShaderProgramIdentity.CreateSksl(
                 source,
                 [],
                 SkslBackendBudget.Unlimited);
@@ -260,7 +260,7 @@ public sealed class ShaderAndAllocationFailureTests
             static _ => { },
             static _ => 1,
             maxRetainedBytes: 16);
-        var identity = new SkslMergedProgramIdentity(
+        ShaderProgramIdentity identity = ShaderProgramIdentity.CreateSksl(
             "half4 main(float2 p) { return half4(1); }",
             [],
             SkslBackendBudget.Unlimited);

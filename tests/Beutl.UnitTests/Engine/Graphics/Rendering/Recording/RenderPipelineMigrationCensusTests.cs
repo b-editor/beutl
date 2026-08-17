@@ -72,6 +72,7 @@ public sealed class RenderPipelineMigrationCensusTests
         {
             ["tests/Beutl.Benchmarks/Rendering/RenderPipelineBenchmarks.cs"] = 6,
             ["tests/Beutl.Graphics3DTests/GpuPassFusion3DBoundaryTests.cs"] = 1,
+            ["tests/Beutl.Graphics3DTests/ShaderDescriptionSpirvEquivalenceTests.cs"] = 1,
             ["tests/Beutl.PublicApiContractTests/CapturedResourceBorrowContractTests.cs"] = 1,
             ["tests/Beutl.PublicApiContractTests/DeclaredPlannerTraitContractTests.cs"] = 2,
             ["tests/Beutl.PublicApiContractTests/DeclaredResourceAddressingContractTests.cs"] = 1,

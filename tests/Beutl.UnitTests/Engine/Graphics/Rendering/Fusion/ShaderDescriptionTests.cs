@@ -54,6 +54,46 @@ public sealed class ShaderDescriptionTests
     }
 
     [Test]
+    public void CurrentPixel_BackendStructuralIdentityIncludesSelectedLowering()
+    {
+        const string sksl = "half4 apply(half4 color) { return color; }";
+        const string glsl =
+            "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(1); }";
+        var firstLowering = new SpirvShaderLowering(
+            glsl,
+            [],
+            supportsBitExactSkiaHandoff: false);
+        var equivalentLowering = new SpirvShaderLowering(
+            glsl,
+            [],
+            supportsBitExactSkiaHandoff: false);
+        var autoEligibleLowering = new SpirvShaderLowering(
+            glsl,
+            [],
+            supportsBitExactSkiaHandoff: true);
+        SkslSource source = new(sksl, ShaderDescriptionKind.CurrentPixel);
+        ShaderDescription first = ShaderDescription.CurrentPixel(source, firstLowering, bindings: null);
+        ShaderDescription equivalent = ShaderDescription.CurrentPixel(source, equivalentLowering, bindings: null);
+        ShaderDescription autoEligible = ShaderDescription.CurrentPixel(source, autoEligibleLowering, bindings: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                first.GetStructuralIdentity(ShaderProgramBackend.Sksl),
+                Is.Not.EqualTo(first.GetStructuralIdentity(ShaderProgramBackend.Spirv)));
+            Assert.That(
+                first.GetStructuralIdentity(ShaderProgramBackend.Sksl),
+                Is.EqualTo(equivalent.GetStructuralIdentity(ShaderProgramBackend.Sksl)));
+            Assert.That(
+                first.GetStructuralIdentity(ShaderProgramBackend.Spirv),
+                Is.EqualTo(equivalent.GetStructuralIdentity(ShaderProgramBackend.Spirv)));
+            Assert.That(
+                first.GetStructuralIdentity(ShaderProgramBackend.Spirv),
+                Is.Not.EqualTo(autoEligible.GetStructuralIdentity(ShaderProgramBackend.Spirv)));
+        });
+    }
+
+    [Test]
     public void CurrentPixel_AcceptsOnlyRenameSafeValueDerivedGrammar()
     {
         using var registry = new RenderRequestResourceRegistry();

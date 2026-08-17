@@ -423,12 +423,12 @@ public sealed class SkslSnippetMergerTests
         SkslMergedProgram second = SkslSnippetMerger.Merge(
             [new(ShaderDescription.CurrentPixel(
                 "half4 apply(half4 color) { return half4(color.a - color.rgb, color.a); }"))]);
-        SkslMergedProgramIdentity firstCollision = new(
+        ShaderProgramIdentity firstCollision = ShaderProgramIdentity.CreateSksl(
             first.Source,
             first.Bindings,
             first.Budget,
             bucketHashOverride: 17);
-        SkslMergedProgramIdentity secondCollision = new(
+        ShaderProgramIdentity secondCollision = ShaderProgramIdentity.CreateSksl(
             second.Source,
             second.Bindings,
             second.Budget,
@@ -438,7 +438,7 @@ public sealed class SkslSnippetMergerTests
         {
             Assert.That(firstCollision.GetHashCode(), Is.EqualTo(secondCollision.GetHashCode()));
             Assert.That(firstCollision, Is.Not.EqualTo(secondCollision));
-            Assert.That(new HashSet<SkslMergedProgramIdentity> { firstCollision, secondCollision }, Has.Count.EqualTo(2));
+            Assert.That(new HashSet<ShaderProgramIdentity> { firstCollision, secondCollision }, Has.Count.EqualTo(2));
         });
     }
 

@@ -142,6 +142,7 @@ public sealed class RenderNodeRenderer : IDisposable
     private readonly RenderTargetLeaseRegistry _targetRegistry;
     private readonly StructuralPlanCache _structuralPlanCache;
     private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
+    private readonly ProgramCache<GLSLFilterPipeline> _spirvProgramCache;
     private RenderCacheDeviceContextIdentity? _programCacheContext;
 
     /// <summary>Creates a renderer for a caller-owned root node.</summary>
@@ -172,6 +173,7 @@ public sealed class RenderNodeRenderer : IDisposable
         _targetRegistry = new RenderTargetLeaseRegistry(Options.TargetFactory);
         _structuralPlanCache = new StructuralPlanCache();
         _programCache = SkRuntimeEffectProgramCache.Create();
+        _spirvProgramCache = SpirvShaderProgramCache.Create();
     }
 
     /// <summary>Gets the caller-owned root node.</summary>
@@ -188,7 +190,8 @@ public sealed class RenderNodeRenderer : IDisposable
     internal StructuralPlanCacheStatistics StructuralPlanCacheStatistics
         => _structuralPlanCache.Statistics;
 
-    internal ProgramCacheStatistics ProgramCacheStatistics => _programCache.Statistics;
+    internal ProgramCacheStatistics ProgramCacheStatistics
+        => CombineProgramCacheStatistics(_programCache.Statistics, _spirvProgramCache.Statistics);
 
     internal RenderTargetPoolStatistics TargetPoolStatistics => _targetRegistry.Statistics;
 
@@ -251,7 +254,10 @@ public sealed class RenderNodeRenderer : IDisposable
                 effectiveRequest,
                 DeviceGridAlignment.ResolveLogicalOffset(destination));
             owner = request.Request.Options.Owner;
-            var executor = new RenderRequestExecutor(targets, _programCache);
+            var executor = new RenderRequestExecutor(
+                targets,
+                _programCache,
+                spirvProgramCache: _spirvProgramCache);
             if (!hasInvertibleDestination && !request.Measurement.HasTargetEffects)
             {
                 executor.CompleteNoOp(request);
@@ -504,7 +510,10 @@ public sealed class RenderNodeRenderer : IDisposable
                 ExceptionDispatchInfo? executionPrimary = null;
                 try
                 {
-                    var executor = new RenderRequestExecutor(targets, _programCache);
+                    var executor = new RenderRequestExecutor(
+                        targets,
+                        _programCache,
+                        spirvProgramCache: _spirvProgramCache);
                     executor.Execute(
                         request,
                         canvas,
@@ -538,7 +547,10 @@ public sealed class RenderNodeRenderer : IDisposable
             }
             else
             {
-                var executor = new RenderRequestExecutor(targets, _programCache);
+                var executor = new RenderRequestExecutor(
+                    targets,
+                    _programCache,
+                    spirvProgramCache: _spirvProgramCache);
                 executor.CompleteEmptySelection(request);
                 LastExecutionStatistics = executor.Statistics;
             }
@@ -729,6 +741,15 @@ public sealed class RenderNodeRenderer : IDisposable
 
         try
         {
+            _spirvProgramCache.Dispose();
+        }
+        catch (Exception ex)
+        {
+            primary ??= ex;
+        }
+
+        try
+        {
             _structuralPlanCache.Dispose();
         }
         catch (Exception ex)
@@ -796,10 +817,24 @@ public sealed class RenderNodeRenderer : IDisposable
             _programCache.EvictContext(
                 previous.DeviceIdentity,
                 previous.ContextIdentity);
+            _spirvProgramCache.EvictContext(
+                previous.DeviceIdentity,
+                previous.ContextIdentity);
         }
 
         _programCacheContext = current;
     }
+
+    private static ProgramCacheStatistics CombineProgramCacheStatistics(
+        ProgramCacheStatistics sksl,
+        ProgramCacheStatistics spirv)
+        => new(
+            sksl.Hits + spirv.Hits,
+            sksl.Misses + spirv.Misses,
+            sksl.Creations + spirv.Creations,
+            sksl.Evictions + spirv.Evictions,
+            sksl.RetainedPrograms + spirv.RetainedPrograms,
+            sksl.RetainedBytes + spirv.RetainedBytes);
 
     private RenderRequest CreateRequest(
         RenderRequestPurpose purpose,

@@ -144,6 +144,8 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
         _disposed = true;
 
         // Descriptor sets are automatically freed when the pool is destroyed
-        _context.Vk.DestroyDescriptorPool(_context.Device, _descriptorPool, null);
+        DescriptorPool descriptorPool = _descriptorPool;
+        _context.DeferRelease(() =>
+            _context.Vk.DestroyDescriptorPool(_context.Device, descriptorPool, null));
     }
 }

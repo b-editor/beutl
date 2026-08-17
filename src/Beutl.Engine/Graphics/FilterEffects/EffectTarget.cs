@@ -56,6 +56,39 @@ public sealed class EffectTarget : IDisposable
         PreserveLegacyRasterPlacement = preserveLegacyRasterPlacement;
     }
 
+    private EffectTarget(
+        EffectTargetRenderTargetLease renderTargetLease,
+        Rect originalBounds,
+        EffectiveScale scale,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset,
+        bool preserveLegacyRasterPlacement)
+    {
+        ArgumentNullException.ThrowIfNull(renderTargetLease);
+        if (scale.IsUnbounded)
+            throw new ArgumentException("An effect target requires a concrete density.", nameof(scale));
+        if (deviceBounds.Size != new PixelSize(
+                renderTargetLease.Target.Width,
+                renderTargetLease.Target.Height))
+        {
+            throw new ArgumentException(
+                "Effect target device bounds must match the backing target size.",
+                nameof(deviceBounds));
+        }
+
+        _target = renderTargetLease;
+        _allocationBounds = originalBounds;
+        _allocationRasterBounds = deviceBounds
+            .ToRect(scale.Value)
+            .Translate(-deviceGridOffset);
+        OriginalBounds = originalBounds;
+        Bounds = originalBounds;
+        Scale = scale;
+        DeviceBounds = deviceBounds;
+        DeviceGridOffset = deviceGridOffset;
+        PreserveLegacyRasterPlacement = preserveLegacyRasterPlacement;
+    }
+
     public EffectTarget()
     {
     }
@@ -93,13 +126,22 @@ public sealed class EffectTarget : IDisposable
     public Rect RasterBounds
         => _allocationRasterBounds.Translate(Bounds.Position - _allocationBounds.Position);
 
-    public RenderTarget? RenderTarget => _target as RenderTarget;
+    public RenderTarget? RenderTarget => _target switch
+    {
+        RenderTarget renderTarget => renderTarget,
+        EffectTargetRenderTargetLease renderTargetLease => renderTargetLease.Target,
+        _ => null,
+    };
 
     public bool IsEmpty => _target == null;
 
     public EffectTarget Clone()
     {
-        if (RenderTarget != null)
+        if (_target is EffectTargetRenderTargetLease renderTargetLease)
+        {
+            return CreateReplacement(renderTargetLease.Retain());
+        }
+        else if (RenderTarget != null)
         {
             return CreateReplacement(RenderTarget);
         }
@@ -124,9 +166,45 @@ public sealed class EffectTarget : IDisposable
         };
     }
 
+    internal EffectTarget CreateReplacement(RenderTargetLease renderTargetLease)
+        => CreateReplacement(new EffectTargetRenderTargetLease(renderTargetLease));
+
+    private EffectTarget CreateReplacement(EffectTargetRenderTargetLease renderTargetLease)
+    {
+        return new EffectTarget(
+            renderTargetLease,
+            _allocationBounds,
+            Scale,
+            DeviceBounds,
+            DeviceGridOffset,
+            PreserveLegacyRasterPlacement)
+        {
+            Bounds = Bounds,
+            OriginalBounds = OriginalBounds,
+        };
+    }
+
+    internal EffectTargetRenderTargetLease? TakeRenderTargetLease()
+    {
+        if (_target is not EffectTargetRenderTargetLease renderTargetLease)
+            return null;
+
+        _target = null;
+        return renderTargetLease;
+    }
+
     public void Dispose()
     {
-        RenderTarget?.Dispose();
+        switch (_target)
+        {
+            case RenderTarget renderTarget:
+                renderTarget.Dispose();
+                break;
+            case EffectTargetRenderTargetLease renderTargetLease:
+                renderTargetLease.Dispose();
+                break;
+        }
+
         _target = null;
         OriginalBounds = default;
     }
@@ -169,5 +247,116 @@ public sealed class EffectTarget : IDisposable
             .ToRect(scale.Value)
             .Position;
         return deviceOrigin - bounds.Position;
+    }
+}
+
+internal sealed class EffectTargetRenderTargetLease : IDisposable
+{
+    private SharedLease? _sharedLease;
+    private RenderTarget? _target;
+    private readonly bool _ownsTargetReference;
+
+    public EffectTargetRenderTargetLease(RenderTargetLease lease)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        _sharedLease = new SharedLease(lease);
+        _target = lease.Target;
+    }
+
+    public RenderTarget Target
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_sharedLease is null, this);
+            return _target!;
+        }
+    }
+
+    public EffectTargetRenderTargetLease Retain()
+    {
+        SharedLease sharedLease = _sharedLease
+            ?? throw new ObjectDisposedException(nameof(EffectTargetRenderTargetLease));
+        sharedLease.Retain();
+        try
+        {
+            return new EffectTargetRenderTargetLease(
+                sharedLease,
+                Target.ShallowCopy());
+        }
+        catch
+        {
+            sharedLease.Release();
+            throw;
+        }
+    }
+
+    public RenderTarget TransferToAcceptedCache()
+    {
+        SharedLease sharedLease = _sharedLease
+            ?? throw new ObjectDisposedException(nameof(EffectTargetRenderTargetLease));
+        return sharedLease.TransferToAcceptedCache();
+    }
+
+    public void Dispose()
+    {
+        SharedLease? sharedLease = _sharedLease;
+        if (sharedLease is null)
+            return;
+
+        _sharedLease = null;
+        RenderTarget? target = _target;
+        _target = null;
+        try
+        {
+            if (_ownsTargetReference)
+                target?.Dispose();
+        }
+        finally
+        {
+            sharedLease.Release();
+        }
+    }
+
+    private EffectTargetRenderTargetLease(SharedLease sharedLease, RenderTarget target)
+    {
+        _sharedLease = sharedLease;
+        _target = target;
+        _ownsTargetReference = true;
+    }
+
+    private sealed class SharedLease(RenderTargetLease lease)
+    {
+        private RenderTargetLease? _lease = lease;
+        private int _references = 1;
+
+        public void Retain()
+        {
+            ObjectDisposedException.ThrowIf(_references == 0, this);
+            _references = checked(_references + 1);
+        }
+
+        public void Release()
+        {
+            if (_references == 0)
+                return;
+
+            _references--;
+            if (_references == 0)
+            {
+                _lease?.ReleaseForBackendReuse();
+                _lease = null;
+            }
+        }
+
+        public RenderTarget TransferToAcceptedCache()
+        {
+            ObjectDisposedException.ThrowIf(_references == 0, this);
+            RenderTargetLease activeLease = _lease
+                ?? throw new InvalidOperationException(
+                    "The effect-target lease has already transferred into a persistent cache.");
+            RenderTarget target = activeLease.TransferToAcceptedCache();
+            _lease = null;
+            return target;
+        }
     }
 }

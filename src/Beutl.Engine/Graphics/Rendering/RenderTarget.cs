@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media;
 using Beutl.Threading;
 using SkiaSharp;
@@ -301,7 +300,13 @@ public class RenderTarget : IDisposable
         VerifyAccess();
 
         _hasTransparentContents = false;
-        _texture?.Value?.PrepareForRender();
+        _texture?.Value?.PrepareForSkiaRendering();
+    }
+
+    internal void PrepareBackendForSkiaSampling()
+    {
+        VerifyAccess();
+        _texture?.Value?.PrepareForSkiaSampling(requireCompletion: false);
     }
 
     internal bool HasTransparentContents => _hasTransparentContents;
@@ -326,6 +331,23 @@ public class RenderTarget : IDisposable
         VerifyAccess();
 
         bool waitForCompletion = !intent.CanSubmitWithoutCompletion(_surface.Value!.Context);
+        ITexture2D? texture = _texture?.Value;
+
+        if (intent.RequiresBackendInterop
+            && texture is { RequiresSkiaFlushForBackendInterop: false })
+        {
+            // A backend-produced target can remain in the same recording batch. There is no Skia
+            // work to submit between consecutive native passes.
+            texture.PrepareForSampling();
+            return;
+        }
+
+        if (!intent.RequiresBackendInterop)
+        {
+            // Submit backend writes before Skia records a dependent read. CPU readback waits here;
+            // same-context GPU sampling relies on queue order and does not stall the CPU.
+            texture?.PrepareForSkiaSampling(waitForCompletion);
+        }
 
         // A context-wide flush is a superset of this surface's, so reclaiming deferred targets
         // here replaces the surface flush instead of adding a second submit.
@@ -346,7 +368,7 @@ public class RenderTarget : IDisposable
             // The caller is about to touch the texture through the backend, which does not route
             // through BeginDraw, so the transparency tracking cannot survive it.
             _hasTransparentContents = false;
-            _texture?.Value?.PrepareForSampling();
+            texture?.PrepareForSampling();
         }
     }
 

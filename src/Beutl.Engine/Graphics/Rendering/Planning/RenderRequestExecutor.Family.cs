@@ -15,6 +15,7 @@ internal sealed partial class RenderRequestExecutor
         Rect replayBounds,
         Action? finalizeOutput,
         ProgramCache<CachedSkRuntimeEffect> programCache,
+        ProgramCache<GLSLFilterPipeline> spirvProgramCache,
         ICollection<FamilyExecutionFrame> frames,
         ICollection<Exception> cleanupFailures,
         ref int nestedRootAcquisitions)
@@ -25,6 +26,7 @@ internal sealed partial class RenderRequestExecutor
                 nested,
                 destination,
                 programCache,
+                spirvProgramCache,
                 frames,
                 cleanupFailures,
                 ref nestedRootAcquisitions);
@@ -36,6 +38,7 @@ internal sealed partial class RenderRequestExecutor
             replayBounds,
             finalizeOutput,
             programCache,
+            spirvProgramCache,
             frames,
             cleanupFailures);
     }
@@ -44,6 +47,7 @@ internal sealed partial class RenderRequestExecutor
         CompiledRenderRequest request,
         ImmediateCanvas fallbackDestination,
         ProgramCache<CachedSkRuntimeEffect> programCache,
+        ProgramCache<GLSLFilterPipeline> spirvProgramCache,
         ICollection<FamilyExecutionFrame> frames,
         ICollection<Exception> cleanupFailures,
         ref int nestedRootAcquisitions)
@@ -60,6 +64,7 @@ internal sealed partial class RenderRequestExecutor
                 request.ExecutionTargetBounds,
                 finalizeOutput: null,
                 programCache,
+                spirvProgramCache,
                 frames,
                 cleanupFailures,
                 ref nestedRootAcquisitions);
@@ -113,6 +118,7 @@ internal sealed partial class RenderRequestExecutor
                         request.ExecutionTargetBounds,
                         finalizeOutput: null,
                         programCache,
+                        spirvProgramCache,
                         frames,
                         cleanupFailures,
                         ref nestedRootAcquisitions);
@@ -162,6 +168,7 @@ internal sealed partial class RenderRequestExecutor
         Rect replayBounds,
         Action? finalizeOutput,
         ProgramCache<CachedSkRuntimeEffect> programCache,
+        ProgramCache<GLSLFilterPipeline> spirvProgramCache,
         ICollection<FamilyExecutionFrame> frames,
         ICollection<Exception> cleanupFailures)
     {
@@ -178,6 +185,8 @@ internal sealed partial class RenderRequestExecutor
             request.CacheResolution,
             _targets,
             programCache,
+            spirvProgramCache,
+            _shaderBackendPreference,
             _afterCaptureAllocation);
         var frame = new FamilyExecutionFrame(request, state);
         frames.Add(frame);

@@ -4,17 +4,19 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-/// <summary>Declares an immutable, validated SkSL stage recorded into a render graph.</summary>
+/// <summary>Declares one immutable renderer-neutral shader stage recorded into a render graph.</summary>
 /// <remarks>
-/// Create instances through <see cref="CurrentPixel"/> or <see cref="WholeSource"/>. The renderer derives plan
-/// shape from source and declared binding layout. Declared binding callbacks run only during execution and receive
-/// execution-scoped writers and contexts that must not be retained.
+/// Every description keeps its validated SkSL lowering for compatibility and may also carry an engine-authored
+/// SPIR-V lowering. Create instances through <see cref="CurrentPixel"/> or <see cref="WholeSource"/>. The renderer
+/// derives plan shape from source and declared binding layout. Declared binding callbacks run only during execution
+/// and receive execution-scoped writers and contexts that must not be retained.
 /// </remarks>
 internal sealed class ShaderDescription
 {
     private ShaderDescription(
         ShaderDescriptionKind kind,
         SkslSource parsed,
+        SpirvShaderLowering? spirvLowering,
         RenderBoundsContract bounds,
         Action<ShaderBindingBuilder>? bindings,
         SKShaderTileMode sourceTileMode)
@@ -29,9 +31,12 @@ internal sealed class ShaderDescription
         Uniforms = new ReadOnlyCollection<ShaderUniformBinding>(builder.Uniforms.ToArray());
         Resources = new ReadOnlyCollection<ShaderResourceBinding>(builder.Resources.ToArray());
         SourceTileMode = sourceTileMode;
+        spirvLowering?.ValidateForDescription(kind, parsed, Uniforms, Resources);
+        SpirvLowering = spirvLowering;
         StructuralIdentity = new ShaderDescriptionStructuralIdentity(
             kind,
             parsed.Text,
+            spirvLowering?.StructuralIdentity,
             bounds.StructuralIdentity,
             sourceTileMode,
             Uniforms.Select(static item => new ShaderBindingStructuralIdentity(item.Name, item.DefinitionFingerprint)).ToArray(),
@@ -44,7 +49,7 @@ internal sealed class ShaderDescription
     /// <summary>Gets whether the stage transforms only the current pixel or samples the complete upstream source.</summary>
     public ShaderDescriptionKind Kind { get; }
 
-    /// <summary>Gets the non-null normalized source that passed Beutl's description-level contract checks.</summary>
+    /// <summary>Gets the non-null normalized SkSL compatibility source.</summary>
     /// <remarks>Backend program validation may still reject the source during execution.</remarks>
     public SkslSource Source { get; }
 
@@ -62,7 +67,19 @@ internal sealed class ShaderDescription
     /// <remarks>The value is meaningful for <see cref="ShaderDescriptionKind.WholeSource"/> descriptions.</remarks>
     public SKShaderTileMode SourceTileMode { get; }
 
+    /// <summary>Gets the optional engine-authored Vulkan lowering for this stage.</summary>
+    internal SpirvShaderLowering? SpirvLowering { get; }
+
     internal object StructuralIdentity { get; }
+
+    internal object GetStructuralIdentity(ShaderProgramBackend backend)
+    {
+        if (!Enum.IsDefined(backend))
+            throw new ArgumentOutOfRangeException(nameof(backend));
+        if (backend == ShaderProgramBackend.Spirv && SpirvLowering is null)
+            throw new InvalidOperationException("The shader description has no SPIR-V lowering.");
+        return new ShaderDescriptionBackendStructuralIdentity(backend, StructuralIdentity);
+    }
 
     /// <summary>Creates a coordinate-independent shader stage that transforms one resolved pixel value.</summary>
     /// <param name="source">
@@ -109,6 +126,26 @@ internal sealed class ShaderDescription
         return new ShaderDescription(
             ShaderDescriptionKind.CurrentPixel,
             source,
+            spirvLowering: null,
+            RenderBoundsContract.Identity,
+            bindings,
+            SKShaderTileMode.Decal);
+    }
+
+    /// <summary>Creates a current-pixel stage with both its existing SkSL and Vulkan-native lowerings.</summary>
+    internal static ShaderDescription CurrentPixel(
+        SkslSource source,
+        SpirvShaderLowering spirvLowering,
+        Action<ShaderBindingBuilder>? bindings)
+    {
+        ArgumentNullException.ThrowIfNull(spirvLowering);
+        if (source.Kind != ShaderDescriptionKind.CurrentPixel)
+            throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
+
+        return new ShaderDescription(
+            ShaderDescriptionKind.CurrentPixel,
+            source,
+            spirvLowering,
             RenderBoundsContract.Identity,
             bindings,
             SKShaderTileMode.Decal);
@@ -153,6 +190,7 @@ internal sealed class ShaderDescription
         return new ShaderDescription(
             ShaderDescriptionKind.WholeSource,
             new SkslSource(source, ShaderDescriptionKind.WholeSource),
+            spirvLowering: null,
             bounds,
             bindings,
             sourceTileMode);
@@ -173,6 +211,7 @@ internal sealed class ShaderDescription
         return new ShaderDescription(
             ShaderDescriptionKind.WholeSource,
             source,
+            spirvLowering: null,
             bounds,
             bindings,
             sourceTileMode);
@@ -245,6 +284,7 @@ internal sealed class ShaderDescription
 internal sealed class ShaderDescriptionStructuralIdentity(
     ShaderDescriptionKind kind,
     string source,
+    object? spirvLowering,
     object bounds,
     SKShaderTileMode tileMode,
     ShaderBindingStructuralIdentity[] uniforms,
@@ -255,6 +295,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
         => other is not null
            && kind == other.Kind
            && source == other.Source
+           && Equals(spirvLowering, other.SpirvLowering)
            && Equals(bounds, other.Bounds)
            && tileMode == other.TileMode
            && uniforms.AsSpan().SequenceEqual(other.Uniforms)
@@ -267,6 +308,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
         var hash = new HashCode();
         hash.Add(kind);
         hash.Add(source, StringComparer.Ordinal);
+        hash.Add(spirvLowering);
         hash.Add(bounds);
         hash.Add(tileMode);
         foreach (ShaderBindingStructuralIdentity item in uniforms)
@@ -278,6 +320,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
 
     private ShaderDescriptionKind Kind => kind;
     private string Source => source;
+    private object? SpirvLowering => spirvLowering;
     private object Bounds => bounds;
     private SKShaderTileMode TileMode => tileMode;
     private ShaderBindingStructuralIdentity[] Uniforms => uniforms;

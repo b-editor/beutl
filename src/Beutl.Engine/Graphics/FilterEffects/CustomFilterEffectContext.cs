@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,7 @@ public class CustomFilterEffectContext
     private readonly Vector _deviceGridOffset;
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
     private readonly bool _useExecutorManagedCanvas;
+    private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
 
     internal CustomFilterEffectContext(
         EffectTargets targets,
@@ -22,7 +24,8 @@ public class CustomFilterEffectContext
         float maxWorkingScale = float.PositiveInfinity,
         Vector? deviceGridOffset = null,
         DrawableBrushMaterializer? drawableBrushMaterializer = null,
-        bool useExecutorManagedCanvas = false)
+        bool useExecutorManagedCanvas = false,
+        RenderTargetLeaseSession? renderTargetLeaseSession = null)
     {
         if (!Enum.IsDefined(intent))
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
@@ -39,6 +42,7 @@ public class CustomFilterEffectContext
         Purpose = purpose;
         _drawableBrushMaterializer = drawableBrushMaterializer;
         _useExecutorManagedCanvas = useExecutorManagedCanvas;
+        _renderTargetLeaseSession = renderTargetLeaseSession;
     }
 
     public EffectTargets Targets { get; }
@@ -71,6 +75,8 @@ public class CustomFilterEffectContext
     internal DrawableBrushMaterializer? DrawableBrushMaterializer => _drawableBrushMaterializer;
 
     internal bool UsesExecutorManagedCanvas => _useExecutorManagedCanvas;
+
+    internal RenderTargetLeaseSession? RenderTargetLeaseSession => _renderTargetLeaseSession;
 
     internal BrushConstructor CreateBrushConstructor(
         Rect bounds,
@@ -237,6 +243,68 @@ public class CustomFilterEffectContext
             source.Scale.Value,
             source.Bounds);
         return new EffectTarget();
+    }
+
+    internal EffectTarget CreateNativeTargetLike(EffectTarget source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (_renderTargetLeaseSession is null)
+            return CreateTargetLike(source);
+        if (source.RenderTarget is null || source.Scale.IsUnbounded)
+            return new EffectTarget();
+
+        RenderTargetLease? lease = _renderTargetLeaseSession.TryAcquire(source.DeviceBounds.Size);
+        if (lease is null)
+        {
+            s_logger.LogWarning(
+                "Native custom-effect replacement target allocation failed ({Width}x{Height} px, target density {TargetDensity}, bounds {Bounds}); returning an empty target so the preview can keep the source pixels.",
+                source.DeviceBounds.Width,
+                source.DeviceBounds.Height,
+                source.Scale.Value,
+                source.Bounds);
+            return new EffectTarget();
+        }
+
+        try
+        {
+            return source.CreateReplacement(lease);
+        }
+        catch
+        {
+            lease.Dispose();
+            throw;
+        }
+    }
+
+    internal NativeFilterTextureLease AcquireNativeScratchTexture(
+        IGraphicsContext graphicsContext,
+        int width,
+        int height)
+    {
+        ArgumentNullException.ThrowIfNull(graphicsContext);
+        if (_renderTargetLeaseSession is null)
+        {
+            return NativeFilterTextureLease.Own(
+                graphicsContext.CreateTexture2D(width, height, TextureFormat.RGBA16Float));
+        }
+
+        var size = new PixelSize(width, height);
+        RenderTargetLease? lease = _renderTargetLeaseSession.TryAcquire(size);
+        if (lease is null)
+            throw RenderTargetPool.CreateAllocationFailure(size);
+
+        ITexture2D? texture = lease.Target.Texture;
+        if (texture is null
+            || texture.Width != width
+            || texture.Height != height
+            || texture.Format != TextureFormat.RGBA16Float)
+        {
+            lease.Dispose();
+            throw new InvalidOperationException(
+                "A native filter scratch lease requires an exact-size RGBA16F GPU texture.");
+        }
+
+        return NativeFilterTextureLease.Lease(texture, lease);
     }
 
     /// <summary>
@@ -449,5 +517,52 @@ public class CustomFilterEffectContext
 
         canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
         return canvas;
+    }
+}
+
+internal sealed class NativeFilterTextureLease : IDisposable
+{
+    private ITexture2D? _texture;
+    private RenderTargetLease? _renderTargetLease;
+    private readonly bool _ownsTexture;
+
+    private NativeFilterTextureLease(
+        ITexture2D texture,
+        RenderTargetLease? renderTargetLease,
+        bool ownsTexture)
+    {
+        _texture = texture;
+        _renderTargetLease = renderTargetLease;
+        _ownsTexture = ownsTexture;
+    }
+
+    public ITexture2D Texture
+        => _texture ?? throw new ObjectDisposedException(nameof(NativeFilterTextureLease));
+
+    public static NativeFilterTextureLease Own(ITexture2D texture)
+    {
+        ArgumentNullException.ThrowIfNull(texture);
+        return new NativeFilterTextureLease(texture, renderTargetLease: null, ownsTexture: true);
+    }
+
+    public static NativeFilterTextureLease Lease(ITexture2D texture, RenderTargetLease renderTargetLease)
+    {
+        ArgumentNullException.ThrowIfNull(texture);
+        ArgumentNullException.ThrowIfNull(renderTargetLease);
+        return new NativeFilterTextureLease(texture, renderTargetLease, ownsTexture: false);
+    }
+
+    public void Dispose()
+    {
+        ITexture2D? texture = _texture;
+        if (texture is null)
+            return;
+
+        _texture = null;
+        if (_ownsTexture)
+            texture.Dispose();
+        else
+            _renderTargetLease?.Dispose();
+        _renderTargetLease = null;
     }
 }

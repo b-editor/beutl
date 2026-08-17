@@ -115,6 +115,7 @@ internal sealed partial class RenderRequestExecutor
         int shaderRuns = 0;
         int shaderStages = 0;
         int fusedRuns = 0;
+        int spirvRuns = 0;
         int intermediateTargets = nestedRootAcquisitions;
         int programCacheHits = 0;
         int synchronizations = 0;
@@ -124,6 +125,7 @@ internal sealed partial class RenderRequestExecutor
             shaderRuns += statistics.ShaderRunExecutions;
             shaderStages += statistics.ShaderStageExecutions;
             fusedRuns += statistics.FusedShaderRunExecutions;
+            spirvRuns += statistics.SpirvShaderRunExecutions;
             intermediateTargets += statistics.IntermediateTargetAcquisitions;
             programCacheHits += statistics.ProgramCacheHits;
             synchronizations += statistics.Synchronizations;
@@ -133,6 +135,7 @@ internal sealed partial class RenderRequestExecutor
             shaderRuns,
             shaderStages,
             fusedRuns,
+            spirvRuns,
             intermediateTargets,
             programCacheHits,
             synchronizations);

@@ -455,6 +455,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyNativeTargetOperation();
         // NOTE: renderTargetを保持しておいて次回Flushされたときに開放すると効率的
         renderTarget.VerifyAccess();
+        renderTarget.PrepareBackendForSkiaSampling();
         _sharedFillPaint.Reset();
         ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
@@ -573,6 +574,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyAccess();
         VerifyNativeTargetOperation();
         renderTarget.VerifyAccess();
+        renderTarget.PrepareBackendForSkiaSampling();
 
         using SKImage image = renderTarget.Value.Snapshot();
         _sharedFillPaint.Reset();
@@ -630,6 +632,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyAccess();
         VerifyNativeTargetOperation();
         renderTarget.VerifyAccess();
+        renderTarget.PrepareBackendForSkiaSampling();
 
         // Resampling a buffer that already lands on exact device pixels only softens and rings it.
         if (TryGetLosslessDeviceOrigin(

@@ -88,7 +88,8 @@ internal sealed partial class RenderRequestExecutor
             PixelRect? physicalDeviceBounds = null,
             Vector? deviceGridOffset = null,
             bool physicalDeviceBoundsAreAligned = false,
-            bool allowPreviewDrop = false)
+            bool allowPreviewDrop = false,
+            bool initializeTarget = true)
         {
             if (scale.IsUnbounded)
                 throw new InvalidOperationException("An allocated render value requires a concrete density.");
@@ -138,7 +139,11 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                lease.Target.Value.Canvas.Clear(SKColors.Transparent);
+                if (initializeTarget)
+                {
+                    lease.Target.BeginDraw();
+                    lease.Target.Value.Canvas.Clear(SKColors.Transparent);
+                }
                 var value = new MaterializedRenderValue(
                     lease,
                     bounds,

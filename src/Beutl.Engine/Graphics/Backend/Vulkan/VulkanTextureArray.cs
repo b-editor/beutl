@@ -18,7 +18,6 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray
     private readonly int _height;
     private readonly uint _arraySize;
     private readonly TextureFormat _format;
-    private ImageLayout _currentLayout = ImageLayout.Undefined;
     private readonly ImageLayout[] _layerLayouts;    // Track layout per layer
     private bool _disposed;
 
@@ -188,18 +187,7 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray
             ? ImageLayout.DepthStencilAttachmentOptimal
             : ImageLayout.ColorAttachmentOptimal;
 
-        if (_layerLayouts[layerIndex] == targetLayout)
-            return;
-
-        _context.TransitionImageLayout(
-            _image,
-            _layerLayouts[layerIndex],
-            targetLayout,
-            _format.GetAspectMask(),
-            baseArrayLayer: layerIndex,
-            layerCount: 1);
-
-        _layerLayouts[layerIndex] = targetLayout;
+        TransitionLayer(layerIndex, targetLayout);
     }
 
     public void TransitionLayerToSampled(uint layerIndex)
@@ -209,37 +197,25 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray
         if (layerIndex >= _arraySize)
             throw new ArgumentOutOfRangeException(nameof(layerIndex));
 
-        if (_layerLayouts[layerIndex] == ImageLayout.ShaderReadOnlyOptimal)
-            return;
+        TransitionLayer(layerIndex, ImageLayout.ShaderReadOnlyOptimal);
+    }
 
-        _context.TransitionImageLayout(
-            _image,
-            _layerLayouts[layerIndex],
-            ImageLayout.ShaderReadOnlyOptimal,
-            _format.GetAspectMask(),
-            baseArrayLayer: layerIndex,
-            layerCount: 1);
+    internal void TransitionLayerToTransferDestination(uint layerIndex)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (layerIndex >= _arraySize)
+            throw new ArgumentOutOfRangeException(nameof(layerIndex));
 
-        _layerLayouts[layerIndex] = ImageLayout.ShaderReadOnlyOptimal;
+        TransitionLayer(layerIndex, ImageLayout.TransferDstOptimal);
     }
 
     public void TransitionAllToSampled()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Transition all layers at once
-        _context.TransitionImageLayout(
-            _image,
-            _currentLayout,
-            ImageLayout.ShaderReadOnlyOptimal,
-            _format.GetAspectMask(),
-            baseArrayLayer: 0,
-            layerCount: _arraySize);
-
-        _currentLayout = ImageLayout.ShaderReadOnlyOptimal;
         for (uint i = 0; i < _arraySize; i++)
         {
-            _layerLayouts[i] = ImageLayout.ShaderReadOnlyOptimal;
+            TransitionLayer(i, ImageLayout.ShaderReadOnlyOptimal);
         }
     }
 
@@ -261,16 +237,10 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray
         stagingBuffer.Upload(data);
 
         // Transition layer to transfer destination
-        _context.TransitionImageLayout(
-            _image,
-            _layerLayouts[layerIndex],
-            ImageLayout.TransferDstOptimal,
-            _format.GetAspectMask(),
-            baseArrayLayer: layerIndex,
-            layerCount: 1);
+        TransitionLayer(layerIndex, ImageLayout.TransferDstOptimal);
 
         // Copy buffer to image
-        _context.SubmitImmediateCommands(cmd =>
+        _context.RecordCommands(cmd =>
         {
             var region = new BufferImageCopy
             {
@@ -293,15 +263,23 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray
         });
 
         // Transition to shader read
+        TransitionLayer(layerIndex, ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    private void TransitionLayer(uint layerIndex, ImageLayout newLayout)
+    {
+        ImageLayout oldLayout = _layerLayouts[layerIndex];
+        if (oldLayout == newLayout)
+            return;
+
         _context.TransitionImageLayout(
             _image,
-            ImageLayout.TransferDstOptimal,
-            ImageLayout.ShaderReadOnlyOptimal,
+            oldLayout,
+            newLayout,
             _format.GetAspectMask(),
             baseArrayLayer: layerIndex,
             layerCount: 1);
-
-        _layerLayouts[layerIndex] = ImageLayout.ShaderReadOnlyOptimal;
+        _layerLayouts[layerIndex] = newLayout;
     }
 
     public IntPtr GetLayerView(uint layerIndex)
@@ -329,32 +307,37 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray
         if (_disposed) return;
         _disposed = true;
 
-        var vk = _context.Vk;
-        var device = _context.Device;
-
-        // Destroy layer views
-        for (uint i = 0; i < _arraySize; i++)
+        ImageView[] layerViews = _layerViews;
+        ImageView imageView = _imageView;
+        Silk.NET.Vulkan.Image image = _image;
+        DeviceMemory memory = _memory;
+        _context.DeferRelease(() =>
         {
-            if (_layerViews[i].Handle != 0)
+            var vk = _context.Vk;
+            var device = _context.Device;
+
+            foreach (ImageView layerView in layerViews)
             {
-                vk.DestroyImageView(device, _layerViews[i], null);
+                if (layerView.Handle != 0)
+                {
+                    vk.DestroyImageView(device, layerView, null);
+                }
             }
-        }
 
-        // Destroy array view
-        if (_imageView.Handle != 0)
-        {
-            vk.DestroyImageView(device, _imageView, null);
-        }
+            if (imageView.Handle != 0)
+            {
+                vk.DestroyImageView(device, imageView, null);
+            }
 
-        if (_image.Handle != 0)
-        {
-            vk.DestroyImage(device, _image, null);
-        }
+            if (image.Handle != 0)
+            {
+                vk.DestroyImage(device, image, null);
+            }
 
-        if (_memory.Handle != 0)
-        {
-            vk.FreeMemory(device, _memory, null);
-        }
+            if (memory.Handle != 0)
+            {
+                vk.FreeMemory(device, memory, null);
+            }
+        });
     }
 }

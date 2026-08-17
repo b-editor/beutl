@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Beutl.Graphics3D;
 using Beutl.Logging;
@@ -13,6 +14,7 @@ using Image = Silk.NET.Vulkan.Image;
 internal sealed unsafe class VulkanContext : IGraphicsContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger<VulkanContext>();
+    private static readonly AsyncLocal<TextureAllocationObservationScope?> s_textureAllocationObserver = new();
     private readonly VulkanInstance _vulkanInstance;
     private readonly VulkanDevice _vulkanDevice;
     private readonly VulkanCommandPool _vulkanCommandPool;
@@ -280,6 +282,31 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public bool Supports3DRendering => true;
 
+    internal static IDisposable ObserveTextureAllocations(Action<TextureFormat> observer)
+    {
+        ArgumentNullException.ThrowIfNull(observer);
+        var scope = new TextureAllocationObservationScope(observer, s_textureAllocationObserver.Value);
+        s_textureAllocationObserver.Value = scope;
+        return scope;
+    }
+
+    internal static void RecordTextureAllocation(TextureFormat format)
+    {
+        for (TextureAllocationObservationScope? scope = s_textureAllocationObserver.Value;
+             scope is not null;
+             scope = scope.Parent)
+        {
+            try
+            {
+                scope.Observer(format);
+            }
+            catch
+            {
+                // Diagnostics must never affect texture allocation.
+            }
+        }
+    }
+
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
         ImageUsageFlags usage;
@@ -293,7 +320,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
             usage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
                     ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
         }
-        return new VulkanTexture2D(this, width, height, format, usage);
+        var texture = new VulkanTexture2D(this, width, height, format, usage);
+        RecordTextureAllocation(format);
+        return texture;
     }
 
     public ITextureCube CreateTextureCube(int size, TextureFormat format)
@@ -332,20 +361,34 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public IRenderPass3D CreateRenderPass3D(
         IReadOnlyList<TextureFormat> colorFormats,
-        TextureFormat depthFormat = TextureFormat.Depth32Float,
+        TextureFormat? depthFormat,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
         AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
     {
+        if (colorFormats.Any(static format => format.IsDepthFormat()))
+        {
+            throw new ArgumentException("Color attachments cannot use a depth format.", nameof(colorFormats));
+        }
+
+        if (depthFormat is TextureFormat actualDepthFormat && !actualDepthFormat.IsDepthFormat())
+        {
+            throw new ArgumentException("The depth attachment must use a depth format.", nameof(depthFormat));
+        }
+
         var vulkanColorFormats = colorFormats.Select(f => f.ToVulkanFormat()).ToList();
-        return new VulkanRenderPass3D(this, vulkanColorFormats, depthFormat.ToVulkanFormat(), colorLoadOp, depthLoadOp);
+        Format? vulkanDepthFormat = depthFormat?.ToVulkanFormat();
+        return new VulkanRenderPass3D(this, vulkanColorFormats, vulkanDepthFormat, colorLoadOp, depthLoadOp);
     }
 
-    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture)
+    public IFramebuffer3D CreateFramebuffer3D(
+        IRenderPass3D renderPass,
+        IReadOnlyList<ITexture2D> colorTextures,
+        ITexture2D? depthTexture)
     {
         var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
         var vulkanColorTextures = colorTextures.Cast<VulkanTexture2D>().ToList();
-        var vulkanDepthTexture = (VulkanTexture2D)depthTexture;
-        return new VulkanFramebuffer3D(this, vulkanRenderPass.Handle, vulkanColorTextures, vulkanDepthTexture);
+        var vulkanDepthTexture = (VulkanTexture2D?)depthTexture;
+        return new VulkanFramebuffer3D(this, vulkanRenderPass, vulkanColorTextures, vulkanDepthTexture);
     }
 
     public IPipeline3D CreatePipeline3D(
@@ -362,6 +405,16 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
             .ToArray();
         var vulkanVertexInput = VulkanFlagConverter.ToVulkan(vertexInput);
         var pipelineOptions = options ?? PipelineOptions.Default;
+        ImmutableArray<SpecializationConstant> specializationConstants =
+            ValidateSpecializationConstants(pipelineOptions.SpecializationConstants, nameof(options));
+
+        if (!vulkanRenderPass.HasDepthAttachment
+            && (pipelineOptions.DepthTestEnabled || pipelineOptions.DepthWriteEnabled))
+        {
+            throw new ArgumentException(
+                "A pipeline without a depth attachment cannot enable depth testing or depth writes.",
+                nameof(options));
+        }
 
         return new VulkanPipeline3D(
             this,
@@ -370,7 +423,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
             fragmentShaderSpirv,
             vulkanVertexInput,
             vulkanBindings,
+            specializationConstants,
             vulkanRenderPass.ColorAttachmentCount,
+            vulkanRenderPass.HasDepthAttachment,
             pipelineOptions.DepthTestEnabled,
             pipelineOptions.DepthWriteEnabled,
             VulkanFlagConverter.ToVulkan(pipelineOptions.CullMode),
@@ -382,6 +437,73 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
             VulkanFlagConverter.ToVulkan(pipelineOptions.DstAlphaBlendFactor),
             VulkanFlagConverter.ToVulkan(pipelineOptions.ColorBlendOp),
             VulkanFlagConverter.ToVulkan(pipelineOptions.AlphaBlendOp));
+    }
+
+    internal static ImmutableArray<SpecializationConstant> ValidateSpecializationConstants(
+        ImmutableArray<SpecializationConstant> constants,
+        string parameterName)
+    {
+        if (constants.IsDefaultOrEmpty)
+            return [];
+
+        const ShaderStage supportedStages = ShaderStage.Vertex | ShaderStage.Fragment;
+        var occupiedIds = new HashSet<(ShaderStage Stage, uint ConstantId)>();
+
+        foreach (SpecializationConstant constant in constants)
+        {
+            if (constant.SizeInBytes is not (sizeof(uint) or sizeof(ulong)))
+            {
+                throw new ArgumentException(
+                    $"Specialization constant {constant.ConstantId} has an invalid scalar size.",
+                    parameterName);
+            }
+
+            if (constant.Stages == ShaderStage.None
+                || (constant.Stages & ~supportedStages) != ShaderStage.None)
+            {
+                throw new ArgumentException(
+                    $"Specialization constant {constant.ConstantId} must target only vertex or fragment stages.",
+                    parameterName);
+            }
+
+            foreach (ShaderStage stage in new[] { ShaderStage.Vertex, ShaderStage.Fragment })
+            {
+                if ((constant.Stages & stage) != stage)
+                    continue;
+
+                if (!occupiedIds.Add((stage, constant.ConstantId)))
+                {
+                    throw new ArgumentException(
+                        $"Specialization constant {constant.ConstantId} is specified more than once for the {stage} stage.",
+                        parameterName);
+                }
+            }
+        }
+
+        return constants;
+    }
+
+    private sealed class TextureAllocationObservationScope(
+        Action<TextureFormat> observer,
+        TextureAllocationObservationScope? parent) : IDisposable
+    {
+        private bool _disposed;
+
+        public Action<TextureFormat> Observer { get; } = observer;
+
+        public TextureAllocationObservationScope? Parent { get; } = parent;
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            if (ReferenceEquals(s_textureAllocationObserver.Value, this))
+            {
+                s_textureAllocationObserver.Value = Parent;
+            }
+        }
     }
 
     public IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes)
@@ -407,7 +529,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         var vulkanSource = (VulkanBuffer)source;
         var vulkanDest = (VulkanBuffer)destination;
 
-        SubmitImmediateCommands(cmd =>
+        RecordCommands(cmd =>
         {
             var copyRegion = new BufferCopy { Size = size };
             Vk.CmdCopyBuffer(cmd, vulkanSource.Handle, vulkanDest.Handle, 1, &copyRegion);
@@ -423,39 +545,11 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
 
-        // Transition destination to transfer destination
-        SubmitImmediateCommands(cmd =>
+        // Track both layouts through the deferred recording batch.
+        vulkanDest.TransitionTo(ImageLayout.TransferDstOptimal);
+
+        RecordCommands(cmd =>
         {
-            // Transition destination to transfer destination
-            var barrier = new ImageMemoryBarrier
-            {
-                SType = StructureType.ImageMemoryBarrier,
-                OldLayout = ImageLayout.Undefined,
-                NewLayout = ImageLayout.TransferDstOptimal,
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = vulkanDest.ImageHandle,
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = ImageAspectFlags.ColorBit,
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                },
-                SrcAccessMask = 0,
-                DstAccessMask = AccessFlags.TransferWriteBit
-            };
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TopOfPipeBit,
-                PipelineStageFlags.TransferBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
-
             // Use blit for format conversion (RGBA8 -> BGRA8)
             var blitRegion = new ImageBlit
             {
@@ -489,22 +583,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
                 1,
                 &blitRegion,
                 Filter.Nearest);
-
-            // Transition destination back to color attachment optimal
-            barrier.OldLayout = ImageLayout.TransferDstOptimal;
-            barrier.NewLayout = ImageLayout.ColorAttachmentOptimal;
-            barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
-            barrier.DstAccessMask = AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit;
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TransferBit,
-                PipelineStageFlags.ColorAttachmentOutputBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
         });
+
+        vulkanDest.TransitionTo(ImageLayout.ColorAttachmentOptimal);
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
@@ -520,39 +601,10 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
+        vulkanDest.TransitionFaceToTransferDestination(faceIndex);
 
-        SubmitImmediateCommands(cmd =>
+        RecordCommands(cmd =>
         {
-            // Transition cube face to transfer destination
-            var barrier = new ImageMemoryBarrier
-            {
-                SType = StructureType.ImageMemoryBarrier,
-                OldLayout = ImageLayout.Undefined,
-                NewLayout = ImageLayout.TransferDstOptimal,
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = vulkanDest.ImageHandle,
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = ImageAspectFlags.DepthBit,
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = (uint)faceIndex,
-                    LayerCount = 1
-                },
-                SrcAccessMask = 0,
-                DstAccessMask = AccessFlags.TransferWriteBit
-            };
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TopOfPipeBit,
-                PipelineStageFlags.TransferBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
-
             // Copy from 2D texture to cube face
             var copyRegion = new ImageCopy
             {
@@ -583,22 +635,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
                 ImageLayout.TransferDstOptimal,
                 1,
                 &copyRegion);
-
-            // Transition cube face to shader read optimal
-            barrier.OldLayout = ImageLayout.TransferDstOptimal;
-            barrier.NewLayout = ImageLayout.ShaderReadOnlyOptimal;
-            barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
-            barrier.DstAccessMask = AccessFlags.ShaderReadBit;
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TransferBit,
-                PipelineStageFlags.FragmentShaderBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
         });
+
+        vulkanDest.TransitionFaceToSampled(faceIndex);
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
@@ -619,39 +658,10 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
+        vulkanDest.TransitionLayerToTransferDestination((uint)layerIndex);
 
-        SubmitImmediateCommands(cmd =>
+        RecordCommands(cmd =>
         {
-            // Transition array layer to transfer destination
-            var barrier = new ImageMemoryBarrier
-            {
-                SType = StructureType.ImageMemoryBarrier,
-                OldLayout = ImageLayout.Undefined,
-                NewLayout = ImageLayout.TransferDstOptimal,
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = vulkanDest.ImageHandle,
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = aspectMask,
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = (uint)layerIndex,
-                    LayerCount = 1
-                },
-                SrcAccessMask = 0,
-                DstAccessMask = AccessFlags.TransferWriteBit
-            };
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TopOfPipeBit,
-                PipelineStageFlags.TransferBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
-
             // Copy from 2D texture to array layer
             var copyRegion = new ImageCopy
             {
@@ -682,22 +692,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
                 ImageLayout.TransferDstOptimal,
                 1,
                 &copyRegion);
-
-            // Transition array layer to shader read optimal
-            barrier.OldLayout = ImageLayout.TransferDstOptimal;
-            barrier.NewLayout = ImageLayout.ShaderReadOnlyOptimal;
-            barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
-            barrier.DstAccessMask = AccessFlags.ShaderReadBit;
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TransferBit,
-                PipelineStageFlags.FragmentShaderBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
         });
+
+        vulkanDest.TransitionLayerToSampled((uint)layerIndex);
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
@@ -723,39 +720,10 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
+        vulkanDest.TransitionFaceToTransferDestination((uint)arrayIndex, faceIndex);
 
-        SubmitImmediateCommands(cmd =>
+        RecordCommands(cmd =>
         {
-            // Transition cube array face to transfer destination
-            var barrier = new ImageMemoryBarrier
-            {
-                SType = StructureType.ImageMemoryBarrier,
-                OldLayout = ImageLayout.Undefined,
-                NewLayout = ImageLayout.TransferDstOptimal,
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = vulkanDest.ImageHandle,
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = aspectMask,
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = layerIndex,
-                    LayerCount = 1
-                },
-                SrcAccessMask = 0,
-                DstAccessMask = AccessFlags.TransferWriteBit
-            };
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TopOfPipeBit,
-                PipelineStageFlags.TransferBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
-
             // Copy from 2D texture to cube array face
             var copyRegion = new ImageCopy
             {
@@ -786,22 +754,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
                 ImageLayout.TransferDstOptimal,
                 1,
                 &copyRegion);
-
-            // Transition cube array face to shader read optimal
-            barrier.OldLayout = ImageLayout.TransferDstOptimal;
-            barrier.NewLayout = ImageLayout.ShaderReadOnlyOptimal;
-            barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
-            barrier.DstAccessMask = AccessFlags.ShaderReadBit;
-
-            Vk.CmdPipelineBarrier(
-                cmd,
-                PipelineStageFlags.TransferBit,
-                PipelineStageFlags.FragmentShaderBit,
-                0,
-                0, null,
-                0, null,
-                1, &barrier);
         });
+
+        vulkanDest.TransitionFaceToSampled((uint)arrayIndex, faceIndex);
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
@@ -809,12 +764,13 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public void WaitIdle()
     {
+        _vulkanCommandPool.Flush(waitForCompletion: true);
         _vulkanDevice.WaitIdle();
     }
 
-    public void SubmitImmediateCommands(Action<CommandBuffer> record)
+    public void RecordCommands(Action<CommandBuffer> record)
     {
-        _vulkanCommandPool.SubmitImmediateCommands(record);
+        _vulkanCommandPool.RecordCommands(record);
     }
 
     public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout)
@@ -838,14 +794,19 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         _vulkanCommandPool.TransitionImageLayout(image, oldLayout, newLayout, aspectMask, baseArrayLayer, layerCount);
     }
 
-    public CommandBuffer AllocateCommandBuffer()
+    public CommandBuffer GetRecordingCommandBuffer()
     {
-        return _vulkanCommandPool.AllocateCommandBuffer();
+        return _vulkanCommandPool.GetRecordingCommandBuffer();
     }
 
-    public void SubmitCommandBuffer(CommandBuffer commandBuffer)
+    public void FlushCommands(bool waitForCompletion)
     {
-        _vulkanCommandPool.SubmitCommandBuffer(commandBuffer);
+        _vulkanCommandPool.Flush(waitForCompletion);
+    }
+
+    public void DeferRelease(Action release)
+    {
+        _vulkanCommandPool.DeferRelease(release);
     }
 
 
@@ -876,14 +837,31 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         _disposed = true;
 
-        _vulkanDevice.WaitIdle();
-
-        _skiaContext?.Dispose();
-        _skiaContext = null;
-        _skiaBackendContext?.Dispose();
-        _skiaBackendContext = null;
-
-        _vulkanCommandPool.Dispose();
-        _vulkanDevice.Dispose();
+        try
+        {
+            _vulkanCommandPool.Flush(waitForCompletion: true);
+            _vulkanDevice.WaitIdle();
+        }
+        finally
+        {
+            try
+            {
+                _skiaContext?.Dispose();
+                _skiaContext = null;
+                _skiaBackendContext?.Dispose();
+                _skiaBackendContext = null;
+            }
+            finally
+            {
+                try
+                {
+                    _vulkanCommandPool.Dispose();
+                }
+                finally
+                {
+                    _vulkanDevice.Dispose();
+                }
+            }
+        }
     }
 }

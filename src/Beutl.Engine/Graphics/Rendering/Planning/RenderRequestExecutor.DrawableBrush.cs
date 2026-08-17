@@ -136,7 +136,11 @@ internal sealed partial class RenderRequestExecutor
                         _options.Intent);
                     canvas.Clear();
 
-                    var executor = new RenderRequestExecutor(_targets, _programCache);
+                    var executor = new RenderRequestExecutor(
+                        _targets,
+                        _programCache,
+                        spirvProgramCache: _spirvProgramCache,
+                        shaderBackendPreference: _shaderBackendPreference);
                     using (canvas.PushTransform(Matrix.CreateTranslation(-executionBounds.X, -executionBounds.Y)))
                     {
                         executor.Execute(

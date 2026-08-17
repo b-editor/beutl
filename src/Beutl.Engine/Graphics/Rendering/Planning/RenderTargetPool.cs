@@ -42,6 +42,7 @@ internal readonly record struct RenderTargetPoolStatistics(
 internal enum PooledRenderTargetLeaseState : byte
 {
     Leased,
+    Deferred,
     Available,
     Evicted,
     CacheTransferred,
@@ -302,7 +303,37 @@ internal sealed class RenderTargetPool : IDisposable
     {
         ArgumentNullException.ThrowIfNull(lease);
         VerifyLease(lease);
+        ReleaseCore(lease);
+    }
 
+    internal void DeferRelease(PooledRenderTargetLease lease)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        VerifyLease(lease);
+        lease.State = PooledRenderTargetLeaseState.Deferred;
+    }
+
+    internal void CompleteDeferredRelease(PooledRenderTargetLease lease)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        if (!ReferenceEquals(lease.Pool, this))
+            throw new InvalidOperationException("The render-target lease belongs to a different pool.");
+        if (lease.State == PooledRenderTargetLeaseState.Evicted)
+            return;
+        if (lease.State != PooledRenderTargetLeaseState.Deferred)
+        {
+            throw new InvalidOperationException(
+                $"The render-target lease cannot complete a deferred release from {lease.State}.");
+        }
+
+        TargetSlot slot = lease.Slot;
+        if (!ReferenceEquals(slot.ActiveLease, lease) || slot.Generation != lease.Generation)
+            throw new InvalidOperationException("The render-target lease generation is stale.");
+        ReleaseCore(lease);
+    }
+
+    private void ReleaseCore(PooledRenderTargetLease lease)
+    {
         TargetSlot slot = lease.Slot;
         lease.State = PooledRenderTargetLeaseState.Available;
         slot.ActiveLease = null;
@@ -689,7 +720,9 @@ internal sealed class RenderTargetPool : IDisposable
     }
 
     private bool IsCurrentContext(RenderTargetPoolRequest request)
-        => _hasContext && ReferenceEquals(_contextIdentity, request.ContextIdentity);
+        => _hasContext
+           && ReferenceEquals(_contextIdentity, request.ContextIdentity)
+           && _contextGeneration == request.ContextGeneration;
 
     private static long GetByteSize(PixelSize size)
     {
@@ -937,6 +970,12 @@ internal sealed class PooledRenderTargetLease : IDisposable
 
     public RenderTarget TransferToAcceptedCache()
         => Pool.TransferToAcceptedCache(this);
+
+    internal void DeferRelease()
+        => Pool.DeferRelease(this);
+
+    internal void CompleteDeferredRelease()
+        => Pool.CompleteDeferredRelease(this);
 
     public void Dispose()
         => Pool.Release(this);

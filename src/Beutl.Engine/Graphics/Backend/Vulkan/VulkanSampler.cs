@@ -88,6 +88,7 @@ internal sealed unsafe class VulkanSampler : ISampler
         if (_disposed) return;
         _disposed = true;
 
-        _context.Vk.DestroySampler(_context.Device, _sampler, null);
+        Silk.NET.Vulkan.Sampler sampler = _sampler;
+        _context.DeferRelease(() => _context.Vk.DestroySampler(_context.Device, sampler, null));
     }
 }

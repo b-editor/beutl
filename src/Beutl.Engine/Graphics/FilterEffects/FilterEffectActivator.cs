@@ -17,6 +17,7 @@ public sealed class FilterEffectActivator : IDisposable
     private readonly Vector? _deviceGridOffset;
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
     private readonly bool _useExecutorManagedCanvas;
+    private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
     private bool _customEffectBoundaryMaterialized;
@@ -41,7 +42,8 @@ public sealed class FilterEffectActivator : IDisposable
             deviceGridOffset: null,
             ownsProgramCache: true,
             drawableBrushMaterializer: null,
-            useExecutorManagedCanvas: false)
+            useExecutorManagedCanvas: false,
+            renderTargetLeaseSession: null)
     {
     }
 
@@ -55,7 +57,8 @@ public sealed class FilterEffectActivator : IDisposable
         float maxWorkingScale,
         Vector deviceGridOffset,
         DrawableBrushMaterializer? drawableBrushMaterializer = null,
-        bool useExecutorManagedCanvas = false)
+        bool useExecutorManagedCanvas = false,
+        RenderTargetLeaseSession? renderTargetLeaseSession = null)
         : this(
             targets,
             builder,
@@ -68,7 +71,8 @@ public sealed class FilterEffectActivator : IDisposable
             deviceGridOffset,
             ownsProgramCache: true,
             drawableBrushMaterializer,
-            useExecutorManagedCanvas)
+            useExecutorManagedCanvas,
+            renderTargetLeaseSession)
     {
     }
 
@@ -83,7 +87,8 @@ public sealed class FilterEffectActivator : IDisposable
         Vector deviceGridOffset,
         SkRuntimeEffectProgramAcquirer acquireProgram,
         DrawableBrushMaterializer? drawableBrushMaterializer = null,
-        bool useExecutorManagedCanvas = false)
+        bool useExecutorManagedCanvas = false,
+        RenderTargetLeaseSession? renderTargetLeaseSession = null)
         : this(
             targets,
             builder,
@@ -96,7 +101,8 @@ public sealed class FilterEffectActivator : IDisposable
             deviceGridOffset,
             ownsProgramCache: false,
             drawableBrushMaterializer,
-            useExecutorManagedCanvas)
+            useExecutorManagedCanvas,
+            renderTargetLeaseSession)
     {
     }
 
@@ -112,7 +118,8 @@ public sealed class FilterEffectActivator : IDisposable
         Vector? deviceGridOffset,
         bool ownsProgramCache,
         DrawableBrushMaterializer? drawableBrushMaterializer,
-        bool useExecutorManagedCanvas)
+        bool useExecutorManagedCanvas,
+        RenderTargetLeaseSession? renderTargetLeaseSession)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
@@ -131,6 +138,7 @@ public sealed class FilterEffectActivator : IDisposable
         _deviceGridOffset = deviceGridOffset;
         _drawableBrushMaterializer = drawableBrushMaterializer;
         _useExecutorManagedCanvas = useExecutorManagedCanvas;
+        _renderTargetLeaseSession = renderTargetLeaseSession;
         if (!ownsProgramCache)
         {
             _injectedProgramAcquirer = acquireProgram
@@ -592,7 +600,8 @@ public sealed class FilterEffectActivator : IDisposable
                             MaxWorkingScale,
                             _deviceGridOffset,
                             _drawableBrushMaterializer,
-                            _useExecutorManagedCanvas);
+                            _useExecutorManagedCanvas,
+                            _renderTargetLeaseSession);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -671,7 +680,8 @@ public sealed class FilterEffectActivator : IDisposable
                 ?? (cloned.Count > 0 ? cloned[0].DeviceGridOffset : default),
             GetProgramAcquirer(),
             _drawableBrushMaterializer,
-            _useExecutorManagedCanvas);
+            _useExecutorManagedCanvas,
+            _renderTargetLeaseSession);
 
         activator.Apply(context);
         activator.Flush(false);

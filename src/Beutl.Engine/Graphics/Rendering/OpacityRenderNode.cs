@@ -8,9 +8,32 @@ public sealed class OpacityRenderNode(float opacity) : ContainerRenderNode
     private const string FusionSource =
         "uniform float opacity; half4 apply(half4 color) { return color * opacity; }";
 
+    private const string SpirvFragmentSource =
+        """
+        #version 450
+
+        layout(set = 0, binding = 0) uniform sampler2D src;
+        layout(push_constant) uniform PushConstants {
+            layout(offset = 0) ivec4 sourceTexelOffset;
+            layout(offset = 16) float opacity;
+        } constants;
+        layout(location = 0) out vec4 outColor;
+
+        void main()
+        {
+            ivec2 sourceCoord = ivec2(gl_FragCoord.xy) + constants.sourceTexelOffset.xy;
+            outColor = texelFetch(src, sourceCoord, 0) * constants.opacity;
+        }
+        """;
+
     private const int MaximumCachedDescriptions = 256;
 
     private static readonly SkslSource s_fusionSource = new(FusionSource, ShaderDescriptionKind.CurrentPixel);
+
+    private static readonly SpirvShaderLowering s_spirvLowering = new(
+        SpirvFragmentSource,
+        [new SpirvPushConstantBinding("opacity", 16)],
+        supportsBitExactSkiaHandoff: false);
 
     private static readonly ConcurrentDictionary<int, ShaderDescription> s_fusionDescriptions = new();
 
@@ -52,6 +75,7 @@ public sealed class OpacityRenderNode(float opacity) : ContainerRenderNode
 
         ShaderDescription created = ShaderDescription.CurrentPixel(
             s_fusionSource,
+            s_spirvLowering,
             bindings => bindings.Uniform("opacity", opacity));
 
         // An animated opacity mints a new key every frame, so the memo is bounded rather than evicted per entry.

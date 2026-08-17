@@ -2,6 +2,7 @@
 using System.Runtime.ExceptionServices;
 using System.Text;
 
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 
 using SkiaSharp;
@@ -156,7 +157,7 @@ internal static class SkRuntimeEffectProgramCache
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
         ArgumentNullException.ThrowIfNull(budget);
         ArgumentNullException.ThrowIfNull(context);
-        SkslMergedProgramIdentity identity = SkslMergedProgramIdentity.CreateStandalone(
+        ShaderProgramIdentity identity = ShaderProgramIdentity.CreateStandaloneSksl(
             source,
             budget);
         return cache.GetOrCreate(
@@ -187,6 +188,62 @@ internal static class SkRuntimeEffectProgramCache
             budget);
         return Acquire(cache, source, budget, contextKey);
     }
+}
+
+internal static class SpirvShaderProgramCache
+{
+    private const long DefaultRetainedByteBudget = 16 * 1024 * 1024;
+    private const string ColorAlphaFormatContract = "linear-premultiplied-rgba16f";
+    private static readonly object s_defaultCompileOptions = new();
+
+    public static ProgramCache<GLSLFilterPipeline> Create()
+        => new(
+            resetRuntimeBindings: static _ => { },
+            retainedByteSize: static program => program.RetainedByteSize,
+            maxRetainedBytes: DefaultRetainedByteBudget,
+            shareLeasedPrograms: true);
+
+    public static ProgramCacheContextKey CreateContextKey(RenderCacheDeviceContextIdentity context)
+    {
+        context.ThrowIfUninitialized(nameof(context));
+        return new ProgramCacheContextKey(
+            context.DeviceIdentity,
+            context.ContextIdentity,
+            SkslBackendBudgetResolver.SpirvVulkan.CapabilityClass,
+            ColorAlphaFormatContract,
+            s_defaultCompileOptions);
+    }
+
+    public static ProgramCacheLease<GLSLFilterPipeline> Acquire(
+        ProgramCache<GLSLFilterPipeline> cache,
+        ShaderDescription description,
+        IGraphicsContext graphicsContext,
+        ProgramCacheContextKey context)
+    {
+        ArgumentNullException.ThrowIfNull(cache);
+        ArgumentNullException.ThrowIfNull(description);
+        ArgumentNullException.ThrowIfNull(graphicsContext);
+        ArgumentNullException.ThrowIfNull(context);
+        SpirvShaderLowering lowering = description.SpirvLowering
+            ?? throw new ArgumentException("The shader description has no SPIR-V lowering.", nameof(description));
+        ShaderProgramIdentity identity = ShaderProgramIdentity.CreateSpirv(
+            description,
+            lowering,
+            SkslBackendBudgetResolver.SpirvVulkan);
+        return cache.GetOrCreate(
+            identity,
+            context,
+            new SpirvProgramCreationState(graphicsContext, lowering),
+            static state => GLSLFilterPipeline.Create(
+                    state.GraphicsContext,
+                    state.Lowering.FragmentShaderSource,
+                    ShaderOutputCoverage.ProvablyFull)
+                ?? throw new InvalidOperationException("Failed to compile the SPIR-V shader program."));
+    }
+
+    private readonly record struct SpirvProgramCreationState(
+        IGraphicsContext GraphicsContext,
+        SpirvShaderLowering Lowering);
 }
 
 /// <summary>A checkout that keeps one cached program alive until the lease is returned.</summary>
@@ -233,7 +290,7 @@ internal sealed class ProgramCacheLease<TProgram> : IDisposable
 
 /// <summary>
 /// Renderer-owned cache for compiled shader programs. The merged-program hash selects a bucket only; exact
-/// <see cref="SkslMergedProgramIdentity"/> and backend-context equality select an entry. Mutable programs use
+/// <see cref="ShaderProgramIdentity"/> and backend-context equality select an entry. Mutable programs use
 /// exclusive leases, while immutable programs may opt into shared leases.
 /// </summary>
 internal sealed class ProgramCache<TProgram> : IDisposable
@@ -307,7 +364,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     /// binding signature.
     /// </summary>
     public ProgramCacheLease<TProgram> GetOrCreate(
-        SkslMergedProgramIdentity identity,
+        ShaderProgramIdentity identity,
         ProgramCacheContextKey context,
         Func<TProgram> create)
     {
@@ -326,7 +383,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     /// allocating a capturing closure.
     /// </summary>
     public ProgramCacheLease<TProgram> GetOrCreate<TState>(
-        SkslMergedProgramIdentity identity,
+        ShaderProgramIdentity identity,
         ProgramCacheContextKey context,
         TState factoryState,
         Func<TState, TProgram> create)
@@ -338,7 +395,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     }
 
     private ProgramCacheLease<TProgram> GetOrCreateCore<TState>(
-        SkslMergedProgramIdentity identity,
+        ShaderProgramIdentity identity,
         ProgramCacheContextKey context,
         TState factoryState,
         Func<TState, TProgram> create)
@@ -606,7 +663,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     }
 
     private Entry? FindEntry(
-        SkslMergedProgramIdentity identity,
+        ShaderProgramIdentity identity,
         ProgramCacheContextKey context)
     {
         if (!_buckets.TryGetValue(identity.BucketHash, out List<Entry>? bucket))
@@ -725,12 +782,12 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     }
 
     internal sealed class Entry(
-        SkslMergedProgramIdentity identity,
+        ShaderProgramIdentity identity,
         ProgramCacheContextKey context,
         TProgram program,
         long retainedBytes)
     {
-        public SkslMergedProgramIdentity Identity { get; } = identity;
+        public ShaderProgramIdentity Identity { get; } = identity;
 
         public ProgramCacheContextKey Context { get; } = context;
 

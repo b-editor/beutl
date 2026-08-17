@@ -136,17 +136,22 @@ internal sealed unsafe class VulkanBuffer : IBuffer
         if (_disposed) return;
         _disposed = true;
 
-        var vk = _context.Vk;
-        var device = _context.Device;
-
-        if (_buffer.Handle != 0)
+        Buffer buffer = _buffer;
+        DeviceMemory memory = _memory;
+        _context.DeferRelease(() =>
         {
-            vk.DestroyBuffer(device, _buffer, null);
-        }
+            var vk = _context.Vk;
+            var device = _context.Device;
 
-        if (_memory.Handle != 0)
-        {
-            vk.FreeMemory(device, _memory, null);
-        }
+            if (buffer.Handle != 0)
+            {
+                vk.DestroyBuffer(device, buffer, null);
+            }
+
+            if (memory.Handle != 0)
+            {
+                vk.FreeMemory(device, memory, null);
+            }
+        });
     }
 }

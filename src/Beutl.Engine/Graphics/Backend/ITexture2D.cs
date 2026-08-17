@@ -60,4 +60,28 @@ public interface ITexture2D : IDisposable
     /// Prepares the texture for sampling (transitions to shader read-only layout).
     /// </summary>
     void PrepareForSampling();
+
+    /// <summary>
+    /// Gets whether the associated Skia surface owns pending work that the caller must flush
+    /// before returning the texture to backend interop.
+    /// </summary>
+    bool RequiresSkiaFlushForBackendInterop { get; }
+
+    /// <summary>
+    /// Prepares the texture to be rendered through the Skia surface returned by
+    /// <see cref="CreateSkiaSurface"/> by submitting preceding backend access and establishing
+    /// the visibility and ordering required by Skia.
+    /// </summary>
+    void PrepareForSkiaRendering();
+
+    /// <summary>
+    /// Prepares the texture to be sampled by Skia by submitting preceding backend access and
+    /// establishing the visibility and ordering required by the associated Skia surface.
+    /// </summary>
+    /// <param name="requireCompletion">
+    /// Whether the method must wait for backend work to complete before returning. A value of
+    /// <see langword="false"/> permits asynchronous submission, but an implementation may still
+    /// wait when its backend cannot express the hand-off with GPU synchronization primitives.
+    /// </param>
+    void PrepareForSkiaSampling(bool requireCompletion);
 }

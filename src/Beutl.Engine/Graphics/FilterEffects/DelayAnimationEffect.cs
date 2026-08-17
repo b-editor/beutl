@@ -93,7 +93,8 @@ public partial class DelayAnimationEffect : FilterEffect
                         effectContext.MaxWorkingScale,
                         effectContext.DeviceGridOffset,
                         effectContext.DrawableBrushMaterializer,
-                        effectContext.UsesExecutorManagedCanvas);
+                        effectContext.UsesExecutorManagedCanvas,
+                        effectContext.RenderTargetLeaseSession);
                     activator.Apply(childFEContext);
                     activator.Flush(false);
 

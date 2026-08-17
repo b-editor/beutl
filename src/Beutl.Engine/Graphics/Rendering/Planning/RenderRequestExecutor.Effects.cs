@@ -342,7 +342,8 @@ internal sealed partial class RenderRequestExecutor
                                 target,
                                 source),
                             _drawableBrushMaterializer,
-                            useExecutorManagedCanvas: true);
+                            useExecutorManagedCanvas: true,
+                            renderTargetLeaseSession: _targets);
                         activator.Apply(effectContext);
                         activator.CompletePolicyBoundary(
                             payload.WorkingScalePolicy.HasValue);
@@ -498,7 +499,8 @@ internal sealed partial class RenderRequestExecutor
                 Vector deviceGridOffset = target.DeviceBounds
                     .ToRect(target.Scale.Value)
                     .Position - target.RasterBounds.Position;
-                return CreateOwnedShallowCopy(
+                return CreateOwnedLegacyValue(
+                    target,
                     renderTarget,
                     target.Bounds,
                     target.Scale,
@@ -517,7 +519,8 @@ internal sealed partial class RenderRequestExecutor
             if (target.RasterBounds == canonicalRasterBounds
                 && Contains(target.DeviceBounds, semanticDeviceBounds))
             {
-                return CreateOwnedShallowCopy(
+                return CreateOwnedLegacyValue(
+                    target,
                     renderTarget,
                     target.Bounds,
                     target.Scale,
@@ -567,6 +570,47 @@ internal sealed partial class RenderRequestExecutor
             {
                 if (!succeeded)
                     ReleaseUnpublished(normalized);
+            }
+        }
+
+        private static MaterializedRenderValue CreateOwnedLegacyValue(
+            EffectTarget effectTarget,
+            RenderTarget renderTarget,
+            Rect bounds,
+            EffectiveScale effectiveScale,
+            PixelRect deviceBounds,
+            Vector deviceGridOffset,
+            Rect? completeBounds = null,
+            bool preserveLegacyRasterPlacement = false)
+        {
+            EffectTargetRenderTargetLease? renderTargetLease = effectTarget.TakeRenderTargetLease();
+            if (renderTargetLease is null)
+            {
+                return CreateOwnedShallowCopy(
+                    renderTarget,
+                    bounds,
+                    effectiveScale,
+                    deviceBounds,
+                    deviceGridOffset,
+                    completeBounds,
+                    preserveLegacyRasterPlacement);
+            }
+
+            try
+            {
+                return new MaterializedRenderValue(
+                    renderTargetLease,
+                    bounds,
+                    effectiveScale,
+                    deviceBounds,
+                    deviceGridOffset,
+                    completeBounds,
+                    preserveLegacyRasterPlacement);
+            }
+            catch
+            {
+                renderTargetLease.Dispose();
+                throw;
             }
         }
 

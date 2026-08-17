@@ -1,10 +1,47 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Composite;
+using Beutl.Graphics.Backend.Vulkan;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
 [NonParallelizable]
 public class GraphicsContextResourceTests
 {
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void DeferredRelease_CanReenterCommandPoolWithoutDoubleCompletion()
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+        VulkanContext vulkanContext = context switch
+        {
+            VulkanContext vulkan => vulkan,
+            CompositeContext composite => composite.Vulkan,
+            _ => throw new InvalidOperationException("The shared graphics context has no Vulkan backend."),
+        };
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            vulkanContext.WaitIdle();
+            int outerReleaseCount = 0;
+            int nestedReleaseCount = 0;
+
+            vulkanContext.RecordCommands(static _ => { });
+            vulkanContext.DeferRelease(() =>
+            {
+                outerReleaseCount++;
+                vulkanContext.DeferRelease(() => nestedReleaseCount++);
+            });
+
+            vulkanContext.FlushCommands(waitForCompletion: true);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(outerReleaseCount, Is.EqualTo(1));
+                Assert.That(nestedReleaseCount, Is.EqualTo(1));
+            });
+        });
+    }
+
     [Test]
     public void CreateTexture2D_RGBA8_HasMatchingDimensions()
     {
@@ -134,6 +171,70 @@ public class GraphicsContextResourceTests
             Assert.That(spirv, Is.Not.Null);
             Assert.That(spirv.Length, Is.GreaterThan(0));
             Assert.That(spirv.Length % 4, Is.EqualTo(0), "SPIR-V は 4 バイト単位の語の列であるべきです。");
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void ColorOnlyRenderPass_UsesMatchingFramebufferAndPipelineState()
+    {
+        var ctx = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            const string vertexSource = """
+                #version 450
+                void main() {
+                    vec2 positions[3] = vec2[](
+                        vec2(-1.0, -1.0),
+                        vec2(3.0, -1.0),
+                        vec2(-1.0, 3.0));
+                    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+                }
+                """;
+            const string fragmentSource = """
+                #version 450
+                layout(location = 0) out vec4 outColor;
+                void main() { outColor = vec4(0.0, 0.0, 1.0, 1.0); }
+                """;
+
+            IShaderCompiler compiler = ctx.CreateShaderCompiler();
+            byte[] vertexSpirv = compiler.CompileToSpirv(vertexSource, ShaderStage.Vertex);
+            byte[] fragmentSpirv = compiler.CompileToSpirv(fragmentSource, ShaderStage.Fragment);
+
+            using ITexture2D color = ctx.CreateTexture2D(8, 8, TextureFormat.RGBA8Unorm);
+            using IRenderPass3D renderPass = ctx.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm],
+                depthFormat: null);
+            using IFramebuffer3D framebuffer = ctx.CreateFramebuffer3D(
+                renderPass,
+                [color],
+                depthTexture: null);
+
+            Assert.That(
+                () => ctx.CreatePipeline3D(
+                    renderPass,
+                    vertexSpirv,
+                    fragmentSpirv,
+                    [],
+                    VertexInputDescription.Empty),
+                Throws.ArgumentException.With.Message.Contains("depth attachment"));
+
+            using IPipeline3D pipeline = ctx.CreatePipeline3D(
+                renderPass,
+                vertexSpirv,
+                fragmentSpirv,
+                [],
+                VertexInputDescription.Empty,
+                PipelineOptions.Fullscreen);
+
+            renderPass.Begin(framebuffer, [default]);
+            renderPass.BindPipeline(pipeline);
+            renderPass.Draw(3);
+            renderPass.End();
+            ctx.WaitIdle();
+
+            Assert.That(framebuffer.DepthTexture, Is.Null);
         });
     }
 

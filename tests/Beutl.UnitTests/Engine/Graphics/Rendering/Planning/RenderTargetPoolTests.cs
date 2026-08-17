@@ -2,6 +2,7 @@
 
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -41,6 +42,62 @@ public sealed class RenderTargetPoolTests
                 AssertTargetIsTransparent(lease.Target);
             });
         }
+    }
+
+    [Test]
+    public void PooledEffectTargetClone_HoldsTheLeaseUntilTheLastReferenceIsDisposed()
+    {
+        using var registry = new RenderTargetLeaseRegistry(new TrackingTargetFactory());
+        using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Delivery);
+        using RenderTarget sourceTarget = RenderTarget.CreateNull(4, 4);
+        using var source = new EffectTarget(sourceTarget, new Rect(0, 0, 4, 4));
+        RenderTargetLease lease = session.Acquire(new PixelSize(4, 4));
+        EffectTarget pooled = source.CreateReplacement(lease);
+        EffectTarget clone = pooled.Clone();
+
+        Assert.That(clone.RenderTarget, Is.Not.SameAs(pooled.RenderTarget));
+
+        pooled.Dispose();
+        Assert.Multiple(() =>
+        {
+            Assert.That(lease.IsReleased, Is.False);
+            Assert.That(registry.Statistics.LeasedTargets, Is.EqualTo(1));
+        });
+
+        clone.Dispose();
+        Assert.Multiple(() =>
+        {
+            Assert.That(lease.IsReleased, Is.True);
+            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(registry.Statistics.AvailableTargets, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void DeferredLease_RemainsUnavailableUntilTheGpuReclaimBoundary()
+    {
+        using var pool = new RenderTargetPool(new TrackingTargetFactory());
+        RenderTargetPoolRequest request = pool.BeginRequest();
+        PooledRenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
+
+        lease.DeferRelease();
+        request.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lease.State, Is.EqualTo(PooledRenderTargetLeaseState.Deferred));
+            Assert.That(pool.Statistics.LeasedTargets, Is.EqualTo(1));
+            Assert.That(pool.Statistics.AvailableTargets, Is.Zero);
+        });
+
+        lease.CompleteDeferredRelease();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lease.State, Is.EqualTo(PooledRenderTargetLeaseState.Available));
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(pool.Statistics.AvailableTargets, Is.EqualTo(1));
+        });
     }
 
     [Test]

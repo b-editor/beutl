@@ -50,8 +50,8 @@ public sealed class ProgramCacheTests
     public void GetOrCreate_WarmedEquivalentIdentity_IsAHitWithoutAnotherCreation()
     {
         using var cache = CreateCache(maxRetainedBytes: 64);
-        SkslMergedProgramIdentity firstIdentity = Identity(SourceA);
-        SkslMergedProgramIdentity equivalentIdentity = Identity(SourceA);
+        ShaderProgramIdentity firstIdentity = Identity(SourceA);
+        ShaderProgramIdentity equivalentIdentity = Identity(SourceA);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         int nextId = 0;
 
@@ -100,13 +100,64 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
+    public void GetOrCreate_SameDescriptionLoweredForDifferentBackends_DoesNotCollide()
+    {
+        const string spirvSource =
+            "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(1); }";
+        var lowering = new SpirvShaderLowering(
+            spirvSource,
+            [],
+            supportsBitExactSkiaHandoff: false);
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            new SkslSource(
+                "half4 apply(half4 color) { return color; }",
+                ShaderDescriptionKind.CurrentPixel),
+            lowering,
+            bindings: null);
+        ShaderProgramIdentity skslIdentity = ShaderProgramIdentity.CreateSksl(
+            spirvSource,
+            [],
+            SkslBackendBudgetResolver.SpirvVulkan);
+        ShaderProgramIdentity spirvIdentity = ShaderProgramIdentity.CreateSpirv(
+            description,
+            lowering,
+            SkslBackendBudgetResolver.SpirvVulkan);
+        using var cache = CreateCache(maxRetainedBytes: 64);
+        ProgramCacheContextKey context = Context("device-a", "context-a");
+        int nextId = 0;
+
+        FakeProgram skslProgram;
+        using (ProgramCacheLease<FakeProgram> sksl = cache.GetOrCreate(
+                   skslIdentity,
+                   context,
+                   () => new FakeProgram(++nextId, 8)))
+        {
+            skslProgram = sksl.Program;
+        }
+
+        using ProgramCacheLease<FakeProgram> spirv = cache.GetOrCreate(
+            spirvIdentity,
+            context,
+            () => new FakeProgram(++nextId, 8));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(skslIdentity, Is.Not.EqualTo(spirvIdentity));
+            Assert.That(spirv.Program, Is.Not.SameAs(skslProgram));
+            Assert.That(spirv.IsCacheHit, Is.False);
+            Assert.That(cache.Statistics.Misses, Is.EqualTo(2));
+            Assert.That(cache.Statistics.RetainedPrograms, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
     public void GetOrCreate_HashBucketCollision_UsesFullSourceAndBindingSignature()
     {
         using var cache = CreateCache(maxRetainedBytes: 128);
         const int forcedBucket = 12345;
-        SkslMergedProgramIdentity sourceA = Identity(SourceA, forcedBucket);
-        SkslMergedProgramIdentity sourceB = Identity(SourceB, forcedBucket);
-        SkslMergedProgramIdentity differentSignature = Identity(
+        ShaderProgramIdentity sourceA = Identity(SourceA, forcedBucket);
+        ShaderProgramIdentity sourceB = Identity(SourceB, forcedBucket);
+        ShaderProgramIdentity differentSignature = Identity(
             SourceA,
             forcedBucket,
             [new SkslMergedBindingLayout(
@@ -167,7 +218,7 @@ public sealed class ProgramCacheTests
     public void GetOrCreate_ReentrantExactKey_UsesResetTransientWithoutCorruptingOuterBindings()
     {
         using var cache = CreateCache(maxRetainedBytes: 64);
-        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         var created = new List<FakeProgram>();
 
@@ -233,7 +284,7 @@ public sealed class ProgramCacheTests
             retainedByteSize: static program => program.RetainedBytes,
             maxRetainedBytes: 64,
             shareLeasedPrograms: true);
-        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         int creations = 0;
 
@@ -272,7 +323,7 @@ public sealed class ProgramCacheTests
     public void SynchronizeContext_EvictsProgramsFromThePreviousDestinationContext()
     {
         using var cache = CreateCache(maxRetainedBytes: 64);
-        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey firstContext = Context("device-a", "context-a");
         FakeProgram program;
         using (ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
@@ -296,7 +347,7 @@ public sealed class ProgramCacheTests
     public void GetOrCreate_ContextCompileContract_IsPartOfTheFullKey()
     {
         using var cache = CreateCache(maxRetainedBytes: 128);
-        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey[] contexts =
         [
             Context("device-a", "context-a", capability: "skia-v1", format: "rgba16f", options: "default"),
@@ -334,9 +385,9 @@ public sealed class ProgramCacheTests
     {
         using var cache = CreateCache(maxRetainedBytes: 20);
         ProgramCacheContextKey context = Context("device-a", "context-a");
-        SkslMergedProgramIdentity a = Identity(SourceA + "// a");
-        SkslMergedProgramIdentity b = Identity(SourceA + "// b");
-        SkslMergedProgramIdentity c = Identity(SourceA + "// c");
+        ShaderProgramIdentity a = Identity(SourceA + "// a");
+        ShaderProgramIdentity b = Identity(SourceA + "// b");
+        ShaderProgramIdentity c = Identity(SourceA + "// c");
         int nextId = 0;
 
         FakeProgram programA = AcquireAndReturn(a);
@@ -363,7 +414,7 @@ public sealed class ProgramCacheTests
             Assert.That(recreatedB.Program, Is.Not.SameAs(programB));
         });
 
-        FakeProgram AcquireAndReturn(SkslMergedProgramIdentity identity)
+        FakeProgram AcquireAndReturn(ShaderProgramIdentity identity)
         {
             using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                 identity,
@@ -377,7 +428,7 @@ public sealed class ProgramCacheTests
     public void OversizedProgram_IsTransientAndNeverBecomesAWarmedHit()
     {
         using var cache = CreateCache(maxRetainedBytes: 8);
-        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         var programs = new List<FakeProgram>();
 
@@ -412,7 +463,7 @@ public sealed class ProgramCacheTests
     public void EvictContextAndDevice_RemoveOnlyMatchingEntries()
     {
         using var cache = CreateCache(maxRetainedBytes: 128);
-        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey a1 = Context("device-a", "context-1");
         ProgramCacheContextKey a2 = Context("device-a", "context-2");
         ProgramCacheContextKey b1 = Context("device-b", "context-1");
@@ -458,7 +509,7 @@ public sealed class ProgramCacheTests
     public void EvictDevice_WhileLeased_DefersDisposalAndMakesLaterLookupMiss()
     {
         using var cache = CreateCache(maxRetainedBytes: 64);
-        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         int nextId = 0;
         ProgramCacheLease<FakeProgram> outer = cache.GetOrCreate(
@@ -500,7 +551,7 @@ public sealed class ProgramCacheTests
     public void RuntimeResetFailure_EvictsAndDisposesPoisonedProgram()
     {
         using var cache = CreateCache(maxRetainedBytes: 64);
-        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         int nextId = 0;
         ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
@@ -528,7 +579,7 @@ public sealed class ProgramCacheTests
     public void Dispose_WithActiveLease_DefersItsProgramAndRejectsLaterLookup()
     {
         var cache = CreateCache(maxRetainedBytes: 64);
-        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
             identity,
@@ -571,11 +622,11 @@ public sealed class ProgramCacheTests
             format,
             options ?? "default");
 
-    private static SkslMergedProgramIdentity Identity(
+    private static ShaderProgramIdentity Identity(
         string source,
         int? bucketHashOverride = null,
         IReadOnlyList<SkslMergedBindingLayout>? bindings = null)
-        => new(
+        => ShaderProgramIdentity.CreateSksl(
             source,
             bindings ?? [],
             SkslBackendBudget.Unlimited,

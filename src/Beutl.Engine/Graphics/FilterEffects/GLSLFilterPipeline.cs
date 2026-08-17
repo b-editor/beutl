@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -47,6 +48,8 @@ internal sealed class GLSLFilterPipeline : IDisposable
 
     internal bool HasMaskTexture => _hasMaskTexture;
 
+    internal long RetainedByteSize => Math.Max(1, _vertexShaderSpirv.Length + _fragmentShaderSpirv.Length);
+
     private GLSLFilterPipeline(
         IGraphicsContext context,
         IRenderPass3D renderPass,
@@ -65,7 +68,25 @@ internal sealed class GLSLFilterPipeline : IDisposable
         _hasMaskTexture = hasMaskTexture;
     }
 
-    public static GLSLFilterPipeline? Create(IGraphicsContext context, string fragmentShaderSource, bool hasMaskTexture = false)
+    /// <summary>
+    /// Compiles a fragment shader and creates its fullscreen filter pipeline.
+    /// </summary>
+    /// <param name="context">The graphics context that owns the pipeline.</param>
+    /// <param name="fragmentShaderSource">The GLSL fragment shader source.</param>
+    /// <param name="outputCoverage">
+    /// The proven fragment-output coverage contract. <see cref="ShaderOutputCoverage.ProvablyFull"/> may be
+    /// selected only for an engine-owned shader whose every control-flow path writes the fragment output and
+    /// which never uses <c>discard</c>; a false claim can expose stale pixels from an unrelated frame when a
+    /// pooled target is reused.
+    /// </param>
+    /// <param name="specializationConstants">Immutable values applied when the pipeline is created.</param>
+    /// <param name="hasMaskTexture">Whether the shader reads a second texture at binding 1.</param>
+    public static GLSLFilterPipeline? Create(
+        IGraphicsContext context,
+        string fragmentShaderSource,
+        ShaderOutputCoverage outputCoverage,
+        ImmutableArray<SpecializationConstant> specializationConstants = default,
+        bool hasMaskTexture = false)
     {
         if (!context.Supports3DRendering)
         {
@@ -83,12 +104,13 @@ internal sealed class GLSLFilterPipeline : IDisposable
             // Compile fragment shader
             byte[] fragmentShaderSpirv = compiler.CompileToSpirv(fragmentShaderSource, ShaderStage.Fragment);
 
-            // Create render pass for BGRA8 format (matching RenderTarget format)
+            // Create a color-only render pass matching the RenderTarget format.
             IRenderPass3D renderPass = context.CreateRenderPass3D(
                 [TextureFormat.RGBA16Float],
-                TextureFormat.Depth32Float,
-                AttachmentLoadOp.DontCare,
-                AttachmentLoadOp.DontCare);
+                depthFormat: null,
+                colorLoadOp: outputCoverage == ShaderOutputCoverage.ProvablyFull
+                    ? AttachmentLoadOp.DontCare
+                    : AttachmentLoadOp.Clear);
 
             // Create sampler
             ISampler sampler = context.CreateSampler(
@@ -106,13 +128,15 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 : [new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)];
 
             // Create pipeline with fullscreen options
+            PipelineOptions pipelineOptions = PipelineOptions.Fullscreen;
+            pipelineOptions.SpecializationConstants = specializationConstants;
             IPipeline3D pipeline = context.CreatePipeline3D(
                 renderPass,
                 vertexShaderSpirv,
                 fragmentShaderSpirv,
                 descriptorBindings,
                 VertexInputDescription.Empty,
-                PipelineOptions.Fullscreen);
+                pipelineOptions);
 
             return new GLSLFilterPipeline(
                 context,
@@ -133,7 +157,6 @@ internal sealed class GLSLFilterPipeline : IDisposable
     public void Execute<T>(
         ITexture2D sourceTexture,
         ITexture2D destinationTexture,
-        ITexture2D depthTexture,
         T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -149,7 +172,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
             _renderPass,
             [destinationTexture],
-            depthTexture);
+            depthTexture: null);
 
         // Create descriptor set and bind source texture
         using IDescriptorSet descriptorSet = _context.CreateDescriptorSet(
@@ -158,7 +181,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         descriptorSet.UpdateTexture(0, sourceTexture, _sampler);
 
         // Execute render pass
-        _renderPass.Begin(framebuffer, [default], 1.0f);
+        _renderPass.Begin(framebuffer, [default]);
         _renderPass.BindPipeline(_pipeline);
         _renderPass.BindDescriptorSet(_pipeline, descriptorSet);
         _renderPass.SetPushConstants(pushConstants, ShaderStage.Fragment);
@@ -174,7 +197,6 @@ internal sealed class GLSLFilterPipeline : IDisposable
         ITexture2D sourceTexture,
         ITexture2D maskTexture,
         ITexture2D destinationTexture,
-        ITexture2D depthTexture,
         T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -191,7 +213,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
             _renderPass,
             [destinationTexture],
-            depthTexture);
+            depthTexture: null);
 
         // Create descriptor set and bind both textures
         using IDescriptorSet descriptorSet = _context.CreateDescriptorSet(
@@ -201,7 +223,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         descriptorSet.UpdateTexture(1, maskTexture, _sampler);
 
         // Execute render pass
-        _renderPass.Begin(framebuffer, [default], 1.0f);
+        _renderPass.Begin(framebuffer, [default]);
         _renderPass.BindPipeline(_pipeline);
         _renderPass.BindDescriptorSet(_pipeline, descriptorSet);
         _renderPass.SetPushConstants(pushConstants, ShaderStage.Fragment);
@@ -221,4 +243,30 @@ internal sealed class GLSLFilterPipeline : IDisposable
         _sampler.Dispose();
         _disposed = true;
     }
+}
+
+/// <summary>
+/// Declares whether a fragment shader is proven to write every output pixel, allowing a filter render pass to
+/// preserve or skip initialization of a pooled destination safely.
+/// </summary>
+/// <remarks>
+/// Only engine-owned built-in shaders may claim <see cref="ProvablyFull"/>, and only after proving that every
+/// control-flow path writes the fragment output and that the shader contains no <c>discard</c>. A false claim
+/// leaves unwritten pixels unchanged, so a reused pooled target can reveal stale pixels from a previous,
+/// unrelated frame; this failure may not reproduce while the pool is cold.
+/// </remarks>
+internal enum ShaderOutputCoverage : byte
+{
+    /// <summary>
+    /// The shader may leave fragments unwritten, so the destination must be cleared before drawing. Public or
+    /// user-authored shaders always use this conservative contract.
+    /// </summary>
+    MayLeavePixelsUnwritten,
+
+    /// <summary>
+    /// Every control-flow path is proven to write the fragment output and no path uses <c>discard</c>. Only an
+    /// audited engine-owned built-in shader may claim this; an incorrect claim exposes stale pooled-target pixels
+    /// from an unrelated frame and can remain hidden until a warm-pool reuse.
+    /// </summary>
+    ProvablyFull,
 }

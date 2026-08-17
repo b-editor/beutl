@@ -1,5 +1,6 @@
 ﻿using System.Runtime.ExceptionServices;
 
+using Beutl.Graphics.Backend;
 using Beutl.Logging;
 using Beutl.Media;
 
@@ -135,6 +136,27 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
         {
             lease.Session.RecordCleanupFailure(ex);
         }
+    }
+
+    internal void ReleaseForBackendReuse(RenderTargetLease lease)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        if (lease.IsReleased)
+            return;
+
+        ITexture2D? texture = lease.Target.Texture;
+        if (texture is not { RequiresSkiaFlushForBackendInterop: true })
+        {
+            Release(lease);
+            return;
+        }
+
+        long approximateBytes = checked((long)lease.Target.Width * lease.Target.Height * 8);
+        lease.PooledLease.DeferRelease();
+        lease.IsReleased = true;
+        var deferredRelease = new DeferredRenderTargetLeaseRelease(lease);
+        if (!GpuResourceReclaimQueue.TryDefer(deferredRelease, approximateBytes))
+            deferredRelease.Dispose();
     }
 
     internal RenderTarget TransferToAcceptedCache(RenderTargetLease lease)
@@ -295,6 +317,14 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         _registry.Release(lease);
     }
 
+    internal void ReleaseForBackendReuse(RenderTargetLease lease)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        if (!ReferenceEquals(lease.Session, this))
+            throw new InvalidOperationException("The render-target lease belongs to a different allocation session.");
+        _registry.ReleaseForBackendReuse(lease);
+    }
+
     internal RenderTarget TransferToAcceptedCache(RenderTargetLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
@@ -334,8 +364,40 @@ internal sealed class RenderTargetLease : IDisposable
         Session.Release(this);
     }
 
+    internal void ReleaseForBackendReuse()
+    {
+        Session.ReleaseForBackendReuse(this);
+    }
+
     public RenderTarget TransferToAcceptedCache()
         => Session.TransferToAcceptedCache(this);
+}
+
+internal sealed class DeferredRenderTargetLeaseRelease : IDisposable
+{
+    private RenderTargetLease? _lease;
+
+    public DeferredRenderTargetLeaseRelease(RenderTargetLease lease)
+    {
+        _lease = lease ?? throw new ArgumentNullException(nameof(lease));
+    }
+
+    public void Dispose()
+    {
+        RenderTargetLease? lease = _lease;
+        if (lease is null)
+            return;
+
+        _lease = null;
+        try
+        {
+            lease.PooledLease.CompleteDeferredRelease();
+        }
+        catch (Exception ex)
+        {
+            lease.Session.RecordCleanupFailure(ex);
+        }
+    }
 }
 
 internal readonly record struct RenderTargetCacheContextIdentity(
