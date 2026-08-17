@@ -38,16 +38,22 @@ public class Profile
 
     public async Task RefreshAsync(CancellationToken cancellationToken, bool self = false)
     {
+        using CancellationTokenSource lifetimeCts = _clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
         using Activity? activity = _clients.ActivitySource.StartActivity("Profile.Refresh", ActivityKind.Client);
 
         if (self)
         {
-            _response.Value = await _clients.Users.GetSelf(cancellationToken);
+            ProfileResponse response = await _clients.Users.GetSelf(token);
+            token.ThrowIfCancellationRequested();
+            _response.Value = response;
             Name = _response.Value.Name;
         }
         else
         {
-            _response.Value = await _clients.Users.GetUser(Name, cancellationToken);
+            ProfileResponse response = await _clients.Users.GetUser(Name, token);
+            token.ThrowIfCancellationRequested();
+            _response.Value = response;
         }
     }
 
@@ -56,15 +62,23 @@ public class Profile
         int start = 0,
         int count = 30)
     {
+        using CancellationTokenSource lifetimeCts = _clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
         using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetPackages", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
         // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
-        return await (await _clients.Users.GetUserPackages(Name, cancellationToken, start, count))
-            .ToObservable()
-            .SelectMany(async x => await _clients.Packages.GetPackage(x.Name, cancellationToken))
-            .Select(x => new Package(this, x, _clients))
-            .ToArray();
+        SimplePackageResponse[] packages = await _clients.Users.GetUserPackages(Name, token, start, count);
+        token.ThrowIfCancellationRequested();
+        // Await all requests so a fault in one does not sever the others from the lifetime token.
+        Package[] result = await Task.WhenAll(
+            packages.Select(async x =>
+            {
+                PackageResponse response = await _clients.Packages.GetPackage(x.Name, token);
+                return new Package(this, response, _clients);
+            }));
+        token.ThrowIfCancellationRequested();
+        return result;
     }
 }

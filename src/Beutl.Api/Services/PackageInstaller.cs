@@ -17,10 +17,11 @@ using ILogger = NuGet.Common.ILogger;
 
 namespace Beutl.Api.Services;
 
-public partial class PackageInstaller : IBeutlApiResource
+public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 {
     private readonly Microsoft.Extensions.Logging.ILogger _logger = Log.CreateLogger<PackageInstaller>();
     private readonly HttpClient _httpClient;
+    private readonly bool _ownsHttpClient;
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly BeutlApiApplication _apiApplication;
 
@@ -31,6 +32,12 @@ public partial class PackageInstaller : IBeutlApiResource
     private readonly PackageResolver _resolver;
 
     private readonly Dictionary<PackageIdentity, PackageInstallContext> _installingContexts = [];
+    private readonly object _gate = new();
+    private readonly HashSet<Task> _operations = [];
+    private Task? _disposeTask;
+    private bool _disposed;
+    private bool _drained;
+    private static readonly AsyncLocal<PackageInstaller?> s_transactionOwner = new();
 
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
@@ -45,6 +52,7 @@ public partial class PackageInstaller : IBeutlApiResource
     public PackageInstaller(HttpClient httpClient, InstalledPackageRepository installedPackageRepository, BeutlApiApplication apiApplication)
     {
         _httpClient = httpClient;
+        _ownsHttpClient = false;
         _installedPackageRepository = installedPackageRepository;
         _apiApplication = apiApplication;
 
@@ -88,6 +96,345 @@ public partial class PackageInstaller : IBeutlApiResource
         _resolver = new PackageResolver();
     }
 
+    internal PackageInstaller(
+        HttpClient httpClient,
+        bool ownsHttpClient,
+        InstalledPackageRepository installedPackageRepository,
+        BeutlApiApplication apiApplication)
+        : this(httpClient, installedPackageRepository, apiApplication)
+    {
+        _ownsHttpClient = ownsHttpClient;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        lock (_gate)
+        {
+            _disposed = true;
+            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
+        }
+    }
+
+    protected virtual async Task DisposeCoreAsync()
+    {
+        long deadline = Environment.TickCount64 + DrainDeadlineMilliseconds;
+        bool drained = false;
+        while (!drained && Environment.TickCount64 < deadline)
+        {
+            Task[] operations;
+            lock (_gate)
+            {
+                _operations.RemoveWhere(task => task.IsCompleted);
+                if (_operations.Count == 0)
+                {
+                    drained = true;
+                }
+                operations = _operations.ToArray();
+            }
+
+            if (drained)
+                break;
+
+            try
+            {
+                long remaining = deadline - Environment.TickCount64;
+                if (remaining <= 0)
+                    break;
+
+                await Task.WhenAll(operations).WaitAsync(TimeSpan.FromMilliseconds(remaining)).ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+
+            lock (_gate)
+            {
+                _operations.RemoveWhere(task => task.IsCompleted);
+            }
+        }
+
+        lock (_gate)
+        {
+            _drained = true;
+        }
+
+        if (drained)
+        {
+            DisposeResources();
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Package installer did not drain within the shutdown deadline; "
+                + "keeping resources alive until tracked work stops.");
+            _ = DisposeResourcesWhenIdleAsync();
+        }
+    }
+
+    // Waits until every admitted operation has actually stopped before releasing the
+    // installer resources, so a slow download or NuGet phase that outlived the drain
+    // deadline never sees its cache context or HttpClient disposed underneath it.
+    private async Task DisposeResourcesWhenIdleAsync()
+    {
+        try
+        {
+            while (true)
+            {
+                Task[] operations;
+                lock (_gate)
+                {
+                    _operations.RemoveWhere(task => task.IsCompleted);
+                    operations = _operations.ToArray();
+                }
+
+                if (operations.Length == 0)
+                    break;
+
+                try
+                {
+                    await Task.WhenAll(operations).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Awaiting observes operation faults; resource disposal must still run.
+                }
+            }
+
+            DisposeResources();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to dispose package installer resources after tracked work stopped.");
+        }
+    }
+
+    private void DisposeResources()
+    {
+        _cacheContext.Dispose();
+        if (_ownsHttpClient)
+        {
+            _httpClient.Dispose();
+        }
+    }
+
+    // Waits until every admitted operation has actually stopped, without the drain
+    // deadline: when Disposal ended at its deadline with operations still running,
+    // their fallback queueing must be observable before the shutdown snapshot of
+    // PackageChangesQueue is taken. The timeout keeps the wait bounded even when a
+    // tracked operation never completes, so shutdown cannot hang behind it.
+    internal async Task WaitUntilIdleAsync(TimeSpan timeout)
+    {
+        long deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
+        while (true)
+        {
+            long remaining = deadline - Environment.TickCount64;
+            if (remaining <= 0)
+            {
+                _logger.LogWarning("Package installer did not become idle within the shutdown deadline.");
+                return;
+            }
+
+            Task[] operations;
+            lock (_gate)
+            {
+                _operations.RemoveWhere(task => task.IsCompleted);
+                operations = _operations.ToArray();
+            }
+
+            if (operations.Length == 0)
+                return;
+
+            try
+            {
+                await Task.WhenAll(operations).WaitAsync(TimeSpan.FromMilliseconds(remaining)).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Awaiting observes operation faults; the loop must keep waiting for
+                // every admitted operation to stop before the queue snapshot.
+            }
+        }
+    }
+
+    // Virtual so tests can shorten the drain window; production keeps the 30-second budget.
+    protected virtual long DrainDeadlineMilliseconds => 30_000;
+
+    private Task TrackAsync(Func<Task> operation)
+        => TrackAsyncCore(operation);
+
+    private Task<T> TrackAsync<T>(Func<Task<T>> operation)
+        => TrackAsyncCore(operation);
+
+    public Task TrackInstallOperationAsync(Func<Task> operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task task = proxy.Task;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _operations.RemoveWhere(task => task.IsCompleted);
+            // Register before invoking so a re-entrant DisposeAsync drains this transaction.
+            _operations.Add(task);
+        }
+
+        // Invoke outside the lock: a delegate that blocks before its first incomplete await
+        // must not hold the gate, or a concurrent DisposeAsync could not even start its
+        // drain deadline. The operation's awaits use ConfigureAwait(false) so shutdown can
+        // block without deadlocking.
+        _ = RunTransactionAsync(operation, proxy);
+        return task;
+    }
+
+    internal void TrackSyncOperation(Action operation)
+    {
+        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)), this);
+            _operations.Add(proxy.Task);
+        }
+
+        PackageInstaller? previous = s_transactionOwner.Value;
+        s_transactionOwner.Value = this;
+        try
+        {
+            operation();
+        }
+        finally
+        {
+            // The proxy exists only to keep disposal draining until the operation finishes;
+            // the caller observes the exception directly, so complete it normally to avoid
+            // an unobserved fault when the drain loop removes the completed task.
+            proxy.TrySetResult();
+            s_transactionOwner.Value = previous;
+        }
+    }
+
+    internal T TrackSyncOperation<T>(Func<T> operation)
+    {
+        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)), this);
+            _operations.Add(proxy.Task);
+        }
+
+        PackageInstaller? previous = s_transactionOwner.Value;
+        s_transactionOwner.Value = this;
+        try
+        {
+            return operation();
+        }
+        finally
+        {
+            // See TrackSyncOperation(Action): the proxy is lifetime-only, so complete it
+            // normally even when the operation throws.
+            proxy.TrySetResult();
+            s_transactionOwner.Value = previous;
+        }
+    }
+
+    private async Task RunTransactionAsync(Func<Task> operation, TaskCompletionSource proxy)
+    {
+        PackageInstaller? previous = s_transactionOwner.Value;
+        s_transactionOwner.Value = this;
+        try
+        {
+            await operation().ConfigureAwait(false);
+            proxy.TrySetResult();
+        }
+        catch (OperationCanceledException ex)
+        {
+            proxy.TrySetCanceled(ex.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Propagate the failure so the caller reports it and queues fallback.
+            proxy.TrySetException(ex);
+        }
+        finally
+        {
+            s_transactionOwner.Value = previous;
+        }
+    }
+
+    private Task TrackAsyncCore(Func<Task> operation)
+    {
+        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+        {
+            // After draining, reject all work including nested phases.
+            if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
+            {
+                throw new ObjectDisposedException(nameof(PackageInstaller));
+            }
+            _operations.RemoveWhere(task => task.IsCompleted);
+            // Register before invoking so a concurrent DisposeAsync drains this phase.
+            _operations.Add(proxy.Task);
+        }
+
+        // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
+        _ = RunTrackedAsync(operation, proxy);
+        return proxy.Task;
+    }
+
+    private Task<T> TrackAsyncCore<T>(Func<Task<T>> operation)
+    {
+        TaskCompletionSource<T> proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+        {
+            if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
+            {
+                throw new ObjectDisposedException(nameof(PackageInstaller));
+            }
+            _operations.RemoveWhere(task => task.IsCompleted);
+            // Register before invoking so a concurrent DisposeAsync drains this phase.
+            _operations.Add(proxy.Task);
+        }
+
+        // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
+        _ = RunTrackedAsync(operation, proxy);
+        return proxy.Task;
+    }
+
+    private async Task RunTrackedAsync(Func<Task> operation, TaskCompletionSource proxy)
+    {
+        try
+        {
+            await operation().ConfigureAwait(false);
+            proxy.TrySetResult();
+        }
+        catch (OperationCanceledException ex)
+        {
+            proxy.TrySetCanceled(ex.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
+        }
+    }
+
+    private async Task<T> RunTrackedAsync<T>(Func<Task<T>> operation, TaskCompletionSource<T> proxy)
+    {
+        try
+        {
+            T result = await operation().ConfigureAwait(false);
+            proxy.TrySetResult(result);
+            return result;
+        }
+        catch (OperationCanceledException ex)
+        {
+            proxy.TrySetCanceled(ex.CancellationToken);
+            return default!;
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
+            return default!;
+        }
+    }
+
     private static void CreateLocalSourceDirectory()
     {
         if (!Directory.Exists(Helper.LocalSourcePath))
@@ -96,10 +443,16 @@ public partial class PackageInstaller : IBeutlApiResource
         }
     }
 
-    public async Task<PackageInstallContext> PrepareForInstall(
+    public Task<PackageInstallContext> PrepareForInstall(
         Release release,
         bool force = false,
         CancellationToken cancellationToken = default)
+        => TrackAsync(() => PrepareForInstallCoreAsync(release, force, cancellationToken));
+
+    private async Task<PackageInstallContext> PrepareForInstallCoreAsync(
+        Release release,
+        bool force,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -135,6 +488,15 @@ public partial class PackageInstaller : IBeutlApiResource
         bool force = false,
         CancellationToken cancellationToken = default)
     {
+        return TrackSyncOperation(() => PrepareForInstallCore(name, version, force, cancellationToken));
+    }
+
+    private PackageInstallContext PrepareForInstallCore(
+        string name,
+        string version,
+        bool force,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         var packageId = new PackageIdentity(name, new NuGetVersion(version));
 
@@ -158,10 +520,16 @@ public partial class PackageInstaller : IBeutlApiResource
         }
     }
 
-    public async Task DownloadPackageFile(
+    public Task DownloadPackageFile(
         PackageInstallContext context,
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
+        => TrackAsync(() => DownloadPackageFileCoreAsync(context, progress, cancellationToken));
+
+    private async Task DownloadPackageFileCoreAsync(
+        PackageInstallContext context,
+        IProgress<double>? progress,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if ((int)context.Phase <= (int)PackageInstallPhase.Downloading)
@@ -182,10 +550,16 @@ public partial class PackageInstaller : IBeutlApiResource
         }
     }
 
-    public async Task VerifyPackageFile(
+    public Task VerifyPackageFile(
         PackageInstallContext context,
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
+        => TrackAsync(() => VerifyPackageFileCoreAsync(context, progress, cancellationToken));
+
+    private async Task VerifyPackageFileCoreAsync(
+        PackageInstallContext context,
+        IProgress<double>? progress,
+        CancellationToken cancellationToken)
     {
         async Task<bool> Varify(HashAlgorithm algorithm, Stream stream, long totalLength, string hashValue)
         {
@@ -273,20 +647,33 @@ public partial class PackageInstaller : IBeutlApiResource
         }
     }
 
-    public async Task ReResolveDependencies(
+    public Task ReResolveDependencies(
         PackageIdentity package,
         ILogger? logger,
         CancellationToken cancellationToken = default)
+        => TrackAsync(() => ReResolveDependenciesCoreAsync(package, logger, cancellationToken));
+
+    private async Task ReResolveDependenciesCoreAsync(
+        PackageIdentity package,
+        ILogger? logger,
+        CancellationToken cancellationToken)
     {
-        var context = PrepareForInstall(
+        // Call the core directly; the outer operation is already admitted.
+        var context = PrepareForInstallCore(
             package.Id, package.Version.ToString(), force: true, cancellationToken);
-        await ResolveDependencies(context, logger, cancellationToken);
+        await ResolveDependenciesCoreAsync(context, logger, cancellationToken);
     }
 
-    public async Task ResolveDependencies(
+    public Task ResolveDependencies(
         PackageInstallContext context,
         ILogger? logger,
         CancellationToken cancellationToken = default)
+        => TrackAsync(() => ResolveDependenciesCoreAsync(context, logger, cancellationToken));
+
+    private async Task ResolveDependenciesCoreAsync(
+        PackageInstallContext context,
+        ILogger? logger,
+        CancellationToken cancellationToken)
     {
         PackageIdentity? package = null;
         try
@@ -411,7 +798,7 @@ public partial class PackageInstaller : IBeutlApiResource
         {
             try
             {
-                await user.RefreshAsync(cancellationToken);
+                await user.RefreshAsync(cancellationToken).ConfigureAwait(false);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

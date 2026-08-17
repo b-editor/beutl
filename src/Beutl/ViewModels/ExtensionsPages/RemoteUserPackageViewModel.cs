@@ -80,7 +80,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
                         try
                         {
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId, CancellationToken.None);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
@@ -136,11 +136,15 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
                         try
                         {
-                            await _handler.UnloadPackages(Package.Name);
+                            if (!await _handler.UnloadPackages(Package.Name))
+                            {
+                                throw new InvalidOperationException(
+                                    $"Package '{Package.Name}' could not be unloaded safely.");
+                            }
 
                             _handler.DeleteOldVersionFiles(Package.Name);
 
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId, CancellationToken.None);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));

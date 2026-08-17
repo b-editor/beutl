@@ -15,40 +15,43 @@ public partial class PackageInstaller
     /// </summary>
     public void InstallDataPackage(LocalPackage package)
     {
-        if (string.IsNullOrEmpty(package.InstalledPath))
+        TrackSyncOperation(() =>
         {
-            throw new ArgumentException(
-                $"'{package.Name}' has not been extracted yet.",
-                nameof(package));
-        }
+            if (string.IsNullOrEmpty(package.InstalledPath))
+            {
+                throw new ArgumentException(
+                    $"'{package.Name}' has not been extracted yet.",
+                    nameof(package));
+            }
 
-        string name = ValidatePackageName(package.Name);
-        bool hasMaterial = package.Tags.Contains(PackageKinds.MaterialTag);
-        bool hasTemplate = package.Tags.Contains(PackageKinds.TemplateTag);
-        if (!hasMaterial && !hasTemplate)
-        {
-            throw new ArgumentException(
-                $"'{package.Name}' is an extension package and has no data payload.",
-                nameof(package));
-        }
+            string name = ValidatePackageName(package.Name);
+            bool hasMaterial = package.Tags.Contains(PackageKinds.MaterialTag);
+            bool hasTemplate = package.Tags.Contains(PackageKinds.TemplateTag);
+            if (!hasMaterial && !hasTemplate)
+            {
+                throw new ArgumentException(
+                    $"'{package.Name}' is an extension package and has no data payload.",
+                    nameof(package));
+            }
 
-        // An update may have dropped a kind, so clear both payload directories; the
-        // removed kind's payload would otherwise stay registered.
-        if (!DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name))
-            || !DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name)))
-        {
-            throw new IOException($"Could not clear the existing package data directories for '{name}'.");
-        }
+            // An update may have dropped a kind, so clear both payload directories; the
+            // removed kind's payload would otherwise stay registered.
+            if (!DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name))
+                || !DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name)))
+            {
+                throw new IOException($"Could not clear the existing package data directories for '{name}'.");
+            }
 
-        if (hasMaterial)
-        {
-            InstallPayload(package, name, MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath());
-        }
+            if (hasMaterial)
+            {
+                InstallPayload(package, name, MaterialsContentDirectory, BeutlEnvironment.GetMaterialsDirectoryPath());
+            }
 
-        if (hasTemplate)
-        {
-            InstallPayload(package, name, TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath());
-        }
+            if (hasTemplate)
+            {
+                InstallPayload(package, name, TemplatesContentDirectory, BeutlEnvironment.GetTemplatesDirectoryPath());
+            }
+        });
     }
 
     private void InstallPayload(LocalPackage package, string name, string contentDirectory, string root)
@@ -81,10 +84,13 @@ public partial class PackageInstaller
     /// </remarks>
     public bool UninstallDataPackage(string packageName)
     {
-        string name = ValidatePackageName(packageName);
-        bool templates = DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name));
-        bool materials = DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name));
-        return templates && materials;
+        return TrackSyncOperation(() =>
+        {
+            string name = ValidatePackageName(packageName);
+            bool templates = DeleteIfExists(Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name));
+            bool materials = DeleteIfExists(Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name));
+            return templates && materials;
+        });
     }
 
     // The name is a NuGet id read out of a downloaded nuspec, and it becomes a directory

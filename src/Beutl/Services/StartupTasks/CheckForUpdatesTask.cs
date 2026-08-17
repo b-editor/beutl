@@ -150,6 +150,14 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
         catch (Exception ex)
         {
+            if (_beutlApiApplication.IsDisposed
+                && ex is OperationCanceledException or ObjectDisposedException)
+            {
+                // Shutdown cancellation is a normal exit, not a failed update check:
+                // skip the error telemetry and the timeout notification.
+                return default;
+            }
+
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "An error occurred while checking for updates");
             if (ex is OperationCanceledException)

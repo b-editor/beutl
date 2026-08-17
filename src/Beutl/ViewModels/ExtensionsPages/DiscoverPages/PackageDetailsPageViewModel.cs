@@ -17,6 +17,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 {
     private readonly ILogger _logger = Log.CreateLogger<PackageDetailsPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
+    private readonly LifetimeCancellationSource _lifetimeCts = new();
     private readonly PackageOperationHandler _handler;
     private readonly LibraryService _library;
     private readonly BeutlApiApplication _app;
@@ -53,15 +54,15 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 try
                 {
-                    using (await _app.Lock.LockAsync())
+                    using (await _app.Lock.LockAsync(_lifetimeCts.Token))
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         IsBusy.Value = true;
                         await PackageReleaseRefreshCoordinator.RefreshAsync(
                             releasesReady,
-                            () => Package.RefreshAsync(CancellationToken.None),
+                            () => Package.RefreshAsync(_lifetimeCts.Token),
                             (start, count) => package.GetReleasesAsync(
-                                CancellationToken.None,
+                                _lifetimeCts.Token,
                                 start,
                                 count),
                             releases =>
@@ -76,6 +77,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                                 }
                             });
                     }
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -131,7 +135,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 AvaloniaScheduler.Instance,
                 () => SelectedRelease.Value,
                 () => AllReleases,
-                version => Package.GetReleaseAsync(version, CancellationToken.None),
+                version => Package.GetReleaseAsync(version, _lifetimeCts.Token),
                 ex => _logger.LogWarning(ex, "Failed to resolve installed release for {PackageId}.", Package.Name))
             .Subscribe(release => CurrentRelease.Value = release)
             .DisposeWith(_disposables);
@@ -190,19 +194,23 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                     IsBusy.Value = true;
                     StatusText.Value = ExtensionsStrings.Installing;
-                    using (await _app.Lock.LockAsync())
+                    using (await _app.Lock.LockAsync(_lifetimeCts.Token))
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
-                        Release release = await AcquireRelease();
+                        Release release = await AcquireRelease(_lifetimeCts.Token);
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
 
                         try
                         {
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId, _lifetimeCts.Token);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
                                     packageId.Id));
+                        }
+                        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                        {
+                            throw;
                         }
                         catch (Exception ex)
                         {
@@ -214,6 +222,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                                     packageId.Id));
                         }
                     }
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -241,22 +252,38 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         return;
 
                     StatusText.Value = ExtensionsStrings.Updating;
-                    using (await _app.Lock.LockAsync())
+                    using (await _app.Lock.LockAsync(_lifetimeCts.Token))
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
-                        Release release = await AcquireRelease();
+                        Release release = await AcquireRelease(_lifetimeCts.Token);
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
 
+                        bool oldVersionRemoved = false;
                         try
                         {
-                            await _handler.UnloadPackages(Package.Name);
+                            if (!await _handler.UnloadPackages(Package.Name))
+                            {
+                                throw new InvalidOperationException(
+                                    $"Package '{Package.Name}' could not be unloaded safely.");
+                            }
 
                             _handler.DeleteOldVersionFiles(Package.Name);
+                            oldVersionRemoved = true;
 
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId, _lifetimeCts.Token);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));
+                        }
+                        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                        {
+                            if (oldVersionRemoved)
+                            {
+                                // The old version is gone; queue the update for the next launch.
+                                _handler.Queue.InstallQueue(packageId);
+                            }
+
+                            throw;
                         }
                         catch (Exception ex)
                         {
@@ -267,6 +294,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                                 message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUpdate, packageId.Id));
                         }
                     }
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -350,12 +380,12 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         Refresh.Execute();
     }
 
-    private async Task<Release> AcquireRelease()
+    private async Task<Release> AcquireRelease(CancellationToken cancellationToken)
     {
         if (_app.AuthenticatedUser.Value != null)
         {
-            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
-            await _library.Acquire(Package, CancellationToken.None);
+            await _app.AuthenticatedUser.Value.RefreshAsync(cancellationToken);
+            await _library.Acquire(Package, cancellationToken);
         }
 
         if (SelectedRelease.Value != null)
@@ -363,7 +393,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             return SelectedRelease.Value;
         }
 
-        return await PackageReleaseResolver.GetFirstReleaseAsync(Package, CancellationToken.None);
+        return await PackageReleaseResolver.GetFirstReleaseAsync(Package, cancellationToken);
     }
 
     public Package Package { get; }
@@ -414,7 +444,19 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
     public override void Dispose()
     {
-        _disposables.Dispose();
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cancel the lifetime token during disposal.");
+        }
+        finally
+        {
+            _disposables.Dispose();
+            _lifetimeCts.Dispose();
+        }
     }
 
     private static string KindToText(PackageKind kind)
