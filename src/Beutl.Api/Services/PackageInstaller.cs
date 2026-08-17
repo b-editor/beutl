@@ -217,8 +217,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
     private Task TrackAsyncCore(Func<Task> operation)
     {
-        Task task;
-        bool admitted = false;
+        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
             // Once draining has finished and the resources are disposed, reject all work
@@ -228,27 +227,21 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
             _operations.RemoveWhere(task => task.IsCompleted);
-            admitted = true;
+            // Register the proxy before invoking the delegate so a concurrent DisposeAsync
+            // observes this phase as in-flight and drains it instead of disposing resources
+            // underneath it.
+            _operations.Add(proxy.Task);
         }
 
         // Invoke the delegate outside the lock so a synchronously executing delegate that
         // re-enters a tracked method cannot deadlock on _gate.
-        task = operation();
-        lock (_gate)
-        {
-            if (admitted)
-            {
-                _operations.Add(task);
-            }
-        }
-
-        return task;
+        _ = RunTrackedAsync(operation, proxy);
+        return proxy.Task;
     }
 
     private Task<T> TrackAsyncCore<T>(Func<Task<T>> operation)
     {
-        Task<T> task;
-        bool admitted = false;
+        TaskCompletionSource<T> proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
             if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
@@ -256,21 +249,44 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
             _operations.RemoveWhere(task => task.IsCompleted);
-            admitted = true;
+            // Register the proxy before invoking the delegate so a concurrent DisposeAsync
+            // observes this phase as in-flight and drains it instead of disposing resources
+            // underneath it.
+            _operations.Add(proxy.Task);
         }
 
         // Invoke the delegate outside the lock so a synchronously executing delegate that
         // re-enters a tracked method cannot deadlock on _gate.
-        task = operation();
-        lock (_gate)
-        {
-            if (admitted)
-            {
-                _operations.Add(task);
-            }
-        }
+        _ = RunTrackedAsync(operation, proxy);
+        return proxy.Task;
+    }
 
-        return task;
+    private async Task RunTrackedAsync(Func<Task> operation, TaskCompletionSource proxy)
+    {
+        try
+        {
+            await operation().ConfigureAwait(false);
+            proxy.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
+        }
+    }
+
+    private async Task<T> RunTrackedAsync<T>(Func<Task<T>> operation, TaskCompletionSource<T> proxy)
+    {
+        try
+        {
+            T result = await operation().ConfigureAwait(false);
+            proxy.TrySetResult(result);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
+            throw;
+        }
     }
 
     private static void CreateLocalSourceDirectory()

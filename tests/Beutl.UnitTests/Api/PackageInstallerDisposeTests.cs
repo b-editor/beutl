@@ -158,6 +158,36 @@ public sealed class PackageInstallerDisposeTests
             await operation.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
+    [Test]
+    public async Task DisposeAsync_DrainsPhaseRegisteredWhileDisposalIsRunning()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        var handler = new BlockingHandler();
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        var phaseStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePhase = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task phase = installer.DownloadPackageFile(
+            new PackageInstallContext("Beutl.Package.RacePhase", "1.0.0", "https://example.com/package.nupkg"),
+            cancellationToken: CancellationToken.None);
+        // The phase is admitted and its proxy registered before it reaches the network
+        // handler; disposal must drain it instead of disposing the client underneath it.
+        Task dispose = installer.DisposeAsync().AsTask();
+        await handler.Entered.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(dispose.IsCompleted, Is.False,
+            "disposal must wait for the phase that was admitted while disposal started");
+
+        handler.Release();
+        await Task.WhenAll(phase, dispose).WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
     private sealed class BlockingHandler : HttpMessageHandler
     {
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
