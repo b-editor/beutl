@@ -328,6 +328,57 @@ public sealed class BeutlApiApplicationTests
         Assert.Throws<ObjectDisposedException>(() => app.GetResource<DiscoverService>());
     }
 
+    [Test]
+    public async Task CheckForUpdatesAsync_Rethrows_WhenCancelledAfterResponse()
+    {
+        // LoadMetadata reads asset_metadata.json from AppContext.BaseDirectory (cached per process).
+        string metadataPath = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
+        string? originalContent = File.Exists(metadataPath) ? File.ReadAllText(metadataPath) : null;
+        try
+        {
+            File.WriteAllText(metadataPath, """
+                {
+                  "id": "test-id",
+                  "os": "linux",
+                  "arch": "x64",
+                  "version": "2.0.0-preview.6",
+                  "standalone": "true",
+                  "type": "zip"
+                }
+                """);
+            var handler = new DelegateHandler((request, cancellationToken) =>
+                Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """{"latestVersion":"2.0.0-preview.7","url":"https://example.com","downloadUrl":null,"isLatest":false,"mustLatest":false}""",
+                        Encoding.UTF8,
+                        "application/json")
+                }));
+            using var httpClient = new HttpClient(handler);
+            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+
+            // Dispose after the response completes but before the continuation runs: the
+            // lifetime token is cancelled, so the method must recheck it before returning.
+            Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> check
+                = app.CheckForUpdatesAsync("2.0.0-preview.6", CancellationToken.None);
+            await app.DisposeAsync().AsTask();
+
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await check.WaitAsync(TimeSpan.FromSeconds(5)));
+        }
+        finally
+        {
+            if (originalContent != null)
+            {
+                File.WriteAllText(metadataPath, originalContent);
+            }
+            else
+            {
+                File.Delete(metadataPath);
+            }
+        }
+    }
+
     private sealed class CapturingHandler : HttpMessageHandler
      {
         public Uri? LastRequestUri { get; private set; }
