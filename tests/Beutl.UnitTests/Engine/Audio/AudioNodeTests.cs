@@ -357,6 +357,31 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextRemoveNode_WhenCommitHookMutatesUnaffectedNode_RejectsMutation()
+    {
+        using var context = new AudioContext(48000, 2);
+        using var source = new ValueNode();
+        using var target = new ValueNode();
+        using var affected = new CommitMutatingNode
+        {
+            InputToAdd = source,
+            Target = target,
+            MutateOnCommit = true,
+        };
+        context.Connect(source, affected);
+        context.AddNode(target);
+
+        Assert.Throws<AggregateException>(() => context.RemoveNode(source));
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.Nodes, Does.Not.Contain(source));
+            Assert.That(affected.Inputs, Is.Empty);
+            Assert.That(target.Inputs, Is.Empty,
+                "An unaffected context node must remain guarded during removal callbacks.");
+        });
+    }
+
+    [Test]
     public void AudioContextRemoveNode_WhenRollbackRestoresResampleInput_PreservesStreamingState()
     {
         const int sourceSampleRate = 48000;

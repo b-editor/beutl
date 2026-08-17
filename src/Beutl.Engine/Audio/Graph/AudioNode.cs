@@ -85,7 +85,12 @@ public abstract class AudioNode : IDisposable
     internal void BeginInputTopologyCommit()
     {
         if (_inputClearTransaction)
-            _inputTopologyCommitCallback = true;
+            BeginInputTopologyCommitGuard();
+    }
+
+    internal void BeginInputTopologyCommitGuard()
+    {
+        _inputTopologyCommitCallback = true;
     }
 
     internal Exception? CompleteInputTopologyCommit()
@@ -109,8 +114,13 @@ public abstract class AudioNode : IDisposable
 
     internal void EndInputTopologyCommit()
     {
-        _inputTopologyCommitCallback = false;
+        EndInputTopologyCommitGuard();
         _inputClearTransaction = false;
+    }
+
+    internal void EndInputTopologyCommitGuard()
+    {
+        _inputTopologyCommitCallback = false;
     }
 
     internal void RollbackInputTopologyTransaction()

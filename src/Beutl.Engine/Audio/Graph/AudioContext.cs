@@ -660,6 +660,11 @@ public sealed class AudioContext : IDisposable
                 removedFrom.Add((otherNode, index, state));
             }
 
+            foreach (AudioNode contextNode in _nodes)
+            {
+                contextNode.BeginInputTopologyCommitGuard();
+            }
+
             foreach (AudioNode otherNode in affected)
             {
                 otherNode.BeginInputTopologyCommit();
@@ -676,6 +681,11 @@ public sealed class AudioContext : IDisposable
             foreach (AudioNode otherNode in affected)
             {
                 otherNode.EndInputTopologyCommit();
+            }
+
+            foreach (AudioNode contextNode in _nodes)
+            {
+                contextNode.EndInputTopologyCommitGuard();
             }
         }
         catch (Exception removalException)
@@ -705,6 +715,11 @@ public sealed class AudioContext : IDisposable
                 {
                     (rollbackFailures ??= []).Add(rollbackException);
                 }
+            }
+
+            foreach (AudioNode contextNode in _nodes)
+            {
+                contextNode.EndInputTopologyCommitGuard();
             }
 
             if (rollbackFailures is { Count: > 0 })
