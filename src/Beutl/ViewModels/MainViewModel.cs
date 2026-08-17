@@ -166,17 +166,13 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
         }
 
-        // Drain in-flight install transactions first so their fallback queueing (which
-        // resumes on the UI context after cancellation) is reflected in the snapshot
-        // below; otherwise PackageTools is launched without the queued recovery.
+        // Drain installs first so fallback queueing is reflected in the snapshot below.
         try
         {
             if (_beutlClients.TryGetResource<PackageInstaller>() is { } installer)
             {
                 Task drain = installer.DisposeAsync().AsTask();
-                // The transaction's activation callback is queued on the UI dispatcher; pump
-                // jobs while draining so it can complete instead of deadlocking the blocked
-                // UI thread.
+                // Pump UI jobs while draining so the queued activation can complete.
                 long deadline = Environment.TickCount64 + 30_000;
                 while (!drain.IsCompleted && Environment.TickCount64 < deadline)
                 {

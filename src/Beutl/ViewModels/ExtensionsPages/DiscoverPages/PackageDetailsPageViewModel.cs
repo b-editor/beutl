@@ -279,8 +279,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         {
                             if (oldVersionRemoved)
                             {
-                                // The old version was already unloaded and deleted; queue the update so
-                                // PackageTools restores the package on the next launch.
+                                // The old version is gone; queue the update for the next launch.
                                 _handler.Queue.InstallQueue(packageId);
                             }
 

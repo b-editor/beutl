@@ -14,7 +14,6 @@ public sealed class LifetimeCancellationSourceTests
 
         Assert.Throws<AggregateException>(source.Cancel);
 
-        // Dispose must still run even though Cancel rethrows.
         Assert.DoesNotThrow(source.Dispose);
     }
 }

@@ -53,8 +53,7 @@ internal class PackageOperationHandler
             await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
-            // Plugin activation (Extension.Load) may perform Avalonia-bound initialization,
-            // so run it on the UI thread even though the install phases ran off-context.
+            // Plugin activation may touch the UI; run it on the UI thread.
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -80,8 +79,7 @@ internal class PackageOperationHandler
             await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
-            // Plugin activation (Extension.Load) may perform Avalonia-bound initialization,
-            // so run it on the UI thread even though the install phases ran off-context.
+            // Plugin activation may touch the UI; run it on the UI thread.
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();

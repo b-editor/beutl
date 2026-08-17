@@ -126,9 +126,7 @@ public sealed class PackageInstallerDisposeTests
         Task? dispose = null;
         Task operation = installer.TrackInstallOperationAsync(async () =>
         {
-            // A re-entrant DisposeAsync from inside the callback must observe this
-            // transaction as in-flight and drain it instead of tearing down resources
-            // underneath it; it must not complete before the callback returns.
+            // A re-entrant DisposeAsync must drain this transaction.
             dispose = installer.DisposeAsync().AsTask();
             await Task.Delay(1).ConfigureAwait(false);
         });
@@ -179,8 +177,7 @@ public sealed class PackageInstallerDisposeTests
         Task phase = installer.DownloadPackageFile(
             new PackageInstallContext("Beutl.Package.RacePhase", "1.0.0", "https://example.com/package.nupkg"),
             cancellationToken: CancellationToken.None);
-        // The phase is admitted and its proxy registered before it reaches the network
-        // handler; disposal must drain it instead of disposing the client underneath it.
+        // The phase is registered before the network call; disposal must drain it.
         Task dispose = installer.DisposeAsync().AsTask();
         await handler.Entered.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(dispose.IsCompleted, Is.False,

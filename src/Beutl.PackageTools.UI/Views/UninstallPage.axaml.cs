@@ -98,8 +98,7 @@ public partial class UninstallPage : PackageToolPage
                         operationToken => Task.Run(() => viewModel.Run(operationToken)),
                         () =>
                         {
-                            // Navigation must run on the UI thread; the completion callback
-                            // may be invoked from a thread-pool thread after Task.Run.
+                            // Navigation must run on the UI thread.
                             Dispatcher.UIThread.Invoke(() =>
                             {
                                 object? nextViewModel = main.Next(viewModel, token);

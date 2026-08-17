@@ -156,8 +156,7 @@ public sealed class CheckForUpdatesTask : StartupTask
             {
                 if (_beutlApiApplication.IsDisposed)
                 {
-                    // Shutdown cancelled the update request through the application
-                    // lifetime; that is not a network timeout and must not show a message.
+                    // Shutdown cancellation is not a network timeout.
                     return default;
                 }
 

@@ -111,7 +111,6 @@ public class BeutlApiApplication : IAsyncDisposable
     // 更新があるかどうかをチェックします
     // このアプリケーションがアセットメタデータを持っている場合は、AppUpdateResponseを返します
     // そうでない場合は、CheckForUpdatesResponseを返します
-    // The return value is a tuple; the applicable side is set and the other is null.
     public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(
         string version,
         CancellationToken cancellationToken)
@@ -196,9 +195,8 @@ public class BeutlApiApplication : IAsyncDisposable
         Task disposeTask;
         lock (_disposeGate)
         {
-            // Publish a completion proxy before cancellation fires: DisposeCoreAsync runs
-            // synchronously through _lifetimeCts.Cancel(), and a re-entrant callback must
-            // observe the original teardown instead of starting a second pipeline.
+            // Publish the disposal task before cancellation so re-entrant callbacks
+            // observe the original teardown.
             if (_disposeTask == null)
             {
                 proxy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -207,8 +205,7 @@ public class BeutlApiApplication : IAsyncDisposable
             disposeTask = _disposeTask;
         }
 
-        // Start the teardown after releasing the lock so cancellation callbacks that
-        // re-enter disposal or other resource operations do not deadlock against it.
+        // Start teardown after releasing the lock so re-entrant callbacks do not deadlock.
         if (proxy != null)
         {
             _ = RunDisposeCoreAsync(proxy);
@@ -324,9 +321,7 @@ public class BeutlApiApplication : IAsyncDisposable
     {
         lock (_disposeGate)
         {
-            // A canceled caller token must surface as cancellation, not as an
-            // ObjectDisposedException, so nested calls started during disposal can
-            // observe the shutdown as normal cancellation.
+            // A canceled caller token must surface as cancellation, not ObjectDisposedException.
             cancellationToken.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(_disposed, this);
             return CancellationTokenSource.CreateLinkedTokenSource(

@@ -139,8 +139,6 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             }
             catch
             {
-                // Awaiting observes operation failures. Each caller reports its own operation error;
-                // resource teardown must still run after every task has drained.
             }
 
             lock (_gate)
@@ -181,13 +179,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             _operations.RemoveWhere(task => task.IsCompleted);
-            // Register the proxy before invoking the callback so a synchronous re-entrant
-            // DisposeAsync from inside the callback observes this transaction as in-flight
-            // and drains it instead of tearing down resources underneath it.
+            // Register before invoking so a re-entrant DisposeAsync drains this transaction.
             _operations.Add(task);
-            // Run in the caller's context so plugin activation inside the operation keeps its
-            // original synchronization context; the operation's awaits use ConfigureAwait(false)
-            // so shutdown can block on DisposeAsync without deadlocking the UI thread.
+            // Run in the caller context; the operation's awaits use ConfigureAwait(false)
+            // so shutdown can block without deadlocking.
             _ = RunTransactionAsync(operation, proxy);
         }
 
@@ -205,8 +200,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            // Propagate the operation's failure to the caller so DownloadAndLoadPackage
-            // reports the fault and its fallback queueing runs.
+            // Propagate the failure so the caller reports it and queues fallback.
             proxy.TrySetException(ex);
         }
         finally
@@ -220,21 +214,17 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
-            // Once draining has finished and the resources are disposed, reject all work
-            // including nested phases of an admitted transaction.
+            // After draining, reject all work including nested phases.
             if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
             {
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
             _operations.RemoveWhere(task => task.IsCompleted);
-            // Register the proxy before invoking the delegate so a concurrent DisposeAsync
-            // observes this phase as in-flight and drains it instead of disposing resources
-            // underneath it.
+            // Register before invoking so a concurrent DisposeAsync drains this phase.
             _operations.Add(proxy.Task);
         }
 
-        // Invoke the delegate outside the lock so a synchronously executing delegate that
-        // re-enters a tracked method cannot deadlock on _gate.
+        // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
         _ = RunTrackedAsync(operation, proxy);
         return proxy.Task;
     }
@@ -249,14 +239,11 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
             _operations.RemoveWhere(task => task.IsCompleted);
-            // Register the proxy before invoking the delegate so a concurrent DisposeAsync
-            // observes this phase as in-flight and drains it instead of disposing resources
-            // underneath it.
+            // Register before invoking so a concurrent DisposeAsync drains this phase.
             _operations.Add(proxy.Task);
         }
 
-        // Invoke the delegate outside the lock so a synchronously executing delegate that
-        // re-enters a tracked method cannot deadlock on _gate.
+        // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
         _ = RunTrackedAsync(operation, proxy);
         return proxy.Task;
     }
@@ -514,8 +501,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     {
         var context = PrepareForInstall(
             package.Id, package.Version.ToString(), force: true, cancellationToken);
-        // Call the core method directly: the outer operation is already admitted and
-        // tracked, so the nested phase must not re-enter the admission guard.
+        // Call the core directly; the outer operation is already admitted.
         await ResolveDependenciesCoreAsync(context, logger, cancellationToken);
     }
 

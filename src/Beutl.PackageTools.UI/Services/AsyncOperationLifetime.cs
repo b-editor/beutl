@@ -56,9 +56,8 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         lock (_gate)
         {
             _stopping = true;
-            // Publish the shared disposal task before cancellation fires, so a cancellation
-            // callback that re-enters DisposeAsync observes the original teardown instead of
-            // starting a second pipeline over the same resource snapshot.
+            // Publish the disposal task before cancellation so re-entrant callbacks
+            // observe the original teardown.
             if (_disposeTask == null)
             {
                 proxy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -93,7 +92,6 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         Action? completion,
         CancellationTokenSource linkedCancellation)
     {
-        // Ensure the task is registered before a synchronously completing operation can remove it.
         await Task.Yield();
         try
         {
@@ -129,8 +127,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
         try
         {
-            // Run independently so a throwing token callback cannot skip cancelling
-            // pending HTTP requests; the first failure is preserved for rethrow.
+            // Run independently so a throwing callback cannot skip cancelling pending requests.
             _cancelPendingRequests();
         }
         catch (Exception ex)
