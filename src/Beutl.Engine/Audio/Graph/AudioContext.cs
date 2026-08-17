@@ -541,10 +541,20 @@ public sealed class AudioContext : IDisposable
 
             foreach (InputSnapshot snapshot in snapshots)
             {
+                snapshot.Node.BeginInputTopologyCommit();
+            }
+
+            foreach (InputSnapshot snapshot in snapshots)
+            {
                 if (snapshot.Node.CompleteInputTopologyCommit() is { } commitFailure)
                 {
                     (commitFailures ??= []).Add(commitFailure);
                 }
+            }
+
+            foreach (InputSnapshot snapshot in snapshots)
+            {
+                snapshot.Node.EndInputTopologyCommit();
             }
         }
         catch (Exception clearException)
@@ -652,10 +662,20 @@ public sealed class AudioContext : IDisposable
 
             foreach (AudioNode otherNode in affected)
             {
+                otherNode.BeginInputTopologyCommit();
+            }
+
+            foreach (AudioNode otherNode in affected)
+            {
                 if (otherNode.CompleteInputTopologyCommit() is { } commitFailure)
                 {
                     (commitFailures ??= []).Add(commitFailure);
                 }
+            }
+
+            foreach (AudioNode otherNode in affected)
+            {
+                otherNode.EndInputTopologyCommit();
             }
         }
         catch (Exception removalException)

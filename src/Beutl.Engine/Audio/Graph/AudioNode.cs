@@ -5,11 +5,13 @@ public abstract class AudioNode : IDisposable
     private readonly List<AudioNode> _inputs = new();
     private bool _disposed;
     private bool _inputClearTransaction;
+    private bool _inputTopologyCommitCallback;
 
     public IReadOnlyList<AudioNode> Inputs => _inputs;
 
     public void AddInput(AudioNode input)
     {
+        ThrowIfInputTopologyCommitCallback();
         ArgumentNullException.ThrowIfNull(input);
 
         if (IndexOfInput(input) >= 0)
@@ -80,6 +82,12 @@ public abstract class AudioNode : IDisposable
         _inputClearTransaction = true;
     }
 
+    internal void BeginInputTopologyCommit()
+    {
+        if (_inputClearTransaction)
+            _inputTopologyCommitCallback = true;
+    }
+
     internal Exception? CompleteInputTopologyCommit()
     {
         if (!_inputClearTransaction)
@@ -87,6 +95,7 @@ public abstract class AudioNode : IDisposable
 
         try
         {
+            _inputTopologyCommitCallback = true;
             OnInputClearTransactionCommitted();
             return null;
         }
@@ -96,10 +105,12 @@ public abstract class AudioNode : IDisposable
             // report the hook failure after all nodes have completed their lifecycle notification.
             return exception;
         }
-        finally
-        {
-            _inputClearTransaction = false;
-        }
+    }
+
+    internal void EndInputTopologyCommit()
+    {
+        _inputTopologyCommitCallback = false;
+        _inputClearTransaction = false;
     }
 
     internal void RollbackInputTopologyTransaction()
@@ -113,12 +124,14 @@ public abstract class AudioNode : IDisposable
         }
         finally
         {
+            _inputTopologyCommitCallback = false;
             _inputClearTransaction = false;
         }
     }
 
     public void RemoveInput(AudioNode input)
     {
+        ThrowIfInputTopologyCommitCallback();
         ArgumentNullException.ThrowIfNull(input);
 
         int index = IndexOfInput(input);
@@ -141,6 +154,7 @@ public abstract class AudioNode : IDisposable
 
     public void ClearInputs()
     {
+        ThrowIfInputTopologyCommitCallback();
         AudioNode[] previousInputs = [.. _inputs];
         _inputs.Clear();
         try
@@ -212,6 +226,15 @@ public abstract class AudioNode : IDisposable
         }
 
         return -1;
+    }
+
+    private void ThrowIfInputTopologyCommitCallback()
+    {
+        if (_inputTopologyCommitCallback)
+        {
+            throw new InvalidOperationException(
+                "Audio input topology cannot be mutated from an input-topology commit callback.");
+        }
     }
 
     public abstract AudioBuffer Process(AudioProcessContext context);
@@ -391,6 +414,7 @@ public abstract class AudioNode : IDisposable
 
     public void Dispose()
     {
+        ThrowIfInputTopologyCommitCallback();
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }

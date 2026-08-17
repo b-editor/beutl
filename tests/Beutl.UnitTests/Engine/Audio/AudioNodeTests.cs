@@ -328,6 +328,35 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextClearConnections_WhenCommitHookMutatesInputs_RejectsMutation()
+    {
+        using var context = new AudioContext(48000, 2);
+        using var source = new ValueNode();
+        using var auxiliary = new ValueNode();
+        using var target = new ValueNode();
+        using var node = new CommitMutatingNode
+        {
+            InputToAdd = auxiliary,
+            Target = target,
+            MutateOnCommit = true,
+        };
+        context.Connect(source, node);
+        context.AddNode(target);
+
+        Assert.Throws<AggregateException>(() => context.ClearConnections());
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Inputs, Is.Empty);
+            Assert.That(target.Inputs, Is.Empty,
+                "A commit callback must not mutate another node that is completing the same transaction.");
+            Assert.That(context.Nodes, Does.Not.Contain(auxiliary));
+        });
+
+        node.MutateOnCommit = false;
+        Assert.DoesNotThrow(() => context.ClearConnections());
+    }
+
+    [Test]
     public void AudioContextRemoveNode_WhenRollbackRestoresResampleInput_PreservesStreamingState()
     {
         const int sourceSampleRate = 48000;
@@ -516,6 +545,21 @@ public class AudioNodeTests
         {
             if (ThrowOnCommit)
                 throw new InvalidOperationException("Commit hook failure.");
+        }
+    }
+
+    private sealed class CommitMutatingNode : ValueNode
+    {
+        public AudioNode? InputToAdd { get; set; }
+
+        public AudioNode? Target { get; set; }
+
+        public bool MutateOnCommit { get; set; }
+
+        protected override void OnInputClearTransactionCommitted()
+        {
+            if (MutateOnCommit)
+                Target!.AddInput(InputToAdd!);
         }
     }
 
