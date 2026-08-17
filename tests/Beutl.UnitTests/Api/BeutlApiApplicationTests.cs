@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using Beutl.Api;
 using Beutl.Api.Clients;
+using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Testing.Headless;
 
@@ -206,6 +207,39 @@ public sealed class BeutlApiApplicationTests
         {
             Directory.Delete(userFile, recursive: true);
         }
+    }
+
+    [Test]
+    public async Task CompleteSignInAsync_DoesNotResurrectUser_WhenSignedOutDuringGetSelf()
+    {
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new DelegateHandler(async (request, cancellationToken) =>
+        {
+            requestStarted.TrySetResult();
+            await releaseRequest.Task;
+            throw new HttpRequestException("request failed");
+        });
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var authResponse = new AuthResponse
+        {
+            Token = "new-token",
+            RefreshToken = "new-refresh",
+            Expiration = DateTime.UtcNow.AddHours(1)
+        };
+
+        Task<AuthenticatedUser> signIn = app.CompleteSignInAsync(authResponse, CancellationToken.None);
+        await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // SignOut while GetSelf is pending; the failing attempt must not resurrect the user.
+        app.SignOut(false);
+        releaseRequest.TrySetResult();
+
+        Assert.CatchAsync<Exception>(async () =>
+            await signIn.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.That(app.AuthenticatedUser.Value, Is.Null,
+            "SignOut must not be undone by the failing sign-in");
     }
 
     [Test]

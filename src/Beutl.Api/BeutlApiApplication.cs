@@ -206,36 +206,38 @@ public class BeutlApiApplication
     {
         using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client))
         {
+            string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
+            CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
+            {
+                ContinueUri = continueUri
+            }, cancellationToken);
+            using HttpListener listener = StartListener($"{continueUri}/");
+            activity?.AddEvent(new("Started_Listener"));
+
+            string uri =
+                $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
+
+            Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
+
+            string? code = await GetResponseFromListener(listener, cancellationToken);
+            activity?.AddEvent(new("Received_Code"));
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                throw new Exception("The returned code was empty.");
+            }
+
+            AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
+            {
+                Code = code,
+                SessionId = authUriRes.SessionId
+            }, cancellationToken);
+            activity?.AddEvent(new("Done_CodeToJwtAsync"));
+
+            // Serialize only the authentication state transition; the OAuth wait above must
+            // not hold the application-wide lock.
             using (await Lock.LockAsync(cancellationToken))
             {
                 activity?.AddEvent(new("Entered_AsyncLock"));
-                string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-                CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
-                {
-                    ContinueUri = continueUri
-                }, cancellationToken);
-                using HttpListener listener = StartListener($"{continueUri}/");
-                activity?.AddEvent(new("Started_Listener"));
-
-                string uri =
-                    $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
-
-                Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
-
-                string? code = await GetResponseFromListener(listener, cancellationToken);
-                activity?.AddEvent(new("Received_Code"));
-                if (string.IsNullOrWhiteSpace(code))
-                {
-                    throw new Exception("The returned code was empty.");
-                }
-
-                AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
-                {
-                    Code = code,
-                    SessionId = authUriRes.SessionId
-                }, cancellationToken);
-                activity?.AddEvent(new("Done_CodeToJwtAsync"));
-
                 AuthenticatedUser user = await CompleteSignInAsync(authResponse, cancellationToken);
                 activity?.AddEvent(new("Saved_User"));
                 return user;
@@ -291,25 +293,33 @@ public class BeutlApiApplication
         AuthenticatedUser? previousUser = _authenticatedUser.Value;
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", authResponse.Token);
+        AuthenticatedUser? attemptedUser = null;
         try
         {
             ProfileResponse profileResponse = await Users.GetSelf(cancellationToken);
             var profile = new Profile(profileResponse, this);
 
-            _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
+            attemptedUser = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
+            _authenticatedUser.Value = attemptedUser;
             SaveUser();
             return _authenticatedUser.Value;
         }
         catch
         {
-            _authenticatedUser.Value = previousUser;
-            if (previousAuthorization != null)
+            // Only roll back state still owned by this failing attempt: a SignOut or a
+            // later successful sign-in may have replaced the user while GetSelf was pending,
+            // and must not be overwritten by the stale snapshot.
+            if (ReferenceEquals(_authenticatedUser.Value, attemptedUser))
             {
-                _httpClient.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(previousAuthorization);
-            }
-            else
-            {
-                _httpClient.DefaultRequestHeaders.Authorization = null;
+                _authenticatedUser.Value = previousUser;
+                if (previousAuthorization != null)
+                {
+                    _httpClient.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(previousAuthorization);
+                }
+                else
+                {
+                    _httpClient.DefaultRequestHeaders.Authorization = null;
+                }
             }
 
             throw;
