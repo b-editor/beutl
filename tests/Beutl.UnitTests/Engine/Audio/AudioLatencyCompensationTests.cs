@@ -744,6 +744,34 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_Process_LimitsPartialFinalBranchFlushToRemainingTail()
+    {
+        const int latencySamples = 960;
+        const int processSamples = 4096;
+        const int firstDrainSamples = 720;
+        const int finalBlockSamples = 480;
+        var branchEnd = ExactDuration(processSamples, SampleRate);
+
+        using var branch = new RecordingLatencyNode(latencySamples);
+        using var mixer = new MixerNode();
+        mixer.AddInput(branch);
+        mixer.SetBranchEndTime(branch, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+        using var firstDrain = mixer.Process(ExactContext(branchEnd, firstDrainSamples, SampleRate));
+        using var finalDrain = mixer.Process(
+            ExactContext(branchEnd + ExactDuration(firstDrainSamples, SampleRate), finalBlockSamples, SampleRate));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(branch.LastFlushSampleCount, Is.EqualTo(latencySamples - firstDrainSamples),
+                "The final branch block must flush only the tail that remains after the prior drain.");
+            Assert.That(finalDrain.SampleCount, Is.EqualTo(finalBlockSamples),
+                "Mixer output must remain padded to the requested block length after a shortened branch flush.");
+        });
+    }
+
+    [Test]
     public void MixerNode_RemoveInput_KeepsBranchEndTimeAligned()
     {
         const float lookaheadMs = 5f;

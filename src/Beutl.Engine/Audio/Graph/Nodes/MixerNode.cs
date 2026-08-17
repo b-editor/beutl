@@ -1,4 +1,5 @@
 ﻿using System;
+using Beutl.Media;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -88,7 +89,7 @@ public sealed class MixerNode : AudioNode
                 if (drainBranch && IsBranchDead(i, context))
                     continue;
 
-                buffers[i] = drainBranch ? Inputs[i].Flush(context) : Inputs[i].Process(context);
+                buffers[i] = drainBranch ? FlushBranch(i, context) : Inputs[i].Process(context);
                 if (!drainBranch && !branchEnded)
                     _processedBranches.Add(Inputs[i]);
             }
@@ -182,12 +183,68 @@ public sealed class MixerNode : AudioNode
             ? TimeSpan.MaxValue.Ticks
             : blockStartTicks + AudioProcessContext.TimestampQuantizationToleranceTicks;
 
+        long tailEndTicks = GetTailEndTicks(branchEndTime, branchLatency, context.SampleRate);
+        return tailEndTicks <= deadAfterTicks;
+    }
+
+    private AudioBuffer FlushBranch(int index, AudioProcessContext context)
+    {
+        AudioNode branch = Inputs[index];
+        if (!_branchEndTimes.TryGetValue(branch, out TimeSpan branchEndTime)
+            || context.TimeRange.Start < branchEndTime)
+        {
+            return branch.Flush(context);
+        }
+
+        int branchLatency = branch.GetDrainLatencySamples(context.SampleRate);
+        if (branchLatency == int.MaxValue)
+            return branch.Flush(context);
+
+        int sampleCount = context.GetSampleCount();
+        long tailEndTicks = GetTailEndTicks(branchEndTime, branchLatency, context.SampleRate);
+        long remainingTicks = tailEndTicks - context.TimeRange.Start.Ticks;
+        if (remainingTicks <= 0)
+            return branch.Flush(context);
+
+        int remainingSamples = Math.Min(
+            branchLatency,
+            AudioProcessContext.GetSampleCount(
+                new TimeRange(context.TimeRange.Start, TimeSpan.FromTicks(remainingTicks)),
+                context.SampleRate));
+        if (remainingSamples >= sampleCount)
+            return branch.Flush(context);
+
+        var drainContext = new AudioProcessContext(
+            new TimeRange(
+                context.TimeRange.Start,
+                AudioProcessContext.GetDurationForSampleCount(remainingSamples, context.SampleRate)),
+            context.SampleRate,
+            context.AnimationSampler,
+            context.OriginalTimeRange);
+        using AudioBuffer drained = branch.Flush(drainContext);
+        var output = new AudioBuffer(drained.SampleRate, drained.ChannelCount, sampleCount);
+        try
+        {
+            int copyCount = Math.Min(drained.SampleCount, sampleCount);
+            if (copyCount > 0)
+                drained.CopyTo(output, 0, copyCount);
+
+            return output;
+        }
+        catch
+        {
+            output.Dispose();
+            throw;
+        }
+    }
+
+    private static long GetTailEndTicks(TimeSpan branchEndTime, int branchLatency, int sampleRate)
+    {
         long latencyTicks = (long)Math.Ceiling(
-            branchLatency * (double)TimeSpan.TicksPerSecond / context.SampleRate);
-        long tailEndTicks = branchEndTime.Ticks > TimeSpan.MaxValue.Ticks - latencyTicks
+            branchLatency * (double)TimeSpan.TicksPerSecond / sampleRate);
+        return branchEndTime.Ticks > TimeSpan.MaxValue.Ticks - latencyTicks
             ? TimeSpan.MaxValue.Ticks
             : branchEndTime.Ticks + latencyTicks;
-        return tailEndTicks <= deadAfterTicks;
     }
 
     private bool IsBranchEnded(int index, AudioProcessContext context)
