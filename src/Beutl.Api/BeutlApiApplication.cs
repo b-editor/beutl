@@ -328,6 +328,7 @@ public class BeutlApiApplication : IAsyncDisposable
             {
                 ContinueUri = continueUri
             }, token);
+            token.ThrowIfCancellationRequested();
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
@@ -376,6 +377,7 @@ public class BeutlApiApplication : IAsyncDisposable
                 {
                     ContinueUri = continueUri
                 }, token);
+                token.ThrowIfCancellationRequested();
                 using HttpListener listener = StartListener($"{continueUri}/");
                 activity?.AddEvent(new("Started_Listener"));
 
@@ -429,7 +431,8 @@ public class BeutlApiApplication : IAsyncDisposable
             // Only roll back state still owned by this failing attempt: a SignOut or a
             // later successful sign-in may have replaced the user while GetSelf was pending,
             // and must not be overwritten by the stale snapshot.
-            if (ReferenceEquals(_authenticatedUser.Value, attemptedUser))
+            if (ReferenceEquals(_authenticatedUser.Value, attemptedUser)
+                || (attemptedUser == null && ReferenceEquals(_authenticatedUser.Value, previousUser)))
             {
                 _authenticatedUser.Value = previousUser;
                 if (previousAuthorization != null)

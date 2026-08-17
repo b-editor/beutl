@@ -243,6 +243,48 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
+    public async Task CompleteSignInAsync_RestoresAuthorization_WhenCancelledAfterGetSelf()
+    {
+        var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellation = new CancellationTokenSource();
+        using var handler = new DelegateHandler((request, cancellationToken) =>
+        {
+            requestCompleted.TrySetResult();
+            // Cancel while the response is being processed, so the recheck after GetSelf
+            // throws before the new token is committed.
+            cancellation.Cancel();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new ProfileResponse
+                {
+                    Id = "new-profile",
+                    Name = "new-name",
+                    DisplayName = "New Name",
+                    Bio = null,
+                    IconId = null,
+                    IconUrl = null,
+                })
+            });
+        });
+        using var httpClient = new HttpClient(handler);
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var authResponse = new AuthResponse
+        {
+            Token = "new-token",
+            RefreshToken = "new-refresh",
+            Expiration = DateTime.UtcNow.AddHours(1)
+        };
+
+        Task<AuthenticatedUser> signIn = app.CompleteSignInAsync(authResponse, cancellation.Token);
+        await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await signIn.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.That(httpClient.DefaultRequestHeaders.Authorization, Is.Null,
+            "the uncommitted new token must not remain after a canceled re-sign-in");
+    }
+
+    [Test]
     public async Task RestoreUserAsync_RestoresAuthorization_WhenProfileRefreshIsCanceled()
     {
         Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
