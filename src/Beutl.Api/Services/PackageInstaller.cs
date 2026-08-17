@@ -135,7 +135,11 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
             try
             {
-                await Task.WhenAll(operations).ConfigureAwait(false);
+                long remaining = deadline - Environment.TickCount64;
+                if (remaining <= 0)
+                    break;
+
+                await Task.WhenAll(operations).WaitAsync(TimeSpan.FromMilliseconds(remaining)).ConfigureAwait(false);
             }
             catch
             {
@@ -189,11 +193,46 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         return task;
     }
 
-    private void EnsureNotDisposed()
+    private void TrackSyncOperation(Action operation)
     {
+        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_drained || _disposed, this);
+            _operations.Add(proxy.Task);
+        }
+
+        try
+        {
+            operation();
+            proxy.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
+            throw;
+        }
+    }
+
+    private T TrackSyncOperation<T>(Func<T> operation)
+    {
+        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_drained || _disposed, this);
+            _operations.Add(proxy.Task);
+        }
+
+        try
+        {
+            T result = operation();
+            proxy.TrySetResult();
+            return result;
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
+            throw;
         }
     }
 

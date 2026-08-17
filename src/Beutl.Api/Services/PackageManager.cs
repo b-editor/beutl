@@ -65,6 +65,11 @@ public sealed class PackageManager(
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        // Resolve the resource before the lifetime token source is created: GetResource
+        // and CreateLifetimeLinkedTokenSource both take the dispose gate, and resolving
+        // after admission would let a concurrent DisposeAsync invalidate the resource
+        // between the two calls.
+        DiscoverService discover = apiApplication.GetResource<DiscoverService>();
         using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken operationToken = operationCts.Token;
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
@@ -72,7 +77,6 @@ public sealed class PackageManager(
             PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
 
             var updates = new List<PackageUpdate>(packages.Length);
-            DiscoverService discover = apiApplication.GetResource<DiscoverService>();
 
             for (int i = 0; i < packages.Length; i++)
             {
@@ -126,12 +130,13 @@ public sealed class PackageManager(
     public async Task<PackageUpdate?> CheckUpdate(string name, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        // See the other CheckUpdate overload: resolve before admission so a concurrent
+        // DisposeAsync cannot invalidate the resource after the lifetime token is linked.
+        DiscoverService discover = apiApplication.GetResource<DiscoverService>();
         using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken operationToken = operationCts.Token;
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
-            DiscoverService discover = apiApplication.GetResource<DiscoverService>();
-
             LocalPackage? pkg = _loadedPackages.Values
                 .Select(x => x.Package)
                 .FirstOrDefault(v =>

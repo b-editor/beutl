@@ -54,33 +54,35 @@ public partial class PackageInstaller
 
     public PackageCleanContext PrepareForClean(IEnumerable<PackageIdentity>? excludedPackages = null, CancellationToken cancellationToken = default)
     {
-        EnsureNotDisposed();
-        cancellationToken.ThrowIfCancellationRequested();
-        excludedPackages ??= [];
-
-        PackageIdentity[] unnecessaryPackages = UnnecessaryPackages()
-            .Except(excludedPackages, PackageIdentityComparer.Default)
-            .ToArray();
-
-        long size = 0;
-        foreach (PackageIdentity package in unnecessaryPackages)
+        return TrackSyncOperation(() =>
         {
-            string directory = Helper.ResolveInstalledDirectory(package);
-            if (!Directory.Exists(directory))
+            cancellationToken.ThrowIfCancellationRequested();
+            excludedPackages ??= [];
+
+            PackageIdentity[] unnecessaryPackages = UnnecessaryPackages()
+                .Except(excludedPackages, PackageIdentityComparer.Default)
+                .ToArray();
+
+            long size = 0;
+            foreach (PackageIdentity package in unnecessaryPackages)
             {
-                _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
-                continue;
+                string directory = Helper.ResolveInstalledDirectory(package);
+                if (!Directory.Exists(directory))
+                {
+                    _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
+                    continue;
+                }
+
+                foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+                {
+                    size += new FileInfo(file).Length;
+                }
             }
 
-            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
-            {
-                size += new FileInfo(file).Length;
-            }
-        }
+            _logger.LogInformation("Prepared for clean. Unnecessary packages: {PackageCount}, Total size: {TotalSize} bytes", unnecessaryPackages.Length, size);
 
-        _logger.LogInformation("Prepared for clean. Unnecessary packages: {PackageCount}, Total size: {TotalSize} bytes", unnecessaryPackages.Length, size);
-
-        return new PackageCleanContext(unnecessaryPackages, size);
+            return new PackageCleanContext(unnecessaryPackages, size);
+        });
     }
 
     public void Clean(
@@ -88,85 +90,87 @@ public partial class PackageInstaller
         IProgress<double> progress,
         CancellationToken cancellationToken = default)
     {
-        EnsureNotDisposed();
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var failedPackages = new List<string>();
-        long totalSize = 0;
-        foreach (PackageIdentity package in context.UnnecessaryPackages)
+        TrackSyncOperation(() =>
         {
-            // A data package's payload lives outside the install directory, and it has to
-            // go even when the extracted package itself is already missing. The payload
-            // directory is keyed by id alone, so an update that leaves a newer identity
-            // installed still owns it — removing it here would strip the live version.
-            bool dataRemoved = KeepsAnotherInstalledIdentity(context, package)
-                               || UninstallDataPackage(package.Id);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            string directory = Helper.ResolveInstalledDirectory(package);
-            if (!dataRemoved)
+            var failedPackages = new List<string>();
+            long totalSize = 0;
+            foreach (PackageIdentity package in context.UnnecessaryPackages)
             {
-                // PrepareForClean rediscovers candidates from extracted package directories,
-                // so dropping this one would strand the payload with nothing left to retry
-                // from. Keep both the directory and the repository entry for the next run.
-                _logger.LogError("Failed to delete the data payload of package: {PackageId}", package.Id);
-                failedPackages.Add(directory);
-                continue;
-            }
+                // A data package's payload lives outside the install directory, and it has to
+                // go even when the extracted package itself is already missing. The payload
+                // directory is keyed by id alone, so an update that leaves a newer identity
+                // installed still owns it — removing it here would strip the live version.
+                bool dataRemoved = KeepsAnotherInstalledIdentity(context, package)
+                                   || UninstallDataPackage(package.Id);
 
-            if (!Directory.Exists(directory))
-            {
-                // The files are already gone, so the repository entry would outlive them.
-                _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
-                _installedPackageRepository.RemovePackage(package);
-                continue;
-            }
+                string directory = Helper.ResolveInstalledDirectory(package);
+                if (!dataRemoved)
+                {
+                    // PrepareForClean rediscovers candidates from extracted package directories,
+                    // so dropping this one would strand the payload with nothing left to retry
+                    // from. Keep both the directory and the repository entry for the next run.
+                    _logger.LogError("Failed to delete the data payload of package: {PackageId}", package.Id);
+                    failedPackages.Add(directory);
+                    continue;
+                }
 
-            bool hasAnyFailures = false;
-            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
-            {
+                if (!Directory.Exists(directory))
+                {
+                    // The files are already gone, so the repository entry would outlive them.
+                    _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
+                    _installedPackageRepository.RemovePackage(package);
+                    continue;
+                }
+
+                bool hasAnyFailures = false;
+                foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+                {
+                    try
+                    {
+                        var fi = new FileInfo(file);
+                        totalSize += fi.Length;
+                        fi.Delete();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to delete file: {FileName} in package: {PackageId}", Path.GetFileName(file), package.Id);
+                        hasAnyFailures = true;
+                    }
+
+                    progress.Report(totalSize / (double)context.SizeToBeReleased);
+                }
+
                 try
                 {
-                    var fi = new FileInfo(file);
-                    totalSize += fi.Length;
-                    fi.Delete();
+                    Directory.Delete(directory, true);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to delete file: {FileName} in package: {PackageId}", Path.GetFileName(file), package.Id);
+                    _logger.LogError(ex, "Failed to delete package directory: {Directory} for package: {PackageId}", directory, package.Id);
                     hasAnyFailures = true;
                 }
 
-                progress.Report(totalSize / (double)context.SizeToBeReleased);
+                if (hasAnyFailures)
+                {
+                    failedPackages.Add(directory);
+                }
+
+                _installedPackageRepository.RemovePackage(package);
             }
 
-            try
+            context.FailedPackages = failedPackages;
+
+            if (failedPackages.Count > 0)
             {
-                Directory.Delete(directory, true);
+                _logger.LogWarning("Clean completed with failures. Failed packages: {FailedPackageCount}", failedPackages.Count);
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogError(ex, "Failed to delete package directory: {Directory} for package: {PackageId}", directory, package.Id);
-                hasAnyFailures = true;
+                _logger.LogInformation("Clean completed successfully. Total size released: {TotalSize} bytes", totalSize);
             }
-
-            if (hasAnyFailures)
-            {
-                failedPackages.Add(directory);
-            }
-
-            _installedPackageRepository.RemovePackage(package);
-        }
-
-        context.FailedPackages = failedPackages;
-
-        if (failedPackages.Count > 0)
-        {
-            _logger.LogWarning("Clean completed with failures. Failed packages: {FailedPackageCount}", failedPackages.Count);
-        }
-        else
-        {
-            _logger.LogInformation("Clean completed successfully. Total size released: {TotalSize} bytes", totalSize);
-        }
+        });
     }
 
     // True when an installed identity sharing this package's id survives the clean, and
