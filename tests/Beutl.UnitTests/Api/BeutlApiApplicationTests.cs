@@ -305,6 +305,65 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
+    public async Task RestoreUserAsync_Rethrows_WhenCancelledAfterProfileRefresh()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+        string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
+        File.WriteAllText(userFile, """
+            {
+              "token": "restored-token",
+              "refresh_token": "restored-refresh",
+              "expiration": "2027-01-01T00:00:00Z",
+              "profile": {
+                "id": "restored-profile",
+                "name": "restored-name",
+                "displayName": "Restored Name",
+                "bio": null,
+                "iconId": null,
+                "iconUrl": null
+              }
+            }
+            """);
+        try
+        {
+            var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            BeutlApiApplication? appRef = null;
+            using var handler = new DelegateHandler((request, cancellationToken) =>
+            {
+                requestCompleted.TrySetResult();
+                // Dispose while the profile response is being processed, so the lifetime
+                // token is cancelled before RestoreUserAsync publishes the restored state.
+                appRef?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new ProfileResponse
+                    {
+                        Id = "restored-profile",
+                        Name = "restored-name",
+                        DisplayName = "Restored Name",
+                        Bio = null,
+                        IconId = null,
+                        IconUrl = null,
+                    })
+                });
+            });
+            using var httpClient = new HttpClient(handler);
+            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            appRef = app;
+
+            Task restore = app.RestoreUserAsync(null, CancellationToken.None);
+            await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await restore.WaitAsync(TimeSpan.FromSeconds(5)));
+        }
+        finally
+        {
+            File.Delete(userFile);
+        }
+    }
+
+    [Test]
     public async Task CompleteSignInAsync_Rethrows_WhenCancelledAfterProfileResponse()
     {
         var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

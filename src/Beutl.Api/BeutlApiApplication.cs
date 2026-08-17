@@ -475,6 +475,7 @@ public class BeutlApiApplication : IAsyncDisposable
 
                     _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
                     await user.Profile.RefreshAsync(token, true);
+                    token.ThrowIfCancellationRequested();
                     _authenticatedUser.Value = user;
                     SaveUser();
                 }
