@@ -192,8 +192,8 @@ public class Composer : IComposer
                         if (outputLatency <= 0)
                             continue;
 
-                        buffers.Add(outputNode.Flush(context));
-                        RecordTailAfterDrain(entry, outputNode, outputLatency, sampleCount);
+                        buffers.Add(FlushTail(outputNode, context, outputLatency, sampleCount, out int drainedSamples));
+                        RecordTailAfterDrain(entry, outputNode, outputLatency, drainedSamples);
                     }
                 }
 
@@ -322,9 +322,46 @@ public class Composer : IComposer
                 if (outputLatency <= 0)
                     continue;
 
-                buffers.Add(outputNode.Flush(flushContext));
-                RecordTailAfterDrain(entry, outputNode, outputLatency, sampleCount);
+                buffers.Add(FlushTail(outputNode, flushContext, outputLatency, sampleCount, out int drainedSamples));
+                RecordTailAfterDrain(entry, outputNode, outputLatency, drainedSamples);
             }
+        }
+    }
+
+    private AudioBuffer FlushTail(
+        AudioNode outputNode,
+        AudioProcessContext context,
+        int outputLatency,
+        int sampleCount,
+        out int drainedSamples)
+    {
+        drainedSamples = Math.Min(outputLatency, sampleCount);
+        AudioProcessContext drainContext = drainedSamples == sampleCount
+            ? context
+            : new AudioProcessContext(
+                new TimeRange(
+                    context.TimeRange.Start,
+                    AudioProcessContext.GetDurationForSampleCount(drainedSamples, SampleRate)),
+                SampleRate,
+                context.AnimationSampler,
+                context.OriginalTimeRange);
+
+        using AudioBuffer drained = outputNode.Flush(drainContext);
+        var output = new AudioBuffer(drained.SampleRate, drained.ChannelCount, sampleCount);
+        try
+        {
+            int copyCount = Math.Min(drained.SampleCount, sampleCount);
+            if (copyCount > 0)
+            {
+                drained.CopyTo(output, 0, copyCount);
+            }
+
+            return output;
+        }
+        catch
+        {
+            output.Dispose();
+            throw;
         }
     }
 

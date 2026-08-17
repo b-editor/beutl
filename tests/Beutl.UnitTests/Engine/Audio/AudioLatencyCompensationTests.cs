@@ -613,6 +613,44 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_Process_UsesTerminalDrainLatencyForAnimatedBranchDeath()
+    {
+        const int sampleCount = 4096;
+        var branchEnd = ExactDuration(sampleCount, SampleRate);
+        var oneSample = ExactDuration(1, SampleRate);
+
+        using var source = new RangeSineNode(SampleRate);
+        using var limiter = CreateTransparentLimiter(20f);
+        limiter.Lookahead.Animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 20f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = branchEnd - oneSample, Value = 0f, Easing = new LinearEasing() },
+            },
+        };
+        limiter.AddInput(source);
+        using var delay = new DelayNode
+        {
+            DelayTime = Property.Create(0f),
+            Feedback = Property.Create(100f),
+            DryMix = Property.Create(0f),
+            WetMix = Property.Create(100f),
+        };
+        delay.AddInput(limiter);
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(delay);
+        mixer.SetBranchEndTime(delay, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, sampleCount, SampleRate));
+        using var tail = mixer.Process(ExactContext(branchEnd, sampleCount, SampleRate));
+
+        Assert.That(tail.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
+            "Mixer branch liveness must use the terminal animated drain latency, not the public worst case.");
+    }
+
+    [Test]
     public void MixerNode_Process_AfterSeek_DoesNotDrainStaleBranchTail()
     {
         const float lookaheadMs = 20f;
@@ -1322,6 +1360,47 @@ public class AudioLatencyCompensationTests
         Assert.That(second, Is.Not.Null);
         Assert.That(HasNonZero(second!.GetChannelData(0)), Is.False,
             "A zero-latency stateful effect after the limiter must not be flushed again after the inline tail is exhausted.");
+    }
+
+    [Test]
+    public void Composer_OnlyFlushesTheRemainingTailIntoALongerWindow()
+    {
+        const int clipSamples = SampleRate;
+        const int tailSamples = 240;
+        const int windowSamples = 960;
+        var clipDuration = ExactDuration(clipSamples, SampleRate);
+        var windowDuration = ExactDuration(windowSamples, SampleRate);
+
+        var sound = new LimiterDelayTailSound
+        {
+            LookaheadMs = 5f,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(tailSamples));
+
+        var secondRange = new TimeRange(clipDuration, windowDuration);
+        var secondFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, secondFrame);
+
+        Assert.That(second, Is.Not.Null);
+        Assert.That(second!.GetChannelData(0)[tailSamples..].ToArray(), Has.All.EqualTo(0f),
+            "A zero-reported stateful effect must not receive zero-fed samples beyond the remaining limiter tail.");
     }
 
     [Test]
