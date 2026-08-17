@@ -308,6 +308,26 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextClearConnections_WhenCommitHookThrows_CommitsTopologyAndReportsFailure()
+    {
+        using var context = new AudioContext(48000, 2);
+        using var source = new ValueNode();
+        using var node = new CommitThrowingNode { ThrowOnCommit = true };
+        context.Connect(source, node);
+
+        Assert.Throws<AggregateException>(() => context.ClearConnections());
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Inputs, Is.Empty,
+                "A commit-hook failure must not roll the graph back into a partially disconnected state.");
+            Assert.That(context.GetOutputNodes(), Is.Empty);
+        });
+
+        node.ThrowOnCommit = false;
+        Assert.DoesNotThrow(() => context.ClearConnections());
+    }
+
+    [Test]
     public void AudioContextRemoveNode_WhenRollbackRestoresResampleInput_PreservesStreamingState()
     {
         const int sourceSampleRate = 48000;
@@ -485,6 +505,17 @@ public class AudioNodeTests
         {
             RecordProcessedChannelCount(1);
             return new AudioBuffer(context.SampleRate, 1, context.GetSampleCount());
+        }
+    }
+
+    private sealed class CommitThrowingNode : ValueNode
+    {
+        public bool ThrowOnCommit { get; set; }
+
+        protected override void OnInputClearTransactionCommitted()
+        {
+            if (ThrowOnCommit)
+                throw new InvalidOperationException("Commit hook failure.");
         }
     }
 

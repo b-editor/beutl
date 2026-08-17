@@ -2121,6 +2121,34 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_TracksInlineDrainForSharedClipFanOutPaths()
+    {
+        const int sampleRate = SampleRate;
+        const int downstreamLatency = 30;
+        var clipDuration = ExactDuration(sampleRate, sampleRate);
+        var oneSample = ExactDuration(1, sampleRate);
+
+        var sound = new SharedClipFanOutTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(downstreamLatency - 1),
+            "A shared ClipNode must contribute its downstream latency on every fan-out path.");
+    }
+
+    [Test]
     public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
     {
         const float lookaheadMs = 20f;

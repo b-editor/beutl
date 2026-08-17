@@ -489,33 +489,42 @@ public class Composer : IComposer
         if (!visited.Add(node))
             return;
 
-        if (node is ClipNode { InlineDrainAttempted: true } clipNode)
+        try
         {
-            int latency = clipNode.GetDrainLatencySamples(sampleRate);
-            if (latency < 0)
+            if (node is ClipNode { InlineDrainAttempted: true } clipNode)
             {
-                throw new InvalidOperationException(
-                    $"{clipNode.GetType().Name} returned negative drain latency {latency}.");
+                int latency = clipNode.GetDrainLatencySamples(sampleRate);
+                if (latency < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{clipNode.GetType().Name} returned negative drain latency {latency}.");
+                }
+
+                branches.Add(new InlineDrainBranch(
+                    latency,
+                    clipNode.InlineDrainedSamples,
+                    clipNode.InlinePaddingSamples,
+                    downstreamLatency));
+                return;
             }
 
-            branches.Add(new InlineDrainBranch(
-                latency,
-                clipNode.InlineDrainedSamples,
-                clipNode.InlinePaddingSamples,
-                downstreamLatency));
-            return;
-        }
+            int ownLatency = node.GetLatencySamples(sampleRate);
+            if (ownLatency < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{node.GetType().Name} returned negative latency {ownLatency}.");
+            }
 
-        int ownLatency = node.GetLatencySamples(sampleRate);
-        if (ownLatency < 0)
+            int nextDownstreamLatency = AddLatency(downstreamLatency, ownLatency);
+            foreach (AudioNode input in node.Inputs)
+                CollectInlineDrainBranches(input, sampleRate, branches, visited, nextDownstreamLatency);
+        }
+        finally
         {
-            throw new InvalidOperationException(
-                $"{node.GetType().Name} returned negative latency {ownLatency}.");
+            // The same descendant can feed multiple fan-in paths. Keep cycle detection local to the
+            // current recursion path so each distinct path contributes its downstream latency.
+            visited.Remove(node);
         }
-
-        int nextDownstreamLatency = AddLatency(downstreamLatency, ownLatency);
-        foreach (AudioNode input in node.Inputs)
-            CollectInlineDrainBranches(input, sampleRate, branches, visited, nextDownstreamLatency);
     }
 
     private static int AddLatency(int first, int second)

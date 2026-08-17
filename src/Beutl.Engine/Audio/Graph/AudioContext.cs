@@ -497,6 +497,7 @@ public sealed class AudioContext : IDisposable
         }
 
         var cleared = new List<InputSnapshot>(_nodes.Count);
+        List<Exception>? commitFailures = null;
         try
         {
             foreach (InputSnapshot snapshot in snapshots)
@@ -540,7 +541,10 @@ public sealed class AudioContext : IDisposable
 
             foreach (InputSnapshot snapshot in snapshots)
             {
-                snapshot.Node.CompleteInputTopologyCommit();
+                if (snapshot.Node.CompleteInputTopologyCommit() is { } commitFailure)
+                {
+                    (commitFailures ??= []).Add(commitFailure);
+                }
             }
         }
         catch (Exception clearException)
@@ -588,6 +592,13 @@ public sealed class AudioContext : IDisposable
 
         _outputNodes.Clear();
         _currentNode = null;
+
+        if (commitFailures is { Count: > 0 })
+        {
+            throw new AggregateException(
+                "Audio connection clearing committed, but one or more lifecycle hooks failed.",
+                commitFailures);
+        }
     }
 
     /// <summary>
@@ -628,6 +639,7 @@ public sealed class AudioContext : IDisposable
         }
 
         var removedFrom = new List<(AudioNode Node, int Index, object? State)>();
+        List<Exception>? commitFailures = null;
         try
         {
             foreach (AudioNode otherNode in affected)
@@ -640,7 +652,10 @@ public sealed class AudioContext : IDisposable
 
             foreach (AudioNode otherNode in affected)
             {
-                otherNode.CompleteInputTopologyCommit();
+                if (otherNode.CompleteInputTopologyCommit() is { } commitFailure)
+                {
+                    (commitFailures ??= []).Add(commitFailure);
+                }
             }
         }
         catch (Exception removalException)
@@ -694,6 +709,13 @@ public sealed class AudioContext : IDisposable
             _currentNode = null;
 
         RemoveReference(_nodes, node);
+
+        if (commitFailures is { Count: > 0 })
+        {
+            throw new AggregateException(
+                "Audio node removal committed, but one or more lifecycle hooks failed.",
+                commitFailures);
+        }
     }
 
     /// <summary>
