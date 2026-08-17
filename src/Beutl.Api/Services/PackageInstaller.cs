@@ -36,6 +36,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private readonly HashSet<Task> _operations = [];
     private Task? _disposeTask;
     private bool _disposed;
+    private bool _drained;
     private static readonly AsyncLocal<PackageInstaller?> s_transactionOwner = new();
 
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
@@ -116,7 +117,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
-        while (true)
+        long deadline = Environment.TickCount64 + 30_000;
+        bool drained = false;
+        while (Environment.TickCount64 < deadline)
         {
             Task[] operations;
             lock (_gate)
@@ -125,7 +128,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             }
 
             if (operations.Length == 0)
+            {
+                drained = true;
                 break;
+            }
 
             try
             {
@@ -141,6 +147,16 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             {
                 _operations.RemoveWhere(task => task.IsCompleted);
             }
+        }
+
+        if (!drained)
+        {
+            _logger.LogWarning("Package installer did not drain within the shutdown deadline.");
+        }
+
+        lock (_gate)
+        {
+            _drained = true;
         }
 
         _cacheContext.Dispose();
@@ -204,10 +220,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         Task task;
         lock (_gate)
         {
-            // Nested phases of an already admitted transaction must still be tracked while
-            // disposal drains it; only brand-new work from other owners is rejected after
-            // disposal.
-            if (_disposed && !ReferenceEquals(s_transactionOwner.Value, this))
+            // Once draining has finished and the resources are disposed, reject all work
+            // including nested phases of an admitted transaction.
+            if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
             {
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
@@ -224,7 +239,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         Task<T> task;
         lock (_gate)
         {
-            if (_disposed && !ReferenceEquals(s_transactionOwner.Value, this))
+            if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
             {
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
