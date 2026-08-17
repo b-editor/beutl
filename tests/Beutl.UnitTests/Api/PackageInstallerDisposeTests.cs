@@ -463,13 +463,39 @@ public sealed class PackageInstallerDisposeTests
 
         // WaitUntilIdleAsync must keep waiting for the operation that outlived the
         // drain deadline; it must not return while the operation is still running.
-        Task idle = installer.WaitUntilIdleAsync();
+        Task idle = installer.WaitUntilIdleAsync(TimeSpan.FromSeconds(10));
         await Task.Delay(300);
         Assert.That(idle.IsCompleted, Is.False,
             "waiting for idleness must not complete while an operation is still running");
 
         release.TrySetResult();
         await Task.WhenAll(idle, operation).WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task WaitUntilIdleAsync_StopsAtTheTimeout_WhenAnOperationNeverCompletes()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        // An operation that never completes; the idle wait must still be bounded.
+        Task operation = installer.TrackInstallOperationAsync(async () =>
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan);
+        });
+
+        var stopwatch = Stopwatch.StartNew();
+        await installer.WaitUntilIdleAsync(TimeSpan.FromMilliseconds(300)).WaitAsync(TimeSpan.FromSeconds(5));
+        stopwatch.Stop();
+
+        Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(3)));
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)

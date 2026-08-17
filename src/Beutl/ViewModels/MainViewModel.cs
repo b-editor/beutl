@@ -190,8 +190,21 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                     // Disposal keeps installer resources alive until the tracked work
                     // stops, so fallback queueing for a still-running install/update can
                     // still happen after the deadline. Wait for actual idleness so the
-                    // snapshot below reflects every queued recovery.
-                    installer.WaitUntilIdleAsync().GetAwaiter().GetResult();
+                    // snapshot below reflects every queued recovery, while continuing to
+                    // pump UI jobs so queued activations keep progressing. The extra wait
+                    // is bounded so shutdown never hangs behind a non-cooperative install.
+                    Task idle = installer.WaitUntilIdleAsync(TimeSpan.FromSeconds(30));
+                    long idleDeadline = Environment.TickCount64 + 30_000;
+                    while (!idle.IsCompleted && Environment.TickCount64 < idleDeadline)
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                        Thread.Sleep(10);
+                    }
+
+                    if (!idle.IsCompleted)
+                    {
+                        _logger.LogWarning("Package installer did not become idle within the shutdown deadline.");
+                    }
                 }
             }
         }

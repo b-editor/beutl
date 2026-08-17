@@ -220,11 +220,20 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     // Waits until every admitted operation has actually stopped, without the drain
     // deadline: when Disposal ended at its deadline with operations still running,
     // their fallback queueing must be observable before the shutdown snapshot of
-    // PackageChangesQueue is taken.
-    internal async Task WaitUntilIdleAsync()
+    // PackageChangesQueue is taken. The timeout keeps the wait bounded even when a
+    // tracked operation never completes, so shutdown cannot hang behind it.
+    internal async Task WaitUntilIdleAsync(TimeSpan timeout)
     {
+        long deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
         while (true)
         {
+            long remaining = deadline - Environment.TickCount64;
+            if (remaining <= 0)
+            {
+                _logger.LogWarning("Package installer did not become idle within the shutdown deadline.");
+                return;
+            }
+
             Task[] operations;
             lock (_gate)
             {
@@ -237,7 +246,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
             try
             {
-                await Task.WhenAll(operations).ConfigureAwait(false);
+                await Task.WhenAll(operations).WaitAsync(TimeSpan.FromMilliseconds(remaining)).ConfigureAwait(false);
             }
             catch
             {
