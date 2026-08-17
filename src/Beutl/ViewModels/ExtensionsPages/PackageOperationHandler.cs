@@ -52,10 +52,12 @@ internal class PackageOperationHandler
             await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
             await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
+            cancellationToken.ThrowIfCancellationRequested();
             // Plugin activation (Extension.Load) may perform Avalonia-bound initialization,
             // so run it on the UI thread even though the install phases ran off-context.
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 _installedPackageRepository.UpgradePackages(packageId);
                 ActivateInstalledPackage(packageId);
             });
@@ -77,10 +79,12 @@ internal class PackageOperationHandler
             await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
             await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
+            cancellationToken.ThrowIfCancellationRequested();
             // Plugin activation (Extension.Load) may perform Avalonia-bound initialization,
             // so run it on the UI thread even though the install phases ran off-context.
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 _installedPackageRepository.UpgradePackages(packageId);
                 ActivateInstalledPackage(packageId);
             });
