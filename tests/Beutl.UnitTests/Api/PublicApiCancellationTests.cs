@@ -96,6 +96,23 @@ public sealed class PublicApiCancellationTests
             await manager.CheckUpdate("package-name", cancellationTokenSource.Token));
     }
 
+    [Test]
+    public async Task PackageManagerCheckUpdate_RejectsAdmissionAfterDisposal()
+    {
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        PackageManager manager = app.GetResource<PackageManager>();
+        await app.DisposeAsync();
+
+        // The resource lookup and the lifetime lease both take the dispose gate, so a
+        // disposed application must reject the update check at admission instead of
+        // failing halfway through with an unexpected error.
+        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+            await manager.CheckUpdate(CancellationToken.None));
+        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+            await manager.CheckUpdate("package-name", CancellationToken.None));
+    }
+
     [TestCaseSource(nameof(s_discoverOperations))]
     public async Task DiscoverOperations_PropagateCancellationToTransport(string operationName)
     {

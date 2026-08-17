@@ -117,7 +117,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
     protected virtual async Task DisposeCoreAsync()
     {
-        long deadline = Environment.TickCount64 + 30_000;
+        long deadline = Environment.TickCount64 + DrainDeadlineMilliseconds;
         bool drained = false;
         while (Environment.TickCount64 < deadline)
         {
@@ -168,6 +168,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
+    // Virtual so tests can shorten the drain window; production keeps the 30-second budget.
+    protected virtual long DrainDeadlineMilliseconds => 30_000;
+
     private Task TrackAsync(Func<Task> operation)
         => TrackAsyncCore(operation);
 
@@ -193,15 +196,17 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         return task;
     }
 
-    private void TrackSyncOperation(Action operation)
+    internal void TrackSyncOperation(Action operation)
     {
         TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_drained || _disposed, this);
+            ObjectDisposedException.ThrowIf(_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)), this);
             _operations.Add(proxy.Task);
         }
 
+        PackageInstaller? previous = s_transactionOwner.Value;
+        s_transactionOwner.Value = this;
         try
         {
             operation();
@@ -212,17 +217,23 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             proxy.TrySetException(ex);
             throw;
         }
+        finally
+        {
+            s_transactionOwner.Value = previous;
+        }
     }
 
-    private T TrackSyncOperation<T>(Func<T> operation)
+    internal T TrackSyncOperation<T>(Func<T> operation)
     {
         TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_drained || _disposed, this);
+            ObjectDisposedException.ThrowIf(_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)), this);
             _operations.Add(proxy.Task);
         }
 
+        PackageInstaller? previous = s_transactionOwner.Value;
+        s_transactionOwner.Value = this;
         try
         {
             T result = operation();
@@ -233,6 +244,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         {
             proxy.TrySetException(ex);
             throw;
+        }
+        finally
+        {
+            s_transactionOwner.Value = previous;
         }
     }
 

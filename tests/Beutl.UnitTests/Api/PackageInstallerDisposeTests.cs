@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
@@ -224,6 +225,84 @@ public sealed class PackageInstallerDisposeTests
 
         Assert.That(phase.IsCanceled, Is.True,
             "a canceled tracked phase must surface as a canceled task, not a faulted one");
+    }
+
+    [Test]
+    public async Task DisposeAsync_StopsWaitingAtTheDrainDeadline_WhenAnOperationNeverCompletes()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new ShortDeadlinePackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        // A tracked operation that never completes must not outlive the drain deadline.
+        Task operation = installer.TrackInstallOperationAsync(async () =>
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan);
+        });
+
+        var stopwatch = Stopwatch.StartNew();
+        await installer.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(10));
+        stopwatch.Stop();
+
+        Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)),
+            "disposal must stop waiting at the drain deadline even when an operation never completes");
+    }
+
+    [Test]
+    public async Task DisposeAsync_DrainsSynchronousOperations_UntilCompletion()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseOperation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool operationCompleted = false;
+
+        Task syncOperation = Task.Run(() =>
+            installer.TrackSyncOperation(() =>
+            {
+                operationStarted.TrySetResult();
+                releaseOperation.Task.Wait();
+                operationCompleted = true;
+            }));
+
+        await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task dispose = installer.DisposeAsync().AsTask();
+        await Task.Delay(300);
+        Assert.That(dispose.IsCompleted, Is.False,
+            "disposal must wait for the admitted synchronous operation");
+
+        releaseOperation.TrySetResult();
+        await Task.WhenAll(syncOperation, dispose).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(operationCompleted, Is.True);
+    }
+
+    private sealed class ShortDeadlinePackageInstaller : PackageInstaller
+    {
+        public ShortDeadlinePackageInstaller(
+            HttpClient httpClient,
+            bool ownsHttpClient,
+            InstalledPackageRepository installedPackageRepository,
+            BeutlApiApplication apiApplication)
+            : base(httpClient, ownsHttpClient, installedPackageRepository, apiApplication)
+        {
+        }
+
+        protected override long DrainDeadlineMilliseconds => 500;
     }
 
     private sealed class BlockingHandler : HttpMessageHandler
