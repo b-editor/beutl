@@ -449,6 +449,10 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         {
             _lifetimeCts.Cancel();
         }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cancel the lifetime token during disposal.");
+        }
         finally
         {
             _disposables.Dispose();
