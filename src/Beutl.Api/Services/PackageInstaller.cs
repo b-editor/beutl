@@ -36,7 +36,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private readonly HashSet<Task> _operations = [];
     private Task? _disposeTask;
     private bool _disposed;
-    private static readonly AsyncLocal<bool> s_inTransaction = new();
+    private static readonly AsyncLocal<PackageInstaller?> s_transactionOwner = new();
 
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
@@ -176,15 +176,15 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
     private async Task RunTransactionAsync(Func<Task> operation)
     {
-        bool previous = s_inTransaction.Value;
-        s_inTransaction.Value = true;
+        PackageInstaller? previous = s_transactionOwner.Value;
+        s_transactionOwner.Value = this;
         try
         {
             await operation().ConfigureAwait(false);
         }
         finally
         {
-            s_inTransaction.Value = previous;
+            s_transactionOwner.Value = previous;
         }
     }
 
@@ -194,8 +194,9 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         lock (_gate)
         {
             // Nested phases of an already admitted transaction must still be tracked while
-            // disposal drains it; only brand-new work is rejected after disposal.
-            if (_disposed && !s_inTransaction.Value)
+            // disposal drains it; only brand-new work from other owners is rejected after
+            // disposal.
+            if (_disposed && !ReferenceEquals(s_transactionOwner.Value, this))
             {
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
@@ -212,7 +213,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         Task<T> task;
         lock (_gate)
         {
-            if (_disposed && !s_inTransaction.Value)
+            if (_disposed && !ReferenceEquals(s_transactionOwner.Value, this))
             {
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
