@@ -18,6 +18,12 @@ public class Composer : IComposer
     private TimeRange? _previousRange;
     private CompositionEligibility? _lastEligibility;
 
+    internal sealed class TailBudget
+    {
+        public int RemainingSamples { get; set; }
+        public bool IsKnown { get; set; }
+    }
+
     private sealed class AudioNodeEntry : IDisposable
     {
         public List<AudioNode> Nodes { get; set; } = new();
@@ -26,8 +32,7 @@ public class Composer : IComposer
         public int Version { get; set; }
         public EventHandler? EditedHandler { get; set; }
         public TimeRange SoundRange { get; set; }
-        public int RemainingTailSamples { get; set; }
-        public bool TailBudgetKnown { get; set; }
+        internal Dictionary<AudioNode, TailBudget> TailBudgets { get; } = new(ReferenceEqualityComparer.Instance);
         public required Sound Sound { get; init; }
 
         public void Dispose()
@@ -38,6 +43,7 @@ public class Composer : IComposer
             }
 
             Nodes.Clear();
+            TailBudgets.Clear();
         }
     }
 
@@ -167,8 +173,7 @@ public class Composer : IComposer
                 {
                     if (!CanFlushEntry(entry))
                     {
-                        entry.RemainingTailSamples = 0;
-                        entry.TailBudgetKnown = false;
+                        entry.TailBudgets.Clear();
                         continue;
                     }
 
@@ -181,14 +186,13 @@ public class Composer : IComposer
 
                     foreach (AudioNode outputNode in outputNodes)
                     {
-                        if (outputNode.GetTotalLatencySamples(SampleRate) <= 0)
+                        int outputLatency = GetOutputLatency(entry, outputNode, SampleRate);
+                        if (outputLatency <= 0)
                             continue;
 
                         buffers.Add(outputNode.Flush(context));
+                        RecordTailAfterDrain(entry, outputNode, outputLatency, sampleCount);
                     }
-
-                    entry.RemainingTailSamples = SubtractTail(latency, sampleCount);
-                    entry.TailBudgetKnown = true;
                 }
 
                 mixedBuffer = MixBuffers(buffers)
@@ -199,7 +203,9 @@ public class Composer : IComposer
                 _previousEntry.Clear();
                 foreach (var entry in entries)
                 {
-                    if (entry.RemainingTailSamples > 0 && CanFlushEntry(entry))
+                    if (entry.OutputNodes is { } outputNodes
+                        && GetEntryLatency(entry, outputNodes, SampleRate) > 0
+                        && CanFlushEntry(entry))
                         _previousEntry.Add(entry);
                 }
 
@@ -303,23 +309,20 @@ public class Composer : IComposer
             if (!eligibility.Contains(entry.Sound))
                 continue;
 
-            int latency = GetEntryLatency(entry, outputNodes, SampleRate);
-            if (latency <= 0)
+            if (GetEntryLatency(entry, outputNodes, SampleRate) <= 0)
                 continue;
 
+            var flushContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
+            int sampleCount = flushContext.GetSampleCount();
             foreach (var outputNode in outputNodes)
             {
-                if (outputNode.GetTotalLatencySamples(SampleRate) <= 0)
+                int outputLatency = GetOutputLatency(entry, outputNode, SampleRate);
+                if (outputLatency <= 0)
                     continue;
 
-                var flushContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
                 buffers.Add(outputNode.Flush(flushContext));
+                RecordTailAfterDrain(entry, outputNode, outputLatency, sampleCount);
             }
-
-            entry.RemainingTailSamples = SubtractTail(
-                latency,
-                AudioProcessContext.GetSampleCount(range, SampleRate));
-            entry.TailBudgetKnown = true;
         }
     }
 
@@ -329,8 +332,6 @@ public class Composer : IComposer
             outputNode is ClipNode { InlineDrainedSamples: > 0 });
         if (!hasInlineDrain)
             return;
-
-        int remaining = 0;
 
         foreach (AudioNode outputNode in outputNodes)
         {
@@ -344,11 +345,8 @@ public class Composer : IComposer
             int inlineDrain = outputNode is ClipNode clipNode
                 ? clipNode.InlineDrainedSamples
                 : 0;
-            remaining = Math.Max(remaining, SubtractTail(outputLatency, inlineDrain));
+            SetTailBudget(entry, outputNode, outputLatency, inlineDrain);
         }
-
-        entry.RemainingTailSamples = remaining;
-        entry.TailBudgetKnown = true;
     }
 
     private void PromoteEntries(TimeRange timeRange, bool contiguous)
@@ -363,7 +361,10 @@ public class Composer : IComposer
 
         foreach (var entry in previous)
         {
-            if (contiguous && entry.RemainingTailSamples > 0 && !_currentEntry.Contains(entry))
+            if (contiguous
+                && !_currentEntry.Contains(entry)
+                && entry.OutputNodes is { } outputNodes
+                && GetEntryLatency(entry, outputNodes, SampleRate) > 0)
             {
                 if (CanFlushEntry(entry))
                 {
@@ -371,8 +372,7 @@ public class Composer : IComposer
                 }
                 else
                 {
-                    entry.RemainingTailSamples = 0;
-                    entry.TailBudgetKnown = false;
+                    entry.TailBudgets.Clear();
                 }
             }
         }
@@ -397,26 +397,55 @@ public class Composer : IComposer
 
     private int GetEntryLatency(AudioNodeEntry entry, AudioNode[] outputNodes, int sampleRate)
     {
-        if (entry.TailBudgetKnown)
-            return ScaleSampleCount(entry.RemainingTailSamples, SampleRate, sampleRate);
-
-        if (entry.RemainingTailSamples > 0)
-            return ScaleSampleCount(entry.RemainingTailSamples, SampleRate, sampleRate);
-
         int latency = 0;
         foreach (AudioNode outputNode in outputNodes)
         {
-            int outputLatency = outputNode.GetTotalLatencySamples(sampleRate);
-            if (outputLatency < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{outputNode.GetType().Name} returned negative total latency {outputLatency}.");
-            }
-
-            latency = Math.Max(latency, outputLatency);
+            latency = Math.Max(latency, GetOutputLatency(entry, outputNode, sampleRate));
         }
 
         return latency;
+    }
+
+    private int GetOutputLatency(AudioNodeEntry entry, AudioNode outputNode, int sampleRate)
+    {
+        if (entry.TailBudgets.TryGetValue(outputNode, out var budget))
+        {
+            if (budget.IsKnown)
+                return ScaleSampleCount(budget.RemainingSamples, SampleRate, sampleRate);
+        }
+
+        int latency = outputNode.GetTotalLatencySamples(sampleRate);
+        if (latency < 0)
+        {
+            throw new InvalidOperationException(
+                $"{outputNode.GetType().Name} returned negative total latency {latency}.");
+        }
+
+        return latency;
+    }
+
+    private static void RecordTailAfterDrain(
+        AudioNodeEntry entry,
+        AudioNode outputNode,
+        int outputLatency,
+        int drainedSamples)
+    {
+        SetTailBudget(entry, outputNode, outputLatency, drainedSamples);
+    }
+
+    private static void SetTailBudget(
+        AudioNodeEntry entry,
+        AudioNode outputNode,
+        int latency,
+        int drainedSamples)
+    {
+        var budget = entry.TailBudgets.TryGetValue(outputNode, out var existing)
+            ? existing
+            : new TailBudget();
+        budget.IsKnown = true;
+        budget.RemainingSamples = SubtractTail(latency, drainedSamples);
+
+        entry.TailBudgets[outputNode] = budget;
     }
 
     private static int ScaleSampleCount(int sampleCount, int sourceSampleRate, int destinationSampleRate)
@@ -452,8 +481,7 @@ public class Composer : IComposer
     {
         foreach (var entry in entries)
         {
-            entry.RemainingTailSamples = 0;
-            entry.TailBudgetKnown = false;
+            entry.TailBudgets.Clear();
         }
 
         _currentEntry.Clear();
@@ -575,8 +603,7 @@ public class Composer : IComposer
         }
 
         entry.SoundRange = sound.TimeRange;
-        entry.RemainingTailSamples = 0;
-        entry.TailBudgetKnown = false;
+        entry.TailBudgets.Clear();
         _currentEntry.Add(entry);
     }
 

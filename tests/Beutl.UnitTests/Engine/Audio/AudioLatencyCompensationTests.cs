@@ -1298,6 +1298,62 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_DrainsEachOutputOnlyWhileItsOwnTailRemains()
+    {
+        const int shortLatency = 240;
+        const int longLatency = 960;
+        var clipDuration = ExactDuration(SampleRate, SampleRate);
+        var drainDuration = ExactDuration(shortLatency, SampleRate);
+
+        var sound = new HeterogeneousOutputTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+        HeterogeneousOutputTailSound.ResetFlushCounts();
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        var secondRange = new TimeRange(clipDuration, drainDuration);
+        var emptyFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, emptyFrame);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(HeterogeneousOutputTailSound.ShortFlushCount, Is.EqualTo(1));
+            Assert.That(HeterogeneousOutputTailSound.LongFlushCount, Is.EqualTo(1));
+            Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(longLatency - shortLatency));
+        });
+
+        var thirdRange = new TimeRange(clipDuration + drainDuration, drainDuration);
+        var thirdFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            thirdRange,
+            default,
+            eligibility);
+        using var third = composer.Compose(thirdRange, thirdFrame);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(HeterogeneousOutputTailSound.ShortFlushCount, Is.EqualTo(1),
+                "An exhausted short output branch must not be flushed for a longer sibling branch.");
+            Assert.That(HeterogeneousOutputTailSound.LongFlushCount, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
     public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
     {
         const float lookaheadMs = 20f;
