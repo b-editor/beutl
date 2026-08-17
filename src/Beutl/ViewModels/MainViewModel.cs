@@ -171,7 +171,17 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         // below; otherwise PackageTools is launched without the queued recovery.
         try
         {
-            _beutlClients.GetResource<PackageInstaller>().DisposeAsync().AsTask().GetAwaiter().GetResult();
+            Task drain = _beutlClients.GetResource<PackageInstaller>().DisposeAsync().AsTask();
+            // The transaction's activation callback is queued on the UI dispatcher; pump
+            // jobs while draining so it can complete instead of deadlocking the blocked
+            // UI thread.
+            while (!drain.IsCompleted)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                Thread.Sleep(10);
+            }
+
+            drain.GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {
