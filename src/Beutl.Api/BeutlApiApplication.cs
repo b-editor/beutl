@@ -398,6 +398,7 @@ public class BeutlApiApplication : IAsyncDisposable
         try
         {
             ProfileResponse profileResponse = await Users.GetSelf(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             var profile = new Profile(profileResponse, this);
 
             attemptedUser = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
