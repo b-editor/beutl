@@ -327,9 +327,12 @@ public class TitleBarBranchViewModelTests
     {
         Mock<IProjectVersionControlService> serviceA = CreateServiceMock();
         Mock<IProjectVersionControlService> serviceB = CreateServiceMock();
-        serviceB.Setup(item => item.GetStatusAsync(
+        // Sequenced rather than fixed: a raised status is followed by a read, and a service that
+        // answered differently there would not be modelling one repository.
+        serviceB.SetupSequence(item => item.GetStatusAsync(
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkspaceStatus("project-b", 0, 0, [], false));
+            .ReturnsAsync(new WorkspaceStatus("project-b", 0, 0, [], false))
+            .ReturnsAsync(new WorkspaceStatus("project-b", 2, 1, [], false));
         using var serviceSource =
             new ReactivePropertySlim<IProjectVersionControlService?>(serviceA.Object);
         using var viewModel = new TitleBarBranchViewModel(
@@ -592,6 +595,44 @@ public class TitleBarBranchViewModelTests
                 behind,
                 CultureInfo.InvariantCulture),
             Is.EqualTo(expected));
+    }
+
+    [Test]
+    public async Task Status_event_that_predates_a_branch_change_does_not_win()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(item => item.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("feature", 0, 0, [], false));
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using var viewModel = new TitleBarBranchViewModel(
+            serviceSource,
+            CreateGitAvailabilitySource(),
+            coordinator.Object,
+            action => action());
+        await viewModel.Initialization;
+        Assert.That(viewModel.DisplayText.Value, Is.EqualTo("feature"));
+
+        // A status raised before the branch changed still names the old branch. Nothing orders it
+        // against the read that already saw "feature", so applying it verbatim and stopping there
+        // would leave the widget on a branch the repository has left.
+        service.Raise(
+            item => item.StatusChanged += null,
+            service.Object,
+            new WorkspaceStatus("main", 0, 0, [], false));
+
+        await WaitUntilAsync(() => viewModel.DisplayText.Value == "feature");
+        Assert.That(viewModel.DisplayText.Value, Is.EqualTo("feature"));
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var timeout = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition() && timeout.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            await Task.Delay(10);
+        }
     }
 
     private static Mock<IProjectVersionControlService> CreateServiceMock()

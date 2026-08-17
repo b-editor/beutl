@@ -4457,13 +4457,14 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         }
     }
 
-    // Reading status probes the upstream ref before counting ahead/behind. An empty for-each-ref
-    // result is what "no upstream" looks like, which stops the probe before it runs rev-list and
-    // spares every stub runner from having to answer that too.
+    // Reading status resolves the branch's upstream and then verifies the origin ref before
+    // counting. Reporting no upstream and a missing ref is what a repository without one looks
+    // like, and it stops the walk before rev-list, which these stub runners would also have to
+    // answer.
     private static GitCommandResult StubStatusResult(IReadOnlyList<string> arguments)
     {
-        return arguments.FirstOrDefault() == "for-each-ref"
-            ? new GitCommandResult(0, string.Empty, string.Empty)
+        return arguments.FirstOrDefault() is "rev-parse" or "show-ref"
+            ? throw new GitOperationException(1, string.Empty)
             : new GitCommandResult(0, "# branch.head main\0", string.Empty);
     }
 

@@ -490,20 +490,16 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
             Interlocked.Increment(ref _statusRevision);
             string branchName = status.Branch ?? "—";
-            bool becameVisible =
-                !IsVisible.Value
-                && _gitAvailable
-                && _coordinatorGitAvailable
-                && eventService.Repository is not null;
             IsVisible.Value =
                 _gitAvailable
                 && _coordinatorGitAvailable
                 && eventService.Repository is not null;
             ApplyBranchSummary(branchName, status.Ahead, status.Behind);
-            if (becameVisible)
-            {
-                _ = RefreshAsync();
-            }
+            // The event carries no ordering, so one raised before a branch change can arrive after
+            // the refresh that already read the new branch. Applying it above keeps the widget
+            // responsive; re-reading afterwards is what makes the state it settles on the current
+            // one. The read discards itself if a later event supersedes it.
+            _ = RefreshAsync();
         });
     }
 

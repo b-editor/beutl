@@ -151,6 +151,7 @@ internal sealed class GitCliVersionControlService :
 
     internal const int MaxDiffBytes = 1024 * 1024;
     internal const string DiffTruncationMarker = "\n--- Diff truncated at 1 MB ---\n";
+    private const string OriginRefPrefix = "refs/remotes/origin/";
     private const string LfsQuotaNoticeConfigKeyPrefix = "beutl.lfsQuotaNoticeShown-";
     private const string LargeMediaNoticeConfigKeyPrefix = "beutl.largeMediaNoticeShown-";
     private const string MissingIdentityNoticeConfigKeyPrefix = "beutl.missingIdentityNoticeShown-";
@@ -4161,13 +4162,17 @@ internal sealed class GitCliVersionControlService :
             return status;
         }
 
-        string originBranchRef = $"refs/remotes/origin/{status.Branch}";
-        GitCommandResult originBranch = await runner.RunAsync(
-            repository,
-            ["for-each-ref", "--format=%(objectname)", originBranchRef],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(originBranch.Stdout))
+        // Counts stay against origin even when the branch tracks a different remote, but the origin
+        // branch is whichever one this branch actually tracks: synthesizing it from the local name
+        // answers for an unrelated branch whenever the two names differ.
+        string? upstream = await TryGetUpstreamRefAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        string originBranchRef =
+            upstream is not null && upstream.StartsWith(OriginRefPrefix, StringComparison.Ordinal)
+                ? upstream
+                : $"{OriginRefPrefix}{status.Branch}";
+        if (!await RefExistsAsync(repository, runner, originBranchRef, cancellationToken)
+                .ConfigureAwait(false))
         {
             return status with { Ahead = 0, Behind = 0 };
         }
@@ -4179,6 +4184,51 @@ internal sealed class GitCliVersionControlService :
             cancellationToken).ConfigureAwait(false);
         (int ahead, int behind) = ParseAheadBehindCounts(counts.Stdout);
         return status with { Ahead = ahead, Behind = behind };
+    }
+
+    private static async Task<string?> TryGetUpstreamRefAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                ["rev-parse", "--symbolic-full-name", "@{upstream}"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            string upstream = result.Stdout.Trim();
+            return upstream.Length == 0 ? null : upstream;
+        }
+        catch (GitOperationException)
+        {
+            // No upstream configured, which git reports as a failure rather than empty output.
+            return null;
+        }
+    }
+
+    // Verified rather than matched: for-each-ref treats its operand as a pattern, so asking for
+    // refs/remotes/origin/foo also succeeds when only refs/remotes/origin/foo/bar exists.
+    private static async Task<bool> RefExistsAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string refName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["show-ref", "--verify", "--quiet", refName],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (GitOperationException)
+        {
+            return false;
+        }
     }
 
     private async Task<WorkspaceStatus> GetSnapshotStatusCoreAsync(

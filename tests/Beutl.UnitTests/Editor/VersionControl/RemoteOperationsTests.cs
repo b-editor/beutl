@@ -137,6 +137,34 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Status_counts_against_the_tracked_origin_branch_when_the_names_differ()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string originRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(originRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+
+        // Local `release` tracking `origin/main`: a ref synthesized from the local name asks about
+        // the non-existent origin/release and reports an up-to-date branch.
+        await RunGitAsync("switch", "-c", "release");
+        await RunGitAsync("branch", "--set-upstream-to=origin/main", "release");
+        RepositoryInfo originPeer = await CloneRemoteAsync(originRoot);
+        await CommitInRepositoryAsync(originPeer, "project.bep", "from origin\n", "origin update");
+        await RunGitAsync("fetch", "origin", "+refs/heads/main:refs/remotes/origin/main");
+
+        WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Ahead, Is.Zero);
+            Assert.That(status.Behind, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task Status_uses_origin_counts_when_branch_tracks_another_remote()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
