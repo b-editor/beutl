@@ -1769,6 +1769,76 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_GetDrainLatencySamples_UsesRemainingInlineBudgetThroughIComposer()
+    {
+        const float lookaheadMs = 5f;
+        int latencySamples = LookaheadSamples(lookaheadMs);
+        var clipDuration = ExactDuration(SampleRate, SampleRate);
+        var oneSample = ExactDuration(1, SampleRate);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+        IComposer composerContract = composer;
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composerContract.GetDrainLatencySamples(SampleRate), Is.EqualTo(latencySamples - 1),
+            "The interface contract must expose the nested composer's remaining, not full, drain budget.");
+    }
+
+    [Test]
+    public void Composer_TracksInlineDrainPerWrappedFanInBranch()
+    {
+        const int sampleRate = SampleRate;
+        const int longLatency = 960;
+        var clipDuration = ExactDuration(sampleRate, sampleRate);
+        var oneSample = ExactDuration(1, sampleRate);
+
+        var sound = new HeterogeneousWrappedOutputTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+        HeterogeneousWrappedOutputTailSound.ResetFlushState();
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(longLatency - 1),
+            "A wrapped fan-in output must retain the dominant branch's remaining tail after inline recovery.");
+
+        var secondRange = new TimeRange(firstRange.End, ExactDuration(longLatency, sampleRate));
+        var secondFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, secondFrame);
+
+        Assert.That(HeterogeneousWrappedOutputTailSound.LastFlushSampleCount, Is.EqualTo(longLatency - 1),
+            "The wrapped fan-in must not reflush the sample already recovered by each descendant ClipNode.");
+    }
+
+    [Test]
     public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
     {
         const float lookaheadMs = 20f;

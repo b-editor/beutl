@@ -158,14 +158,7 @@ public class Composer : IComposer
 
             foreach (AudioNode outputNode in outputNodes)
             {
-                int latency = outputNode.GetDrainLatencySamples(sampleRate);
-                if (latency < 0)
-                {
-                    throw new InvalidOperationException(
-                        $"{outputNode.GetType().Name} returned negative drain latency {latency}.");
-                }
-
-                total = Math.Max(total, latency);
+                total = Math.Max(total, GetDrainOutputLatency(entry, outputNode, sampleRate));
             }
         }
 
@@ -398,7 +391,8 @@ public class Composer : IComposer
 
     private void RecordInlineDrainBudget(AudioNodeEntry entry, AudioNode[] outputNodes)
     {
-        bool hasInlineDrain = outputNodes.Any(outputNode => TryGetInlineDrain(outputNode, out _));
+        bool hasInlineDrain = outputNodes.Any(
+            outputNode => TryGetInlineDrain(outputNode, SampleRate, out _));
         if (!hasInlineDrain)
             return;
 
@@ -411,7 +405,13 @@ public class Composer : IComposer
                     $"{outputNode.GetType().Name} returned negative total latency {outputLatency}.");
             }
 
-            bool inlineDrainAttempted = TryGetInlineDrain(outputNode, out int inlineDrain);
+            bool inlineDrainAttempted = TryGetInlineDrain(
+                outputNode,
+                SampleRate,
+                out int remainingLatency);
+            int inlineDrain = outputLatency == int.MaxValue
+                ? 0
+                : Math.Max(0, outputLatency - Math.Min(outputLatency, remainingLatency));
             SetTailBudget(
                 entry,
                 outputNode,
@@ -421,31 +421,63 @@ public class Composer : IComposer
         }
     }
 
-    private static bool TryGetInlineDrain(AudioNode outputNode, out int drainedSamples)
+    private static bool TryGetInlineDrain(
+        AudioNode outputNode,
+        int sampleRate,
+        out int remainingLatency)
     {
-        var pending = new Stack<AudioNode>();
-        var visited = new HashSet<AudioNode>(ReferenceEqualityComparer.Instance);
-        pending.Push(outputNode);
-        drainedSamples = 0;
-        bool found = false;
-
-        while (pending.Count > 0)
+        var branches = new List<(int LatencySamples, int DrainedSamples)>();
+        CollectInlineDrainBranches(
+            outputNode,
+            sampleRate,
+            branches,
+            new HashSet<AudioNode>(ReferenceEqualityComparer.Instance));
+        if (branches.Count == 0)
         {
-            AudioNode node = pending.Pop();
-            if (!visited.Add(node))
-                continue;
-
-            if (node is ClipNode { InlineDrainAttempted: true } clipNode)
-            {
-                found = true;
-                drainedSamples = Math.Max(drainedSamples, clipNode.InlineDrainedSamples);
-            }
-
-            foreach (AudioNode input in node.Inputs)
-                pending.Push(input);
+            remainingLatency = 0;
+            return false;
         }
 
-        return found;
+        remainingLatency = 0;
+        foreach ((int latency, int drained) in branches)
+        {
+            int remaining = SubtractTail(latency, drained);
+            if (remaining == int.MaxValue)
+            {
+                remainingLatency = int.MaxValue;
+                break;
+            }
+
+            remainingLatency = Math.Max(remainingLatency, remaining);
+        }
+
+        return true;
+    }
+
+    private static void CollectInlineDrainBranches(
+        AudioNode node,
+        int sampleRate,
+        List<(int LatencySamples, int DrainedSamples)> branches,
+        HashSet<AudioNode> visited)
+    {
+        if (!visited.Add(node))
+            return;
+
+        if (node is ClipNode { InlineDrainAttempted: true } clipNode)
+        {
+            int latency = clipNode.GetDrainLatencySamples(sampleRate);
+            if (latency < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{clipNode.GetType().Name} returned negative drain latency {latency}.");
+            }
+
+            branches.Add((latency, clipNode.InlineDrainedSamples));
+            return;
+        }
+
+        foreach (AudioNode input in node.Inputs)
+            CollectInlineDrainBranches(input, sampleRate, branches, visited);
     }
 
     private void PromoteEntries(TimeRange timeRange, bool contiguous)
@@ -522,6 +554,28 @@ public class Composer : IComposer
         {
             throw new InvalidOperationException(
                 $"{outputNode.GetType().Name} returned negative total latency {latency}.");
+        }
+
+        return latency;
+    }
+
+    private int GetDrainOutputLatency(AudioNodeEntry entry, AudioNode outputNode, int sampleRate)
+    {
+        if (entry.TailBudgets.TryGetValue(outputNode, out var budget))
+        {
+            if (budget.StopFurtherDrains)
+                return 0;
+            if (budget.UnknownFollowUpPending)
+                return int.MaxValue;
+            if (budget.IsKnown)
+                return ScaleSampleCount(budget.RemainingSamples, SampleRate, sampleRate);
+        }
+
+        int latency = outputNode.GetDrainLatencySamples(sampleRate);
+        if (latency < 0)
+        {
+            throw new InvalidOperationException(
+                $"{outputNode.GetType().Name} returned negative drain latency {latency}.");
         }
 
         return latency;
