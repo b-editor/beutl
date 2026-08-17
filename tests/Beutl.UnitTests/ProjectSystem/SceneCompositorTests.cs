@@ -171,6 +171,52 @@ public class SceneCompositorTests
     }
 
     [Test]
+    public void EvaluateAudio_FlowConsumedValueEqualSound_IsNotEligible()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var group = new SoundGroup();
+            var groupElement = new ValueEqualElement
+            {
+                Start = TimeSpan.Zero,
+                Length = TimeSpan.FromSeconds(1),
+                ZIndex = 0,
+                Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.group.layer")),
+            };
+            groupElement.AddObject(group);
+            ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+
+            var child = new LimiterTailSound();
+            var childElement = new ValueEqualElement
+            {
+                Start = TimeSpan.Zero,
+                Length = TimeSpan.FromSeconds(1),
+                ZIndex = 1,
+                Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.child.layer")),
+            };
+            childElement.AddObject(child);
+
+            scene.Children.Add(groupElement);
+            scene.Children.Add(childElement);
+            using var compositor = new SceneCompositor(scene);
+
+            CompositionFrame frame = compositor.EvaluateAudio(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+            CompositionEligibility eligibility = frame.Eligibility
+                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+
+            Assert.That(eligibility.Contains(child), Is.False,
+                "Reference-equal flow removal must still consume a value-equal standalone sound.");
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void EvaluateAudio_StandaloneClearPortal_ExcludesClearedSoundFromEligibility()
     {
         string basePath = GetTempPath();
@@ -1028,6 +1074,13 @@ public class SceneCompositorTests
     private sealed class ValueEqualEligibilityObject : EngineObject
     {
         public override bool Equals(object? obj) => obj is ValueEqualEligibilityObject;
+
+        public override int GetHashCode() => 0;
+    }
+
+    private sealed class ValueEqualElement : Element
+    {
+        public override bool Equals(object? obj) => obj is ValueEqualElement;
 
         public override int GetHashCode() => 0;
     }

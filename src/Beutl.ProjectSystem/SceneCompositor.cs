@@ -154,7 +154,7 @@ public sealed class SceneCompositor : ICompositor
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
         using var flowElements = new PooledList<Element>();
-        var consumedElements = new HashSet<Element>();
+        var consumedElements = new HashSet<Element>(ReferenceEqualityComparer.Instance);
         foreach (Element item in currentElements)
         {
             if (item.Range.Intersects(timeRange))
@@ -180,7 +180,7 @@ public sealed class SceneCompositor : ICompositor
             CollectResourcesFromElement(item, context, tmpObjects);
             foreach (Element flowElement in flowElementsBeforeEvaluation)
             {
-                if (!flowElements.Contains(flowElement))
+                if (!ContainsReference(flowElements, flowElement))
                     consumedElements.Add(flowElement);
             }
 
@@ -191,6 +191,17 @@ public sealed class SceneCompositor : ICompositor
         }
 
         return new CompositionEligibility(eligibleObjects);
+    }
+
+    private static bool ContainsReference(PooledList<Element> elements, Element target)
+    {
+        foreach (Element element in elements)
+        {
+            if (ReferenceEquals(element, target))
+                return true;
+        }
+
+        return false;
     }
 
     private static bool HasFlowOperator(Element element)
