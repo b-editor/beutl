@@ -171,6 +171,42 @@ public class SceneCompositorTests
     }
 
     [Test]
+    public void EvaluateAudio_StandaloneClearPortal_ExcludesClearedSoundFromEligibility()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var sound = new LimiterTailSound();
+            Element element = CreateElement(basePath, isEnabled: true, sound);
+            var portal = new PortalObject();
+            portal.Clear.CurrentValue = true;
+            portal.Count.CurrentValue = 0;
+            element.Objects.Add(portal);
+            scene.Children.Add(element);
+            using var compositor = new SceneCompositor(scene);
+
+            CompositionFrame frame = compositor.EvaluateAudio(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+            CompositionEligibility eligibility = frame.Eligibility
+                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(frame.Objects.Select(resource => resource.GetOriginal()),
+                    Does.Not.Contain(sound),
+                    "A standalone clear portal removes the preceding sound from the evaluated flow.");
+                Assert.That(eligibility.Contains(sound), Is.False,
+                    "Eligibility must mirror the portal's flow mutation so a cleared sound cannot flush a stale tail.");
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void EvaluateAudio_InactiveFlowOperator_DoesNotConsumeEndedSound()
     {
         string basePath = GetTempPath();

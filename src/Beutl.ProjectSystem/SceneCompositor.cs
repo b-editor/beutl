@@ -176,7 +176,7 @@ public sealed class SceneCompositor : ICompositor
     }
 
     private static bool HasFlowOperator(Element element)
-        => element.Objects.Any(obj => obj is IFlowOperator);
+        => element.Objects.Any(obj => obj is IFlowOperator or PortalObject);
 
     private void CollectResourcesFromElement(
         Element element, CompositorContext context, PooledList<EngineObject> tmpObjects)
