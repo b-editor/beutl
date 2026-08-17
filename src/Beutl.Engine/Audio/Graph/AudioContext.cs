@@ -17,6 +17,7 @@ public sealed class AudioContext : IDisposable
     private List<AudioNode>? _previousNodes;
     private AudioNode? _currentNode;
     private bool _disposed;
+    private bool _clearingConnections;
 
     private sealed record InputSnapshot(AudioNode Node, AudioNode[] Inputs, object?[] States);
 
@@ -63,6 +64,7 @@ public sealed class AudioContext : IDisposable
     public T AddNode<T>(T node) where T : AudioNode
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
         if (!ContainsReference(_nodes, node))
@@ -99,6 +101,7 @@ public sealed class AudioContext : IDisposable
         where TNode : AudioNode
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         ArgumentNullException.ThrowIfNull(factory, nameof(factory));
         ArgumentNullException.ThrowIfNull(updater, nameof(updater));
         ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
@@ -129,6 +132,7 @@ public sealed class AudioContext : IDisposable
     public SourceNode CreateSourceNode(SoundSource.Resource source)
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         ArgumentNullException.ThrowIfNull(source);
 
         // Try to reuse from previous nodes
@@ -158,6 +162,7 @@ public sealed class AudioContext : IDisposable
     public GainNode CreateGainNode(IProperty<float> gain)
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         ArgumentNullException.ThrowIfNull(gain);
 
         // Try to reuse from previous nodes
@@ -190,6 +195,7 @@ public sealed class AudioContext : IDisposable
     public ShiftNode CreateShiftNode(TimeSpan shift)
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
 
         // Try to reuse from previous nodes
         if (_previousNodes != null)
@@ -219,6 +225,7 @@ public sealed class AudioContext : IDisposable
     public ClipNode CreateClipNode(TimeSpan start, TimeSpan duration)
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         if (duration <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be positive.");
 
@@ -250,6 +257,7 @@ public sealed class AudioContext : IDisposable
     public MixerNode CreateMixerNode()
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
 
         // Try to reuse from previous nodes
         if (_previousNodes != null)
@@ -275,6 +283,7 @@ public sealed class AudioContext : IDisposable
     public ResampleNode CreateResampleNode(int sourceSampleRate)
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         if (sourceSampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sourceSampleRate), "Source sample rate must be positive.");
 
@@ -304,6 +313,7 @@ public sealed class AudioContext : IDisposable
     public SpeedNode CreateSpeedNode(IProperty<float> speed)
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         ArgumentNullException.ThrowIfNull(speed);
 
         // Try to reuse from previous nodes
@@ -335,6 +345,7 @@ public sealed class AudioContext : IDisposable
     public T ConnectTo<T>(T destination) where T : AudioNode
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         ArgumentNullException.ThrowIfNull(destination, nameof(destination));
 
         if (_currentNode == null)
@@ -353,6 +364,7 @@ public sealed class AudioContext : IDisposable
     public void Connect(AudioNode source, AudioNode destination)
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         ArgumentNullException.ThrowIfNull(source, nameof(source));
         ArgumentNullException.ThrowIfNull(destination, nameof(destination));
 
@@ -378,6 +390,7 @@ public sealed class AudioContext : IDisposable
     public void MarkAsOutput(AudioNode node)
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
         if (!ContainsReference(_nodes, node))
@@ -394,6 +407,7 @@ public sealed class AudioContext : IDisposable
     public T SetCurrent<T>(T node) where T : AudioNode
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
         if (!ContainsReference(_nodes, node))
@@ -419,6 +433,7 @@ public sealed class AudioContext : IDisposable
     public void Clear()
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
 
         foreach (var node in _nodes)
         {
@@ -447,6 +462,21 @@ public sealed class AudioContext : IDisposable
     public void ClearConnections()
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
+
+        _clearingConnections = true;
+        try
+        {
+            ClearConnectionsCore();
+        }
+        finally
+        {
+            _clearingConnections = false;
+        }
+    }
+
+    private void ClearConnectionsCore()
+    {
 
         var snapshots = new List<InputSnapshot>(_nodes.Count);
         foreach (AudioNode node in _nodes)
@@ -468,6 +498,39 @@ public sealed class AudioContext : IDisposable
             {
                 snapshot.Node.ClearInputs();
                 cleared.Add(snapshot);
+                if (snapshot.Node.Inputs.Count != 0)
+                {
+                    throw new InvalidOperationException(
+                        "Audio connection clearing hooks must leave every node without inputs.");
+                }
+            }
+
+            bool nodesUnchanged = _nodes.Count == snapshots.Count;
+            if (nodesUnchanged)
+            {
+                for (int i = 0; i < snapshots.Count; i++)
+                {
+                    if (!ReferenceEquals(snapshots[i].Node, _nodes[i]))
+                    {
+                        nodesUnchanged = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!nodesUnchanged)
+            {
+                throw new InvalidOperationException(
+                    "Audio connection clearing hooks must not mutate the context node set.");
+            }
+
+            foreach (InputSnapshot snapshot in snapshots)
+            {
+                if (snapshot.Node.Inputs.Count != 0)
+                {
+                    throw new InvalidOperationException(
+                        "Audio connection clearing hooks must leave every node without inputs.");
+                }
             }
         }
         catch (Exception clearException)
@@ -512,6 +575,7 @@ public sealed class AudioContext : IDisposable
     public void RemoveNode(AudioNode node)
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
         if (!ContainsReference(_nodes, node))
@@ -581,6 +645,7 @@ public sealed class AudioContext : IDisposable
     public void BeginUpdate(IEnumerable<AudioNode> previousNodes)
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
 
         // Save previous nodes for reuse
         _previousNodes = previousNodes.ToList();
@@ -598,6 +663,7 @@ public sealed class AudioContext : IDisposable
     public void EndUpdate()
     {
         ThrowIfDisposed();
+        ThrowIfClearingConnections();
 
         // Dispose unused nodes from previous state
         if (_previousNodes is { Count: > 0 })
@@ -620,6 +686,7 @@ public sealed class AudioContext : IDisposable
 
     public void Dispose()
     {
+        ThrowIfClearingConnections();
         if (_disposed)
             return;
 
@@ -659,6 +726,12 @@ public sealed class AudioContext : IDisposable
 
     private static void RestoreInputs(InputSnapshot snapshot)
     {
+        for (int i = snapshot.Node.Inputs.Count - 1; i >= 0; i--)
+        {
+            if (!ContainsReference(snapshot.Inputs, snapshot.Node.Inputs[i]))
+                snapshot.Node.RemoveInput(snapshot.Node.Inputs[i]);
+        }
+
         for (int i = 0; i < snapshot.Inputs.Length; i++)
         {
             AudioNode input = snapshot.Inputs[i];
@@ -677,5 +750,14 @@ public sealed class AudioContext : IDisposable
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(AudioContext));
+    }
+
+    private void ThrowIfClearingConnections()
+    {
+        if (_clearingConnections)
+        {
+            throw new InvalidOperationException(
+                "Audio graph mutations are not allowed while connections are being cleared.");
+        }
     }
 }

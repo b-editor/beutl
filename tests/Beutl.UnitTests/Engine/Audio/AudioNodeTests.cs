@@ -158,6 +158,53 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextClearConnections_WhenHookAddsInput_RollsBackReentrantTopology()
+    {
+        using var context = new AudioContext(48000, 2);
+        using var source = new ValueNode();
+        using var auxiliary = new ValueNode();
+        using var node = new ReentrantClearNode();
+        context.Connect(source, node);
+        context.MarkAsOutput(node);
+        context.SetCurrent(node);
+        node.OnClear = () => node.AddInput(auxiliary);
+
+        Assert.Throws<InvalidOperationException>(() => context.ClearConnections());
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Inputs, Has.Count.EqualTo(1));
+            Assert.That(node.Inputs[0], Is.SameAs(source));
+            Assert.That(context.GetOutputNodes(), Has.Member(node));
+        });
+
+        node.OnClear = null;
+        Assert.DoesNotThrow(() => context.ClearConnections());
+        Assert.That(node.Inputs, Is.Empty);
+    }
+
+    [Test]
+    public void AudioContextClearConnections_WhenHookMutatesContext_RejectsReentrantMutation()
+    {
+        using var context = new AudioContext(48000, 2);
+        using var source = new ValueNode();
+        using var auxiliary = new ValueNode();
+        using var node = new ReentrantClearNode();
+        context.Connect(source, node);
+        context.MarkAsOutput(node);
+        context.SetCurrent(node);
+        node.OnClear = () => context.Connect(node, auxiliary);
+
+        Assert.Throws<InvalidOperationException>(() => context.ClearConnections());
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Inputs, Has.Count.EqualTo(1));
+            Assert.That(node.Inputs[0], Is.SameAs(source));
+            Assert.That(context.Nodes, Does.Not.Contain(auxiliary));
+            Assert.That(context.GetOutputNodes(), Has.Member(node));
+        });
+    }
+
+    [Test]
     public void RemoveInput_WhenHookThrows_RestoresTopologyAndAllowsRetry()
     {
         using var node = new ThrowingHookNode();
@@ -244,6 +291,13 @@ public class AudioNodeTests
                 throw new InvalidOperationException("Clear hook failure.");
             }
         }
+    }
+
+    private sealed class ReentrantClearNode : ValueNode
+    {
+        public Action? OnClear { get; set; }
+
+        protected override void OnInputsCleared() => OnClear?.Invoke();
     }
 
     private class ValueNode : AudioNode
