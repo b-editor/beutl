@@ -47,15 +47,15 @@ internal class PackageOperationHandler
             PackageInstallContext context = await _packageInstaller.PrepareForInstall(
                 release,
                 force: true,
-                cancellationToken);
-            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken);
-            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken);
-            await _packageInstaller.ResolveDependencies(context, null, cancellationToken);
+                cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
             _installedPackageRepository.UpgradePackages(packageId);
 
             ActivateInstalledPackage(packageId);
-        });
+        }).ConfigureAwait(false);
     }
 
     public async Task DownloadAndLoadPackage(
@@ -69,14 +69,14 @@ internal class PackageOperationHandler
                 packageId.Version.ToString(),
                 force: true,
                 cancellationToken);
-            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken);
-            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken);
-            await _packageInstaller.ResolveDependencies(context, null, cancellationToken);
+            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
             _installedPackageRepository.UpgradePackages(packageId);
 
             ActivateInstalledPackage(packageId);
-        });
+        }).ConfigureAwait(false);
     }
 
     private void ActivateInstalledPackage(PackageIdentity packageId)
