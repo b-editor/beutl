@@ -70,6 +70,42 @@ public sealed class PackageInstallerDisposeTests
         await Task.WhenAll(operation, dispose).WaitAsync(TimeSpan.FromSeconds(5));
     }
 
+    [Test]
+    public async Task DisposeAsync_AllowsNestedPhases_OfAnAdmittedTransaction()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        var phaseStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePhase = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool nestedPhaseRan = false;
+        Task operation = installer.TrackInstallOperationAsync(async () =>
+        {
+            phaseStarted.TrySetResult();
+            await releasePhase.Task;
+            // Disposal has started by now; a nested phase must still be admitted.
+            await installer.DownloadPackageFile(
+                new PackageInstallContext(
+                    "Beutl.Package.NestedPhase", "1.0.0", "https://example.com/package.nupkg"),
+                cancellationToken: CancellationToken.None);
+            nestedPhaseRan = true;
+        });
+        await phaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task dispose = installer.DisposeAsync().AsTask();
+        releasePhase.TrySetResult();
+
+        await Task.WhenAll(operation, dispose).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(nestedPhaseRan, Is.True, "the nested phase must run while the transaction is drained");
+    }
+
     private sealed class BlockingHandler : HttpMessageHandler
     {
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);

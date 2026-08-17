@@ -36,6 +36,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private readonly HashSet<Task> _operations = [];
     private Task? _disposeTask;
     private bool _disposed;
+    private int _admittedTransactions;
 
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
@@ -158,7 +159,34 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     public Task TrackInstallOperationAsync(Func<Task> operation)
     {
         ArgumentNullException.ThrowIfNull(operation);
-        return TrackAsync(operation);
+        Task task;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _operations.RemoveWhere(task => task.IsCompleted);
+            _admittedTransactions++;
+            // Run on the thread pool so the transaction never captures a UI synchronization
+            // context; shutdown can then block on DisposeAsync without deadlocking it.
+            task = Task.Run(() => RunTransactionAsync(operation));
+            _operations.Add(task);
+        }
+
+        return task;
+    }
+
+    private async Task RunTransactionAsync(Func<Task> operation)
+    {
+        try
+        {
+            await operation().ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                _admittedTransactions--;
+            }
+        }
     }
 
     private Task TrackAsyncCore(Func<Task> operation)
@@ -166,7 +194,12 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         Task task;
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            // Nested phases of an already admitted transaction must still be tracked while
+            // disposal drains it; only brand-new work is rejected after disposal.
+            if (_disposed && _admittedTransactions == 0)
+            {
+                throw new ObjectDisposedException(nameof(PackageInstaller));
+            }
             _operations.RemoveWhere(task => task.IsCompleted);
             task = operation();
             _operations.Add(task);
@@ -180,7 +213,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         Task<T> task;
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_disposed && _admittedTransactions == 0)
+            {
+                throw new ObjectDisposedException(nameof(PackageInstaller));
+            }
             _operations.RemoveWhere(task => task.IsCompleted);
             task = operation();
             _operations.Add(task);
