@@ -2149,6 +2149,35 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_ConvertsInlineDrainBudgetAcrossResampleInputRate()
+    {
+        const int outputSampleRate = 24000;
+        const int clipSamples = ResampledInlineTailSound.SourceSampleRate;
+        var clipDuration = ExactDuration(clipSamples, ResampledInlineTailSound.SourceSampleRate);
+        var firstRange = new TimeRange(
+            TimeSpan.Zero,
+            clipDuration + ExactDuration(1, outputSampleRate));
+
+        var sound = new ResampledInlineTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = outputSampleRate };
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(outputSampleRate), Is.EqualTo(49),
+            "Inline drain samples recorded before a resampler must be converted from the source domain.");
+    }
+
+    [Test]
     public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
     {
         const float lookaheadMs = 20f;

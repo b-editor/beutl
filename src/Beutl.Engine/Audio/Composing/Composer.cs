@@ -448,23 +448,18 @@ public class Composer : IComposer
         foreach (InlineDrainBranch branch in branches)
         {
             int upstreamRemaining = SubtractTail(branch.LatencySamples, branch.DrainedSamples);
-            int downstreamRemaining = Math.Max(0, branch.DownstreamLatencySamples - branch.PaddingSamples);
-            if (upstreamRemaining == int.MaxValue || downstreamRemaining == int.MaxValue)
+            int downstreamRemaining = SubtractTail(branch.DownstreamLatencySamples, branch.PaddingSamples);
+            int branchRemaining = AddLatency(upstreamRemaining, downstreamRemaining);
+            if (branchRemaining == int.MaxValue)
             {
                 remainingLatency = int.MaxValue;
                 inlineDrain = 0;
                 break;
             }
 
-            long remaining = (long)upstreamRemaining + downstreamRemaining;
-            if (remaining == int.MaxValue)
-            {
-                remainingLatency = int.MaxValue;
-                inlineDrain = 0;
-                break;
-            }
-
-            remainingLatency = Math.Max(remainingLatency, (int)remaining);
+            remainingLatency = Math.Max(
+                remainingLatency,
+                ScaleSampleCount(branchRemaining, branch.SampleRate, sampleRate));
         }
 
         inlineDrain = remainingLatency == int.MaxValue
@@ -477,7 +472,8 @@ public class Composer : IComposer
         int LatencySamples,
         int DrainedSamples,
         int PaddingSamples,
-        int DownstreamLatencySamples);
+        int DownstreamLatencySamples,
+        int SampleRate);
 
     private static void CollectInlineDrainBranches(
         AudioNode node,
@@ -504,7 +500,8 @@ public class Composer : IComposer
                     latency,
                     clipNode.InlineDrainedSamples,
                     clipNode.InlinePaddingSamples,
-                    downstreamLatency));
+                    downstreamLatency,
+                    sampleRate));
                 return;
             }
 
@@ -516,8 +513,18 @@ public class Composer : IComposer
             }
 
             int nextDownstreamLatency = AddLatency(downstreamLatency, ownLatency);
+            int nextSampleRate = sampleRate;
+            if (node is ResampleNode resampleNode)
+            {
+                nextDownstreamLatency = ScaleSampleCount(
+                    nextDownstreamLatency,
+                    sampleRate,
+                    resampleNode.SourceSampleRate);
+                nextSampleRate = resampleNode.SourceSampleRate;
+            }
+
             foreach (AudioNode input in node.Inputs)
-                CollectInlineDrainBranches(input, sampleRate, branches, visited, nextDownstreamLatency);
+                CollectInlineDrainBranches(input, nextSampleRate, branches, visited, nextDownstreamLatency);
         }
         finally
         {
