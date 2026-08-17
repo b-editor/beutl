@@ -798,6 +798,29 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_Process_AfterSeek_RearmsUnknownBranchDrain()
+    {
+        const int processSamples = 4096;
+        const int drainSamples = 256;
+        var branchEnd = ExactDuration(processSamples, SampleRate);
+
+        using var branch = new RecordingLatencyNode(int.MaxValue);
+        using var mixer = new MixerNode();
+        mixer.AddInput(branch);
+        mixer.SetBranchEndTime(branch, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+        using var firstDrain = mixer.Process(ExactContext(branchEnd, drainSamples, SampleRate));
+
+        var replayStart = ExactDuration(processSamples / 2, SampleRate);
+        using var replay = mixer.Process(ExactContext(replayStart, processSamples / 2, SampleRate));
+        using var secondDrain = mixer.Process(ExactContext(branchEnd, drainSamples, SampleRate));
+
+        Assert.That(branch.FlushCount, Is.EqualTo(2),
+            "A discontinuous replay must clear the prior unknown-drain attempt so the new tail can be flushed.");
+    }
+
+    [Test]
     public void MixerNode_RemoveInput_KeepsBranchEndTimeAligned()
     {
         const float lookaheadMs = 5f;

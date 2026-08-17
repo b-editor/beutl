@@ -60,6 +60,7 @@ public sealed class MixerNode : AudioNode
         if (_lastTimeRangeEnd is { } previousEnd && !context.ContinuesFrom(previousEnd))
         {
             _processedBranches.Clear();
+            _unknownDrainAttempts.Clear();
         }
 
         AudioBuffer result = Mix(context, drain: false);
