@@ -12,7 +12,15 @@ public sealed class MixerNode : AudioNode
         new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<AudioNode> _unknownDrainAttempts =
         new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<AudioNode, BranchTailBudget> _branchTailBudgets =
+        new(ReferenceEqualityComparer.Instance);
     private TimeSpan? _lastTimeRangeEnd;
+
+    private sealed class BranchTailBudget
+    {
+        public int RemainingSamples { get; set; }
+        public int SampleRate { get; set; }
+    }
 
     private sealed record InputState(
         float[] Gains,
@@ -20,6 +28,9 @@ public sealed class MixerNode : AudioNode
         TimeSpan BranchEndTime,
         bool WasProcessed,
         bool UnknownDrainAttempted,
+        bool HasTailBudget,
+        int RemainingTailSamples,
+        int TailBudgetSampleRate,
         TimeSpan? LastTimeRangeEnd);
 
     public float[] Gains
@@ -40,6 +51,7 @@ public sealed class MixerNode : AudioNode
         _branchEndTimes[input] = endTime;
         _processedBranches.Remove(input);
         _unknownDrainAttempts.Remove(input);
+        _branchTailBudgets.Remove(input);
     }
 
     /// <summary>
@@ -50,6 +62,7 @@ public sealed class MixerNode : AudioNode
     public bool ClearBranchEndTime(AudioNode input)
     {
         EnsureConnectedInput(input);
+        _branchTailBudgets.Remove(input);
         return _branchEndTimes.Remove(input);
     }
 
@@ -61,6 +74,7 @@ public sealed class MixerNode : AudioNode
         {
             _processedBranches.Clear();
             _unknownDrainAttempts.Clear();
+            _branchTailBudgets.Clear();
         }
 
         AudioBuffer result = Mix(context, drain: false);
@@ -77,6 +91,46 @@ public sealed class MixerNode : AudioNode
             return CreateSilentFlush(context);
 
         return Mix(context, drain: true);
+    }
+
+    public override int GetDrainLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int total = 0;
+        foreach (AudioNode input in Inputs)
+        {
+            if (_unknownDrainAttempts.Contains(input))
+                continue;
+
+            if (_branchTailBudgets.TryGetValue(input, out BranchTailBudget? budget))
+            {
+                if (budget.RemainingSamples <= 0)
+                    continue;
+
+                total = Math.Max(total, ScaleSampleCount(budget.RemainingSamples, budget.SampleRate, sampleRate));
+                continue;
+            }
+
+            int branchLatency = input.GetDrainLatencySamples(sampleRate);
+            if (branchLatency < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative drain latency {branchLatency}.");
+            }
+
+            if (branchLatency != int.MaxValue
+                && _branchEndTimes.TryGetValue(input, out TimeSpan branchEndTime)
+                && _lastTimeRangeEnd is { } processedEnd
+                && GetTailEndTicks(branchEndTime, branchLatency, sampleRate) <= processedEnd.Ticks)
+            {
+                continue;
+            }
+
+            total = Math.Max(total, branchLatency);
+        }
+
+        return total;
     }
 
     private AudioBuffer Mix(AudioProcessContext context, bool drain)
@@ -96,7 +150,9 @@ public sealed class MixerNode : AudioNode
 
                 bool unknownDrain = drainBranch
                     && Inputs[i].GetDrainLatencySamples(context.SampleRate) == int.MaxValue;
-                buffers[i] = drainBranch ? FlushBranch(i, context) : Inputs[i].Process(context);
+                buffers[i] = drainBranch
+                    ? FlushBranch(i, context, out _)
+                    : Inputs[i].Process(context);
                 if (unknownDrain && context.GetSampleCount() > 0)
                     _unknownDrainAttempts.Add(Inputs[i]);
                 if (!drainBranch && !branchEnded)
@@ -178,12 +234,19 @@ public sealed class MixerNode : AudioNode
 
     private bool IsBranchDead(int index, AudioProcessContext context)
     {
-        if (!_branchEndTimes.TryGetValue(Inputs[index], out TimeSpan branchEndTime))
+        AudioNode branch = Inputs[index];
+        if (!_branchEndTimes.TryGetValue(branch, out TimeSpan branchEndTime))
             return false;
 
-        int branchLatency = Inputs[index].GetDrainLatencySamples(context.SampleRate);
+        if (_branchTailBudgets.TryGetValue(branch, out BranchTailBudget? budget)
+            && budget.SampleRate == context.SampleRate)
+        {
+            return budget.RemainingSamples <= 0;
+        }
+
+        int branchLatency = branch.GetDrainLatencySamples(context.SampleRate);
         if (branchLatency == int.MaxValue)
-            return _unknownDrainAttempts.Contains(Inputs[index]);
+            return _unknownDrainAttempts.Contains(branch);
 
         // A branch is dead once its retained tail ends at or just before this block. A one-tick
         // tolerance absorbs the same timestamp quantization used by contiguous audio ranges.
@@ -196,9 +259,10 @@ public sealed class MixerNode : AudioNode
         return tailEndTicks <= deadAfterTicks;
     }
 
-    private AudioBuffer FlushBranch(int index, AudioProcessContext context)
+    private AudioBuffer FlushBranch(int index, AudioProcessContext context, out int drainedSamples)
     {
         AudioNode branch = Inputs[index];
+        drainedSamples = 0;
         if (!_branchEndTimes.TryGetValue(branch, out TimeSpan branchEndTime)
             || context.TimeRange.Start < branchEndTime)
         {
@@ -210,18 +274,40 @@ public sealed class MixerNode : AudioNode
             return branch.Flush(context);
 
         int sampleCount = context.GetSampleCount();
-        long tailEndTicks = GetTailEndTicks(branchEndTime, branchLatency, context.SampleRate);
-        long remainingTicks = tailEndTicks - context.TimeRange.Start.Ticks;
-        if (remainingTicks <= 0)
-            return branch.Flush(context);
+        int remainingSamples;
+        if (_branchTailBudgets.TryGetValue(branch, out BranchTailBudget? budget)
+            && budget.SampleRate == context.SampleRate)
+        {
+            remainingSamples = budget.RemainingSamples;
+        }
+        else
+        {
+            long tailEndTicks = GetTailEndTicks(branchEndTime, branchLatency, context.SampleRate);
+            long remainingTicks = tailEndTicks - context.TimeRange.Start.Ticks;
+            remainingSamples = remainingTicks <= 0
+                ? 0
+                : Math.Min(
+                    branchLatency,
+                    AudioProcessContext.GetSampleCount(
+                        new TimeRange(context.TimeRange.Start, TimeSpan.FromTicks(remainingTicks)),
+                        context.SampleRate));
+            budget = new BranchTailBudget
+            {
+                RemainingSamples = remainingSamples,
+                SampleRate = context.SampleRate,
+            };
+            _branchTailBudgets[branch] = budget;
+        }
 
-        int remainingSamples = Math.Min(
-            branchLatency,
-            AudioProcessContext.GetSampleCount(
-                new TimeRange(context.TimeRange.Start, TimeSpan.FromTicks(remainingTicks)),
-                context.SampleRate));
         if (remainingSamples >= sampleCount)
+        {
+            drainedSamples = sampleCount;
+            budget.RemainingSamples = Math.Max(0, remainingSamples - drainedSamples);
             return branch.Flush(context);
+        }
+
+        if (remainingSamples <= 0)
+            return CreateSilentFlush(context);
 
         var drainContext = new AudioProcessContext(
             new TimeRange(
@@ -238,6 +324,8 @@ public sealed class MixerNode : AudioNode
             if (copyCount > 0)
                 drained.CopyTo(output, 0, copyCount);
 
+            drainedSamples = remainingSamples;
+            budget.RemainingSamples = 0;
             return output;
         }
         catch
@@ -254,6 +342,15 @@ public sealed class MixerNode : AudioNode
         return branchEndTime.Ticks > TimeSpan.MaxValue.Ticks - latencyTicks
             ? TimeSpan.MaxValue.Ticks
             : branchEndTime.Ticks + latencyTicks;
+    }
+
+    private static int ScaleSampleCount(int sampleCount, int sourceSampleRate, int destinationSampleRate)
+    {
+        if (sampleCount == int.MaxValue || sourceSampleRate == destinationSampleRate)
+            return sampleCount;
+
+        double scaled = sampleCount * (double)destinationSampleRate / sourceSampleRate;
+        return scaled >= int.MaxValue ? int.MaxValue : (int)Math.Ceiling(scaled);
     }
 
     private bool IsBranchEnded(int index, AudioProcessContext context)
@@ -276,6 +373,9 @@ public sealed class MixerNode : AudioNode
             branchEndTime,
             _processedBranches.Contains(input),
             _unknownDrainAttempts.Contains(input),
+            _branchTailBudgets.TryGetValue(input, out BranchTailBudget? budget),
+            budget?.RemainingSamples ?? 0,
+            budget?.SampleRate ?? 0,
             _lastTimeRangeEnd);
     }
 
@@ -300,6 +400,19 @@ public sealed class MixerNode : AudioNode
         else
             _unknownDrainAttempts.Remove(input);
 
+        if (snapshot.HasTailBudget)
+        {
+            _branchTailBudgets[input] = new BranchTailBudget
+            {
+                RemainingSamples = snapshot.RemainingTailSamples,
+                SampleRate = snapshot.TailBudgetSampleRate,
+            };
+        }
+        else
+        {
+            _branchTailBudgets.Remove(input);
+        }
+
         _lastTimeRangeEnd = snapshot.LastTimeRangeEnd;
     }
 
@@ -309,6 +422,7 @@ public sealed class MixerNode : AudioNode
         _branchEndTimes.Remove(input);
         _processedBranches.Remove(input);
         _unknownDrainAttempts.Remove(input);
+        _branchTailBudgets.Remove(input);
         _lastTimeRangeEnd = null;
     }
 
@@ -318,6 +432,7 @@ public sealed class MixerNode : AudioNode
         _branchEndTimes.Clear();
         _processedBranches.Clear();
         _unknownDrainAttempts.Clear();
+        _branchTailBudgets.Clear();
         _lastTimeRangeEnd = null;
     }
 
@@ -329,6 +444,7 @@ public sealed class MixerNode : AudioNode
             _branchEndTimes.Clear();
             _processedBranches.Clear();
             _unknownDrainAttempts.Clear();
+            _branchTailBudgets.Clear();
             _lastTimeRangeEnd = null;
         }
 
