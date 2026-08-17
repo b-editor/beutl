@@ -432,7 +432,7 @@ public class Composer : IComposer
         out int inlineDrain,
         int outputLatency = 0)
     {
-        var branches = new List<(int LatencySamples, int DrainedSamples, int PaddingSamples)>();
+        var branches = new List<InlineDrainBranch>();
         CollectInlineDrainBranches(
             outputNode,
             sampleRate,
@@ -444,15 +444,18 @@ public class Composer : IComposer
             return false;
         }
 
-        int maximumLatency = branches.Max(branch => branch.LatencySamples);
-        int downstreamLatency = outputLatency == int.MaxValue
-            ? 0
-            : Math.Max(0, outputLatency - maximumLatency);
         int remainingLatency = 0;
-        foreach ((int latency, int drained, int padding) in branches)
+        foreach (InlineDrainBranch branch in branches)
         {
-            int upstreamRemaining = SubtractTail(latency, drained);
-            int downstreamRemaining = Math.Max(0, downstreamLatency - padding);
+            int upstreamRemaining = SubtractTail(branch.LatencySamples, branch.DrainedSamples);
+            int downstreamRemaining = Math.Max(0, branch.DownstreamLatencySamples - branch.PaddingSamples);
+            if (upstreamRemaining == int.MaxValue || downstreamRemaining == int.MaxValue)
+            {
+                remainingLatency = int.MaxValue;
+                inlineDrain = 0;
+                break;
+            }
+
             long remaining = (long)upstreamRemaining + downstreamRemaining;
             if (remaining == int.MaxValue)
             {
@@ -470,11 +473,18 @@ public class Composer : IComposer
         return true;
     }
 
+    private sealed record InlineDrainBranch(
+        int LatencySamples,
+        int DrainedSamples,
+        int PaddingSamples,
+        int DownstreamLatencySamples);
+
     private static void CollectInlineDrainBranches(
         AudioNode node,
         int sampleRate,
-        List<(int LatencySamples, int DrainedSamples, int PaddingSamples)> branches,
-        HashSet<AudioNode> visited)
+        List<InlineDrainBranch> branches,
+        HashSet<AudioNode> visited,
+        int downstreamLatency = 0)
     {
         if (!visited.Add(node))
             return;
@@ -488,12 +498,33 @@ public class Composer : IComposer
                     $"{clipNode.GetType().Name} returned negative drain latency {latency}.");
             }
 
-            branches.Add((latency, clipNode.InlineDrainedSamples, clipNode.InlinePaddingSamples));
+            branches.Add(new InlineDrainBranch(
+                latency,
+                clipNode.InlineDrainedSamples,
+                clipNode.InlinePaddingSamples,
+                downstreamLatency));
             return;
         }
 
+        int ownLatency = node.GetLatencySamples(sampleRate);
+        if (ownLatency < 0)
+        {
+            throw new InvalidOperationException(
+                $"{node.GetType().Name} returned negative latency {ownLatency}.");
+        }
+
+        int nextDownstreamLatency = AddLatency(downstreamLatency, ownLatency);
         foreach (AudioNode input in node.Inputs)
-            CollectInlineDrainBranches(input, sampleRate, branches, visited);
+            CollectInlineDrainBranches(input, sampleRate, branches, visited, nextDownstreamLatency);
+    }
+
+    private static int AddLatency(int first, int second)
+    {
+        if (first == int.MaxValue || second == int.MaxValue)
+            return int.MaxValue;
+
+        long sum = (long)first + second;
+        return sum >= int.MaxValue ? int.MaxValue : (int)sum;
     }
 
     private void PromoteEntries(TimeRange timeRange, bool contiguous)

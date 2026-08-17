@@ -493,7 +493,7 @@ public sealed class AudioContext : IDisposable
 
         foreach (InputSnapshot snapshot in snapshots)
         {
-            snapshot.Node.BeginInputClearTransaction();
+            snapshot.Node.BeginInputTopologyTransaction();
         }
 
         var cleared = new List<InputSnapshot>(_nodes.Count);
@@ -540,7 +540,7 @@ public sealed class AudioContext : IDisposable
 
             foreach (InputSnapshot snapshot in snapshots)
             {
-                snapshot.Node.CommitInputClearTransaction();
+                snapshot.Node.CompleteInputTopologyCommit();
             }
         }
         catch (Exception clearException)
@@ -562,7 +562,7 @@ public sealed class AudioContext : IDisposable
             {
                 try
                 {
-                    snapshots[i].Node.RollbackInputClearTransaction();
+                    snapshots[i].Node.RollbackInputTopologyTransaction();
                 }
                 catch (Exception rollbackException)
                 {
@@ -618,19 +618,29 @@ public sealed class AudioContext : IDisposable
     {
         // Remove dependent inputs first. The context bookkeeping is deliberately left untouched until
         // every node hook succeeds, so a failed hook leaves the graph available for a retry.
+        var affected = _nodes
+            .Where(otherNode => !ReferenceEquals(otherNode, node)
+                && ContainsReference(otherNode.Inputs, node))
+            .ToArray();
+        foreach (AudioNode otherNode in affected)
+        {
+            otherNode.BeginInputTopologyTransaction();
+        }
+
         var removedFrom = new List<(AudioNode Node, int Index, object? State)>();
         try
         {
-            foreach (var otherNode in _nodes.ToArray())
+            foreach (AudioNode otherNode in affected)
             {
-                if (!ReferenceEquals(otherNode, node)
-                    && ContainsReference(otherNode.Inputs, node))
-                {
-                    int index = IndexOfReference(otherNode.Inputs, node);
-                    object? state = otherNode.CaptureInputStateForRollback(node, index);
-                    otherNode.RemoveInput(node);
-                    removedFrom.Add((otherNode, index, state));
-                }
+                int index = IndexOfReference(otherNode.Inputs, node);
+                object? state = otherNode.CaptureInputStateForRollback(node, index);
+                otherNode.RemoveInput(node);
+                removedFrom.Add((otherNode, index, state));
+            }
+
+            foreach (AudioNode otherNode in affected)
+            {
+                otherNode.CompleteInputTopologyCommit();
             }
         }
         catch (Exception removalException)
@@ -643,6 +653,18 @@ public sealed class AudioContext : IDisposable
                 {
                     otherNode.RestoreInput(node, index);
                     otherNode.RestoreInputStateForRollback(node, index, state);
+                }
+                catch (Exception rollbackException)
+                {
+                    (rollbackFailures ??= []).Add(rollbackException);
+                }
+            }
+
+            for (int i = affected.Length - 1; i >= 0; i--)
+            {
+                try
+                {
+                    affected[i].RollbackInputTopologyTransaction();
                 }
                 catch (Exception rollbackException)
                 {

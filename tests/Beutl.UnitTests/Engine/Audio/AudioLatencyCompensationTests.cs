@@ -892,6 +892,26 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_GetDrainLatencySamples_ReportsOnlyPartialTailAfterProcess()
+    {
+        const int processSamples = 1024;
+        const int branchEndSamples = 900;
+        const int branchLatency = 240;
+        int expectedRemaining = branchEndSamples + branchLatency - processSamples;
+        var branchEnd = ExactDuration(branchEndSamples, SampleRate);
+
+        using var branch = new RecordingLatencyNode(branchLatency);
+        using var mixer = new MixerNode();
+        mixer.AddInput(branch);
+        mixer.SetBranchEndTime(branch, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+
+        Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(expectedRemaining),
+            "A branch that ends inside the last process block must report only the tail after that block.");
+    }
+
+    [Test]
     public void MixerNode_ClearBranchEndTime_RearmsUnknownDrainState()
     {
         const int processSamples = 4096;
@@ -2070,6 +2090,34 @@ public class AudioLatencyCompensationTests
 
         Assert.That(HeterogeneousWrappedOutputTailSound.LastFlushSampleCount, Is.EqualTo(longLatency - 1),
             "The wrapped fan-in must not reflush the sample already recovered by each descendant ClipNode.");
+    }
+
+    [Test]
+    public void Composer_TracksInlineDrainPerFanInPathDownstreamLatency()
+    {
+        const int sampleRate = SampleRate;
+        const int downstreamLatency = 30;
+        var clipDuration = ExactDuration(sampleRate, sampleRate);
+        var oneSample = ExactDuration(1, sampleRate);
+
+        var sound = new HeterogeneousDownstreamTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(downstreamLatency - 1),
+            "Inline drain accounting must retain the downstream latency of each fan-in path independently.");
     }
 
     [Test]

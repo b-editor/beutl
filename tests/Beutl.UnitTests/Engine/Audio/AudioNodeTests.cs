@@ -308,6 +308,53 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextRemoveNode_WhenRollbackRestoresResampleInput_PreservesStreamingState()
+    {
+        const int sourceSampleRate = 48000;
+        const int outputSampleRate = 44100;
+        const int blockSamples = 128;
+        const int sourceSamples = 4096;
+
+        using var sourceBuffer = AudioTestBuffers.CreateBuffer(
+            2,
+            sourceSamples,
+            static (_, index) => MathF.Sin(index * 0.013f),
+            sourceSampleRate);
+        using var source = new BufferReplayNode(sourceBuffer);
+        using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
+        using var failing = new ThrowingHookNode { ThrowOnRemove = true };
+
+        using var context = new AudioContext(outputSampleRate, 2);
+        context.Connect(source, resample);
+        context.Connect(source, failing);
+
+        AudioProcessContext firstContext = ExactContext(TimeSpan.Zero, blockSamples, outputSampleRate);
+        AudioProcessContext secondContext = ExactContext(
+            ExactDuration(blockSamples, outputSampleRate),
+            blockSamples,
+            outputSampleRate);
+        using var first = resample.Process(firstContext);
+
+        Assert.Throws<InvalidOperationException>(() => context.RemoveNode(source));
+        failing.ThrowOnRemove = false;
+
+        using var actual = resample.Process(secondContext);
+
+        using var controlSource = new BufferReplayNode(sourceBuffer);
+        using var control = new ResampleNode { SourceSampleRate = sourceSampleRate };
+        control.AddInput(controlSource);
+        using var controlFirst = control.Process(firstContext);
+        using var expected = control.Process(secondContext);
+
+        for (int channel = 0; channel < actual.ChannelCount; channel++)
+        {
+            Assert.That(actual.GetChannelData(channel).ToArray(),
+                Is.EqualTo(expected.GetChannelData(channel).ToArray()).Within(1e-5f),
+                $"Resample channel {channel} must continue after a failed RemoveNode rollback.");
+        }
+    }
+
+    [Test]
     public void TransformingNodeFlush_PreservesMonoLayoutAfterInputRemoval()
     {
         const int sampleRate = 48000;

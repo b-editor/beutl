@@ -164,6 +164,13 @@ public sealed class MixerNode : AudioNode
                     _unknownDrainAttempts.Add(Inputs[i]);
                 if (!drainBranch && !branchEnded)
                     _processedBranches.Add(Inputs[i]);
+                if (!drainBranch
+                    && _branchEndTimes.TryGetValue(Inputs[i], out TimeSpan branchEndTime)
+                    && !branchEnded
+                    && context.TimeRange.End >= branchEndTime)
+                {
+                    RecordProcessedTailBudget(Inputs[i], branchEndTime, context.TimeRange.End, context.SampleRate);
+                }
             }
 
             AudioBuffer? firstBuffer = null;
@@ -349,6 +356,36 @@ public sealed class MixerNode : AudioNode
         return branchEndTime.Ticks > TimeSpan.MaxValue.Ticks - latencyTicks
             ? TimeSpan.MaxValue.Ticks
             : branchEndTime.Ticks + latencyTicks;
+    }
+
+    private void RecordProcessedTailBudget(
+        AudioNode branch,
+        TimeSpan branchEndTime,
+        TimeSpan processedEnd,
+        int sampleRate)
+    {
+        int branchLatency = branch.GetDrainLatencySamples(sampleRate);
+        if (branchLatency < 0)
+        {
+            throw new InvalidOperationException(
+                $"{branch.GetType().Name} returned negative drain latency {branchLatency}.");
+        }
+
+        if (branchLatency == int.MaxValue)
+            return;
+
+        long tailEndTicks = GetTailEndTicks(branchEndTime, branchLatency, sampleRate);
+        long remainingTicks = tailEndTicks - processedEnd.Ticks;
+        int remainingSamples = remainingTicks <= 0
+            ? 0
+            : Math.Min(branchLatency, (int)Math.Round(
+                remainingTicks * (double)sampleRate / TimeSpan.TicksPerSecond,
+                MidpointRounding.AwayFromZero));
+        _branchTailBudgets[branch] = new BranchTailBudget
+        {
+            RemainingSamples = remainingSamples,
+            SampleRate = sampleRate,
+        };
     }
 
     private static int ScaleSampleCount(int sampleCount, int sourceSampleRate, int destinationSampleRate)

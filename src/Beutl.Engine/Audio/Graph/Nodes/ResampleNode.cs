@@ -179,7 +179,7 @@ public sealed class ResampleNode : AudioNode
     protected override void OnInputsCleared()
         => RequestStreamingStateReset();
 
-    protected override void OnInputClearTransactionCommitted()
+    internal override void OnInputClearTransactionCommitted()
     {
         if (_streamingStateResetPending)
         {
@@ -188,7 +188,7 @@ public sealed class ResampleNode : AudioNode
         }
     }
 
-    protected override void OnInputClearTransactionRolledBack()
+    internal override void OnInputClearTransactionRolledBack()
     {
         // RestoreInput invokes OnInputAdded while the transaction is still active. Keep the
         // provider, cursor, and timestamp that belong to the restored stream.
@@ -197,7 +197,7 @@ public sealed class ResampleNode : AudioNode
 
     private void RequestStreamingStateReset()
     {
-        if (IsInputClearTransaction)
+        if (IsInputTopologyTransaction)
         {
             _streamingStateResetPending = true;
         }

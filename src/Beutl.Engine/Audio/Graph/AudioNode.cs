@@ -73,29 +73,35 @@ public abstract class AudioNode : IDisposable
     internal void RestoreInputStateForRollback(AudioNode input, int index, object? state)
         => RestoreInputState(input, index, state);
 
-    internal bool IsInputClearTransaction => _inputClearTransaction;
+    internal bool IsInputTopologyTransaction => _inputClearTransaction;
 
-    internal void BeginInputClearTransaction()
+    internal void BeginInputTopologyTransaction()
     {
         _inputClearTransaction = true;
     }
 
-    internal void CommitInputClearTransaction()
+    internal void CompleteInputTopologyCommit()
     {
         if (!_inputClearTransaction)
             return;
 
-        _inputClearTransaction = false;
         OnInputClearTransactionCommitted();
+        _inputClearTransaction = false;
     }
 
-    internal void RollbackInputClearTransaction()
+    internal void RollbackInputTopologyTransaction()
     {
         if (!_inputClearTransaction)
             return;
 
-        _inputClearTransaction = false;
-        OnInputClearTransactionRolledBack();
+        try
+        {
+            OnInputClearTransactionRolledBack();
+        }
+        finally
+        {
+            _inputClearTransaction = false;
+        }
     }
 
     public void RemoveInput(AudioNode input)
@@ -174,13 +180,13 @@ public abstract class AudioNode : IDisposable
     {
     }
 
-    /// <summary>Called after an AudioContext input-clear transaction commits.</summary>
-    protected virtual void OnInputClearTransactionCommitted()
+    /// <summary>Called after an AudioContext input-topology transaction commits.</summary>
+    internal virtual void OnInputClearTransactionCommitted()
     {
     }
 
-    /// <summary>Called after an AudioContext input-clear transaction rolls back.</summary>
-    protected virtual void OnInputClearTransactionRolledBack()
+    /// <summary>Called after an AudioContext input-topology transaction rolls back.</summary>
+    internal virtual void OnInputClearTransactionRolledBack()
     {
     }
 

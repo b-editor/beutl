@@ -82,6 +82,21 @@ public class EasingOutputRangeTests
         });
     }
 
+    [Test]
+    public void BounceEaseRanges_ContainFloatingPointExtrema()
+    {
+        var easeIn = new BounceEaseIn();
+        var easeOut = new BounceEaseOut();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(easeIn.TryGetOutputRange(out float easeInMinimum, out float easeInMaximum), Is.True);
+            Assert.That(easeOut.TryGetOutputRange(out float easeOutMinimum, out float easeOutMaximum), Is.True);
+            Assert.That(easeIn.Ease(4f / 11f), Is.InRange(easeInMinimum, easeInMaximum));
+            Assert.That(easeOut.Ease(4f / 11f), Is.InRange(easeOutMinimum, easeOutMaximum));
+        });
+    }
+
     private sealed class UnknownRangeEasing : Easing
     {
         public override float Ease(float progress) => progress;
