@@ -159,22 +159,26 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     public Task TrackInstallOperationAsync(Func<Task> operation)
     {
         ArgumentNullException.ThrowIfNull(operation);
-        Task task;
+        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task task = proxy.Task;
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             _operations.RemoveWhere(task => task.IsCompleted);
+            // Register the proxy before invoking the callback so a synchronous re-entrant
+            // DisposeAsync from inside the callback observes this transaction as in-flight
+            // and drains it instead of tearing down resources underneath it.
+            _operations.Add(task);
             // Run in the caller's context so plugin activation inside the operation keeps its
             // original synchronization context; the operation's awaits use ConfigureAwait(false)
             // so shutdown can block on DisposeAsync without deadlocking the UI thread.
-            task = RunTransactionAsync(operation);
-            _operations.Add(task);
+            _ = RunTransactionAsync(operation, proxy);
         }
 
         return task;
     }
 
-    private async Task RunTransactionAsync(Func<Task> operation)
+    private async Task RunTransactionAsync(Func<Task> operation, TaskCompletionSource proxy)
     {
         PackageInstaller? previous = s_transactionOwner.Value;
         s_transactionOwner.Value = this;
@@ -185,6 +189,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         finally
         {
             s_transactionOwner.Value = previous;
+            proxy.TrySetResult();
         }
     }
 

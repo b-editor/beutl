@@ -106,6 +106,33 @@ public sealed class PackageInstallerDisposeTests
         Assert.That(nestedPhaseRan, Is.True, "the nested phase must run while the transaction is drained");
     }
 
+    [Test]
+    public async Task DisposeAsync_ReentrantFromCallback_DrainsTheTransaction()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        Task? dispose = null;
+        Task operation = installer.TrackInstallOperationAsync(async () =>
+        {
+            // A re-entrant DisposeAsync from inside the callback must observe this
+            // transaction as in-flight and drain it instead of tearing down resources
+            // underneath it; it must not complete before the callback returns.
+            dispose = installer.DisposeAsync().AsTask();
+            await Task.Yield();
+        });
+
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        await dispose!.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
     private sealed class BlockingHandler : HttpMessageHandler
     {
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
