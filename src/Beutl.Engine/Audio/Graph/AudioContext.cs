@@ -17,7 +17,7 @@ public sealed class AudioContext : IDisposable
     private List<AudioNode>? _previousNodes;
     private AudioNode? _currentNode;
     private bool _disposed;
-    private bool _clearingConnections;
+    private bool _topologyMutationInProgress;
 
     private sealed record InputSnapshot(AudioNode Node, AudioNode[] Inputs, object?[] States);
 
@@ -64,7 +64,7 @@ public sealed class AudioContext : IDisposable
     public T AddNode<T>(T node) where T : AudioNode
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
         if (!ContainsReference(_nodes, node))
@@ -101,7 +101,7 @@ public sealed class AudioContext : IDisposable
         where TNode : AudioNode
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(factory, nameof(factory));
         ArgumentNullException.ThrowIfNull(updater, nameof(updater));
         ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
@@ -132,7 +132,7 @@ public sealed class AudioContext : IDisposable
     public SourceNode CreateSourceNode(SoundSource.Resource source)
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(source);
 
         // Try to reuse from previous nodes
@@ -162,7 +162,7 @@ public sealed class AudioContext : IDisposable
     public GainNode CreateGainNode(IProperty<float> gain)
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(gain);
 
         // Try to reuse from previous nodes
@@ -195,7 +195,7 @@ public sealed class AudioContext : IDisposable
     public ShiftNode CreateShiftNode(TimeSpan shift)
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
 
         // Try to reuse from previous nodes
         if (_previousNodes != null)
@@ -225,7 +225,7 @@ public sealed class AudioContext : IDisposable
     public ClipNode CreateClipNode(TimeSpan start, TimeSpan duration)
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         if (duration <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be positive.");
 
@@ -257,7 +257,7 @@ public sealed class AudioContext : IDisposable
     public MixerNode CreateMixerNode()
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
 
         // Try to reuse from previous nodes
         if (_previousNodes != null)
@@ -283,7 +283,7 @@ public sealed class AudioContext : IDisposable
     public ResampleNode CreateResampleNode(int sourceSampleRate)
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         if (sourceSampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sourceSampleRate), "Source sample rate must be positive.");
 
@@ -313,7 +313,7 @@ public sealed class AudioContext : IDisposable
     public SpeedNode CreateSpeedNode(IProperty<float> speed)
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(speed);
 
         // Try to reuse from previous nodes
@@ -345,7 +345,7 @@ public sealed class AudioContext : IDisposable
     public T ConnectTo<T>(T destination) where T : AudioNode
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(destination, nameof(destination));
 
         if (_currentNode == null)
@@ -364,7 +364,7 @@ public sealed class AudioContext : IDisposable
     public void Connect(AudioNode source, AudioNode destination)
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(source, nameof(source));
         ArgumentNullException.ThrowIfNull(destination, nameof(destination));
 
@@ -390,7 +390,7 @@ public sealed class AudioContext : IDisposable
     public void MarkAsOutput(AudioNode node)
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
         if (!ContainsReference(_nodes, node))
@@ -407,7 +407,7 @@ public sealed class AudioContext : IDisposable
     public T SetCurrent<T>(T node) where T : AudioNode
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
         if (!ContainsReference(_nodes, node))
@@ -433,7 +433,7 @@ public sealed class AudioContext : IDisposable
     public void Clear()
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
 
         foreach (var node in _nodes)
         {
@@ -462,16 +462,16 @@ public sealed class AudioContext : IDisposable
     public void ClearConnections()
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
 
-        _clearingConnections = true;
+        _topologyMutationInProgress = true;
         try
         {
             ClearConnectionsCore();
         }
         finally
         {
-            _clearingConnections = false;
+            _topologyMutationInProgress = false;
         }
     }
 
@@ -575,12 +575,25 @@ public sealed class AudioContext : IDisposable
     public void RemoveNode(AudioNode node)
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
         if (!ContainsReference(_nodes, node))
             return;
 
+        _topologyMutationInProgress = true;
+        try
+        {
+            RemoveNodeCore(node);
+        }
+        finally
+        {
+            _topologyMutationInProgress = false;
+        }
+    }
+
+    private void RemoveNodeCore(AudioNode node)
+    {
         // Remove dependent inputs first. The context bookkeeping is deliberately left untouched until
         // every node hook succeeds, so a failed hook leaves the graph available for a retry.
         var removedFrom = new List<(AudioNode Node, int Index, object? State)>();
@@ -645,7 +658,7 @@ public sealed class AudioContext : IDisposable
     public void BeginUpdate(IEnumerable<AudioNode> previousNodes)
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
 
         // Save previous nodes for reuse
         _previousNodes = previousNodes.ToList();
@@ -663,7 +676,7 @@ public sealed class AudioContext : IDisposable
     public void EndUpdate()
     {
         ThrowIfDisposed();
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
 
         // Dispose unused nodes from previous state
         if (_previousNodes is { Count: > 0 })
@@ -686,7 +699,7 @@ public sealed class AudioContext : IDisposable
 
     public void Dispose()
     {
-        ThrowIfClearingConnections();
+        ThrowIfTopologyMutation();
         if (_disposed)
             return;
 
@@ -752,12 +765,12 @@ public sealed class AudioContext : IDisposable
             throw new ObjectDisposedException(nameof(AudioContext));
     }
 
-    private void ThrowIfClearingConnections()
+    private void ThrowIfTopologyMutation()
     {
-        if (_clearingConnections)
+        if (_topologyMutationInProgress)
         {
             throw new InvalidOperationException(
-                "Audio graph mutations are not allowed while connections are being cleared.");
+                "Audio graph mutations are not allowed while a topology transaction is in progress.");
         }
     }
 }

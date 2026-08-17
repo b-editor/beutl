@@ -158,6 +158,29 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextRemoveNode_WhenHookMutatesContext_RejectsReentrantMutation()
+    {
+        using var context = new AudioContext(48000, 2);
+        using var source = new ValueNode();
+        using var auxiliary = new ValueNode();
+        using var destination = new ReentrantClearNode();
+        context.Connect(source, destination);
+        destination.OnRemove = () => context.Connect(source, auxiliary);
+
+        Assert.Throws<InvalidOperationException>(() => context.RemoveNode(source));
+        Assert.Multiple(() =>
+        {
+            Assert.That(destination.Inputs, Has.Count.EqualTo(1));
+            Assert.That(destination.Inputs[0], Is.SameAs(source));
+            Assert.That(context.Nodes, Does.Not.Contain(auxiliary));
+        });
+
+        destination.OnRemove = null;
+        Assert.DoesNotThrow(() => context.RemoveNode(source));
+        Assert.That(destination.Inputs, Is.Empty);
+    }
+
+    [Test]
     public void AudioContextClearConnections_WhenHookAddsInput_RollsBackReentrantTopology()
     {
         using var context = new AudioContext(48000, 2);
@@ -297,7 +320,11 @@ public class AudioNodeTests
     {
         public Action? OnClear { get; set; }
 
+        public Action? OnRemove { get; set; }
+
         protected override void OnInputsCleared() => OnClear?.Invoke();
+
+        protected override void OnInputRemoved(AudioNode input, int index) => OnRemove?.Invoke();
     }
 
     private class ValueNode : AudioNode
