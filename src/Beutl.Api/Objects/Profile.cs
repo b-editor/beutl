@@ -71,11 +71,15 @@ public class Profile
         // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
         SimplePackageResponse[] packages = await _clients.Users.GetUserPackages(Name, token, start, count);
         token.ThrowIfCancellationRequested();
-        Package[] result = await packages
-            .ToObservable()
-            .SelectMany(async x => await _clients.Packages.GetPackage(x.Name, token))
-            .Select(x => new Package(this, x, _clients))
-            .ToArray();
+        // Await every spawned request so a fault in one does not sever the others from
+        // the lifetime token; SelectMany would terminate the sequence on the first fault
+        // and leave the remaining requests running unlinked.
+        Package[] result = await Task.WhenAll(
+            packages.Select(async x =>
+            {
+                PackageResponse response = await _clients.Packages.GetPackage(x.Name, token);
+                return new Package(this, response, _clients);
+            }));
         token.ThrowIfCancellationRequested();
         return result;
     }
