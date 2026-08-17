@@ -171,7 +171,7 @@ public sealed class MixerNode : AudioNode
         if (!_branchEndTimes.TryGetValue(Inputs[index], out TimeSpan branchEndTime))
             return false;
 
-        int branchLatency = Inputs[index].GetTotalLatencySamples(context.SampleRate);
+        int branchLatency = Inputs[index].GetDrainLatencySamples(context.SampleRate);
         if (branchLatency == int.MaxValue)
             return false;
 
