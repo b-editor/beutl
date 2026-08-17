@@ -90,6 +90,36 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextRemoveNode_WhenRollbackHookThrows_ContinuesRestoringOtherDestinations()
+    {
+        using var context = new AudioContext(48000, 2);
+        using var source = new ValueNode();
+        using var first = new ThrowingHookNode();
+        using var rollbackFailure = new ThrowingHookNode();
+        using var removalFailure = new ThrowingHookNode { ThrowOnRemove = true };
+        context.Connect(source, first);
+        context.Connect(source, rollbackFailure);
+        context.Connect(source, removalFailure);
+
+        rollbackFailure.ThrowOnAdd = true;
+
+        Assert.Throws<AggregateException>(() => context.RemoveNode(source));
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Inputs, Has.Count.EqualTo(1),
+                "A rollback failure in a later destination must not prevent earlier destinations from being restored.");
+            Assert.That(rollbackFailure.Inputs, Is.Empty);
+            Assert.That(removalFailure.Inputs, Has.Count.EqualTo(1));
+        });
+
+        rollbackFailure.ThrowOnAdd = false;
+        removalFailure.ThrowOnRemove = false;
+        Assert.DoesNotThrow(() => context.RemoveNode(source));
+        Assert.That(first.Inputs, Is.Empty);
+        Assert.That(removalFailure.Inputs, Is.Empty);
+    }
+
+    [Test]
     public void RemoveInput_WhenHookThrows_RestoresTopologyAndAllowsRetry()
     {
         using var node = new ThrowingHookNode();

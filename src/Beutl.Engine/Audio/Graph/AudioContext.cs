@@ -490,13 +490,29 @@ public sealed class AudioContext : IDisposable
                 }
             }
         }
-        catch
+        catch (Exception removalException)
         {
+            List<Exception>? rollbackFailures = null;
             for (int i = removedFrom.Count - 1; i >= 0; i--)
             {
                 (AudioNode otherNode, int index, object? state) = removedFrom[i];
-                otherNode.RestoreInput(node, index);
-                otherNode.RestoreInputStateForRollback(node, index, state);
+                try
+                {
+                    otherNode.RestoreInput(node, index);
+                    otherNode.RestoreInputStateForRollback(node, index, state);
+                }
+                catch (Exception rollbackException)
+                {
+                    (rollbackFailures ??= []).Add(rollbackException);
+                }
+            }
+
+            if (rollbackFailures is { Count: > 0 })
+            {
+                rollbackFailures.Insert(0, removalException);
+                throw new AggregateException(
+                    "Audio node removal failed and rollback encountered one or more errors.",
+                    rollbackFailures);
             }
 
             throw;
