@@ -228,6 +228,33 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextClearConnections_WhenHookReordersInputs_RestoresOriginalOrder()
+    {
+        using var context = new AudioContext(48000, 2);
+        using var first = new ValueNode();
+        using var second = new ValueNode();
+        using var node = new ReentrantClearNode();
+        context.Connect(first, node);
+        context.Connect(second, node);
+        node.OnClear = () =>
+        {
+            node.AddInput(second);
+            node.AddInput(first);
+        };
+
+        Assert.Throws<InvalidOperationException>(() => context.ClearConnections());
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Inputs, Has.Count.EqualTo(2));
+            Assert.That(node.Inputs[0], Is.SameAs(first));
+            Assert.That(node.Inputs[1], Is.SameAs(second));
+        });
+
+        node.OnClear = null;
+        Assert.DoesNotThrow(() => context.ClearConnections());
+    }
+
+    [Test]
     public void RemoveInput_WhenHookThrows_RestoresTopologyAndAllowsRetry()
     {
         using var node = new ThrowingHookNode();

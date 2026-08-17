@@ -752,10 +752,13 @@ public sealed class AudioContext : IDisposable
             if (currentIndex < 0)
             {
                 snapshot.Node.RestoreInput(input, i);
-                currentIndex = i;
+            }
+            else
+            {
+                snapshot.Node.RestoreInputOrder(input, i);
             }
 
-            snapshot.Node.RestoreInputStateForRollback(input, currentIndex, snapshot.States[i]);
+            snapshot.Node.RestoreInputStateForRollback(input, i, snapshot.States[i]);
         }
     }
 

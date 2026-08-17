@@ -50,6 +50,22 @@ public abstract class AudioNode : IDisposable
         }
     }
 
+    internal void RestoreInputOrder(AudioNode input, int index)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        int currentIndex = IndexOfInput(input);
+        if (currentIndex < 0)
+            throw new ArgumentException("The input is not connected to this node.", nameof(input));
+        if ((uint)index >= (uint)_inputs.Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
+        if (currentIndex == index)
+            return;
+
+        _inputs.RemoveAt(currentIndex);
+        _inputs.Insert(index, input);
+    }
+
     internal object? CaptureInputStateForRollback(AudioNode input, int index)
         => CaptureInputState(input, index);
 
