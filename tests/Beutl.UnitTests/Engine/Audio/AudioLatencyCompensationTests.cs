@@ -1354,6 +1354,59 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_DoesNotRetainUnboundedLatencyAfterOneDrainAttempt()
+    {
+        const int sampleRate = SampleRate;
+        var clipDuration = ExactDuration(sampleRate, sampleRate);
+        var drainDuration = ExactDuration(240, sampleRate);
+
+        var sound = new UnboundedSpeedTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+        UnboundedSpeedTailSound.ResetFlushCount();
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(int.MaxValue),
+            "An unknown speed-animation range must report an unbounded drain budget before a drain attempt.");
+
+        var secondRange = new TimeRange(clipDuration, drainDuration);
+        var emptyFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, emptyFrame);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(UnboundedSpeedTailSound.FlushCount, Is.EqualTo(1));
+            Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(0),
+                "The unbounded sentinel must not retain an entry for unbounded repeated flushing.");
+        });
+
+        var thirdRange = new TimeRange(clipDuration + drainDuration, drainDuration);
+        var thirdFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            thirdRange,
+            default,
+            eligibility);
+        using var third = composer.Compose(thirdRange, thirdFrame);
+
+        Assert.That(UnboundedSpeedTailSound.FlushCount, Is.EqualTo(1),
+            "An unknown latency budget must be bounded to one drain attempt.");
+    }
+
+    [Test]
     public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
     {
         const float lookaheadMs = 20f;

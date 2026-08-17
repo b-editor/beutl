@@ -22,6 +22,7 @@ public class Composer : IComposer
     {
         public int RemainingSamples { get; set; }
         public bool IsKnown { get; set; }
+        public bool StopFurtherDrains { get; set; }
     }
 
     private sealed class AudioNodeEntry : IDisposable
@@ -410,6 +411,8 @@ public class Composer : IComposer
     {
         if (entry.TailBudgets.TryGetValue(outputNode, out var budget))
         {
+            if (budget.StopFurtherDrains)
+                return 0;
             if (budget.IsKnown)
                 return ScaleSampleCount(budget.RemainingSamples, SampleRate, sampleRate);
         }
@@ -443,7 +446,18 @@ public class Composer : IComposer
             ? existing
             : new TailBudget();
         budget.IsKnown = true;
-        budget.RemainingSamples = SubtractTail(latency, drainedSamples);
+        if (latency == int.MaxValue)
+        {
+            // The sentinel is an unknown/uncompensatable budget. Bound the work to one drain attempt
+            // instead of retaining an entry that would be flushed forever.
+            budget.RemainingSamples = 0;
+            budget.StopFurtherDrains = true;
+        }
+        else
+        {
+            budget.RemainingSamples = SubtractTail(latency, drainedSamples);
+            budget.StopFurtherDrains = false;
+        }
 
         entry.TailBudgets[outputNode] = budget;
     }
