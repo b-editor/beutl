@@ -142,7 +142,7 @@ public partial class InstallPage : PackageToolPage
                         {
                             // Navigation must run on the UI thread; the completion callback
                             // may be invoked from a thread-pool thread after Task.Run.
-                            Dispatcher.UIThread.Post(() =>
+                            Dispatcher.UIThread.Invoke(() =>
                             {
                                 object? nextViewModel = main.Next(viewModel, token);
                                 frame.NavigateFromObject(nextViewModel);
