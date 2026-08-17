@@ -87,14 +87,25 @@ public class EasingOutputRangeTests
     {
         var easeIn = new BounceEaseIn();
         var easeOut = new BounceEaseOut();
+        var easeInOut = new BounceEaseInOut();
 
         Assert.Multiple(() =>
         {
             Assert.That(easeIn.TryGetOutputRange(out float easeInMinimum, out float easeInMaximum), Is.True);
             Assert.That(easeOut.TryGetOutputRange(out float easeOutMinimum, out float easeOutMaximum), Is.True);
+            Assert.That(easeInOut.TryGetOutputRange(out float easeInOutMinimum, out float easeInOutMaximum), Is.True);
             Assert.That(easeIn.Ease(4f / 11f), Is.InRange(easeInMinimum, easeInMaximum));
             Assert.That(easeOut.Ease(4f / 11f), Is.InRange(easeOutMinimum, easeOutMaximum));
+            Assert.That(easeInOut.Ease(15f / 22f), Is.InRange(easeInOutMinimum, easeInOutMaximum));
         });
+    }
+
+    [Test]
+    public void SplineEasing_RejectsRangesWhenBezierCoefficientsOverflow()
+    {
+        var easing = new SplineEasing(0.25f, float.MaxValue / 2f, 0.75f, 0f);
+
+        Assert.That(easing.TryGetOutputRange(out _, out _), Is.False);
     }
 
     private sealed class UnknownRangeEasing : Easing
