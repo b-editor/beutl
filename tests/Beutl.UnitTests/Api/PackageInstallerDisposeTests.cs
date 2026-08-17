@@ -133,6 +133,29 @@ public sealed class PackageInstallerDisposeTests
         await dispose!.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
+    [Test]
+    public async Task TrackInstallOperationAsync_PropagatesFaultedTransaction()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        Task operation = installer.TrackInstallOperationAsync(async () =>
+        {
+            await Task.Delay(1).ConfigureAwait(false);
+            throw new InvalidOperationException("install failed");
+        });
+
+        Assert.CatchAsync<InvalidOperationException>(async () =>
+            await operation.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
     private sealed class BlockingHandler : HttpMessageHandler
     {
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);

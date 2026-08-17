@@ -185,11 +185,17 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         try
         {
             await operation().ConfigureAwait(false);
+            proxy.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            // Propagate the operation's failure to the caller so DownloadAndLoadPackage
+            // reports the fault and its fallback queueing runs.
+            proxy.TrySetException(ex);
         }
         finally
         {
             s_transactionOwner.Value = previous;
-            proxy.TrySetResult();
         }
     }
 
