@@ -133,6 +133,43 @@ public class SceneCompositorTests
     }
 
     [Test]
+    public void EvaluateAudio_FlowConsumedSound_IsNotEligible()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var group = new SoundGroup();
+            Element groupElement = CreateElement(basePath, isEnabled: true, group);
+            groupElement.ZIndex = 0;
+            groupElement.Length = TimeSpan.FromSeconds(1);
+            ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+
+            var child = new LimiterTailSound();
+            Element childElement = CreateElement(basePath, isEnabled: true, child);
+            childElement.ZIndex = 1;
+            childElement.Length = TimeSpan.FromSeconds(1);
+
+            scene.Children.Add(groupElement);
+            scene.Children.Add(childElement);
+            using var compositor = new SceneCompositor(scene);
+
+            CompositionFrame frame = compositor.EvaluateAudio(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+            CompositionEligibility eligibility = frame.Eligibility
+                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+
+            Assert.That(eligibility.Contains(group), Is.True);
+            Assert.That(eligibility.Contains(child), Is.False,
+                "A Sound consumed by SoundGroup flow must not remain eligible as a standalone tail entry.");
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void EvaluateGraphics_TogglingIsEnabled_UpdatesFrameContents()
     {
         string basePath = GetTempPath();

@@ -13,6 +13,13 @@ public sealed class MixerNode : AudioNode
         new(ReferenceEqualityComparer.Instance);
     private TimeSpan? _lastTimeRangeEnd;
 
+    private sealed record InputState(
+        float[] Gains,
+        bool HasBranchEndTime,
+        TimeSpan BranchEndTime,
+        bool WasProcessed,
+        TimeSpan? LastTimeRangeEnd);
+
     public float[] Gains
     {
         get => _gains;
@@ -194,6 +201,35 @@ public sealed class MixerNode : AudioNode
     protected override void OnInputAdded(AudioNode input, int index)
     {
         AppendDefaultIfConfigured(ref _gains, index, 1f);
+    }
+
+    protected override object CaptureInputState(AudioNode input, int index)
+    {
+        return new InputState(
+            (float[])_gains.Clone(),
+            _branchEndTimes.TryGetValue(input, out TimeSpan branchEndTime),
+            branchEndTime,
+            _processedBranches.Contains(input),
+            _lastTimeRangeEnd);
+    }
+
+    protected override void RestoreInputState(AudioNode input, int index, object? state)
+    {
+        if (state is not InputState snapshot)
+            return;
+
+        _gains = (float[])snapshot.Gains.Clone();
+        if (snapshot.HasBranchEndTime)
+            _branchEndTimes[input] = snapshot.BranchEndTime;
+        else
+            _branchEndTimes.Remove(input);
+
+        if (snapshot.WasProcessed)
+            _processedBranches.Add(input);
+        else
+            _processedBranches.Remove(input);
+
+        _lastTimeRangeEnd = snapshot.LastTimeRangeEnd;
     }
 
     protected override void OnInputRemoved(AudioNode input, int index)

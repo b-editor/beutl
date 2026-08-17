@@ -104,7 +104,7 @@ public sealed class SceneCompositor : ICompositor
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)
     {
-        CompositionEligibility eligibility = CollectEligibility(CompositionTarget.Audio);
+        CompositionEligibility eligibility = CollectEligibility(timeRange.Start, CompositionTarget.Audio);
         using var currentElements = new PooledList<Element>();
         SortLayers(timeRange, currentElements, CompositionTarget.Audio);
 
@@ -126,16 +126,31 @@ public sealed class SceneCompositor : ICompositor
         return new CompositionFrame([.. allResources], timeRange, Scene.FrameSize, eligibility);
     }
 
-    private CompositionEligibility CollectEligibility(CompositionTarget target)
+    private CompositionEligibility CollectEligibility(TimeSpan time, CompositionTarget target)
     {
         using var eligibleObjects = new PooledList<EngineObject>();
+        using var currentElements = new PooledList<Element>();
         LayerSnapshot snapshot = GetLayerSnapshot();
 
         foreach (Element item in Scene.Children)
         {
             if (!item.IsEnabled) continue;
             if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
-            item.CollectObjects(target, eligibleObjects);
+            currentElements.OrderedAdd(item, x => x.ZIndex);
+        }
+
+        using var tmpObjects = new PooledList<EngineObject>();
+        using var flow = new PooledList<EngineObject.Resource>();
+        var context = new CompositorContext(time, this, flow, currentElements, target);
+
+        for (int index = 0; index < currentElements.Count; index++)
+        {
+            flow.Clear();
+            CollectResourcesFromElement(currentElements[index], context, tmpObjects);
+            foreach (EngineObject.Resource resource in flow.Span)
+            {
+                eligibleObjects.Add(resource.GetOriginal());
+            }
         }
 
         return new CompositionEligibility(eligibleObjects);

@@ -50,6 +50,12 @@ public abstract class AudioNode : IDisposable
         }
     }
 
+    internal object? CaptureInputStateForRollback(AudioNode input, int index)
+        => CaptureInputState(input, index);
+
+    internal void RestoreInputStateForRollback(AudioNode input, int index, object? state)
+        => RestoreInputState(input, index, state);
+
     public void RemoveInput(AudioNode input)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -93,6 +99,19 @@ public abstract class AudioNode : IDisposable
     /// pre-call state. An override that mutates its own state must provide the same strong exception
     /// guarantee by undoing those mutations before it propagates an exception.</summary>
     protected virtual void OnInputAdded(AudioNode input, int index)
+    {
+    }
+
+    /// <summary>Captures metadata associated with an input before a graph transaction removes it.</summary>
+    /// <remarks>
+    /// The returned state is supplied to <see cref="RestoreInputState"/> if the enclosing graph
+    /// transaction rolls back. Overrides should return <see langword="null"/> when no metadata needs
+    /// restoration.
+    /// </remarks>
+    protected virtual object? CaptureInputState(AudioNode input, int index) => null;
+
+    /// <summary>Restores metadata captured by <see cref="CaptureInputState"/> after an input is reinserted.</summary>
+    protected virtual void RestoreInputState(AudioNode input, int index, object? state)
     {
     }
 

@@ -475,7 +475,7 @@ public sealed class AudioContext : IDisposable
 
         // Remove dependent inputs first. The context bookkeeping is deliberately left untouched until
         // every node hook succeeds, so a failed hook leaves the graph available for a retry.
-        var removedFrom = new List<(AudioNode Node, int Index)>();
+        var removedFrom = new List<(AudioNode Node, int Index, object? State)>();
         try
         {
             foreach (var otherNode in _nodes.ToArray())
@@ -484,8 +484,9 @@ public sealed class AudioContext : IDisposable
                     && ContainsReference(otherNode.Inputs, node))
                 {
                     int index = IndexOfReference(otherNode.Inputs, node);
+                    object? state = otherNode.CaptureInputStateForRollback(node, index);
                     otherNode.RemoveInput(node);
-                    removedFrom.Add((otherNode, index));
+                    removedFrom.Add((otherNode, index, state));
                 }
             }
         }
@@ -493,8 +494,9 @@ public sealed class AudioContext : IDisposable
         {
             for (int i = removedFrom.Count - 1; i >= 0; i--)
             {
-                (AudioNode otherNode, int index) = removedFrom[i];
+                (AudioNode otherNode, int index, object? state) = removedFrom[i];
                 otherNode.RestoreInput(node, index);
+                otherNode.RestoreInputStateForRollback(node, index, state);
             }
 
             throw;

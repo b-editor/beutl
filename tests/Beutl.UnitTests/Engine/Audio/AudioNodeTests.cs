@@ -1,5 +1,6 @@
 ﻿using Beutl.Audio;
 using Beutl.Audio.Graph;
+using Beutl.Audio.Graph.Nodes;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -62,12 +63,13 @@ public class AudioNodeTests
         using var prefix = new ValueNode();
         using var source = new ValueNode();
         using var suffix = new ValueNode();
-        using var destination = new ThrowingHookNode();
+        using var destination = new MixerNode { Gains = [0.25f, 0.75f, 0.5f] };
         using var throwing = new ThrowingHookNode { ThrowOnRemove = true };
         context.Connect(prefix, destination);
         context.Connect(source, destination);
         context.Connect(suffix, destination);
         context.Connect(source, throwing);
+        destination.SetBranchEndTime(source, TimeSpan.FromSeconds(1));
 
         Assert.Throws<InvalidOperationException>(() => context.RemoveNode(source));
         Assert.That(context.Nodes, Has.Count.EqualTo(5));
@@ -75,6 +77,8 @@ public class AudioNodeTests
         Assert.That(destination.Inputs[0], Is.SameAs(prefix));
         Assert.That(destination.Inputs[1], Is.SameAs(source));
         Assert.That(destination.Inputs[2], Is.SameAs(suffix));
+        Assert.That(destination.Gains, Is.EqualTo(new[] { 0.25f, 0.75f, 0.5f }).AsCollection);
+        Assert.That(destination.ClearBranchEndTime(source), Is.True);
 
         throwing.ThrowOnRemove = false;
         using var sink = new ValueNode();
