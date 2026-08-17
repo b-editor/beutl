@@ -210,15 +210,13 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         try
         {
             operation();
-            proxy.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            proxy.TrySetException(ex);
-            throw;
         }
         finally
         {
+            // The proxy exists only to keep disposal draining until the operation finishes;
+            // the caller observes the exception directly, so complete it normally to avoid
+            // an unobserved fault when the drain loop removes the completed task.
+            proxy.TrySetResult();
             s_transactionOwner.Value = previous;
         }
     }
@@ -236,17 +234,13 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         s_transactionOwner.Value = this;
         try
         {
-            T result = operation();
-            proxy.TrySetResult();
-            return result;
-        }
-        catch (Exception ex)
-        {
-            proxy.TrySetException(ex);
-            throw;
+            return operation();
         }
         finally
         {
+            // See TrackSyncOperation(Action): the proxy is lifetime-only, so complete it
+            // normally even when the operation throws.
+            proxy.TrySetResult();
             s_transactionOwner.Value = previous;
         }
     }

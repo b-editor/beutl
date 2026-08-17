@@ -9,16 +9,21 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly Action _cancelPendingRequests;
     private readonly Func<ValueTask> _disposeResources;
+    private readonly long _drainDeadlineMilliseconds;
     private readonly HashSet<Task> _operations = [];
     private Task? _disposeTask;
     private bool _stopping;
 
-    public AsyncOperationLifetime(Action cancelPendingRequests, Func<ValueTask> disposeResources)
+    public AsyncOperationLifetime(
+        Action cancelPendingRequests,
+        Func<ValueTask> disposeResources,
+        long drainDeadlineMilliseconds = 30_000)
     {
         _cancelPendingRequests = cancelPendingRequests
             ?? throw new ArgumentNullException(nameof(cancelPendingRequests));
         _disposeResources = disposeResources
             ?? throw new ArgumentNullException(nameof(disposeResources));
+        _drainDeadlineMilliseconds = drainDeadlineMilliseconds;
     }
 
     public Task RunAsync(
@@ -115,6 +120,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
+        long deadline = Environment.TickCount64 + _drainDeadlineMilliseconds;
         Exception? cancellationFailure = null;
         try
         {
@@ -137,7 +143,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
         try
         {
-            while (true)
+            while (Environment.TickCount64 < deadline)
             {
                 Task[] operations;
                 lock (_gate)
@@ -150,7 +156,11 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
                 try
                 {
-                    await Task.WhenAll(operations).ConfigureAwait(false);
+                    long remaining = deadline - Environment.TickCount64;
+                    if (remaining <= 0)
+                        break;
+
+                    await Task.WhenAll(operations).WaitAsync(TimeSpan.FromMilliseconds(remaining)).ConfigureAwait(false);
                 }
                 catch
                 {
@@ -181,4 +191,5 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             throw cancellationFailure;
         }
     }
+
 }

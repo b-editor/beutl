@@ -147,21 +147,45 @@ public class BeutlApiApplication : IAsyncDisposable
         lock (_disposeGate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (_services.TryGetValue(typeof(T), out Lazy<object>? lazy))
-            {
-                return (T)lazy.Value;
-            }
-
-            foreach (KeyValuePair<Type, Lazy<object>> item in _services)
-            {
-                if (item.Key.IsAssignableTo(typeof(T)))
-                {
-                    return (T)item.Value.Value;
-                }
-            }
-
-            throw new Exception("Resource not found");
+            return GetResourceCore<T>();
         }
+    }
+
+    // Resolves the resource and links the lifetime token under one dispose-gate hold, so a
+    // concurrent DisposeAsync cannot invalidate the resource between admission and use.
+    internal T GetResourceWithLifetime<T>(CancellationToken cancellationToken, out CancellationTokenSource lifetimeCts)
+        where T : IBeutlApiResource
+    {
+        lock (_disposeGate)
+        {
+            // A canceled caller token must surface as cancellation, not ObjectDisposedException.
+            cancellationToken.ThrowIfCancellationRequested();
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            T resource = GetResourceCore<T>();
+            lifetimeCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCts.Token);
+            return resource;
+        }
+    }
+
+    private T GetResourceCore<T>()
+        where T : IBeutlApiResource
+    {
+        if (_services.TryGetValue(typeof(T), out Lazy<object>? lazy))
+        {
+            return (T)lazy.Value;
+        }
+
+        foreach (KeyValuePair<Type, Lazy<object>> item in _services)
+        {
+            if (item.Key.IsAssignableTo(typeof(T)))
+            {
+                return (T)item.Value.Value;
+            }
+        }
+
+        throw new Exception("Resource not found");
     }
 
     public T? TryGetResource<T>()

@@ -1,4 +1,5 @@
-﻿using Beutl.PackageTools.UI.Services;
+﻿using System.Diagnostics;
+using Beutl.PackageTools.UI.Services;
 
 namespace Beutl.UnitTests.PackageTools;
 
@@ -195,4 +196,38 @@ public sealed class AsyncOperationLifetimeTests
         Assert.That(requestsCanceled, Is.True,
             "CancelPendingRequests must run even when a token callback throws");
     }
+
+    [Test]
+    public async Task DisposeAsync_StopsWaitingAtTheDrainDeadline_WhenAnOperationNeverCompletes()
+    {
+        var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool resourcesDisposed = false;
+        var lifetime = new AsyncOperationLifetime(
+            static () => { },
+            () =>
+            {
+                resourcesDisposed = true;
+                return ValueTask.CompletedTask;
+            },
+            drainDeadlineMilliseconds: 500);
+        Task operation = lifetime.RunAsync(async cancellationToken =>
+        {
+            operationStarted.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        });
+        await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var stopwatch = Stopwatch.StartNew();
+        await lifetime.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(10));
+        stopwatch.Stop();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)),
+                "disposal must stop waiting at the drain deadline even when an operation never completes");
+            Assert.That(resourcesDisposed, Is.True,
+                "resources must still be disposed after the drain deadline expires");
+        });
+    }
+
 }

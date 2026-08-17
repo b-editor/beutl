@@ -65,31 +65,93 @@ public sealed class PackageManager(
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        // Resolve the resource before the lifetime token source is created: GetResource
-        // and CreateLifetimeLinkedTokenSource both take the dispose gate, and resolving
-        // after admission would let a concurrent DisposeAsync invalidate the resource
-        // between the two calls.
-        DiscoverService discover = apiApplication.GetResource<DiscoverService>();
-        using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
-        CancellationToken operationToken = operationCts.Token;
-        using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
+        // Resolve the resource and link the lifetime token under one dispose-gate hold so a
+        // concurrent DisposeAsync cannot invalidate the resource between admission and use.
+        DiscoverService discover = apiApplication.GetResourceWithLifetime<DiscoverService>(
+            cancellationToken, out CancellationTokenSource operationCts);
+        using (operationCts)
         {
-            PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
-
-            var updates = new List<PackageUpdate>(packages.Length);
-
-            for (int i = 0; i < packages.Length; i++)
+            CancellationToken operationToken = operationCts.Token;
+            using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
             {
-                operationToken.ThrowIfCancellationRequested();
-                PackageIdentity pkg = packages[i];
-                NuGetVersion version = pkg.Version;
-                string versionStr = version.ToString();
-                try
+                PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
+
+                var updates = new List<PackageUpdate>(packages.Length);
+
+                for (int i = 0; i < packages.Length; i++)
                 {
+                    operationToken.ThrowIfCancellationRequested();
+                    PackageIdentity pkg = packages[i];
+                    NuGetVersion version = pkg.Version;
+                    string versionStr = version.ToString();
+                    try
+                    {
+                        activity?.AddEvent(new("Checking updates"));
+                        activity?.SetTag("PackageId", pkg.Id);
+                        activity?.SetTag("Version", versionStr);
+                        Package remotePackage = await discover.GetPackage(pkg.Id, operationToken).ConfigureAwait(false);
+                        activity?.AddEvent(new("Checked updates"));
+
+                        Release[] releases = await remotePackage.GetReleasesAsync(operationToken).ConfigureAwait(false);
+
+                        foreach (Release? item in releases)
+                        {
+                            operationToken.ThrowIfCancellationRequested();
+                            // 降順
+                            if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
+                            {
+                                Release? oldRelease = await Helper
+                                    .TryGetOrDefault(
+                                        () => remotePackage.GetReleaseAsync(versionStr, operationToken),
+                                        operationToken)
+                                    .ConfigureAwait(false);
+                                updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
+                                _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
+                                break;
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
+                    }
+                }
+
+                operationToken.ThrowIfCancellationRequested();
+                return updates;
+            }
+        }
+    }
+
+    public async Task<PackageUpdate?> CheckUpdate(string name, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        // See the other CheckUpdate overload: resolve the resource and link the lifetime
+        // token under one dispose-gate hold.
+        DiscoverService discover = apiApplication.GetResourceWithLifetime<DiscoverService>(
+            cancellationToken, out CancellationTokenSource operationCts);
+        using (operationCts)
+        {
+            CancellationToken operationToken = operationCts.Token;
+            using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
+            {
+                LocalPackage? pkg = _loadedPackages.Values
+                    .Select(x => x.Package)
+                    .FirstOrDefault(v =>
+                        !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
+                if (pkg != null)
+                {
+                    string versionStr = pkg.Version;
+                    var version = new NuGetVersion(versionStr);
                     activity?.AddEvent(new("Checking updates"));
-                    activity?.SetTag("PackageId", pkg.Id);
+                    activity?.SetTag("PackageName", pkg.Name);
                     activity?.SetTag("Version", versionStr);
-                    Package remotePackage = await discover.GetPackage(pkg.Id, operationToken).ConfigureAwait(false);
+                    Package remotePackage = await discover.GetPackage(pkg.Name, operationToken).ConfigureAwait(false);
                     activity?.AddEvent(new("Checked updates"));
 
                     Release[] releases = await remotePackage.GetReleasesAsync(operationToken).ConfigureAwait(false);
@@ -102,77 +164,19 @@ public sealed class PackageManager(
                         {
                             Release? oldRelease = await Helper
                                 .TryGetOrDefault(
-                                    () => remotePackage.GetReleaseAsync(versionStr, operationToken),
+                                    () => remotePackage.GetReleaseAsync(pkg.Version, operationToken),
                                     operationToken)
                                 .ConfigureAwait(false);
-                            updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
-                            _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
-                            break;
+                            operationToken.ThrowIfCancellationRequested();
+                            _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
+                            return new PackageUpdate(remotePackage, oldRelease, item);
                         }
                     }
                 }
-                catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex,
-                        "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
-                }
+
+                operationToken.ThrowIfCancellationRequested();
+                return null;
             }
-
-            operationToken.ThrowIfCancellationRequested();
-            return updates;
-        }
-    }
-
-    public async Task<PackageUpdate?> CheckUpdate(string name, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        // See the other CheckUpdate overload: resolve before admission so a concurrent
-        // DisposeAsync cannot invalidate the resource after the lifetime token is linked.
-        DiscoverService discover = apiApplication.GetResource<DiscoverService>();
-        using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
-        CancellationToken operationToken = operationCts.Token;
-        using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
-        {
-            LocalPackage? pkg = _loadedPackages.Values
-                .Select(x => x.Package)
-                .FirstOrDefault(v =>
-                    !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
-            if (pkg != null)
-            {
-                string versionStr = pkg.Version;
-                var version = new NuGetVersion(versionStr);
-                activity?.AddEvent(new("Checking updates"));
-                activity?.SetTag("PackageName", pkg.Name);
-                activity?.SetTag("Version", versionStr);
-                Package remotePackage = await discover.GetPackage(pkg.Name, operationToken).ConfigureAwait(false);
-                activity?.AddEvent(new("Checked updates"));
-
-                Release[] releases = await remotePackage.GetReleasesAsync(operationToken).ConfigureAwait(false);
-
-                foreach (Release? item in releases)
-                {
-                    operationToken.ThrowIfCancellationRequested();
-                    // 降順
-                    if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
-                    {
-                        Release? oldRelease = await Helper
-                            .TryGetOrDefault(
-                                () => remotePackage.GetReleaseAsync(pkg.Version, operationToken),
-                                operationToken)
-                            .ConfigureAwait(false);
-                        operationToken.ThrowIfCancellationRequested();
-                        _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
-                        return new PackageUpdate(remotePackage, oldRelease, item);
-                    }
-                }
-            }
-
-            operationToken.ThrowIfCancellationRequested();
-            return null;
         }
     }
 

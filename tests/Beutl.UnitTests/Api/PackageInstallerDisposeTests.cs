@@ -291,6 +291,61 @@ public sealed class PackageInstallerDisposeTests
         Assert.That(operationCompleted, Is.True);
     }
 
+    [Test]
+    public async Task DisposeAsync_AdmitsNestedSynchronousPhases_OfAnAdmittedTransaction()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        var phaseStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePhase = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool nestedPhaseRan = false;
+        Task operation = installer.TrackInstallOperationAsync(async () =>
+        {
+            phaseStarted.TrySetResult();
+            await releasePhase.Task;
+            // Disposal has started by now; a nested synchronous phase must still be admitted.
+            installer.TrackSyncOperation(() => nestedPhaseRan = true);
+        });
+        await phaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task dispose = installer.DisposeAsync().AsTask();
+        releasePhase.TrySetResult();
+
+        await Task.WhenAll(operation, dispose).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(nestedPhaseRan, Is.True,
+            "the nested synchronous phase must run while the transaction is drained");
+    }
+
+    [Test]
+    public async Task DisposeAsync_CompletesNormally_WhenASynchronousOperationThrows()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: true,
+            new InstalledPackageRepository(),
+            app);
+
+        // The lifetime proxy must not fault when the operation throws: the caller observes
+        // the exception directly, and a faulted proxy would surface later as an unobserved
+        // task exception when the drain loop removes it.
+        Assert.Throws<InvalidOperationException>(() =>
+            installer.TrackSyncOperation(() => throw new InvalidOperationException("sync phase failed")));
+
+        await installer.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
     private sealed class ShortDeadlinePackageInstaller : PackageInstaller
     {
         public ShortDeadlinePackageInstaller(
