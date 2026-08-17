@@ -111,7 +111,7 @@ public class BeutlApiApplication : IAsyncDisposable
     // 更新があるかどうかをチェックします
     // このアプリケーションがアセットメタデータを持っている場合は、AppUpdateResponseを返します
     // そうでない場合は、CheckForUpdatesResponseを返します
-    // (戻り値はタプルで、該当する方の値がセットされます)
+    // The return value is a tuple; the applicable side is set and the other is null.
     public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(
         string version,
         CancellationToken cancellationToken)
@@ -230,7 +230,7 @@ public class BeutlApiApplication : IAsyncDisposable
         }
     }
 
-    private async Task DisposeCoreAsync()
+    protected virtual async Task DisposeCoreAsync()
     {
         List<object> disposableResources;
         lock (_disposeGate)
@@ -324,6 +324,10 @@ public class BeutlApiApplication : IAsyncDisposable
     {
         lock (_disposeGate)
         {
+            // A canceled caller token must surface as cancellation, not as an
+            // ObjectDisposedException, so nested calls started during disposal can
+            // observe the shutdown as normal cancellation.
+            cancellationToken.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(_disposed, this);
             return CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken,
