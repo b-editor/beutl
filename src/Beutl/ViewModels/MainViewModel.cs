@@ -166,6 +166,18 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
         }
 
+        // Drain in-flight install transactions first so their fallback queueing (which
+        // resumes on the UI context after cancellation) is reflected in the snapshot
+        // below; otherwise PackageTools is launched without the queued recovery.
+        try
+        {
+            _beutlClients.GetResource<PackageInstaller>().DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Package installer failed to drain during shutdown.");
+        }
+
         PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
         PackageIdentity[] installs = queue.GetInstalls().ToArray();
         PackageIdentity[] uninstalls = queue.GetUninstalls().ToArray();
