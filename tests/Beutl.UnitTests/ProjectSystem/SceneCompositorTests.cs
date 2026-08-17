@@ -244,6 +244,60 @@ public class SceneCompositorTests
     }
 
     [Test]
+    public void EvaluateAudio_ActiveFlowOperator_DoesNotConsumeEndedSoundOutsideRange()
+    {
+        const int sampleRate = 48000;
+        const int clipSamples = 4096;
+        const int lookaheadSamples = 240;
+        var duration = AudioProcessContext.GetDurationForSampleCount(clipSamples, sampleRate);
+        var lookahead = AudioProcessContext.GetDurationForSampleCount(lookaheadSamples, sampleRate);
+        string basePath = GetTempPath();
+
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var group = new SoundGroup();
+            Element groupElement = CreateElement(basePath, isEnabled: true, group);
+            groupElement.Start = duration;
+            groupElement.Length = TimeSpan.FromSeconds(1);
+            groupElement.ZIndex = 0;
+            ((PortalObject)groupElement.Objects[0]).Count.CurrentValue = 1;
+
+            var child = new LimiterTailSound { LookaheadMs = 5f };
+            Element childElement = CreateElement(basePath, isEnabled: true, child);
+            childElement.Length = duration;
+            childElement.ZIndex = 1;
+
+            scene.Children.Add(groupElement);
+            scene.Children.Add(childElement);
+            using var compositor = new SceneCompositor(scene);
+            using var composer = new Composer { SampleRate = sampleRate };
+
+            var firstRange = new TimeRange(TimeSpan.Zero, duration);
+            using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
+
+            var tailRange = new TimeRange(duration, lookahead);
+            CompositionFrame tailFrame = compositor.EvaluateAudio(tailRange);
+            CompositionEligibility eligibility = tailFrame.Eligibility
+                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
+            using AudioBuffer? tail = composer.Compose(tailRange, tailFrame);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(eligibility.Contains(child), Is.True,
+                    "An active portal must not consume an ended sound that is outside the evaluated range.");
+                Assert.That(tail, Is.Not.Null);
+                Assert.That(tail!.GetChannelData(0)[..lookaheadSamples].ToArray(), Has.Some.Not.EqualTo(0f),
+                    "Keeping the ended sound eligible must preserve its retained tail for the following range.");
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void EvaluateAudio_DoesNotMaterializeOutOfRangeAudioObjectsForEligibility()
     {
         string basePath = GetTempPath();

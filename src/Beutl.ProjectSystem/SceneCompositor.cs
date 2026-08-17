@@ -153,11 +153,22 @@ public sealed class SceneCompositor : ICompositor
 
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
-        var context = new CompositorContext(timeRange.Start, this, flow, currentElements, target);
+        using var flowElements = new PooledList<Element>();
+        var consumedElements = new HashSet<Element>();
+        foreach (Element item in currentElements)
+        {
+            if (item.Range.Intersects(timeRange))
+                flowElements.Add(item);
+        }
+
+        var context = new CompositorContext(timeRange.Start, this, flow, flowElements, target);
 
         for (int index = 0; index < currentElements.Count; index++)
         {
             Element item = currentElements[index];
+            if (consumedElements.Contains(item))
+                continue;
+
             if (!item.Range.Intersects(timeRange) || !HasFlowOperator(item))
             {
                 item.CollectObjects(target, eligibleObjects);
@@ -165,7 +176,14 @@ public sealed class SceneCompositor : ICompositor
             }
 
             flow.Clear();
+            Element[] flowElementsBeforeEvaluation = [.. flowElements];
             CollectResourcesFromElement(item, context, tmpObjects);
+            foreach (Element flowElement in flowElementsBeforeEvaluation)
+            {
+                if (!flowElements.Contains(flowElement))
+                    consumedElements.Add(flowElement);
+            }
+
             foreach (EngineObject.Resource resource in flow.Span)
             {
                 eligibleObjects.Add(resource.GetOriginal());
