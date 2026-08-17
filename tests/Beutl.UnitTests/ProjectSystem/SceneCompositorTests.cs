@@ -369,6 +369,30 @@ public class SceneCompositorTests
     }
 
     [Test]
+    public void EvaluateAudio_ActiveFlowResourceIsUpdatedOnce()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            var counting = new CountingAudioObject();
+            scene.Children.Add(CreateElement(basePath, isEnabled: true, counting));
+            using var compositor = new SceneCompositor(scene);
+
+            CompositionFrame frame = compositor.EvaluateAudio(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+
+            Assert.That(frame.Objects.Select(resource => resource.GetOriginal()), Has.Member(counting));
+            Assert.That(counting.UpdateCount, Is.EqualTo(1),
+                "An active flow object must be updated once while producing both the frame and its eligibility.");
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void EvaluateGraphics_TogglingIsEnabled_UpdatesFrameContents()
     {
         string basePath = GetTempPath();
@@ -1086,7 +1110,7 @@ public class SceneCompositorTests
     }
 }
 
-internal sealed partial class CountingAudioObject : EngineObject
+internal sealed partial class CountingAudioObject : EngineObject, IFlowOperator
 {
     public int UpdateCount { get; private set; }
 

@@ -104,9 +104,32 @@ public sealed class SceneCompositor : ICompositor
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)
     {
-        CompositionEligibility eligibility = CollectEligibility(timeRange, CompositionTarget.Audio);
+        using var eligibleElements = new PooledList<Element>();
+        LayerSnapshot snapshot = GetLayerSnapshot();
+        foreach (Element item in Scene.Children)
+        {
+            if (!item.IsEnabled) continue;
+            if (ShouldSkipLayer(item.ZIndex, CompositionTarget.Audio, snapshot.HasSolo, snapshot.ByZIndex)) continue;
+            eligibleElements.OrderedAdd(item, x => x.ZIndex);
+        }
+
         using var currentElements = new PooledList<Element>();
         SortLayers(timeRange, currentElements, CompositionTarget.Audio);
+
+        var activeElementSet = new HashSet<Element>(ReferenceEqualityComparer.Instance);
+        foreach (Element element in currentElements)
+        {
+            activeElementSet.Add(element);
+        }
+
+        using var eligibleObjects = new PooledList<EngineObject>();
+        foreach (Element element in eligibleElements)
+        {
+            if (!activeElementSet.Contains(element))
+            {
+                element.CollectObjects(CompositionTarget.Audio, eligibleObjects);
+            }
+        }
 
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
@@ -121,91 +144,18 @@ public sealed class SceneCompositor : ICompositor
             CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
 
             allResources.AddRange(flow.Span);
-        }
-
-        return new CompositionFrame([.. allResources], timeRange, Scene.FrameSize, eligibility);
-    }
-
-    private CompositionEligibility CollectEligibility(TimeRange timeRange, CompositionTarget target)
-    {
-        using var eligibleObjects = new PooledList<EngineObject>();
-        using var currentElements = new PooledList<Element>();
-        LayerSnapshot snapshot = GetLayerSnapshot();
-
-        foreach (Element item in Scene.Children)
-        {
-            if (!item.IsEnabled) continue;
-            if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
-            currentElements.OrderedAdd(item, x => x.ZIndex);
-        }
-
-        bool hasActiveFlowOperator = currentElements.Any(
-            item => item.Range.Intersects(timeRange) && HasFlowOperator(item));
-        if (!hasActiveFlowOperator)
-        {
-            foreach (Element item in currentElements)
-            {
-                item.CollectObjects(target, eligibleObjects);
-            }
-
-            return new CompositionEligibility(eligibleObjects);
-        }
-
-        using var tmpObjects = new PooledList<EngineObject>();
-        using var flow = new PooledList<EngineObject.Resource>();
-        using var flowElements = new PooledList<Element>();
-        var consumedElements = new HashSet<Element>(ReferenceEqualityComparer.Instance);
-        foreach (Element item in currentElements)
-        {
-            if (item.Range.Intersects(timeRange))
-                flowElements.Add(item);
-        }
-
-        var context = new CompositorContext(timeRange.Start, this, flow, flowElements, target);
-
-        for (int index = 0; index < currentElements.Count; index++)
-        {
-            Element item = currentElements[index];
-            if (consumedElements.Contains(item))
-                continue;
-
-            if (!item.Range.Intersects(timeRange) || !HasFlowOperator(item))
-            {
-                item.CollectObjects(target, eligibleObjects);
-                continue;
-            }
-
-            flow.Clear();
-            Element[] flowElementsBeforeEvaluation = [.. flowElements];
-            CollectResourcesFromElement(item, context, tmpObjects);
-            foreach (Element flowElement in flowElementsBeforeEvaluation)
-            {
-                if (!ContainsReference(flowElements, flowElement))
-                    consumedElements.Add(flowElement);
-            }
-
             foreach (EngineObject.Resource resource in flow.Span)
             {
                 eligibleObjects.Add(resource.GetOriginal());
             }
         }
 
-        return new CompositionEligibility(eligibleObjects);
+        return new CompositionFrame(
+            [.. allResources],
+            timeRange,
+            Scene.FrameSize,
+            new CompositionEligibility(eligibleObjects));
     }
-
-    private static bool ContainsReference(PooledList<Element> elements, Element target)
-    {
-        foreach (Element element in elements)
-        {
-            if (ReferenceEquals(element, target))
-                return true;
-        }
-
-        return false;
-    }
-
-    private static bool HasFlowOperator(Element element)
-        => element.Objects.Any(obj => obj is IFlowOperator or PortalObject);
 
     private void CollectResourcesFromElement(
         Element element, CompositorContext context, PooledList<EngineObject> tmpObjects)
