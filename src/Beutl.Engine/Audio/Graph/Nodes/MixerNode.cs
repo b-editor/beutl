@@ -4,8 +4,6 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class MixerNode : AudioNode
 {
-    private const long BranchLivenessToleranceTicks = TimeSpan.TicksPerMillisecond;
-
     private float[] _gains = Array.Empty<float>();
     private readonly Dictionary<AudioNode, TimeSpan> _branchEndTimes =
         new(ReferenceEqualityComparer.Instance);
@@ -177,18 +175,19 @@ public sealed class MixerNode : AudioNode
         if (branchLatency == int.MaxValue)
             return false;
 
-        // Apply the tick tolerance without overflowing at TimeSpan.MinValue.
+        // A branch is dead once its retained tail ends at or just before this block. A one-tick
+        // tolerance absorbs the same timestamp quantization used by contiguous audio ranges.
         long blockStartTicks = context.TimeRange.Start.Ticks;
-        long deadBeforeTicks = blockStartTicks < TimeSpan.MinValue.Ticks + BranchLivenessToleranceTicks
-            ? TimeSpan.MinValue.Ticks
-            : blockStartTicks - BranchLivenessToleranceTicks;
+        long deadAfterTicks = blockStartTicks > TimeSpan.MaxValue.Ticks - AudioProcessContext.TimestampQuantizationToleranceTicks
+            ? TimeSpan.MaxValue.Ticks
+            : blockStartTicks + AudioProcessContext.TimestampQuantizationToleranceTicks;
 
         long latencyTicks = (long)Math.Ceiling(
             branchLatency * (double)TimeSpan.TicksPerSecond / context.SampleRate);
         long tailEndTicks = branchEndTime.Ticks > TimeSpan.MaxValue.Ticks - latencyTicks
             ? TimeSpan.MaxValue.Ticks
             : branchEndTime.Ticks + latencyTicks;
-        return tailEndTicks < deadBeforeTicks;
+        return tailEndTicks <= deadAfterTicks;
     }
 
     private bool IsBranchEnded(int index, AudioProcessContext context)
