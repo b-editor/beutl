@@ -247,6 +247,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 }
                 catch
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var item = installed.FirstOrDefault(i => i.Name == name);
                     if (item != null)
                         Packages.Add(new LocalUserPackageViewModel(item, _clients, _editorService, _projectService));
@@ -255,6 +256,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
             if (remote != null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 Packages.Add(new RemoteUserPackageViewModel(remote, _clients, _editorService, _projectService)
                 {
                     OnRemoveFromLibrary = OnPackageRemoveFromLibrary
