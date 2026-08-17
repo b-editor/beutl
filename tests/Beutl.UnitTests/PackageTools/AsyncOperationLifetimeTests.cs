@@ -11,10 +11,10 @@ public sealed class AsyncOperationLifetimeTests
         var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var allowOperationToFinish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        bool requestsCanceled = false;
+        var requestsCanceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         bool resourcesDisposed = false;
         var lifetime = new AsyncOperationLifetime(
-            () => requestsCanceled = true,
+            () => requestsCanceled.TrySetResult(),
             () =>
             {
                 resourcesDisposed = true;
@@ -41,7 +41,7 @@ public sealed class AsyncOperationLifetimeTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(requestsCanceled, Is.True);
+            Assert.That(requestsCanceled.Task.IsCompleted, Is.True);
             Assert.That(resourcesDisposed, Is.False);
             Assert.That(dispose.IsCompleted, Is.False);
         });

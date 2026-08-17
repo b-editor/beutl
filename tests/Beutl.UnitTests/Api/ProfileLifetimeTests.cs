@@ -129,7 +129,12 @@ public sealed class ProfileLifetimeTests
             """);
         try
         {
-            using var httpClient = new HttpClient();
+            using var handler = new DelegateHandler((request, cancellationToken) =>
+                Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{}")
+                }));
+            using var httpClient = new HttpClient(handler);
             var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
             var profile = new Profile(CreateProfileResponse(), app);
             var authResponse = new AuthResponse
@@ -140,11 +145,11 @@ public sealed class ProfileLifetimeTests
             };
             var user = new AuthenticatedUser(profile, authResponse, app, httpClient, DateTime.UtcNow.AddDays(-1));
 
-            // A stale write-time forces the persisted-file branch; cancel before the
-            // continuation resumes so the recheck throws instead of mutating state.
+            // A stale write-time forces the persisted-file branch; a pre-canceled token
+            // makes the cancellation point deterministic instead of racing the file read.
             using var cancellation = new CancellationTokenSource();
-            Task refresh = user.RefreshAsync(cancellation.Token).AsTask();
             cancellation.Cancel();
+            Task refresh = user.RefreshAsync(cancellation.Token).AsTask();
 
             Assert.CatchAsync<OperationCanceledException>(async () =>
                 await refresh.WaitAsync(TimeSpan.FromSeconds(5)));

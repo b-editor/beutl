@@ -489,14 +489,20 @@ public sealed class BeutlApiApplicationTests
                   "type": "zip"
                 }
                 """);
-            var handler = new DelegateHandler((request, cancellationToken) =>
-                Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var handler = new DelegateHandler(async (request, cancellationToken) =>
+            {
+                requestStarted.TrySetResult();
+                await releaseResponse.Task.WaitAsync(cancellationToken);
+                return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent(
                         """{"latestVersion":"2.0.0-preview.7","url":"https://example.com","downloadUrl":null,"isLatest":false,"mustLatest":false}""",
                         Encoding.UTF8,
                         "application/json")
-                }));
+                };
+            });
             using var httpClient = new HttpClient(handler);
             var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
 
@@ -504,7 +510,9 @@ public sealed class BeutlApiApplicationTests
             // lifetime token is cancelled, so the method must recheck it before returning.
             Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> check
                 = app.CheckForUpdatesAsync("2.0.0-preview.6", CancellationToken.None);
+            await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             await app.DisposeAsync().AsTask();
+            releaseResponse.TrySetResult();
 
             Assert.CatchAsync<OperationCanceledException>(async () =>
                 await check.WaitAsync(TimeSpan.FromSeconds(5)));

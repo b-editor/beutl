@@ -45,7 +45,9 @@ public sealed class PackageInstallerDisposeTests
     {
         Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
 
-        using var httpClient = new HttpClient();
+        using var handler = new BlockingHandler();
+        handler.Release();
+        using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var installer = new PackageInstaller(
             httpClient,

@@ -30,8 +30,14 @@ public class PackageReleaseResolverTests
     [OneTimeTearDown]
     public async Task OneTimeTearDown()
     {
-        await _clients.DisposeAsync();
-        _httpClient.Dispose();
+        try
+        {
+            await _clients.DisposeAsync();
+        }
+        finally
+        {
+            _httpClient.Dispose();
+        }
     }
 
     [Test]
