@@ -1,6 +1,7 @@
 ﻿using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
+using Beutl.Engine;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -255,6 +256,77 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextClearConnections_WhenRollbackRestoresResampleInput_PreservesStreamingState()
+    {
+        const int sourceSampleRate = 48000;
+        const int outputSampleRate = 44100;
+        const int blockSamples = 128;
+        const int sourceSamples = 4096;
+
+        using var sourceBuffer = AudioTestBuffers.CreateBuffer(
+            2,
+            sourceSamples,
+            static (_, index) => MathF.Sin(index * 0.013f),
+            sourceSampleRate);
+        using var source = new BufferReplayNode(sourceBuffer);
+        using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
+        using var failing = new ThrowingHookNode { ThrowOnClear = true };
+
+        using var context = new AudioContext(outputSampleRate, 2);
+        context.Connect(source, resample);
+        context.Connect(resample, failing);
+
+        AudioProcessContext firstContext = ExactContext(TimeSpan.Zero, blockSamples, outputSampleRate);
+        AudioProcessContext secondContext = ExactContext(
+            ExactDuration(blockSamples, outputSampleRate),
+            blockSamples,
+            outputSampleRate);
+        using var first = resample.Process(firstContext);
+
+        Assert.Throws<InvalidOperationException>(() => context.ClearConnections());
+        failing.ThrowOnClear = false;
+
+        using var actual = resample.Process(secondContext);
+
+        using var controlSource = new BufferReplayNode(sourceBuffer);
+        using var control = new ResampleNode { SourceSampleRate = sourceSampleRate };
+        control.AddInput(controlSource);
+        using var controlFirst = control.Process(firstContext);
+        using var expected = control.Process(secondContext);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.ChannelCount, Is.EqualTo(expected.ChannelCount));
+            Assert.That(actual.SampleCount, Is.EqualTo(expected.SampleCount));
+            for (int channel = 0; channel < actual.ChannelCount; channel++)
+            {
+                Assert.That(actual.GetChannelData(channel).ToArray(),
+                    Is.EqualTo(expected.GetChannelData(channel).ToArray()).Within(1e-5f),
+                    $"Resample channel {channel} must continue from the pre-rollback stream position.");
+            }
+        });
+    }
+
+    [Test]
+    public void TransformingNodeFlush_PreservesMonoLayoutAfterInputRemoval()
+    {
+        const int sampleRate = 48000;
+        const int sampleCount = 64;
+
+        using var input = new MonoValueNode();
+        using var gain = new GainNode { Gain = Property.Create(50f) };
+        gain.AddInput(input);
+
+        using var processed = gain.Process(ExactContext(TimeSpan.Zero, sampleCount, sampleRate));
+        gain.RemoveInput(input);
+        using var flushed = gain.Flush(ExactContext(ExactDuration(sampleCount, sampleRate), sampleCount, sampleRate));
+
+        Assert.That(processed.ChannelCount, Is.EqualTo(1));
+        Assert.That(flushed.ChannelCount, Is.EqualTo(1),
+            "A transforming node must retain the layout it emitted when its input is no longer connected.");
+    }
+
+    [Test]
     public void RemoveInput_WhenHookThrows_RestoresTopologyAndAllowsRetry()
     {
         using var node = new ThrowingHookNode();
@@ -359,4 +431,23 @@ public class AudioNodeTests
         public override AudioBuffer Process(AudioProcessContext context)
             => new(context.SampleRate, 2, context.GetSampleCount());
     }
+
+    private sealed class MonoValueNode : AudioNode
+    {
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            RecordProcessedChannelCount(1);
+            return new AudioBuffer(context.SampleRate, 1, context.GetSampleCount());
+        }
+    }
+
+    private static AudioProcessContext ExactContext(TimeSpan start, int sampleCount, int sampleRate)
+        => new(
+            new Beutl.Media.TimeRange(start, AudioProcessContext.GetDurationForSampleCount(sampleCount, sampleRate)),
+            sampleRate,
+            new Beutl.Animation.AnimationSampler(),
+            null);
+
+    private static TimeSpan ExactDuration(int sampleCount, int sampleRate)
+        => AudioProcessContext.GetDurationForSampleCount(sampleCount, sampleRate);
 }

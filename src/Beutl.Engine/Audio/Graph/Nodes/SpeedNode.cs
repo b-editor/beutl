@@ -30,10 +30,10 @@ public sealed class SpeedNode : AudioNode
     public IProperty<float>? Speed { get; set; }
 
     public override AudioBuffer Process(AudioProcessContext context)
-        => ProcessCore(context, draining: false);
+        => RecordProcessedOutput(ProcessCore(context, draining: false));
 
     public override AudioBuffer Flush(AudioProcessContext context)
-        => ProcessCore(context, draining: true);
+        => RecordProcessedOutput(ProcessCore(context, draining: true));
 
     /// <summary>
     /// Converts upstream latency from source-domain samples to the output-domain samples that a caller

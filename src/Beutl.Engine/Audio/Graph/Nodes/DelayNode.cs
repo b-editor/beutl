@@ -25,7 +25,7 @@ public sealed class DelayNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Delay node requires exactly one input.");
 
-        return ProcessTail(Inputs[0].Process(context), context, draining: false);
+        return RecordProcessedOutput(ProcessTail(Inputs[0].Process(context), context, draining: false));
     }
 
     // Echo delay is intentional render-time delay, not processing latency for compensation.

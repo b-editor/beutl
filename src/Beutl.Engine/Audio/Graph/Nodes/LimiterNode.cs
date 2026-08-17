@@ -67,11 +67,11 @@ public sealed class LimiterNode : AudioNode
             throw new InvalidOperationException(
                 $"LimiterNode requires exactly one input but has {Inputs.Count}.");
 
-        return ProcessTail(
+        return RecordProcessedOutput(ProcessTail(
             Inputs[0].Process(context)
                 ?? throw new InvalidOperationException("LimiterNode: upstream Process returned null."),
             context,
-            draining: false);
+            draining: false));
     }
 
     protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)

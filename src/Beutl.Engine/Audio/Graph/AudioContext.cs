@@ -491,6 +491,11 @@ public sealed class AudioContext : IDisposable
             snapshots.Add(new InputSnapshot(node, inputs, states));
         }
 
+        foreach (InputSnapshot snapshot in snapshots)
+        {
+            snapshot.Node.BeginInputClearTransaction();
+        }
+
         var cleared = new List<InputSnapshot>(_nodes.Count);
         try
         {
@@ -532,6 +537,11 @@ public sealed class AudioContext : IDisposable
                         "Audio connection clearing hooks must leave every node without inputs.");
                 }
             }
+
+            foreach (InputSnapshot snapshot in snapshots)
+            {
+                snapshot.Node.CommitInputClearTransaction();
+            }
         }
         catch (Exception clearException)
         {
@@ -541,6 +551,18 @@ public sealed class AudioContext : IDisposable
                 try
                 {
                     RestoreInputs(cleared[i]);
+                }
+                catch (Exception rollbackException)
+                {
+                    (rollbackFailures ??= []).Add(rollbackException);
+                }
+            }
+
+            for (int i = snapshots.Count - 1; i >= 0; i--)
+            {
+                try
+                {
+                    snapshots[i].Node.RollbackInputClearTransaction();
                 }
                 catch (Exception rollbackException)
                 {

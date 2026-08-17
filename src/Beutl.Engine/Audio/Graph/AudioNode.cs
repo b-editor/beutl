@@ -4,6 +4,7 @@ public abstract class AudioNode : IDisposable
 {
     private readonly List<AudioNode> _inputs = new();
     private bool _disposed;
+    private bool _inputClearTransaction;
 
     public IReadOnlyList<AudioNode> Inputs => _inputs;
 
@@ -71,6 +72,31 @@ public abstract class AudioNode : IDisposable
 
     internal void RestoreInputStateForRollback(AudioNode input, int index, object? state)
         => RestoreInputState(input, index, state);
+
+    internal bool IsInputClearTransaction => _inputClearTransaction;
+
+    internal void BeginInputClearTransaction()
+    {
+        _inputClearTransaction = true;
+    }
+
+    internal void CommitInputClearTransaction()
+    {
+        if (!_inputClearTransaction)
+            return;
+
+        _inputClearTransaction = false;
+        OnInputClearTransactionCommitted();
+    }
+
+    internal void RollbackInputClearTransaction()
+    {
+        if (!_inputClearTransaction)
+            return;
+
+        _inputClearTransaction = false;
+        OnInputClearTransactionRolledBack();
+    }
 
     public void RemoveInput(AudioNode input)
     {
@@ -148,6 +174,16 @@ public abstract class AudioNode : IDisposable
     {
     }
 
+    /// <summary>Called after an AudioContext input-clear transaction commits.</summary>
+    protected virtual void OnInputClearTransactionCommitted()
+    {
+    }
+
+    /// <summary>Called after an AudioContext input-clear transaction rolls back.</summary>
+    protected virtual void OnInputClearTransactionRolledBack()
+    {
+    }
+
     private int IndexOfInput(AudioNode input)
     {
         for (int i = 0; i < _inputs.Count; i++)
@@ -186,6 +222,14 @@ public abstract class AudioNode : IDisposable
     /// <see cref="CreateSilentFlush"/> can produce matching silence. Zero-input custom nodes must call
     /// this method when they emit a non-stereo layout.</summary>
     protected void RecordProcessedChannelCount(int channelCount) => LastProcessedChannelCount = channelCount;
+
+    /// <summary>Records and returns a successfully emitted buffer for transforming nodes.</summary>
+    protected AudioBuffer RecordProcessedOutput(AudioBuffer output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        RecordProcessedChannelCount(output.ChannelCount);
+        return output;
+    }
 
     /// <summary>The silence a node with no live source emits when flushed; sized to the last processed
     /// channel layout. Override for a node whose flush silence needs a different shape.</summary>

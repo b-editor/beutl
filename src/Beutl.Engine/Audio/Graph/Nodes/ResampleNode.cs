@@ -12,6 +12,7 @@ public sealed class ResampleNode : AudioNode
     private int _lastSampleRate;
     private TimeSpan? _lastTimeRangeEnd;
     private long? _sourceSampleCursor;
+    private bool _streamingStateResetPending;
 
     public int SourceSampleRate
     {
@@ -34,7 +35,7 @@ public sealed class ResampleNode : AudioNode
         AudioProcessContext newContext = CreateUpstreamContext(context, out long sourceStart);
         AudioBuffer input = Inputs[0].Process(newContext);
         _sourceSampleCursor = checked(sourceStart + input.SampleCount);
-        return Resample(context, input);
+        return RecordProcessedOutput(Resample(context, input));
     }
 
     public override AudioBuffer Flush(AudioProcessContext context)
@@ -45,7 +46,7 @@ public sealed class ResampleNode : AudioNode
         AudioProcessContext newContext = CreateUpstreamContext(context, out long sourceStart);
         AudioBuffer input = Inputs[0].Flush(newContext);
         _sourceSampleCursor = checked(sourceStart + input.SampleCount);
-        return Resample(context, input);
+        return RecordProcessedOutput(Resample(context, input));
     }
 
     public override int GetTotalLatencySamples(int sampleRate)
@@ -170,18 +171,47 @@ public sealed class ResampleNode : AudioNode
     }
 
     protected override void OnInputAdded(AudioNode input, int index)
-        => ResetStreamingState();
+        => RequestStreamingStateReset();
 
     protected override void OnInputRemoved(AudioNode input, int index)
-        => ResetStreamingState();
+        => RequestStreamingStateReset();
 
     protected override void OnInputsCleared()
-        => ResetStreamingState();
+        => RequestStreamingStateReset();
+
+    protected override void OnInputClearTransactionCommitted()
+    {
+        if (_streamingStateResetPending)
+        {
+            _streamingStateResetPending = false;
+            ResetStreamingState();
+        }
+    }
+
+    protected override void OnInputClearTransactionRolledBack()
+    {
+        // RestoreInput invokes OnInputAdded while the transaction is still active. Keep the
+        // provider, cursor, and timestamp that belong to the restored stream.
+        _streamingStateResetPending = false;
+    }
+
+    private void RequestStreamingStateReset()
+    {
+        if (IsInputClearTransaction)
+        {
+            _streamingStateResetPending = true;
+        }
+        else
+        {
+            ResetStreamingState();
+        }
+    }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            _streamingStateResetPending = false;
             ResetStreamingState();
         }
 

@@ -34,10 +34,10 @@ public class ClipNode : AudioNode
         {
             // throw new Exception("Unknown time range.");
             // 本来なら時間範囲外のノードは処理されないはずだが...
-            return new AudioBuffer(
+            return RecordProcessedOutput(new AudioBuffer(
                 context.SampleRate,
                 2,
-                context.GetSampleCount());
+                context.GetSampleCount()));
         }
 
         TimeSpan padBefore = newRange.Start - context.TimeRange.Start;
@@ -74,7 +74,7 @@ public class ClipNode : AudioNode
                 AppendFlushedTail(context, newBuffer, offset + copyCount);
             }
 
-            return newBuffer;
+            return RecordProcessedOutput(newBuffer);
         }
         catch
         {

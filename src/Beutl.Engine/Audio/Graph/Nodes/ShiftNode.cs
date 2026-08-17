@@ -6,12 +6,12 @@ public class ShiftNode : AudioNode
 
     public override AudioBuffer Process(AudioProcessContext context)
     {
-        return Inputs[0].Process(CreateShiftedContext(context));
+        return RecordProcessedOutput(Inputs[0].Process(CreateShiftedContext(context)));
     }
 
     public override AudioBuffer Flush(AudioProcessContext context)
     {
-        return Inputs[0].Flush(CreateShiftedContext(context));
+        return RecordProcessedOutput(Inputs[0].Flush(CreateShiftedContext(context)));
     }
 
     private AudioProcessContext CreateShiftedContext(AudioProcessContext context)
