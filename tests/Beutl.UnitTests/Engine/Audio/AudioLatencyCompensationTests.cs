@@ -1663,6 +1663,86 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_PreservesUnknownTailAcrossZeroSampleFlush()
+    {
+        const int sampleRate = SampleRate;
+        var clipDuration = ExactDuration(sampleRate, sampleRate);
+        var drainDuration = ExactDuration(240, sampleRate);
+
+        var sound = new UnboundedSpeedTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+        UnboundedSpeedTailSound.ResetFlushCount();
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            new TimeRange(TimeSpan.Zero, clipDuration),
+            default,
+            eligibility);
+        using var first = composer.Compose(firstFrame.Time, firstFrame);
+
+        using var emptyFlush = composer.Flush(new TimeRange(clipDuration, TimeSpan.Zero), eligibility);
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(int.MaxValue),
+            "A zero-sample flush must not consume the pending unknown follow-up attempt.");
+
+        using var nextFlush = composer.Flush(new TimeRange(clipDuration, drainDuration), eligibility);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(UnboundedSpeedTailSound.FlushCount, Is.EqualTo(2),
+                "The positive flush after a zero-duration call must still receive the bounded follow-up drain.");
+            Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    public void Composer_RecordsInlineDrainThroughWrappedOutput()
+    {
+        const int sampleRate = SampleRate;
+        const float lookaheadMs = 5f;
+        int latencySamples = LookaheadSamples(lookaheadMs);
+        var clipDuration = ExactDuration(sampleRate, sampleRate);
+        var oneSample = ExactDuration(1, sampleRate);
+        var drainDuration = ExactDuration(latencySamples, sampleRate);
+
+        var sound = new WrappedOutputTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+        WrappedOutputTailSound.ResetFlushState();
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(latencySamples - 1),
+            "Inline drain accounting must find the ClipNode beneath a wrapper output.");
+
+        var secondRange = new TimeRange(firstRange.End, drainDuration);
+        var secondFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, secondFrame);
+
+        Assert.That(WrappedOutputTailSound.LastFlushSampleCount, Is.EqualTo(latencySamples - 1),
+            "The wrapped output must be flushed only for the tail not already recovered inline.");
+    }
+
+    [Test]
     public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
     {
         const float lookaheadMs = 20f;

@@ -142,6 +142,37 @@ public class Composer : IComposer
     }
 
     /// <summary>
+    /// Reports the latency still held by each retained output immediately after its terminal process
+    /// call. Unlike <see cref="GetTotalLatencySamples"/>, this uses the output graph's drain-specific
+    /// report so terminal animation values can shorten a nested scene's compensation window.
+    /// </summary>
+    public int GetDrainLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int total = 0;
+        foreach (var entry in GetRetainedEntries())
+        {
+            if (!CanFlushEntry(entry) || entry.OutputNodes is not { } outputNodes)
+                continue;
+
+            foreach (AudioNode outputNode in outputNodes)
+            {
+                int latency = outputNode.GetDrainLatencySamples(sampleRate);
+                if (latency < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{outputNode.GetType().Name} returned negative drain latency {latency}.");
+                }
+
+                total = Math.Max(total, latency);
+            }
+        }
+
+        return total;
+    }
+
+    /// <summary>
     /// Drains the output nodes retained by the most recent composition at the beginning of
     /// <paramref name="range"/> and mixes the recovered tails into a buffer of that range's length.
     /// </summary>
@@ -367,8 +398,7 @@ public class Composer : IComposer
 
     private void RecordInlineDrainBudget(AudioNodeEntry entry, AudioNode[] outputNodes)
     {
-        bool hasInlineDrain = outputNodes.Any(static outputNode =>
-            outputNode is ClipNode { InlineDrainAttempted: true });
+        bool hasInlineDrain = outputNodes.Any(outputNode => TryGetInlineDrain(outputNode, out _));
         if (!hasInlineDrain)
             return;
 
@@ -381,16 +411,41 @@ public class Composer : IComposer
                     $"{outputNode.GetType().Name} returned negative total latency {outputLatency}.");
             }
 
-            int inlineDrain = outputNode is ClipNode clipNode
-                ? clipNode.InlineDrainedSamples
-                : 0;
+            bool inlineDrainAttempted = TryGetInlineDrain(outputNode, out int inlineDrain);
             SetTailBudget(
                 entry,
                 outputNode,
                 outputLatency,
                 inlineDrain,
-                allowUnknownFollowUp: outputNode is ClipNode { InlineDrainAttempted: true });
+                allowUnknownFollowUp: inlineDrainAttempted);
         }
+    }
+
+    private static bool TryGetInlineDrain(AudioNode outputNode, out int drainedSamples)
+    {
+        var pending = new Stack<AudioNode>();
+        var visited = new HashSet<AudioNode>(ReferenceEqualityComparer.Instance);
+        pending.Push(outputNode);
+        drainedSamples = 0;
+        bool found = false;
+
+        while (pending.Count > 0)
+        {
+            AudioNode node = pending.Pop();
+            if (!visited.Add(node))
+                continue;
+
+            if (node is ClipNode { InlineDrainAttempted: true } clipNode)
+            {
+                found = true;
+                drainedSamples = Math.Max(drainedSamples, clipNode.InlineDrainedSamples);
+            }
+
+            foreach (AudioNode input in node.Inputs)
+                pending.Push(input);
+        }
+
+        return found;
     }
 
     private void PromoteEntries(TimeRange timeRange, bool contiguous)
@@ -494,9 +549,11 @@ public class Composer : IComposer
         budget.IsKnown = true;
         if (latency == int.MaxValue)
         {
+            bool preserveUnknownFollowUp = allowUnknownFollowUp
+                || (drainedSamples == 0 && budget.UnknownFollowUpPending);
             budget.RemainingSamples = 0;
-            budget.UnknownFollowUpPending = allowUnknownFollowUp;
-            budget.StopFurtherDrains = !allowUnknownFollowUp;
+            budget.UnknownFollowUpPending = preserveUnknownFollowUp;
+            budget.StopFurtherDrains = !preserveUnknownFollowUp;
         }
         else
         {
