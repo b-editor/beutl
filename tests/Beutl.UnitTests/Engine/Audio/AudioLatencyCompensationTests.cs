@@ -772,6 +772,32 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_Process_BoundsUnknownBranchDrainToOneAttempt()
+    {
+        const int processSamples = 4096;
+        const int drainSamples = 256;
+        var branchEnd = ExactDuration(processSamples, SampleRate);
+
+        using var branch = new RecordingLatencyNode(int.MaxValue);
+        using var mixer = new MixerNode();
+        mixer.AddInput(branch);
+        mixer.SetBranchEndTime(branch, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+        using var firstDrain = mixer.Process(ExactContext(branchEnd, drainSamples, SampleRate));
+        using var secondDrain = mixer.Process(
+            ExactContext(branchEnd + ExactDuration(drainSamples, SampleRate), drainSamples, SampleRate));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(branch.FlushCount, Is.EqualTo(1),
+                "An unknown-latency branch must receive only one bounded follow-up drain attempt.");
+            Assert.That(secondDrain.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
+                "The mixer must stop feeding zero blocks through an unknown branch after its bounded attempt.");
+        });
+    }
+
+    [Test]
     public void MixerNode_RemoveInput_KeepsBranchEndTimeAligned()
     {
         const float lookaheadMs = 5f;
@@ -2549,12 +2575,15 @@ public class AudioLatencyCompensationTests
     {
         public int LastFlushSampleCount { get; private set; } = -1;
 
+        public int FlushCount { get; private set; }
+
         public override AudioBuffer Process(AudioProcessContext context)
             => new(context.SampleRate, 2, context.GetSampleCount());
 
         public override AudioBuffer Flush(AudioProcessContext context)
         {
             LastFlushSampleCount = context.GetSampleCount();
+            FlushCount++;
             return new AudioBuffer(context.SampleRate, 2, LastFlushSampleCount);
         }
 
