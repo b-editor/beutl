@@ -218,6 +218,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private Task TrackAsyncCore(Func<Task> operation)
     {
         Task task;
+        bool admitted = false;
         lock (_gate)
         {
             // Once draining has finished and the resources are disposed, reject all work
@@ -227,8 +228,18 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
             _operations.RemoveWhere(task => task.IsCompleted);
-            task = operation();
-            _operations.Add(task);
+            admitted = true;
+        }
+
+        // Invoke the delegate outside the lock so a synchronously executing delegate that
+        // re-enters a tracked method cannot deadlock on _gate.
+        task = operation();
+        lock (_gate)
+        {
+            if (admitted)
+            {
+                _operations.Add(task);
+            }
         }
 
         return task;
@@ -237,6 +248,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private Task<T> TrackAsyncCore<T>(Func<Task<T>> operation)
     {
         Task<T> task;
+        bool admitted = false;
         lock (_gate)
         {
             if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
@@ -244,8 +256,18 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
             _operations.RemoveWhere(task => task.IsCompleted);
-            task = operation();
-            _operations.Add(task);
+            admitted = true;
+        }
+
+        // Invoke the delegate outside the lock so a synchronously executing delegate that
+        // re-enters a tracked method cannot deadlock on _gate.
+        task = operation();
+        lock (_gate)
+        {
+            if (admitted)
+            {
+                _operations.Add(task);
+            }
         }
 
         return task;
