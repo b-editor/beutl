@@ -4,12 +4,12 @@ using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
+using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 using Reactive.Bindings;
-using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages;

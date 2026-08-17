@@ -1,4 +1,4 @@
-using Beutl.Api;
+﻿using Beutl.Api;
 
 namespace Beutl.UnitTests.Api;
 

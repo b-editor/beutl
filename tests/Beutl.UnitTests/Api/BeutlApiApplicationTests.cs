@@ -208,8 +208,8 @@ public sealed class BeutlApiApplicationTests
         }
     }
 
-     [Test]
-     public async Task RestoreUserAsync_RestoresAuthorization_WhenProfileRefreshIsCanceled()
+    [Test]
+    public async Task RestoreUserAsync_RestoresAuthorization_WhenProfileRefreshIsCanceled()
     {
         Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
         string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
@@ -270,7 +270,7 @@ public sealed class BeutlApiApplicationTests
         }
     }
 
-     private sealed class CapturingHandler : HttpMessageHandler
+    private sealed class CapturingHandler : HttpMessageHandler
     {
         public Uri? LastRequestUri { get; private set; }
 
