@@ -126,7 +126,7 @@ public sealed class PackageInstallerDisposeTests
             // transaction as in-flight and drain it instead of tearing down resources
             // underneath it; it must not complete before the callback returns.
             dispose = installer.DisposeAsync().AsTask();
-            await Task.Yield();
+            await Task.Delay(1).ConfigureAwait(false);
         });
 
         await operation.WaitAsync(TimeSpan.FromSeconds(5));
