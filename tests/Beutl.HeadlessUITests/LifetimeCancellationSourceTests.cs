@@ -34,4 +34,19 @@ public sealed class LifetimeCancellationSourceTests
 
         await task.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
+
+    [Test]
+    public async Task CheckForUpdatesTask_ShutdownCancellation_IsNotReportedAsAnError()
+    {
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await app.DisposeAsync();
+
+        // CheckForUpdatesAsync links the application lifetime, so after disposal it throws
+        // ObjectDisposedException; the task must treat that as a normal shutdown and
+        // complete without error telemetry or a timeout notification.
+        var task = new CheckForUpdatesTask(app);
+
+        await task.Task.WaitAsync(TimeSpan.FromSeconds(5));
+    }
 }

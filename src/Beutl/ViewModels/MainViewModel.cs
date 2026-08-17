@@ -169,7 +169,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         // Drain installs first so fallback queueing is reflected in the snapshot below.
         try
         {
-            if (_beutlClients.TryGetResource<PackageInstaller>() is { } installer)
+            if (_beutlClients.TryGetCreatedResource<PackageInstaller>() is { } installer)
             {
                 Task drain = installer.DisposeAsync().AsTask();
                 // Pump UI jobs while draining so the queued activation can complete.

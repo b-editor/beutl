@@ -150,16 +150,18 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
         catch (Exception ex)
         {
+            if (_beutlApiApplication.IsDisposed
+                && ex is OperationCanceledException or ObjectDisposedException)
+            {
+                // Shutdown cancellation is a normal exit, not a failed update check:
+                // skip the error telemetry and the timeout notification.
+                return default;
+            }
+
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "An error occurred while checking for updates");
             if (ex is OperationCanceledException)
             {
-                if (_beutlApiApplication.IsDisposed)
-                {
-                    // Shutdown cancellation is not a network timeout.
-                    return default;
-                }
-
                 // HttpClient timeouts surface as TaskCanceledException or, on modern .NET,
                 // sometimes as plain OperationCanceledException. No external CancellationToken
                 // is passed here, so any OCE is effectively a network timeout — show a

@@ -188,7 +188,11 @@ public class BeutlApiApplication : IAsyncDisposable
         throw new Exception("Resource not found");
     }
 
-    public T? TryGetResource<T>()
+    // Returns only resources another caller has already materialized; a registered-but-
+    // uncreated resource is not available yet, so the resolver-style name would conflate
+    // that state with unavailable. The sole production use is a shutdown-time probe for
+    // resources that must have been created by then.
+    public T? TryGetCreatedResource<T>()
         where T : class, IBeutlApiResource
     {
         lock (_disposeGate)

@@ -222,6 +222,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         foreach (KeyValuePair<string, LocalPackage> item in dict)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             LocalPackages.Add(new LocalUserPackageViewModel(item.Value, _clients, _editorService, _projectService));
         }
     }
