@@ -54,6 +54,31 @@ public sealed class DirectBlurFiniteOutputTests
         });
     }
 
+    [Test]
+    public void NonMaterializedFilterLayer_UsesTheRegionReplayedForEachGroupChild()
+    {
+        Rect hairlineBounds = new(20, 70, 216, 1);
+        Rect replayedHairlineBounds = new(96, 70, 48, 1);
+        Rect offFrameBounds = new(-120, 32, 180, 96);
+        Rect replayedOffFrameBounds = new(-18, 48, 78, 64);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                RenderRequestExecutor.GetDirectFilterLayerBounds(
+                    hairlineBounds,
+                    replayedHairlineBounds),
+                Is.EqualTo(replayedHairlineBounds),
+                "The hairline layer must exclude the semantic area that replay did not write.");
+            Assert.That(
+                RenderRequestExecutor.GetDirectFilterLayerBounds(
+                    offFrameBounds,
+                    replayedOffFrameBounds),
+                Is.EqualTo(replayedOffFrameBounds),
+                "The off-frame layer must exclude the semantic area that replay did not write.");
+        });
+    }
+
     private static FilterEffectRenderNode CreateBlurNode(float? workingScale)
     {
         var blur = new Blur();

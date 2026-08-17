@@ -217,6 +217,7 @@ internal sealed class RenderTargetPool : IDisposable
             try
             {
                 ValidateReusableSlot(reusable, request);
+                reusable.Target.ClearToTransparent();
             }
             catch (Exception ex)
             {
@@ -250,6 +251,8 @@ internal sealed class RenderTargetPool : IDisposable
         try
         {
             SKSurface surface = ValidateFactoryTarget(target, deviceSize, request);
+            if (!target.HasTransparentContents)
+                target.ClearToTransparent();
             long byteSize = GetByteSize(deviceSize);
             long nextOwnedBytes = checked(_ownedBytes + byteSize);
             slot = new TargetSlot(target, surface, deviceSize, byteSize);

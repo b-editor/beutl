@@ -29,6 +29,7 @@ public sealed partial class ColorGrading : FilterEffect
             uniform float lowRange;
             uniform float highRange;
 
+            const float HALF_MAX = 65504.0;
             const float3 LUMINANCE_COEFF = float3(0.2126, 0.7152, 0.0722);
 
             float get_luminance(float3 color) {
@@ -46,8 +47,10 @@ public sealed partial class ColorGrading : FilterEffect
                 color = color + l * (1.0 - color);
 
                 float3 safe_gamma = max(g, float3(0.001));
-                color = pow(max(color, float3(0.0)), 1.0 / safe_gamma);
-                color *= gn;
+                color = min(
+                    pow(max(color, float3(0.0)), 1.0 / safe_gamma),
+                    float3(HALF_MAX));
+                color = clamp(color * gn, float3(-HALF_MAX), float3(HALF_MAX));
 
                 return color;
             }
@@ -125,7 +128,8 @@ public sealed partial class ColorGrading : FilterEffect
 
                 rgb += offset;
 
-                return half4(rgb * alpha, alpha);
+                float3 boundedResult = clamp(rgb * alpha, float3(-HALF_MAX), float3(HALF_MAX));
+                return half4(half3(boundedResult), half(alpha));
             }
         """;
 

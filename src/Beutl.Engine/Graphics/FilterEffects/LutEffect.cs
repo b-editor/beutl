@@ -32,13 +32,15 @@ public sealed partial class LutEffect : FilterEffect
             float3 trilinear_interpolate(float3 inputColor)
             {
                 int lutSize2 = lutSize * lutSize;
-                int posX = int(clamp((inputColor.r * 255.0) * float(lutSize) / 256.0, 0, 255));
-                int posY = int(clamp((inputColor.g * 255.0) * float(lutSize) / 256.0, 0, 255));
-                int posZ = int(clamp((inputColor.b * 255.0) * float(lutSize) / 256.0, 0, 255));
+                float3 boundedColor = clamp(inputColor, float3(0.0), float3(1.0));
+                float3 lutPosition = (boundedColor * 255.0) * float(lutSize) / 256.0;
+                int posX = int(lutPosition.r);
+                int posY = int(lutPosition.g);
+                int posZ = int(lutPosition.b);
 
-                float deltaX = ((inputColor.r * 255.0) * float(lutSize) / 256.0) - float(posX);
-                float deltaY = ((inputColor.g * 255.0) * float(lutSize) / 256.0) - float(posY);
-                float deltaZ = ((inputColor.b * 255.0) * float(lutSize) / 256.0) - float(posZ);
+                float deltaX = lutPosition.r - float(posX);
+                float deltaY = lutPosition.g - float(posY);
+                float deltaZ = lutPosition.b - float(posZ);
 
                 int index = posX + posY * lutSize + posZ * lutSize2;
                 int nextIndex0 = 1;
@@ -81,13 +83,13 @@ public sealed partial class LutEffect : FilterEffect
 
             float3 linearToSrgb(float3 c) {
                 float3 lo = c * 12.92;
-                float3 hi = 1.055 * pow(c, float3(1.0/2.4)) - 0.055;
+                float3 hi = 1.055 * pow(max(c, float3(0.0)), float3(1.0/2.4)) - 0.055;
                 return mix(lo, hi, step(float3(0.0031308), c));
             }
 
             float3 srgbToLinear(float3 c) {
                 float3 lo = c / 12.92;
-                float3 hi = pow((c + 0.055) / 1.055, float3(2.4));
+                float3 hi = pow(max((c + 0.055) / 1.055, float3(0.0)), float3(2.4));
                 return mix(lo, hi, step(float3(0.04045), c));
             }
 
@@ -102,7 +104,9 @@ public sealed partial class LutEffect : FilterEffect
                 lutResult = srgbToLinear(lutResult);
                 float3 result = mix(rgb, lutResult, strength);
 
-                return half4(half3(result * alpha), half(alpha));
+                const float HALF_MAX = 65504.0;
+                float3 boundedResult = clamp(result * alpha, float3(-HALF_MAX), float3(HALF_MAX));
+                return half4(half3(boundedResult), half(alpha));
             }
             """;
 
@@ -120,7 +124,7 @@ public sealed partial class LutEffect : FilterEffect
 
             float3 srgbToLinear(float3 c) {
                 float3 lo = c / 12.92;
-                float3 hi = pow((c + 0.055) / 1.055, float3(2.4));
+                float3 hi = pow(max((c + 0.055) / 1.055, float3(0.0)), float3(2.4));
                 return mix(lo, hi, step(float3(0.04045), c));
             }
 
@@ -154,7 +158,9 @@ public sealed partial class LutEffect : FilterEffect
                 float3 lutResult = srgbToLinear(float3(rResult, gResult, bResult));
                 float3 result = mix(rgb, lutResult, strength);
 
-                return half4(half3(result * alpha), half(alpha));
+                const float HALF_MAX = 65504.0;
+                float3 boundedResult = clamp(result * alpha, float3(-HALF_MAX), float3(HALF_MAX));
+                return half4(half3(boundedResult), half(alpha));
             }
             """;
 

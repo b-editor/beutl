@@ -12,16 +12,20 @@ public sealed partial class Gamma : FilterEffect
         """
         uniform float gamma;
         uniform float strength;
+        const float HALF_MAX = 65504.0;
 
         half4 apply(half4 color) {
             float alpha = color.a;
             if (alpha <= 0.0001) return half4(0.0);
             float3 rgb = color.rgb / alpha;
 
-            float3 corrected = pow(max(rgb, float3(0.0)), float3(1.0 / gamma));
+            float3 corrected = min(
+                pow(max(rgb, float3(0.0)), float3(1.0 / gamma)),
+                float3(HALF_MAX));
             float3 result = mix(rgb, corrected, strength);
 
-            return half4(half3(result * alpha), half(alpha));
+            float3 boundedResult = clamp(result * alpha, float3(-HALF_MAX), float3(HALF_MAX));
+            return half4(half3(boundedResult), half(alpha));
         }
         """;
 

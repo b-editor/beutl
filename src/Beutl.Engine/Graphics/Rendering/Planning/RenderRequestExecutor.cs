@@ -23,6 +23,12 @@ internal sealed partial class RenderRequestExecutor
 
     public RenderExecutionStatistics Statistics { get; private set; }
 
+    internal static Rect GetDirectFilterLayerBounds(
+        Rect semanticInputBounds,
+        Rect replayedInputBounds,
+        Rect? materializedRasterBounds = null)
+        => materializedRasterBounds ?? replayedInputBounds;
+
     public RenderRequestExecutor(
         RenderTargetLeaseSession targets,
         ProgramCache<CachedSkRuntimeEffect>? programCache = null,

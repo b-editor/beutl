@@ -90,6 +90,111 @@ public sealed class DrawableGroupIsolationTests
         });
     }
 
+    [Test]
+    public void SplitEffectOnGroup_MatchesSplitEffectOnEachChild()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource groupFiltered = CreateGroup(
+                opacity: 100,
+                CreateSplitEffect(),
+                CreateRectangle(240, 240, Brushes.OrangeRed, alignmentX: AlignmentX.Left),
+                CreateRectangle(240, 240, Brushes.SteelBlue, alignmentX: AlignmentX.Right));
+
+            RectShape left = CreateRectangle(
+                240,
+                240,
+                Brushes.OrangeRed,
+                alignmentX: AlignmentX.Left);
+            left.FilterEffect.CurrentValue = CreateSplitEffect();
+            RectShape right = CreateRectangle(
+                240,
+                240,
+                Brushes.SteelBlue,
+                alignmentX: AlignmentX.Right);
+            right.FilterEffect.CurrentValue = CreateSplitEffect();
+            using Drawable.Resource childrenFiltered = CreateGroup(
+                opacity: 100,
+                effect: null,
+                left,
+                right);
+
+            using Bitmap actual = RenderScene(groupFiltered);
+            using Bitmap expected = RenderScene(childrenFiltered);
+
+            AssertByteIdentical(
+                expected,
+                actual,
+                "a group SplitEffect and an equivalent SplitEffect on each child");
+        });
+    }
+
+    [Test]
+    public void BlurOnGroupWithHairlineChild_ProducesOnlyFiniteChannels()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var blur = new Blur();
+            blur.Sigma.CurrentValue = new Size(6, 6);
+            using Drawable.Resource group = CreateGroup(
+                opacity: 100,
+                blur,
+                CreateRectangle(200, 1, Brushes.Magenta),
+                CreateRectangle(40, 40, Brushes.SteelBlue));
+
+            using Bitmap actual = RenderScene(0.5f, group);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    ImageMetrics.FirstNonFinite(("blurred group hairline", actual)),
+                    Is.Null,
+                    "A per-child filter layer must not sample outside the hairline child it replays.");
+                Assert.That(HasFiniteVisibleContent(actual), Is.True, "The fixture must render visible content.");
+            });
+        });
+    }
+
+    [Test]
+    public void EffectChainOnGroupWithOffFrameChild_ProducesOnlyFiniteChannels()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            RectShape offFrame = CreateRectangle(160, 120, Brushes.OrangeRed);
+            offFrame.Transform.CurrentValue = new TranslateTransform(-180, -120);
+
+            var blur = new Blur();
+            blur.Sigma.CurrentValue = new Size(10, 10);
+            var shadow = new DropShadow();
+            shadow.Position.CurrentValue = new Point(10, 10);
+            shadow.Sigma.CurrentValue = new Size(20, 20);
+            shadow.Color.CurrentValue = Colors.Black;
+            var chain = new FilterEffectGroup();
+            chain.Children.Add(blur);
+            chain.Children.Add(shadow);
+
+            using Drawable.Resource group = CreateGroup(
+                opacity: 100,
+                chain,
+                CreateRectangle(120, 80, Brushes.SteelBlue),
+                offFrame);
+
+            using Bitmap actual = RenderScene(0.5f, group);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    ImageMetrics.FirstNonFinite(("filtered group with off-frame child", actual)),
+                    Is.Null,
+                    "Each effect layer must stay within the off-frame child content it replays.");
+                Assert.That(HasFiniteVisibleContent(actual), Is.True, "The fixture must render visible content.");
+            });
+        });
+    }
+
     [TestCase(100f)]
     [TestCase(99f)]
     public void MultiplyChild_CompositesAgainstIsolatedGroupContent(float opacity)
@@ -597,6 +702,16 @@ public sealed class DrawableGroupIsolationTests
         foreach (Drawable child in children)
             group.Children.Add(child);
         return group.ToResource(CompositionContext.Default);
+    }
+
+    private static SplitEffect CreateSplitEffect()
+    {
+        var effect = new SplitEffect();
+        effect.HorizontalDivisions.CurrentValue = 2;
+        effect.VerticalDivisions.CurrentValue = 2;
+        effect.HorizontalSpacing.CurrentValue = 20;
+        effect.VerticalSpacing.CurrentValue = 20;
+        return effect;
     }
 
     private static Drawable.Resource CreateTranslatedMaskGroup(FilterEffect? effect)

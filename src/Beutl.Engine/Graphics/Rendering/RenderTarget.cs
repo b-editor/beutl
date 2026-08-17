@@ -52,6 +52,7 @@ public class RenderTarget : IDisposable
     private readonly SKSurfaceCounter<SKSurface> _surface;
     private readonly SKSurfaceCounter<ITexture2D>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
+    private bool _hasTransparentContents;
 
     private RenderTarget(SKSurfaceCounter<SKSurface> surface, int width, int height,
         SKSurfaceCounter<ITexture2D>? texture = null)
@@ -123,9 +124,16 @@ public class RenderTarget : IDisposable
                     deferRelease: true,
                     approximateBytes: (long)width * height * 8)
                 : null;
-            return surface == null
-                ? null
-                : new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height, textureRef);
+            if (surface == null)
+                return null;
+
+            var result = new RenderTarget(
+                new SKSurfaceCounter<SKSurface>(surface),
+                width,
+                height,
+                textureRef);
+            result.ClearToTransparent();
+            return result;
         }
         catch
         {
@@ -292,7 +300,18 @@ public class RenderTarget : IDisposable
     {
         VerifyAccess();
 
+        _hasTransparentContents = false;
         _texture?.Value?.PrepareForRender();
+    }
+
+    internal bool HasTransparentContents => _hasTransparentContents;
+
+    internal void ClearToTransparent()
+    {
+        VerifyAccess();
+        BeginDraw();
+        _surface.Value!.Canvas.Clear(SKColors.Transparent);
+        _hasTransparentContents = true;
     }
 
     internal void PrepareForSampling(RenderTargetSamplingIntent intent)

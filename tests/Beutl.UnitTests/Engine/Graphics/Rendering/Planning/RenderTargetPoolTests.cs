@@ -14,6 +14,36 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 public sealed class RenderTargetPoolTests
 {
     [Test]
+    public void Acquisition_DefinesNewAndReusedTargetsAsTransparent()
+    {
+        var factory = new TrackingTargetFactory(
+            create: static (size, _) =>
+            {
+                var target = new TrackingRenderTarget(size.Width, size.Height);
+                target.Value.Canvas.Clear(SKColors.Magenta);
+                return target;
+            });
+        using var pool = new RenderTargetPool(factory);
+
+        using (RenderTargetPoolRequest request = pool.BeginRequest())
+        {
+            using PooledRenderTargetLease lease = request.Acquire(new PixelSize(4, 3));
+            AssertTargetIsTransparent(lease.Target);
+            lease.Target.Value.Canvas.Clear(SKColors.Cyan);
+        }
+
+        using (RenderTargetPoolRequest request = pool.BeginRequest())
+        {
+            using PooledRenderTargetLease lease = request.Acquire(new PixelSize(4, 3));
+            Assert.Multiple(() =>
+            {
+                Assert.That(lease.WasReused, Is.True);
+                AssertTargetIsTransparent(lease.Target);
+            });
+        }
+    }
+
+    [Test]
     public void StableExactSize_WarmsOnce_WhileChangingSizeMisses()
     {
         var factory = new TrackingTargetFactory();
@@ -1032,6 +1062,18 @@ public sealed class RenderTargetPoolTests
             base.Dispose(disposing);
             if (fail)
                 throw _disposeFailure!;
+        }
+    }
+
+    private static unsafe void AssertTargetIsTransparent(RenderTarget target)
+    {
+        using Bitmap snapshot = target.Snapshot();
+        for (int y = 0; y < snapshot.Height; y++)
+        {
+            var row = new ReadOnlySpan<Half>(
+                (byte*)snapshot.Data + (long)y * snapshot.RowBytes,
+                snapshot.Width * 4);
+            Assert.That(row.ToArray(), Is.All.EqualTo((Half)0));
         }
     }
 }

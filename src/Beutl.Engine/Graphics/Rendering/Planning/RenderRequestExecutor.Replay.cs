@@ -230,9 +230,11 @@ internal sealed partial class RenderRequestExecutor
             using var paint = builder.HasFilter()
                 ? new SKPaint { ImageFilter = builder.GetFilter() }
                 : null;
-            Rect layerContentBounds = materializedInput is { Count: 1 }
-                ? materializedInput[0].RasterBounds
-                : input.Bounds;
+            Rect replayedInputBounds = ResolveFragmentRequirement(input, input.Bounds);
+            Rect layerContentBounds = GetDirectFilterLayerBounds(
+                input.Bounds,
+                replayedInputBounds,
+                materializedInput is { Count: 1 } ? materializedInput[0].RasterBounds : null);
             ExecuteSegment(chainIndex: 0);
             return true;
 
@@ -254,7 +256,7 @@ internal sealed partial class RenderRequestExecutor
                             using (destination.PushBlendMode(BlendMode.SrcOver))
                             using (destination.PushTransform(Matrix.Identity))
                             // Bound the layer to exactly what ReplayInput draws; filters must not sample
-                            // the destination clip outside that content as if it belonged to the source.
+                            // unwritten portions of the input's semantic bounds as source pixels.
                             using (destination.PushPaint(paint, layerContentBounds))
                             {
                                 ReplayInput();

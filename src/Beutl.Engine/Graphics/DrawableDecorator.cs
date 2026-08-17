@@ -45,8 +45,8 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
                 using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
                 using (context.PushNode(
                            boundsMemory,
-                           b => new DrawableGroup.ContentBoundsRenderNode(b, isolatesContent: false),
-                           (n, b) => n.Update(b, isolatesContent: false)))
+                           b => new DrawableGroup.ContentBoundsRenderNode(b),
+                           (n, b) => n.Update(b)))
                 {
                     context.DrawDrawable(child);
                 }

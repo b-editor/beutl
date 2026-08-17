@@ -10,12 +10,23 @@ namespace Beutl.Graphics.Backend.Vulkan;
 
 using Image = Silk.NET.Vulkan.Image;
 
-internal sealed class VulkanContext : IGraphicsContext
+internal sealed unsafe class VulkanContext : IGraphicsContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger<VulkanContext>();
     private readonly VulkanInstance _vulkanInstance;
     private readonly VulkanDevice _vulkanDevice;
     private readonly VulkanCommandPool _vulkanCommandPool;
+    private readonly object _skiaImagesLock = new();
+    private readonly Dictionary<ulong, ImageCreateInfo> _skiaImages = [];
+    private readonly VkCreateImageDelegate _createImage;
+    private readonly VkDestroyImageDelegate _destroyImage;
+    private readonly VkBindImageMemoryDelegate _bindImageMemory;
+    private readonly VkCreateImageDelegate _createImageProxyDelegate;
+    private readonly VkDestroyImageDelegate _destroyImageProxyDelegate;
+    private readonly VkBindImageMemoryDelegate _bindImageMemoryProxyDelegate;
+    private readonly IntPtr _createImageProxy;
+    private readonly IntPtr _destroyImageProxy;
+    private readonly IntPtr _bindImageMemoryProxy;
     private GRContext? _skiaContext;
     private GRVkBackendContext? _skiaBackendContext;
     private bool _disposed;
@@ -29,6 +40,16 @@ internal sealed class VulkanContext : IGraphicsContext
             _vulkanDevice.Device,
             _vulkanDevice.GraphicsQueue,
             _vulkanDevice.GraphicsQueueFamilyIndex);
+        _createImage = GetDeviceDelegate<VkCreateImageDelegate>("vkCreateImage");
+        _destroyImage = GetDeviceDelegate<VkDestroyImageDelegate>("vkDestroyImage");
+        _bindImageMemory = GetDeviceDelegate<VkBindImageMemoryDelegate>("vkBindImageMemory");
+        // Ganesh creates its filter layers and scratch images through these callbacks. Vulkan
+        // leaves a newly bound image undefined, and SwiftShader can expose bytes from a previously
+        // freed allocation, so make initialization part of image binding instead of relying on
+        // every Skia caller to happen to overwrite the complete allocation.
+        _createImageProxy = Marshal.GetFunctionPointerForDelegate(_createImageProxyDelegate = CreateSkiaImage);
+        _destroyImageProxy = Marshal.GetFunctionPointerForDelegate(_destroyImageProxyDelegate = DestroySkiaImage);
+        _bindImageMemoryProxy = Marshal.GetFunctionPointerForDelegate(_bindImageMemoryProxyDelegate = BindSkiaImageMemory);
 
         if (!physicalDevice.IsMoltenVK)
         {
@@ -67,6 +88,13 @@ internal sealed class VulkanContext : IGraphicsContext
 
     private IntPtr GetVulkanProcAddress(string name, IntPtr instance, IntPtr device)
     {
+        if (name == "vkCreateImage")
+            return _createImageProxy;
+        if (name == "vkDestroyImage")
+            return _destroyImageProxy;
+        if (name == "vkBindImageMemory")
+            return _bindImageMemoryProxy;
+
         var vk = _vulkanInstance.Vk;
 
         if (device != IntPtr.Zero)
@@ -87,6 +115,148 @@ internal sealed class VulkanContext : IGraphicsContext
 
         return vk.GetInstanceProcAddr(_vulkanInstance.Instance, name);
     }
+
+    private T GetDeviceDelegate<T>(string name)
+        where T : Delegate
+    {
+        IntPtr address = _vulkanInstance.Vk.GetDeviceProcAddr(_vulkanDevice.Device, name);
+        if (address == IntPtr.Zero)
+            throw new InvalidOperationException($"Vulkan device function '{name}' is unavailable.");
+        return Marshal.GetDelegateForFunctionPointer<T>(address);
+    }
+
+    private unsafe Result CreateSkiaImage(
+        Device device,
+        ImageCreateInfo* createInfo,
+        AllocationCallbacks* allocator,
+        Image* image)
+    {
+        ImageCreateInfo initializedInfo = PrepareSkiaImageCreateInfo(*createInfo);
+
+        Result result = _createImage(device, &initializedInfo, allocator, image);
+        if (result == Result.Success)
+        {
+            lock (_skiaImagesLock)
+                _skiaImages[image->Handle] = initializedInfo;
+        }
+        return result;
+    }
+
+    private unsafe void DestroySkiaImage(
+        Device device,
+        Image image,
+        AllocationCallbacks* allocator)
+    {
+        lock (_skiaImagesLock)
+            _skiaImages.Remove(image.Handle);
+        _destroyImage(device, image, allocator);
+    }
+
+    private unsafe Result BindSkiaImageMemory(
+        Device device,
+        Image image,
+        DeviceMemory memory,
+        ulong memoryOffset)
+    {
+        Result result = _bindImageMemory(device, image, memory, memoryOffset);
+        ImageCreateInfo createInfo;
+        lock (_skiaImagesLock)
+            _skiaImages.TryGetValue(image.Handle, out createInfo);
+        if (result == Result.Success && RequiresTransparentInitialization(createInfo))
+        {
+            try
+            {
+                ClearSkiaImage(image, createInfo);
+            }
+            catch (Exception ex)
+            {
+                // Never let a managed exception cross the unmanaged Vulkan callback boundary.
+                // Rejecting the bind makes Skia discard the allocation instead of observing
+                // an image whose contents were never defined.
+                s_logger.LogError(ex, "Failed to initialize a Skia Vulkan image.");
+                return Result.ErrorInitializationFailed;
+            }
+        }
+        return result;
+    }
+
+    internal static ImageCreateInfo PrepareSkiaImageCreateInfo(ImageCreateInfo createInfo)
+    {
+        if ((createInfo.Usage & ImageUsageFlags.ColorAttachmentBit) != 0)
+            createInfo.Usage |= ImageUsageFlags.TransferDstBit;
+        return createInfo;
+    }
+
+    internal static bool RequiresTransparentInitialization(ImageCreateInfo createInfo)
+        => createInfo.InitialLayout == ImageLayout.Undefined
+           && (createInfo.Usage & ImageUsageFlags.ColorAttachmentBit) != 0;
+
+    internal static ImageSubresourceRange CreateInitializationRange(ImageCreateInfo createInfo)
+        => new()
+        {
+            AspectMask = ImageAspectFlags.ColorBit,
+            BaseMipLevel = 0,
+            LevelCount = createInfo.MipLevels,
+            BaseArrayLayer = 0,
+            LayerCount = createInfo.ArrayLayers,
+        };
+
+    private unsafe void ClearSkiaImage(Image image, ImageCreateInfo createInfo)
+    {
+        _vulkanCommandPool.SubmitImmediateCommands(commandBuffer =>
+        {
+            ImageSubresourceRange range = CreateInitializationRange(createInfo);
+            var barrier = new ImageMemoryBarrier
+            {
+                SType = StructureType.ImageMemoryBarrier,
+                OldLayout = ImageLayout.Undefined,
+                NewLayout = ImageLayout.TransferDstOptimal,
+                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                Image = image,
+                SubresourceRange = range,
+                SrcAccessMask = 0,
+                DstAccessMask = AccessFlags.TransferWriteBit,
+            };
+            Vk.CmdPipelineBarrier(
+                commandBuffer,
+                PipelineStageFlags.TopOfPipeBit,
+                PipelineStageFlags.TransferBit,
+                0,
+                0, null,
+                0, null,
+                1, &barrier);
+
+            var transparent = new ClearColorValue(0, 0, 0, 0);
+            Vk.CmdClearColorImage(
+                commandBuffer,
+                image,
+                ImageLayout.TransferDstOptimal,
+                &transparent,
+                1,
+                &range);
+        });
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private unsafe delegate Result VkCreateImageDelegate(
+        Device device,
+        ImageCreateInfo* createInfo,
+        AllocationCallbacks* allocator,
+        Image* image);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private unsafe delegate void VkDestroyImageDelegate(
+        Device device,
+        Image image,
+        AllocationCallbacks* allocator);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private unsafe delegate Result VkBindImageMemoryDelegate(
+        Device device,
+        Image image,
+        DeviceMemory memory,
+        ulong memoryOffset);
 
     public GraphicsBackend Backend => GraphicsBackend.Vulkan;
 

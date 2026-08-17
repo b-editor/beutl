@@ -21,7 +21,7 @@ public sealed class RenderPipelineMigrationCensusTests
         new Dictionary<string, int>(StringComparer.Ordinal)
         {
             ["src/Beutl.Engine/Graphics/AudioVisualizers/AudioVisualizerRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/DrawableGroup.cs"] = 2,
+            ["src/Beutl.Engine/Graphics/DrawableGroup.cs"] = 3,
             ["src/Beutl.Engine/Graphics/Particles/ParticleRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/BlendModeRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/ClearRenderNode.cs"] = 1,
@@ -57,7 +57,11 @@ public sealed class RenderPipelineMigrationCensusTests
         s_productionOverrideBaseline
             .Where(static item =>
                 item.Key != "src/Beutl.Engine/Graphics/Rendering/Renderer.cs"
+                && item.Key != "src/Beutl.Engine/Graphics/DrawableGroup.cs"
                 && item.Key != "src/Beutl.NodeGraph/Nodes/FilterEffectInputNode.cs")
+            .Append(new KeyValuePair<string, int>(
+                "src/Beutl.Engine/Graphics/DrawableGroup.cs",
+                2))
             .Append(new KeyValuePair<string, int>(
                 "src/Beutl.Engine/Graphics/Rendering/OperationWrapperRenderNode.cs",
                 1))
@@ -178,7 +182,7 @@ public sealed class RenderPipelineMigrationCensusTests
             AssertDeclaredBaseline("production", 29, s_startingProductionOverrideBaseline);
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
             AssertAllOverridesAreMapped(overrides);
-            AssertBaselineInventory("production", 30, s_productionOverrideBaseline, overrides);
+            AssertBaselineInventory("production", 31, s_productionOverrideBaseline, overrides);
             AssertBaselineInventory("test", 184, s_testOverrideBaseline, overrides);
         }
     }

@@ -18,20 +18,27 @@ public sealed class DrawableGroupPublishedBoundsTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using Drawable.Resource group = CreateClippedGroup();
+            using Drawable.Resource control = CreateIndividuallyClippedChildren();
             var smallFrame = new PixelSize(256, 144);
             var largeFrame = new PixelSize(512, 288);
             using Bitmap small = GoldenImageHarness.RenderAtScale(
                 group, smallFrame, 1f, clearColor: Colors.Transparent);
             using Bitmap large = GoldenImageHarness.RenderAtScale(
                 group, largeFrame, 1f, clearColor: Colors.Transparent);
+            using Bitmap expectedSmall = GoldenImageHarness.RenderAtScale(
+                control, smallFrame, 1f, clearColor: Colors.Transparent);
+            using Bitmap expectedLarge = GoldenImageHarness.RenderAtScale(
+                control, largeFrame, 1f, clearColor: Colors.Transparent);
 
             LogicalAlphaBounds smallBounds = GetLogicalAlphaBounds(small, smallFrame);
             LogicalAlphaBounds largeBounds = GetLogicalAlphaBounds(large, largeFrame);
 
             Assert.Multiple(() =>
             {
+                GoldenImageHarness.AssertByteIdentical(expectedSmall, small);
+                GoldenImageHarness.AssertByteIdentical(expectedLarge, large);
                 Assert.That(smallBounds, Is.EqualTo(largeBounds),
-                    "group clipping must be measured from the group bounds, not the scene domain");
+                    "per-child group clipping must be measured from group content, not the scene domain");
                 Assert.That(smallBounds.Width, Is.LessThan(200), "the horizontal clipping must be visible");
                 Assert.That(smallBounds.Height, Is.LessThan(120), "the vertical clipping must be visible");
             });
@@ -64,17 +71,34 @@ public sealed class DrawableGroupPublishedBoundsTests
 
     private static Drawable.Resource CreateClippedGroup()
     {
+        var group = new DrawableGroup();
+        group.FilterEffect.CurrentValue = CreateClipping();
+        group.Children.Add(CreateGradientRectangle(200, 120));
+        group.Children.Add(CreateRectangle(60, 60, Brushes.White));
+        return group.ToResource(CompositionContext.Default);
+    }
+
+    private static Drawable.Resource CreateIndividuallyClippedChildren()
+    {
+        RectShape large = CreateGradientRectangle(200, 120);
+        large.FilterEffect.CurrentValue = CreateClipping();
+        RectShape small = CreateRectangle(60, 60, Brushes.White);
+        small.FilterEffect.CurrentValue = CreateClipping();
+
+        var group = new DrawableGroup();
+        group.Children.Add(large);
+        group.Children.Add(small);
+        return group.ToResource(CompositionContext.Default);
+    }
+
+    private static Clipping CreateClipping()
+    {
         var clipping = new Clipping();
         clipping.Left.CurrentValue = 60;
         clipping.Top.CurrentValue = 40;
         clipping.Right.CurrentValue = 60;
         clipping.Bottom.CurrentValue = 40;
-
-        var group = new DrawableGroup();
-        group.FilterEffect.CurrentValue = clipping;
-        group.Children.Add(CreateGradientRectangle(200, 120));
-        group.Children.Add(CreateRectangle(60, 60, Brushes.White));
-        return group.ToResource(CompositionContext.Default);
+        return clipping;
     }
 
     private static Drawable.Resource CreateDrawableBrushHost(bool grouped)

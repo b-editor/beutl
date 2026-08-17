@@ -31,7 +31,6 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             var boundsMemory = context.UseMemory<Rect>();
             var transformParams = (r.Transform, r.TransformOrigin, availableSize, boundsMemory);
             bool isolatesContent = resource.Opacity != 100f
-                                   || r.FilterEffect is not null
                                    || r.BlendMode != Graphics.BlendMode.SrcOver
                                    || r.Children.Any(static child => child.BlendMode != Graphics.BlendMode.SrcOver);
 
@@ -45,11 +44,15 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                            b.Transform, b.TransformOrigin, b.availableSize,
                            Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
             using (context.PushOpacity(resource.Opacity / 100f))
+            using (context.PushNode(
+                       isolatesContent,
+                       b => new ContentIsolationRenderNode(b),
+                       (n, b) => n.Update(b)))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
             using (context.PushNode(
-                       (boundsMemory, isolatesContent),
-                       b => new ContentBoundsRenderNode(b.boundsMemory, b.isolatesContent),
-                       (n, b) => n.Update(b.boundsMemory, b.isolatesContent)))
+                       boundsMemory,
+                       b => new ContentBoundsRenderNode(b),
+                       (n, b) => n.Update(b)))
             {
                 OnDraw(context, r);
             }
@@ -118,39 +121,50 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         }
     }
 
-    internal sealed class ContentBoundsRenderNode(
-        MemoryNode<Rect> memoryNode,
-        bool isolatesContent) : ContainerRenderNode
+    internal sealed class ContentBoundsRenderNode(MemoryNode<Rect> memoryNode) : ContainerRenderNode
     {
         public MemoryNode<Rect> MemoryNode { get; private set; } = memoryNode;
 
-        public bool IsolatesContent { get; private set; } = isolatesContent;
-
-        public bool Update(MemoryNode<Rect> memoryNode, bool isolatesContent)
+        public bool Update(MemoryNode<Rect> memoryNode)
         {
-            bool changed = false;
             if (memoryNode != MemoryNode)
             {
                 MemoryNode = memoryNode;
-                changed = true;
+                HasChanges = true;
+                return true;
             }
 
-            if (isolatesContent != IsolatesContent)
-            {
-                IsolatesContent = isolatesContent;
-                changed = true;
-            }
-
-            HasChanges |= changed;
-            return changed;
+            return false;
         }
 
         public override void Process(RenderNodeContext context)
         {
-            Rect bounds = context.CalculateRecordedInputBoundsHint();
-            MemoryNode.Value = bounds;
+            MemoryNode.Value = context.CalculateRecordedInputBoundsHint();
+            context.PassThrough();
+        }
+    }
+
+    internal sealed class ContentIsolationRenderNode(bool isolatesContent) : ContainerRenderNode
+    {
+        public bool IsolatesContent { get; private set; } = isolatesContent;
+
+        public bool Update(bool isolatesContent)
+        {
+            if (isolatesContent != IsolatesContent)
+            {
+                IsolatesContent = isolatesContent;
+                HasChanges = true;
+                return true;
+            }
+
+            return false;
+        }
+
+        public override void Process(RenderNodeContext context)
+        {
             if (IsolatesContent)
             {
+                Rect bounds = context.CalculateRecordedInputBoundsHint();
                 context.Publish(context.TargetLayerScope(context.Inputs, TargetRegion.Region(bounds)));
             }
             else

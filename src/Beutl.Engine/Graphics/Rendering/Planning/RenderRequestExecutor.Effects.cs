@@ -455,10 +455,14 @@ internal sealed partial class RenderRequestExecutor
                 {
                     if (paint is not null)
                     {
-                        Rect layerContentBounds = input.Bounds;
+                        Rect replayedInputBounds = ResolveFragmentRequirement(input, input.Bounds);
+                        Rect layerContentBounds = GetDirectFilterLayerBounds(
+                            input.Bounds,
+                            replayedInputBounds);
                         using (canvas.PushBlendMode(BlendMode.SrcOver))
                         using (canvas.PushTransform(Matrix.Identity))
-                        // The filter layer must not include pixels outside the replayed input contract.
+                        // The filter layer must match the region Replay writes, not the input's full
+                        // semantic bounds. A wider layer exposes unwritten pixels to spatial filters.
                         using (canvas.PushPaint(paint, layerContentBounds))
                         {
                             replayStarted = true;
