@@ -849,6 +849,27 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_GetDrainLatencySamples_IgnoresEndedBranchNotProcessedAfterSeek()
+    {
+        const int processSamples = 1024;
+        const int replaySamples = 64;
+        const int branchLatency = 240;
+        var branchEnd = ExactDuration(processSamples, SampleRate);
+
+        using var branch = new RecordingLatencyNode(branchLatency);
+        using var mixer = new MixerNode();
+        mixer.AddInput(branch);
+        mixer.SetBranchEndTime(branch, branchEnd);
+
+        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+        using var replay = mixer.Process(
+            ExactContext(branchEnd + ExactDuration(replaySamples, SampleRate), replaySamples, SampleRate));
+
+        Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(0),
+            "A branch that ended before a discontinuous replay and was not processed in that run must not keep its old latency alive.");
+    }
+
+    [Test]
     public void MixerNode_GetDrainLatencySamples_ExcludesBranchWhoseTailEndedDuringProcess()
     {
         const int sampleCount = 1024;

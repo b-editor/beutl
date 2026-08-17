@@ -113,6 +113,12 @@ public sealed class MixerNode : AudioNode
                 continue;
             }
 
+            // A discontinuous process clears _processedBranches before asking the branch for audio.
+            // If the branch has already ended and was not processed in this run, its reported
+            // latency belongs to an abandoned timeline rather than the current drain.
+            if (_branchEndTimes.ContainsKey(input) && !_processedBranches.Contains(input))
+                continue;
+
             int branchLatency = input.GetDrainLatencySamples(sampleRate);
             if (branchLatency < 0)
             {
