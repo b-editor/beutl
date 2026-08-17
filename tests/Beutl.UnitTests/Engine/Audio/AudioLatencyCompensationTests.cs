@@ -2202,6 +2202,34 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_ConvertsInlineDrainBudgetThroughSpeedNode()
+    {
+        const int sampleRate = SampleRate;
+        int clipSamples = sampleRate;
+        var clipDuration = ExactDuration(clipSamples, sampleRate);
+        int outputSamples = clipSamples * 2 + 1;
+        var firstRange = new TimeRange(TimeSpan.Zero, ExactDuration(outputSamples, sampleRate));
+
+        var sound = new SpeedInlineTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(62),
+            "The source-domain tail remaining after the SpeedNode's inline drain must be scaled to output samples.");
+    }
+
+    [Test]
     public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
     {
         const float lookaheadMs = 20f;

@@ -94,7 +94,19 @@ public sealed class SpeedNode : AudioNode
         if (upstreamLatency == 0 || upstreamLatency == int.MaxValue)
             return upstreamLatency;
 
-        double drainSpeed;
+        if (!TryGetDrainSpeedFactor(sampleRate, out double drainSpeed))
+        {
+            return int.MaxValue;
+        }
+
+        double scaled = Math.Ceiling(upstreamLatency / drainSpeed);
+        return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
+    }
+
+    internal bool TryGetDrainSpeedFactor(int sampleRate, out double drainSpeed)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
         if (Speed?.Animation is not null)
         {
             // An animation whose output range cannot be proven bounded remains unbounded even when
@@ -103,7 +115,8 @@ public sealed class SpeedNode : AudioNode
                 || !double.IsFinite(minimumSpeed)
                 || minimumSpeed <= 0)
             {
-                return int.MaxValue;
+                drainSpeed = default;
+                return false;
             }
 
             drainSpeed = _hasLastAnimatedSpeed && _lastSampleRate == sampleRate
@@ -115,13 +128,7 @@ public sealed class SpeedNode : AudioNode
             drainSpeed = (Speed?.CurrentValue ?? 100f) / 100d;
         }
 
-        if (!double.IsFinite(drainSpeed) || drainSpeed <= 0)
-        {
-            return int.MaxValue;
-        }
-
-        double scaled = Math.Ceiling(upstreamLatency / drainSpeed);
-        return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
+        return double.IsFinite(drainSpeed) && drainSpeed > 0;
     }
 
     private bool TryGetMinimumSpeedFactor(out double minimumSpeed)

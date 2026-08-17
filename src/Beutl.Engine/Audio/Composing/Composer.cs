@@ -459,7 +459,7 @@ public class Composer : IComposer
 
             remainingLatency = Math.Max(
                 remainingLatency,
-                ScaleSampleCount(branchRemaining, branch.SampleRate, sampleRate));
+                ScaleByFactor(branchRemaining, branch.OutputScale));
         }
 
         inlineDrain = remainingLatency == int.MaxValue
@@ -473,14 +473,15 @@ public class Composer : IComposer
         int DrainedSamples,
         int PaddingSamples,
         int DownstreamLatencySamples,
-        int SampleRate);
+        double OutputScale);
 
     private static void CollectInlineDrainBranches(
         AudioNode node,
         int sampleRate,
         List<InlineDrainBranch> branches,
         HashSet<AudioNode> visited,
-        int downstreamLatency = 0)
+        int downstreamLatency = 0,
+        double outputScale = 1d)
     {
         if (!visited.Add(node))
             return;
@@ -501,7 +502,7 @@ public class Composer : IComposer
                     clipNode.InlineDrainedSamples,
                     clipNode.InlinePaddingSamples,
                     downstreamLatency,
-                    sampleRate));
+                    outputScale));
                 return;
             }
 
@@ -514,6 +515,7 @@ public class Composer : IComposer
 
             int nextDownstreamLatency = AddLatency(downstreamLatency, ownLatency);
             int nextSampleRate = sampleRate;
+            double nextOutputScale = outputScale;
             if (node is ResampleNode resampleNode)
             {
                 nextDownstreamLatency = ScaleSampleCount(
@@ -521,10 +523,32 @@ public class Composer : IComposer
                     sampleRate,
                     resampleNode.SourceSampleRate);
                 nextSampleRate = resampleNode.SourceSampleRate;
+                nextOutputScale = MultiplyScale(
+                    outputScale,
+                    sampleRate / (double)resampleNode.SourceSampleRate);
+            }
+            else if (node is SpeedNode speedNode)
+            {
+                if (speedNode.TryGetDrainSpeedFactor(sampleRate, out double drainSpeed))
+                {
+                    nextDownstreamLatency = ScaleByFactor(nextDownstreamLatency, drainSpeed);
+                    nextOutputScale = MultiplyScale(outputScale, 1d / drainSpeed);
+                }
+                else
+                {
+                    nextDownstreamLatency = int.MaxValue;
+                    nextOutputScale = double.PositiveInfinity;
+                }
             }
 
             foreach (AudioNode input in node.Inputs)
-                CollectInlineDrainBranches(input, nextSampleRate, branches, visited, nextDownstreamLatency);
+                CollectInlineDrainBranches(
+                    input,
+                    nextSampleRate,
+                    branches,
+                    visited,
+                    nextDownstreamLatency,
+                    nextOutputScale);
         }
         finally
         {
@@ -541,6 +565,29 @@ public class Composer : IComposer
 
         long sum = (long)first + second;
         return sum >= int.MaxValue ? int.MaxValue : (int)sum;
+    }
+
+    private static int ScaleByFactor(int sampleCount, double factor)
+    {
+        if (sampleCount == int.MaxValue)
+            return int.MaxValue;
+        if (sampleCount == 0)
+            return 0;
+        if (!double.IsFinite(factor) || factor <= 0)
+            return int.MaxValue;
+
+        double scaled = sampleCount * factor;
+        return !double.IsFinite(scaled) || scaled >= int.MaxValue
+            ? int.MaxValue
+            : (int)Math.Ceiling(scaled);
+    }
+
+    private static double MultiplyScale(double first, double second)
+    {
+        double product = first * second;
+        return double.IsFinite(product) && product > 0
+            ? product
+            : double.PositiveInfinity;
     }
 
     private void PromoteEntries(TimeRange timeRange, bool contiguous)
