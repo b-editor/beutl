@@ -473,25 +473,43 @@ public sealed class AudioContext : IDisposable
         if (!ContainsReference(_nodes, node))
             return;
 
-        // Remove from all connections
+        // Remove dependent inputs first. The context bookkeeping is deliberately left untouched until
+        // every node hook succeeds, so a failed hook leaves the graph available for a retry.
+        var removedFrom = new List<(AudioNode Node, int Index)>();
+        try
+        {
+            foreach (var otherNode in _nodes.ToArray())
+            {
+                if (!ReferenceEquals(otherNode, node)
+                    && ContainsReference(otherNode.Inputs, node))
+                {
+                    int index = IndexOfReference(otherNode.Inputs, node);
+                    otherNode.RemoveInput(node);
+                    removedFrom.Add((otherNode, index));
+                }
+            }
+        }
+        catch
+        {
+            for (int i = removedFrom.Count - 1; i >= 0; i--)
+            {
+                (AudioNode otherNode, int index) = removedFrom[i];
+                otherNode.RestoreInput(node, index);
+            }
+
+            throw;
+        }
+
         _connections.Remove(node);
         foreach (var list in _connections.Values)
         {
             RemoveReference(list, node);
         }
 
-        // Remove from other tracking
         _outputNodes.Remove(node);
         if (ReferenceEquals(_currentNode, node))
             _currentNode = null;
 
-        // Clear inputs of other nodes that reference this one
-        foreach (var otherNode in _nodes)
-        {
-            otherNode.RemoveInput(node);
-        }
-
-        // Finally remove from nodes list
         RemoveReference(_nodes, node);
     }
 
@@ -549,13 +567,18 @@ public sealed class AudioContext : IDisposable
 
     private static bool ContainsReference(IReadOnlyList<AudioNode> nodes, AudioNode node)
     {
+        return IndexOfReference(nodes, node) >= 0;
+    }
+
+    private static int IndexOfReference(IReadOnlyList<AudioNode> nodes, AudioNode node)
+    {
         for (int i = 0; i < nodes.Count; i++)
         {
             if (ReferenceEquals(nodes[i], node))
-                return true;
+                return i;
         }
 
-        return false;
+        return -1;
     }
 
     private static bool RemoveReference(List<AudioNode> nodes, AudioNode node)

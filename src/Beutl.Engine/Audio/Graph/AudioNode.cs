@@ -29,6 +29,27 @@ public abstract class AudioNode : IDisposable
         }
     }
 
+    internal void RestoreInput(AudioNode input, int index)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        if (IndexOfInput(input) >= 0)
+            return;
+        if ((uint)index > (uint)_inputs.Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
+
+        _inputs.Insert(index, input);
+        try
+        {
+            OnInputAdded(input, index);
+        }
+        catch
+        {
+            _inputs.RemoveAt(index);
+            throw;
+        }
+    }
+
     public void RemoveInput(AudioNode input)
     {
         ArgumentNullException.ThrowIfNull(input);

@@ -190,6 +190,54 @@ public class SpeedNodeTests
         }
     }
 
+    [Test]
+    public void ProcessStaticSpeed_At48000Hz_BiasesExactSourceBoundariesForward()
+    {
+        const int sampleRate = 48000;
+        var input = new SourceRequestRecordingNode(sampleRate);
+        using var node = new SpeedNode { Speed = AnimatedSpeed(100f, 100f, 10.0) };
+        node.AddInput(input);
+
+        using AudioBuffer _ = node.Process(
+            new AudioProcessContext(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                sampleRate,
+                new AnimationSampler(),
+                null));
+
+        Assert.That(input.Requests.Count, Is.GreaterThan(1));
+        long expectedStart = 0;
+        for (int i = 0; i < input.Requests.Count; i++)
+        {
+            (long start, int count) = input.Requests[i];
+            Assert.That(start, Is.EqualTo(expectedStart),
+                $"Source request {i} repeated or skipped a sample at the exact 48 kHz boundary.");
+            expectedStart += count;
+        }
+    }
+
+    [Test]
+    public void KeyFrameAnimationRange_ReportsBuiltInFloatBounds()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = 200f,
+            Easing = new LinearEasing()
+        });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 50f,
+            Easing = new LinearEasing()
+        });
+
+        Assert.That(KeyFrameAnimationRange.TryGetOutputRange(animation, out float minimum, out float maximum), Is.True);
+        Assert.That(minimum, Is.EqualTo(50f));
+        Assert.That(maximum, Is.EqualTo(200f));
+    }
+
     // Deterministic finite stereo source: a ramp for the first _length samples, silence beyond. Models
     // SourceNode zero-filling past end-of-source.
     private sealed class FiniteRampInputNode : AudioNode

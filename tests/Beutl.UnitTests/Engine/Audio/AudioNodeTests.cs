@@ -56,6 +56,36 @@ public class AudioNodeTests
     }
 
     [Test]
+    public void AudioContextRemoveNode_WhenRemoveHookThrows_PreservesContextForRetry()
+    {
+        using var context = new AudioContext(48000, 2);
+        using var prefix = new ValueNode();
+        using var source = new ValueNode();
+        using var suffix = new ValueNode();
+        using var destination = new ThrowingHookNode();
+        using var throwing = new ThrowingHookNode { ThrowOnRemove = true };
+        context.Connect(prefix, destination);
+        context.Connect(source, destination);
+        context.Connect(suffix, destination);
+        context.Connect(source, throwing);
+
+        Assert.Throws<InvalidOperationException>(() => context.RemoveNode(source));
+        Assert.That(context.Nodes, Has.Count.EqualTo(5));
+        Assert.That(destination.Inputs, Has.Count.EqualTo(3));
+        Assert.That(destination.Inputs[0], Is.SameAs(prefix));
+        Assert.That(destination.Inputs[1], Is.SameAs(source));
+        Assert.That(destination.Inputs[2], Is.SameAs(suffix));
+
+        throwing.ThrowOnRemove = false;
+        using var sink = new ValueNode();
+        Assert.DoesNotThrow(() => context.Connect(source, sink));
+        Assert.That(sink.Inputs, Has.Count.EqualTo(1));
+
+        Assert.DoesNotThrow(() => context.RemoveNode(source));
+        Assert.That(destination.Inputs, Has.Count.EqualTo(2));
+    }
+
+    [Test]
     public void RemoveInput_WhenHookThrows_RestoresTopologyAndAllowsRetry()
     {
         using var node = new ThrowingHookNode();

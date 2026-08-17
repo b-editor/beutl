@@ -98,40 +98,10 @@ public sealed class SpeedNode : AudioNode
         }
 
         if (speedAnimation is not KeyFrameAnimation<float> animation
-            || animation.KeyFrames.Count == 0)
+            || !KeyFrameAnimationRange.TryGetOutputRange(animation, out float minimumPercent, out _))
         {
             minimumSpeed = default;
             return false;
-        }
-
-        if (animation.KeyFrames[0] is not KeyFrame<float> first
-            || !float.IsFinite(first.Value))
-        {
-            minimumSpeed = default;
-            return false;
-        }
-
-        float minimumPercent = first.Value;
-        var previous = first;
-        for (int i = 1; i < animation.KeyFrames.Count; i++)
-        {
-            if (animation.KeyFrames[i] is not KeyFrame<float> next
-                || !float.IsFinite(next.Value)
-                || !next.Easing.TryGetOutputRange(out float easingMinimum, out float easingMaximum)
-                || !float.IsFinite(easingMinimum)
-                || !float.IsFinite(easingMaximum)
-                || easingMinimum > easingMaximum)
-            {
-                minimumSpeed = default;
-                return false;
-            }
-
-            float delta = next.Value - previous.Value;
-            float intervalMinimum = delta >= 0
-                ? previous.Value + easingMinimum * delta
-                : previous.Value + easingMaximum * delta;
-            minimumPercent = Math.Min(minimumPercent, Math.Min(next.Value, intervalMinimum));
-            previous = next;
         }
 
         minimumSpeed = minimumPercent / 100d;
@@ -422,8 +392,15 @@ public sealed class SpeedNode : AudioNode
                 return 0;
 
             // Derive each sub-range from the exact sample cursor to avoid repeated samples at fractional rates.
-            long sourceStartTicks = (long)Math.Ceiling(
-                _srcReadPos * (double)TimeSpan.TicksPerSecond / _sampleRate);
+            long sourceStartTicks = checked((long)Math.Ceiling(
+                _srcReadPos * (double)TimeSpan.TicksPerSecond / _sampleRate));
+            // TimeSpan.TotalSeconds can round an exact sample boundary just below its integer when
+            // the request is converted back by an upstream node. Bias only those boundaries forward;
+            // an unconditional tick would turn an otherwise contiguous drain into a two-tick gap.
+            if (AudioMath.TimeToSampleIndex(TimeSpan.FromTicks(sourceStartTicks), _sampleRate) < _srcReadPos)
+            {
+                sourceStartTicks = checked(sourceStartTicks + 1);
+            }
             TimeSpan sourceStart = TimeSpan.FromTicks(sourceStartTicks);
             var range = new TimeRange(
                 sourceStart,
