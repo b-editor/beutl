@@ -23,6 +23,7 @@ public class Composer : IComposer
         public int RemainingSamples { get; set; }
         public bool IsKnown { get; set; }
         public bool StopFurtherDrains { get; set; }
+        public bool UnknownFollowUpPending { get; set; }
     }
 
     private sealed class AudioNodeEntry : IDisposable
@@ -346,7 +347,7 @@ public class Composer : IComposer
             int inlineDrain = outputNode is ClipNode clipNode
                 ? clipNode.InlineDrainedSamples
                 : 0;
-            SetTailBudget(entry, outputNode, outputLatency, inlineDrain);
+            SetTailBudget(entry, outputNode, outputLatency, inlineDrain, allowUnknownFollowUp: inlineDrain > 0);
         }
     }
 
@@ -413,6 +414,8 @@ public class Composer : IComposer
         {
             if (budget.StopFurtherDrains)
                 return 0;
+            if (budget.UnknownFollowUpPending)
+                return int.MaxValue;
             if (budget.IsKnown)
                 return ScaleSampleCount(budget.RemainingSamples, SampleRate, sampleRate);
         }
@@ -440,7 +443,8 @@ public class Composer : IComposer
         AudioNodeEntry entry,
         AudioNode outputNode,
         int latency,
-        int drainedSamples)
+        int drainedSamples,
+        bool allowUnknownFollowUp = false)
     {
         var budget = entry.TailBudgets.TryGetValue(outputNode, out var existing)
             ? existing
@@ -449,11 +453,13 @@ public class Composer : IComposer
         if (latency == int.MaxValue)
         {
             budget.RemainingSamples = 0;
-            budget.StopFurtherDrains = true;
+            budget.UnknownFollowUpPending = allowUnknownFollowUp;
+            budget.StopFurtherDrains = !allowUnknownFollowUp;
         }
         else
         {
             budget.RemainingSamples = SubtractTail(latency, drainedSamples);
+            budget.UnknownFollowUpPending = false;
             budget.StopFurtherDrains = false;
         }
 

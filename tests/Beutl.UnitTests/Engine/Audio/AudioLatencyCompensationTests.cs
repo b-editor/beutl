@@ -1446,6 +1446,51 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_RetainsUnknownTailAfterPartialInlineDrain()
+    {
+        const int sampleRate = SampleRate;
+        var clipDuration = ExactDuration(sampleRate, sampleRate);
+        var oneSample = ExactDuration(1, sampleRate);
+        var drainDuration = ExactDuration(240, sampleRate);
+
+        var sound = new UnboundedSpeedTailSound
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+        var eligibility = new CompositionEligibility([sound]);
+        UnboundedSpeedTailSound.ResetFlushCount();
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
+        var firstFrame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            firstRange,
+            default,
+            eligibility);
+        using var first = composer.Compose(firstRange, firstFrame);
+
+        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(int.MaxValue),
+            "A partial inline drain of an unknown budget must retain one bounded follow-up attempt.");
+        Assert.That(UnboundedSpeedTailSound.FlushCount, Is.EqualTo(1),
+            "The terminal block must account for its one inline drain sample.");
+
+        var secondRange = new TimeRange(firstRange.End, drainDuration);
+        var secondFrame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            secondRange,
+            default,
+            eligibility);
+        using var second = composer.Compose(secondRange, secondFrame);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(UnboundedSpeedTailSound.FlushCount, Is.EqualTo(2));
+            Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(0));
+        });
+    }
+
+    [Test]
     public void Composer_ContinuesPartiallyDrainedTailAcrossMultipleWindows()
     {
         const float lookaheadMs = 20f;
