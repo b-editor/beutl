@@ -1,24 +1,43 @@
 ﻿namespace Beutl.Animation;
 
 /// <summary>
-/// Provides conservative bounds for built-in floating-point keyframe animations.
+/// Resolves conservative output ranges for animation implementations.
 /// </summary>
-public static class KeyFrameAnimationRange
+public static class AnimationRangeExtensions
 {
     /// <summary>
-    /// Attempts to return the minimum and maximum values produced by a float keyframe animation.
+    /// Attempts to resolve an animation's output range through its provider contract or the
+    /// built-in <c>KeyFrameAnimation&lt;float&gt;</c> implementation.
     /// </summary>
-    /// <param name="animation">The keyframe animation to inspect.</param>
-    /// <param name="minimum">The minimum output value.</param>
-    /// <param name="maximum">The maximum output value.</param>
-    /// <returns><see langword="true"/> when every keyframe interval has a finite, known easing range.</returns>
-    public static bool TryGetOutputRange(
+    public static bool TryGetOutputRange<T>(
+        this IAnimation<T> animation,
+        out T minimum,
+        out T maximum)
+        where T : IComparable<T>
+    {
+        ArgumentNullException.ThrowIfNull(animation);
+
+        if (animation is IAnimationRange<T> provider)
+            return provider.TryGetOutputRange(out minimum, out maximum);
+
+        if (animation is KeyFrameAnimation<float> floatAnimation && typeof(T) == typeof(float))
+        {
+            bool result = TryGetFloatRange(floatAnimation, out float floatMinimum, out float floatMaximum);
+            minimum = (T)(object)floatMinimum;
+            maximum = (T)(object)floatMaximum;
+            return result;
+        }
+
+        minimum = default!;
+        maximum = default!;
+        return false;
+    }
+
+    private static bool TryGetFloatRange(
         KeyFrameAnimation<float> animation,
         out float minimum,
         out float maximum)
     {
-        ArgumentNullException.ThrowIfNull(animation);
-
         if (animation.KeyFrames.Count == 0
             || animation.KeyFrames[0] is not KeyFrame<float> first
             || !float.IsFinite(first.Value))

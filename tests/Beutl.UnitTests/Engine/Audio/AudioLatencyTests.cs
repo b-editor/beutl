@@ -422,6 +422,21 @@ public class AudioLatencyTests
     }
 
     [Test]
+    public void AnimationRangeExtensions_UsesCustomProviderThroughIAnimationContract()
+    {
+        var animation = new Mock<IAnimationRange<float>>();
+        float minimum = 50f;
+        float maximum = 200f;
+        animation.Setup(x => x.TryGetOutputRange(out minimum, out maximum)).Returns(true);
+
+        IAnimation<float> source = animation.Object;
+
+        Assert.That(source.TryGetOutputRange(out float actualMinimum, out float actualMaximum), Is.True);
+        Assert.That(actualMinimum, Is.EqualTo(minimum));
+        Assert.That(actualMaximum, Is.EqualTo(maximum));
+    }
+
+    [Test]
     public void SpeedNode_ProcessAndFlush_BoundedCustomAnimationUsesAnimationValues()
     {
         var speedProperty = Property.CreateAnimatable(100f);

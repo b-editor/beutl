@@ -217,7 +217,7 @@ public class SpeedNodeTests
     }
 
     [Test]
-    public void KeyFrameAnimationRange_ReportsBuiltInFloatBounds()
+    public void KeyFrameAnimation_ReportsBuiltInFloatBoundsThroughRangeContract()
     {
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
@@ -233,7 +233,8 @@ public class SpeedNodeTests
             Easing = new LinearEasing()
         });
 
-        Assert.That(KeyFrameAnimationRange.TryGetOutputRange(animation, out float minimum, out float maximum), Is.True);
+        IAnimation<float> source = animation;
+        Assert.That(source.TryGetOutputRange(out float minimum, out float maximum), Is.True);
         Assert.That(minimum, Is.EqualTo(50f));
         Assert.That(maximum, Is.EqualTo(200f));
     }

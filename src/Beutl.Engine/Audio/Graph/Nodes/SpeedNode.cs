@@ -133,28 +133,10 @@ public sealed class SpeedNode : AudioNode
             return true;
         }
 
-        if (speedAnimation is IAnimationRange<float> range)
-        {
-            if (!range.TryGetOutputRange(out float rangeMinimum, out float rangeMaximum))
-            {
-                minimumSpeed = default;
-                return false;
-            }
-
-            if (!float.IsFinite(rangeMinimum)
-                || !float.IsFinite(rangeMaximum)
-                || rangeMinimum > rangeMaximum)
-            {
-                minimumSpeed = default;
-                return false;
-            }
-
-            minimumSpeed = rangeMinimum / 100d;
-            return true;
-        }
-
-        if (speedAnimation is not KeyFrameAnimation<float> animation
-            || !KeyFrameAnimationRange.TryGetOutputRange(animation, out float minimumPercent, out _))
+        if (!speedAnimation.TryGetOutputRange(out float minimumPercent, out float maximumPercent)
+            || !float.IsFinite(minimumPercent)
+            || !float.IsFinite(maximumPercent)
+            || minimumPercent > maximumPercent)
         {
             minimumSpeed = default;
             return false;
