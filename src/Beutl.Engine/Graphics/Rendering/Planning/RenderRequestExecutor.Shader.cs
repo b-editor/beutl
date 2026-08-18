@@ -277,7 +277,7 @@ internal sealed partial class RenderRequestExecutor
 
         private static bool CanUseAsSemanticShaderInput(MaterializedRenderValue input)
         {
-            // Mirror RasterShaderMapping's raster-local subset calculation. Continuous Rect
+            // Mirror RasterShaderMapping's semantic subset calculation. Continuous Rect
             // containment is insufficient because PixelRect.FromRect rounds both edges outward.
             Rect sourceRasterBounds = input.RasterBounds;
             float sourceScale = input.EffectiveScale.Value;
@@ -294,11 +294,15 @@ internal sealed partial class RenderRequestExecutor
             }
             else
             {
-                semanticSubset = PixelRect.FromRect(
-                    input.Bounds.Translate(new Vector(
-                        -sourceRasterBounds.X,
-                        -sourceRasterBounds.Y)),
+                Vector deviceGridOffset = canonicalRasterBounds.Position - sourceRasterBounds.Position;
+                PixelRect semanticDeviceBounds = PixelRect.FromRect(
+                    input.Bounds.Translate(deviceGridOffset),
                     sourceScale);
+                semanticSubset = new PixelRect(
+                    semanticDeviceBounds.X - input.DeviceBounds.X,
+                    semanticDeviceBounds.Y - input.DeviceBounds.Y,
+                    semanticDeviceBounds.Width,
+                    semanticDeviceBounds.Height);
             }
 
             var imageBounds = new PixelRect(input.DeviceBounds.Size);
