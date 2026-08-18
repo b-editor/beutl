@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -1833,6 +1833,24 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiEstimatedUsage" xml:space="preserve">
     <value>Uses your monthly allowance</value>
+  </data>
+  <data name="AiModel" xml:space="preserve">
+    <value>Model</value>
+  </data>
+  <data name="AiModelUnavailable" xml:space="preserve">
+    <value>The model this request used is no longer offered. Start a new request to choose another one.</value>
+  </data>
+  <data name="AiModelCostLow" xml:space="preserve">
+    <value>Uses less of the allowance</value>
+  </data>
+  <data name="AiModelCostMedium" xml:space="preserve">
+    <value>Uses about the usual</value>
+  </data>
+  <data name="AiModelCostHigh" xml:space="preserve">
+    <value>Uses more of the allowance</value>
+  </data>
+  <data name="AiModelUnaffordable" xml:space="preserve">
+    <value>Not enough remaining</value>
   </data>
   <data name="AiPricingUnavailable" xml:space="preserve">
     <value>Authoritative pricing is unavailable. Reconnect before starting this paid operation.</value>

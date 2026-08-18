@@ -4,6 +4,11 @@ namespace Beutl.Api.Clients;
 
 internal interface IAiClient
 {
+    [Get("/api/v3/ai/capabilities")]
+    Task<AiCapabilitiesResponse> GetCapabilities(
+        [Header("Authorization")] string authorization,
+        CancellationToken cancellationToken);
+
     [Get("/api/v3/user/entitlements")]
     Task<EntitlementsResponse> GetEntitlements(
         [Header("Authorization")] string authorization,
@@ -29,6 +34,7 @@ internal interface IAiClient
         [AliasAs("aspectRatio")] string aspectRatio,
         [AliasAs("background")] string? background,
         [AliasAs("seed")] string? seed,
+        [AliasAs("model")] string? model,
         CancellationToken cancellationToken);
 
     [Multipart]
@@ -39,6 +45,7 @@ internal interface IAiClient
         [AliasAs("file")] StreamPart file,
         [AliasAs("task")] string task,
         [AliasAs("prompt")] string? prompt,
+        [AliasAs("model")] string? model,
         CancellationToken cancellationToken);
 
     [Multipart]
@@ -48,6 +55,7 @@ internal interface IAiClient
         [Header("Idempotency-Key")] string idempotencyKey,
         [AliasAs("file")] StreamPart file,
         [AliasAs("language")] string? language,
+        [AliasAs("model")] string? model,
         CancellationToken cancellationToken);
 
     [Post("/api/v3/ai/videos")]
@@ -70,6 +78,7 @@ internal interface IAiClient
         [AliasAs("aspectRatio")] string aspectRatio,
         [AliasAs("generateAudio")] string generateAudio,
         [AliasAs("seed")] string? seed,
+        [AliasAs("model")] string? model,
         CancellationToken cancellationToken);
 
     [Get("/api/v3/ai/videos/{id}")]

@@ -32,6 +32,7 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
     private readonly SubtitleAiCapabilities _aiService;
     private readonly IAiEntitlementService _entitlements;
     private readonly IAiOperationAvailabilityService _availability;
+    private readonly IAiModelCatalogService _modelCatalog;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly EditViewModel? _editViewModel;
     private readonly CaptionCodecRegistry _captionCodecs;
@@ -44,6 +45,7 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
     internal AiSubtitleDialogViewModel(
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
+        IAiModelCatalogService modelCatalog,
         IAiPlanCoordinator aiPlanCoordinator,
         IAiTranscriptionService transcription,
         IAiCaptionTranslationService translation,
@@ -54,6 +56,7 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
     {
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _availability = availability ?? throw new ArgumentNullException(nameof(availability));
+        _modelCatalog = modelCatalog ?? throw new ArgumentNullException(nameof(modelCatalog));
         _aiPlanCoordinator = aiPlanCoordinator
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
         _aiService = new SubtitleAiCapabilities(
@@ -69,6 +72,12 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         _captionTemplates = captionCatalog.Templates;
         _captionSerializer = captionCatalog.Serializer;
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
+        // Two operations on one screen, so two pickers: transcription and
+        // translation have their own models and their own prices.
+        TranscriptionModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
+            .DisposeWith(_disposables);
+        TranslationModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
+            .DisposeWith(_disposables);
 
         AudioSources = new ReactivePropertySlim<IReadOnlyList<AudioSourceItem>>([])
             .DisposeWith(_disposables);
@@ -162,6 +171,10 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
 
     internal AiUsageViewModel Usage { get; }
 
+    internal AiModelPickerViewModel TranscriptionModelPicker { get; }
+
+    internal AiModelPickerViewModel TranslationModelPicker { get; }
+
     public ReadOnlyReactivePropertySlim<bool> ShowJoinPro { get; }
 
     public ReactivePropertySlim<string?> Error { get; } = new();
@@ -207,6 +220,12 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         try
         {
             await _entitlements.RefreshAsync(_lifetimeCts.Token);
+            await TranscriptionModelPicker.LoadAsync(
+                AiOperations.Transcription,
+                _lifetimeCts.Token);
+            await TranslationModelPicker.LoadAsync(
+                AiOperations.CaptionTranslation,
+                _lifetimeCts.Token);
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {

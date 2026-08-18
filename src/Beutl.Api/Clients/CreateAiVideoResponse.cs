@@ -24,4 +24,8 @@ internal sealed record CreateAiVideoRequest
     [JsonPropertyName("seed")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Seed { get; init; }
+
+    [JsonPropertyName("model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Model { get; init; }
 }

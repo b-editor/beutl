@@ -18,4 +18,10 @@ internal sealed class CreateAiImageRequest
     [JsonPropertyName("seed")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Seed { get; init; }
+
+    // Omitted rather than sent empty: the endpoint runs the operation's default
+    // model when no model is named, and refuses an id it does not know.
+    [JsonPropertyName("model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Model { get; init; }
 }

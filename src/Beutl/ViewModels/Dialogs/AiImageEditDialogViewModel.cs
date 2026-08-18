@@ -31,6 +31,7 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
     private readonly ILogger _logger = Log.CreateLogger<AiImageEditDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
     private readonly IAiOperationAvailabilityService _availability;
+    private readonly IAiModelCatalogService _modelCatalog;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiImageEditingService _images;
     private readonly IAuthenticatedContentService _content;
@@ -41,6 +42,7 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
     public AiImageEditDialogViewModel(
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
+        IAiModelCatalogService modelCatalog,
         IAiPlanCoordinator aiPlanCoordinator,
         IAiImageEditingService images,
         IAuthenticatedContentService content,
@@ -48,12 +50,15 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
     {
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _availability = availability ?? throw new ArgumentNullException(nameof(availability));
+        _modelCatalog = modelCatalog ?? throw new ArgumentNullException(nameof(modelCatalog));
         _aiPlanCoordinator = aiPlanCoordinator
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
         _images = images ?? throw new ArgumentNullException(nameof(images));
         _content = content ?? throw new ArgumentNullException(nameof(content));
         _editViewModel = editViewModel;
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
+        ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
+            .DisposeWith(_disposables);
         PromptLibrary = new AiPromptLibraryViewModel(
                 PromptTaskKind.ImageEdit,
                 () => Prompt.Value,
@@ -94,6 +99,11 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
             new AiOutpaintExpansionOption(50),
         ];
         SelectedOutpaintExpansion = new ReactivePropertySlim<AiOutpaintExpansionOption>(OutpaintExpansionOptions[1])
+            .DisposeWith(_disposables);
+        // Each task is a separate operation with its own models, so the list
+        // has to follow the task rather than be read once.
+        SelectedTask
+            .Subscribe(task => _ = ReloadModelsAsync(task))
             .DisposeWith(_disposables);
         RequiresPrompt = SelectedTask
             .Select(task => task.Value is "restyle" or "remove_object" or "outpaint")
@@ -250,6 +260,8 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
 
     internal AiUsageViewModel Usage { get; }
 
+    internal AiModelPickerViewModel ModelPicker { get; }
+
     internal AiUsageEstimateViewModel EstimatedUsage { get; }
 
     internal AiPromptLibraryViewModel PromptLibrary { get; }
@@ -317,6 +329,9 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         try
         {
             await _entitlements.RefreshAsync(operation.CancellationToken);
+            await ModelPicker.LoadAsync(
+                AiOperations.ImageEdit(new AiImageEditTaskId(SelectedTask.Value.Value)),
+                operation.CancellationToken);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -324,6 +339,26 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load AI entitlements.");
+        }
+    }
+
+    private async Task ReloadModelsAsync(AiImageEditTaskOption task)
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        try
+        {
+            await ModelPicker.LoadAsync(
+                AiOperations.ImageEdit(new AiImageEditTaskId(task.Value)),
+                operation.CancellationToken);
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load the AI models for an image edit task.");
         }
     }
 
@@ -409,9 +444,15 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
                 prompt = $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt}";
             }
 
+            AiOperationId editOperation = AiOperations.ImageEdit(new AiImageEditTaskId(task));
+            // Only the model the picker is currently showing for this task; a
+            // selection left over from another task belongs to another
+            // operation and would be refused.
+            AiModelId? model = ModelPicker.Operation == editOperation
+                ? ModelPicker.SelectedModel
+                : null;
             if (!await _availability.CheckAsync(
-                    new AiOperationAvailabilityRequest.Fixed(
-                        AiOperations.ImageEdit(new AiImageEditTaskId(task))),
+                    new AiOperationAvailabilityRequest.Fixed(editOperation, model),
                     operation.CancellationToken))
             {
                 throw new AiUsageLimitExceededException();
@@ -421,7 +462,8 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
                 new AiImageEditRequest(
                     AiUploadSource.FromFile(uploadPath),
                     new AiImageEditTaskId(task),
-                    prompt),
+                    prompt,
+                    model),
                 operation.CancellationToken);
 
             using var stream = new MemoryStream();

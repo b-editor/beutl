@@ -465,9 +465,14 @@ public sealed partial class AiSubtitleDialogViewModel
                 }
 
                 await EnsureAvailableAsync(
-                    new AiOperationAvailabilityRequest.Transcription(chunk.Duration.TotalSeconds));
+                    new AiOperationAvailabilityRequest.Transcription(
+                        chunk.Duration.TotalSeconds,
+                        TranscriptionModelPicker.SelectedModel));
                 AiTranscriptionResponse response = await _aiService.TranscribeAsync(
-                    new AiTranscriptionRequest(AiUploadSource.FromFile(path), language),
+                    new AiTranscriptionRequest(
+                        AiUploadSource.FromFile(path),
+                        language,
+                        TranscriptionModelPicker.SelectedModel),
                     _lifetimeCts.Token);
                 operation.DetectedLanguage ??= response.Language;
                 double offsetSeconds = chunkOffset / (double)operation.SampleRate;
@@ -572,7 +577,9 @@ public sealed partial class AiSubtitleDialogViewModel
                 throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
             await EnsureAvailableAsync(
-                new AiOperationAvailabilityRequest.Transcription(chunkDuration.TotalSeconds));
+                new AiOperationAvailabilityRequest.Transcription(
+                    chunkDuration.TotalSeconds,
+                    TranscriptionModelPicker.SelectedModel));
 
             (string path, FileStream stream) = AiTemporaryFileStore.Create(
                 "audio",
@@ -585,7 +592,10 @@ public sealed partial class AiSubtitleDialogViewModel
                     WriteSpeechWave(snapshot, stream, _lifetimeCts.Token);
                 }
                 AiTranscriptionResponse response = await _aiService.TranscribeAsync(
-                    new AiTranscriptionRequest(AiUploadSource.FromFile(path), language),
+                    new AiTranscriptionRequest(
+                        AiUploadSource.FromFile(path),
+                        language,
+                        TranscriptionModelPicker.SelectedModel),
                     _lifetimeCts.Token);
                 operation.DetectedLanguage ??= response.Language;
                 foreach (AiTranscriptionSegment segment in response.Segments)
@@ -680,7 +690,8 @@ public sealed partial class AiSubtitleDialogViewModel
                                 piece.End),
                         }).ToArray(),
                         operation.TargetLanguage,
-                        operation.SourceLanguage),
+                        operation.SourceLanguage,
+                        model: TranslationModelPicker.SelectedModel),
                     _lifetimeCts.Token);
                 AddTranslatedBatch(operation, batch, response);
                 RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
@@ -2017,13 +2028,17 @@ public sealed partial class AiSubtitleDialogViewModel
                 : TimeSpan.FromTicks(Math.Min(duration.Ticks, SceneMixChunkDuration.Ticks));
         }
         return duration > TimeSpan.Zero
-            ? new AiOperationAvailabilityRequest.Transcription(duration.TotalSeconds)
+            ? new AiOperationAvailabilityRequest.Transcription(
+                duration.TotalSeconds,
+                TranscriptionModelPicker.SelectedModel)
             : null;
     }
 
-    private static AiOperationAvailabilityRequest.Translation CreateTranslationAvailabilityRequest(
+    private AiOperationAvailabilityRequest.Translation CreateTranslationAvailabilityRequest(
         TranslationBatch batch)
-        => new(batch.Pieces.Sum(piece => piece.Text.Length));
+        => new(
+            batch.Pieces.Sum(piece => piece.Text.Length),
+            TranslationModelPicker.SelectedModel);
 
     private async Task EnsureAvailableAsync(AiOperationAvailabilityRequest request)
     {

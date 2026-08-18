@@ -181,6 +181,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         => new(
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
+            _beutlClients.GetResource<IAiModelCatalogService>(),
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiImageGenerationService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>(),
@@ -190,6 +191,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         => new(
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
+            _beutlClients.GetResource<IAiModelCatalogService>(),
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiImageEditingService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>(),
@@ -203,6 +205,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         return new AiSubtitleDialogViewModel(
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
+            _beutlClients.GetResource<IAiModelCatalogService>(),
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiTranscriptionService>(),
             _beutlClients.GetResource<IAiCaptionTranslationService>(),
@@ -225,6 +228,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         => new(
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
+            _beutlClients.GetResource<IAiModelCatalogService>(),
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiVideoService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>(),

@@ -6,6 +6,12 @@ internal sealed record AiFixedOperationAvailabilityRequestDto
 {
     [JsonPropertyName("operation")]
     public required string Operation { get; init; }
+
+    // Which model the question is about. Omitted asks about the default, which
+    // is what a client that offers no choice sends.
+    [JsonPropertyName("model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Model { get; init; }
 }
 
 internal sealed record AiVideoOperationAvailabilityRequestDto
@@ -15,6 +21,10 @@ internal sealed record AiVideoOperationAvailabilityRequestDto
 
     [JsonPropertyName("durationSeconds")]
     public required int DurationSeconds { get; init; }
+
+    [JsonPropertyName("model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Model { get; init; }
 }
 
 internal sealed record AiTranscriptionOperationAvailabilityRequestDto
@@ -24,6 +34,10 @@ internal sealed record AiTranscriptionOperationAvailabilityRequestDto
 
     [JsonPropertyName("durationSeconds")]
     public required double DurationSeconds { get; init; }
+
+    [JsonPropertyName("model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Model { get; init; }
 }
 
 internal sealed record AiTranslationOperationAvailabilityRequestDto
@@ -33,6 +47,10 @@ internal sealed record AiTranslationOperationAvailabilityRequestDto
 
     [JsonPropertyName("characterCount")]
     public required int CharacterCount { get; init; }
+
+    [JsonPropertyName("model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Model { get; init; }
 }
 
 internal sealed record AiOperationAvailabilityResponse

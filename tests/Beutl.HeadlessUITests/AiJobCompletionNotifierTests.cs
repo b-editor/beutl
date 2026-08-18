@@ -205,7 +205,8 @@ public sealed class AiJobCompletionNotifierTests
             new UnusedImageGenerationService(),
             new UnusedVideoService(),
             new UnusedEntitlementService(),
-            new UnusedAvailabilityService());
+            new UnusedAvailabilityService(),
+            new UnusedModelCatalogService());
 
     private static AiJobResultHandlerRegistry CreateBuiltInResultHandlers()
         => new(BuiltInAiJobResultHandlers.Create());
@@ -298,5 +299,15 @@ public sealed class AiJobCompletionNotifierTests
             AiOperationAvailabilityRequest request,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedModelCatalogService : IAiModelCatalogService
+    {
+        public Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken)
+            => Task.FromResult(AiModelCatalog.Empty);
+
+        public void Invalidate()
+        {
+        }
     }
 }

@@ -17,6 +17,10 @@ internal sealed record AiJobHistoryResponse
     [JsonPropertyName("inputParams")]
     public JsonElement? InputParams { get; init; }
 
+    // Null for jobs created before an operation could offer more than one.
+    [JsonPropertyName("model")]
+    public string? Model { get; init; }
+
     [JsonPropertyName("fileId")]
     public string? FileId { get; init; }
 

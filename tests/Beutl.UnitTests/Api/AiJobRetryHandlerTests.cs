@@ -34,7 +34,8 @@ public class AiJobRetryHandlerTests
         var handler = new AiImageJobRetryHandler(
             images.Object,
             EntitlementService(),
-            AvailabilityService(available: true));
+            AvailabilityService(available: true),
+            ModelCatalogService());
 
         await handler.RetryAsync(Job("image", inputParameters), CancellationToken.None);
 
@@ -47,7 +48,8 @@ public class AiJobRetryHandlerTests
         var handler = new AiImageJobRetryHandler(
             Mock.Of<IAiImageGenerationService>(),
             EntitlementService(),
-            AvailabilityService(available: true));
+            AvailabilityService(available: true),
+            ModelCatalogService());
 
         // The picture itself was never retained, so repeating this would make
         // something else and charge the same price for it.
@@ -71,7 +73,8 @@ public class AiJobRetryHandlerTests
         var handler = new AiVideoJobRetryHandler(
             videos.Object,
             EntitlementService(),
-            AvailabilityService(available: true));
+            AvailabilityService(available: true),
+            ModelCatalogService());
 
         await handler.RetryAsync(
             Job(
@@ -106,7 +109,8 @@ public class AiJobRetryHandlerTests
         var handler = new AiVideoJobRetryHandler(
             videos.Object,
             EntitlementService(),
-            AvailabilityService(available: true));
+            AvailabilityService(available: true),
+            ModelCatalogService());
 
         // Recorded before these fields existed: repeating it must run it the
         // way it originally ran.
@@ -128,7 +132,8 @@ public class AiJobRetryHandlerTests
         var handler = new AiVideoJobRetryHandler(
             Mock.Of<IAiVideoService>(),
             EntitlementService(),
-            AvailabilityService(available: true));
+            AvailabilityService(available: true),
+            ModelCatalogService());
 
         Assert.ThrowsAsync<InvalidOperationException>(() => handler.RetryAsync(
             Job(
@@ -153,6 +158,18 @@ public class AiJobRetryHandlerTests
         UpdatedAt: DateTimeOffset.UnixEpoch);
 
     private static IAiEntitlementService EntitlementService() => Mock.Of<IAiEntitlementService>();
+
+    // An empty catalog is what a client that could not read the model list
+    // holds, and it says nothing about any model, so these tests exercise the
+    // retry path itself rather than the model check.
+    private static IAiModelCatalogService ModelCatalogService(AiModelCatalog? catalog = null)
+    {
+        var mock = new Mock<IAiModelCatalogService>();
+        mock
+            .Setup(service => service.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(catalog ?? AiModelCatalog.Empty);
+        return mock.Object;
+    }
 
     private static IAiOperationAvailabilityService AvailabilityService(bool available)
     {

@@ -60,6 +60,10 @@ internal sealed record AiCaptionTranslationRequestDto
     [JsonPropertyName("style")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AiCaptionTranslationStyleDto? Style { get; init; }
+
+    [JsonPropertyName("model")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Model { get; init; }
 }
 
 internal sealed record AiCaptionTranslationResponseDto

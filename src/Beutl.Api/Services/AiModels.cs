@@ -24,6 +24,88 @@ public readonly struct AiOperationId : IEquatable<AiOperationId>
     public static bool operator !=(AiOperationId left, AiOperationId right) => !left.Equals(right);
 }
 
+/// <summary>
+/// One of the models an operation may run on, as registered on the server. The
+/// list is not known at build time, so it is never a fixed set here.
+/// </summary>
+public readonly struct AiModelId : IEquatable<AiModelId>
+{
+    private readonly string? _value;
+
+    public AiModelId(string value) => _value = AiIdentifier.Normalize(value, nameof(value));
+
+    public string Value => _value ?? string.Empty;
+
+    public bool Equals(AiModelId other) => StringComparer.Ordinal.Equals(Value, other.Value);
+
+    public override bool Equals(object? obj) => obj is AiModelId other && Equals(other);
+
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
+
+    public override string ToString() => Value;
+
+    public static bool operator ==(AiModelId left, AiModelId right) => left.Equals(right);
+
+    public static bool operator !=(AiModelId left, AiModelId right) => !left.Equals(right);
+}
+
+/// <summary>
+/// How one model compares in cost with the others offered for the same
+/// operation. The server publishes an ordering rather than a price, so this is
+/// all a client can say about what a choice will spend.
+/// </summary>
+public enum AiModelCostTier
+{
+    Low,
+    Medium,
+    High,
+}
+
+public sealed record AiModelOption(
+    AiModelId Id,
+    string DisplayName,
+    AiModelCostTier? CostTier,
+    bool IsDefault);
+
+/// <summary>
+/// The models each operation offers. Empty for an operation the server did not
+/// report, which a request answers by naming no model at all and letting the
+/// server pick its default.
+/// </summary>
+public sealed class AiModelCatalog
+{
+    public static AiModelCatalog Empty { get; } =
+        new(ImmutableDictionary<AiOperationId, ImmutableArray<AiModelOption>>.Empty);
+
+    public AiModelCatalog(
+        IEnumerable<KeyValuePair<AiOperationId, ImmutableArray<AiModelOption>>> operations)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        Operations = operations.ToImmutableDictionary(pair => pair.Key, pair => pair.Value);
+    }
+
+    public ImmutableDictionary<AiOperationId, ImmutableArray<AiModelOption>> Operations { get; }
+
+    public ImmutableArray<AiModelOption> ModelsFor(AiOperationId operation)
+        => Operations.TryGetValue(operation, out ImmutableArray<AiModelOption> models)
+            ? models
+            : [];
+
+    public AiModelOption? DefaultFor(AiOperationId operation)
+    {
+        ImmutableArray<AiModelOption> models = ModelsFor(operation);
+        if (models.IsDefaultOrEmpty)
+            return null;
+        foreach (AiModelOption model in models)
+        {
+            if (model.IsDefault)
+                return model;
+        }
+
+        return models[0];
+    }
+}
+
 public static class AiOperations
 {
     public static AiOperationId ImageGeneration { get; } = new("image.generate");
@@ -40,19 +122,26 @@ public static class AiOperations
 
 public abstract record AiOperationAvailabilityRequest
 {
-    private AiOperationAvailabilityRequest(AiOperationId operation)
+    private AiOperationAvailabilityRequest(AiOperationId operation, AiModelId? model)
     {
         if (operation.Value.Length == 0)
             throw new ArgumentException("An AI operation is required.", nameof(operation));
         Operation = operation;
+        Model = model is { Value.Length: > 0 } ? model : null;
     }
 
     public AiOperationId Operation { get; }
 
+    /// <summary>
+    /// The model the question is about. Null asks about the operation's
+    /// default, since that is what a request naming no model would run on.
+    /// </summary>
+    public AiModelId? Model { get; }
+
     public sealed record Fixed : AiOperationAvailabilityRequest
     {
-        public Fixed(AiOperationId operation)
-            : base(operation)
+        public Fixed(AiOperationId operation, AiModelId? model = null)
+            : base(operation, model)
         {
             if (operation != AiOperations.ImageGeneration
                 && !operation.Value.StartsWith("image.edit.", StringComparison.Ordinal))
@@ -64,8 +153,8 @@ public abstract record AiOperationAvailabilityRequest
 
     public sealed record Video : AiOperationAvailabilityRequest
     {
-        public Video(int durationSeconds)
-            : base(AiOperations.VideoGeneration)
+        public Video(int durationSeconds, AiModelId? model = null)
+            : base(AiOperations.VideoGeneration, model)
         {
             if (durationSeconds is not (4 or 6 or 8))
                 throw new ArgumentOutOfRangeException(nameof(durationSeconds));
@@ -77,8 +166,8 @@ public abstract record AiOperationAvailabilityRequest
 
     public sealed record Transcription : AiOperationAvailabilityRequest
     {
-        public Transcription(double durationSeconds)
-            : base(AiOperations.Transcription)
+        public Transcription(double durationSeconds, AiModelId? model = null)
+            : base(AiOperations.Transcription, model)
         {
             if (!double.IsFinite(durationSeconds) || durationSeconds <= 0)
                 throw new ArgumentOutOfRangeException(nameof(durationSeconds));
@@ -90,8 +179,8 @@ public abstract record AiOperationAvailabilityRequest
 
     public sealed record Translation : AiOperationAvailabilityRequest
     {
-        public Translation(int characterCount)
-            : base(AiOperations.CaptionTranslation)
+        public Translation(int characterCount, AiModelId? model = null)
+            : base(AiOperations.CaptionTranslation, model)
         {
             if (characterCount is <= 0 or > 20_000)
                 throw new ArgumentOutOfRangeException(nameof(characterCount));
@@ -139,6 +228,15 @@ public static class AiRequestLimits
         if (seed.Value is < MinSeed or > MaxSeed)
             throw new ArgumentOutOfRangeException(parameterName);
         return seed;
+    }
+
+    // A default-constructed AiModelId carries no id, and sending an empty
+    // string would be refused as an unknown model. It means "no choice made",
+    // so it is normalized to null and the server picks its own default.
+    internal static AiModelId? ValidateOptionalModel(AiModelId? model, string parameterName)
+    {
+        _ = parameterName;
+        return model is { Value.Length: > 0 } ? model : null;
     }
 }
 
@@ -235,7 +333,8 @@ public sealed record AiImageGenerationRequest
         AiImageAspectRatioId aspectRatio,
         bool transparentBackground = false,
         int? seed = null,
-        AiUploadSource? reference = null)
+        AiUploadSource? reference = null,
+        AiModelId? model = null)
     {
         if (aspectRatio.Value.Length == 0)
             throw new ArgumentException("An image aspect ratio is required.", nameof(aspectRatio));
@@ -247,6 +346,7 @@ public sealed record AiImageGenerationRequest
         TransparentBackground = transparentBackground;
         Seed = AiRequestLimits.ValidateOptionalSeed(seed, nameof(seed));
         Reference = reference;
+        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
     }
 
     public string Prompt { get; }
@@ -270,6 +370,12 @@ public sealed record AiImageGenerationRequest
     /// what the operation's price covers.
     /// </summary>
     public AiUploadSource? Reference { get; }
+
+    /// <summary>
+    /// Which model to run on. Null asks for the operation's default; naming one
+    /// the server does not offer is refused rather than substituted.
+    /// </summary>
+    public AiModelId? Model { get; }
 }
 
 public sealed record AiImageEditRequest
@@ -277,7 +383,8 @@ public sealed record AiImageEditRequest
     public AiImageEditRequest(
         AiUploadSource image,
         AiImageEditTaskId task,
-        string? prompt = null)
+        string? prompt = null,
+        AiModelId? model = null)
     {
         ArgumentNullException.ThrowIfNull(image);
         if (task.Value.Length == 0)
@@ -285,6 +392,7 @@ public sealed record AiImageEditRequest
         Image = image;
         Task = task;
         Prompt = AiRequestLimits.ValidateOptionalPrompt(prompt, nameof(prompt));
+        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
     }
 
     public AiUploadSource Image { get; }
@@ -292,20 +400,28 @@ public sealed record AiImageEditRequest
     public AiImageEditTaskId Task { get; }
 
     public string? Prompt { get; }
+
+    public AiModelId? Model { get; }
 }
 
 public sealed record AiTranscriptionRequest
 {
-    public AiTranscriptionRequest(AiUploadSource audio, string? language = null)
+    public AiTranscriptionRequest(
+        AiUploadSource audio,
+        string? language = null,
+        AiModelId? model = null)
     {
         ArgumentNullException.ThrowIfNull(audio);
         Audio = audio;
         Language = string.IsNullOrWhiteSpace(language) ? null : language.Trim();
+        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
     }
 
     public AiUploadSource Audio { get; }
 
     public string? Language { get; }
+
+    public AiModelId? Model { get; }
 }
 
 /// <summary>
@@ -364,7 +480,8 @@ public sealed record AiCaptionTranslationRequest
         IReadOnlyList<AiCaptionTranslationSegment> segments,
         string targetLanguage,
         string? sourceLanguage = null,
-        AiCaptionTranslationStyle? style = null)
+        AiCaptionTranslationStyle? style = null,
+        AiModelId? model = null)
     {
         ArgumentNullException.ThrowIfNull(segments);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetLanguage);
@@ -379,6 +496,7 @@ public sealed record AiCaptionTranslationRequest
             ? null
             : sourceLanguage.Trim().ToLowerInvariant();
         Style = style is null || style.IsEmpty ? null : style;
+        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
     }
 
     public IReadOnlyList<AiCaptionTranslationSegment> Segments { get; }
@@ -388,6 +506,8 @@ public sealed record AiCaptionTranslationRequest
     public string? SourceLanguage { get; }
 
     public AiCaptionTranslationStyle? Style { get; }
+
+    public AiModelId? Model { get; }
 }
 
 public sealed record AiVideoGenerationRequest
@@ -400,7 +520,8 @@ public sealed record AiVideoGenerationRequest
         bool generateAudio = true,
         int? seed = null,
         AiUploadSource? firstFrame = null,
-        AiUploadSource? lastFrame = null)
+        AiUploadSource? lastFrame = null,
+        AiModelId? model = null)
     {
         if (durationSeconds is not (4 or 6 or 8))
             throw new ArgumentOutOfRangeException(nameof(durationSeconds));
@@ -423,6 +544,7 @@ public sealed record AiVideoGenerationRequest
         Seed = AiRequestLimits.ValidateOptionalSeed(seed, nameof(seed));
         FirstFrame = firstFrame;
         LastFrame = lastFrame;
+        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
     }
 
     public string Prompt { get; }
@@ -445,6 +567,8 @@ public sealed record AiVideoGenerationRequest
     public AiUploadSource? FirstFrame { get; }
 
     public AiUploadSource? LastFrame { get; }
+
+    public AiModelId? Model { get; }
 }
 
 public sealed record AiJobPageRequest
@@ -486,6 +610,37 @@ public sealed class AiOperationAvailability
         => Operations.TryGetValue(operation, out bool allowed) && allowed;
 }
 
+/// <summary>
+/// Which of an operation's models the account can pay for right now. An
+/// operation reads as available when any one of them does, so a picker needs
+/// this to know which entries to offer.
+/// </summary>
+public sealed class AiModelAvailability
+{
+    public static AiModelAvailability Empty { get; } =
+        new(ImmutableDictionary<AiOperationId, ImmutableDictionary<AiModelId, bool>>.Empty);
+
+    public AiModelAvailability(
+        IEnumerable<KeyValuePair<AiOperationId, ImmutableDictionary<AiModelId, bool>>> operations)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        Operations = operations.ToImmutableDictionary(pair => pair.Key, pair => pair.Value);
+    }
+
+    public ImmutableDictionary<AiOperationId, ImmutableDictionary<AiModelId, bool>> Operations { get; }
+
+    /// <summary>
+    /// Whether that model can be started. An operation the server did not
+    /// report says nothing about its models, so the answer falls back to the
+    /// operation-wide flag its caller already has.
+    /// </summary>
+    public bool CanStart(AiOperationId operation, AiModelId model, bool fallback)
+        => Operations.TryGetValue(operation, out ImmutableDictionary<AiModelId, bool>? models)
+           && models.TryGetValue(model, out bool allowed)
+            ? allowed
+            : fallback;
+}
+
 public sealed record AiEntitlements(
     string? Plan,
     string? SubscriptionStatus,
@@ -494,7 +649,14 @@ public sealed record AiEntitlements(
     bool CancelAtPeriodEnd,
     bool CanUseAi,
     AiBalance Balance,
-    AiOperationAvailability Availability);
+    AiOperationAvailability Availability)
+{
+    /// <summary>
+    /// Empty against a server that predates per-model pricing, which is the
+    /// same as saying nothing about any particular model.
+    /// </summary>
+    public AiModelAvailability ModelAvailability { get; init; } = AiModelAvailability.Empty;
+}
 
 public sealed record AiImageResult(
     AiJobId? JobId,
@@ -721,8 +883,73 @@ internal static class AiModelMapper
                 value.Availability.Select(pair =>
                     new KeyValuePair<AiOperationId, bool>(
                         new AiOperationId(pair.Key),
-                        pair.Value))));
+                        pair.Value))))
+        {
+            ModelAvailability = ToModel(value.ModelAvailability),
+        };
     }
+
+    private static AiModelAvailability ToModel(
+        ImmutableDictionary<string, ImmutableDictionary<string, bool>>? response)
+    {
+        if (response is null || response.Count == 0)
+            return AiModelAvailability.Empty;
+
+        return new AiModelAvailability(
+            response
+                .Where(pair => pair.Value is not null)
+                .Select(pair => new KeyValuePair<AiOperationId, ImmutableDictionary<AiModelId, bool>>(
+                    new AiOperationId(pair.Key),
+                    pair.Value.ToImmutableDictionary(
+                        model => new AiModelId(model.Key),
+                        model => model.Value))));
+    }
+
+    // Models the server did not describe well enough to offer are dropped
+    // rather than shown unnamed: an entry whose id cannot be sent back is not a
+    // choice.
+    public static AiModelCatalog ToModel(AiCapabilitiesResponse response)
+    {
+        if (response.Operations is null || response.Operations.Count == 0)
+            return AiModelCatalog.Empty;
+
+        return new AiModelCatalog(
+            response.Operations
+                .Select(pair => new KeyValuePair<AiOperationId, ImmutableArray<AiModelOption>>(
+                    new AiOperationId(pair.Key),
+                    ToModelOptions(pair.Value)))
+                .Where(pair => !pair.Value.IsDefaultOrEmpty));
+    }
+
+    private static ImmutableArray<AiModelOption> ToModelOptions(
+        AiOperationCapabilityResponse capability)
+    {
+        if (capability.Models is not { IsDefaultOrEmpty: false } models)
+            return [];
+
+        return models
+            .Where(model => !string.IsNullOrWhiteSpace(model.Id))
+            .Select(model => new AiModelOption(
+                new AiModelId(model.Id),
+                string.IsNullOrWhiteSpace(model.DisplayName)
+                    ? model.Id.Trim()
+                    : model.DisplayName.Trim(),
+                ToCostTier(model.CostTier),
+                model.IsDefault))
+            .ToImmutableArray();
+    }
+
+    // An unrecognized tier is reported as none rather than guessed at: the
+    // label is the only thing said about relative cost, and a wrong one would
+    // send a user to the pricier model believing it is the cheaper.
+    private static AiModelCostTier? ToCostTier(string? value)
+        => value switch
+        {
+            "low" => AiModelCostTier.Low,
+            "medium" => AiModelCostTier.Medium,
+            "high" => AiModelCostTier.High,
+            _ => null,
+        };
 
     public static AiBalance ToModel(AiBalanceResponse response)
     {
@@ -807,7 +1034,12 @@ internal static class AiModelMapper
             response.CanRetry,
             response.CreatedAt.ToUniversalTime(),
             response.UpdatedAt.ToUniversalTime(),
-            ToContentMetadata(response.FileName, response.ContentType));
+            ToContentMetadata(response.FileName, response.ContentType))
+        {
+            Model = string.IsNullOrWhiteSpace(response.Model)
+                ? null
+                : new AiModelId(response.Model),
+        };
 
     private static AiJobId? ToOptionalJobId(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : new AiJobId(value);

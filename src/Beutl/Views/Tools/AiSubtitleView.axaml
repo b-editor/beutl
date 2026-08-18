@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Views.Tools.AiSubtitleView"
+﻿<UserControl x:Class="Beutl.Views.Tools.AiSubtitleView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -37,6 +37,13 @@
                         <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_RangeEnd}"
                                  Text="{CompiledBinding SceneRangeEndText.Value}" />
                     </StackPanel>
+                </StackPanel>
+                <StackPanel IsVisible="{CompiledBinding TranscriptionModelPicker.HasChoice.Value}" Spacing="4">
+                    <TextBlock Text="{x:Static lang:Strings.AiModel}" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
+                              ItemsSource="{CompiledBinding TranscriptionModelPicker.Options}"
+                              SelectedItem="{CompiledBinding TranscriptionModelPicker.Selected.Value}" />
                 </StackPanel>
                 <TextBlock Text="{x:Static lang:Strings.AiSubtitle_SourceLanguage}" />
                 <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_SourceLanguage}"
@@ -289,6 +296,13 @@
                     <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TargetLanguage}"
                               ItemsSource="{CompiledBinding TargetLanguages}"
                               SelectedItem="{CompiledBinding SelectedTargetLanguage.Value}" />
+                    <StackPanel IsVisible="{CompiledBinding TranslationModelPicker.HasChoice.Value}" Spacing="4">
+                        <TextBlock Text="{x:Static lang:Strings.AiModel}" />
+                        <ComboBox HorizontalAlignment="Stretch"
+                                  AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
+                                  ItemsSource="{CompiledBinding TranslationModelPicker.Options}"
+                                  SelectedItem="{CompiledBinding TranslationModelPicker.Selected.Value}" />
+                    </StackPanel>
                     <TextBlock FontWeight="SemiBold"
                                Text="{CompiledBinding TranslationEstimate.Summary.Value}" />
                     <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"

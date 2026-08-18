@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Views.Tools.AiImageEditView"
+﻿<UserControl x:Class="Beutl.Views.Tools.AiImageEditView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:btl="using:Beutl.Controls"
@@ -39,6 +39,15 @@
                       AutomationProperties.Name="{x:Static lang:Strings.AiEditTask}"
                       ItemsSource="{CompiledBinding Tasks}"
                       SelectedItem="{CompiledBinding SelectedTask.Value}" />
+        </StackPanel>
+
+        <!--  The models follow the selected task, which is its own operation.  -->
+        <StackPanel IsVisible="{CompiledBinding ModelPicker.HasChoice.Value}" Spacing="4">
+            <TextBlock Text="{x:Static lang:Strings.AiModel}" />
+            <ComboBox HorizontalAlignment="Stretch"
+                      AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
+                      ItemsSource="{CompiledBinding ModelPicker.Options}"
+                      SelectedItem="{CompiledBinding ModelPicker.Selected.Value}" />
         </StackPanel>
 
         <StackPanel IsVisible="{CompiledBinding RequiresPrompt.Value}" Spacing="4">

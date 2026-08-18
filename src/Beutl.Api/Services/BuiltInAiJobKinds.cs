@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Immutable;
+using System.Text.Json;
 using Beutl.Language;
 
 namespace Beutl.Api.Services;
@@ -9,12 +10,14 @@ internal static class BuiltInAiJobKinds
         IAiImageGenerationService images,
         IAiVideoService videos,
         IAiEntitlementService entitlements,
-        IAiOperationAvailabilityService availability)
+        IAiOperationAvailabilityService availability,
+        IAiModelCatalogService models)
     {
         ArgumentNullException.ThrowIfNull(images);
         ArgumentNullException.ThrowIfNull(videos);
         ArgumentNullException.ThrowIfNull(entitlements);
         ArgumentNullException.ThrowIfNull(availability);
+        ArgumentNullException.ThrowIfNull(models);
 
         var statuses = new AiJobStatusMap(
         [
@@ -37,7 +40,7 @@ internal static class BuiltInAiJobKinds
                 AiJobKinds.Image,
                 statuses)
             {
-                RetryHandler = new AiImageJobRetryHandler(images, entitlements, availability),
+                RetryHandler = new AiImageJobRetryHandler(images, entitlements, availability, models),
             },
             new AiJobKindDescriptor(
                 AiJobKinds.ImageEdit,
@@ -53,7 +56,7 @@ internal static class BuiltInAiJobKinds
                 statuses)
             {
                 RefreshHandler = new AiVideoJobRefreshHandler(videos),
-                RetryHandler = new AiVideoJobRetryHandler(videos, entitlements, availability),
+                RetryHandler = new AiVideoJobRetryHandler(videos, entitlements, availability, models),
             },
         ];
     }
@@ -114,7 +117,8 @@ internal static class AiJobInputParameters
 internal abstract class MeteredAiJobRetryHandler(
     AiOperationId operation,
     IAiEntitlementService entitlementService,
-    IAiOperationAvailabilityService availabilityService) : IAiJobRetryHandler
+    IAiOperationAvailabilityService availabilityService,
+    IAiModelCatalogService modelCatalogService) : IAiJobRetryHandler
 {
     public bool CanRetry(AiJob job, AiJobStatusSemantics status)
         => status.Outcome == AiJobOutcomes.Failed
@@ -135,6 +139,12 @@ internal abstract class MeteredAiJobRetryHandler(
         else if (!entitlements.CanUseAi)
         {
             result = new AiJobRetryPreflight(true, false, Strings.AiProRequired);
+        }
+        else if (!await IsModelStillOfferedAsync(job, cancellationToken))
+        {
+            // The balance is not the problem, so saying it is would send the
+            // user to buy credits that would not help.
+            result = new AiJobRetryPreflight(true, false, Strings.AiModelUnavailable);
         }
         else if (!entitlements.Availability.CanStart(operation)
                  || !await availabilityService.CheckAsync(
@@ -164,6 +174,8 @@ internal abstract class MeteredAiJobRetryHandler(
         AiJob job,
         CancellationToken cancellationToken)
     {
+        if (!await IsModelStillOfferedAsync(job, cancellationToken))
+            throw new AiModelUnavailableException();
         if (!await availabilityService.CheckAsync(
                 CreateAvailabilityRequest(job),
                 cancellationToken))
@@ -171,19 +183,42 @@ internal abstract class MeteredAiJobRetryHandler(
             throw new AiUsageLimitExceededException();
         }
     }
+
+    // A rerun repeats the model the job ran on, so a model that has since been
+    // withdrawn cannot be repeated. Falling back to the operation's default
+    // would quietly produce something else and charge the default's price for
+    // it; the server refuses this too.
+    private async Task<bool> IsModelStillOfferedAsync(
+        AiJob job,
+        CancellationToken cancellationToken)
+    {
+        if (job.Model is not { Value.Length: > 0 } model)
+            return true;
+
+        AiModelCatalog catalog = await modelCatalogService.GetAsync(cancellationToken);
+        ImmutableArray<AiModelOption> models = catalog.ModelsFor(operation);
+        // A catalog that could not be fetched says nothing about any model, and
+        // the server has the last word regardless.
+        if (models.IsDefaultOrEmpty)
+            return true;
+
+        return models.Any(option => option.Id == model);
+    }
 }
 
 internal sealed class AiImageJobRetryHandler(
     IAiImageGenerationService images,
     IAiEntitlementService entitlementService,
-    IAiOperationAvailabilityService availabilityService)
+    IAiOperationAvailabilityService availabilityService,
+    IAiModelCatalogService modelCatalogService)
     : MeteredAiJobRetryHandler(
         AiOperations.ImageGeneration,
         entitlementService,
-        availabilityService)
+        availabilityService,
+        modelCatalogService)
 {
     protected override AiOperationAvailabilityRequest CreateAvailabilityRequest(AiJob job)
-        => new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration);
+        => new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, job.Model);
 
     public override async Task RetryAsync(
         AiJob job,
@@ -207,7 +242,8 @@ internal sealed class AiImageJobRetryHandler(
                 new AiImageAspectRatioId(ResolveAspectRatio(job)),
                 transparentBackground: AiJobInputParameters.GetString(job, "background")
                     == "transparent",
-                seed: AiJobInputParameters.GetInt32(job, "seed")),
+                seed: AiJobInputParameters.GetInt32(job, "seed"),
+                model: job.Model),
             cancellationToken);
     }
 
@@ -231,14 +267,16 @@ internal sealed class AiImageJobRetryHandler(
 internal sealed class AiVideoJobRetryHandler(
     IAiVideoService videos,
     IAiEntitlementService entitlementService,
-    IAiOperationAvailabilityService availabilityService)
+    IAiOperationAvailabilityService availabilityService,
+    IAiModelCatalogService modelCatalogService)
     : MeteredAiJobRetryHandler(
         AiOperations.VideoGeneration,
         entitlementService,
-        availabilityService)
+        availabilityService,
+        modelCatalogService)
 {
     protected override AiOperationAvailabilityRequest CreateAvailabilityRequest(AiJob job)
-        => new AiOperationAvailabilityRequest.Video(GetDurationSeconds(job));
+        => new AiOperationAvailabilityRequest.Video(GetDurationSeconds(job), job.Model);
 
     public override async Task RetryAsync(
         AiJob job,
@@ -269,7 +307,8 @@ internal sealed class AiVideoJobRetryHandler(
                 // repeated exactly as it ran.
                 new AiVideoAspectRatioId(aspectRatio is "16:9" or "9:16" ? aspectRatio : "16:9"),
                 generateAudio: AiJobInputParameters.GetBoolean(job, "generateAudio") ?? true,
-                seed: AiJobInputParameters.GetInt32(job, "seed")),
+                seed: AiJobInputParameters.GetInt32(job, "seed"),
+                model: job.Model),
             cancellationToken);
     }
 

@@ -55,6 +55,62 @@ internal sealed class AiEntitlementService(
     }
 }
 
+internal sealed class AiModelCatalogService(BeutlApiApplication application)
+    : IAiModelCatalogService
+{
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private AiModelCatalog? _catalog;
+
+    public async Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken)
+    {
+        if (_catalog is { } cached)
+            return cached;
+
+        using CancellationTokenSource operationCts =
+            application.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = operationCts.Token;
+        await _gate.WaitAsync(token);
+        try
+        {
+            if (_catalog is { } raced)
+                return raced;
+
+            using Activity? activity = application.ActivitySource.StartActivity(
+                "AiModelCatalogService.Get",
+                ActivityKind.Client);
+            if (application.AuthenticatedUser.Value is null)
+                return AiModelCatalog.Empty;
+
+            try
+            {
+                AuthenticatedApiResult<AiCapabilitiesResponse> response =
+                    await application.SendAuthenticatedAsync(
+                        (authorization, requestToken) =>
+                            application.Ai.GetCapabilities(authorization, requestToken),
+                        token,
+                        application.AuthenticatedUser.Value);
+                _catalog = AiModelMapper.ToModel(response.Value);
+                return _catalog;
+            }
+            catch (ApiException ex)
+            {
+                // A dialog that cannot list the models still has to open. It
+                // then offers no choice and the server uses its default, which
+                // is exactly what this client did before it could choose.
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.SetTag("statusCode", (int)ex.StatusCode);
+                return AiModelCatalog.Empty;
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public void Invalidate() => _catalog = null;
+}
+
 internal sealed class AiOperationAvailabilityService(BeutlApiApplication application)
     : IAiOperationAvailabilityService
 {
@@ -80,6 +136,7 @@ internal sealed class AiOperationAvailabilityService(BeutlApiApplication applica
                     new AiFixedOperationAvailabilityRequestDto
                     {
                         Operation = fixedRequest.Operation.Value,
+                        Model = fixedRequest.Model?.Value,
                     },
                     requestToken),
             AiOperationAvailabilityRequest.Video videoRequest =>
@@ -89,6 +146,7 @@ internal sealed class AiOperationAvailabilityService(BeutlApiApplication applica
                     {
                         Operation = videoRequest.Operation.Value,
                         DurationSeconds = videoRequest.DurationSeconds,
+                        Model = videoRequest.Model?.Value,
                     },
                     requestToken),
             AiOperationAvailabilityRequest.Transcription transcriptionRequest =>
@@ -98,6 +156,7 @@ internal sealed class AiOperationAvailabilityService(BeutlApiApplication applica
                     {
                         Operation = transcriptionRequest.Operation.Value,
                         DurationSeconds = transcriptionRequest.DurationSeconds,
+                        Model = transcriptionRequest.Model?.Value,
                     },
                     requestToken),
             AiOperationAvailabilityRequest.Translation translationRequest =>
@@ -107,6 +166,7 @@ internal sealed class AiOperationAvailabilityService(BeutlApiApplication applica
                     {
                         Operation = translationRequest.Operation.Value,
                         CharacterCount = translationRequest.CharacterCount,
+                        Model = translationRequest.Model?.Value,
                     },
                     requestToken),
             _ => throw new ArgumentOutOfRangeException(nameof(request)),
@@ -154,6 +214,7 @@ internal sealed class AiImageGenerationService(
                         AspectRatio = request.AspectRatio.Value,
                         Background = background,
                         Seed = request.Seed,
+                        Model = request.Model?.Value,
                     },
                     token),
                 AiModelMapper.ToModel,
@@ -177,6 +238,7 @@ internal sealed class AiImageGenerationService(
                 request.AspectRatio.Value,
                 background,
                 request.Seed?.ToString(CultureInfo.InvariantCulture),
+                request.Model?.Value,
                 token),
             AiModelMapper.ToModel,
             cancellationToken,
@@ -217,6 +279,7 @@ internal sealed class AiImageEditingService(
                 filePart,
                 request.Task.Value,
                 request.Prompt,
+                request.Model?.Value,
                 token),
             AiModelMapper.ToModel,
             cancellationToken,
@@ -249,6 +312,7 @@ internal sealed class AiTranscriptionService(
                 idempotencyKey,
                 filePart,
                 request.Language,
+                request.Model?.Value,
                 token),
             AiModelMapper.ToModel,
             cancellationToken);
@@ -294,6 +358,7 @@ internal sealed class AiCaptionTranslationService(
                     MaxCharactersPerLine = request.Style.MaxCharactersPerLine,
                     MaxLines = request.Style.MaxLines,
                 },
+            Model = request.Model?.Value,
         };
         return ExecuteAsync(
             "AiCaptionTranslationService.Translate",
@@ -338,6 +403,7 @@ internal sealed class AiVideoService(
                         AspectRatio = request.AspectRatio.Value,
                         GenerateAudio = request.GenerateAudio,
                         Seed = request.Seed,
+                        Model = request.Model?.Value,
                     },
                     token),
                 AiModelMapper.ToModel,
@@ -375,6 +441,7 @@ internal sealed class AiVideoService(
                 request.AspectRatio.Value,
                 request.GenerateAudio ? "true" : "false",
                 request.Seed?.ToString(CultureInfo.InvariantCulture),
+                request.Model?.Value,
                 token),
             AiModelMapper.ToModel,
             cancellationToken,

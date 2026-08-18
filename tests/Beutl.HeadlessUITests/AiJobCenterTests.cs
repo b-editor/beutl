@@ -41,7 +41,8 @@ public sealed class AiJobCenterTests
             new UnusedImageGenerationService(),
             new UnusedVideoService(),
             new UnusedEntitlementService(),
-            new UnusedAvailabilityService());
+            new UnusedAvailabilityService(),
+            new UnusedModelCatalogService());
         _resultHandlers = new AiJobResultHandlerRegistry(BuiltInAiJobResultHandlers.Create());
     }
 
@@ -863,6 +864,16 @@ public sealed class AiJobCenterTests
             AiOperationAvailabilityRequest request,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedModelCatalogService : IAiModelCatalogService
+    {
+        public Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken)
+            => Task.FromResult(AiModelCatalog.Empty);
+
+        public void Invalidate()
+        {
+        }
     }
 
     private sealed class CustomRetryHandler : IAiJobRetryHandler

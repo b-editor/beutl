@@ -32,6 +32,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
     private readonly ILogger _logger = Log.CreateLogger<AiVideoGenerationDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
     private readonly IAiOperationAvailabilityService _availability;
+    private readonly IAiModelCatalogService _modelCatalog;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiVideoService _videos;
     private readonly IAuthenticatedContentService _content;
@@ -53,6 +54,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
     public AiVideoGenerationDialogViewModel(
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
+        IAiModelCatalogService modelCatalog,
         IAiPlanCoordinator aiPlanCoordinator,
         IAiVideoService videos,
         IAuthenticatedContentService content,
@@ -62,6 +64,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
     {
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _availability = availability ?? throw new ArgumentNullException(nameof(availability));
+        _modelCatalog = modelCatalog ?? throw new ArgumentNullException(nameof(modelCatalog));
         _aiPlanCoordinator = aiPlanCoordinator
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
         _videos = videos ?? throw new ArgumentNullException(nameof(videos));
@@ -70,6 +73,8 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         _jobMonitor = jobMonitor ?? throw new ArgumentNullException(nameof(jobMonitor));
         _editViewModel = editViewModel;
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
+        ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
+            .DisposeWith(_disposables);
         PromptLibrary = new AiPromptLibraryViewModel(
                 PromptTaskKind.Video,
                 ComposePrompt,
@@ -88,7 +93,16 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
             _availability,
             _availabilityLifetimeCts.Token);
         SelectedDuration.Subscribe(option =>
-                _availabilityTracker.Check(new AiOperationAvailabilityRequest.Video(option.Seconds)))
+                _availabilityTracker.Check(new AiOperationAvailabilityRequest.Video(
+                    option.Seconds,
+                    ModelPicker.SelectedModel)))
+            .DisposeWith(_disposables);
+        // A dearer model can put the same clip out of reach, so the estimate
+        // has to be re-asked when the choice changes.
+        ModelPicker.Selected.Subscribe(_ =>
+                _availabilityTracker.Check(new AiOperationAvailabilityRequest.Video(
+                    SelectedDuration.Value.Seconds,
+                    ModelPicker.SelectedModel)))
             .DisposeWith(_disposables);
         EstimatedUsage = new AiUsageEstimateViewModel(
                 Usage,
@@ -289,13 +303,16 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     internal void RefreshAvailability()
         => _availabilityTracker.Refresh(new AiOperationAvailabilityRequest.Video(
-            SelectedDuration.Value.Seconds));
+            SelectedDuration.Value.Seconds,
+            ModelPicker.SelectedModel));
 
     public ReactivePropertySlim<string?> ResultVideoPath { get; } = new();
 
     public ReactivePropertySlim<string> StatusText { get; } = new(Strings.AiVideoIdle);
 
     internal AiUsageViewModel Usage { get; }
+
+    internal AiModelPickerViewModel ModelPicker { get; }
 
     internal AiUsageEstimateViewModel EstimatedUsage { get; }
 
@@ -389,6 +406,9 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         try
         {
             await _entitlements.RefreshAsync(operation.CancellationToken);
+            await ModelPicker.LoadAsync(
+                AiOperations.VideoGeneration,
+                operation.CancellationToken);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -592,8 +612,9 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
             string? lastFrameElementId = _lastFrameElementId;
             using IDisposable firstFrameLease = AcquireTemporaryFileLease(firstFramePath);
             using IDisposable lastFrameLease = AcquireTemporaryFileLease(lastFramePath);
+            AiModelId? model = ModelPicker.SelectedModel;
             bool available = await _availabilityTracker.CheckNowAsync(
-                new AiOperationAvailabilityRequest.Video(durationSeconds),
+                new AiOperationAvailabilityRequest.Video(durationSeconds, model),
                 operation.CancellationToken);
             if (!available)
                 throw new AiUsageLimitExceededException();
@@ -609,7 +630,8 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                         : AiUploadSource.FromFile(firstFramePath),
                     lastFrame: lastFramePath is null
                         ? null
-                        : AiUploadSource.FromFile(lastFramePath)),
+                        : AiUploadSource.FromFile(lastFramePath),
+                    model: model),
                 operation.CancellationToken);
             persistedServerJob = true;
 

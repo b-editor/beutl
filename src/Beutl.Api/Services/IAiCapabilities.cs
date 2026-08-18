@@ -9,6 +9,25 @@ public interface IAiEntitlementService : IBeutlApiResource
     Task<AiEntitlements?> RefreshAsync(CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// The models each operation offers. Registered on the server at runtime, so
+/// unlike every other list this client holds it cannot be a set of literals and
+/// has to be asked for.
+/// </summary>
+public interface IAiModelCatalogService : IBeutlApiResource
+{
+    /// <summary>
+    /// The catalog, fetched once and reused. An empty catalog is what a caller
+    /// gets when the server cannot be reached or offers nothing to choose from:
+    /// a request then names no model and runs on the server's default, which is
+    /// how this client behaved before models could be chosen at all.
+    /// </summary>
+    Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken);
+
+    /// <summary>Discards the cached catalog so the next read fetches again.</summary>
+    void Invalidate();
+}
+
 public interface IAiOperationAvailabilityService : IBeutlApiResource
 {
     Task<bool> CheckAsync(

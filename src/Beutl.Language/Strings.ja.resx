@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -1827,6 +1827,24 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiEstimatedUsage" xml:space="preserve">
     <value>月間利用枠を使用します</value>
+  </data>
+  <data name="AiModel" xml:space="preserve">
+    <value>モデル</value>
+  </data>
+  <data name="AiModelUnavailable" xml:space="preserve">
+    <value>このリクエストで使ったモデルは現在提供されていません。新しいリクエストで別のモデルを選んでください。</value>
+  </data>
+  <data name="AiModelCostLow" xml:space="preserve">
+    <value>割当の消費が少なめ</value>
+  </data>
+  <data name="AiModelCostMedium" xml:space="preserve">
+    <value>割当の消費は標準</value>
+  </data>
+  <data name="AiModelCostHigh" xml:space="preserve">
+    <value>割当の消費が多め</value>
+  </data>
+  <data name="AiModelUnaffordable" xml:space="preserve">
+    <value>残りが足りません</value>
   </data>
   <data name="AiPricingUnavailable" xml:space="preserve">
     <value>正式な料金情報を取得できません。有料操作を始める前に再接続してください。</value>

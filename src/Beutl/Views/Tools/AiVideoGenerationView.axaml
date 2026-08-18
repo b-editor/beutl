@@ -173,6 +173,13 @@
         </Expander>
 
         <StackPanel Spacing="8">
+            <StackPanel IsVisible="{CompiledBinding ModelPicker.HasChoice.Value}" Spacing="4">
+                <TextBlock Text="{x:Static lang:Strings.AiModel}" />
+                <ComboBox HorizontalAlignment="Stretch"
+                          AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
+                          ItemsSource="{CompiledBinding ModelPicker.Options}"
+                          SelectedItem="{CompiledBinding ModelPicker.Selected.Value}" />
+            </StackPanel>
             <StackPanel Spacing="4">
                 <TextBlock Text="{x:Static lang:Strings.AiVideoDuration}" />
                 <ComboBox HorizontalAlignment="Stretch"

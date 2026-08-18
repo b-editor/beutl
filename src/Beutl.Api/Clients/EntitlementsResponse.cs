@@ -25,6 +25,12 @@ internal sealed record EntitlementsResponse
     [JsonPropertyName("availability")]
     public required ImmutableDictionary<string, bool> Availability { get; init; }
 
+    // Per model within each operation. An operation reads as available when any
+    // one of its models does, so this is what decides which entries a picker
+    // may offer.
+    [JsonPropertyName("modelAvailability")]
+    public ImmutableDictionary<string, ImmutableDictionary<string, bool>>? ModelAvailability { get; init; }
+
     internal bool TryNormalize(out EntitlementsResponse? normalized)
     {
         normalized = null;

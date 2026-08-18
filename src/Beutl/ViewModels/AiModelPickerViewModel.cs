@@ -1,0 +1,104 @@
+﻿using System.Collections.ObjectModel;
+using System.Reactive.Disposables;
+using Beutl.Api.Services;
+using Beutl.Language;
+using Reactive.Bindings;
+
+namespace Beutl.ViewModels;
+
+/// <summary>
+/// One entry in the model picker. It carries no price: the server publishes an
+/// ordering (<see cref="AiModelCostTier"/>) and whether the account can pay for
+/// this model, and nothing more.
+/// </summary>
+internal sealed record AiModelPickerOption(AiModelOption Model, bool IsAvailable)
+{
+    public AiModelId Id => Model.Id;
+
+    public override string ToString()
+    {
+        string cost = !IsAvailable
+            ? Strings.AiModelUnaffordable
+            : Model.CostTier switch
+            {
+                AiModelCostTier.Low => Strings.AiModelCostLow,
+                AiModelCostTier.Medium => Strings.AiModelCostMedium,
+                AiModelCostTier.High => Strings.AiModelCostHigh,
+                _ => string.Empty,
+            };
+        return cost.Length == 0 ? Model.DisplayName : $"{Model.DisplayName} — {cost}";
+    }
+}
+
+/// <summary>
+/// Which model an operation should run on.
+///
+/// The list is fetched rather than declared, because an administrator registers
+/// it on the server; until it arrives, and whenever it holds fewer than two
+/// entries, the dialog shows no picker and the request names no model, which is
+/// how it behaved before models could be chosen.
+/// </summary>
+internal sealed class AiModelPickerViewModel : IDisposable
+{
+    private readonly CompositeDisposable _disposables = [];
+    private readonly IAiModelCatalogService _catalog;
+    private readonly IAiEntitlementService _entitlements;
+
+    public AiModelPickerViewModel(
+        IAiModelCatalogService catalog,
+        IAiEntitlementService entitlements)
+    {
+        _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+        _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
+
+        Selected = new ReactivePropertySlim<AiModelPickerOption?>().DisposeWith(_disposables);
+        HasChoice = new ReactivePropertySlim<bool>(false).DisposeWith(_disposables);
+        Label = Strings.AiModel;
+    }
+
+    /// <summary>
+    /// What the last load was for. The image editor's five tasks are five
+    /// operations with five model lists, so this changes as the task does.
+    /// </summary>
+    public AiOperationId Operation { get; private set; }
+
+    public string Label { get; }
+
+    public ObservableCollection<AiModelPickerOption> Options { get; } = [];
+
+    public ReactivePropertySlim<AiModelPickerOption?> Selected { get; }
+
+    /// <summary>False while a single model is on offer, which is nothing to choose between.</summary>
+    public ReactivePropertySlim<bool> HasChoice { get; }
+
+    /// <summary>What the request should carry. Null asks the server for its default.</summary>
+    public AiModelId? SelectedModel => Selected.Value?.Id;
+
+    public async Task LoadAsync(AiOperationId operation, CancellationToken cancellationToken)
+    {
+        AiModelCatalog catalog = await _catalog.GetAsync(cancellationToken);
+        AiEntitlements? entitlements = _entitlements.Entitlements.Value;
+        bool operationIsAvailable =
+            entitlements?.Availability.CanStart(operation) ?? false;
+
+        Operation = operation;
+        Options.Clear();
+        foreach (AiModelOption model in catalog.ModelsFor(operation))
+        {
+            Options.Add(new AiModelPickerOption(
+                model,
+                entitlements?.ModelAvailability.CanStart(
+                    operation,
+                    model.Id,
+                    operationIsAvailable) ?? false));
+        }
+
+        HasChoice.Value = Options.Count > 1;
+        // Start on the first model the account can actually pay for, falling
+        // back to the server's default so the picker is never empty.
+        Selected.Value = Options.FirstOrDefault(option => option.IsAvailable)
+                         ?? Options.FirstOrDefault();
+    }
+
+    public void Dispose() => _disposables.Dispose();
+}

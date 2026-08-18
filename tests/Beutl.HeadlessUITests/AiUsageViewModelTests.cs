@@ -20,6 +20,7 @@ public sealed class AiUsageViewModelTests
         await using var viewModel = new AiVideoGenerationDialogViewModel(
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
             new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
             clients.GetResource<IAiVideoService>(),
             clients.GetResource<IAuthenticatedContentService>(),

@@ -258,6 +258,7 @@ public class BeutlApiApplication : IAsyncDisposable
         Register(() => new AiEntitlementService(
             this,
             GetResource<AiEntitlementStore>()));
+        Register(() => new AiModelCatalogService(this));
         Register(() => new AiOperationAvailabilityService(this));
         Register(() => new AiImageGenerationService(
             this,
@@ -281,6 +282,7 @@ public class BeutlApiApplication : IAsyncDisposable
             GetResource<IAiVideoService>(),
             GetResource<IAiEntitlementService>(),
             GetResource<IAiOperationAvailabilityService>(),
+            GetResource<IAiModelCatalogService>(),
             GetResource<IExtensionRegistry>()));
         Register(() => new AiJobMonitor(
             this,

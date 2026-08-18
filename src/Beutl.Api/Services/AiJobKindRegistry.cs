@@ -73,19 +73,22 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
         IAiVideoService videos,
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
+        IAiModelCatalogService models,
         IExtensionProvider? extensionProvider = null)
     {
         ArgumentNullException.ThrowIfNull(images);
         ArgumentNullException.ThrowIfNull(videos);
         ArgumentNullException.ThrowIfNull(entitlements);
         ArgumentNullException.ThrowIfNull(availability);
+        ArgumentNullException.ThrowIfNull(models);
 
         var registry = new AiJobKindRegistry();
         foreach (AiJobKindDescriptor descriptor in BuiltInAiJobKinds.Create(
                      images,
                      videos,
                      entitlements,
-                     availability))
+                     availability,
+                     models))
         {
             registry._ownedRegistrations.Add((Registration)registry.Register(descriptor));
         }

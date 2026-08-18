@@ -1458,6 +1458,7 @@ public sealed class AiDialogWorkflowTests
         => new(
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiImageGenerationService>(),
             clients.GetResource<IAuthenticatedContentService>(),
@@ -1469,6 +1470,7 @@ public sealed class AiDialogWorkflowTests
         => new(
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiImageEditingService>(),
             clients.GetResource<IAuthenticatedContentService>(),
@@ -1480,6 +1482,7 @@ public sealed class AiDialogWorkflowTests
         => new(
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiVideoService>(),
             clients.GetResource<IAuthenticatedContentService>(),
@@ -1495,6 +1498,7 @@ public sealed class AiDialogWorkflowTests
         => new(
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiTranscriptionService>(),
             clients.GetResource<IAiCaptionTranslationService>(),

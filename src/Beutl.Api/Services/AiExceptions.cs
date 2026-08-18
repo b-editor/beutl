@@ -52,6 +52,19 @@ public sealed class AiUsageLimitExceededException : AiException
 }
 
 /// <summary>
+/// The request names a model the server no longer offers for that operation.
+/// Reruns hit this; falling back to the operation's default would run something
+/// else and charge that model's price for it.
+/// </summary>
+public sealed class AiModelUnavailableException : AiException
+{
+    public AiModelUnavailableException(Exception? innerException = null)
+        : base("The requested AI model is no longer offered for this operation.", innerException)
+    {
+    }
+}
+
+/// <summary>
 /// The selected media exceeds the server upload limit (413 fileIsTooLarge).
 /// </summary>
 public sealed class AiFileTooLargeException : AiException

@@ -125,7 +125,15 @@ public sealed record AiJob(
     bool CanRetry,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    AiContentMetadata? ContentMetadata = null);
+    AiContentMetadata? ContentMetadata = null)
+{
+    /// <summary>
+    /// The model the job ran on, or null for one created before an operation
+    /// could offer more than one. A rerun repeats it rather than falling back
+    /// to whatever the default is now.
+    /// </summary>
+    public AiModelId? Model { get; init; }
+}
 
 internal static class AiIdentifier
 {

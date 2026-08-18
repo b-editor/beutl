@@ -31,6 +31,7 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
     private readonly ILogger _logger = Log.CreateLogger<AiImageGenerationDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
     private readonly IAiOperationAvailabilityService _availability;
+    private readonly IAiModelCatalogService _modelCatalog;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiImageGenerationService _images;
     private readonly IAuthenticatedContentService _content;
@@ -40,6 +41,7 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
     public AiImageGenerationDialogViewModel(
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
+        IAiModelCatalogService modelCatalog,
         IAiPlanCoordinator aiPlanCoordinator,
         IAiImageGenerationService images,
         IAuthenticatedContentService content,
@@ -47,12 +49,15 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
     {
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _availability = availability ?? throw new ArgumentNullException(nameof(availability));
+        _modelCatalog = modelCatalog ?? throw new ArgumentNullException(nameof(modelCatalog));
         _aiPlanCoordinator = aiPlanCoordinator
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
         _images = images ?? throw new ArgumentNullException(nameof(images));
         _content = content ?? throw new ArgumentNullException(nameof(content));
         _editViewModel = editViewModel;
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
+        ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
+            .DisposeWith(_disposables);
         EstimatedUsage = new AiUsageEstimateViewModel(
                 Usage,
                 _entitlements.Entitlements.Select(value =>
@@ -179,6 +184,8 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     internal AiUsageViewModel Usage { get; }
 
+    internal AiModelPickerViewModel ModelPicker { get; }
+
     internal AiUsageEstimateViewModel EstimatedUsage { get; }
 
     internal AiPromptLibraryViewModel PromptLibrary { get; }
@@ -252,6 +259,11 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         try
         {
             await _entitlements.RefreshAsync(operation.CancellationToken);
+            // After the entitlements, so the picker knows which models this
+            // account can pay for rather than offering them all.
+            await ModelPicker.LoadAsync(
+                AiOperations.ImageGeneration,
+                operation.CancellationToken);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -279,8 +291,9 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         {
             string prompt = ComposePrompt();
             string aspectRatio = SelectedAspectRatio.Value.Value;
+            AiModelId? model = ModelPicker.SelectedModel;
             if (!await _availability.CheckAsync(
-                    new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration),
+                    new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, model),
                     operation.CancellationToken))
             {
                 throw new AiUsageLimitExceededException();
@@ -289,7 +302,8 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
                 new AiImageGenerationRequest(
                     prompt,
                     new AiImageAspectRatioId(aspectRatio),
-                    TransparentBackground.Value),
+                    TransparentBackground.Value,
+                    model: model),
                 operation.CancellationToken);
 
             using var stream = new MemoryStream();

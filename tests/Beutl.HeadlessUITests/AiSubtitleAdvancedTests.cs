@@ -361,6 +361,7 @@ public sealed class AiSubtitleAdvancedTests
         => new(
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
             new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
             clients.GetResource<IAiTranscriptionService>(),
             clients.GetResource<IAiCaptionTranslationService>(),
