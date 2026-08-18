@@ -311,6 +311,13 @@ public class RenderTarget : IDisposable
         VerifyAccess();
         BeginDraw();
         _surface.Value!.Canvas.Clear(SKColors.Transparent);
+
+        // A canvas clear is a deferred Skia draw, and a custom effect that writes this image through
+        // the Vulkan backend does so outside Skia's task graph. PrepareForSampling only covers a
+        // target used as a source, so a write destination would keep the clear pending until after
+        // the native writer had already filled it. Submitting it here, without the sampling
+        // bookkeeping, keeps the clear ahead of any such writer.
+        _surface.Value.Flush(true, false);
         _hasTransparentContents = true;
     }
 
@@ -336,6 +343,9 @@ public class RenderTarget : IDisposable
             : ImmediateCanvasFlushKind.PrepareForSamplingSubmit);
         if (intent.RequiresBackendInterop)
         {
+            // The caller is about to touch the texture through the backend, which does not route
+            // through BeginDraw, so the transparency tracking cannot survive it.
+            _hasTransparentContents = false;
             _texture?.Value?.PrepareForSampling();
         }
     }
