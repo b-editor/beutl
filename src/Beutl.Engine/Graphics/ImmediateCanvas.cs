@@ -330,6 +330,70 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         Canvas.ClipRect(clip.ToSKRect(), operation.ToSKClipOperation());
     }
 
+    /// <summary>
+    /// Intersects the clip with every device pixel <paramref name="clip"/> touches.
+    /// </summary>
+    /// <remarks>
+    /// A non-antialiased Skia clip snaps to the nearest device pixel, so a rect that falls between
+    /// pixel centres cuts into the content it is meant to bound: an edge column loses its partial
+    /// coverage, and a footprint narrower than a pixel rounds away entirely. Widening the rect to whole
+    /// pixels first keeps a conservative bound conservative, which is the only direction it may err in.
+    /// Antialiasing the clip instead would be wrong, because the bound's own edge coverage would then
+    /// multiply the content's.
+    /// </remarks>
+    internal void ClipRectCoveringDevicePixels(Rect clip)
+    {
+        VerifyAccess();
+        SKMatrix transform = Canvas.TotalMatrix;
+        if (!transform.TryInvert(out SKMatrix inverse))
+        {
+            ClipRect(clip);
+            return;
+        }
+
+        if (transform.SkewX == 0
+            && transform.SkewY == 0
+            && transform.Persp0 == 0
+            && transform.Persp1 == 0)
+        {
+            // An axis-aligned map takes a rect to a rect, so the covering pixels have an exact
+            // preimage. A bound already sitting on the device grid therefore stays untouched.
+            SKRect device = transform.MapRect(clip.ToSKRect());
+            var covering = new SKRect(
+                MathF.Floor(device.Left),
+                MathF.Floor(device.Top),
+                MathF.Ceiling(device.Right),
+                MathF.Ceiling(device.Bottom));
+            if (IsFinite(covering))
+            {
+                SKRect local = inverse.MapRect(covering);
+                if (IsFinite(local))
+                {
+                    ClipRect(new Rect(local.Left, local.Top, local.Width, local.Height));
+                    return;
+                }
+            }
+
+            ClipRect(clip);
+            return;
+        }
+
+        // Rotation and skew take the rect to a parallelogram, which has no pixel-aligned preimage.
+        // Widening by whatever one device pixel measures along each local axis still covers the snap.
+        float horizontal = MathF.Abs(inverse.ScaleX) + MathF.Abs(inverse.SkewX);
+        float vertical = MathF.Abs(inverse.SkewY) + MathF.Abs(inverse.ScaleY);
+        ClipRect(
+            float.IsFinite(horizontal) && float.IsFinite(vertical)
+                ? clip.Inflate(new Thickness(horizontal, vertical))
+                : clip);
+
+        static bool IsFinite(SKRect rect)
+            => float.IsFinite(rect.Left)
+               && float.IsFinite(rect.Top)
+               && float.IsFinite(rect.Right)
+               && float.IsFinite(rect.Bottom);
+    }
+
     public void ClipPath(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();

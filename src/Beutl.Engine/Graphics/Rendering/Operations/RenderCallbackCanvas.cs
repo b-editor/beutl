@@ -169,22 +169,25 @@ public sealed class RenderCallbackCanvas
             _token.EnterCanvas(canvas, this);
             entered = true;
             canvas.ConfigureExecutionCallback(_token, _capability);
+            // Every branch bounds the callback to its own footprint rather than describing content, so
+            // each one rounds outward: the rect is stated in callback-local units, and a scope replayed
+            // under a shrinking transform maps it to a sub-pixel span the device grid would snap away.
             if (_mapLogicalOrigin)
             {
                 canvas.PushTransform(Matrix.CreateTranslation(-_logicalOrigin.X, -_logicalOrigin.Y));
-                canvas.ClipRect(_rasterBounds);
+                canvas.ClipRectCoveringDevicePixels(_rasterBounds);
             }
             else if (_capability is CallbackCanvasCapability.TargetScope
                      or CallbackCanvasCapability.TargetCommandFull)
             {
-                canvas.ClipRect(
+                canvas.ClipRectCoveringDevicePixels(
                     RenderScaleUtilities.AddRasterApron(_deviceBounds)
                         .ToRect(_density)
                         .Translate(-DeviceGridOffset));
             }
             else
             {
-                canvas.ClipRect(_logicalBounds);
+                canvas.ClipRectCoveringDevicePixels(_logicalBounds);
             }
             canvas.PinExecutionCallbackState();
             draw(canvas);
