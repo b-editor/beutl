@@ -86,6 +86,27 @@ internal static class AiJobInputParameters
         return result;
     }
 
+    public static bool? GetBoolean(AiJob job, string propertyName)
+    {
+        if (job.InputParameters is not { ValueKind: JsonValueKind.Object } input
+            || !input.TryGetProperty(propertyName, out JsonElement value))
+        {
+            return null;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => null,
+        };
+    }
+
+    public static bool Has(AiJob job, string propertyName)
+        => job.InputParameters is { ValueKind: JsonValueKind.Object } input
+           && input.TryGetProperty(propertyName, out JsonElement value)
+           && value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
+
     private static string? NormalizeText(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
@@ -170,14 +191,40 @@ internal sealed class AiImageJobRetryHandler(
     {
         string prompt = AiJobInputParameters.GetString(job, "prompt")
             ?? throw new InvalidOperationException("The retained image prompt is missing.");
-        string? imageSize = AiJobInputParameters.GetString(job, "size");
-        string size = imageSize is "1024x1024" or "1024x1536" or "1536x1024"
-            ? imageSize
-            : "1024x1024";
+        // A generation guided by a reference image cannot be repeated: the
+        // picture itself was never retained, so this would produce something
+        // else at full price. The server refuses it too.
+        if (AiJobInputParameters.Has(job, "reference"))
+        {
+            throw new InvalidOperationException(
+                "An image generated from a reference image cannot be retried.");
+        }
+
         await EnsureAvailableAsync(job, cancellationToken);
         await images.GenerateAsync(
-            new AiImageGenerationRequest(prompt, new AiImageSizeId(size)),
+            new AiImageGenerationRequest(
+                prompt,
+                new AiImageAspectRatioId(ResolveAspectRatio(job)),
+                transparentBackground: AiJobInputParameters.GetString(job, "background")
+                    == "transparent",
+                seed: AiJobInputParameters.GetInt32(job, "seed")),
             cancellationToken);
+    }
+
+    // Jobs recorded before the endpoint spoke ratios carry the fixed size they
+    // were asked for. Mapping it back is what keeps a repeat the same shape.
+    private static string ResolveAspectRatio(AiJob job)
+    {
+        string? aspectRatio = AiJobInputParameters.GetString(job, "aspectRatio");
+        if (aspectRatio is not null)
+            return aspectRatio;
+
+        return AiJobInputParameters.GetString(job, "size") switch
+        {
+            "1024x1536" => "2:3",
+            "1536x1024" => "3:2",
+            _ => "1:1",
+        };
     }
 }
 
@@ -199,14 +246,30 @@ internal sealed class AiVideoJobRetryHandler(
     {
         string prompt = AiJobInputParameters.GetString(job, "prompt")
             ?? throw new InvalidOperationException("The retained video prompt is missing.");
+        // Same rule as a reference image: the frames were not retained, so a
+        // repeat would be a different video charged at the same price.
+        if (AiJobInputParameters.Has(job, "firstFrame")
+            || AiJobInputParameters.Has(job, "lastFrame"))
+        {
+            throw new InvalidOperationException(
+                "A video generated from source frames cannot be retried.");
+        }
+
         int durationSeconds = GetDurationSeconds(job);
         string? resolution = AiJobInputParameters.GetString(job, "resolution");
+        string? aspectRatio = AiJobInputParameters.GetString(job, "aspectRatio");
         await EnsureAvailableAsync(job, cancellationToken);
         await videos.CreateAsync(
             new AiVideoGenerationRequest(
                 prompt,
                 durationSeconds,
-                new AiVideoResolutionId(resolution is "720p" or "1080p" ? resolution : "720p")),
+                new AiVideoResolutionId(resolution is "720p" or "1080p" ? resolution : "720p"),
+                // Both defaults match what the endpoint applies to a request
+                // that omits them, so a job recorded before they existed is
+                // repeated exactly as it ran.
+                new AiVideoAspectRatioId(aspectRatio is "16:9" or "9:16" ? aspectRatio : "16:9"),
+                generateAudio: AiJobInputParameters.GetBoolean(job, "generateAudio") ?? true,
+                seed: AiJobInputParameters.GetInt32(job, "seed")),
             cancellationToken);
     }
 

@@ -16,6 +16,21 @@ internal interface IAiClient
         [Body] CreateAiImageRequest request,
         CancellationToken cancellationToken);
 
+    // Guiding a generation with an existing picture makes it an upload, so the
+    // same endpoint is called as multipart. The JSON form above stays the path
+    // for a request that carries no reference.
+    [Multipart]
+    [Post("/api/v3/ai/images")]
+    Task<AiImageResponse> CreateImageFromReference(
+        [Header("Authorization")] string authorization,
+        [Header("Idempotency-Key")] string idempotencyKey,
+        [AliasAs("reference")] StreamPart reference,
+        [AliasAs("prompt")] string prompt,
+        [AliasAs("aspectRatio")] string aspectRatio,
+        [AliasAs("background")] string? background,
+        [AliasAs("seed")] string? seed,
+        CancellationToken cancellationToken);
+
     [Multipart]
     [Post("/api/v3/ai/images/edit")]
     Task<AiImageResponse> EditImage(
@@ -52,6 +67,9 @@ internal interface IAiClient
         [AliasAs("prompt")] string prompt,
         [AliasAs("durationSeconds")] int durationSeconds,
         [AliasAs("resolution")] string resolution,
+        [AliasAs("aspectRatio")] string aspectRatio,
+        [AliasAs("generateAudio")] string generateAudio,
+        [AliasAs("seed")] string? seed,
         CancellationToken cancellationToken);
 
     [Get("/api/v3/ai/videos/{id}")]

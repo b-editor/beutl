@@ -16,4 +16,12 @@ internal sealed record CreateAiVideoRequest
     [JsonPropertyName("durationSeconds")] public required int DurationSeconds { get; init; }
 
     [JsonPropertyName("resolution")] public string Resolution { get; init; } = "720p";
+
+    [JsonPropertyName("aspectRatio")] public string AspectRatio { get; init; } = "16:9";
+
+    [JsonPropertyName("generateAudio")] public bool GenerateAudio { get; init; } = true;
+
+    [JsonPropertyName("seed")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Seed { get; init; }
 }

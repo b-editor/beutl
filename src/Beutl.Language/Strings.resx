@@ -1588,8 +1588,14 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiPrompt_Placeholder" xml:space="preserve">
     <value>Describe the image you want to generate...</value>
   </data>
-  <data name="AiSize" xml:space="preserve">
-    <value>Size</value>
+  <data name="AiAspectRatio" xml:space="preserve">
+    <value>Aspect ratio</value>
+  </data>
+  <data name="AiTransparentBackground" xml:space="preserve">
+    <value>Transparent background</value>
+  </data>
+  <data name="AiGenerateAudio" xml:space="preserve">
+    <value>Generate audio</value>
   </data>
   <data name="AiGenerate" xml:space="preserve">
     <value>Generate</value>

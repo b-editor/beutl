@@ -103,6 +103,20 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         SelectedResolution = new ReactivePropertySlim<AiVideoResolutionOption>(ResolutionOptions[0])
             .DisposeWith(_disposables);
 
+        // Resolution says how many pixels; this says what shape they are in.
+        // Without it a vertical clip could not be asked for at all.
+        AspectRatioOptions =
+        [
+            new AiVideoAspectRatioOption("16:9"),
+            new AiVideoAspectRatioOption("9:16"),
+        ];
+        SelectedAspectRatio = new ReactivePropertySlim<AiVideoAspectRatioOption>(
+                GetSuggestedAspectRatio(AspectRatioOptions, editViewModel?.Scene.FrameSize))
+            .DisposeWith(_disposables);
+        // On by default: the model produces sound and the plan is priced for it.
+        GenerateAudio = new ReactivePropertySlim<bool>(true)
+            .DisposeWith(_disposables);
+
         IsGenerating = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
         IsWaitingForJob = new ReactivePropertySlim<bool>(false)
@@ -195,6 +209,31 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
     public IReadOnlyList<AiVideoResolutionOption> ResolutionOptions { get; }
 
     public ReactivePropertySlim<AiVideoResolutionOption> SelectedResolution { get; }
+
+    public IReadOnlyList<AiVideoAspectRatioOption> AspectRatioOptions { get; }
+
+    public ReactivePropertySlim<AiVideoAspectRatioOption> SelectedAspectRatio { get; }
+
+    public ReactivePropertySlim<bool> GenerateAudio { get; }
+
+    internal static AiVideoAspectRatioOption GetSuggestedAspectRatio(
+        IReadOnlyList<AiVideoAspectRatioOption> options,
+        Beutl.Media.PixelSize? frameSize)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.Count == 0)
+        {
+            throw new ArgumentException(
+                "At least one aspect ratio option is required.",
+                nameof(options));
+        }
+
+        string ratio = AiAspectRatioSuggestion.Nearest(
+            options.Select(option => option.Value).ToArray(),
+            frameSize,
+            "16:9");
+        return options.FirstOrDefault(option => option.Value == ratio) ?? options[0];
+    }
 
     public ReactivePropertySlim<string> Prompt { get; } = new();
 
@@ -545,6 +584,8 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
             string prompt = ComposePrompt();
             int durationSeconds = SelectedDuration.Value.Seconds;
             string resolution = SelectedResolution.Value.Value;
+            string aspectRatio = SelectedAspectRatio.Value.Value;
+            bool generateAudio = GenerateAudio.Value;
             string? firstFramePath = FirstFramePath.Value;
             string? lastFramePath = LastFramePath.Value;
             string? firstFrameElementId = _firstFrameElementId;
@@ -561,8 +602,14 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                     prompt,
                     durationSeconds,
                     new AiVideoResolutionId(resolution),
-                    firstFramePath is null ? null : AiUploadSource.FromFile(firstFramePath),
-                    lastFramePath is null ? null : AiUploadSource.FromFile(lastFramePath)),
+                    new AiVideoAspectRatioId(aspectRatio),
+                    generateAudio,
+                    firstFrame: firstFramePath is null
+                        ? null
+                        : AiUploadSource.FromFile(firstFramePath),
+                    lastFrame: lastFramePath is null
+                        ? null
+                        : AiUploadSource.FromFile(lastFramePath)),
                 operation.CancellationToken);
             persistedServerJob = true;
 
@@ -1015,6 +1062,11 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 public sealed record AiVideoDurationOption(int Seconds)
 {
     public override string ToString() => $"{Seconds} {Strings.AiVideoSeconds}";
+}
+
+public sealed record AiVideoAspectRatioOption(string Value)
+{
+    public override string ToString() => Value;
 }
 
 public sealed record AiVideoResolutionOption(string Value)

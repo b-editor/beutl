@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Reactive.Bindings;
@@ -130,28 +131,64 @@ internal sealed class AiImageGenerationService(
     : AiMeteredCapabilityService(application, jobChangeNotifier),
         IAiImageGenerationService
 {
-    public Task<AiImageResult> GenerateAsync(
+    public async Task<AiImageResult> GenerateAsync(
         AiImageGenerationRequest request,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         string idempotencyKey = CreateIdempotencyKey();
-        return ExecuteAsync(
-            "AiImageGenerationService.Generate",
-            (authorization, token) => Application.Ai.CreateImage(
+        // The endpoint reads "auto" and an absent background the same way, so
+        // only a transparent one is worth sending.
+        string? background = request.TransparentBackground ? "transparent" : null;
+
+        if (request.Reference is null)
+        {
+            return await ExecuteAsync(
+                "AiImageGenerationService.Generate",
+                (authorization, token) => Application.Ai.CreateImage(
+                    authorization,
+                    idempotencyKey,
+                    new CreateAiImageRequest
+                    {
+                        Prompt = request.Prompt,
+                        AspectRatio = request.AspectRatio.Value,
+                        Background = background,
+                        Seed = request.Seed,
+                    },
+                    token),
+                AiModelMapper.ToModel,
+                cancellationToken,
+                activity => SetImageTags(activity, request));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await using Stream stream = await request.Reference.OpenReadAsync(cancellationToken);
+        var referencePart = new StreamPart(
+            stream,
+            request.Reference.FileName,
+            request.Reference.MediaType);
+        return await ExecuteAsync(
+            "AiImageGenerationService.GenerateFromReference",
+            (authorization, token) => Application.Ai.CreateImageFromReference(
                 authorization,
                 idempotencyKey,
-                new CreateAiImageRequest
-                {
-                    Prompt = request.Prompt,
-                    Size = request.Size.Value,
-                },
+                referencePart,
+                request.Prompt,
+                request.AspectRatio.Value,
+                background,
+                request.Seed?.ToString(CultureInfo.InvariantCulture),
                 token),
             AiModelMapper.ToModel,
             cancellationToken,
-            activity => activity?.SetTag("size", request.Size.Value));
+            activity => SetImageTags(activity, request));
     }
 
+    private static void SetImageTags(Activity? activity, AiImageGenerationRequest request)
+    {
+        activity?.SetTag("aspectRatio", request.AspectRatio.Value);
+        activity?.SetTag("transparentBackground", request.TransparentBackground);
+        activity?.SetTag("hasReference", request.Reference is not null);
+    }
 }
 
 internal sealed class AiImageEditingService(
@@ -249,6 +286,14 @@ internal sealed class AiCaptionTranslationService(
                         End = segment.Context.End.TotalSeconds,
                     },
             }).ToArray(),
+            Style = request.Style is null
+                ? null
+                : new AiCaptionTranslationStyleDto
+                {
+                    Glossary = request.Style.Glossary,
+                    MaxCharactersPerLine = request.Style.MaxCharactersPerLine,
+                    MaxLines = request.Style.MaxLines,
+                },
         };
         return ExecuteAsync(
             "AiCaptionTranslationService.Translate",
@@ -290,6 +335,9 @@ internal sealed class AiVideoService(
                         Prompt = request.Prompt,
                         DurationSeconds = request.DurationSeconds,
                         Resolution = request.Resolution.Value,
+                        AspectRatio = request.AspectRatio.Value,
+                        GenerateAudio = request.GenerateAudio,
+                        Seed = request.Seed,
                     },
                     token),
                 AiModelMapper.ToModel,
@@ -324,6 +372,9 @@ internal sealed class AiVideoService(
                 request.Prompt,
                 request.DurationSeconds,
                 request.Resolution.Value,
+                request.AspectRatio.Value,
+                request.GenerateAudio ? "true" : "false",
+                request.Seed?.ToString(CultureInfo.InvariantCulture),
                 token),
             AiModelMapper.ToModel,
             cancellationToken,
@@ -352,6 +403,8 @@ internal sealed class AiVideoService(
     {
         activity?.SetTag("durationSeconds", request.DurationSeconds);
         activity?.SetTag("resolution", request.Resolution.Value);
+        activity?.SetTag("aspectRatio", request.AspectRatio.Value);
+        activity?.SetTag("generateAudio", request.GenerateAudio);
         activity?.SetTag("hasFirstFrame", request.FirstFrame is not null);
         activity?.SetTag("hasLastFrame", request.LastFrame is not null);
     }

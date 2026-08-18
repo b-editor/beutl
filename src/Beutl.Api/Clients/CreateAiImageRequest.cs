@@ -6,5 +6,16 @@ internal sealed class CreateAiImageRequest
 {
     [JsonPropertyName("prompt")] public required string Prompt { get; init; }
 
-    [JsonPropertyName("size")] public required string Size { get; init; }
+    // The endpoint also accepts the fixed sizes it shipped with, but exactly one
+    // of the two may be sent. A ratio is what the provider actually speaks and
+    // the only way to ask for 16:9 or a vertical image.
+    [JsonPropertyName("aspectRatio")] public required string AspectRatio { get; init; }
+
+    [JsonPropertyName("background")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Background { get; init; }
+
+    [JsonPropertyName("seed")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Seed { get; init; }
 }

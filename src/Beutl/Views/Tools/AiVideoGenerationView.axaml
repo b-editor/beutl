@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Views.Tools.AiVideoGenerationView"
+﻿<UserControl x:Class="Beutl.Views.Tools.AiVideoGenerationView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:btl="using:Beutl.Controls"
@@ -187,7 +187,17 @@
                           ItemsSource="{CompiledBinding ResolutionOptions}"
                           SelectedItem="{CompiledBinding SelectedResolution.Value}" />
             </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="{x:Static lang:Strings.AiAspectRatio}" />
+                <ComboBox HorizontalAlignment="Stretch"
+                          AutomationProperties.Name="{x:Static lang:Strings.AiAspectRatio}"
+                          ItemsSource="{CompiledBinding AspectRatioOptions}"
+                          SelectedItem="{CompiledBinding SelectedAspectRatio.Value}" />
+            </StackPanel>
         </StackPanel>
+
+        <CheckBox Content="{x:Static lang:Strings.AiGenerateAudio}"
+                  IsChecked="{CompiledBinding GenerateAudio.Value}" />
 
         <StackPanel Spacing="8">
             <StackPanel VerticalAlignment="Center"

@@ -1582,8 +1582,14 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiPrompt_Placeholder" xml:space="preserve">
     <value>生成したい画像の説明を入力...</value>
   </data>
-  <data name="AiSize" xml:space="preserve">
-    <value>サイズ</value>
+  <data name="AiAspectRatio" xml:space="preserve">
+    <value>アスペクト比</value>
+  </data>
+  <data name="AiTransparentBackground" xml:space="preserve">
+    <value>背景を透過にする</value>
+  </data>
+  <data name="AiGenerateAudio" xml:space="preserve">
+    <value>音声を生成する</value>
   </data>
   <data name="AiGenerate" xml:space="preserve">
     <value>生成</value>

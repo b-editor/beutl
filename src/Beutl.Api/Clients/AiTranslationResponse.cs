@@ -30,6 +30,21 @@ internal sealed record AiCaptionTranslationSegmentDto
     public AiCaptionTranslationSegmentContextDto? Context { get; init; }
 }
 
+internal sealed record AiCaptionTranslationStyleDto
+{
+    [JsonPropertyName("glossary")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, string>? Glossary { get; init; }
+
+    [JsonPropertyName("maxCharactersPerLine")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxCharactersPerLine { get; init; }
+
+    [JsonPropertyName("maxLines")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxLines { get; init; }
+}
+
 internal sealed record AiCaptionTranslationRequestDto
 {
     [JsonPropertyName("sourceLanguage")]
@@ -41,6 +56,10 @@ internal sealed record AiCaptionTranslationRequestDto
 
     [JsonPropertyName("segments")]
     public required AiCaptionTranslationSegmentDto[] Segments { get; init; }
+
+    [JsonPropertyName("style")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AiCaptionTranslationStyleDto? Style { get; init; }
 }
 
 internal sealed record AiCaptionTranslationResponseDto

@@ -143,10 +143,10 @@ public sealed class AiCapabilityServiceTests
 
         IAiImageGenerationService images = app.GetResource<IAiImageGenerationService>();
         await images.GenerateAsync(
-            new AiImageGenerationRequest("first", new AiImageSizeId("1024x1024")),
+            new AiImageGenerationRequest("first", new AiImageAspectRatioId("1:1")),
             CancellationToken.None);
         await images.GenerateAsync(
-            new AiImageGenerationRequest("second", new AiImageSizeId("1024x1024")),
+            new AiImageGenerationRequest("second", new AiImageAspectRatioId("1:1")),
             CancellationToken.None);
         await app.GetResource<IAiImageEditingService>().EditAsync(
             new AiImageEditRequest(Upload("image.png", "image/png"), new AiImageEditTaskId("upscale")),
@@ -161,14 +161,19 @@ public sealed class AiCapabilityServiceTests
             CancellationToken.None);
         IAiVideoService videos = app.GetResource<IAiVideoService>();
         await videos.CreateAsync(
-            new AiVideoGenerationRequest("plain", 4, new AiVideoResolutionId("720p")),
+            new AiVideoGenerationRequest(
+                "plain",
+                4,
+                new AiVideoResolutionId("720p"),
+                new AiVideoAspectRatioId("16:9")),
             CancellationToken.None);
         await videos.CreateAsync(
             new AiVideoGenerationRequest(
                 "framed",
                 8,
                 new AiVideoResolutionId("1080p"),
-                Upload("frame.png", "image/png")),
+                new AiVideoAspectRatioId("16:9"),
+                firstFrame: Upload("frame.png", "image/png")),
             CancellationToken.None);
         await videos.GetAsync(new AiJobId("video-job"), CancellationToken.None);
 
@@ -266,7 +271,11 @@ public sealed class AiCapabilityServiceTests
         await entitlements.RefreshAsync(CancellationToken.None);
 
         AiImageResult result = await app.GetResource<IAiImageGenerationService>().GenerateAsync(
-            new AiImageGenerationRequest("A moonlit harbor", new AiImageSizeId("1536x1024")),
+            new AiImageGenerationRequest(
+                "A moonlit harbor",
+                new AiImageAspectRatioId("16:9"),
+                transparentBackground: true,
+                seed: 42),
             CancellationToken.None);
 
         RecordedRequest request = handler.Requests.Single(item => item.Path == "/api/v3/ai/images");
@@ -274,7 +283,11 @@ public sealed class AiCapabilityServiceTests
         {
             Assert.That(request.Method, Is.EqualTo(HttpMethod.Post));
             Assert.That(request.Body, Does.Contain("A moonlit harbor"));
-            Assert.That(request.Body, Does.Contain("1536x1024"));
+            // The three things a fixed size could not express: a widescreen
+            // shape, an alpha channel, and a reproducible result.
+            Assert.That(request.Body, Does.Contain("\"aspectRatio\":\"16:9\""));
+            Assert.That(request.Body, Does.Contain("\"background\":\"transparent\""));
+            Assert.That(request.Body, Does.Contain("\"seed\":42"));
             Assert.That(result.JobId, Is.EqualTo(new AiJobId("job-image-1")));
             Assert.That(result.FileId, Is.EqualTo(new AiContentId("file-image-1")));
             Assert.That(
@@ -308,7 +321,7 @@ public sealed class AiCapabilityServiceTests
         await entitlements.RefreshAsync(CancellationToken.None);
 
         await app.GetResource<IAiImageGenerationService>().GenerateAsync(
-            new AiImageGenerationRequest("Exhaust credits", new AiImageSizeId("1024x1024")),
+            new AiImageGenerationRequest("Exhaust credits", new AiImageAspectRatioId("1:1")),
             CancellationToken.None);
 
         AiBalance balance = entitlements.Entitlements.Value!.Balance;
@@ -357,7 +370,11 @@ public sealed class AiCapabilityServiceTests
                         new AiCaptionTranslationSegment { Id = "cue-2", Text = "World" },
                     ],
                     " FR ",
-                    " EN "),
+                    " EN ",
+                    new AiCaptionTranslationStyle(
+                        new Dictionary<string, string> { ["Beutl"] = "Beutl" },
+                        maxCharactersPerLine: 42,
+                        maxLines: 2)),
                 CancellationToken.None);
 
         RecordedRequest request = handler.Requests.Single();
@@ -365,6 +382,11 @@ public sealed class AiCapabilityServiceTests
         {
             Assert.That(request.Body, Does.Contain("\"targetLanguage\":\"fr\""));
             Assert.That(request.Body, Does.Contain("\"sourceLanguage\":\"en\""));
+            // A line that does not fit its cue is unreadable however good the
+            // wording is, and a series keeps its own names for things.
+            Assert.That(request.Body, Does.Contain("\"maxCharactersPerLine\":42"));
+            Assert.That(request.Body, Does.Contain("\"maxLines\":2"));
+            Assert.That(request.Body, Does.Contain("\"glossary\":{\"Beutl\":\"Beutl\"}"));
             Assert.That(request.Body, Does.Contain(
                 "\"context\":{\"groupId\":\"cue-1\",\"partIndex\":0,\"start\":1.5,\"end\":3}"));
             Assert.That(result.JobId, Is.EqualTo(new AiJobId("job-translate-1")));
@@ -443,12 +465,25 @@ public sealed class AiCapabilityServiceTests
         IAiVideoService service = app.GetResource<IAiVideoService>();
 
         AiVideoGenerationResult created = await service.CreateAsync(
-            new AiVideoGenerationRequest("Ocean waves", 6, new AiVideoResolutionId("720p")),
+            new AiVideoGenerationRequest(
+                "Ocean waves",
+                6,
+                new AiVideoResolutionId("720p"),
+                new AiVideoAspectRatioId("9:16"),
+                generateAudio: false,
+                seed: 11),
             CancellationToken.None);
         AiVideoJob completed = await service.GetAsync(created.JobId, CancellationToken.None);
 
+        RecordedRequest submission = handler.Requests.First(
+            item => item is { Method.Method: "POST", Path: "/api/v3/ai/videos" });
         using (Assert.EnterMultipleScope())
         {
+            // A vertical clip and a silent one could not be asked for at all
+            // before; the resolution alone says nothing about shape.
+            Assert.That(submission.Body, Does.Contain("\"aspectRatio\":\"9:16\""));
+            Assert.That(submission.Body, Does.Contain("\"generateAudio\":false"));
+            Assert.That(submission.Body, Does.Contain("\"seed\":11"));
             Assert.That(created.Status, Is.EqualTo(AiJobStatuses.Queued));
             Assert.That(completed.Status, Is.EqualTo(AiJobStatuses.Succeeded));
             Assert.That(completed.FileId, Is.EqualTo(new AiContentId("video-file-1")));
@@ -552,7 +587,7 @@ public sealed class AiCapabilityServiceTests
     [Test]
     public void RequestValidation_EnforcesPromptVideoDurationAndKnownFrameSize()
     {
-        var size = new AiImageSizeId("1024x1024");
+        var size = new AiImageAspectRatioId("1:1");
         Assert.DoesNotThrow(() => new AiImageGenerationRequest(new string('a', 4_000), size));
         ArgumentException promptError = Assert.Throws<ArgumentException>(() =>
             new AiImageGenerationRequest(new string('a', 4_001), size))!;
@@ -561,11 +596,13 @@ public sealed class AiCapabilityServiceTests
         Assert.DoesNotThrow(() => new AiVideoGenerationRequest(
             "prompt",
             4,
-            new AiVideoResolutionId("720p")));
+            new AiVideoResolutionId("720p"),
+            new AiVideoAspectRatioId("16:9")));
         Assert.Throws<ArgumentOutOfRangeException>(() => new AiVideoGenerationRequest(
             "prompt",
             5,
-            new AiVideoResolutionId("720p")));
+            new AiVideoResolutionId("720p"),
+            new AiVideoAspectRatioId("16:9")));
 
         var oversized = new AiUploadSource(
             "frame.png",
@@ -576,7 +613,8 @@ public sealed class AiCapabilityServiceTests
             "prompt",
             4,
             new AiVideoResolutionId("720p"),
-            oversized));
+            new AiVideoAspectRatioId("16:9"),
+            firstFrame: oversized));
     }
 
     private static string EntitlementsJson() => $$"""

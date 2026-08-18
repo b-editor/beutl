@@ -108,6 +108,14 @@ public static class AiRequestLimits
 
     public const long MaxFrameUploadBytes = 5L * 1024 * 1024;
 
+    public const long MaxImageUploadBytes = 20L * 1024 * 1024;
+
+    // The provider accepts a signed 32-bit seed. Bounding it here keeps the
+    // same number intact through every JSON encoder on the way.
+    public const int MinSeed = 0;
+
+    public const int MaxSeed = int.MaxValue;
+
     internal static string ValidatePrompt(string prompt, string parameterName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt, parameterName);
@@ -124,27 +132,58 @@ public static class AiRequestLimits
 
     internal static string? ValidateOptionalPrompt(string? prompt, string parameterName)
         => string.IsNullOrWhiteSpace(prompt) ? null : ValidatePrompt(prompt, parameterName);
+
+    internal static int? ValidateOptionalSeed(int? seed, string parameterName)
+    {
+        if (seed is null) return null;
+        if (seed.Value is < MinSeed or > MaxSeed)
+            throw new ArgumentOutOfRangeException(parameterName);
+        return seed;
+    }
 }
 
-public readonly struct AiImageSizeId : IEquatable<AiImageSizeId>
+// The server is asked for a shape, not a pixel count: "16:9" and "9:16" are the
+// ones a video editor needs and no fixed size could express them.
+public readonly struct AiImageAspectRatioId : IEquatable<AiImageAspectRatioId>
 {
     private readonly string? _value;
 
-    public AiImageSizeId(string value) => _value = AiIdentifier.Normalize(value, nameof(value));
+    public AiImageAspectRatioId(string value) => _value = AiIdentifier.Normalize(value, nameof(value));
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiImageSizeId other) => StringComparer.Ordinal.Equals(Value, other.Value);
+    public bool Equals(AiImageAspectRatioId other) => StringComparer.Ordinal.Equals(Value, other.Value);
 
-    public override bool Equals(object? obj) => obj is AiImageSizeId other && Equals(other);
+    public override bool Equals(object? obj) => obj is AiImageAspectRatioId other && Equals(other);
 
     public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
 
     public override string ToString() => Value;
 
-    public static bool operator ==(AiImageSizeId left, AiImageSizeId right) => left.Equals(right);
+    public static bool operator ==(AiImageAspectRatioId left, AiImageAspectRatioId right) => left.Equals(right);
 
-    public static bool operator !=(AiImageSizeId left, AiImageSizeId right) => !left.Equals(right);
+    public static bool operator !=(AiImageAspectRatioId left, AiImageAspectRatioId right) => !left.Equals(right);
+}
+
+public readonly struct AiVideoAspectRatioId : IEquatable<AiVideoAspectRatioId>
+{
+    private readonly string? _value;
+
+    public AiVideoAspectRatioId(string value) => _value = AiIdentifier.Normalize(value, nameof(value));
+
+    public string Value => _value ?? string.Empty;
+
+    public bool Equals(AiVideoAspectRatioId other) => StringComparer.Ordinal.Equals(Value, other.Value);
+
+    public override bool Equals(object? obj) => obj is AiVideoAspectRatioId other && Equals(other);
+
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
+
+    public override string ToString() => Value;
+
+    public static bool operator ==(AiVideoAspectRatioId left, AiVideoAspectRatioId right) => left.Equals(right);
+
+    public static bool operator !=(AiVideoAspectRatioId left, AiVideoAspectRatioId right) => !left.Equals(right);
 }
 
 public readonly struct AiImageEditTaskId : IEquatable<AiImageEditTaskId>
@@ -191,17 +230,46 @@ public readonly struct AiVideoResolutionId : IEquatable<AiVideoResolutionId>
 
 public sealed record AiImageGenerationRequest
 {
-    public AiImageGenerationRequest(string prompt, AiImageSizeId size)
+    public AiImageGenerationRequest(
+        string prompt,
+        AiImageAspectRatioId aspectRatio,
+        bool transparentBackground = false,
+        int? seed = null,
+        AiUploadSource? reference = null)
     {
-        if (size.Value.Length == 0)
-            throw new ArgumentException("An image size is required.", nameof(size));
+        if (aspectRatio.Value.Length == 0)
+            throw new ArgumentException("An image aspect ratio is required.", nameof(aspectRatio));
+        if (reference?.Length > AiRequestLimits.MaxImageUploadBytes)
+            throw new AiFileTooLargeException();
+
         Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
-        Size = size;
+        AspectRatio = aspectRatio;
+        TransparentBackground = transparentBackground;
+        Seed = AiRequestLimits.ValidateOptionalSeed(seed, nameof(seed));
+        Reference = reference;
     }
 
     public string Prompt { get; }
 
-    public AiImageSizeId Size { get; }
+    public AiImageAspectRatioId AspectRatio { get; }
+
+    /// <summary>
+    /// Produces the image on a transparent background, which is what a
+    /// compositing asset needs. The generated file stays PNG either way.
+    /// </summary>
+    public bool TransparentBackground { get; }
+
+    /// <summary>
+    /// Repeating a seed with the same prompt reproduces the same picture, which
+    /// is what makes iterating on a result possible.
+    /// </summary>
+    public int? Seed { get; }
+
+    /// <summary>
+    /// An existing picture the generation is guided by. One at most: that is
+    /// what the operation's price covers.
+    /// </summary>
+    public AiUploadSource? Reference { get; }
 }
 
 public sealed record AiImageEditRequest
@@ -240,12 +308,63 @@ public sealed record AiTranscriptionRequest
     public string? Language { get; }
 }
 
+/// <summary>
+/// Direction that applies to the whole translation rather than to one segment.
+/// A line that does not fit its cue is unreadable however good the wording is,
+/// and a series keeps its own names for things.
+/// </summary>
+public sealed record AiCaptionTranslationStyle
+{
+    public const int MaxGlossaryEntries = 100;
+
+    public AiCaptionTranslationStyle(
+        IReadOnlyDictionary<string, string>? glossary = null,
+        int? maxCharactersPerLine = null,
+        int? maxLines = null)
+    {
+        if (glossary is { Count: > MaxGlossaryEntries })
+        {
+            throw new ArgumentException(
+                $"A glossary cannot hold more than {MaxGlossaryEntries} terms.",
+                nameof(glossary));
+        }
+
+        if (maxCharactersPerLine is not null and (< 1 or > 200))
+            throw new ArgumentOutOfRangeException(nameof(maxCharactersPerLine));
+        if (maxLines is not null and (< 1 or > 10))
+            throw new ArgumentOutOfRangeException(nameof(maxLines));
+
+        Glossary = glossary is null
+            ? null
+            : new Dictionary<string, string>(glossary).AsReadOnly();
+        MaxCharactersPerLine = maxCharactersPerLine;
+        MaxLines = maxLines;
+    }
+
+    /// <summary>
+    /// Term to required translation. These characters count against the same
+    /// request budget and the same charge as the subtitle text, because they
+    /// reach the provider the same way.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Glossary { get; }
+
+    public int? MaxCharactersPerLine { get; }
+
+    public int? MaxLines { get; }
+
+    public bool IsEmpty
+        => (Glossary is null || Glossary.Count == 0)
+           && MaxCharactersPerLine is null
+           && MaxLines is null;
+}
+
 public sealed record AiCaptionTranslationRequest
 {
     public AiCaptionTranslationRequest(
         IReadOnlyList<AiCaptionTranslationSegment> segments,
         string targetLanguage,
-        string? sourceLanguage = null)
+        string? sourceLanguage = null,
+        AiCaptionTranslationStyle? style = null)
     {
         ArgumentNullException.ThrowIfNull(segments);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetLanguage);
@@ -259,6 +378,7 @@ public sealed record AiCaptionTranslationRequest
         SourceLanguage = string.IsNullOrWhiteSpace(sourceLanguage)
             ? null
             : sourceLanguage.Trim().ToLowerInvariant();
+        Style = style is null || style.IsEmpty ? null : style;
     }
 
     public IReadOnlyList<AiCaptionTranslationSegment> Segments { get; }
@@ -266,6 +386,8 @@ public sealed record AiCaptionTranslationRequest
     public string TargetLanguage { get; }
 
     public string? SourceLanguage { get; }
+
+    public AiCaptionTranslationStyle? Style { get; }
 }
 
 public sealed record AiVideoGenerationRequest
@@ -274,6 +396,9 @@ public sealed record AiVideoGenerationRequest
         string prompt,
         int durationSeconds,
         AiVideoResolutionId resolution,
+        AiVideoAspectRatioId aspectRatio,
+        bool generateAudio = true,
+        int? seed = null,
         AiUploadSource? firstFrame = null,
         AiUploadSource? lastFrame = null)
     {
@@ -281,6 +406,8 @@ public sealed record AiVideoGenerationRequest
             throw new ArgumentOutOfRangeException(nameof(durationSeconds));
         if (resolution.Value.Length == 0)
             throw new ArgumentException("A video resolution is required.", nameof(resolution));
+        if (aspectRatio.Value.Length == 0)
+            throw new ArgumentException("A video aspect ratio is required.", nameof(aspectRatio));
         if (lastFrame is not null && firstFrame is null)
             throw new ArgumentException("A last frame requires a first frame.", nameof(lastFrame));
         if (firstFrame?.Length > AiRequestLimits.MaxFrameUploadBytes)
@@ -291,6 +418,9 @@ public sealed record AiVideoGenerationRequest
         Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
         DurationSeconds = durationSeconds;
         Resolution = resolution;
+        AspectRatio = aspectRatio;
+        GenerateAudio = generateAudio;
+        Seed = AiRequestLimits.ValidateOptionalSeed(seed, nameof(seed));
         FirstFrame = firstFrame;
         LastFrame = lastFrame;
     }
@@ -299,7 +429,18 @@ public sealed record AiVideoGenerationRequest
 
     public int DurationSeconds { get; }
 
+    /// <summary>How many pixels; <see cref="AspectRatio"/> says what shape they are in.</summary>
     public AiVideoResolutionId Resolution { get; }
+
+    public AiVideoAspectRatioId AspectRatio { get; }
+
+    /// <summary>
+    /// The model generates sound. Leaving it on matches what the plan is priced
+    /// for; turning it off is for a clip that will carry its own audio.
+    /// </summary>
+    public bool GenerateAudio { get; }
+
+    public int? Seed { get; }
 
     public AiUploadSource? FirstFrame { get; }
 

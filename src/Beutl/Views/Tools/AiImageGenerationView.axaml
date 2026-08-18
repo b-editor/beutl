@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Views.Tools.AiImageGenerationView"
+﻿<UserControl x:Class="Beutl.Views.Tools.AiImageGenerationView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:btl="using:Beutl.Controls"
@@ -96,12 +96,15 @@
         </StackPanel>
 
         <StackPanel Spacing="4">
-            <TextBlock Text="{x:Static lang:Strings.AiSize}" />
+            <TextBlock Text="{x:Static lang:Strings.AiAspectRatio}" />
             <ComboBox HorizontalAlignment="Stretch"
-                      AutomationProperties.Name="{x:Static lang:Strings.AiSize}"
-                      ItemsSource="{CompiledBinding SizeOptions}"
-                      SelectedItem="{CompiledBinding SelectedSize.Value}" />
+                      AutomationProperties.Name="{x:Static lang:Strings.AiAspectRatio}"
+                      ItemsSource="{CompiledBinding AspectRatioOptions}"
+                      SelectedItem="{CompiledBinding SelectedAspectRatio.Value}" />
         </StackPanel>
+
+        <CheckBox Content="{x:Static lang:Strings.AiTransparentBackground}"
+                  IsChecked="{CompiledBinding TransparentBackground.Value}" />
 
         <StackPanel Spacing="8">
             <StackPanel VerticalAlignment="Center"

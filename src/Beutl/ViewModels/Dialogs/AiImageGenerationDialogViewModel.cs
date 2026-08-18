@@ -64,14 +64,18 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
                 prompt => Prompt.Value = prompt)
             .DisposeWith(_disposables);
 
-        SizeOptions =
+        AspectRatioOptions =
         [
-            new AiImageSizeOption("1024x1024"),
-            new AiImageSizeOption("1024x1536"),
-            new AiImageSizeOption("1536x1024"),
+            new AiImageAspectRatioOption("16:9"),
+            new AiImageAspectRatioOption("1:1"),
+            new AiImageAspectRatioOption("9:16"),
+            new AiImageAspectRatioOption("4:3"),
+            new AiImageAspectRatioOption("3:4"),
         ];
-        SelectedSize = new ReactivePropertySlim<AiImageSizeOption>(
-                GetSuggestedSize(SizeOptions, editViewModel?.Scene.FrameSize))
+        SelectedAspectRatio = new ReactivePropertySlim<AiImageAspectRatioOption>(
+                GetSuggestedAspectRatio(AspectRatioOptions, editViewModel?.Scene.FrameSize))
+            .DisposeWith(_disposables);
+        TransparentBackground = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
 
         IsGenerating = new ReactivePropertySlim<bool>(false)
@@ -133,9 +137,15 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.AiImageGeneration);
 
-    public IReadOnlyList<AiImageSizeOption> SizeOptions { get; }
+    public IReadOnlyList<AiImageAspectRatioOption> AspectRatioOptions { get; }
 
-    public ReactivePropertySlim<AiImageSizeOption> SelectedSize { get; }
+    public ReactivePropertySlim<AiImageAspectRatioOption> SelectedAspectRatio { get; }
+
+    /// <summary>
+    /// Produces the image on a transparent background, which is what a
+    /// compositing asset dropped onto a timeline needs.
+    /// </summary>
+    public ReactivePropertySlim<bool> TransparentBackground { get; }
 
     public ReactivePropertySlim<string> Prompt { get; } = new();
 
@@ -189,21 +199,23 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         // Prompts and generated content are intentionally kept out of the persisted dock layout.
     }
 
-    internal static AiImageSizeOption GetSuggestedSize(
-        IReadOnlyList<AiImageSizeOption> options,
+    internal static AiImageAspectRatioOption GetSuggestedAspectRatio(
+        IReadOnlyList<AiImageAspectRatioOption> options,
         Beutl.Media.PixelSize? frameSize)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (options.Count == 0)
-            throw new ArgumentException("At least one image size option is required.", nameof(options));
-
-        string value = frameSize switch
         {
-            { Width: > 0, Height: > 0 } size when size.Width >= size.Height * 1.15 => "1536x1024",
-            { Width: > 0, Height: > 0 } size when size.Height >= size.Width * 1.15 => "1024x1536",
-            _ => "1024x1024",
-        };
-        return options.FirstOrDefault(option => option.Value == value) ?? options[0];
+            throw new ArgumentException(
+                "At least one aspect ratio option is required.",
+                nameof(options));
+        }
+
+        string ratio = AiAspectRatioSuggestion.Nearest(
+            options.Select(option => option.Value).ToArray(),
+            frameSize,
+            "16:9");
+        return options.FirstOrDefault(option => option.Value == ratio) ?? options[0];
     }
 
     public void Dispose() => _ = BeginDisposeAsync();
@@ -266,7 +278,7 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         try
         {
             string prompt = ComposePrompt();
-            string size = SelectedSize.Value.Value;
+            string aspectRatio = SelectedAspectRatio.Value.Value;
             if (!await _availability.CheckAsync(
                     new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration),
                     operation.CancellationToken))
@@ -276,7 +288,8 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
             AiImageResult response = await _images.GenerateAsync(
                 new AiImageGenerationRequest(
                     prompt,
-                    new AiImageSizeId(size)),
+                    new AiImageAspectRatioId(aspectRatio),
+                    TransparentBackground.Value),
                 operation.CancellationToken);
 
             using var stream = new MemoryStream();
@@ -436,7 +449,7 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
 
 }
 
-public sealed record AiImageSizeOption(string Value)
+public sealed record AiImageAspectRatioOption(string Value)
 {
     public override string ToString() => Value;
 }
