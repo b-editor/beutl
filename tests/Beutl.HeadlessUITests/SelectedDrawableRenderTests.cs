@@ -207,8 +207,16 @@ public class SelectedDrawableRenderTests
         }
     }
 
+    /// <summary>
+    /// A group used to publish a full-target layer, so a bounds-dependent effect on it was measured
+    /// against the canvas and the same project rendered differently at a different scene resolution.
+    /// A group now publishes the bounds of what it holds, and the save path frames that extent rather
+    /// than the frame. Where the two bounds still diverge — a drawable that writes the target without
+    /// any query geometry — is covered by
+    /// <see cref="Full_target_only_drawable_renders_when_query_bounds_are_empty"/>.
+    /// </summary>
     [AvaloniaTest]
-    public async Task Full_target_group_uses_output_extent_for_measurement_and_rasterization()
+    public async Task Group_uses_its_content_extent_for_measurement_and_rasterization()
     {
         GpuTestGate.EnsureAvailable();
         await ResetProjectAsync();
@@ -232,12 +240,12 @@ public class SelectedDrawableRenderTests
         {
             Assert.Multiple(() =>
             {
-                Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 320, 240)));
+                Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(37, 29, 48, 32)));
                 Assert.That(measurement.QueryBounds, Is.EqualTo(new Rect(37, 29, 48, 32)));
                 Assert.That(rasterization.Bounds, Is.EqualTo(measurement.OutputBounds));
-                Assert.That(measuredSize, Is.EqualTo(new PixelSize(320, 240)));
-                Assert.That(bitmap.Width, Is.EqualTo(320));
-                Assert.That(bitmap.Height, Is.EqualTo(240));
+                Assert.That(measuredSize, Is.EqualTo(new PixelSize(48, 32)));
+                Assert.That(bitmap.Width, Is.EqualTo(48));
+                Assert.That(bitmap.Height, Is.EqualTo(32));
             });
         }
     }
