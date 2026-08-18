@@ -1406,20 +1406,26 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    internal void DrawExecutionInput(SKImage image, Rect destination)
+    internal void DrawExecutionInput(
+        SKImage image,
+        Rect destination,
+        SKPaint? paint = null,
+        SKSamplingOptions? sampling = null)
     {
         ArgumentNullException.ThrowIfNull(image);
         VerifyPixelOperation();
-        _sharedFillPaint.Reset();
-        ApplyDirectBlendMode(_sharedFillPaint);
-        _sharedFillPaint.IsAntialias = true;
+        SKPaint effective = paint ?? _sharedFillPaint;
+        if (paint is null)
+            _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(effective);
+        effective.IsAntialias = true;
         RecordPixelOperation();
         Canvas.DrawImage(
             image,
             SKRect.Create(image.Width, image.Height),
             destination.ToSKRect(),
-            new SKSamplingOptions(SKCubicResampler.Mitchell),
-            _sharedFillPaint);
+            sampling ?? new SKSamplingOptions(SKCubicResampler.Mitchell),
+            effective);
     }
 
     internal void DrawExecutionInputDeviceSpace(SKImage image, Point localDevicePoint)

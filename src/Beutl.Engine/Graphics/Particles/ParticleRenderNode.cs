@@ -129,24 +129,27 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         session.Publish(output);
     }
 
+    /// <summary>The particle's own transform does the scaling, so the blit adds no filtering.</summary>
+    private static readonly SKSamplingOptions s_particleSampling =
+        new(SKFilterMode.Nearest, SKMipmapMode.None);
+
     private static void DrawParticles(TargetCommandSession session, Particle[] particles)
     {
         session.Canvas.Use(canvas =>
         {
             foreach (RenderExecutionInput input in session.Inputs)
             {
-                input.UseShader(shader => DrawParticleInput(canvas, input.Bounds, shader, particles));
+                DrawParticleInput(canvas, input, particles);
             }
         });
     }
 
     private static void DrawParticleInput(
         ImmediateCanvas canvas,
-        Rect inputBounds,
-        SKShader shader,
+        RenderExecutionInput input,
         Particle[] particles)
     {
-        Point center = inputBounds.Center;
+        Point center = input.Bounds.Center;
         for (int i = 0; i < particles.Length; i++)
         {
             ref readonly Particle particle = ref particles[i];
@@ -178,13 +181,14 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             using (var paint = new SKPaint
             {
                 IsAntialias = true,
-                Shader = shader,
                 ColorFilter = colorFilter,
                 Color = SKColors.White.WithAlpha(
                            (byte)Math.Clamp(MathF.Round(opacity * byte.MaxValue), 0, byte.MaxValue)),
             })
             {
-                canvas.Canvas.DrawRect(inputBounds.ToSKRect(), paint);
+                // The particle transform already carries the resampling, so the blit itself stays
+                // unfiltered -- the same footprint the source would have drawn under that transform.
+                input.Draw(canvas, paint, s_particleSampling);
             }
         }
     }

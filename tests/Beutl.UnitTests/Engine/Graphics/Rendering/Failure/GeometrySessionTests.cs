@@ -139,7 +139,7 @@ public sealed class GeometrySessionTests
             token,
             bounds,
             EffectiveScale.At(1),
-            static (_, _) => { },
+            static (_, _, _, _) => { },
             static (_, _) => { },
             createShader: null,
             createSnapshot: null,

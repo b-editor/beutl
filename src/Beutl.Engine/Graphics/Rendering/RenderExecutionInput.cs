@@ -52,7 +52,7 @@ public sealed class RenderExecutionInput
     private readonly EffectiveScale _effectiveScale;
     private readonly PixelRect _deviceBounds;
     private readonly Rect _rasterBounds;
-    private readonly Action<ImmediateCanvas, Rect> _draw;
+    private readonly Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> _draw;
     private readonly Action<ImmediateCanvas, Point> _drawDeviceSpace;
     private readonly Func<SKShaderTileMode, SKShaderTileMode, SKShader>? _createShader;
     private readonly Func<Bitmap>? _createSnapshot;
@@ -63,7 +63,7 @@ public sealed class RenderExecutionInput
         RenderExecutionSessionToken token,
         Rect bounds,
         EffectiveScale effectiveScale,
-        Action<ImmediateCanvas, Rect> draw,
+        Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> draw,
         Action<ImmediateCanvas, Point> drawDeviceSpace,
         Func<SKShaderTileMode, SKShaderTileMode, SKShader>? createShader,
         Func<Bitmap>? createSnapshot,
@@ -86,7 +86,7 @@ public sealed class RenderExecutionInput
         Rect bounds,
         EffectiveScale effectiveScale,
         PixelRect deviceBounds,
-        Action<ImmediateCanvas, Rect> draw,
+        Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> draw,
         Action<ImmediateCanvas, Point> drawDeviceSpace,
         Func<SKShaderTileMode, SKShaderTileMode, SKShader>? createShader,
         Func<Bitmap>? createSnapshot,
@@ -111,7 +111,7 @@ public sealed class RenderExecutionInput
         EffectiveScale effectiveScale,
         PixelRect deviceBounds,
         Rect rasterBounds,
-        Action<ImmediateCanvas, Rect> draw,
+        Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> draw,
         Action<ImmediateCanvas, Point> drawDeviceSpace,
         Func<SKShaderTileMode, SKShaderTileMode, SKShader>? createShader,
         Func<Bitmap>? createSnapshot,
@@ -166,7 +166,8 @@ public sealed class RenderExecutionInput
             effectiveScale,
             deviceBounds,
             rasterBounds,
-            (canvas, destination) => canvas.DrawExecutionInput(image, destination),
+            (canvas, destination, paint, sampling) =>
+                canvas.DrawExecutionInput(image, destination, paint, sampling),
             (canvas, point) => canvas.DrawExecutionInputDeviceSpace(image, point),
             (x, y) => image.ToShader(
                 x,
@@ -240,7 +241,26 @@ public sealed class RenderExecutionInput
     {
         ArgumentNullException.ThrowIfNull(canvas);
         _token.VerifyActiveCanvas(canvas);
-        _draw(canvas, _rasterBounds);
+        _draw(canvas, _rasterBounds, null, null);
+    }
+
+    /// <summary>
+    /// Draws the input's pixels through <paramref name="paint"/> and <paramref name="sampling"/>, so a
+    /// caller can modulate them -- with a colour filter, an alpha, an image filter -- and choose how
+    /// they are resampled, inside the same draw.
+    /// </summary>
+    /// <remarks>
+    /// Filling a rectangle with the input's shader instead leaves the caller to resample it through a
+    /// tile mode, which is a poor substitute: the shader is point-sampled, so a minified input reduces
+    /// to whichever texels the sample points happen to hit, and a decal domain narrower than the
+    /// sample footprint drops out altogether -- the input disappears.
+    /// </remarks>
+    public void Draw(ImmediateCanvas canvas, SKPaint paint, SKSamplingOptions sampling)
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+        ArgumentNullException.ThrowIfNull(paint);
+        _token.VerifyActiveCanvas(canvas);
+        _draw(canvas, _rasterBounds, paint, sampling);
     }
 
     public void DrawDeviceSpace(ImmediateCanvas canvas, Point devicePoint)
