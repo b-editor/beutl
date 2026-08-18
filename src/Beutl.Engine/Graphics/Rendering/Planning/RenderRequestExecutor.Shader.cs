@@ -517,7 +517,7 @@ internal sealed partial class RenderRequestExecutor
                         {
                             inputShader = RasterShaderMapping.CreateSemanticImageShader(
                                 inputImage,
-                                input.Target.Value.Context,
+                                input.Target.RawValue.Context,
                                 input.Bounds,
                                 input.EffectiveScale.Value,
                                 input.DeviceBounds,
@@ -791,7 +791,7 @@ internal sealed partial class RenderRequestExecutor
 
                         SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
                             inputImage,
-                            input.Target.Value.Context,
+                            input.Target.RawValue.Context,
                             input.Bounds,
                             input.EffectiveScale.Value,
                             input.DeviceBounds,

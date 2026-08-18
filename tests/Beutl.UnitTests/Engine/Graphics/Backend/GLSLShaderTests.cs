@@ -179,7 +179,7 @@ public class GLSLShaderTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void ConsecutiveEffects_SubmitAndWaitOnlyAtTheReadbackBoundary()
+    public void ConsecutiveEffects_SubmitEachEffectAndWaitOnlyAtTheReadbackBoundary()
     {
         IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
 
@@ -216,8 +216,8 @@ public class GLSLShaderTests
                 {
                     Assert.That(
                         events.Count(static item => item == VulkanCommandPoolEvent.Submission),
-                        Is.EqualTo(1),
-                        "The mixed native effect chain must remain in one command-buffer submission.");
+                        Is.EqualTo(3),
+                        "Each native effect must submit its output, while multi-pass work stays in one batch.");
                     Assert.That(
                         events.Count(static item => item == VulkanCommandPoolEvent.FenceWait),
                         Is.EqualTo(1),

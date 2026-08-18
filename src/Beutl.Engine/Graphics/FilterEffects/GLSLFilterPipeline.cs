@@ -1,6 +1,8 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Composite;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -42,6 +44,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
     private readonly ISampler _sampler;
     private readonly byte[] _vertexShaderSpirv;
     private readonly byte[] _fragmentShaderSpirv;
+    private readonly ShaderOutputCoverage _outputCoverage;
     private bool _disposed;
 
     private readonly bool _hasMaskTexture;
@@ -57,6 +60,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         ISampler sampler,
         byte[] vertexShaderSpirv,
         byte[] fragmentShaderSpirv,
+        ShaderOutputCoverage outputCoverage,
         bool hasMaskTexture = false)
     {
         _context = context;
@@ -65,6 +69,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         _sampler = sampler;
         _vertexShaderSpirv = vertexShaderSpirv;
         _fragmentShaderSpirv = fragmentShaderSpirv;
+        _outputCoverage = outputCoverage;
         _hasMaskTexture = hasMaskTexture;
     }
 
@@ -74,10 +79,11 @@ internal sealed class GLSLFilterPipeline : IDisposable
     /// <param name="context">The graphics context that owns the pipeline.</param>
     /// <param name="fragmentShaderSource">The GLSL fragment shader source.</param>
     /// <param name="outputCoverage">
-    /// The proven fragment-output coverage contract. <see cref="ShaderOutputCoverage.ProvablyFull"/> may be
-    /// selected only for an engine-owned shader whose every control-flow path writes the fragment output and
-    /// which never uses <c>discard</c>; a false claim can expose stale pixels from an unrelated frame when a
-    /// pooled target is reused.
+    /// The proven fragment-output coverage contract. <see cref="ShaderOutputCoverage.MayLeavePixelsUnwritten"/>
+    /// transparently initializes the destination before the pass and clears the render-pass attachment.
+    /// <see cref="ShaderOutputCoverage.ProvablyFull"/> may be selected only for an engine-owned shader whose
+    /// every control-flow path writes the fragment output and which never uses <c>discard</c>; a false claim can
+    /// expose stale pixels from an unrelated frame when a pooled target is reused.
     /// </param>
     /// <param name="specializationConstants">Immutable values applied when the pipeline is created.</param>
     /// <param name="hasMaskTexture">Whether the shader reads a second texture at binding 1.</param>
@@ -145,6 +151,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 sampler,
                 vertexShaderSpirv,
                 fragmentShaderSpirv,
+                outputCoverage,
                 hasMaskTexture);
         }
         catch (Exception ex)
@@ -166,7 +173,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
 
         // Prepare textures for their respective operations
         sourceTexture.PrepareForSampling();
-        destinationTexture.PrepareForRender();
+        PrepareDestination(destinationTexture);
 
         // Create framebuffer
         using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
@@ -207,7 +214,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         // Prepare textures for their respective operations
         sourceTexture.PrepareForSampling();
         maskTexture.PrepareForSampling();
-        destinationTexture.PrepareForRender();
+        PrepareDestination(destinationTexture);
 
         // Create framebuffer
         using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
@@ -234,6 +241,35 @@ internal sealed class GLSLFilterPipeline : IDisposable
         destinationTexture.PrepareForSampling();
     }
 
+    private void PrepareDestination(ITexture2D destinationTexture)
+    {
+        if (_outputCoverage == ShaderOutputCoverage.MayLeavePixelsUnwritten)
+        {
+            if (destinationTexture is not ITransparentClearableTexture clearableTexture)
+            {
+                throw new InvalidOperationException(
+                    "A conservative native shader requires an ordered transparent-clear texture.");
+            }
+
+            clearableTexture.ClearToTransparent();
+        }
+
+        destinationTexture.PrepareForRender();
+    }
+
+    internal void SubmitPendingCommands()
+    {
+        // A subsequent effect may consume this output through another backend immediately. Submit the recorded
+        // clears and draws so their queue order is established before the caller releases the source target.
+        VulkanContext context = _context switch
+        {
+            VulkanContext vulkan => vulkan,
+            CompositeContext composite => composite.Vulkan,
+            _ => throw new InvalidOperationException("The GLSL pipeline requires a Vulkan recording context."),
+        };
+        context.FlushCommands(waitForCompletion: false);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -247,7 +283,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
 
 /// <summary>
 /// Declares whether a fragment shader is proven to write every output pixel, allowing a filter render pass to
-/// preserve or skip initialization of a pooled destination safely.
+/// load a transparently initialized destination or discard its previous contents safely.
 /// </summary>
 /// <remarks>
 /// Only engine-owned built-in shaders may claim <see cref="ProvablyFull"/>, and only after proving that every
@@ -258,8 +294,9 @@ internal sealed class GLSLFilterPipeline : IDisposable
 internal enum ShaderOutputCoverage : byte
 {
     /// <summary>
-    /// The shader may leave fragments unwritten, so the destination must be cleared before drawing. Public or
-    /// user-authored shaders always use this conservative contract.
+    /// The shader may leave fragments unwritten, so the destination is transparently initialized and the
+    /// render-pass attachment is cleared before drawing. Public or user-authored shaders always use this
+    /// conservative contract.
     /// </summary>
     MayLeavePixelsUnwritten,
 

@@ -3,7 +3,6 @@ using System.Runtime.ExceptionServices;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -141,8 +140,8 @@ internal sealed partial class RenderRequestExecutor
             {
                 if (initializeTarget)
                 {
-                    lease.Target.BeginDraw();
-                    lease.Target.Value.Canvas.Clear(SKColors.Transparent);
+                    if (!lease.Target.HasTransparentContents)
+                        lease.Target.ClearToTransparent();
                 }
                 var value = new MaterializedRenderValue(
                     lease,

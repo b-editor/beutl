@@ -90,7 +90,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _dispatcher = Dispatcher.Current;
         _flushOnDispose = flushOnDispose;
         _renderTargetValue = renderTarget;
-        Canvas = _renderTarget.Value.Canvas;
+        Canvas = _renderTarget.RawValue.Canvas;
         DeviceSize = new PixelSize(renderTarget.Width, renderTarget.Height);
         DeviceOrigin = deviceOrigin;
         LogicalSize = logicalSize.IsDefault ? DeviceSize.ToSize(density) : logicalSize;
@@ -483,7 +483,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private bool CanConsumeWithoutFlush(RenderTarget renderTarget)
     {
         renderTarget.VerifyAccess();
-        return CanConsumeWithoutFlush(renderTarget.Value);
+        return CanConsumeWithoutFlush(renderTarget.RawValue);
     }
 
     private bool CanConsumeWithoutFlush(SKSurface surface)
@@ -491,7 +491,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (!_allowDeferredSameContextSampling || _flushOnDispose)
             return false;
 
-        GRRecordingContext? destinationContext = _renderTarget.Value.Context;
+        GRRecordingContext? destinationContext = _renderTarget.RawValue.Context;
         GRRecordingContext? sourceContext = surface.Context;
         return destinationContext is null
             ? sourceContext is null
@@ -1488,7 +1488,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 RecordFlush(ImmediateCanvasFlushKind.CanvasClose);
                 GpuResourceReclaimQueue.DrainAfterContextSync();
             }
-            else if (submit && _renderTarget.Value.Context is GRContext submitContext)
+            else if (submit && _renderTarget.RawValue.Context is GRContext submitContext)
             {
                 submitContext.Flush(true, false);
                 RecordFlush(ImmediateCanvasFlushKind.CanvasSubmit);

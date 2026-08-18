@@ -385,6 +385,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                             Width = width,
                             Height = height,
                         });
+                    shaders.Gather.SubmitPendingCommands();
 
                     target.Dispose();
                     ctx.Targets[i] = newTarget;

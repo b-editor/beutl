@@ -205,7 +205,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     private unsafe void ClearSkiaImage(Image image, ImageCreateInfo createInfo)
     {
-        _vulkanCommandPool.SubmitImmediateCommands(commandBuffer =>
+        _vulkanCommandPool.SubmitIsolatedCommands(commandBuffer =>
         {
             ImageSubresourceRange range = CreateInitializationRange(createInfo);
             var barrier = new ImageMemoryBarrier
@@ -585,6 +585,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
                 Filter.Nearest);
         });
 
+        vulkanDest.MarkContentsUnknown();
+
         vulkanDest.TransitionTo(ImageLayout.ColorAttachmentOptimal);
 
         // Transition source back to shader read optimal
@@ -771,6 +773,11 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     public void RecordCommands(Action<CommandBuffer> record)
     {
         _vulkanCommandPool.RecordCommands(record);
+    }
+
+    internal void SubmitIsolatedCommands(Action<CommandBuffer> record)
+    {
+        _vulkanCommandPool.SubmitIsolatedCommands(record);
     }
 
     public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout)

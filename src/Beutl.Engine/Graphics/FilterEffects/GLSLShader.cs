@@ -178,6 +178,7 @@ public sealed class GLSLShader : IDisposable
             try
             {
                 _pipeline.Execute(sourceTexture, destinationTexture, pushConstants);
+                _pipeline.SubmitPendingCommands();
 
                 target.Dispose();
                 context.Targets[i] = newTarget;
@@ -209,6 +210,12 @@ public sealed class GLSLShader : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _pipeline.Execute(source, mask, destination, pushConstants);
+    }
+
+    internal void SubmitPendingCommands()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _pipeline.SubmitPendingCommands();
     }
 
     // Multi-pass apply with ping-pong intermediate textures
@@ -258,6 +265,7 @@ public sealed class GLSLShader : IDisposable
                 try
                 {
                     _pipeline.Execute(sourceTexture, newRenderTarget.Texture, createPushConstants(0, target));
+                    _pipeline.SubmitPendingCommands();
 
                     target.Dispose();
                     context.Targets[i] = newTarget;
@@ -308,6 +316,7 @@ public sealed class GLSLShader : IDisposable
                 try
                 {
                     _pipeline.Execute(current, newRenderTarget.Texture, createPushConstants(passCount - 1, target));
+                    _pipeline.SubmitPendingCommands();
 
                     target.Dispose();
                     context.Targets[i] = newTarget;
@@ -360,6 +369,7 @@ public sealed class GLSLShader : IDisposable
             {
                 T pushConstants = createPushConstants(target);
                 _pipeline.Execute(sourceTexture, destinationTexture, pushConstants);
+                _pipeline.SubmitPendingCommands();
 
                 target.Dispose();
                 context.Targets[i] = newTarget;

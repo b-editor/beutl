@@ -282,29 +282,49 @@ public class CustomFilterEffectContext
         int height)
     {
         ArgumentNullException.ThrowIfNull(graphicsContext);
+        NativeFilterTextureLease lease;
         if (_renderTargetLeaseSession is null)
         {
-            return NativeFilterTextureLease.Own(
+            lease = NativeFilterTextureLease.Own(
                 graphicsContext.CreateTexture2D(width, height, TextureFormat.RGBA16Float));
         }
-
-        var size = new PixelSize(width, height);
-        RenderTargetLease? lease = _renderTargetLeaseSession.TryAcquire(size);
-        if (lease is null)
-            throw RenderTargetPool.CreateAllocationFailure(size);
-
-        ITexture2D? texture = lease.Target.Texture;
-        if (texture is null
-            || texture.Width != width
-            || texture.Height != height
-            || texture.Format != TextureFormat.RGBA16Float)
+        else
         {
-            lease.Dispose();
-            throw new InvalidOperationException(
-                "A native filter scratch lease requires an exact-size RGBA16F GPU texture.");
+            var size = new PixelSize(width, height);
+            RenderTargetLease? renderTargetLease = _renderTargetLeaseSession.TryAcquire(size);
+            if (renderTargetLease is null)
+                throw RenderTargetPool.CreateAllocationFailure(size);
+
+            ITexture2D? texture = renderTargetLease.Target.Texture;
+            if (texture is null
+                || texture.Width != width
+                || texture.Height != height
+                || texture.Format != TextureFormat.RGBA16Float)
+            {
+                renderTargetLease.Dispose();
+                throw new InvalidOperationException(
+                    "A native filter scratch lease requires an exact-size RGBA16F GPU texture.");
+            }
+
+            lease = NativeFilterTextureLease.Lease(texture, renderTargetLease);
         }
 
-        return NativeFilterTextureLease.Lease(texture, lease);
+        try
+        {
+            if (lease.Texture is not ITransparentClearableTexture clearableTexture)
+            {
+                throw new InvalidOperationException(
+                    "A native filter scratch texture must support an ordered transparent clear.");
+            }
+
+            clearableTexture.ClearToTransparent();
+            return lease;
+        }
+        catch
+        {
+            lease.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -402,7 +422,7 @@ public class CustomFilterEffectContext
             throw new ArgumentOutOfRangeException(nameof(y), y, "The shader tile mode is invalid.");
         if (source.RenderTarget is null || source.Scale.IsUnbounded)
             throw new ArgumentException("The source must have a materialized target and concrete scale.", nameof(source));
-        if (source.RenderTarget.Value is null)
+        if (source.RenderTarget.RawValue is null)
             throw new ArgumentException("The source target has no backing surface to sample.", nameof(source));
         if (destination.RenderTarget is null || destination.Scale.IsUnbounded)
         {
@@ -412,7 +432,7 @@ public class CustomFilterEffectContext
         }
 
         source.RenderTarget.PrepareForSampling(
-            RenderTargetSamplingIntent.SameContextTextureSampling(destination.RenderTarget.Value.Context));
+            RenderTargetSamplingIntent.SameContextTextureSampling(destination.RenderTarget.RawValue.Context));
         using SKImage? image = source.RenderTarget.Value.Snapshot();
         if (image is null)
         {

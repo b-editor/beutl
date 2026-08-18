@@ -119,7 +119,7 @@ internal sealed class RenderTargetPool : IDisposable
         if (externalTarget is not null)
         {
             externalTarget.VerifyAccess();
-            SKSurface surface = externalTarget.Value;
+            SKSurface surface = externalTarget.RawValue;
             GRRecordingContext? context = surface.Context;
             return BeginRequestCore(
                 context ?? s_cpuContextIdentity,
@@ -401,7 +401,7 @@ internal sealed class RenderTargetPool : IDisposable
         if (!_hasContext || !ReferenceEquals(_contextIdentity, contextIdentity))
         {
             _contextIdentity = contextIdentity;
-            _graphicsContext = externalTarget?.Value.Context ?? contextIdentity as GRRecordingContext;
+            _graphicsContext = externalTarget?.RawValue.Context ?? contextIdentity as GRRecordingContext;
             _contextHandle = expectedContextHandle ?? 0;
             _hasContext = expectedContextHandle.HasValue;
             _contextGeneration = NextGeneration(_contextGeneration);
@@ -409,12 +409,12 @@ internal sealed class RenderTargetPool : IDisposable
         else if (expectedContextHandle.HasValue && _contextHandle != expectedContextHandle.Value)
         {
             EvictAllAvailable(request: null, failures);
-            _graphicsContext = externalTarget?.Value.Context ?? contextIdentity as GRRecordingContext;
+            _graphicsContext = externalTarget?.RawValue.Context ?? contextIdentity as GRRecordingContext;
             _contextHandle = expectedContextHandle.Value;
             _hasContext = true;
             _contextGeneration = NextGeneration(_contextGeneration);
         }
-        else if (externalTarget?.Value.Context is { } graphicsContext)
+        else if (externalTarget?.RawValue.Context is { } graphicsContext)
         {
             _graphicsContext = graphicsContext;
         }
@@ -656,7 +656,7 @@ internal sealed class RenderTargetPool : IDisposable
         }
 
         target.VerifyAccess();
-        SKSurface surface = target.Value;
+        SKSurface surface = target.RawValue;
         SKRectI deviceClip = surface.Canvas.DeviceClipBounds;
         if (deviceClip.Left != 0
             || deviceClip.Top != 0
@@ -841,7 +841,7 @@ internal sealed class RenderTargetPoolRequest : IDisposable
         ContextGeneration = contextGeneration;
         ExpectedContextHandle = expectedContextHandle;
         ExternalTarget = externalTarget;
-        ExternalSurface = externalTarget?.Value;
+        ExternalSurface = externalTarget?.RawValue;
     }
 
     public bool IsDisposed { get; private set; }

@@ -9,6 +9,59 @@ public class GraphicsContextResourceTests
 {
     [Test]
     [Category("GpuPassFusionGpu")]
+    public void IsolatedSubmission_DoesNotConsumeTheOpenRecordingBatch()
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+        VulkanContext vulkanContext = context switch
+        {
+            VulkanContext vulkan => vulkan,
+            CompositeContext composite => composite.Vulkan,
+            _ => throw new InvalidOperationException("The shared graphics context has no Vulkan backend."),
+        };
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            vulkanContext.WaitIdle();
+            int releaseCount = 0;
+            var events = new List<VulkanCommandPoolEvent>();
+
+            using (VulkanCommandPool.Observe(events.Add))
+            {
+                vulkanContext.RecordCommands(static _ => { });
+                vulkanContext.DeferRelease(() => releaseCount++);
+
+                vulkanContext.SubmitIsolatedCommands(static _ => { });
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(releaseCount, Is.Zero,
+                        "The isolated submission must not retire resources owned by the open batch.");
+                    Assert.That(
+                        events.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                        Is.EqualTo(1));
+                    Assert.That(
+                        events.Count(static item => item == VulkanCommandPoolEvent.FenceWait),
+                        Is.EqualTo(1));
+                });
+
+                vulkanContext.FlushCommands(waitForCompletion: true);
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(releaseCount, Is.EqualTo(1));
+                Assert.That(
+                    events.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                    Is.EqualTo(2));
+                Assert.That(
+                    events.Count(static item => item == VulkanCommandPoolEvent.FenceWait),
+                    Is.EqualTo(2));
+            });
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
     public void DeferredRelease_CanReenterCommandPoolWithoutDoubleCompletion()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();

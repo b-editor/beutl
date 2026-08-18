@@ -267,6 +267,37 @@ public sealed class PixelSortSpecializationTests
         });
     }
 
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void DifferentSortKeySpecializations_ProduceDifferentRenders()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget source = RenderTarget.Create((int)s_bounds.Width, (int)s_bounds.Height)
+                ?? throw new InvalidOperationException("Could not create the pixel-sort specialization source.");
+            DrawDistinctPixels(source);
+
+            using RenderTarget red = ApplySpecializedPixelSort(
+                source,
+                PixelSortKey.Red,
+                PixelSortDirection.Horizontal,
+                ascending: true);
+            using RenderTarget blue = ApplySpecializedPixelSort(
+                source,
+                PixelSortKey.Blue,
+                PixelSortDirection.Horizontal,
+                ascending: true);
+            byte[] redPixels = red.Texture!.DownloadPixels();
+            byte[] bluePixels = blue.Texture!.DownloadPixels();
+
+            Assert.That(
+                bluePixels,
+                Is.Not.EqualTo(redPixels),
+                "Distinct specialization values must change the executed PixelSort pipeline, not only its cache identity.");
+        });
+    }
+
     private byte[] ExecuteRuntimeReference(
         IGraphicsContext context,
         RenderTarget source,

@@ -95,6 +95,98 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         record(GetRecordingCommandBuffer());
     }
 
+    /// <summary>
+    /// Records, submits, and waits for an isolated one-shot command buffer without consuming the
+    /// open recording batch or retiring its deferred releases.
+    /// </summary>
+    /// <remarks>
+    /// This is reserved for Vulkan callbacks whose caller can use the affected resource as soon as
+    /// the callback returns. Queue order places the isolated submission after previously submitted
+    /// work and before the still-open recording batch when that batch is eventually submitted.
+    /// </remarks>
+    public void SubmitIsolatedCommands(Action<CommandBuffer> record)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(record);
+
+        var allocInfo = new CommandBufferAllocateInfo
+        {
+            SType = StructureType.CommandBufferAllocateInfo,
+            CommandPool = _commandPool,
+            Level = CommandBufferLevel.Primary,
+            CommandBufferCount = 1,
+        };
+
+        CommandBuffer commandBuffer = default;
+        Fence fence = default;
+        bool commandBufferAllocated = false;
+        try
+        {
+            Result result = _vk.AllocateCommandBuffers(_device, &allocInfo, &commandBuffer);
+            if (result != Result.Success)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to allocate an isolated command buffer: {result}");
+            }
+            commandBufferAllocated = true;
+
+            var beginInfo = new CommandBufferBeginInfo
+            {
+                SType = StructureType.CommandBufferBeginInfo,
+                Flags = CommandBufferUsageFlags.OneTimeSubmitBit,
+            };
+            result = _vk.BeginCommandBuffer(commandBuffer, &beginInfo);
+            if (result != Result.Success)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to begin an isolated command buffer: {result}");
+            }
+
+            record(commandBuffer);
+
+            result = _vk.EndCommandBuffer(commandBuffer);
+            if (result != Result.Success)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to end an isolated command buffer: {result}");
+            }
+
+            fence = CreateFence();
+            var submitInfo = new SubmitInfo
+            {
+                SType = StructureType.SubmitInfo,
+                CommandBufferCount = 1,
+                PCommandBuffers = &commandBuffer,
+            };
+            result = _vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, fence);
+            if (result != Result.Success)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to submit an isolated command buffer: {result}");
+            }
+            RecordEvent(VulkanCommandPoolEvent.Submission);
+
+            result = _vk.WaitForFences(_device, 1, &fence, Vk.True, ulong.MaxValue);
+            if (result != Result.Success)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to wait for an isolated command buffer: {result}");
+            }
+            RecordEvent(VulkanCommandPoolEvent.FenceWait);
+        }
+        finally
+        {
+            if (fence.Handle != 0)
+            {
+                _vk.DestroyFence(_device, fence, null);
+            }
+            if (commandBufferAllocated)
+            {
+                _vk.FreeCommandBuffers(_device, _commandPool, 1, &commandBuffer);
+            }
+        }
+    }
+
     public CommandBuffer GetRecordingCommandBuffer()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

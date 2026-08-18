@@ -793,7 +793,7 @@ public sealed class RenderNodeRenderer : IDisposable
                 allowCapturePublication,
                 deviceGridOffset);
             SkslBackendBudget shaderBudget = SkslBackendBudgetResolver.Resolve(
-                targets.ExternalTarget?.Value.Context?.Backend);
+                targets.ExternalTarget?.RawValue.Context?.Backend);
             return new RenderRequestCompiler(
                     _structuralPlanCache,
                     cacheContext,

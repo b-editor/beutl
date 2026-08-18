@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="ITexture2D"/>.
 /// </summary>
-internal unsafe class VulkanTexture2D : ITexture2D
+internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 {
     protected readonly VulkanContext _context;
     protected readonly Silk.NET.Vulkan.Image _image;
@@ -20,6 +20,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
     protected readonly ulong _allocationSize;
     protected ImageLayout _currentLayout = ImageLayout.Undefined;
     private TextureAccessDomain _accessDomain;
+    private bool _hasTransparentContents;
     protected bool _disposed;
 
     public VulkanTexture2D(
@@ -192,6 +193,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
 
         // Transition to shader read
         TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+        _hasTransparentContents = false;
     }
 
     public byte[] DownloadPixels()
@@ -305,6 +307,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
     {
         TransitionTo(ImageLayout.ColorAttachmentOptimal);
         _accessDomain = TextureAccessDomain.Vulkan;
+        _hasTransparentContents = false;
     }
 
     public void PrepareForSampling()
@@ -327,6 +330,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
             _context.FlushCommands(waitForCompletion: false);
         }
         MarkSkiaAccess();
+        _hasTransparentContents = false;
     }
 
     public virtual void PrepareForSkiaSampling(bool requireCompletion)
@@ -341,6 +345,48 @@ internal unsafe class VulkanTexture2D : ITexture2D
     protected void MarkSkiaAccess()
     {
         _accessDomain = TextureAccessDomain.Skia;
+    }
+
+    bool ITransparentClearableTexture.HasTransparentContents => _hasTransparentContents;
+
+    void ITransparentClearableTexture.ClearToTransparent()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_format.IsDepthFormat())
+        {
+            throw new InvalidOperationException(
+                "A depth texture cannot be initialized with a transparent color clear.");
+        }
+        if (_hasTransparentContents)
+            return;
+
+        TransitionTo(ImageLayout.TransferDstOptimal);
+        _context.RecordCommands(commandBuffer =>
+        {
+            var range = new ImageSubresourceRange
+            {
+                AspectMask = _format.GetAspectMask(),
+                BaseMipLevel = 0,
+                LevelCount = 1,
+                BaseArrayLayer = 0,
+                LayerCount = 1,
+            };
+            var transparent = new ClearColorValue(0, 0, 0, 0);
+            _context.Vk.CmdClearColorImage(
+                commandBuffer,
+                _image,
+                ImageLayout.TransferDstOptimal,
+                &transparent,
+                1,
+                &range);
+        });
+        _accessDomain = TextureAccessDomain.Vulkan;
+        _hasTransparentContents = true;
+    }
+
+    internal void MarkContentsUnknown()
+    {
+        _hasTransparentContents = false;
     }
 
     public void TransitionTo(ImageLayout layout)

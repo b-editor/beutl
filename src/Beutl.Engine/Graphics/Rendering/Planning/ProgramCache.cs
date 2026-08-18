@@ -175,7 +175,7 @@ internal static class SkRuntimeEffectProgramCache
         ArgumentNullException.ThrowIfNull(cache);
         ArgumentNullException.ThrowIfNull(destination);
         destination.VerifyAccess();
-        GRRecordingContext? graphicsContext = destination.Value.Context;
+        GRRecordingContext? graphicsContext = destination.RawValue.Context;
         object contextIdentity = graphicsContext is null
             ? s_cpuDestinationContext
             : s_destinationContextIdentities.GetValue(

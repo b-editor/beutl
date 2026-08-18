@@ -85,3 +85,19 @@ public interface ITexture2D : IDisposable
     /// </param>
     void PrepareForSkiaSampling(bool requireCompletion);
 }
+
+/// <summary>
+/// Internal content-state contract for textures whose backend can record an ordered transparent clear.
+/// </summary>
+internal interface ITransparentClearableTexture
+{
+    /// <summary>
+    /// Gets whether the most recently recorded write defines the whole texture as transparent.
+    /// </summary>
+    bool HasTransparentContents { get; }
+
+    /// <summary>
+    /// Records a transparent clear unless the current recorded content is already known transparent.
+    /// </summary>
+    void ClearToTransparent();
+}

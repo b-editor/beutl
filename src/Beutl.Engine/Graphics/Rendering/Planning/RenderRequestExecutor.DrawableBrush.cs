@@ -77,7 +77,7 @@ internal sealed partial class RenderRequestExecutor
                     allowPersistentLookup: false,
                     allowCapturePublication: false);
                 SkslBackendBudget shaderBudget = SkslBackendBudgetResolver.Resolve(
-                    _targets.ExternalTarget?.Value.Context?.Backend);
+                    _targets.ExternalTarget?.RawValue.Context?.Backend);
 
                 CompiledRenderRequest Compile(Rect targetDomain)
                 {
@@ -153,7 +153,7 @@ internal sealed partial class RenderRequestExecutor
 
                     lease.Target.PrepareForSampling(
                         RenderTargetSamplingIntent.SameContextTextureSampling(
-                            _targets.ExternalTarget?.Value.Context));
+                            _targets.ExternalTarget?.RawValue.Context));
                     image = CreateIndependentImage(
                         lease.Target.Value,
                         new PixelRect(

@@ -2,13 +2,90 @@
 
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
+using Beutl.Media.Pixel;
 
 using Silk.NET.Vulkan;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
 public class SkiaVulkanImageInitializationTests
 {
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void BackendClear_CompletesBeforeSkiaPartiallyOverwritesTarget()
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            context.WaitIdle();
+            using RenderTarget target = RenderTarget.Create(4, 4)
+                ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
+            var events = new List<VulkanCommandPoolEvent>();
+
+            using (VulkanCommandPool.Observe(events.Add))
+            {
+                target.BeginDraw();
+                using var paint = new SKPaint { Color = SKColors.Red };
+                target.Value.Canvas.DrawRect(SKRect.Create(0, 0, 2, 2), paint);
+            }
+
+            using Bitmap snapshot = target.Snapshot();
+            RgbaF16 untouched = snapshot.GetPixelSpan<RgbaF16>()[15];
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    events.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                    Is.EqualTo(1),
+                    "The backend clear must be submitted before Skia records a partial overwrite.");
+                Assert.That(
+                    events.Count(static item => item == VulkanCommandPoolEvent.FenceWait),
+                    Is.Zero,
+                    "Queue ordering is sufficient for the backend clear; partial Skia drawing must not stall the CPU.");
+                Assert.That(untouched, Is.EqualTo(default(RgbaF16)));
+            });
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void NewRenderTarget_SubmitsInitializationBeforeUntouchedSnapshot()
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            context.WaitIdle();
+            using RenderTarget target = RenderTarget.Create(4, 4)
+                ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
+            var events = new List<VulkanCommandPoolEvent>();
+
+            Bitmap snapshot;
+            using (VulkanCommandPool.Observe(events.Add))
+                snapshot = target.Snapshot();
+
+            using (snapshot)
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(
+                        events.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                        Is.EqualTo(1),
+                        "The recorded allocation clear must be submitted before an untouched snapshot.");
+                    Assert.That(
+                        events.Count(static item => item == VulkanCommandPoolEvent.FenceWait),
+                        Is.EqualTo(1));
+                    Assert.That(
+                        snapshot.GetPixelSpan<RgbaF16>().ToArray(),
+                        Is.All.EqualTo(default(RgbaF16)));
+                });
+            }
+        });
+    }
+
     [Test]
     [NonParallelizable]
     public void Context_InterceptsSkiaImageAllocationFunctions()

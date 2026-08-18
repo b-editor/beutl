@@ -77,7 +77,24 @@ public class RenderTarget : IDisposable
         Dispose(disposing: false);
     }
 
-    internal SKSurface Value =>
+    internal SKSurface Value
+    {
+        get
+        {
+            SKSurface surface = RawValue;
+            ITexture2D? texture = _texture?.Value;
+            if (texture is ITransparentClearableTexture { HasTransparentContents: true })
+            {
+                // Value exposes the mutable Skia surface directly. Submit a pending transparent
+                // initialization before an unwrapped Canvas operation can overtake that clear.
+                texture.PrepareForSkiaRendering();
+            }
+            _hasTransparentContents = false;
+            return surface;
+        }
+    }
+
+    internal SKSurface RawValue =>
         !IsDisposed ? _surface.Value! : throw new ObjectDisposedException(nameof(RenderTarget));
 
     public int Width { get; }
@@ -107,6 +124,10 @@ public class RenderTarget : IDisposable
                 {
                     sharedTexture = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
                     surface = sharedTexture.CreateSkiaSurface();
+                    // Surface wrapping marks Skia access. Record initialization afterwards so an
+                    // untouched snapshot still observes and submits the backend clear.
+                    if (sharedTexture is ITransparentClearableTexture clearableTexture)
+                        clearableTexture.ClearToTransparent();
                 }
                 else
                 {
@@ -131,7 +152,8 @@ public class RenderTarget : IDisposable
                 width,
                 height,
                 textureRef);
-            result.ClearToTransparent();
+            if (!result.HasTransparentContents)
+                result.ClearToTransparent();
             return result;
         }
         catch
@@ -240,7 +262,10 @@ public class RenderTarget : IDisposable
     {
         _surface.AddRef();
         _texture?.AddRef();
-        return new RenderTarget(_surface, Width, Height, _texture);
+        return new RenderTarget(_surface, Width, Height, _texture)
+        {
+            _hasTransparentContents = _hasTransparentContents,
+        };
     }
 
     public void VerifyAccess()
@@ -309,7 +334,10 @@ public class RenderTarget : IDisposable
         _texture?.Value?.PrepareForSkiaSampling(requireCompletion: false);
     }
 
-    internal bool HasTransparentContents => _hasTransparentContents;
+    internal bool HasTransparentContents
+        => _texture?.Value is ITransparentClearableTexture clearableTexture
+            ? clearableTexture.HasTransparentContents
+            : _hasTransparentContents;
 
     internal void ClearToTransparent()
     {
@@ -339,6 +367,16 @@ public class RenderTarget : IDisposable
             // A backend-produced target can remain in the same recording batch. There is no Skia
             // work to submit between consecutive native passes.
             texture.PrepareForSampling();
+
+            if (texture is ITransparentClearableTexture { HasTransparentContents: true })
+            {
+                // A clear-only target can be exposed directly, with no following native pass to
+                // submit its initialization. Preserve the completion boundary for that exposure,
+                // then restore Vulkan ownership without consuming a second recording batch.
+                texture.PrepareForSkiaSampling(requireCompletion: true);
+                texture.PrepareForSampling();
+                ImmediateCanvas.RecordFlush(ImmediateCanvasFlushKind.PrepareForSampling);
+            }
             return;
         }
 

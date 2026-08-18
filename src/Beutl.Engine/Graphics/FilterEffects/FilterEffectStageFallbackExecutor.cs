@@ -160,7 +160,7 @@ internal static class FilterEffectStageFallbackExecutor
 
                         SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
                             inputImage,
-                            inputTarget.Value.Context,
+                            inputTarget.RawValue.Context,
                             input.Bounds,
                             input.Scale.Value,
                             input.DeviceBounds,
