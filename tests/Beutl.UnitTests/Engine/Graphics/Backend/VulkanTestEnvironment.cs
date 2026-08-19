@@ -92,8 +92,19 @@ internal static class VulkanTestEnvironment
     }
 
     public static T InvokeOnRenderThread<T>(Func<T> func)
-        => RenderThread.Dispatcher.Invoke(func);
+        => RenderThread.Dispatcher.CheckAccess()
+            ? func()
+            : RenderThread.Dispatcher.InvokeAsync(func).GetAwaiter().GetResult();
 
     public static void InvokeOnRenderThread(Action action)
-        => RenderThread.Dispatcher.Invoke(action);
+    {
+        if (RenderThread.Dispatcher.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            RenderThread.Dispatcher.InvokeAsync(action).GetAwaiter().GetResult();
+        }
+    }
 }

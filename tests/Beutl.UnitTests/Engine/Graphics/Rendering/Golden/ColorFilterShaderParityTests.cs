@@ -110,6 +110,28 @@ public sealed class ColorFilterShaderParityTests
         Assert.That(item.Description.Kind, Is.EqualTo(ShaderDescriptionKind.CurrentPixel));
     }
 
+    [Test]
+    public void IdentityColorMatrices_RecordNothing()
+    {
+        using var brightnessContext = new FilterEffectContext(s_bounds);
+        using var colorMatrixContext = new FilterEffectContext(s_bounds);
+        using var genericColorMatrixContext = new FilterEffectContext(s_bounds);
+
+        brightnessContext.Brightness(1f);
+        colorMatrixContext.ColorMatrix(ColorMatrix.Identity);
+        genericColorMatrixContext.ColorMatrix(Unit.Default, static _ => ColorMatrix.Identity);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(brightnessContext.GetOrderedItems(), Is.Empty);
+            Assert.That(colorMatrixContext.GetOrderedItems(), Is.Empty);
+            Assert.That(genericColorMatrixContext.GetOrderedItems(), Is.Empty);
+            Assert.That(brightnessContext.Bounds, Is.EqualTo(s_bounds));
+            Assert.That(colorMatrixContext.Bounds, Is.EqualTo(s_bounds));
+            Assert.That(genericColorMatrixContext.Bounds, Is.EqualTo(s_bounds));
+        });
+    }
+
     [TestCase(0f)]
     [TestCase(0.35f)]
     [TestCase(2f)]

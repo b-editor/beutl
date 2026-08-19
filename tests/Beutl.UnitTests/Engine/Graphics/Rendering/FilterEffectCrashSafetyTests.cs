@@ -133,7 +133,9 @@ public sealed class FilterEffectCrashSafetyTests
             using var sourceRenderTarget = RenderTarget.Create(0, 0);
             if (sourceRenderTarget is null)
             {
-                Assert.Pass("Zero-sized RenderTarget is unavailable in this backend.");
+                const string reason = "Zero-sized RenderTarget is unavailable in this backend.";
+                TestContext.WriteLine(reason);
+                Assert.Ignore(reason);
             }
 
             using var targets = new EffectTargets

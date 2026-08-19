@@ -142,7 +142,9 @@ public sealed class FilterEffectCompatibilityContractTests
             Assert.That(context.WorkingScale, Is.EqualTo(1.5f));
             Assert.That(hasWorkingScale, Is.True);
             Assert.That(workingScale, Is.EqualTo(1.5f));
-            Assert.That(context.CountItems(), Is.EqualTo(5));
+            // Brightness(1) is an exact identity colour matrix and records no stage, so the legacy
+            // fixture contributes four items rather than five.
+            Assert.That(context.CountItems(), Is.EqualTo(4));
             Assert.That(executionOrder, Is.Empty,
                 "ApplyTo must record legacy custom work rather than execute it.");
         });
@@ -203,7 +205,7 @@ public sealed class FilterEffectCompatibilityContractTests
                     getterFailure = ex;
                 }
             },
-            static context => context.Brightness(1));
+            static context => context.Brightness(0.75f));
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var root = new SymbolicFullFilterInputNode(
             new BoundsDependentWorkingScaleFilterNode(resource),

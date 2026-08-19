@@ -100,8 +100,10 @@ public sealed class BitmapSamplingQualityTests
                 {
                     Children =
                     {
-                        new Brightness(),
-                        new Brightness(),
+                        // Non-identity: an identity colour matrix records no stage, so the fixture
+                        // would stop exercising the fused colour-stage path it asserts on.
+                        CreateBrightness(75f),
+                        CreateBrightness(80f),
                     },
                 });
             using RenderResult result = Render(source, new PixelSize(2, 1), 4f);
@@ -125,6 +127,13 @@ public sealed class BitmapSamplingQualityTests
                 Assert.That(values, Has.Some.GreaterThan(0f).And.LessThan(1f));
             });
         });
+    }
+
+    private static Brightness CreateBrightness(float amount)
+    {
+        var brightness = new Brightness();
+        brightness.Amount.CurrentValue = amount;
+        return brightness;
     }
 
     private static Drawable.Resource CreateSourceImage(

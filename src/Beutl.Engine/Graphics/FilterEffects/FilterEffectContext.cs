@@ -529,6 +529,9 @@ public sealed class FilterEffectContext : IDisposable
 
     public void ColorMatrix(in ColorMatrix matrix)
     {
+        if (matrix.IsIdentity)
+            return;
+
         AppendSKColorFilter(matrix, (m, _) =>
         {
             float[] array = s_colorMatPool.Get();
@@ -547,21 +550,8 @@ public sealed class FilterEffectContext : IDisposable
     public void ColorMatrix<T>(T data, Func<T, ColorMatrix> factory)
         where T : IEquatable<T>
     {
-        AppendSKColorFilter(
-            (data, factory),
-            (t, _) =>
-            {
-                float[] array = s_colorMatPool.Get();
-                try
-                {
-                    t.factory.Invoke(t.data).ToArrayForSkia(array);
-                    return SKColorFilter.CreateColorMatrix(array);
-                }
-                finally
-                {
-                    s_colorMatPool.Return(array);
-                }
-            });
+        ArgumentNullException.ThrowIfNull(factory);
+        ColorMatrix(factory(data));
     }
 
     public void Saturate(float amount)
@@ -573,7 +563,7 @@ public sealed class FilterEffectContext : IDisposable
             //M15,M25,M35,M45がゼロなので意味がない
             //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-            Shader(ColorMatrixShader.CurrentPixel(array));
+            ShaderColorMatrix(array);
         }
         finally
         {
@@ -590,7 +580,7 @@ public sealed class FilterEffectContext : IDisposable
             //M15,M25,M35,M45がゼロなので意味がない
             //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-            Shader(ColorMatrixShader.CurrentPixel(array));
+            ShaderColorMatrix(array);
         }
         finally
         {
@@ -629,7 +619,7 @@ public sealed class FilterEffectContext : IDisposable
             //M15,M25,M35,M45がゼロなので意味がない
             //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-            Shader(ColorMatrixShader.CurrentPixel(array));
+            ShaderColorMatrix(array);
         }
         finally
         {
@@ -665,7 +655,7 @@ public sealed class FilterEffectContext : IDisposable
             array[4] = addLinear.X;
             array[9] = addLinear.Y;
             array[14] = addLinear.Z;
-            Shader(ColorMatrixShader.CurrentPixel(array));
+            ShaderColorMatrix(array);
         }
         finally
         {
@@ -676,6 +666,12 @@ public sealed class FilterEffectContext : IDisposable
     public void LumaColor()
     {
         Shader(BuiltInColorFilterShader.LumaColor());
+    }
+
+    private void ShaderColorMatrix(ReadOnlySpan<float> matrix)
+    {
+        if (!Graphics.ColorMatrix.CreateFromSpan(matrix).IsIdentity)
+            Shader(ColorMatrixShader.CurrentPixel(matrix));
     }
 
     public void BlendMode(Color color, BlendMode blendMode)

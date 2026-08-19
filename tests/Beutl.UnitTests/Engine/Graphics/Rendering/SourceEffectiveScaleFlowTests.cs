@@ -778,7 +778,7 @@ public class SourceEffectiveScaleFlowTests
         float observedWorkingScale = 0;
         PixelRect observedDeviceBounds = default;
         Rect bounds = new(3, 5, 12, 8);
-        var effect = new WorkingScaleProbeEffect(context => context.Brightness(1));
+        var effect = new WorkingScaleProbeEffect(context => context.Brightness(0.75f));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(
                 EffectiveScale.Unbounded,
@@ -1157,7 +1157,7 @@ public class SourceEffectiveScaleFlowTests
         float observedWorkingScale = 0;
         PixelRect observedDeviceBounds = default;
         Rect bounds = new(3, 5, 12, 8);
-        var effect = new WorkingScaleProbeEffect(context => context.Brightness(1));
+        var effect = new WorkingScaleProbeEffect(context => context.Brightness(0.75f));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(
                 EffectiveScale.Unbounded,
@@ -1258,7 +1258,7 @@ public class SourceEffectiveScaleFlowTests
         Rect firstBounds = new(0, 0, 100, 100);
         Rect secondBounds = new(100_000, 0, 100, 100);
         var observedSources = new List<(float WorkingScale, PixelRect DeviceBounds)>();
-        var effect = new WorkingScaleProbeEffect(context => context.Brightness(1));
+        var effect = new WorkingScaleProbeEffect(context => context.Brightness(0.75f));
         using var pipeline = ScaleRecordingTestHelper.MultiInputPipeline(
             [
                 ScaleRecordingTestHelper.Source(
@@ -2102,7 +2102,7 @@ internal sealed partial class ClampToOutputEffect : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.Brightness(1);
+        context.Brightness(0.75f);
     }
 
     public override Resource ToResource(CompositionContext context)
