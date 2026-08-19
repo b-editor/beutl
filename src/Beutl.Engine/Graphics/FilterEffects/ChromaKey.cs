@@ -16,6 +16,13 @@ public partial class ChromaKey : FilterEffect
         uniform float saturationRange;
         uniform float boundary;
 
+        // A solid fill reaches this shader quantized onto an 8-bit colour grid, so a pixel that was
+        // authored as the key colour arrives up to one 8-bit step away from the uniform. Matching on
+        // exact equality would make the mask depend on that, and it also leaves the smoothstep edges
+        // equal, which the shading languages do not define. Unpremultiplying divides the same error
+        // by alpha, so a key on heavily transparent content stays approximate.
+        const half kMatchTolerance = 1.0 / 255.0;
+
         half3 rgb2hsv(half3 value) {
             half r = value.r;
             half g = value.g;
@@ -61,8 +68,11 @@ public partial class ChromaKey : FilterEffect
 
             half satDiff = abs(hsv.y - keyHSV.y);
 
-            half maskHue = smoothstep(hueRange, hueRange + boundary, hueDiff);
-            half maskSat = smoothstep(saturationRange, saturationRange + boundary, satDiff);
+            half width = max(boundary, kMatchTolerance);
+            half hueEdge0 = hueRange + kMatchTolerance;
+            half satEdge0 = saturationRange + kMatchTolerance;
+            half maskHue = smoothstep(hueEdge0, hueEdge0 + width, hueDiff);
+            half maskSat = smoothstep(satEdge0, satEdge0 + width, satDiff);
             half mask = max(maskHue, maskSat);
 
             return color * mask;

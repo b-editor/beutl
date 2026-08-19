@@ -15,6 +15,12 @@ public partial class ColorKey : FilterEffect
         uniform float range;
         uniform float boundary;
 
+        // A solid fill reaches this shader quantized onto an 8-bit colour grid, so a pixel that was
+        // authored as the key colour arrives up to one 8-bit step away from the uniform. Matching on
+        // exact equality would make the mask depend on that, and it also leaves the smoothstep edges
+        // equal, which the shading languages do not define.
+        const half kMatchTolerance = 1.0 / 255.0;
+
         half calcLuma(half3 value) {
             return dot(value, half3(0.2126, 0.7152, 0.0722));
         }
@@ -28,7 +34,9 @@ public partial class ColorKey : FilterEffect
             half keyLuma = calcLuma(keyColor);
 
             half diff = abs(luma - keyLuma);
-            half mask = smoothstep(range, range + boundary, diff);
+            half edge0 = range + kMatchTolerance;
+            half edge1 = edge0 + max(boundary, kMatchTolerance);
+            half mask = smoothstep(edge0, edge1, diff);
 
             return color * mask;
         }
