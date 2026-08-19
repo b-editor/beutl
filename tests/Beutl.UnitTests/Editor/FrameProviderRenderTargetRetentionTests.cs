@@ -57,7 +57,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
         VulkanTestEnvironment.EnsureAvailable();
         RenderThread.Dispatcher.Invoke(() =>
         {
-            Scene scene = CreateAnimatedBlurScene(frameRate: 30, frameCount: 150);
+            Scene scene = CreateAnimatedBufferedEffectScene(frameRate: 30, frameCount: 150);
             using var renderer = new SceneRenderer(scene);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
             const int renderedFrameCount = 150;
@@ -83,7 +83,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
     {
         const int frameRate = 30;
         const int frameCount = 150;
-        Scene scene = CreateAnimatedBlurScene(frameRate, frameCount);
+        Scene scene = CreateAnimatedBufferedEffectScene(frameRate, frameCount);
         using var renderer = new SceneRenderer(scene);
         renderer.CacheOptions = RenderCacheOptions.Disabled;
         using var progress = new Subject<TimeSpan>();
@@ -108,7 +108,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
         return new RetentionRun(provider.FrameCount, peakRetainedBytes, retainedBytes);
     }
 
-    private static Scene CreateAnimatedBlurScene(int frameRate, int frameCount)
+    private static Scene CreateAnimatedBufferedEffectScene(int frameRate, int frameCount)
     {
         TimeSpan duration = TimeSpan.FromSeconds((double)frameCount / frameRate);
         var width = new KeyFrameAnimation<float>();
@@ -131,9 +131,12 @@ public sealed class FrameProviderRenderTargetRetentionTests
             Fill = { CurrentValue = Brushes.White },
             FilterEffect =
             {
-                CurrentValue = new Blur
+                // A built-in Skia filter fuses onto the destination as a save layer and owns no
+                // buffer, so the retention this measures needs an effect that opens its own target.
+                CurrentValue = new InnerShadow
                 {
                     Sigma = { CurrentValue = new Size(4, 4) },
+                    Color = { CurrentValue = Colors.Black },
                 },
             },
         };

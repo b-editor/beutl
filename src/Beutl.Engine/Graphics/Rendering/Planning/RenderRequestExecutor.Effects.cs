@@ -464,7 +464,7 @@ internal sealed partial class RenderRequestExecutor
                         using (canvas.PushTransform(Matrix.Identity))
                         // The filter layer must match the region Replay writes, not the input's full
                         // semantic bounds. A wider layer exposes unwritten pixels to spatial filters.
-                        using (canvas.PushPaint(paint, layerContentBounds))
+                        using (canvas.PushFilterLayer(paint, layerContentBounds))
                         {
                             replayStarted = true;
                             Replay(input, canvas);

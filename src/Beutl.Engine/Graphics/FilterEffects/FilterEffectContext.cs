@@ -306,9 +306,9 @@ public sealed class FilterEffectContext : IDisposable
 
     public void DropShadowOnly(Point position, Size sigma, Color color)
     {
-        AppendSkiaFilter(
+        AppendDirectSkiaFilter(
             data: (position, sigma, color),
-            factory: static (t, input, _) => SKImageFilter.CreateDropShadowOnly(t.position.X, t.position.Y,
+            factory: static (t, input) => SKImageFilter.CreateDropShadowOnly(t.position.X, t.position.Y,
                 t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds
                 .Translate(t.position)
@@ -320,9 +320,9 @@ public sealed class FilterEffectContext : IDisposable
 
     public void DropShadow(Point position, Size sigma, Color color)
     {
-        AppendSkiaFilter(
+        AppendDirectSkiaFilter(
             data: (position, sigma, color),
-            factory: static (t, input, _) => SKImageFilter.CreateDropShadow(t.position.X, t.position.Y, t.sigma.Width,
+            factory: static (t, input) => SKImageFilter.CreateDropShadow(t.position.X, t.position.Y, t.sigma.Width,
                 t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds.Union(bounds
                 .Translate(t.position)
@@ -414,9 +414,9 @@ public sealed class FilterEffectContext : IDisposable
     {
         // No sampling footprint: the resampling apron is a device-pixel quantity, and the density the
         // segment finally runs at is unknown here, so no logical margin can bound it.
-        AppendSkiaFilter(
+        AppendDirectSkiaFilter(
             (matrix, bitmapInterpolationMode),
-            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(),
+            (data, input) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(),
                 data.bitmapInterpolationMode.ToSKSamplingOptions(), input),
             (data, rect) => rect.TransformToClippedAABB(data.matrix));
     }
@@ -479,9 +479,9 @@ public sealed class FilterEffectContext : IDisposable
     {
         // No sampling footprint: the spread method resolves against the extent of whatever input it is
         // given, so a cropped input would change the result inside the requested region.
-        AppendSkiaFilter(
+        AppendDirectSkiaFilter(
             (kernelSize, kernel, gain, bias, kernelOffset, spreadMethod, convolveAlpha),
-            (data, input, _) => SKImageFilter.CreateMatrixConvolution(
+            (data, input) => SKImageFilter.CreateMatrixConvolution(
                 data.kernelSize.ToSKSizeI(),
                 data.kernel,
                 data.gain,
@@ -509,9 +509,9 @@ public sealed class FilterEffectContext : IDisposable
         if (!TryClampMorphologyRadius(ref radiusX, ref radiusY))
             return;
 
-        AppendSkiaFilter(
+        AppendDirectSkiaFilter(
             (radiusX, radiusY),
-            (data, input, _) => SKImageFilter.CreateErode(data.radiusX, data.radiusY, input),
+            (data, input) => SKImageFilter.CreateErode(data.radiusX, data.radiusY, input),
             (data, rect) => rect,
             // Erode shrinks its declared output but still reads the whole radius neighbourhood.
             (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)));
@@ -522,9 +522,9 @@ public sealed class FilterEffectContext : IDisposable
         if (!TryClampMorphologyRadius(ref radiusX, ref radiusY))
             return;
 
-        AppendSkiaFilter(
+        AppendDirectSkiaFilter(
             (radiusX, radiusY),
-            (data, input, _) => SKImageFilter.CreateDilate(data.radiusX, data.radiusY, input),
+            (data, input) => SKImageFilter.CreateDilate(data.radiusX, data.radiusY, input),
             (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)),
             (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)));
     }

@@ -358,7 +358,7 @@ public sealed class FilterEffectActivator : IDisposable
                     // outside the drawn content, which is uninitialized device memory — a blur
                     // (DropShadow, Blur) then pulls those undefined values into the result as NaN.
                     using (paint != null
-                               ? canvas.PushPaint(paint, new Rect(default, flushTarget.InputBounds.Size))
+                               ? canvas.PushFilterLayer(paint, new Rect(default, flushTarget.InputBounds.Size))
                                : default)
                     {
                         target.Draw(canvas);

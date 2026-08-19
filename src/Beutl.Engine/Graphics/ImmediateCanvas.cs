@@ -1097,6 +1097,37 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         return new PushedState(this, _states.Count);
     }
 
+    /// <summary>
+    /// Opens a filter's save layer over <paramref name="contentBounds"/>, widened by one device pixel
+    /// on every side.
+    /// </summary>
+    /// <remarks>
+    /// The bound keeps a spatial filter from sampling input pixels nobody wrote, but a layer whose
+    /// device bounds hug the content loses the coverage of content thinner than one device pixel — the
+    /// Ganesh backend keeps only <c>(1 + w) / 2</c> of a w-device-pixel-wide feature. The apron is
+    /// transparent margin, so it restores the coverage without exposing anything the bound excluded.
+    /// </remarks>
+    internal PushedState PushFilterLayer(SKPaint paint, Rect contentBounds)
+        => PushPaint(paint, InflateByOneDevicePixel(contentBounds));
+
+    /// <summary>
+    /// Widens <paramref name="bounds"/> so every edge moves at least one device pixel outward once the
+    /// current transform maps it, whatever scale, shear or rotation that transform carries.
+    /// </summary>
+    private Rect InflateByOneDevicePixel(Rect bounds)
+    {
+        Matrix transform = _currentTransform;
+        float devicePerX = MathF.Sqrt((transform.M11 * transform.M11) + (transform.M12 * transform.M12));
+        float devicePerY = MathF.Sqrt((transform.M21 * transform.M21) + (transform.M22 * transform.M22));
+        if (!float.IsFinite(devicePerX) || devicePerX <= 0
+            || !float.IsFinite(devicePerY) || devicePerY <= 0)
+        {
+            return bounds;
+        }
+
+        return bounds.Inflate(new Thickness(1f / devicePerX, 1f / devicePerY));
+    }
+
     public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();

@@ -212,8 +212,11 @@ internal sealed partial class RenderRequestExecutor
             IReadOnlyList<MaterializedRenderValue>? materializedInput = null;
             if (input.ValueCardinality.Maximum is > 1 or null)
             {
-                if (!input.ContributesValuesToTarget)
+                if (!input.ContributesValuesToTarget
+                    || !CanCopyPixelsToDestination(fragment.Bounds, destination))
+                {
                     return false;
+                }
 
                 materializedInput = Materialize(
                     input,
@@ -262,7 +265,7 @@ internal sealed partial class RenderRequestExecutor
                             using (destination.PushTransform(Matrix.Identity))
                             // Bound the layer to exactly what ReplayInput draws; filters must not sample
                             // unwritten portions of the input's semantic bounds as source pixels.
-                            using (destination.PushPaint(paint, layerContentBounds))
+                            using (destination.PushFilterLayer(paint, layerContentBounds))
                             {
                                 ReplayInput();
                             }
@@ -304,12 +307,12 @@ internal sealed partial class RenderRequestExecutor
                 || _resourceUses.GetRemainingUseCount(fragment) != 1
                 || !fragment.EffectiveScale.IsUnbounded
                     && fragment.EffectiveScale.Value != destination.Density
+                // A concretely scaled input arrives as a buffer, so the layer only stays lossless when
+                // the destination transform lands it on whole device pixels. An unbounded input is
+                // re-rasterized inside the layer under that transform, so there is nothing to copy.
                 || !fragment.Inputs[0].EffectiveScale.IsUnbounded
-                    && fragment.Inputs[0].EffectiveScale.Value != destination.Density
-                || !DirectRenderTargetGeometry.FromCanvas(destination).CanDrawPixelAligned(
-                    fragment.Bounds,
-                    destination.Density,
-                    PixelRect.FromRect(fragment.Bounds, destination.Density).Size)
+                    && (fragment.Inputs[0].EffectiveScale.Value != destination.Density
+                        || !CanCopyPixelsToDestination(fragment.Bounds, destination))
                 || fragment.Payload is not FilterEffectSegmentRenderFragmentPayload directPayload
                 || !directPayload.SupportsDirectReplay)
             {
@@ -319,6 +322,16 @@ internal sealed partial class RenderRequestExecutor
             payload = directPayload;
             return true;
         }
+
+        /// <summary>
+        /// Reports whether a buffer covering <paramref name="bounds"/> lands on whole device pixels of
+        /// <paramref name="destination"/>, so copying it costs nothing.
+        /// </summary>
+        private static bool CanCopyPixelsToDestination(Rect bounds, ImmediateCanvas destination)
+            => DirectRenderTargetGeometry.FromCanvas(destination).CanDrawPixelAligned(
+                bounds,
+                destination.Density,
+                PixelRect.FromRect(bounds, destination.Density).Size);
 
         private void DrawMaterializedFragment(
             RenderFragmentReference fragment,
