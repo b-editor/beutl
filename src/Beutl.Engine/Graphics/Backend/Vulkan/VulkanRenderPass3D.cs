@@ -211,6 +211,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             PClearValues = clearValues
         };
 
+        _context.BeginRenderPassScope();
         _context.Vk.CmdBeginRenderPass(_currentCommandBuffer, &renderPassBeginInfo, SubpassContents.Inline);
 
         // Set viewport and scissor
@@ -245,6 +246,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         }
 
         _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
+        _context.EndRenderPassScope();
 
         _inRenderPass = false;
         _currentPipeline = null;

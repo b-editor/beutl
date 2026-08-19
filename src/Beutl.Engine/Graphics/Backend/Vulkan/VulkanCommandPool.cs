@@ -18,6 +18,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     private CommandBuffer _recordingCommandBuffer;
     private Semaphore _submissionSemaphore;
     private bool _isRecording;
+    private int _renderPassScopeDepth;
     private bool _hasPendingSemaphoreSignal;
     private bool _isCompletingSubmissions;
     private bool _disposed;
@@ -92,7 +93,57 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(record);
+        if (_renderPassScopeDepth > 0)
+        {
+            RecordOutOfBand(record);
+            return;
+        }
+
         record(GetRecordingCommandBuffer());
+    }
+
+    /// <summary>
+    /// Marks the recording batch as being inside a render pass instance, during which transfers and
+    /// barriers cannot join it.
+    /// </summary>
+    public void BeginRenderPassScope()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _renderPassScopeDepth++;
+    }
+
+    public void EndRenderPassScope()
+    {
+        if (_renderPassScopeDepth > 0)
+            _renderPassScopeDepth--;
+    }
+
+    // Vulkan forbids transfers and barriers inside a render pass instance, so one recorded there
+    // takes its own batch, submitted ahead of the pass that is still recording. The submission
+    // semaphore orders it before that pass without stalling the CPU.
+    private void RecordOutOfBand(Action<CommandBuffer> record)
+    {
+        CommandBuffer suspended = _recordingCommandBuffer;
+        bool wasRecording = _isRecording;
+        Action[] suspendedReleases = [.. _recordingReleases];
+        _recordingCommandBuffer = default;
+        _isRecording = false;
+        _recordingReleases.Clear();
+        int scopeDepth = _renderPassScopeDepth;
+        _renderPassScopeDepth = 0;
+        try
+        {
+            record(GetRecordingCommandBuffer());
+            SubmitRecordingCommandBuffer();
+        }
+        finally
+        {
+            _renderPassScopeDepth = scopeDepth;
+            _recordingCommandBuffer = suspended;
+            _isRecording = wasRecording;
+            _recordingReleases.Clear();
+            _recordingReleases.AddRange(suspendedReleases);
+        }
     }
 
     /// <summary>

@@ -811,6 +811,16 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         _vulkanCommandPool.Flush(waitForCompletion);
     }
 
+    public void BeginRenderPassScope()
+    {
+        _vulkanCommandPool.BeginRenderPassScope();
+    }
+
+    public void EndRenderPassScope()
+    {
+        _vulkanCommandPool.EndRenderPassScope();
+    }
+
     public void DeferRelease(Action release)
     {
         _vulkanCommandPool.DeferRelease(release);
