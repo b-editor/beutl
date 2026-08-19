@@ -35,9 +35,12 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         Geometry.Resource geometry = geometrySnapshot.Resource;
         Brush.Resource? fill = fillSnapshot?.Resource;
         Pen.Resource? pen = penSnapshot?.Resource;
-        Rect bounds = PenHelper.CalculateBoundsWithStrokeCap(
+        Rect strokeBounds = PenHelper.CalculateBoundsWithStrokeCap(
             geometry.GetRenderBounds(pen),
             pen);
+        // DrawGeometry always paints the whole fill path, so a pen whose stroke sits inside the fill
+        // (negative Offset, a trimmed or dashed outline) must not shrink the declared output.
+        Rect bounds = fill is null ? strokeBounds : strokeBounds.Union(geometry.Bounds);
         if (bounds.Width == 0 || bounds.Height == 0)
             return;
 

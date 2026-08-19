@@ -68,6 +68,95 @@ public class GeometryRenderNodeTest
     }
 
     [Test]
+    public void Measure_ShouldCoverTheFill_WhenANegativeOffsetErodesTheStroke()
+    {
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 140 }, Height = { CurrentValue = 95 } };
+        Brush fill = new SolidColorBrush(Colors.Gold);
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Blue },
+            Thickness = { CurrentValue = 5 },
+            Offset = { CurrentValue = -12 },
+        };
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var fillResource = fill.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
+        Rect fillBounds = geometryResource.Bounds;
+        Rect strokeBounds = geometryResource.GetRenderBounds(penResource);
+        using var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
+        using var renderer = CreateRenderer(node);
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(strokeBounds.Contains(fillBounds), Is.False,
+                "the negative offset must pull the stroke off the fill's extremes for this case to be meaningful");
+            Assert.That(measurement.OutputBounds.Contains(fillBounds), Is.True,
+                "the declared output must cover the fill the draw callback paints, not just the eroded stroke");
+        }
+    }
+
+    [Test]
+    public void Measure_ShouldCoverTheFill_WhenATrimmedPenStrokesOnlyAnArc()
+    {
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 140 }, Height = { CurrentValue = 95 } };
+        Brush fill = new SolidColorBrush(Colors.Gold);
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Blue },
+            Thickness = { CurrentValue = 5 },
+            TrimStart = { CurrentValue = 40 },
+            TrimEnd = { CurrentValue = 60 },
+        };
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var fillResource = fill.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
+        Rect fillBounds = geometryResource.Bounds;
+        Rect strokeBounds = geometryResource.GetRenderBounds(penResource);
+        using var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
+        using var renderer = CreateRenderer(node);
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(strokeBounds.Contains(fillBounds), Is.False,
+                "the trim must pull the stroke off the fill's extremes for this case to be meaningful");
+            Assert.That(measurement.OutputBounds.Contains(fillBounds), Is.True,
+                "the declared output must cover the fill the draw callback paints, not just the trimmed arc");
+        }
+    }
+
+    [Test]
+    public void Measure_ShouldStayStrokeOnly_WhenThereIsNoFillToCover()
+    {
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 140 }, Height = { CurrentValue = 95 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Blue },
+            Thickness = { CurrentValue = 5 },
+            Offset = { CurrentValue = -12 },
+        };
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
+        Rect fillBounds = geometryResource.Bounds;
+        Rect strokeBounds = geometryResource.GetRenderBounds(penResource);
+        using var node = new GeometryRenderNode(geometryResource, null, penResource);
+        using var renderer = CreateRenderer(node);
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(measurement.OutputBounds, Is.EqualTo(strokeBounds),
+                "without a fill there is nothing outside the stroke to cover, so the bound must stay stroke-only");
+            Assert.That(measurement.OutputBounds.Contains(fillBounds), Is.False,
+                "growing a fill-less stroke to the fill would waste the intermediate it allocates");
+        }
+    }
+
+    [Test]
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideGeometry()
     {
         var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
