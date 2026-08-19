@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -141,6 +142,107 @@ public class TileBrushFillDensityTests
                 + "a lit width near the drawable's own 40px means the tile calculator was handed "
                 + "the destination box as the source size");
         });
+    }
+
+    // A 60x40 source under a target-rewriting effect, filling a 180x120 host through a Stretch.Uniform
+    // DrawableBrush. The brush must stretch against what the effect produced, not against the host box.
+    private static Drawable.Resource MakeEffectedBrushHost(FilterEffect effect)
+    {
+        var source = new RectShape();
+        source.AlignmentX.CurrentValue = AlignmentX.Center;
+        source.AlignmentY.CurrentValue = AlignmentY.Center;
+        source.Width.CurrentValue = 60;
+        source.Height.CurrentValue = 40;
+        source.Fill.CurrentValue = Brushes.White;
+        source.FilterEffect.CurrentValue = effect;
+
+        var brush = new DrawableBrush();
+        brush.Drawable.CurrentValue = source;
+        brush.Stretch.CurrentValue = Stretch.Uniform;
+        brush.TileMode.CurrentValue = TileMode.None;
+        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+
+        var host = new RectShape();
+        host.AlignmentX.CurrentValue = AlignmentX.Center;
+        host.AlignmentY.CurrentValue = AlignmentY.Center;
+        host.Width.CurrentValue = 180;
+        host.Height.CurrentValue = 120;
+        host.Fill.CurrentValue = brush;
+        return host.ToResource(CompositionContext.Default);
+    }
+
+    // 2x2 tiles with a 6px gap widen the 60x40 source to 66x46; Uniform into 180x120 scales it by
+    // min(180/66, 120/46) = 2.6087, so the painted extent must be 172x120, not the source's own 66x46.
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void DrawableBrushFill_SourceCarriesSplitEffect_StretchesAgainstTheEffectOutput()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var split = new SplitEffect();
+            split.HorizontalDivisions.CurrentValue = 2;
+            split.VerticalDivisions.CurrentValue = 2;
+            split.HorizontalSpacing.CurrentValue = 6;
+            split.VerticalSpacing.CurrentValue = 6;
+
+            using Bitmap filled = GoldenImageHarness.RenderAtScale(MakeEffectedBrushHost(split), Frame, 1f);
+            PixelRect painted = PaintedBounds(filled);
+            TestContext.WriteLine($"[DrawableBrush split 66x46 -> 180x120] painted = {painted}");
+            Assert.Multiple(() =>
+            {
+                Assert.That(painted.Width, Is.EqualTo(172).Within(3),
+                    "the split source must stretch to the destination; a width near the source's own 66px "
+                    + "means the brush was handed the host box as its content bounds");
+                Assert.That(painted.Height, Is.EqualTo(120).Within(3),
+                    "Stretch.Uniform must cover the constraining axis of the destination");
+            });
+        });
+    }
+
+    // The same defect through an effect that only flattens its targets: 60x40 into 180x120 is a clean 3x.
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void DrawableBrushFill_SourceCarriesLayerEffect_StretchesAgainstTheEffectOutput()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap filled = GoldenImageHarness.RenderAtScale(
+                MakeEffectedBrushHost(new LayerEffect()), Frame, 1f);
+            PixelRect painted = PaintedBounds(filled);
+            TestContext.WriteLine($"[DrawableBrush layer 60x40 -> 180x120] painted = {painted}");
+            Assert.Multiple(() =>
+            {
+                Assert.That(painted.Width, Is.EqualTo(180).Within(3),
+                    "a bounds-preserving effect must leave the brush stretching against the 60x40 source");
+                Assert.That(painted.Height, Is.EqualTo(120).Within(3),
+                    "a bounds-preserving effect must leave the brush stretching against the 60x40 source");
+            });
+        });
+    }
+
+    // Bounding box of non-black pixels in a black-cleared render.
+    private static PixelRect PaintedBounds(Bitmap bitmap)
+    {
+        int left = int.MaxValue;
+        int top = int.MaxValue;
+        int right = int.MinValue;
+        int bottom = int.MinValue;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if ((float)BitConverter.UInt16BitsToHalf(row[x * 4]) <= 0.01f) continue;
+                left = Math.Min(left, x);
+                top = Math.Min(top, y);
+                right = Math.Max(right, x);
+                bottom = Math.Max(bottom, y);
+            }
+        }
+
+        return right < left ? default : new PixelRect(left, top, right - left + 1, bottom - top + 1);
     }
 
     // First-to-last extent of non-black pixels on the middle scanline of a black-cleared render.

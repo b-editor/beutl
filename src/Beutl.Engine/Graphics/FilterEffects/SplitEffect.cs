@@ -106,6 +106,27 @@ public partial class SplitEffect : FilterEffect
                         i += newTargets.Count - 1;
                     }
                 }
-            });
+            },
+            TransformBounds);
+    }
+
+    private static Rect TransformBounds(
+        (int HorizontalDivisions, int VerticalDivisions, float HorizontalSpacing, float VerticalSpacing) d,
+        Rect bounds)
+    {
+        // Negative spacing walks a tile back past the layout box by a distance that depends on the
+        // individual target's width, which the aggregate rectangle cannot bound.
+        if (d.HorizontalSpacing < 0 || d.VerticalSpacing < 0)
+            return Rect.Invalid;
+
+        if (d.HorizontalDivisions < 1 || d.VerticalDivisions < 1)
+            return Rect.Empty;
+
+        return bounds.CenterRect(
+            new Rect(
+                0,
+                0,
+                bounds.Width + (d.HorizontalSpacing * (d.HorizontalDivisions - 1)),
+                bounds.Height + (d.VerticalSpacing * (d.VerticalDivisions - 1))));
     }
 }

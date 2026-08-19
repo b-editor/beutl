@@ -549,13 +549,12 @@ public sealed class FilterEffectActivator : IDisposable
                     {
                         BeginSkiaChain();
                         skia.Accepts(this, Builder);
+                        // A deferred-bound Skia item resolves its matrix once from the combined
+                        // execution-time target bounds (the first TransformBounds call fixes it),
+                        // because its origin depends on input bounds a preceding custom effect may
+                        // only re-target at execution time. Every target then maps with that matrix.
                         if (skia.ResolveBoundsAtExecutionTime)
-                        {
-                            // A deferred-bound item resolves its mapping from the combined
-                            // execution-time bounds (the first TransformBounds call fixes it), so
-                            // every target is then mapped with that same resolution.
                             _ = item.TransformBounds(CurrentTargets.CalculateBounds());
-                        }
 
                         foreach (EffectTarget t in CurrentTargets)
                         {

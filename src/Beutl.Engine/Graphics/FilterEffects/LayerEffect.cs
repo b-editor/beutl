@@ -40,6 +40,8 @@ public partial class LayerEffect : FilterEffect
                 }
 
                 ctx.Targets.Add(newTarget);
-            });
+            },
+            // Flattening the targets into their own union never leaves the incoming extent.
+            static (_, bounds) => bounds);
     }
 }

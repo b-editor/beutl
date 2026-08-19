@@ -10,11 +10,12 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 // Guards SplitEffect combined with TransformEffect(ApplyToTarget=false) in both orders.
 //
-// The two orders reach different branches of FilterEffectContext.Transform. SplitEffect is a CustomEffect, so
-// it leaves the context bounds symbolic: a TransformEffect placed after it resolves one shared matrix from the
-// combined target bounds at execution time, while a TransformEffect placed before it resolves from the still
-// concrete bounds immediately. Each order therefore gets an oracle rendered in this same process, which keeps
-// the gate free of any checked-in baseline, machine-local snapshot directory, or inter-test ordering.
+// SplitEffect declares its own output extent, so a TransformEffect on either side of it resolves one shared
+// matrix from concrete bounds; the order still matters, because splitting first tiles the untransformed shape
+// while transforming first tiles the transformed one. The order placed after the split also exercises the
+// re-anchoring the activator has to apply once a custom effect has re-targeted the buffers. Each order
+// therefore gets an oracle rendered in this same process, which keeps the gate free of any checked-in
+// baseline, machine-local snapshot directory, or inter-test ordering.
 [NonParallelizable]
 [TestFixture]
 public class SplitTransformEffectCombinationTests
@@ -28,7 +29,7 @@ public class SplitTransformEffectCombinationTests
 
     // Each oracle reaches the same geometry through a different blit, so resampling differs at tile edges.
     // TransformEffectEquivalenceTests uses the same bound against the same drawable-transform oracle.
-    // Measured on Vulkan: 0.9964 for the deferred order, 0.9995 for the concrete order.
+    // Measured on Vulkan: 0.9965 for the split-first order, 0.9994 for the transform-first order.
     private const double MinimumOracleSsim = 0.97;
 
     // Measured order divergence is 0.2633, two orders of magnitude above this floor.
@@ -37,10 +38,10 @@ public class SplitTransformEffectCombinationTests
     // A transformed 140x90 shape split into nine tiles fills well over this share of a 200x200 frame.
     private const double MinimumCoverageRatio = 0.05;
 
-    // The transform resolves at execution time here, so its oracle is the same transform applied once to the
-    // whole split result through the drawable's own Transform, a path with no deferred resolution at all.
+    // One matrix is applied to the whole split result here, so its oracle is that same transform applied
+    // through the drawable's own Transform, a path with no filter-effect target re-anchoring at all.
     [Test]
-    public void SplitThenTransformFilter_ExecutionTimeBoundsMatchTheDrawableTransform()
+    public void SplitThenTransformFilter_SharedMatrixMatchesTheDrawableTransform()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -52,18 +53,18 @@ public class SplitTransformEffectCombinationTests
         });
     }
 
-    // The transform resolves from concrete bounds here, so ApplyToTarget=true — which computes the same matrix
-    // from the single target it is handed — is an equivalent independent path.
+    // The transform sees a single target here, so ApplyToTarget=true — which computes the same matrix from
+    // that one target — is an equivalent independent path.
     [Test]
-    public void TransformFilterThenSplit_ConcreteBoundsMatchTheApplyToTargetPath()
+    public void TransformFilterThenSplit_SharedMatrixMatchesTheApplyToTargetPath()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap deferred = Render(TransformThenSplit(applyToTarget: false), ShapeTransform());
-            using Bitmap eager = Render(TransformThenSplit(applyToTarget: true), ShapeTransform());
+            using Bitmap shared = Render(TransformThenSplit(applyToTarget: false), ShapeTransform());
+            using Bitmap perTarget = Render(TransformThenSplit(applyToTarget: true), ShapeTransform());
 
-            AssertOracleMatch(deferred, eager, "TransformThenSplit");
+            AssertOracleMatch(shared, perTarget, "TransformThenSplit");
         });
     }
 
