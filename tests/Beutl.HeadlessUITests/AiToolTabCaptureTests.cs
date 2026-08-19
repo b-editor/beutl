@@ -72,6 +72,28 @@ public class AiToolTabCaptureTests
     }
 
     [AvaloniaTest]
+    public async Task Capture_ai_workspace_pages_dark()
+    {
+        await TestReset.ResetShellAsync();
+        UseCaptureTheme();
+        EditViewModel editor = await OpenEditorForNewScene("ai-workspace-capture");
+        AiWorkspaceViewModel workspace = TestShell.MainViewModel.CreateAiWorkspaceViewModel(editor);
+
+        foreach (AiWorkspaceSectionViewModel section in workspace.Sections)
+        {
+            workspace.Show(section.Id);
+            HeadlessTestHelpers.Settle();
+            Capture(
+                new AiWorkspaceView { DataContext = workspace },
+                380,
+                900,
+                $"ai-workspace-{section.Id.ToString().ToLowerInvariant()}.png");
+        }
+
+        workspace.Dispose();
+    }
+
+    [AvaloniaTest]
     public async Task Capture_ai_job_center_inline_confirmation_dark()
     {
         await TestReset.ResetShellAsync();

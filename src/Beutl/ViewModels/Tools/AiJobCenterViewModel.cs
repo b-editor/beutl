@@ -13,16 +13,16 @@ using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.AI;
-using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class AiJobCenterViewModel : IToolContext
+public sealed class AiJobCenterViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly LifetimeCancellationSource _lifetimeCts = new();
@@ -86,12 +86,6 @@ public sealed class AiJobCenterViewModel : IToolContext
         _jobMonitor.AcquirePolling().DisposeWith(_disposables);
         _ = RefreshEntitlementsAsync();
     }
-
-    public ToolTabExtension Extension => AiJobCenterTabExtension.Instance;
-
-    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.AiJobCenter);
 
     public ReadOnlyObservableCollection<AiJobItemViewModel> Jobs { get; }
 
@@ -172,12 +166,22 @@ public sealed class AiJobCenterViewModel : IToolContext
         Interlocked.Increment(ref _confirmationRevision);
         _confirmationAction = AiJobConfirmationAction.Delete;
         _confirmationItem = item;
-        ConfirmationTitle.Value = Strings.AiJobCenter_DeleteTitle;
+        ConfirmationTitle.Value = string.IsNullOrWhiteSpace(item.Summary)
+            ? Strings.AiJobCenter_DeleteTitle
+            : string.Format(Strings.AiJobCenter_DeleteTitleFormat, Shorten(item.Summary));
         ConfirmationMessage.Value = Strings.AiJobCenter_DeleteConfirmation;
         ConfirmationActionText.Value = Strings.Delete;
         CanConfirm.Value = true;
         IsConfirmationLoading.Value = false;
         IsConfirmationOpen.Value = true;
+    }
+
+    private static string Shorten(string text, int maximumLength = 48)
+    {
+        string normalized = text.ReplaceLineEndings(" ").Trim();
+        return normalized.Length <= maximumLength
+            ? normalized
+            : normalized[..maximumLength].TrimEnd() + "…";
     }
 
     internal void CancelConfirmation()
@@ -385,22 +389,6 @@ public sealed class AiJobCenterViewModel : IToolContext
         }
     }
 
-    public object? GetService(Type serviceType)
-    {
-        ArgumentNullException.ThrowIfNull(serviceType);
-        return serviceType.IsInstanceOfType(this)
-            ? this
-            : _editViewModel.GetService(serviceType);
-    }
-
-    public void ReadFromJson(JsonObject json)
-    {
-    }
-
-    public void WriteToJson(JsonObject json)
-    {
-    }
-
     public void Dispose()
     {
         lock (_lifetimeGate)
@@ -418,7 +406,6 @@ public sealed class AiJobCenterViewModel : IToolContext
             job.Dispose();
         }
         _jobs.Clear();
-        IsSelected.Dispose();
         IsLoading.Dispose();
         IsInitialLoading.Dispose();
         IsListLoading.Dispose();
@@ -538,6 +525,43 @@ public sealed class AiJobCenterViewModel : IToolContext
                 _ => Strings.AiJobCenter_LoadFailed,
             };
             UpdateVisibleError();
+            LoadMissingPreviews();
+        }
+    }
+
+    // A history of prompts is far slower to search than a history of pictures, so
+    // each image job fetches its own result once and keeps it for the session.
+    private void LoadMissingPreviews()
+    {
+        foreach (AiJobItemViewModel item in _jobs)
+        {
+            if (item.TryClaimPreviewLoad())
+            {
+                _ = LoadPreviewAsync(item);
+            }
+        }
+    }
+
+    private async Task LoadPreviewAsync(AiJobItemViewModel item)
+    {
+        if (item.ContentUri is not { } contentUri)
+            return;
+
+        try
+        {
+            using var buffer = new MemoryStream();
+            await _content.CopyToAsync(contentUri, buffer, _lifetimeCts.Token);
+            buffer.Position = 0;
+            Bitmap bitmap = Bitmap.FromStream(buffer);
+            item.SetPreview(Ref<Bitmap>.Create(bitmap));
+        }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            // The card still names the job; only the picture beside it is missing.
+            _logger.LogDebug(ex, "Failed to load a preview for AI job {JobId}", item.Id);
         }
     }
 
@@ -622,9 +646,11 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
     private readonly IAiJobKindRegistry _jobKinds;
     private readonly AiJobResultHandlerRegistry _resultHandlers;
     private AiJob _response;
+    private Ref<Bitmap>? _preview;
     private bool _disposeRequested;
     private bool _isOperationActive;
     private bool _isBusyDisposed;
+    private bool _previewRequested;
 
     public AiJobItemViewModel(
         AiJob response,
@@ -677,6 +703,27 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
 
     public string CreatedAtText { get; private set; } = string.Empty;
 
+    public string CreatedAtTooltip { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Whether this job's result is a picture worth showing beside its prompt.
+    /// </summary>
+    public bool HasImagePreview { get; private set; }
+
+    public Ref<Bitmap>? Preview
+    {
+        get => _preview;
+        private set
+        {
+            if (ReferenceEquals(_preview, value))
+                return;
+
+            _preview?.Dispose();
+            _preview = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Preview)));
+        }
+    }
+
     public bool IsTerminal { get; private set; }
 
     public bool ShouldPoll { get; private set; }
@@ -694,6 +741,36 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
     public string StatusDisplayName { get; private set; } = string.Empty;
 
     internal AiJob Job => _response;
+
+    /// <summary>
+    /// Claims the one download this item's preview is allowed, so a list that
+    /// refreshes while polling does not fetch the same picture again.
+    /// </summary>
+    internal bool TryClaimPreviewLoad()
+    {
+        lock (_stateGate)
+        {
+            if (_previewRequested || !HasImagePreview || _disposeRequested)
+                return false;
+
+            _previewRequested = true;
+            return true;
+        }
+    }
+
+    internal void SetPreview(Ref<Bitmap>? preview)
+    {
+        lock (_stateGate)
+        {
+            if (_disposeRequested)
+            {
+                preview?.Dispose();
+                return;
+            }
+        }
+
+        Preview = preview;
+    }
 
     internal void Update(AiJob response)
     {
@@ -739,6 +816,8 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
                 DisposeBusyProperty();
             }
         }
+
+        Preview = null;
     }
 
     private void EndOperation()
@@ -821,7 +900,8 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
         Summary = presentation.Summary;
         Details = presentation.Details;
         HasDetails = Details.Length > 0;
-        CreatedAtText = _response.CreatedAt.ToLocalTime().ToString("g");
+        CreatedAtText = RelativeTimeText.Format(_response.CreatedAt, DateTimeOffset.Now);
+        CreatedAtTooltip = _response.CreatedAt.ToLocalTime().ToString("g");
         IsTerminal = status.IsTerminal;
         ShouldPoll = status.ShouldPoll;
         IsFailed = presentation.IsFailure;
@@ -830,6 +910,7 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
         CanAddToScene = canHandleResult;
         KindDisplayName = presentation.KindDisplayName;
         StatusDisplayName = presentation.StatusDisplayName;
+        HasImagePreview = presentation.HasImagePreview && ContentUri is not null && canHandleResult;
     }
 
     private string CreateDetails()

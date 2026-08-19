@@ -2,7 +2,6 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:btl="using:Beutl.Controls"
-             xmlns:cv="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -38,8 +37,8 @@
                          Watermark="{x:Static lang:Strings.AiVideoPrompt_Placeholder}" />
                 <TextBlock AutomationProperties.LiveSetting="Assertive"
                            Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                           IsVisible="{CompiledBinding PromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                           Text="{CompiledBinding PromptValidationError.Value}"
+                           IsVisible="{CompiledBinding VisiblePromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                           Text="{CompiledBinding VisiblePromptValidationError.Value}"
                            TextWrapping="Wrap" />
             </StackPanel>
 
@@ -76,6 +75,21 @@
                         TickFrequency="1"
                         TickPlacement="BottomRight"
                         Value="{CompiledBinding DurationIndex.Value}" />
+                <ItemsControl x:Name="DurationScale" ItemsSource="{CompiledBinding DurationOptions}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="1" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AiVideoDurationOption">
+                            <TextBlock HorizontalAlignment="Center"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                       Text="{CompiledBinding Seconds}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
 
             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
@@ -144,7 +158,7 @@
                 </StackPanel>
             </Expander>
 
-            <Expander Header="{x:Static lang:Strings.AiVideoFrameGuidance}">
+            <Expander Header="{x:Static lang:Strings.AiVideoFrameGuidanceHeader}">
                 <StackPanel Margin="0,8,0,0" Spacing="8">
                     <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                Text="{x:Static lang:Strings.AiVideoFrameGuidanceDescription}"
@@ -159,18 +173,13 @@
                             <TextBlock Text="{x:Static lang:Strings.AiVideoFirstFrame}" />
                             <Border Height="96"
                                     Background="{DynamicResource ControlFillColorDefaultBrush}"
-                                    CornerRadius="4">
-                                <Grid>
-                                    <btl:BitmapView Source="{CompiledBinding FirstFramePreview.Value}"
-                                                    Stretch="Uniform" />
-                                    <TextBlock HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               IsVisible="{CompiledBinding FirstFramePreview.Value, Converter={x:Static ObjectConverters.IsNull}}"
-                                               Opacity="0.6"
-                                               Text="{x:Static lang:Strings.AiOptional}" />
-                                </Grid>
+                                    CornerRadius="4"
+                                    IsVisible="{CompiledBinding FirstFramePreview.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                <btl:BitmapView Source="{CompiledBinding FirstFramePreview.Value}"
+                                                Stretch="Uniform" />
                             </Border>
-                            <TextBlock MaxLines="1"
+                            <TextBlock IsVisible="{CompiledBinding FirstFramePath.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       MaxLines="1"
                                        Text="{CompiledBinding FirstFramePath.Value}"
                                        TextTrimming="CharacterEllipsis" />
                             <WrapPanel Orientation="Horizontal">
@@ -181,25 +190,21 @@
                                 <Button Margin="0,0,0,4"
                                         AutomationProperties.Name="{x:Static lang:Strings.AiVideoClearFirstFrame}"
                                         Command="{CompiledBinding ClearFirstFrame}"
-                                        Content="{x:Static lang:Strings.AiClearFrame}" />
+                                        Content="{x:Static lang:Strings.AiClearFrame}"
+                                        IsVisible="{CompiledBinding FirstFramePath.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                             </WrapPanel>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Text="{x:Static lang:Strings.AiVideoLastFrame}" />
                             <Border Height="96"
                                     Background="{DynamicResource ControlFillColorDefaultBrush}"
-                                    CornerRadius="4">
-                                <Grid>
-                                    <btl:BitmapView Source="{CompiledBinding LastFramePreview.Value}"
-                                                    Stretch="Uniform" />
-                                    <TextBlock HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               IsVisible="{CompiledBinding LastFramePreview.Value, Converter={x:Static ObjectConverters.IsNull}}"
-                                               Opacity="0.6"
-                                               Text="{x:Static lang:Strings.AiOptional}" />
-                                </Grid>
+                                    CornerRadius="4"
+                                    IsVisible="{CompiledBinding LastFramePreview.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                <btl:BitmapView Source="{CompiledBinding LastFramePreview.Value}"
+                                                Stretch="Uniform" />
                             </Border>
-                            <TextBlock MaxLines="1"
+                            <TextBlock IsVisible="{CompiledBinding LastFramePath.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       MaxLines="1"
                                        Text="{CompiledBinding LastFramePath.Value}"
                                        TextTrimming="CharacterEllipsis" />
                             <WrapPanel Orientation="Horizontal">
@@ -210,7 +215,8 @@
                                 <Button Margin="0,0,0,4"
                                         AutomationProperties.Name="{x:Static lang:Strings.AiVideoClearLastFrame}"
                                         Command="{CompiledBinding ClearLastFrame}"
-                                        Content="{x:Static lang:Strings.AiClearFrame}" />
+                                        Content="{x:Static lang:Strings.AiClearFrame}"
+                                        IsVisible="{CompiledBinding LastFramePath.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                             </WrapPanel>
                         </StackPanel>
                     </Grid>
@@ -230,13 +236,14 @@
                             IsEnabled="{CompiledBinding CanGenerate.Value}" />
                     <Button Grid.Column="1"
                             Margin="8,0,0,0"
-                            Command="{CompiledBinding StopWaiting}"
+                            AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                            Command="{CompiledBinding StopGenerating}"
                             Content="{x:Static lang:Strings.Cancel}"
-                            IsVisible="{CompiledBinding IsWaitingForJob.Value}" />
+                            IsVisible="{CompiledBinding IsGenerating.Value}" />
                 </Grid>
             </StackPanel>
 
-            <Border Height="240"
+            <Border Padding="16"
                     Background="{DynamicResource ControlFillColorDefaultBrush}"
                     CornerRadius="8">
                 <Grid>
@@ -250,7 +257,9 @@
                                    AutomationProperties.LiveSetting="Polite"
                                    AutomationProperties.Name="{CompiledBinding StatusText.Value}"
                                    Opacity="0.6"
-                                   Text="{CompiledBinding StatusText.Value}" />
+                                   Text="{CompiledBinding StatusText.Value}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
                         <Button AutomationProperties.Name="{x:Static lang:Strings.AiVideoOpenPreview}"
                                 Command="{CompiledBinding OpenResult}"
                                 Content="{x:Static lang:Strings.AiVideoOpenPreview}"
@@ -275,7 +284,7 @@
                         Content="{x:Static lang:Strings.AiJoinPro}" />
             </StackPanel>
 
-            <WrapPanel Orientation="Horizontal">
+            <WrapPanel IsVisible="{CompiledBinding CanAddToScene.Value}" Orientation="Horizontal">
                 <Button Margin="0,0,8,8"
                         Command="{CompiledBinding AddToScene}"
                         Content="{x:Static lang:Strings.AiAddToScene}" />

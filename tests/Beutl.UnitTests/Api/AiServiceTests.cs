@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
 using Beutl.Api;
@@ -401,6 +402,162 @@ public sealed class AiCapabilityServiceTests
             Assert.That(result.JobId, Is.EqualTo(new AiJobId("job-translate-1")));
             Assert.That(result.Segments.Select(segment => segment.Text),
                 Is.EqualTo(new[] { "Bonjour", "Monde" }));
+        }
+    }
+
+    // A streamed answer as the server sends one: `data:` lines, blank-line
+    // separated, ending in the event that carries the answer itself.
+    private static HttpResponseMessage EventStream(params (string Event, string Data)[] events)
+    {
+        string body = string.Concat(
+            events.Select(item => $"event: {item.Event}\ndata: {item.Data}\n\n"));
+        var content = new StringContent(body, Encoding.UTF8);
+        content.Headers.ContentType = new MediaTypeHeaderValue("text/event-stream")
+        {
+            CharSet = "utf-8",
+        };
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
+
+    [Test]
+    public async Task Translation_ReportsEachSubtitleAndReturnsTheWholeAnswer()
+    {
+        using var handler = new RecordingHandler(_ => EventStream(
+            ("segment", """{"id":"line-1","text":"こんにちは"}"""),
+            ("segment", """{"id":"line-2","text":"世界"}"""),
+            ("result", """
+                {"jobId":"job-1","segments":[{"id":"line-1","text":"こんにちは"},{"id":"line-2","text":"世界"}]}
+                """.Trim())));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        var reported = new List<string>();
+
+        AiCaptionTranslationResponse result = await app
+            .GetResource<IAiCaptionTranslationService>()
+            .TranslateAsync(
+                new AiCaptionTranslationRequest(
+                    [new AiCaptionTranslationSegment { Id = "line-1", Text = "Hello" }],
+                    "ja"),
+                new Progress<AiCaptionTranslationSegment>(segment =>
+                {
+                    lock (reported) reported.Add(segment.Text);
+                }),
+                CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            // Reported as it arrived, and the answer is still the whole set.
+            Assert.That(reported, Is.EqualTo(new[] { "こんにちは", "世界" }));
+            Assert.That(result.Segments.Select(segment => segment.Text),
+                Is.EqualTo(new[] { "こんにちは", "世界" }));
+            Assert.That(result.JobId, Is.EqualTo(new AiJobId("job-1")));
+            Assert.That(handler.Requests.Single().Accept, Does.Contain("text/event-stream"));
+        }
+    }
+
+    [Test]
+    public async Task Translation_TakesAOnePieceAnswerFromAServerThatDoesNotStream()
+    {
+        // Asking to be shown the work is not a requirement: a server that
+        // answers in one piece is answering the same request.
+        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+            {"jobId":"job-3","segments":[{"id":"line-1","text":"こんにちは"}]}
+            """));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        var reported = new List<string>();
+
+        AiCaptionTranslationResponse result = await app
+            .GetResource<IAiCaptionTranslationService>()
+            .TranslateAsync(
+                new AiCaptionTranslationRequest(
+                    [new AiCaptionTranslationSegment { Id = "line-1", Text = "Hello" }],
+                    "ja"),
+                new Progress<AiCaptionTranslationSegment>(segment =>
+                {
+                    lock (reported) reported.Add(segment.Text);
+                }),
+                CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Segments.Single().Text, Is.EqualTo("こんにちは"));
+            Assert.That(reported, Is.Empty);
+        }
+    }
+
+    [Test]
+    public async Task Translation_TellsAnInterruptedAnswerApartFromAFailedOne()
+    {
+        // Neither of the two closing events arrived: the run may well have
+        // finished and been charged for, which is not the same as a failure.
+        using var handler = new RecordingHandler(_ => EventStream(
+            ("segment", """{"id":"line-1","text":"こんにちは"}""")));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+
+        Assert.ThrowsAsync<AiRequestInterruptedException>(async () =>
+            await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
+                new AiCaptionTranslationRequest(
+                    [new AiCaptionTranslationSegment { Id = "line-1", Text = "Hello" }],
+                    "ja"),
+                new Progress<AiCaptionTranslationSegment>(_ => { }),
+                CancellationToken.None));
+    }
+
+    [Test]
+    public async Task Translation_ReadsAFailureCarriedByTheStream()
+    {
+        using var handler = new RecordingHandler(_ => EventStream(
+            ("error", """{"error_code":"aiProviderError","message":"the provider gave up"}""")));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+
+        // Told apart exactly as the same failure would be on the ordinary path.
+        Assert.ThrowsAsync<AiProviderErrorException>(async () =>
+            await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
+                new AiCaptionTranslationRequest(
+                    [new AiCaptionTranslationSegment { Id = "line-1", Text = "Hello" }],
+                    "ja"),
+                new Progress<AiCaptionTranslationSegment>(_ => { }),
+                CancellationToken.None));
+    }
+
+    [Test]
+    public async Task ImageGeneration_ReportsEachRoughPictureAndReturnsTheFinishedOne()
+    {
+        using var handler = new RecordingHandler(_ => EventStream(
+            ("partial", """{"index":0,"image":"AAECAw=="}"""),
+            ("partial", """{"index":1,"image":"not base64!"}"""),
+            ("result", """
+                {"jobId":"job-2","fileId":"file-2","url":"http://localhost/api/contents/file-2"}
+                """.Trim())));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        var previews = new List<AiImagePreview>();
+
+        AiImageResult result = await app.GetResource<IAiImageGenerationService>()
+            .GenerateAsync(
+                new AiImageGenerationRequest("a lighthouse", new AiImageAspectRatioId("16:9")),
+                new Progress<AiImagePreview>(preview =>
+                {
+                    lock (previews) previews.Add(preview);
+                }),
+                CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            // A rough version that cannot be decoded is passed over rather than
+            // failing a run that is still going to produce a picture.
+            Assert.That(previews, Has.Count.EqualTo(1));
+            Assert.That(previews[0].Index, Is.Zero);
+            Assert.That(previews[0].Bytes.ToArray(), Is.EqualTo(new byte[] { 0, 1, 2, 3 }));
+            Assert.That(result.FileId, Is.EqualTo(new AiContentId("file-2")));
         }
     }
 
@@ -810,7 +967,8 @@ public sealed class AiCapabilityServiceTests
         string? Authorization,
         string? IdempotencyKey,
         string? ContentType,
-        string Body);
+        string Body,
+        string? Accept = null);
 
     private sealed class RecordingHandler(
         Func<RecordedRequest, HttpResponseMessage> responder) : HttpMessageHandler
@@ -834,7 +992,10 @@ public sealed class AiCapabilityServiceTests
                 request.Content?.Headers.ContentType?.ToString(),
                 request.Content is null
                     ? string.Empty
-                    : await request.Content.ReadAsStringAsync(cancellationToken));
+                    : await request.Content.ReadAsStringAsync(cancellationToken),
+                request.Headers.Accept.Count == 0
+                    ? null
+                    : request.Headers.Accept.ToString());
             _requests.Add(recorded);
             HttpResponseMessage response = responder(recorded);
             response.RequestMessage = request;

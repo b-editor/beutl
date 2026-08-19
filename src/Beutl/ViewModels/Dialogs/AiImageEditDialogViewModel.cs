@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Disposables;
-using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -15,7 +14,6 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.AI;
-using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -23,7 +21,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
+public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
@@ -38,6 +36,7 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
     private readonly EditViewModel? _editViewModel;
     private string? _sourceElementId;
     private Task? _disposeTask;
+    private AsyncOperationLifetime.Operation? _runningRequest;
 
     public AiImageEditDialogViewModel(
         IAiEntitlementService entitlements,
@@ -142,6 +141,11 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        VisiblePromptValidationError = AiPromptValidation
+            .WhileTyping(PromptValidationError, Prompt)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         SelectSourceFileCommand = new AsyncReactiveCommand()
             .WithSubscribe(SelectSourceFileAsync);
 
@@ -168,6 +172,9 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
 
         SaveToFile = new AsyncReactiveCommand(CanAddToScene)
             .WithSubscribe(SaveToFileCore);
+
+        StopEditing = new ReactiveCommand(IsEditing);
+        StopEditing.Subscribe(() => _runningRequest?.Cancel()).DisposeWith(_disposables);
 
         OpenAiPlan = new ReactiveCommand();
         OpenAiPlan.Subscribe(aiPlanCoordinator.OpenAiPlan).DisposeWith(_disposables);
@@ -206,12 +213,6 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         _ = LoadEntitlementsAsync();
     }
 
-    public ToolTabExtension Extension => AiImageEditTabExtension.Instance;
-
-    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.AiImageEdit);
-
     public IReadOnlyList<AiImageEditTaskOption> Tasks { get; }
 
     public ReactivePropertySlim<AiImageEditTaskOption> SelectedTask { get; }
@@ -234,6 +235,11 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
 
     public ReadOnlyReactivePropertySlim<string?> PromptValidationError { get; }
 
+    /// <summary>
+    /// The same message, held back until the person has typed something.
+    /// </summary>
+    public ReadOnlyReactivePropertySlim<string?> VisiblePromptValidationError { get; }
+
     public ReactivePropertySlim<string?> SourceFilePath { get; } = new();
 
     public AsyncReactiveCommand SelectSourceFileCommand { get; }
@@ -243,6 +249,12 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
     public AsyncReactiveCommand Edit { get; }
+
+    /// <summary>
+    /// Abandons the edit in flight. An edit runs for as long as the server takes,
+    /// so a wrong task or picture must be recoverable without closing the tab.
+    /// </summary>
+    public ReactiveCommand StopEditing { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanAddToScene { get; }
 
@@ -278,18 +290,6 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
 
     public ReactivePropertySlim<string?> Error { get; } = new();
 
-    public object? GetService(Type serviceType) => _editViewModel?.GetService(serviceType);
-
-    public void ReadFromJson(JsonObject json)
-    {
-        // Source images, prompts, and results are intentionally scoped to the current editor session.
-    }
-
-    public void WriteToJson(JsonObject json)
-    {
-        // Source images, prompts, and results are intentionally scoped to the current editor session.
-    }
-
     public void Dispose() => _ = BeginDisposeAsync();
 
     public ValueTask DisposeAsync() => new(BeginDisposeAsync());
@@ -312,7 +312,6 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         SourceFilePath.Dispose();
         Prompt.Dispose();
         Error.Dispose();
-        IsSelected.Dispose();
         _disposables.Dispose();
     }
 
@@ -434,6 +433,8 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         {
             return;
         }
+
+        _runningRequest = operation;
         string? preparedFilePath = null;
         try
         {
@@ -530,6 +531,7 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         }
         finally
         {
+            _runningRequest = null;
             operation.TryPublish(() => IsEditing.Value = false);
             if (preparedFilePath is not null)
             {
@@ -567,13 +569,13 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         if (task is not ("restyle" or "remove_object" or "outpaint"))
             return null;
         if (string.IsNullOrWhiteSpace(prompt))
-            return "Enter a prompt.";
+            return Strings.AiPromptRequired;
 
         string finalPrompt = task == "outpaint"
             ? $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt.Trim()}"
             : prompt.Trim();
         return finalPrompt.Length > AiRequestLimits.MaxPromptLength
-            ? $"The final composed prompt cannot exceed {AiRequestLimits.MaxPromptLength} characters."
+            ? AiPromptComposer.PromptTooLongMessage
             : null;
     }
 

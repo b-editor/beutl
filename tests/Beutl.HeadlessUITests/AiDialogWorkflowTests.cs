@@ -1,4 +1,6 @@
-﻿using System.Net;
+﻿using System.IO.Pipelines;
+using System.Net;
+using System.Net.Http.Headers;
 using System.Reactive.Linq;
 using System.Reflection;
 using System.Text;
@@ -74,6 +76,54 @@ public sealed class AiDialogWorkflowTests
             Assert.That(persistedElement, Does.Not.Contain("image-file"));
             Assert.That(persistedElement, Does.Not.Contain("A calm blue sky"));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_ShowsTheRoughPictureWhileTheModelWorks()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-image-streaming");
+        // A reply that is still arriving, which is the whole point: the rough
+        // version has to be on screen while the run is still going on.
+        var pipe = new Pipe();
+        await pipe.Writer.WriteAsync(Encoding.UTF8.GetBytes(
+            "event: partial\ndata: {\"index\":0,\"image\":\""
+            + Convert.ToBase64String(s_png)
+            + "\"}\n\n"));
+        await pipe.Writer.FlushAsync();
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/contents/image-file" => ByteResponse(s_png, "image/png"),
+            "/api/v3/ai/images" => EventStreamResponse(pipe.Reader.AsStream()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageGenerationDialog(clients, editor);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.Prompt.Value = "A calm blue sky";
+
+        Task generating = viewModel.Generate.ExecuteAsync();
+        await WaitUntilAsync(() => viewModel.PreviewImage.Value is not null);
+        Assert.That(viewModel.ResultImage.Value, Is.Null,
+            "A rough version is not the picture the run produced.");
+
+        await pipe.Writer.WriteAsync(Encoding.UTF8.GetBytes(
+            "event: result\ndata: "
+            + ImageResponseJson("image-job", "image-file").ReplaceLineEndings(string.Empty)
+            + "\n\n"));
+        await pipe.Writer.CompleteAsync();
+        await generating;
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(viewModel.ResultImage.Value, Is.Not.Null);
+            // Cleared when the run ends: what stays on screen is the result.
+            Assert.That(viewModel.PreviewImage.Value, Is.Null);
+        }
     }
 
     [AvaloniaTest]
@@ -1851,14 +1901,78 @@ public sealed class AiDialogWorkflowTests
             segments = new[] { new { start = 0.0, end = 0.04, text = "new caption" } },
         }));
 
+    [AvaloniaTest]
+    public async Task SceneMixTranscription_StopsWhereItIsWhenAskedTo()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-subtitle-scene-mix-stop");
+        int transcriptionRequests = 0;
+        int composeCalls = 0;
+        using var handler = new StubHandler(async (request, cancellationToken) =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/transcriptions":
+                    Interlocked.Increment(ref transcriptionRequests);
+                    await request.Content!.ReadAsByteArrayAsync(cancellationToken);
+                    return CreateTranscriptionResponse("transcription-stopped");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(clients, editor);
+        viewModel.SceneMixChunkDuration = TimeSpan.FromSeconds(60);
+        viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Interlocked.Increment(ref composeCalls) == 1)
+            {
+                viewModel.StopRequest.Execute();
+            }
+
+            int sampleCount = Math.Max(1, (int)Math.Round(duration.TotalSeconds * 16_000));
+            return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
+                new float[sampleCount],
+                16_000,
+                1,
+                start));
+        };
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
+        editor.Scene.Start = TimeSpan.Zero;
+        editor.Scene.Duration = TimeSpan.FromSeconds(60);
+        await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
+
+        await viewModel.Transcribe.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(transcriptionRequests, Is.Zero,
+                "Stopping before the upload means the account is not charged for it.");
+            Assert.That(composeCalls, Is.EqualTo(1),
+                "A minute of scene is not composed after the person has left.");
+            Assert.That(viewModel.IsTranscribing.Value, Is.False);
+            Assert.That(viewModel.Error.Value, Is.Null,
+                "Leaving on purpose is not an error to report back.");
+            Assert.That(viewModel.CanTranscribe.Value, Is.True,
+                "And it can be started again.");
+        }
+    }
+
     // The wave is one part of a multipart upload, so its own header says how much
     // audio actually made it into the request.
     private static int ReadWaveDataLength(byte[]? body)
     {
         Assert.That(body, Is.Not.Null);
-        int start = body.AsSpan().IndexOf("RIFF"u8);
+        byte[] payload = body!;
+        int start = payload.AsSpan().IndexOf("RIFF"u8);
         Assert.That(start, Is.GreaterThanOrEqualTo(0), "The upload carries a wave.");
-        return BitConverter.ToInt32(body, start + 40);
+        return BitConverter.ToInt32(payload, start + 40);
     }
 
     private static AiImageGenerationDialogViewModel CreateImageGenerationDialog(
@@ -2062,6 +2176,13 @@ public sealed class AiDialogWorkflowTests
           }
         }
         """;
+
+    private static HttpResponseMessage EventStreamResponse(Stream body)
+    {
+        var content = new StreamContent(body);
+        content.Headers.ContentType = new MediaTypeHeaderValue("text/event-stream");
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
 
     private static string EntitlementsJson() => """
         {

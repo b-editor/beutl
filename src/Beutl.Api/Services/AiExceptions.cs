@@ -122,6 +122,22 @@ public sealed class AiRequestWasDeletedException : AiException
 }
 
 /// <summary>
+/// The connection carrying an answer ended before the answer did. The work may
+/// well have finished and been charged for, so this is not the same as a run
+/// that failed: asking again under the same idempotency key is what recovers it.
+/// </summary>
+public sealed class AiRequestInterruptedException : AiException
+{
+    public AiRequestInterruptedException(Exception? innerException = null)
+        : base(
+            "The AI answer was cut off before it finished.",
+            innerException,
+            isTransient: true)
+    {
+    }
+}
+
+/// <summary>
 /// The job produced a result, but the file it produced could not be fetched.
 /// The work is done and paid for either way, so it is worth saying so: the
 /// result is still in the job history.

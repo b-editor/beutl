@@ -1,5 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Reactive.Bindings;
@@ -191,8 +194,14 @@ internal sealed class AiImageGenerationService(
     : AiMeteredCapabilityService(application, jobChangeNotifier),
         IAiImageGenerationService
 {
+    public Task<AiImageResult> GenerateAsync(
+        AiImageGenerationRequest request,
+        CancellationToken cancellationToken)
+        => GenerateAsync(request, null, cancellationToken);
+
     public async Task<AiImageResult> GenerateAsync(
         AiImageGenerationRequest request,
+        IProgress<AiImagePreview>? progress,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -205,21 +214,37 @@ internal sealed class AiImageGenerationService(
 
         if (request.Reference is null)
         {
-            return await ExecuteAsync(
+            var body = new CreateAiImageRequest
+            {
+                Prompt = request.Prompt,
+                AspectRatio = request.AspectRatio.Value,
+                Background = background,
+                Seed = request.Seed,
+                Model = request.Model?.Value,
+            };
+            if (progress is null)
+            {
+                return await ExecuteAsync(
+                    "AiImageGenerationService.Generate",
+                    (authorization, token) => Application.Ai.CreateImage(
+                        authorization,
+                        idempotencyKey,
+                        body,
+                        token),
+                    AiModelMapper.ToModel,
+                    cancellationToken,
+                    activity => SetImageTags(activity, request));
+            }
+
+            return await ExecuteStreamingAsync(
                 "AiImageGenerationService.Generate",
-                (authorization, token) => Application.Ai.CreateImage(
-                    authorization,
-                    idempotencyKey,
-                    new CreateAiImageRequest
-                    {
-                        Prompt = request.Prompt,
-                        AspectRatio = request.AspectRatio.Value,
-                        Background = background,
-                        Seed = request.Seed,
-                        Model = request.Model?.Value,
-                    },
-                    token),
-                AiModelMapper.ToModel,
+                () => JsonRequest("/api/v3/ai/images", idempotencyKey, body),
+                item => ReportImagePreview(item, progress),
+                data => AiModelMapper.ToModel(
+                    JsonSerializer.Deserialize<AiImageResponse>(
+                        data,
+                        AiStreamJson.Options)
+                    ?? throw new AiException("The AI image result was empty.")),
                 cancellationToken,
                 activity => SetImageTags(activity, request));
         }
@@ -245,6 +270,44 @@ internal sealed class AiImageGenerationService(
             AiModelMapper.ToModel,
             cancellationToken,
             activity => SetImageTags(activity, request));
+    }
+
+    // A picture midway through being worked out. Anything that cannot be read as
+    // one is passed over: it is a preview, and the finished picture is what the
+    // caller is really waiting for.
+    private static void ReportImagePreview(
+        AiServerSentEvent item,
+        IProgress<AiImagePreview> progress)
+    {
+        if (item.Event != "partial")
+            return;
+
+        AiImagePartialDto? partial =
+            JsonSerializer.Deserialize<AiImagePartialDto>(item.Data, AiStreamJson.Options);
+        if (partial is null || string.IsNullOrEmpty(partial.Image))
+            return;
+
+        byte[] bytes;
+        try
+        {
+            bytes = System.Convert.FromBase64String(partial.Image);
+        }
+        catch (FormatException)
+        {
+            return;
+        }
+
+        if (bytes.Length > 0)
+            progress.Report(new AiImagePreview(partial.Index, bytes));
+    }
+
+    private sealed record AiImagePartialDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("index")]
+        public int Index { get; init; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("image")]
+        public string? Image { get; init; }
     }
 
     private static void SetImageTags(Activity? activity, AiImageGenerationRequest request)
@@ -333,6 +396,12 @@ internal sealed class AiCaptionTranslationService(
     public Task<AiCaptionTranslationResponse> TranslateAsync(
         AiCaptionTranslationRequest request,
         CancellationToken cancellationToken)
+        => TranslateAsync(request, null, cancellationToken);
+
+    public Task<AiCaptionTranslationResponse> TranslateAsync(
+        AiCaptionTranslationRequest request,
+        IProgress<AiCaptionTranslationSegment>? progress,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         string idempotencyKey = CreateIdempotencyKey();
@@ -364,20 +433,54 @@ internal sealed class AiCaptionTranslationService(
                 },
             Model = request.Model?.Value,
         };
-        return ExecuteAsync(
+        void Describe(Activity? activity)
+        {
+            activity?.SetTag("segmentCount", request.Segments.Count);
+            activity?.SetTag("targetLanguage", request.TargetLanguage);
+            activity?.SetTag("streamed", progress is not null);
+        }
+
+        if (progress is null)
+        {
+            return ExecuteAsync(
+                "AiCaptionTranslationService.Translate",
+                (authorization, token) => Application.Ai.Translate(
+                    authorization,
+                    idempotencyKey,
+                    dto,
+                    token),
+                AiModelMapper.ToModel,
+                cancellationToken,
+                Describe);
+        }
+
+        return ExecuteStreamingAsync(
             "AiCaptionTranslationService.Translate",
-            (authorization, token) => Application.Ai.Translate(
-                authorization,
-                idempotencyKey,
-                dto,
-                token),
-            AiModelMapper.ToModel,
-            cancellationToken,
-            activity =>
+            () => JsonRequest("/api/v3/ai/translations", idempotencyKey, dto),
+            item =>
             {
-                activity?.SetTag("segmentCount", request.Segments.Count);
-                activity?.SetTag("targetLanguage", request.TargetLanguage);
-            });
+                if (item.Event != "segment")
+                    return;
+                AiCaptionTranslationSegmentDto? segment =
+                    JsonSerializer.Deserialize<AiCaptionTranslationSegmentDto>(
+                        item.Data,
+                        AiStreamJson.Options);
+                if (segment is not null)
+                {
+                    progress.Report(new AiCaptionTranslationSegment
+                    {
+                        Id = segment.Id,
+                        Text = segment.Text,
+                    });
+                }
+            },
+            data => AiModelMapper.ToModel(
+                JsonSerializer.Deserialize<AiCaptionTranslationResponseDto>(
+                    data,
+                    AiStreamJson.Options)
+                ?? throw new AiException("The AI translation result was empty.")),
+            cancellationToken,
+            Describe);
     }
 }
 
@@ -629,6 +732,172 @@ internal abstract class AiMeteredCapabilityService(
     protected BeutlApiApplication Application { get; } = application;
 
     protected static string CreateIdempotencyKey() => Guid.NewGuid().ToString("D");
+
+    /// <summary>
+    /// Runs a request that answers a piece at a time, handing each piece to the
+    /// caller and returning what the closing event carries.
+    /// </summary>
+    /// <remarks>
+    /// Everything the server can refuse before it starts working still comes
+    /// back as an ordinary status code, and is converted here exactly as a
+    /// Refit reply would be. Once the stream is open the answer is one of two
+    /// events; a stream that carries neither was cut off, and whatever it was
+    /// carrying may well have finished and been charged for, which is why that
+    /// is said in its own way rather than as a plain failure.
+    /// </remarks>
+    protected async Task<TResult> ExecuteStreamingAsync<TResult>(
+        string activityName,
+        Func<HttpRequestMessage> createRequest,
+        Action<AiServerSentEvent> onProgress,
+        Func<string, TResult> readResult,
+        CancellationToken cancellationToken,
+        Action<Activity?>? configureActivity = null,
+        bool notifyJobsChanged = true)
+    {
+        using CancellationTokenSource operationCts =
+            Application.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = operationCts.Token;
+        token.ThrowIfCancellationRequested();
+        using Activity? activity = Application.ActivitySource.StartActivity(
+            activityName,
+            ActivityKind.Client);
+        configureActivity?.Invoke(activity);
+
+        AuthenticatedApiResult<TResult> response = await Application.SendAuthenticatedAsync(
+            async (authorization, requestToken) =>
+            {
+                using HttpRequestMessage request = createRequest();
+                request.Headers.TryAddWithoutValidation("Authorization", authorization);
+                request.Headers.Accept.Add(
+                    new MediaTypeWithQualityHeaderValue(AiEventStream.MediaType));
+                using HttpResponseMessage message = await Application.HttpClient.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    requestToken);
+                if (!message.IsSuccessStatusCode)
+                {
+                    throw await ToFailureAsync(message, activity, requestToken);
+                }
+
+                if (!AiEventStream.IsEventStream(message))
+                {
+                    // A server that does not stream answers the same request in
+                    // one piece, and that answer is the same shape the closing
+                    // event would have carried. There is simply nothing to show
+                    // on the way.
+                    return readResult(await message.Content.ReadAsStringAsync(requestToken));
+                }
+
+                await using Stream stream = await message.Content.ReadAsStreamAsync(requestToken);
+                await foreach (AiServerSentEvent item in
+                    AiEventStream.ReadAsync(stream, requestToken))
+                {
+                    switch (item.Event)
+                    {
+                        case AiEventStream.ResultEvent:
+                            return readResult(item.Data);
+                        case AiEventStream.ErrorEvent:
+                            activity?.SetStatus(ActivityStatusCode.Error);
+                            throw AiErrorConverter.Convert(
+                                500,
+                                DeserializeError(item.Data),
+                                null);
+                        default:
+                            onProgress(item);
+                            break;
+                    }
+                }
+
+                activity?.SetStatus(ActivityStatusCode.Error);
+                throw new AiRequestInterruptedException();
+            },
+            token);
+
+        if (notifyJobsChanged)
+        {
+            jobChangeNotifier.Notify();
+        }
+
+        return response.Value;
+    }
+
+    private static async Task<AiException> ToFailureAsync(
+        HttpResponseMessage message,
+        Activity? activity,
+        CancellationToken cancellationToken)
+    {
+        activity?.SetStatus(ActivityStatusCode.Error);
+        string body = string.Empty;
+        try
+        {
+            body = await message.Content.ReadAsStringAsync(cancellationToken);
+        }
+        catch (Exception)
+        {
+            // A body that cannot be read says nothing more than the status did.
+        }
+
+        return AiErrorConverter.Convert(
+            (int)message.StatusCode,
+            DeserializeError(body),
+            null,
+            $"The AI request failed ({(int)message.StatusCode}).");
+    }
+
+    /// <summary>The same JSON body Refit would have sent, as a raw request.</summary>
+    protected HttpRequestMessage JsonRequest<TBody>(
+        string path,
+        string idempotencyKey,
+        TBody body)
+    {
+        var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            new Uri(Application.HttpClient.BaseAddress!, path))
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(body, AiStreamJson.Options),
+                Encoding.UTF8,
+                "application/json"),
+        };
+        request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+        return request;
+    }
+
+    // Read leniently: what matters is the code and the message, and a body that
+    // carries them but not every field the client's own record insists on is
+    // still the failure it says it is.
+    private sealed record ErrorBody
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("error_code")]
+        public ApiErrorCode? ErrorCode { get; init; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
+        public string? Message { get; init; }
+    }
+
+    private static ApiErrorResponse? DeserializeError(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return null;
+        try
+        {
+            ErrorBody? parsed = JsonSerializer.Deserialize<ErrorBody>(
+                body,
+                AiStreamJson.Options);
+            if (parsed is null)
+                return null;
+            return new ApiErrorResponse
+            {
+                ErrorCode = parsed.ErrorCode ?? ApiErrorCode.Unknown,
+                Message = parsed.Message,
+                DocumentationUrl = null,
+            };
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 
     protected async Task<TResult> ExecuteAsync<TResponse, TResult>(
         string activityName,

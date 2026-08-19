@@ -1,7 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Reactive.Disposables;
-using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -17,7 +16,6 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.AI;
-using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -25,7 +23,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDisposable
+public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
@@ -47,6 +45,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
     private readonly HashSet<string> _temporaryFilesPendingDeletion = new(StringComparer.Ordinal);
     private readonly object _lifetimeGate = new();
     private CancellationTokenSource? _pollingCts;
+    private AsyncOperationLifetime.Operation? _runningRequest;
     private string? _firstFrameElementId;
     private string? _lastFrameElementId;
     private AiVideoResultSnapshot? _resultSnapshot;
@@ -169,7 +168,12 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                         composition,
                         motion,
                         exclusions)))
-            .ToReadOnlyReactivePropertySlim("Enter a prompt.")
+            .ToReadOnlyReactivePropertySlim(Strings.AiPromptRequired)
+            .DisposeWith(_disposables);
+
+        VisiblePromptValidationError = AiPromptValidation
+            .WhileTyping(PromptValidationError, Prompt, Style, Composition, Motion, Exclusions)
+            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         SelectFirstFrame = new AsyncReactiveCommand()
@@ -196,8 +200,8 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
         Generate = new AsyncReactiveCommand(CanGenerate)
             .WithSubscribe(GenerateCore);
-        StopWaiting = new ReactiveCommand(IsWaitingForJob);
-        StopWaiting.Subscribe(StopWaitingCore).DisposeWith(_disposables);
+        StopGenerating = new ReactiveCommand(IsGenerating);
+        StopGenerating.Subscribe(StopGeneratingCore).DisposeWith(_disposables);
 
         CanAddToScene = ResultVideoPath
             .Select(x => x != null)
@@ -229,12 +233,6 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
         _ = LoadEntitlementsAsync();
     }
-
-    public ToolTabExtension Extension => AiVideoGenerationTabExtension.Instance;
-
-    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.AiVideoGeneration);
 
     /// <summary>
     /// The lengths on offer, which follow the chosen model: Veo 3.1 takes 4, 6
@@ -420,11 +418,20 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     public ReadOnlyReactivePropertySlim<string?> PromptValidationError { get; }
 
+    /// <summary>
+    /// The same message, held back until the person has typed something.
+    /// </summary>
+    public ReadOnlyReactivePropertySlim<string?> VisiblePromptValidationError { get; }
+
     public ReadOnlyReactivePropertySlim<bool> CanGenerate { get; }
 
     public AsyncReactiveCommand Generate { get; }
 
-    public ReactiveCommand StopWaiting { get; }
+    /// <summary>
+    /// Abandons the run in flight, from the moment it is submitted until the
+    /// result lands, so a wrong prompt does not mean closing the tab.
+    /// </summary>
+    public ReactiveCommand StopGenerating { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanAddToScene { get; }
 
@@ -466,18 +473,6 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
     public ReadOnlyReactivePropertySlim<bool> ShowJoinPro { get; }
 
     public ReactivePropertySlim<string?> Error { get; } = new();
-
-    public object? GetService(Type serviceType) => _editViewModel?.GetService(serviceType);
-
-    public void ReadFromJson(JsonObject json)
-    {
-        // Prompts, frame references, and generated content are not persisted with the dock layout.
-    }
-
-    public void WriteToJson(JsonObject json)
-    {
-        // Prompts, frame references, and generated content are not persisted with the dock layout.
-    }
 
     public void Dispose() => _ = BeginDisposeAsync();
 
@@ -525,7 +520,6 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         FirstFramePath.Dispose();
         LastFramePath.Dispose();
         Error.Dispose();
-        IsSelected.Dispose();
         _disposables.Dispose();
         _availabilityTracker.Dispose();
         _availabilityLifetimeCts.Dispose();
@@ -735,6 +729,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
             return;
         }
 
+        _runningRequest = operation;
         bool persistedServerJob = false;
         try
         {
@@ -820,6 +815,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         }
         finally
         {
+            _runningRequest = null;
             operation.TryPublish(() => IsGenerating.Value = false);
         }
     }
@@ -997,12 +993,24 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
         }
     }
 
-    private void StopWaitingCore()
+    // A job the server already accepted keeps running and lands in the job centre,
+    // so stopping means stopping the wait. Before that there is nothing to keep and
+    // the request itself goes.
+    private void StopGeneratingCore()
     {
+        CancellationTokenSource? polling;
         lock (_lifetimeGate)
         {
-            _pollingCts?.Cancel();
+            polling = _pollingCts;
         }
+
+        if (polling is { IsCancellationRequested: false })
+        {
+            polling.Cancel();
+            return;
+        }
+
+        _runningRequest?.Cancel();
     }
 
     private async Task RefreshJobHistoryAfterLocalStopAsync()

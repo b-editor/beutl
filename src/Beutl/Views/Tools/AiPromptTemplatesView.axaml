@@ -36,8 +36,11 @@
                    IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                    Text="{CompiledBinding Error.Value}"
                    TextWrapping="Wrap" />
+        <!--  Where prompts are kept matters the first time and never again, so it
+              is said while the list is still empty.  -->
         <TextBlock FontSize="11"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   IsVisible="{CompiledBinding !HasTemplates.Value}"
                    Text="{CompiledBinding PrivacyText}"
                    TextWrapping="Wrap" />
     </StackPanel>

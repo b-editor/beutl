@@ -20,7 +20,9 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
                 return null;
 
             _activeOperations++;
-            return new Operation(this, _cancellation.Token);
+            return new Operation(
+                this,
+                CancellationTokenSource.CreateLinkedTokenSource(_cancellation.Token));
         }
     }
 
@@ -88,14 +90,21 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         drained?.TrySetResult();
     }
 
+    /// <summary>
+    /// One admitted operation. Its token dies with the view-model, and separately
+    /// with <see cref="Cancel"/>, so a caller can abandon a single long request
+    /// without shutting down everything else the view-model has admitted.
+    /// </summary>
     internal sealed class Operation : IDisposable
     {
+        private readonly CancellationTokenSource _cancellation;
         private AsyncOperationLifetime? _owner;
 
-        internal Operation(AsyncOperationLifetime owner, CancellationToken cancellationToken)
+        internal Operation(AsyncOperationLifetime owner, CancellationTokenSource cancellation)
         {
             _owner = owner;
-            CancellationToken = cancellationToken;
+            _cancellation = cancellation;
+            CancellationToken = cancellation.Token;
         }
 
         public CancellationToken CancellationToken { get; }
@@ -103,7 +112,27 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         public bool TryPublish(Action publication)
             => _owner?.TryPublish(publication) == true;
 
+        public void Cancel()
+        {
+            if (_owner is null)
+                return;
+
+            try
+            {
+                _cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
         public void Dispose()
-            => Interlocked.Exchange(ref _owner, null)?.Exit();
+        {
+            if (Interlocked.Exchange(ref _owner, null) is not { } owner)
+                return;
+
+            _cancellation.Dispose();
+            owner.Exit();
+        }
     }
 }

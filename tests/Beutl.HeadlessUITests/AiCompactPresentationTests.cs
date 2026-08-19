@@ -7,9 +7,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Services;
-using Beutl.Converters;
 using Beutl.Editor.Services.Captions;
 using Beutl.Language;
 using Beutl.Services;
@@ -75,7 +75,7 @@ public sealed class AiCompactPresentationTests
     }
 
     [AvaloniaTest]
-    public async Task ImageGeneration_PairsTheAspectRatioWithTheModelPickerOnOneRow()
+    public async Task ImageGeneration_GivesTheAspectRatioAndModelARowEach()
     {
         await TestReset.ResetShellAsync();
         BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
@@ -90,8 +90,6 @@ public sealed class AiCompactPresentationTests
 
             Control aspectRatio = view.FindControl<Control>("AspectRatioField")!;
             Control model = view.FindControl<Control>("ModelField")!;
-            Assert.That(aspectRatio.Parent, Is.SameAs(model.Parent).And.TypeOf<Grid>(),
-                "The two selectors share one row instead of stacking.");
 
             viewModel.ModelPicker.HasChoice.Value = true;
             HeadlessTestHelpers.Render();
@@ -99,22 +97,19 @@ public sealed class AiCompactPresentationTests
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(model.IsVisible, Is.True);
-                Assert.That(Grid.GetColumn(aspectRatio), Is.Zero);
-                Assert.That(Grid.GetColumn(model), Is.EqualTo(1));
-                Assert.That(Grid.GetColumnSpan(aspectRatio), Is.EqualTo(1));
-                Assert.That(aspectRatio.Bounds.Right, Is.LessThanOrEqualTo(model.Bounds.Left + 1));
+                Assert.That(aspectRatio.Bounds.Bottom, Is.LessThanOrEqualTo(model.Bounds.Top + 1),
+                    "One selector per row, so neither is trimmed to half a docked tab.");
+                Assert.That(
+                    new[] { aspectRatio, model }.Select(field => field.Bounds.Width),
+                    Is.All.EqualTo(aspectRatio.Bounds.Width),
+                    "Each selector gets the full width.");
             }
 
             viewModel.ModelPicker.HasChoice.Value = false;
             HeadlessTestHelpers.Render();
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(model.IsVisible, Is.False);
-                Assert.That(Grid.GetColumnSpan(aspectRatio), Is.EqualTo(2),
-                    "With a single model on offer the aspect ratio takes the whole row.");
-                Assert.That(aspectRatio.Bounds.Width, Is.GreaterThan(((Grid)model.Parent!).Bounds.Width / 2));
-            }
+            Assert.That(model.IsVisible, Is.False,
+                "A single model on offer is not a choice, so its row goes away.");
         }
         finally
         {
@@ -215,24 +210,24 @@ public sealed class AiCompactPresentationTests
             HeadlessTestHelpers.Render();
 
             ListBox cues = view.FindControl<ListBox>("CaptionCueList")!;
-            Assert.That(viewModel.Cues, Is.Empty);
-            Assert.That(cues.Bounds.Height, Is.LessThanOrEqualTo(80),
-                "An empty cue list must not push the translation actions off screen.");
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.Cues, Is.Empty);
+                Assert.That(cues.IsVisible, Is.False,
+                    "An empty cue list is a sentence, not an empty box.");
+                Assert.That(
+                    view.GetLogicalDescendants().OfType<TextBlock>()
+                        .Any(text => text.Text == Strings.AiSubtitle_CueListEmpty
+                            && text.IsVisible),
+                    Is.True,
+                    "It says what would put cues there.");
+            }
         }
         finally
         {
             window.Close();
             HeadlessTestHelpers.Settle();
         }
-    }
-
-    [TestCase(true, 1)]
-    [TestCase(false, 2)]
-    public void GridSpan_FollowsWhetherTheNeighbourIsShown(bool hasNeighbour, int expected)
-    {
-        Assert.That(
-            GridSpanConverter.Instance.Convert(hasNeighbour, typeof(int), null, CultureInfo.InvariantCulture),
-            Is.EqualTo(expected));
     }
 
     [AvaloniaTest]
@@ -251,7 +246,7 @@ public sealed class AiCompactPresentationTests
 
             Expander templates = FindExpander(view, Strings.AiPromptTemplates);
             Expander details = FindExpander(view, Strings.AiPromptDetails);
-            Expander reference = FindExpander(view, Strings.AiReferenceImage);
+            Expander reference = FindExpander(view, Strings.AiReferenceImageHeader);
             TextBox prompt = view.GetLogicalDescendants().OfType<TextBox>().First(box => box.AcceptsReturn);
             ComboBox background = view.GetLogicalDescendants()
                 .OfType<ComboBox>()
@@ -302,7 +297,7 @@ public sealed class AiCompactPresentationTests
 
             Expander templates = FindExpander(view, Strings.AiPromptTemplates);
             Expander details = FindExpander(view, Strings.AiPromptDetails);
-            Expander frames = FindExpander(view, Strings.AiVideoFrameGuidance);
+            Expander frames = FindExpander(view, Strings.AiVideoFrameGuidanceHeader);
             TextBox prompt = view.GetLogicalDescendants().OfType<TextBox>().First(box => box.AcceptsReturn);
             CheckBox generateAudio = view.GetLogicalDescendants().OfType<CheckBox>().Single();
             Button generate = view.GetLogicalDescendants()
@@ -401,17 +396,6 @@ public sealed class AiCompactPresentationTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
-    }
-
-    [TestCase("3", 3)]
-    [TestCase(4, 4)]
-    [TestCase("nonsense", 2)]
-    [TestCase(null, 2)]
-    public void GridSpan_TakesTheRowWidthFromTheConverterParameter(object? parameter, int expected)
-    {
-        Assert.That(
-            GridSpanConverter.Instance.Convert(false, typeof(int), parameter, CultureInfo.InvariantCulture),
-            Is.EqualTo(expected));
     }
 
     [AvaloniaTest]
@@ -535,6 +519,296 @@ public sealed class AiCompactPresentationTests
 
     private static double TopIn(Visual root, Visual control)
         => control.TranslatePoint(default, root)?.Y ?? double.NaN;
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_SaysNothingIsWrongUntilSomethingHasBeenTyped()
+    {
+        await TestReset.ResetShellAsync();
+        BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
+        await using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
+        var view = new AiImageGenerationView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 420, Height = 900 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.PromptValidationError.Value, Is.EqualTo(Strings.AiPromptRequired),
+                    "The request still cannot be sent.");
+                Assert.That(viewModel.VisiblePromptValidationError.Value, Is.Null,
+                    "But a tab nobody has typed in yet has not made a mistake.");
+                Assert.That(FindValidationText(view)?.IsVisible ?? false, Is.False);
+            }
+
+            viewModel.Prompt.Value = "a calm sunset";
+            HeadlessTestHelpers.Render();
+            Assert.That(viewModel.VisiblePromptValidationError.Value, Is.Null);
+
+            viewModel.Prompt.Value = string.Empty;
+            HeadlessTestHelpers.Render();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.VisiblePromptValidationError.Value,
+                    Is.EqualTo(Strings.AiPromptRequired),
+                    "Once the box has been used, emptying it is worth pointing out.");
+                Assert.That(FindValidationText(view)?.IsVisible ?? false, Is.True);
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task VideoGeneration_HoldsTheValidationBackTheSameWay()
+    {
+        await TestReset.ResetShellAsync();
+        BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
+        await using AiVideoGenerationDialogViewModel viewModel = CreateVideoGenerationDialog(clients);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(viewModel.PromptValidationError.Value, Is.EqualTo(Strings.AiPromptRequired));
+            Assert.That(viewModel.VisiblePromptValidationError.Value, Is.Null,
+                "An untouched tab has not made a mistake.");
+        }
+
+        // A detail alone still composes into a prompt, so the complaint waits for
+        // the box to be emptied again rather than for the main prompt specifically.
+        viewModel.Motion.Value = "slow push-in";
+        Assert.That(viewModel.VisiblePromptValidationError.Value, Is.Null);
+
+        viewModel.Motion.Value = string.Empty;
+        Assert.That(viewModel.VisiblePromptValidationError.Value, Is.EqualTo(Strings.AiPromptRequired));
+    }
+
+    [AvaloniaTest]
+    public async Task ImageEdit_HoldsTheValidationBackUntilThePromptIsUsed()
+    {
+        await TestReset.ResetShellAsync();
+        BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
+        await using AiImageEditDialogViewModel viewModel = CreateImageEditDialog(clients);
+        viewModel.SelectedTask.Value = viewModel.Tasks.First(task => task.Value == "restyle");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(viewModel.PromptValidationError.Value, Is.EqualTo(Strings.AiPromptRequired));
+            Assert.That(viewModel.VisiblePromptValidationError.Value, Is.Null);
+        }
+
+        viewModel.Prompt.Value = "watercolour";
+        viewModel.Prompt.Value = string.Empty;
+
+        Assert.That(viewModel.VisiblePromptValidationError.Value, Is.EqualTo(Strings.AiPromptRequired));
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_KeepsTheResultBoxAndItsActionsAwayUntilThereIsAResult()
+    {
+        await TestReset.ResetShellAsync();
+        BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
+        await using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
+        var view = new AiImageGenerationView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 300, Height = 560 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    view.GetLogicalDescendants().OfType<Border>()
+                        .Any(border => border.IsVisible && border.Height == 320),
+                    Is.False,
+                    "An empty 320px box would be most of a docked tab.");
+                Assert.That(
+                    view.GetLogicalDescendants().OfType<TextBlock>()
+                        .Any(text => text.IsVisible && text.Text == Strings.AiImageGenerationIdle),
+                    Is.True,
+                    "What stands there instead says what to do next.");
+                Assert.That(
+                    view.GetLogicalDescendants().OfType<Button>()
+                        .Any(button => button.IsEffectivelyVisible
+                            && Equals(button.Content, Strings.AiAddToScene)),
+                    Is.False,
+                    "There is nothing to add to the scene yet.");
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_OffersAWayOutWhileTheRequestRuns()
+    {
+        await TestReset.ResetShellAsync();
+        BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
+        await using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
+        var view = new AiImageGenerationView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 420, Height = 900 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            Button cancel = view.GetLogicalDescendants().OfType<Button>()
+                .Single(button => Equals(button.Content, Strings.Cancel));
+            Assert.That(cancel.IsVisible, Is.False, "Nothing is running yet.");
+
+            viewModel.IsGenerating.Value = true;
+            HeadlessTestHelpers.Render();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(cancel.IsVisible, Is.True,
+                    "Generation runs for as long as the server takes; leaving must not mean closing the tab.");
+                Assert.That(viewModel.StopGenerating.CanExecute(), Is.True);
+            }
+
+            viewModel.IsGenerating.Value = false;
+            HeadlessTestHelpers.Render();
+            Assert.That(viewModel.StopGenerating.CanExecute(), Is.False);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Subtitle_OffersOneStopForTranscriptionAndTranslation()
+    {
+        await TestReset.ResetShellAsync();
+        BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
+        using AiSubtitleDialogViewModel viewModel = CreateSubtitleDialog(clients);
+
+        Assert.That(viewModel.StopRequest.CanExecute(), Is.False);
+
+        viewModel.IsTranscribing.Value = true;
+        Assert.That(viewModel.StopRequest.CanExecute(), Is.True);
+
+        viewModel.IsTranscribing.Value = false;
+        Assert.That(viewModel.StopRequest.CanExecute(), Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task Subtitle_ReadsTheSourceAndLanguageAtADockedWidth()
+    {
+        await TestReset.ResetShellAsync();
+        BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
+        using AiSubtitleDialogViewModel viewModel = CreateSubtitleDialog(clients);
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 300, Height = 900 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            ComboBox source = FindByAutomationName<ComboBox>(view, Strings.AiSubtitle_AudioSource);
+            ComboBox language = FindByAutomationName<ComboBox>(view, Strings.AiSubtitle_SourceLanguage);
+
+            Point sourceOrigin = source.TranslatePoint(default, view) ?? default;
+            Point languageOrigin = language.TranslatePoint(default, view) ?? default;
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    sourceOrigin.Y + source.Bounds.Height,
+                    Is.LessThanOrEqualTo(languageOrigin.Y + 1),
+                    "Side by side, neither reads at a docked width.");
+                Assert.That(source.Bounds.Width, Is.EqualTo(language.Bounds.Width));
+                Assert.That(source.Bounds.Width, Is.GreaterThan(200),
+                    "The source names the range it covers, so it needs the room to say so.");
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Subtitle_ShowsACueAsOneRowAndOpensTheOneThatIsSelected()
+    {
+        await TestReset.ResetShellAsync();
+        using AiSubtitleDialogViewModel viewModel =
+            TestShell.MainViewModel.CreateAiSubtitleToolViewModel(null);
+        viewModel.ResultSegments.Value =
+        [
+            new AiTranscriptionSegment { Start = 0, End = 2, Text = "first line" },
+            new AiTranscriptionSegment { Start = 2, End = 4, Text = "second line" },
+            new AiTranscriptionSegment { Start = 4, End = 6, Text = "third line" },
+        ];
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 380, Height = 900 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            ListBox list = view.FindControl<ListBox>("CaptionCueList")!;
+            ListBoxItem[] rows = list.GetRealizedContainers().OfType<ListBoxItem>().ToArray();
+            Assert.That(rows, Has.Length.EqualTo(3));
+
+            ListBoxItem opened = rows.Single(row => row.IsSelected);
+            ListBoxItem[] closed = rows.Where(row => !row.IsSelected).ToArray();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(closed.Select(row => row.Bounds.Height), Is.All.LessThan(72),
+                    "A cue nobody is editing is one row, so a whole caption set can be read.");
+                Assert.That(opened.Bounds.Height, Is.GreaterThan(closed[0].Bounds.Height),
+                    "The one being worked on is the editor.");
+                Assert.That(
+                    closed.SelectMany(row => row.GetVisualDescendants().OfType<TextBox>()),
+                    Is.Empty,
+                    "The fields exist only where they are being used.");
+                Assert.That(
+                    opened.GetVisualDescendants().OfType<TextBox>().Count(),
+                    Is.EqualTo(5));
+            }
+
+            list.SelectedItem = closed[0].DataContext;
+            HeadlessTestHelpers.Render();
+
+            Assert.That(
+                closed[0].GetVisualDescendants().OfType<TextBox>().Count(),
+                Is.EqualTo(5),
+                "Selecting another cue moves the editor to it.");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private static TextBlock? FindValidationText(Visual view)
+        => view.GetLogicalDescendants()
+            .OfType<TextBlock>()
+            .FirstOrDefault(text => text.Text == Strings.AiPromptRequired);
+
+    private static T FindByAutomationName<T>(Visual view, string name)
+        where T : Control
+        => view.GetLogicalDescendants()
+            .OfType<T>()
+            .Single(control => AutomationProperties.GetName(control) == name);
 
     private static AiImageGenerationDialogViewModel CreateImageGenerationDialog(BeutlApiApplication clients)
         => new(

@@ -1,5 +1,4 @@
-﻿using System.Text.Json.Nodes;
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Audio;
@@ -16,7 +15,6 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.AI;
-using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -24,10 +22,11 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed partial class AiSubtitleDialogViewModel : IToolContext
+public sealed partial class AiSubtitleDialogViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly LifetimeCancellationSource _lifetimeCts = new();
+    private CancellationTokenSource? _requestCts;
     private readonly ILogger _logger = Log.CreateLogger<AiSubtitleDialogViewModel>();
     private readonly SubtitleAiCapabilities _aiService;
     private readonly IAiEntitlementService _entitlements;
@@ -114,6 +113,10 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         Transcribe = new AsyncReactiveCommand(CanTranscribe)
             .WithSubscribe(TranscribeCore);
 
+        StopRequest = new ReactiveCommand(
+            IsTranscribing.CombineLatest(IsTranslating, (a, b) => a || b));
+        StopRequest.Subscribe(() => _requestCts?.Cancel()).DisposeWith(_disposables);
+
         CanAddToScene = HasValidCues
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -133,12 +136,6 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         _ = LoadAudioSourcesAsync();
     }
 
-    public ToolTabExtension Extension => AiSubtitleTabExtension.Instance;
-
-    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.AiSubtitle);
-
     public ReactivePropertySlim<IReadOnlyList<AudioSourceItem>> AudioSources { get; }
 
     public ReactivePropertySlim<AudioSourceItem?> SelectedAudioSource { get; }
@@ -152,6 +149,12 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
     public ReadOnlyReactivePropertySlim<bool> CanTranscribe { get; }
 
     public AsyncReactiveCommand Transcribe { get; }
+
+    /// <summary>
+    /// Abandons the transcription or translation in flight. A long scene takes
+    /// minutes, so a wrong audio source must not mean closing the tab.
+    /// </summary>
+    public ReactiveCommand StopRequest { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanAddToScene { get; }
 
@@ -179,18 +182,6 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
 
     public ReactivePropertySlim<string?> Error { get; } = new();
 
-    public object? GetService(Type serviceType) => _editViewModel?.GetService(serviceType);
-
-    public void ReadFromJson(JsonObject json)
-    {
-        // Transcripts and caption drafts are intentionally kept out of the persisted dock layout.
-    }
-
-    public void WriteToJson(JsonObject json)
-    {
-        // Transcripts and caption drafts are intentionally kept out of the persisted dock layout.
-    }
-
     public void Dispose()
     {
         if (_disposed)
@@ -210,7 +201,6 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         HasPendingHistoryResult.Dispose();
         HistoryOverwriteMessage.Dispose();
         Error.Dispose();
-        IsSelected.Dispose();
         _disposables.Dispose();
         _lifetimeCts.Dispose();
     }
@@ -283,6 +273,15 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// The token the request in flight runs under: the tab's lifetime, plus the
+    /// person's own request to stop.
+    /// </summary>
+    private CancellationToken RequestToken => _requestCts?.Token ?? _lifetimeCts.Token;
+
+    private bool IsRequestCanceled
+        => _lifetimeCts.IsCancellationRequested || _requestCts?.IsCancellationRequested == true;
+
     private async Task TranscribeCore()
     {
         if (SelectedAudioSource.Value is not { } source)
@@ -291,6 +290,9 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
         Error.Value = null;
         IsTranscribing.Value = true;
+        using CancellationTokenSource requestCts =
+            CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
+        _requestCts = requestCts;
         try
         {
             await TranscribeSelectedSourceAsync(source);
@@ -330,7 +332,7 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message);
         }
-        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        catch (OperationCanceledException) when (IsRequestCanceled)
         {
         }
         catch (Exception ex)
@@ -340,6 +342,7 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         }
         finally
         {
+            _requestCts = null;
             if (!_disposed && IsCurrentCaptionDraftScope(draftScopeRevision))
             {
                 IsTranscribing.Value = false;
@@ -415,8 +418,9 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
 
         public Task<AiCaptionTranslationResponse> TranslateAsync(
             AiCaptionTranslationRequest request,
+            IProgress<AiCaptionTranslationSegment>? progress,
             CancellationToken cancellationToken)
-            => translation.TranslateAsync(request, cancellationToken);
+            => translation.TranslateAsync(request, progress, cancellationToken);
     }
 
 }

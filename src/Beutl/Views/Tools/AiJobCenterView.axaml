@@ -1,6 +1,7 @@
-<UserControl x:Class="Beutl.Views.Tools.AiJobCenterView"
+﻿<UserControl x:Class="Beutl.Views.Tools.AiJobCenterView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:btl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -17,15 +18,13 @@
         <Grid Grid.Row="0"
               Margin="8"
               ColumnDefinitions="*,Auto">
-            <StackPanel Spacing="2">
-                <TextBlock FontSize="16"
-                           FontWeight="SemiBold"
-                           Text="{x:Static lang:Strings.AiJobCenter}" />
-                <TextBlock FontSize="11"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           Text="{x:Static lang:Strings.AiJobCenter_Description}"
-                           TextWrapping="Wrap" />
-            </StackPanel>
+            <!--  The page selector above already names this page, so only the
+                  sentence that says what it is for is repeated here.  -->
+            <TextBlock VerticalAlignment="Center"
+                       FontSize="11"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Text="{x:Static lang:Strings.AiJobCenter_Description}"
+                       TextWrapping="Wrap" />
             <Button x:Name="RefreshButton"
                     Grid.Column="1"
                     Padding="7"
@@ -127,6 +126,12 @@
                                     BorderThickness="1"
                                     CornerRadius="7">
                                 <StackPanel Spacing="7">
+                                    <Border Height="96"
+                                            Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                            CornerRadius="4"
+                                            IsVisible="{CompiledBinding Preview, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                        <btl:BitmapView Source="{CompiledBinding Preview}" Stretch="Uniform" />
+                                    </Border>
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock FontWeight="SemiBold"
                                                    Text="{CompiledBinding KindDisplayName}" />
@@ -151,7 +156,8 @@
                                                TextWrapping="Wrap" />
                                     <TextBlock FontSize="10"
                                                Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                               Text="{CompiledBinding CreatedAtText}" />
+                                               Text="{CompiledBinding CreatedAtText}"
+                                               ToolTip.Tip="{CompiledBinding CreatedAtTooltip}" />
                                     <TextBlock AutomationProperties.LiveSetting="Assertive"
                                                AutomationProperties.Name="{CompiledBinding Error}"
                                                Foreground="{DynamicResource SystemFillColorCriticalBrush}"
@@ -176,13 +182,16 @@
                                                 Tag="{Binding}"
                                                 ToolTip.Tip="{x:Static lang:Strings.AiJobCenter_Retry}" />
                                         <Button Margin="0,0,6,6"
+                                                Padding="6"
                                                 AutomationProperties.Name="{x:Static lang:Strings.Delete}"
                                                 Click="OnDeleteClick"
-                                                Content="{x:Static lang:Strings.Delete}"
                                                 IsEnabled="{CompiledBinding !IsBusy.Value}"
                                                 IsVisible="{CompiledBinding CanDelete}"
                                                 Tag="{Binding}"
-                                                ToolTip.Tip="{x:Static lang:Strings.Delete}" />
+                                                Theme="{StaticResource TransparentButton}"
+                                                ToolTip.Tip="{x:Static lang:Strings.Delete}">
+                                            <icons:FluentIcon FontSize="16" Icon="Delete" />
+                                        </Button>
                                         <ui:ProgressRing Width="18"
                                                          Height="18"
                                                          Margin="0,0,6,6"

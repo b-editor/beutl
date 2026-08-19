@@ -347,49 +347,98 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     }
 
     internal void OpenAiJobCenter()
-        => OpenAiToolTab(CreateAiJobCenterViewModel);
+        => OpenAiWorkspace(AiWorkspaceSection.Jobs);
 
     internal void OpenAiImageGeneration()
-        => OpenAiToolTab(CreateAiImageGenerationToolViewModel);
+        => OpenAiWorkspace(AiWorkspaceSection.ImageGeneration);
 
     internal void OpenAiImageEdit()
-        => OpenAiToolTab(CreateAiImageEditToolViewModel);
+        => OpenAiWorkspace(AiWorkspaceSection.ImageEdit);
 
     internal void OpenAiSubtitle(AiCaptionHistoryResult? historyResult = null)
     {
-        AiSubtitleDialogViewModel? viewModel = OpenAiToolTab(CreateAiSubtitleToolViewModel);
-        if (historyResult is not null)
+        if (OpenAiWorkspace(AiWorkspaceSection.Subtitles) is AiSubtitleDialogViewModel viewModel
+            && historyResult is not null)
         {
-            viewModel?.LoadHistoryResult(historyResult);
+            viewModel.LoadHistoryResult(historyResult);
         }
     }
 
     internal void OpenAiVideoGeneration()
-        => OpenAiToolTab(CreateAiVideoGenerationToolViewModel);
+        => OpenAiWorkspace(AiWorkspaceSection.VideoGeneration);
 
-    private T? OpenAiToolTab<T>(Func<EditViewModel, T> create)
-        where T : class, IToolContext
+    private object? OpenAiWorkspace(AiWorkspaceSection section)
     {
         if (_editorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editorContext)
         {
             return null;
         }
 
-        if (editorContext.FindToolTab<T>() is { } existing)
+        // A tab already on that page is the one the person means. Otherwise an open
+        // AI tab is turned to it, because the menu is a request to see something,
+        // not a request for another tab; the tab strip's own button adds those.
+        AiWorkspaceViewModel? workspace =
+            editorContext.FindToolTab<AiWorkspaceViewModel>(tab => tab.SelectedSection.Value?.Id == section)
+            ?? editorContext.FindToolTab<AiWorkspaceViewModel>();
+
+        if (workspace is null)
         {
-            editorContext.OpenToolTab(existing);
-            return existing;
+            workspace = CreateAiWorkspaceViewModel(editorContext);
+            if (!editorContext.OpenToolTab(workspace))
+            {
+                workspace.Dispose();
+                return null;
+            }
+        }
+        else
+        {
+            editorContext.OpenToolTab(workspace);
         }
 
-        T toolContext = create(editorContext);
-        if (!editorContext.OpenToolTab(toolContext))
-        {
-            toolContext.Dispose();
-            return null;
-        }
-
-        return toolContext;
+        return workspace.Show(section);
     }
+
+    internal AiWorkspaceViewModel CreateAiWorkspaceViewModel(EditViewModel editViewModel)
+    {
+        var workspace = new AiWorkspaceViewModel(
+            editViewModel,
+            section => CreateAiPage(section, editViewModel));
+
+        // A tab added while another is open is added to see something else, so it
+        // starts on the first page no open tab is showing.
+        if (FindUnshownSection(editViewModel) is { } section)
+        {
+            workspace.Show(section);
+        }
+
+        return workspace;
+    }
+
+    private static AiWorkspaceSection? FindUnshownSection(EditViewModel editViewModel)
+    {
+        AiWorkspaceSection[] shown = editViewModel.DockHost.Factory.EnumerateTools()
+            .Select(tool => tool.ToolContext)
+            .OfType<AiWorkspaceViewModel>()
+            .Select(tab => tab.SelectedSection.Value?.Id)
+            .OfType<AiWorkspaceSection>()
+            .ToArray();
+
+        return shown.Length == 0
+            ? null
+            : Enum.GetValues<AiWorkspaceSection>().Cast<AiWorkspaceSection?>()
+                .FirstOrDefault(section => !shown.Contains(section!.Value));
+    }
+
+    private IDisposable CreateAiPage(AiWorkspaceSection section, EditViewModel editViewModel)
+        => section switch
+        {
+            AiWorkspaceSection.ImageGeneration => CreateAiImageGenerationToolViewModel(editViewModel),
+            AiWorkspaceSection.ImageEdit => CreateAiImageEditToolViewModel(editViewModel),
+            AiWorkspaceSection.VideoGeneration => CreateAiVideoGenerationToolViewModel(editViewModel),
+            AiWorkspaceSection.Subtitles => CreateAiSubtitleToolViewModel(editViewModel),
+            AiWorkspaceSection.Jobs => CreateAiJobCenterViewModel(editViewModel),
+            _ => throw new ArgumentOutOfRangeException(nameof(section)),
+        };
 
     internal AiJobCenterViewModel CreateAiJobCenterViewModel(EditViewModel editViewModel)
         => new(

@@ -289,7 +289,8 @@ public sealed class AiJobCenterTests
             List<Button> buttons = content.GetVisualDescendants().OfType<Button>().ToList();
             Button addButton = buttons.Single(button => Equals(button.Content, Strings.AiAddToScene));
             Button retryButton = buttons.Single(button => Equals(button.Content, Strings.AiJobCenter_Retry));
-            Button deleteButton = buttons.Single(button => Equals(button.Content, Strings.Delete));
+            Button deleteButton = buttons.Single(button =>
+                AutomationProperties.GetName(button) == Strings.Delete);
             AssertAction(addButton, Strings.AiAddToScene);
             AssertAction(
                 retryButton,
@@ -346,7 +347,8 @@ public sealed class AiJobCenterTests
         await viewModel.RequestRetryConfirmationAsync(failed);
         await viewModel.ConfirmPendingActionAsync();
         viewModel.RequestDeleteConfirmation(failed);
-        Assert.That(viewModel.ConfirmationTitle.Value, Is.EqualTo(Strings.AiJobCenter_DeleteTitle));
+        Assert.That(viewModel.ConfirmationTitle.Value, Does.Contain("Retry me"),
+                "The confirmation names the job, which may have scrolled out of sight below it.");
         await viewModel.ConfirmPendingActionAsync();
         await WaitUntilAsync(() => viewModel.Jobs.Count == 1);
         HeadlessTestHelpers.Settle();
@@ -641,6 +643,114 @@ public sealed class AiJobCenterTests
     private AiJobItemViewModel CreateItem(AiJob job)
         => new(job, _jobKinds, _resultHandlers);
 
+    [AvaloniaTest]
+    public async Task ViewModel_ShowsTheGeneratedPictureBesideItsPrompt()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-previews");
+        int contentRequests = 0;
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/user/ai-availability" => JsonResponse(
+                HttpStatusCode.OK,
+                """{ "available": true }"""),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, JobsJson(deleted: false)),
+            "/api/contents/file-success" => CountedPng(ref contentRequests),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateJobCenter(editor, clients);
+
+        await WaitUntilAsync(() => viewModel.Jobs.Count == 2);
+        AiJobItemViewModel completed = viewModel.Jobs.Single(item => item.Id == "job-success");
+        AiJobItemViewModel failed = viewModel.Jobs.Single(item => item.Id == "job-failed");
+        await WaitUntilAsync(() => completed.Preview is not null);
+
+        int afterFirstLoad = contentRequests;
+        viewModel.ApplySnapshot(new AiJobMonitorSnapshot(
+            [completed.Job, failed.Job],
+            NextCursor: null,
+            IsLoading: false,
+            Error: null));
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(completed.HasImagePreview, Is.True);
+            Assert.That(completed.Preview, Is.Not.Null,
+                "A history of prompts is far slower to search than a history of pictures.");
+            Assert.That(failed.Preview, Is.Null, "A job that failed produced nothing to show.");
+            Assert.That(contentRequests, Is.EqualTo(afterFirstLoad),
+                "Polling must not fetch the same picture again.");
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ViewModel_DatesAJobByHowLongAgoItRan()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-dates");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/user/ai-availability" => JsonResponse(
+                HttpStatusCode.OK,
+                """{ "available": true }"""),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, JobsJson(deleted: false)),
+            "/api/contents/file-success" => ByteResponse(s_png, "image/png"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateJobCenter(editor, clients);
+
+        await WaitUntilAsync(() => viewModel.Jobs.Count == 2);
+        AiJobItemViewModel completed = viewModel.Jobs.Single(item => item.Id == "job-success");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(completed.CreatedAtText, Is.Not.Empty);
+            Assert.That(completed.CreatedAtTooltip, Is.Not.Empty,
+                "The exact time is still one hover away.");
+            Assert.That(completed.CreatedAtText, Is.Not.EqualTo(completed.CreatedAtTooltip));
+        }
+    }
+
+    [Test]
+    public void RelativeTime_ReadsAsHowLongAgoUntilTheDateIsWhatIdentifiesIt()
+    {
+        var now = new DateTimeOffset(2026, 8, 19, 12, 0, 0, TimeSpan.Zero);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(RelativeTimeText.Format(now, now), Is.EqualTo(Strings.TimeAgoJustNow));
+            Assert.That(RelativeTimeText.Format(now.AddSeconds(30), now),
+                Is.EqualTo(Strings.TimeAgoJustNow));
+            Assert.That(RelativeTimeText.Format(now.AddMinutes(-5), now),
+                Is.EqualTo(string.Format(Strings.TimeAgoMinutesFormat, 5)));
+            Assert.That(RelativeTimeText.Format(now.AddHours(-3), now),
+                Is.EqualTo(string.Format(Strings.TimeAgoHoursFormat, 3)));
+            Assert.That(RelativeTimeText.Format(now.AddDays(-2), now),
+                Is.EqualTo(string.Format(Strings.TimeAgoDaysFormat, 2)));
+            Assert.That(RelativeTimeText.Format(now.AddDays(-30), now),
+                Is.EqualTo(now.AddDays(-30).ToLocalTime().ToString("d")),
+                "Past a week the calendar date is what identifies it.");
+            Assert.That(RelativeTimeText.Format(now.AddMinutes(5), now),
+                Is.EqualTo(Strings.TimeAgoJustNow),
+                "A clock that is ahead of the server must not read as a negative age.");
+        }
+    }
+
+    private static HttpResponseMessage CountedPng(ref int requests)
+    {
+        requests++;
+        return ByteResponse(s_png, "image/png");
+    }
+
     private AiJobCenterViewModel CreateJobCenter(
         EditViewModel editor,
         BeutlApiApplication clients)
@@ -834,6 +944,12 @@ public sealed class AiJobCenterTests
     {
         public Task<AiImageResult> GenerateAsync(
             AiImageGenerationRequest request,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<AiImageResult> GenerateAsync(
+            AiImageGenerationRequest request,
+            IProgress<AiImagePreview>? progress,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
     }

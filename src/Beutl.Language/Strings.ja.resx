@@ -2140,4 +2140,55 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Materials" xml:space="preserve">
     <value>素材</value>
   </data>
+  <data name="AiPromptRequired" xml:space="preserve">
+    <value>プロンプトを入力してください。</value>
+  </data>
+  <data name="AiPromptTooLongFormat" xml:space="preserve">
+    <value>組み立て後のプロンプトは {0} 文字以内にしてください。</value>
+  </data>
+  <data name="AiImageGenerationIdle" xml:space="preserve">
+    <value>画像の説明を入力して「生成」をクリックしてください。</value>
+  </data>
+  <data name="AiImageEditIdle" xml:space="preserve">
+    <value>画像とタスクを選んで「実行」をクリックしてください。</value>
+  </data>
+  <data name="AiEditSourceImage" xml:space="preserve">
+    <value>元画像</value>
+  </data>
+  <data name="AiEditNoSourceSelected" xml:space="preserve">
+    <value>未選択</value>
+  </data>
+  <data name="AiReferenceImageHeader" xml:space="preserve">
+    <value>参照画像（任意）</value>
+  </data>
+  <data name="AiVideoFrameGuidanceHeader" xml:space="preserve">
+    <value>フレーム指定（任意）</value>
+  </data>
+  <data name="AiSubtitle_CueListEmpty" xml:space="preserve">
+    <value>文字起こしまたは字幕の読み込みを行うと、ここにキューが並びます。</value>
+  </data>
+  <data name="AiSubtitle_LineWrapping" xml:space="preserve">
+    <value>行の折り返し</value>
+  </data>
+  <data name="AiSubtitle_CueEditing" xml:space="preserve">
+    <value>キュー</value>
+  </data>
+  <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
+    <value>字幕ファイル</value>
+  </data>
+  <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
+    <value>「{0}」を削除しますか？</value>
+  </data>
+  <data name="TimeAgoJustNow" xml:space="preserve">
+    <value>たった今</value>
+  </data>
+  <data name="TimeAgoMinutesFormat" xml:space="preserve">
+    <value>{0} 分前</value>
+  </data>
+  <data name="TimeAgoHoursFormat" xml:space="preserve">
+    <value>{0} 時間前</value>
+  </data>
+  <data name="TimeAgoDaysFormat" xml:space="preserve">
+    <value>{0} 日前</value>
+  </data>
 </root>

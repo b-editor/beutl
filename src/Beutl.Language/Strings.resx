@@ -2146,4 +2146,55 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Materials" xml:space="preserve">
     <value>Materials</value>
   </data>
+  <data name="AiPromptRequired" xml:space="preserve">
+    <value>Enter a prompt.</value>
+  </data>
+  <data name="AiPromptTooLongFormat" xml:space="preserve">
+    <value>The final composed prompt cannot exceed {0} characters.</value>
+  </data>
+  <data name="AiImageGenerationIdle" xml:space="preserve">
+    <value>Describe the image and click Generate.</value>
+  </data>
+  <data name="AiImageEditIdle" xml:space="preserve">
+    <value>Choose an image and a task, then click Run.</value>
+  </data>
+  <data name="AiEditSourceImage" xml:space="preserve">
+    <value>Source image</value>
+  </data>
+  <data name="AiEditNoSourceSelected" xml:space="preserve">
+    <value>Not selected</value>
+  </data>
+  <data name="AiReferenceImageHeader" xml:space="preserve">
+    <value>Reference image (optional)</value>
+  </data>
+  <data name="AiVideoFrameGuidanceHeader" xml:space="preserve">
+    <value>Frame guidance (optional)</value>
+  </data>
+  <data name="AiSubtitle_CueListEmpty" xml:space="preserve">
+    <value>Transcribe or import captions, and the cues appear here.</value>
+  </data>
+  <data name="AiSubtitle_LineWrapping" xml:space="preserve">
+    <value>Line wrapping</value>
+  </data>
+  <data name="AiSubtitle_CueEditing" xml:space="preserve">
+    <value>Cues</value>
+  </data>
+  <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
+    <value>Captions file</value>
+  </data>
+  <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
+    <value>Delete “{0}”?</value>
+  </data>
+  <data name="TimeAgoJustNow" xml:space="preserve">
+    <value>Just now</value>
+  </data>
+  <data name="TimeAgoMinutesFormat" xml:space="preserve">
+    <value>{0} min ago</value>
+  </data>
+  <data name="TimeAgoHoursFormat" xml:space="preserve">
+    <value>{0} h ago</value>
+  </data>
+  <data name="TimeAgoDaysFormat" xml:space="preserve">
+    <value>{0} d ago</value>
+  </data>
 </root>

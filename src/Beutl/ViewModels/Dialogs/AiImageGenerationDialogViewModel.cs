@@ -1,6 +1,5 @@
 ﻿using System.Collections.ObjectModel;
 using System.Reactive.Disposables;
-using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -16,7 +15,6 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.AI;
-using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -24,7 +22,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDisposable
+public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
@@ -32,6 +30,7 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
     private readonly ILogger _logger = Log.CreateLogger<AiImageGenerationDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
     private readonly IAiOperationAvailabilityService _availability;
+    private AsyncOperationLifetime.Operation? _runningRequest;
     private readonly IAiModelCatalogService _modelCatalog;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiImageGenerationService _images;
@@ -127,7 +126,12 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
                         style,
                         composition,
                         Exclusions: exclusions)))
-            .ToReadOnlyReactivePropertySlim("Enter a prompt.")
+            .ToReadOnlyReactivePropertySlim(Strings.AiPromptRequired)
+            .DisposeWith(_disposables);
+
+        VisiblePromptValidationError = AiPromptValidation
+            .WhileTyping(PromptValidationError, Prompt, Style, Composition, Exclusions)
+            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         CanGenerate = PromptValidationError
@@ -150,6 +154,9 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         SaveToFile = new AsyncReactiveCommand(CanAddToScene)
             .WithSubscribe(SaveToFileCore);
 
+        StopGenerating = new ReactiveCommand(IsGenerating);
+        StopGenerating.Subscribe(() => _runningRequest?.Cancel()).DisposeWith(_disposables);
+
         OpenAiPlan = new ReactiveCommand();
         OpenAiPlan.Subscribe(aiPlanCoordinator.OpenAiPlan).DisposeWith(_disposables);
 
@@ -160,12 +167,6 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
 
         _ = LoadEntitlementsAsync();
     }
-
-    public ToolTabExtension Extension => AiImageGenerationTabExtension.Instance;
-
-    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.AiImageGeneration);
 
     /// <summary>
     /// The shapes on offer, which follow the chosen model: GPT Image-1 renders
@@ -233,9 +234,20 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     public ReadOnlyReactivePropertySlim<string?> PromptValidationError { get; }
 
+    /// <summary>
+    /// The same message, held back until the person has typed something.
+    /// </summary>
+    public ReadOnlyReactivePropertySlim<string?> VisiblePromptValidationError { get; }
+
     public ReadOnlyReactivePropertySlim<bool> CanGenerate { get; }
 
     public AsyncReactiveCommand Generate { get; }
+
+    /// <summary>
+    /// Abandons the request in flight. Generation runs for as long as the server
+    /// takes, so a wrong prompt must be recoverable without closing the tab.
+    /// </summary>
+    public ReactiveCommand StopGenerating { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanAddToScene { get; }
 
@@ -249,6 +261,14 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     public ReactivePropertySlim<Ref<Bitmap>?> ResultImage { get; } = new();
 
+    /// <summary>
+    /// The picture as far as the model has taken it, shown while it works.
+    /// Cleared when the run ends, whatever it ends in: what is worth keeping is
+    /// the finished picture, and a rough one left on screen would be mistaken
+    /// for it. Only models whose provider streams send any.
+    /// </summary>
+    public ReactivePropertySlim<Ref<Bitmap>?> PreviewImage { get; } = new();
+
     internal AiUsageViewModel Usage { get; }
 
     internal AiModelPickerViewModel ModelPicker { get; }
@@ -260,18 +280,6 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
     public ReadOnlyReactivePropertySlim<bool> ShowJoinPro { get; }
 
     public ReactivePropertySlim<string?> Error { get; } = new();
-
-    public object? GetService(Type serviceType) => _editViewModel?.GetService(serviceType);
-
-    public void ReadFromJson(JsonObject json)
-    {
-        // Prompts and generated content are intentionally kept out of the persisted dock layout.
-    }
-
-    public void WriteToJson(JsonObject json)
-    {
-        // Prompts and generated content are intentionally kept out of the persisted dock layout.
-    }
 
     /// <summary>
     /// What this client asks for when the server says nothing about a model —
@@ -369,6 +377,8 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         await _operations.DisposeAsync();
         ResultImage.Value?.Dispose();
         ResultImage.Dispose();
+        PreviewImage.Value?.Dispose();
+        PreviewImage.Dispose();
         ReferenceImagePreview.Value?.Dispose();
         ReferenceImagePreview.Dispose();
         ReferenceImagePath.Dispose();
@@ -377,7 +387,6 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         Composition.Dispose();
         Exclusions.Dispose();
         Error.Dispose();
-        IsSelected.Dispose();
         _disposables.Dispose();
     }
 
@@ -417,6 +426,7 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
             return;
         }
 
+        _runningRequest = operation;
         try
         {
             string prompt = ComposePrompt();
@@ -439,6 +449,7 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
                         ? null
                         : AiUploadSource.FromFile(referencePath),
                     model: model),
+                new Progress<AiImagePreview>(preview => ShowPreview(preview, operation)),
                 operation.CancellationToken);
 
             using var stream = new MemoryStream();
@@ -493,7 +504,44 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         }
         finally
         {
-            operation.TryPublish(() => IsGenerating.Value = false);
+            _runningRequest = null;
+            operation.TryPublish(() =>
+            {
+                IsGenerating.Value = false;
+                PreviewImage.Value?.Dispose();
+                PreviewImage.Value = null;
+            });
+        }
+    }
+
+    // Shown on the way, and only on the way: the run that is publishing it has
+    // to still be the running one, or a preview from a cancelled run would
+    // arrive after the next one started.
+    private void ShowPreview(
+        AiImagePreview preview,
+        AsyncOperationLifetime.Operation operation)
+    {
+        Ref<Bitmap> image;
+        try
+        {
+            using var stream = new MemoryStream(preview.Bytes.ToArray(), writable: false);
+            image = Ref<Bitmap>.Create(Bitmap.FromStream(stream));
+        }
+        catch (Exception ex)
+        {
+            // A rough version that cannot be decoded is not worth a failure; the
+            // finished picture is what the caller is waiting for.
+            _logger.LogWarning(ex, "Failed to decode a partial AI image.");
+            return;
+        }
+
+        if (!operation.TryPublish(() =>
+            {
+                PreviewImage.Value?.Dispose();
+                PreviewImage.Value = image;
+            }))
+        {
+            image.Dispose();
         }
     }
 

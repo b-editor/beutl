@@ -86,6 +86,8 @@ internal abstract class BuiltInAiJobResultHandler(
     Func<string> getKindDisplayName,
     bool useTargetLanguageAsFallback = false) : IAiJobResultHandler
 {
+    protected virtual bool HasImagePreview => false;
+
     private static readonly IReadOnlyDictionary<string, Func<string>> s_statusDisplayNames =
         new Dictionary<string, Func<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -128,7 +130,8 @@ internal abstract class BuiltInAiJobResultHandler(
             statusDisplayName,
             summary,
             string.Join(" · ", details),
-            status.Outcome == AiJobOutcomes.Failed);
+            status.Outcome == AiJobOutcomes.Failed,
+            HasImagePreview);
     }
 
     public AiJobCompletionPresentation? CreateCompletion(
@@ -214,6 +217,8 @@ internal sealed class ImageAiJobResultHandler : BuiltInAiJobResultHandler
 {
     private readonly Func<string> _getDisplayName;
     private readonly Func<AiJob, string> _getOperation;
+
+    protected override bool HasImagePreview => true;
 
     public ImageAiJobResultHandler(
         Func<string> getDisplayName,

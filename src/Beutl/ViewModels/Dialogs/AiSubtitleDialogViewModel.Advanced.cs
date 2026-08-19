@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.Reactive.Disposables;
@@ -140,6 +141,11 @@ public sealed partial class AiSubtitleDialogViewModel
 
     public ReactivePropertySlim<EditableCaptionCueViewModel?> SelectedCue { get; private set; } = null!;
 
+    /// <summary>
+    /// Whether there is anything to show in place of the cue list's empty state.
+    /// </summary>
+    public ReactivePropertySlim<bool> HasCues { get; private set; } = null!;
+
     internal ReadOnlyReactivePropertySlim<bool> CanTranscribeInput { get; private set; } = null!;
 
     internal ReactivePropertySlim<bool> HasValidCues { get; private set; } = null!;
@@ -167,6 +173,12 @@ public sealed partial class AiSubtitleDialogViewModel
     public ReactivePropertySlim<string?> DetectedLanguageText { get; private set; } = null!;
 
     public ReactivePropertySlim<bool> IsTranslating { get; private set; } = null!;
+
+    /// <summary>The line most recently translated, while a run is going on.</summary>
+    public ReactivePropertySlim<string?> TranslationPreview { get; private set; } = null!;
+
+    /// <summary>How many lines have come back so far in the run going on.</summary>
+    public ReactivePropertySlim<int> TranslatedLineCount { get; private set; } = null!;
 
     public ReactivePropertySlim<string?> PartialResultMessage { get; } = new();
 
@@ -214,9 +226,13 @@ public sealed partial class AiSubtitleDialogViewModel
             .DisposeWith(_captionDisposables);
         TemplatePreviewFontSize = new ReactivePropertySlim<double>(24).DisposeWith(_captionDisposables);
         DetectedLanguageText = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
+        HasCues = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
+        _editableCues.CollectionChanged += OnEditableCuesChanged;
         HasValidCues = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
         HasTimingValidCues = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
         IsTranslating = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
+        TranslationPreview = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
+        TranslatedLineCount = new ReactivePropertySlim<int>().DisposeWith(_captionDisposables);
 
         SourceLanguages = CreateLanguageOptions(includeAuto: true);
         TargetLanguages = CreateLanguageOptions(includeAuto: false);
@@ -324,8 +340,12 @@ public sealed partial class AiSubtitleDialogViewModel
         }
     }
 
+    private void OnEditableCuesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        => HasCues.Value = _editableCues.Count > 0;
+
     private void DisposeCaptionEditing()
     {
+        _editableCues.CollectionChanged -= OnEditableCuesChanged;
         foreach (EditableCaptionCueViewModel cue in _editableCues)
         {
             cue.PropertyChanged -= OnCuePropertyChanged;
@@ -385,7 +405,7 @@ public sealed partial class AiSubtitleDialogViewModel
             () => MediaReader.Open(
                 filePath,
                 new MediaOptions(MediaMode.Audio) { PreferProxy = false }),
-            _lifetimeCts.Token);
+            RequestToken);
         if (!reader.HasAudio)
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
@@ -436,7 +456,7 @@ public sealed partial class AiSubtitleDialogViewModel
             chunkIndex < operation.ChunkCount;
             chunkIndex++)
         {
-            _lifetimeCts.Token.ThrowIfCancellationRequested();
+            RequestToken.ThrowIfCancellationRequested();
             long chunkOffset = checked((long)chunkIndex * operation.ChunkSamples);
             int requestedSamples = checked((int)Math.Min(
                 operation.ChunkSamples,
@@ -456,8 +476,8 @@ public sealed partial class AiSubtitleDialogViewModel
                             checked((int)chunkOffset),
                             requestedSamples,
                             stream,
-                            _lifetimeCts.Token),
-                        _lifetimeCts.Token);
+                            RequestToken),
+                        RequestToken);
                 }
                 if (chunk.SourceSampleCount <= 0)
                     throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
@@ -482,7 +502,7 @@ public sealed partial class AiSubtitleDialogViewModel
                         operation.RequestKeyFor(
                             chunkIndex,
                             TranscriptionModelPicker.SelectedModel)),
-                    _lifetimeCts.Token);
+                    RequestToken);
                 operation.DetectedLanguage ??= response.Language;
                 double offsetSeconds = chunkOffset / (double)operation.SampleRate;
                 foreach (AiTranscriptionSegment segment in response.Segments)
@@ -566,7 +586,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
         for (int index = operation.CompletedChunkCount; index < chunkCount; index++)
         {
-            _lifetimeCts.Token.ThrowIfCancellationRequested();
+            RequestToken.ThrowIfCancellationRequested();
             TimeSpan chunkOffset = TimeSpan.FromTicks(
                 Math.Min(duration.Ticks, index * operation.ChunkDuration.Ticks));
             TimeSpan chunkDuration = TimeSpan.FromTicks(
@@ -588,7 +608,7 @@ public sealed partial class AiSubtitleDialogViewModel
                         stream,
                         rangeStart + chunkOffset,
                         chunkDuration,
-                        _lifetimeCts.Token);
+                        RequestToken);
                 }
                 AiTranscriptionResponse response = await _aiService.TranscribeAsync(
                     new AiTranscriptionRequest(
@@ -600,7 +620,7 @@ public sealed partial class AiSubtitleDialogViewModel
                         operation.RequestKeyFor(
                             index,
                             TranscriptionModelPicker.SelectedModel)),
-                    _lifetimeCts.Token);
+                    RequestToken);
                 operation.DetectedLanguage ??= response.Language;
                 foreach (AiTranscriptionSegment segment in response.Segments)
                 {
@@ -680,6 +700,11 @@ public sealed partial class AiSubtitleDialogViewModel
 
         Error.Value = null;
         IsTranslating.Value = true;
+        TranslationPreview.Value = null;
+        TranslatedLineCount.Value = 0;
+        using CancellationTokenSource requestCts =
+            CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
+        _requestCts = requestCts;
         try
         {
             string targetLanguage = SelectedTargetLanguage.Value.Code!;
@@ -723,7 +748,8 @@ public sealed partial class AiSubtitleDialogViewModel
                         operation.TargetLanguage,
                         operation.SourceLanguage,
                         model: TranslationModelPicker.SelectedModel),
-                    _lifetimeCts.Token);
+                    new Progress<AiCaptionTranslationSegment>(ShowTranslatedLine),
+                    RequestToken);
                 AddTranslatedBatch(operation, batch, response);
                 RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
                 operation.CompletedBatchCount++;
@@ -767,7 +793,7 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProviderError);
         }
-        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        catch (OperationCanceledException) when (IsRequestCanceled)
         {
         }
         catch (Exception ex)
@@ -777,9 +803,11 @@ public sealed partial class AiSubtitleDialogViewModel
         }
         finally
         {
+            _requestCts = null;
             if (!_disposed && IsCurrentCaptionDraftScope(draftScopeRevision))
             {
                 IsTranslating.Value = false;
+                TranslationPreview.Value = null;
             }
         }
     }
@@ -1982,6 +2010,18 @@ public sealed partial class AiSubtitleDialogViewModel
         IReadOnlyList<CaptionValidationIssue> issues)
         => issues.Where(issue => issue.Kind != CaptionValidationIssueKind.Overlap).ToArray();
 
+    // The line the model has just translated, shown while the rest is still
+    // being worked on. It is a preview: what ends up on the cues is the batch
+    // the server returns, checked as it always was.
+    private void ShowTranslatedLine(AiCaptionTranslationSegment segment)
+    {
+        if (_disposed || string.IsNullOrEmpty(segment.Text))
+            return;
+
+        TranslationPreview.Value = segment.Text;
+        TranslatedLineCount.Value++;
+    }
+
     private static string NewRequestKeySeed() => Guid.NewGuid().ToString("N");
 
     // One key per chunk, derived from the run's seed so that resuming — even in
@@ -2088,7 +2128,7 @@ public sealed partial class AiSubtitleDialogViewModel
         AiOperationAvailabilityTracker tracker = request is AiOperationAvailabilityRequest.Translation
             ? _translationAvailability
             : _transcriptionAvailability;
-        if (!await tracker.CheckNowAsync(request, _lifetimeCts.Token))
+        if (!await tracker.CheckNowAsync(request, RequestToken))
             throw new AiUsageLimitExceededException();
     }
 

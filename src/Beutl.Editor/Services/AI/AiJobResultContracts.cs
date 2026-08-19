@@ -37,12 +37,18 @@ public interface IAiJobResultContext
 /// <summary>
 /// Describes an AI job for editor UI surfaces.
 /// </summary>
+/// <param name="HasImagePreview">
+/// Whether the job's content is a still picture the job list can show. Only the
+/// handler knows what its kind produces, and a list of prompts is far harder to
+/// search than a list of pictures.
+/// </param>
 public sealed record AiJobPresentation(
     string KindDisplayName,
     string StatusDisplayName,
     string Summary,
     string Details,
-    bool IsFailure);
+    bool IsFailure,
+    bool HasImagePreview = false);
 
 /// <summary>
 /// The notification severity for a terminal AI job.

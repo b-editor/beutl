@@ -271,6 +271,12 @@ public sealed class AiJobCompletionNotifierTests
             AiImageGenerationRequest request,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
+
+        public Task<AiImageResult> GenerateAsync(
+            AiImageGenerationRequest request,
+            IProgress<AiImagePreview>? progress,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
     }
 
     private sealed class UnusedVideoService : IAiVideoService

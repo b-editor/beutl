@@ -1028,6 +1028,13 @@ public sealed record AiCaptionTranslationSegmentContext
     public TimeSpan End { get; }
 }
 
+/// <summary>
+/// A rough version of a picture, sent while the finished one is still being
+/// worked out. The bytes are a whole image of their own and can be shown as
+/// they are.
+/// </summary>
+public sealed record AiImagePreview(int Index, ReadOnlyMemory<byte> Bytes);
+
 public sealed record AiCaptionTranslationResponse(
     AiJobId? JobId,
     AiCaptionTranslationSegment[] Segments);

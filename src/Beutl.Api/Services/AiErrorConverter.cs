@@ -13,22 +13,11 @@ internal static class AiErrorConverter
         try
         {
             ApiErrorResponse? error = await exception.GetContentAsAsync<ApiErrorResponse>();
-            return error?.ErrorCode switch
-            {
-                ApiErrorCode.AuthenticationIsRequired => new AuthenticationRequiredException(exception),
-                ApiErrorCode.AiPlanRequired => new AiPlanRequiredException(exception),
-                ApiErrorCode.AiUsageLimitExceeded => new AiUsageLimitExceededException(exception),
-                ApiErrorCode.FileIsTooLarge => new AiFileTooLargeException(exception),
-                ApiErrorCode.AiProviderError => new AiProviderErrorException(exception),
-                ApiErrorCode.AiJobIsActive => new AiJobIsActiveException(exception),
-                ApiErrorCode.AiJobLimitReached => new AiJobLimitReachedException(exception),
-                ApiErrorCode.AiRequestInProgress => new AiRequestInProgressException(exception),
-                ApiErrorCode.AiRequestWasDeleted => new AiRequestWasDeletedException(exception),
-                _ => new AiException(
-                    error?.Message ?? exception.Message,
-                    exception,
-                    isTransient: (int)exception.StatusCode >= 500),
-            };
+            return Convert(
+                (int)exception.StatusCode,
+                error,
+                exception,
+                exception.Message);
         }
         catch (Exception parseException)
         {
@@ -40,4 +29,30 @@ internal static class AiErrorConverter
             return converted;
         }
     }
+
+    /// <summary>
+    /// The same failure, told apart the same way, for a reply that did not come
+    /// back through Refit — an event stream reads its own error body.
+    /// </summary>
+    public static AiException Convert(
+        int statusCode,
+        ApiErrorResponse? error,
+        Exception? innerException,
+        string? fallbackMessage = null)
+        => error?.ErrorCode switch
+        {
+            ApiErrorCode.AuthenticationIsRequired => new AuthenticationRequiredException(innerException),
+            ApiErrorCode.AiPlanRequired => new AiPlanRequiredException(innerException),
+            ApiErrorCode.AiUsageLimitExceeded => new AiUsageLimitExceededException(innerException),
+            ApiErrorCode.FileIsTooLarge => new AiFileTooLargeException(innerException),
+            ApiErrorCode.AiProviderError => new AiProviderErrorException(innerException),
+            ApiErrorCode.AiJobIsActive => new AiJobIsActiveException(innerException),
+            ApiErrorCode.AiJobLimitReached => new AiJobLimitReachedException(innerException),
+            ApiErrorCode.AiRequestInProgress => new AiRequestInProgressException(innerException),
+            ApiErrorCode.AiRequestWasDeleted => new AiRequestWasDeletedException(innerException),
+            _ => new AiException(
+                error?.Message ?? fallbackMessage ?? "The AI request failed.",
+                innerException,
+                isTransient: statusCode >= 500),
+        };
 }

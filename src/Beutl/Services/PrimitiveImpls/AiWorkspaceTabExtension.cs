@@ -9,17 +9,19 @@ using Beutl.Views.Tools;
 namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-public sealed class AiJobCenterTabExtension : ToolTabExtension
+public sealed class AiWorkspaceTabExtension : ToolTabExtension
 {
-    public static readonly AiJobCenterTabExtension Instance = new();
+    public static readonly AiWorkspaceTabExtension Instance = new();
 
-    public override string Name => "AI Job Center";
+    public override string Name => "AI";
 
-    public override string DisplayName => Strings.AiJobCenter;
+    public override string DisplayName => Strings.Ai;
 
-    public override string? Header => Strings.AiJobCenter;
+    public override string? Header => Strings.Ai;
 
-    public override bool CanMultiple => false;
+    // Several AI tabs can be open at once so two pages can sit side by side. Each
+    // tab keeps its own work, so a second one is a second workbench, not a mirror.
+    public override bool CanMultiple => true;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 
@@ -33,7 +35,7 @@ public sealed class AiJobCenterTabExtension : ToolTabExtension
     {
         if (editorContext is EditViewModel)
         {
-            control = new AiJobCenterView();
+            control = new AiWorkspaceView();
             return true;
         }
 
@@ -49,7 +51,7 @@ public sealed class AiJobCenterTabExtension : ToolTabExtension
             && Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime
             && lifetime.MainWindow?.DataContext is MainViewModel mainViewModel)
         {
-            context = mainViewModel.CreateAiJobCenterViewModel(editViewModel);
+            context = mainViewModel.CreateAiWorkspaceViewModel(editViewModel);
             return true;
         }
 

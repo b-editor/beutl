@@ -40,6 +40,15 @@ public interface IAiImageGenerationService : IBeutlApiResource
     Task<AiImageResult> GenerateAsync(
         AiImageGenerationRequest request,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The same generation, reporting each rough version of the picture as the
+    /// model works it out. Only models whose provider streams send any.
+    /// </summary>
+    Task<AiImageResult> GenerateAsync(
+        AiImageGenerationRequest request,
+        IProgress<AiImagePreview>? progress,
+        CancellationToken cancellationToken);
 }
 
 public interface IAiImageEditingService : IBeutlApiResource
@@ -60,6 +69,19 @@ public interface IAiCaptionTranslationService : IBeutlApiResource
 {
     Task<AiCaptionTranslationResponse> TranslateAsync(
         AiCaptionTranslationRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The same translation, reported subtitle by subtitle as it arrives.
+    /// </summary>
+    /// <remarks>
+    /// What is reported is a preview: the result returned at the end is the
+    /// whole translation, checked as it always was, and a run that fails
+    /// reports nothing to keep however much of it was shown.
+    /// </remarks>
+    Task<AiCaptionTranslationResponse> TranslateAsync(
+        AiCaptionTranslationRequest request,
+        IProgress<AiCaptionTranslationSegment>? progress,
         CancellationToken cancellationToken);
 }
 
