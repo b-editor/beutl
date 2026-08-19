@@ -219,14 +219,19 @@ public sealed class EffectTarget : IDisposable
                 : rasterBounds.Position - Bounds.Position;
             // Draw the complete backing footprint. Bounds is semantic metadata and can be
             // translated or inflated independently, so it must never be used as the image size.
-            if ((Scale.IsUnbounded || Scale.Value == 1f) && canvas.Density == 1f)
+            // A point blit samples nearest, so it only reproduces the buffer when the destination
+            // lands on exact device pixels; a filter chain anchored at a fractional frame offset
+            // does not, and must resample instead of snapping the content to the grid.
+            var destination = new Rect(localOrigin, rasterBounds.Size);
+            if ((Scale.IsUnbounded || Scale.Value == 1f)
+                && canvas.Density == 1f
+                && canvas.CanBlitLossless(destination, new PixelSize(RenderTarget.Width, RenderTarget.Height)))
             {
                 canvas.DrawRenderTarget(RenderTarget, localOrigin);
             }
             else
             {
-                canvas.DrawRenderTargetScaled(RenderTarget,
-                    new Rect(localOrigin, rasterBounds.Size));
+                canvas.DrawRenderTargetScaled(RenderTarget, destination);
             }
         }
     }

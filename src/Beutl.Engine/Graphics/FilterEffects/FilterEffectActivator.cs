@@ -549,38 +549,28 @@ public sealed class FilterEffectActivator : IDisposable
                     {
                         BeginSkiaChain();
                         skia.Accepts(this, Builder);
-                        // A deferred-bound Skia item resolves its matrix from the execution-time
-                        // target bounds: its origin depends on the input bounds, which a preceding
-                        // custom effect may re-target only at execution time.
                         if (skia.ResolveBoundsAtExecutionTime)
                         {
-                            // The matrix is resolved once from the combined execution-time target
-                            // bounds (the first TransformBounds call fixes it); every target then
-                            // transforms with that same matrix, and InputBounds is anchored to the
-                            // mapped Bounds - OriginalBounds difference so the flush draws the
-                            // source where the resolved matrix maps it.
-                            Rect combinedBounds = CurrentTargets.CalculateBounds();
-                            _ = item.TransformBounds(combinedBounds);
-                            foreach (EffectTarget t in CurrentTargets)
-                            {
-                                PendingSkiaTarget pending = _pendingSkiaTargets![t];
-                                pending.PhysicalBounds = item.TransformBounds(pending.PhysicalBounds);
-                                t.Bounds = item.TransformBounds(t.Bounds);
-                                t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
-                                pending.InputBounds = new Rect(
-                                    t.Bounds.Position - t.OriginalBounds.Position,
-                                    pending.InputBounds.Size);
-                            }
+                            // A deferred-bound item resolves its mapping from the combined
+                            // execution-time bounds (the first TransformBounds call fixes it), so
+                            // every target is then mapped with that same resolution.
+                            _ = item.TransformBounds(CurrentTargets.CalculateBounds());
                         }
-                        else
+
+                        foreach (EffectTarget t in CurrentTargets)
                         {
-                            foreach (EffectTarget t in CurrentTargets)
-                            {
-                                PendingSkiaTarget pending = _pendingSkiaTargets![t];
-                                pending.PhysicalBounds = item.TransformBounds(pending.PhysicalBounds);
-                                t.Bounds = item.TransformBounds(t.Bounds);
-                                t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
-                            }
+                            PendingSkiaTarget pending = _pendingSkiaTargets![t];
+                            pending.PhysicalBounds = item.TransformBounds(pending.PhysicalBounds);
+                            t.Bounds = item.TransformBounds(t.Bounds);
+                            t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
+                            // The chain's execution frame is anchored at InputBounds.Position, which
+                            // must stay equal to the offset between the two frames the item just
+                            // mapped. A translation-invariant item preserves that offset, so this is
+                            // a no-op there; a matrix item moves the frames apart relative to each
+                            // other and has to re-anchor with them.
+                            pending.InputBounds = new Rect(
+                                t.Bounds.Position - t.OriginalBounds.Position,
+                                pending.InputBounds.Size);
                         }
 
                         break;

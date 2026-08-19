@@ -569,6 +569,16 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         return true;
     }
 
+    /// <summary>
+    /// Reports whether a <paramref name="sourceSize"/> buffer drawn at <paramref name="dest"/> lands on
+    /// exact device pixels, so a nearest-sampled point blit reproduces it instead of snapping it.
+    /// </summary>
+    internal bool CanBlitLossless(Rect dest, PixelSize sourceSize)
+    {
+        VerifyAccess();
+        return TryGetLosslessDeviceOrigin(dest, sourceSize, out _);
+    }
+
     internal void DrawRenderTargetPixelsWithoutFlush(RenderTarget renderTarget, int x, int y)
     {
         VerifyAccess();
