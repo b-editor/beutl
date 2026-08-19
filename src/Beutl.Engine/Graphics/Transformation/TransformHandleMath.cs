@@ -62,9 +62,21 @@ internal static class TransformHandleMath
     /// computes the correction to post-translate onto userMatrix.
     /// Returns the matrix unchanged when the center difference satisfies <c>|dx|, |dy| &lt; 0.5px</c> (absorbs numerical noise).
     /// </summary>
+    /// <remarks>
+    /// The reference box has to be clipped the same way the renderer clips it, or a perspective transform
+    /// makes the two centres describe different things: past the camera plane the mapped-corner box is
+    /// point-reflected through the origin, so its centre lands on the far side of the image and the
+    /// difference becomes a translation of thousands of pixels rather than an effect's offset.
+    /// </remarks>
     public static Matrix AlignUserMatrixToRenderedBounds(Matrix userMatrix, Size localSize, Rect renderedBounds)
     {
-        Point transformCenter = new Rect(localSize).TransformToAABB(userMatrix).Center;
+        Rect transformBounds = new Rect(localSize).TransformToClippedAABB(userMatrix);
+        if (transformBounds.IsEmpty)
+        {
+            return userMatrix;
+        }
+
+        Point transformCenter = transformBounds.Center;
         Point renderedCenter = renderedBounds.Center;
         float dx = renderedCenter.X - transformCenter.X;
         float dy = renderedCenter.Y - transformCenter.Y;
