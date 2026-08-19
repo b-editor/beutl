@@ -55,6 +55,11 @@ public sealed class SKImageFilterBuilder : IDisposable
             SKImageFilter? inner = _filter;
             _filter = SKImageFilter.CreateColorFilter(_colorFilter, inner);
             inner?.Dispose();
+            // AppendSkiaFilter calls this mid-chain to take the filter built so far as its input, so a color
+            // filter left pending here would be folded in again by the next call and applied twice. Skia
+            // holds its own reference to what it folded.
+            _colorFilter.Dispose();
+            _colorFilter = null;
         }
 
         return _filter;
