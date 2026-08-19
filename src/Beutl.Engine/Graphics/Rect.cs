@@ -29,11 +29,41 @@ public readonly struct Rect
       ITupleConvertible<Rect, float>
 {
     /// <summary>
-    /// The homogeneous divisor <see cref="TransformToClippedAABB"/> clips at by default: the near-plane
-    /// distance the rasterizer itself discards perspective geometry at, so nothing that can be drawn
-    /// falls outside the box it returns.
+    /// The homogeneous divisor <see cref="TransformToClippedAABB"/> clips at by default. This is a
+    /// pragmatic bound, not the rasterizer's: it sits 820x in front of <see cref="RasterizerNearPlane"/>,
+    /// so content whose divisor falls between the two is drawn but is <b>not</b> covered by the box the
+    /// default returns. A <c>Rotation3DTransform</c>'s divisor is <c>1 + z / Depth</c>, so the default
+    /// gives up whatever comes closer to the eye than one twentieth of the transform's projection depth.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Clipping at the rasterizer's own near plane would cover everything drawn but is unusable as a
+    /// default: a 1200x54 layer at the default Depth of 500 rotated 60 degrees about Y then declares a
+    /// box 4.73 million px wide, and <c>RenderScaleUtilities.ClampWorkingScaleToBufferBudget</c> — which
+    /// the planner feeds the declared output bounds unintersected — divides the working scale by ~289 to
+    /// fit its 16384 px budget. 0.05 leaves that ordinary case unclamped at a 2x preview scale, which
+    /// anything below ~0.035 would not.
+    /// </para>
+    /// <para>
+    /// The residual loss is real and reachable at ordinary depths. The clipped box's far edge sits at
+    /// <c>centre - (1 / nearPlane - 1) * Depth * cot(angle)</c>, so it lands inside the frame whenever
+    /// that term drops below the half-frame width — which is what a near-edge-on card flip does. A
+    /// 1200x54 layer at Depth 500 in a 256x144 frame loses none of the 13824 pixels it draws at 60
+    /// degrees, 6480 of 18188 at 89.5 degrees, and 13680 of 18340 at 89.8 degrees; a 124x58 layer at
+    /// Depth 10 loses 2592 of 18232 at 60 degrees. Callers that intersect the result with their own
+    /// target before sizing a buffer should pass <see cref="RasterizerNearPlane"/> instead.
+    /// </para>
+    /// </remarks>
     public const float DefaultNearPlane = 0.05f;
+
+    /// <summary>
+    /// The homogeneous divisor the rasterizer itself clips perspective geometry at — Skia's
+    /// <c>SkPathPriv::kW0PlaneDistance</c>, <c>1 / (1 &lt;&lt; 14)</c>, applied by both
+    /// <c>SkPathPriv::PerspectiveClip</c> and Ganesh's <c>GrQuadUtils::ClipToW0</c>. A box clipped here
+    /// contains every pixel that can be drawn; see <see cref="DefaultNearPlane"/> for why that exactness
+    /// is not affordable as the default.
+    /// </summary>
+    public const float RasterizerNearPlane = 1f / 16384f;
 
     /// <summary>
     /// An empty rectangle.
@@ -456,10 +486,15 @@ public readonly struct Rect
     /// The smallest homogeneous divisor kept. It is what makes the answer finite: a point whose divisor
     /// approaches zero escapes to infinity, so a plane-crossing rectangle has no finite bounding box at
     /// all. Lowering it widens the box without bound; raising it starts cutting geometry that would
-    /// still be drawn.
+    /// still be drawn, which <see cref="DefaultNearPlane"/> already does by design.
+    /// On an inverted matrix it is a <b>far</b> cutoff in source space rather than a near one, because
+    /// the inverse divisor is the reciprocal of the forward one: it drops source content further from
+    /// the eye than <c>1 / nearPlane</c> times the projection depth, reachable only where the rectangle's
+    /// half-extent exceeds <c>(1 / nearPlane - 1)</c> times that depth.
     /// </param>
     /// <returns>
-    /// The bounding box, or <see cref="Empty"/> when no part of the rectangle reaches the near plane.
+    /// The bounding box, or <see cref="Empty"/> when no part of the rectangle reaches the near plane —
+    /// which, at <see cref="DefaultNearPlane"/>, does not mean the rasterizer draws none of it.
     /// Identical to <see cref="TransformToAABB"/> whenever the rectangle does not cross the camera plane,
     /// which is every case that plain mapped corners already answer exactly.
     /// </returns>

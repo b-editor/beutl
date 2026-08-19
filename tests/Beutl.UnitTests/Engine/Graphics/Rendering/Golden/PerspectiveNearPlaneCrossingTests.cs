@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -43,6 +44,46 @@ public sealed class PerspectiveNearPlaneCrossingTests
                     "the render dropped part of the front half of a camera-plane-crossing layer");
                 Assert.That(agreement.Ratio, Is.GreaterThan(0.99),
                     "the render must reproduce the near-plane-clipped image, not a mirrored one");
+            });
+        });
+    }
+
+    /// <summary>
+    /// The documented limitation of <see cref="Rect.DefaultNearPlane"/>, at the renderer. Rotated near
+    /// edge-on, the same layer's w = 0.05 image line lands inside the frame, so the declared bounds cut
+    /// a wedge the rasterizer would otherwise draw. This asserts the loss is exactly that wedge and
+    /// nothing more; closing the gap must make it fail. See PerspectiveNearPlaneResidualTests.
+    /// </summary>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void DefaultDepth_NearEdgeOnRotation_LosesOnlyTheWedgeOutsideTheDeclaredBounds()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            const float Width = 1200f;
+            const float Height = 54f;
+            const float RotationY = 89.5f;
+            using Drawable.Resource straddling = CreateRotatedRect(Width, Height, RotationY, depth: 500f)
+                .ToResource(CompositionContext.Default);
+            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
+                straddling, s_frame, 1f, clearColor: Colors.Transparent);
+
+            Matrix matrix = ComposeCenteredRotation(Width, Height, RotationY, depth: 500f);
+            Rect declared = new Rect(0, 0, Width, Height).TransformToClippedAABB(matrix);
+            NearPlaneResidual residual = MeasureResidual(bitmap, matrix, Width, Height, declared);
+            TestContext.WriteLine(
+                $"[wdefault 1200x54 @89.5deg depth500] declared={declared} "
+                + $"inside={residual.InsideDeclared} insideMissing={residual.InsideDeclaredMissing} "
+                + $"outside={residual.OutsideDeclared} outsideRendered={residual.OutsideDeclaredRendered}");
+            Assert.Multiple(() =>
+            {
+                Assert.That(residual.InsideDeclaredMissing, Is.LessThan(residual.InsideDeclared / 100),
+                    "everything the declared bounds do cover must still be drawn");
+                Assert.That(residual.OutsideDeclared, Is.GreaterThan(6000),
+                    "Rect.DefaultNearPlane's documented residual loss changed");
+                Assert.That(residual.OutsideDeclaredRendered, Is.Zero,
+                    "the declared bounds are a hard raster clip, so the residual really is dropped");
             });
         });
     }
@@ -142,6 +183,56 @@ public sealed class PerspectiveNearPlaneCrossingTests
             analyticCovered, missing, (double)agreeing / (bitmap.Width * bitmap.Height));
     }
 
+    /// <summary>
+    /// Splits the rasterizer's own image — the analytic mask bounded at <see cref="Rect.RasterizerNearPlane"/>
+    /// rather than at the divisor the declared bounds clip at — by the device pixel rect
+    /// <paramref name="declared"/> becomes, and reports how much of each half the render actually drew.
+    /// </summary>
+    private static NearPlaneResidual MeasureResidual(
+        Bitmap bitmap, Matrix matrix, float width, float height, Rect declared)
+    {
+        Matrix inverse = matrix.Invert();
+        // The planner rasterizes the declared bounds with a one-pixel apron, so that column is drawn too.
+        PixelRect clip = RenderScaleUtilities.AddRasterApron(PixelRect.FromRect(declared, 1f));
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        int insideDeclared = 0;
+        int insideDeclaredMissing = 0;
+        int outsideDeclared = 0;
+        int outsideDeclaredRendered = 0;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                var device = new Point(x + 0.5f, y + 0.5f);
+                float recoveredDivisor = inverse.GetTransformDivisor(device);
+                if (recoveredDivisor <= 0 || recoveredDivisor > 1f / Rect.RasterizerNearPlane)
+                    continue;
+
+                Point local = device.Transform(inverse);
+                if (local.X < 0 || local.X > width || local.Y < 0 || local.Y > height)
+                    continue;
+
+                float alpha = (float)BitConverter.UInt16BitsToHalf(
+                    pixels[(((y * bitmap.Width) + x) * 4) + 3]);
+                bool rendered = alpha > 0.5f;
+                bool covered = clip.Contains(new PixelPoint(x, y));
+                if (covered)
+                {
+                    insideDeclared++;
+                    if (!rendered) insideDeclaredMissing++;
+                }
+                else
+                {
+                    outsideDeclared++;
+                    if (rendered) outsideDeclaredRendered++;
+                }
+            }
+        }
+
+        return new NearPlaneResidual(
+            insideDeclared, insideDeclaredMissing, outsideDeclared, outsideDeclaredRendered);
+    }
+
     private static int CountCoveredPixels(Bitmap bitmap)
     {
         ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
@@ -176,4 +267,10 @@ public sealed class PerspectiveNearPlaneCrossingTests
     }
 
     private readonly record struct AnalyticAgreement(int AnalyticCovered, int MissingFromRender, double Ratio);
+
+    private readonly record struct NearPlaneResidual(
+        int InsideDeclared,
+        int InsideDeclaredMissing,
+        int OutsideDeclared,
+        int OutsideDeclaredRendered);
 }

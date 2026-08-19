@@ -54,7 +54,8 @@ public sealed class PerspectiveBoundsTests
     [Test]
     public void CrossingButNeverReachingTheNearPlane_IsEmpty()
     {
-        // Everything in front sits closer than the near plane, so the rasterizer draws none of it.
+        // Everything in front sits closer than the near plane. The rasterizer still draws it — see
+        // PerspectiveNearPlaneResidualTests for what Rect.DefaultNearPlane gives up here.
         Matrix matrix = Compose(Perspective(0.05f));
         var sliver = new Rect(0, 0, 42.5f, 58);
         Assert.That(matrix.GetTransformDivisor(new Point(0, 0)), Is.LessThan(0));
@@ -129,6 +130,8 @@ public sealed class PerspectiveBoundsTests
             () => s_local.TransformToClippedAABB(Compose(Perspective(0.05f)), nearPlane));
     }
 
+    // Only what DefaultNearPlane promises to cover, which is less than the rasterizer draws.
+    // PerspectiveNearPlaneResidualTests samples down to Rect.RasterizerNearPlane and pins the difference.
     private static IEnumerable<Point> SampleFrontHalf(Matrix matrix)
     {
         for (int i = 0; i <= 200; i++)
