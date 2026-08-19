@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -41,10 +42,14 @@ public class SkiaVulkanImageInitializationTests
                     events.Count(static item => item == VulkanCommandPoolEvent.Submission),
                     Is.EqualTo(1),
                     "The backend clear must be submitted before Skia records a partial overwrite.");
+                // Queue ordering carries the clear only where Skia submits to the same Vulkan queue.
+                // On the composite backend Skia draws through Metal, which shares no semaphore with
+                // Beutl's Vulkan submissions, so the hand-off has to complete on the CPU instead.
                 Assert.That(
                     events.Count(static item => item == VulkanCommandPoolEvent.FenceWait),
-                    Is.Zero,
-                    "Queue ordering is sufficient for the backend clear; partial Skia drawing must not stall the CPU.");
+                    context.Backend == GraphicsBackend.Vulkan ? Is.Zero : Is.EqualTo(1),
+                    "The backend clear must reach Skia by queue order, or by a completion wait when the "
+                    + "two APIs share no queue.");
                 Assert.That(untouched, Is.EqualTo(default(RgbaF16)));
             });
         });
@@ -94,7 +99,11 @@ public class SkiaVulkanImageInitializationTests
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var context = (VulkanContext)GraphicsContextFactory.GetOrCreateShared()!;
+            // The shared context is a CompositeContext wherever Skia runs on another API, so the
+            // Vulkan context that owns the hook has to be reached through it.
+            IGraphicsContext shared = GraphicsContextFactory.GetOrCreateShared()!;
+            VulkanContext context = shared as VulkanContext
+                ?? ((CompositeContext)shared).Vulkan;
             MethodInfo getProcedureAddress = typeof(VulkanContext).GetMethod(
                 "GetVulkanProcAddress",
                 BindingFlags.Instance | BindingFlags.NonPublic)!;

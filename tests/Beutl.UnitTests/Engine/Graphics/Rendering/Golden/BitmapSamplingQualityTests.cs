@@ -60,8 +60,8 @@ public sealed class BitmapSamplingQualityTests
             Assert.Multiple(() =>
             {
                 Assert.That(observed, Has.Length.EqualTo(2));
-                Assert.That(observed[0], Is.EqualTo(low).Within(0.0001f));
-                Assert.That(observed[1], Is.EqualTo(high).Within(0.0001f));
+                AssertWithinStorageCodes(observed[0], low, "low");
+                AssertWithinStorageCodes(observed[1], high, "high");
             });
         });
     }
@@ -207,6 +207,27 @@ public sealed class BitmapSamplingQualityTests
     {
         ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
         return (float)BitConverter.UInt16BitsToHalf(row[x * 4]);
+    }
+
+    /// <summary>
+    /// Bounds a reduced block against its source value in RgbaF16 storage codes.
+    /// </summary>
+    /// <remarks>
+    /// One code is 2^-12 at these magnitudes, so an absolute bound tight enough to mean anything is
+    /// finer than the buffer can represent and no implementation can satisfy it. The block structure
+    /// - that exactly two values survive, with no ringing around them - is asserted separately, and
+    /// a kernel that rang would move a block by percent, not by a code or two.
+    /// </remarks>
+    private static void AssertWithinStorageCodes(float actual, float expected, string label)
+    {
+        const int budget = 2;
+        int distance = Math.Abs(
+            BitConverter.HalfToInt16Bits((Half)actual) - BitConverter.HalfToInt16Bits((Half)expected));
+        Assert.That(
+            distance,
+            Is.LessThanOrEqualTo(budget),
+            $"The {label} block must land within {budget} RgbaF16 codes of its source value; "
+            + $"measured {actual:R} against {expected:R}.");
     }
 
     private static float[] ReadInteriorRedValues(Bitmap bitmap)

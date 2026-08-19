@@ -15,6 +15,16 @@ namespace Beutl.Graphics3DTests;
 [NonParallelizable]
 public sealed class ShaderDescriptionSpirvEquivalenceTests
 {
+    /// <summary>
+    /// Adjacent RgbaF16 codes. The two paths are compiled by different shader compilers, so they are
+    /// only guaranteed to agree to within their rounding: a backend whose <c>half</c> is real fp16
+    /// (Metal through MoltenVK) settles a result on either neighbouring code, while one that
+    /// evaluates <c>half</c> at float precision (SwiftShader) reproduces the bits exactly. A lowering
+    /// that dropped the premultiply, transposed a channel, or lost the uniform moves a channel by far
+    /// more than one code.
+    /// </summary>
+    private const int MaximumLoweringStorageCodeDistance = 1;
+
     private static readonly Rect s_bounds = new(0, 0, 24, 16);
 
     [TestCase(0f)]
@@ -38,8 +48,11 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
             {
                 Assert.That(sourceStatistics.SpirvShaderRunExecutions, Is.Zero);
                 Assert.That(expectedStatistics.SpirvShaderRunExecutions, Is.Zero);
-                Assert.That(spirv, Is.EqualTo(sksl),
-                    "The native SPIR-V lowering must be bit-exact with the SkSL premultiplied-linear RGBA16F result.");
+                Assert.That(
+                    MaximumStorageCodeDistance(spirv, sksl),
+                    Is.LessThanOrEqualTo(MaximumLoweringStorageCodeDistance),
+                    "The native SPIR-V lowering must reproduce the SkSL premultiplied-linear RGBA16F "
+                    + "result to within the rounding the two shader compilers are free to differ by.");
                 if (opacity > 0)
                     Assert.That(sksl, Has.Some.Not.Zero, "the comparison must not be vacuous");
             });
@@ -77,6 +90,23 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
                 Throws.TypeOf<InvalidOperationException>()
                     .With.Message.Contains("cannot be handed to the Skia compositor bit-exactly"));
         });
+    }
+
+    // Half is sign-magnitude, so its raw codes are not monotonic across zero. Mirroring the negative
+    // half restores the ordering that makes adjacent representable values exactly one apart.
+    private static int MaximumStorageCodeDistance(ushort[] left, ushort[] right)
+    {
+        Assert.That(left, Has.Length.EqualTo(right.Length));
+        int maximum = 0;
+        for (int i = 0; i < left.Length; i++)
+            maximum = Math.Max(maximum, Math.Abs(OrderedHalfCode(left[i]) - OrderedHalfCode(right[i])));
+        return maximum;
+    }
+
+    private static int OrderedHalfCode(ushort bits)
+    {
+        int magnitude = bits & 0x7FFF;
+        return (bits & 0x8000) != 0 ? -magnitude : magnitude;
     }
 
     private static ushort[] RenderNativeSpirv(ushort[] sourcePixels, float opacity)
