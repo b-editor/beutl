@@ -1109,15 +1109,15 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// transparent margin, so it restores the coverage without exposing anything the bound excluded.
     /// </remarks>
     internal PushedState PushFilterLayer(SKPaint paint, Rect contentBounds)
-        => PushPaint(paint, InflateByOneDevicePixel(contentBounds));
+        => PushPaint(paint, InflateByOneDevicePixel(contentBounds, _currentTransform));
 
     /// <summary>
-    /// Widens <paramref name="bounds"/> so every edge moves at least one device pixel outward once the
-    /// current transform maps it, whatever scale, shear or rotation that transform carries.
+    /// Widens <paramref name="bounds"/> by the logical distance <paramref name="transform"/> maps to one
+    /// device pixel along each axis. Under a shear the perpendicular displacement of an edge is smaller
+    /// than that, so the apron is a lower bound on the margin only for scale and rotation.
     /// </summary>
-    private Rect InflateByOneDevicePixel(Rect bounds)
+    internal static Rect InflateByOneDevicePixel(Rect bounds, Matrix transform)
     {
-        Matrix transform = _currentTransform;
         float devicePerX = MathF.Sqrt((transform.M11 * transform.M11) + (transform.M12 * transform.M12));
         float devicePerY = MathF.Sqrt((transform.M21 * transform.M21) + (transform.M22 * transform.M22));
         if (!float.IsFinite(devicePerX) || devicePerX <= 0

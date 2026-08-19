@@ -55,6 +55,40 @@ public class AnisotropicHairlineCoverageTests
     }
 
     /// <summary>
+    /// A morphology radius that is sub-pixel on the squeezed axis neither grows nor erases the bar: it
+    /// resolves against the destination's device grid, where Skia rounds it to no pixels at all.
+    /// </summary>
+    [TestCase(0.25f)]
+    [TestCase(0.333f)]
+    [TestCase(0.5f)]
+    [TestCase(1f)]
+    [TestCase(2f)]
+    [Category("GpuPassFusionGpu")]
+    public void ADilatedHairline_KeepsTheInkItHasWithoutTheDilation(float outputScale)
+    {
+        AssertEffectPreservesHairlineInk(Dilate(), outputScale, "dilate");
+    }
+
+    /// <summary>
+    /// The default authoring shape: <see cref="Drawable"/>'s constructor installs a
+    /// <see cref="FilterEffectGroup"/>, so two stacked effects arrive as two filter segments and the
+    /// outer one's input is the inner segment rather than the drawable.
+    /// </summary>
+    [TestCase(0.25f)]
+    [TestCase(0.333f)]
+    [TestCase(0.5f)]
+    [TestCase(1f)]
+    [TestCase(2f)]
+    [Category("GpuPassFusionGpu")]
+    public void AHairlineUnderStackedEffects_KeepsTheInkItHasWithoutThem(float outputScale)
+    {
+        AssertEffectPreservesHairlineInk(
+            Group(Blur(), WhiteShadowOnly()),
+            outputScale,
+            "blur over shadow-only");
+    }
+
+    /// <summary>
     /// The anisotropic rig the family was reported against: the same 10% squeeze in x with a 20x
     /// stretch in y, so the working density the effect resolves cannot describe both axes at once.
     /// </summary>
@@ -92,11 +126,27 @@ public class AnisotropicHairlineCoverageTests
         });
     }
 
+    private static FilterEffect Group(params FilterEffect[] children)
+    {
+        var group = new FilterEffectGroup();
+        foreach (FilterEffect child in children)
+            group.Children.Add(child);
+        return group;
+    }
+
     private static FilterEffect Blur()
     {
         var blur = new Blur();
         blur.Sigma.CurrentValue = new Size(1, 1);
         return blur;
+    }
+
+    private static FilterEffect Dilate()
+    {
+        var dilate = new Dilate();
+        dilate.RadiusX.CurrentValue = 1f;
+        dilate.RadiusY.CurrentValue = 1f;
+        return dilate;
     }
 
     private static FilterEffect WhiteShadowOnly()

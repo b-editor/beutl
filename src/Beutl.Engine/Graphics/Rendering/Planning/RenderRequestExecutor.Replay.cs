@@ -209,6 +209,16 @@ internal sealed partial class RenderRequestExecutor
             if (chain.Count == 0)
                 return false;
 
+            // Every link fuses into the one save layer, so only the fragment the walk stopped at can
+            // reach it as a buffer, and a buffer survives the copy only where the destination transform
+            // lands it on whole device pixels. An unbounded input is re-rasterized inside the layer.
+            if (!input.EffectiveScale.IsUnbounded
+                && (input.EffectiveScale.Value != destination.Density
+                    || !CanCopyPixelsToDestination(chain[^1].Fragment.Bounds, destination)))
+            {
+                return false;
+            }
+
             IReadOnlyList<MaterializedRenderValue>? materializedInput = null;
             if (input.ValueCardinality.Maximum is > 1 or null)
             {
@@ -307,12 +317,6 @@ internal sealed partial class RenderRequestExecutor
                 || _resourceUses.GetRemainingUseCount(fragment) != 1
                 || !fragment.EffectiveScale.IsUnbounded
                     && fragment.EffectiveScale.Value != destination.Density
-                // A concretely scaled input arrives as a buffer, so the layer only stays lossless when
-                // the destination transform lands it on whole device pixels. An unbounded input is
-                // re-rasterized inside the layer under that transform, so there is nothing to copy.
-                || !fragment.Inputs[0].EffectiveScale.IsUnbounded
-                    && (fragment.Inputs[0].EffectiveScale.Value != destination.Density
-                        || !CanCopyPixelsToDestination(fragment.Bounds, destination))
                 || fragment.Payload is not FilterEffectSegmentRenderFragmentPayload directPayload
                 || !directPayload.SupportsDirectReplay)
             {
