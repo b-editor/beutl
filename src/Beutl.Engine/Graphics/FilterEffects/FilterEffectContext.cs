@@ -418,7 +418,7 @@ public sealed class FilterEffectContext : IDisposable
             (matrix, bitmapInterpolationMode),
             (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(),
                 data.bitmapInterpolationMode.ToSKSamplingOptions(), input),
-            (data, rect) => rect.TransformToAABB(data.matrix));
+            (data, rect) => rect.TransformToClippedAABB(data.matrix));
     }
 
     /// <summary>
@@ -455,7 +455,7 @@ public sealed class FilterEffectContext : IDisposable
                     resolved = d.MatrixFactory(d.Data, rect);
                     resolvedSet = true;
                 }
-                return rect.TransformToAABB(resolved);
+                return rect.TransformToClippedAABB(resolved);
             };
         AppendDescription(new FEItem_Skia<(T Data, Func<T, Rect, Matrix> MatrixFactory, BitmapInterpolationMode Mode)>(
             (data, matrixFactory, bitmapInterpolationMode),

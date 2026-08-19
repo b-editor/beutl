@@ -29,6 +29,13 @@ public readonly struct Rect
       ITupleConvertible<Rect, float>
 {
     /// <summary>
+    /// The homogeneous divisor <see cref="TransformToClippedAABB"/> clips at by default: the near-plane
+    /// distance the rasterizer itself discards perspective geometry at, so nothing that can be drawn
+    /// falls outside the box it returns.
+    /// </summary>
+    public const float DefaultNearPlane = 0.05f;
+
+    /// <summary>
     /// An empty rectangle.
     /// </summary>
     public static readonly Rect Empty;
@@ -407,6 +414,13 @@ public readonly struct Rect
     /// </summary>
     /// <param name="matrix">The transform.</param>
     /// <returns>The bounding box</returns>
+    /// <remarks>
+    /// A projective map takes lines to lines, so the mapped-corner box is exact — but only while the
+    /// rectangle stays on one side of <paramref name="matrix"/>'s <c>w = 0</c> plane. A rectangle that
+    /// crosses that plane has an unbounded image and its behind-plane corners are point-reflected
+    /// through the origin, so the box lands on the wrong side of the image rather than containing it.
+    /// Use <see cref="TransformToClippedAABB"/> when the matrix may carry perspective.
+    /// </remarks>
     public Rect TransformToAABB(Matrix matrix)
     {
         ReadOnlySpan<Point> points =
@@ -424,6 +438,77 @@ public readonly struct Rect
 
         foreach (Point p in points)
         {
+            if (p.X < left) left = p.X;
+            if (p.X > right) right = p.X;
+            if (p.Y < top) top = p.Y;
+            if (p.Y > bottom) bottom = p.Y;
+        }
+
+        return new Rect(new Point(left, top), new Point(right, bottom));
+    }
+
+    /// <summary>
+    /// Returns the axis-aligned bounding box of this rectangle transformed by <paramref name="matrix"/>,
+    /// with the part behind the matrix's camera plane clipped away first.
+    /// </summary>
+    /// <param name="matrix">The transform.</param>
+    /// <param name="nearPlane">
+    /// The smallest homogeneous divisor kept. It is what makes the answer finite: a point whose divisor
+    /// approaches zero escapes to infinity, so a plane-crossing rectangle has no finite bounding box at
+    /// all. Lowering it widens the box without bound; raising it starts cutting geometry that would
+    /// still be drawn.
+    /// </param>
+    /// <returns>
+    /// The bounding box, or <see cref="Empty"/> when no part of the rectangle reaches the near plane.
+    /// Identical to <see cref="TransformToAABB"/> whenever the rectangle does not cross the camera plane,
+    /// which is every case that plain mapped corners already answer exactly.
+    /// </returns>
+    public Rect TransformToClippedAABB(Matrix matrix, float nearPlane = DefaultNearPlane)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(nearPlane);
+        if (!matrix.ContainsPerspective())
+            return TransformToAABB(matrix);
+
+        ReadOnlySpan<Point> corners = [TopLeft, TopRight, BottomRight, BottomLeft];
+        Span<float> divisors = stackalloc float[4];
+        float min = float.MaxValue;
+        float max = float.MinValue;
+        for (int i = 0; i < corners.Length; i++)
+        {
+            float w = matrix.GetTransformDivisor(corners[i]);
+            divisors[i] = w;
+            if (w < min) min = w;
+            if (w > max) max = w;
+        }
+
+        // The divisor is affine over the rectangle, so a single sign at the corners means no interior
+        // point reaches the plane and the mapped-corner box is already exact.
+        if (min > 0 || max < 0)
+            return TransformToAABB(matrix);
+
+        Span<Point> clipped = stackalloc Point[8];
+        int count = 0;
+        for (int i = 0; i < corners.Length; i++)
+        {
+            int next = (i + 1) % corners.Length;
+            float w = divisors[i];
+            float nextW = divisors[next];
+            if (w >= nearPlane)
+                clipped[count++] = corners[i];
+            if ((w < nearPlane) != (nextW < nearPlane))
+                clipped[count++] = corners[i] + ((corners[next] - corners[i]) * ((nearPlane - w) / (nextW - w)));
+        }
+
+        if (count == 0)
+            return Empty;
+
+        float left = float.MaxValue;
+        float right = float.MinValue;
+        float top = float.MaxValue;
+        float bottom = float.MinValue;
+        for (int i = 0; i < count; i++)
+        {
+            Point p = clipped[i].Transform(matrix);
             if (p.X < left) left = p.X;
             if (p.X > right) right = p.X;
             if (p.Y < top) top = p.Y;

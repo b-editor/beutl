@@ -139,9 +139,9 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
         bool HasInverse,
         Matrix Inverse)
     {
-        public Rect TransformBounds(Rect value) => value.TransformToAABB(Transform);
+        public Rect TransformBounds(Rect value) => value.TransformToClippedAABB(Transform);
 
-        public Rect GetRequiredInputBounds(Rect value) => value.TransformToAABB(Inverse);
+        public Rect GetRequiredInputBounds(Rect value) => value.TransformToClippedAABB(Inverse);
 
         public bool HitTest(RenderHitTestContext metadata, Point point)
         {

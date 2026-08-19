@@ -388,7 +388,7 @@ internal sealed partial class RenderRequestExecutor
             using Bitmap snapshot = target.Snapshot();
             PixelRect targetBounds = new(0, 0, snapshot.Width, snapshot.Height);
             PixelRect sourceRegion = PixelRect.FromRect(
-                    requiredRegion.TransformToAABB(destination.Transform),
+                    requiredRegion.TransformToClippedAABB(destination.Transform),
                     1)
                 .Intersect(targetBounds);
             if (sourceRegion.Width == 0 || sourceRegion.Height == 0)
