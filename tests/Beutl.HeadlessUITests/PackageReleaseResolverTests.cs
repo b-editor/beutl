@@ -1,6 +1,8 @@
-﻿using System.Net.Http;
+﻿using System.Net;
+using System.Net.Http;
 using System.Reactive.Concurrency;
 using System.Reactive.Subjects;
+using System.Text;
 
 using Beutl.Api;
 using Beutl.Api.Clients;
@@ -16,6 +18,28 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PackageReleaseResolverTests
 {
+    private readonly HttpClient _httpClient;
+    private readonly BeutlApiApplication _clients;
+
+    public PackageReleaseResolverTests()
+    {
+        _httpClient = new HttpClient();
+        _clients = new BeutlApiApplication(_httpClient, new ExtensionProvider());
+    }
+
+    [OneTimeTearDown]
+    public async Task OneTimeTearDown()
+    {
+        try
+        {
+            await _clients.DisposeAsync();
+        }
+        finally
+        {
+            _httpClient.Dispose();
+        }
+    }
+
     [Test]
     public async Task ObserveLatest_IgnoresCompletionFromSupersededRequest()
     {
@@ -266,14 +290,38 @@ public class PackageReleaseResolverTests
         });
     }
 
+    [Test]
+    public async Task GetFirstReleaseAsync_ThrowsWhenPackageHasNoReleases()
+    {
+        using var handler = new EmptyReleasesHandler();
+        using var httpClient = new HttpClient(handler);
+        var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        Package package = CreatePackage(clients);
+
+        Assert.ThrowsAsync<InvalidOperationException>(
+            () => PackageReleaseResolver.GetFirstReleaseAsync(package, CancellationToken.None));
+    }
+
+    [Test]
+    public async Task GetFirstReleaseAsync_ReturnsFirstRelease()
+    {
+        using var handler = new SingleReleaseHandler();
+        using var httpClient = new HttpClient(handler);
+        var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        Package package = CreatePackage(clients);
+
+        Release release = await PackageReleaseResolver.GetFirstReleaseAsync(package, CancellationToken.None);
+
+        Assert.That(release.Version.Value, Is.EqualTo("1.0.0"));
+    }
+
     private static PackageIdentity CreateIdentity(string version)
     {
         return new PackageIdentity("Package", NuGetVersion.Parse(version));
     }
 
-    private static Release CreateRelease(string version)
+    private Release CreateRelease(string version)
     {
-        var clients = new BeutlApiApplication(new HttpClient(), new ExtensionProvider());
         var ownerResponse = new ProfileResponse
         {
             Id = "owner",
@@ -283,7 +331,7 @@ public class PackageReleaseResolverTests
             IconId = null,
             IconUrl = null,
         };
-        var owner = new Profile(ownerResponse, clients);
+        var owner = new Profile(ownerResponse, _clients);
         var package = new Package(owner, new PackageResponse
         {
             Id = "package",
@@ -301,7 +349,7 @@ public class PackageReleaseResolverTests
             Price = null,
             Paid = false,
             Owned = true,
-        }, clients);
+        }, _clients);
 
         return new Release(package, new ReleaseResponse
         {
@@ -312,7 +360,70 @@ public class PackageReleaseResolverTests
             TargetVersion = null,
             FileId = null,
             FileUrl = null,
+        }, _clients);
+    }
+
+    private static Package CreatePackage(BeutlApiApplication clients)
+    {
+        var ownerResponse = new ProfileResponse
+        {
+            Id = "owner",
+            Name = "owner",
+            DisplayName = "Owner",
+            Bio = null,
+            IconId = null,
+            IconUrl = null,
+        };
+        var owner = new Profile(ownerResponse, clients);
+        return new Package(owner, new PackageResponse
+        {
+            Id = "package",
+            Owner = ownerResponse,
+            Name = "Package",
+            DisplayName = "Package",
+            Description = "",
+            ShortDescription = "",
+            WebSite = "",
+            Tags = [],
+            LogoId = null,
+            LogoUrl = null,
+            Screenshots = [],
+            Currency = null,
+            Price = null,
+            Paid = false,
+            Owned = true,
         }, clients);
+    }
+
+    private sealed class EmptyReleasesHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", Encoding.UTF8, "application/json"),
+            };
+            return Task.FromResult(response);
+        }
+    }
+
+    private sealed class SingleReleaseHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """[{"id":"r1","version":"1.0.0","title":"Release","description":"","targetVersion":null,"fileId":null,"fileUrl":null}]""",
+                    Encoding.UTF8,
+                    "application/json"),
+            };
+            return Task.FromResult(response);
+        }
     }
 
     private static async Task WaitForAsync(Func<bool> condition)

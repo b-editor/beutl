@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Threading;
+using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
@@ -12,9 +13,11 @@ namespace Beutl.Services.StartupTasks;
 public sealed class CheckForPackageUpdatesTask : StartupTask
 {
     private readonly ILogger<CheckForPackageUpdatesTask> _logger = Log.CreateLogger<CheckForPackageUpdatesTask>();
+    private readonly BeutlApiApplication _beutlApiApplication;
 
-    public CheckForPackageUpdatesTask(Startup startup, PackageManager packageManager)
+    public CheckForPackageUpdatesTask(Startup startup, PackageManager packageManager, BeutlApiApplication beutlApiApplication)
     {
+        _beutlApiApplication = beutlApiApplication;
         Task = Task.Run(async () =>
         {
             using (Activity? activity = Telemetry.StartActivity("CheckForPackageUpdatesTask"))
@@ -25,7 +28,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
 
                 try
                 {
-                    IReadOnlyList<PackageUpdate> updates = await packageManager.CheckUpdate();
+                    IReadOnlyList<PackageUpdate> updates = await packageManager.CheckUpdate(CancellationToken.None);
                     activity?.SetTag("UpdateCount", updates.Count);
 
                     if (updates.Count > 0)
@@ -40,6 +43,12 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                     {
                         _logger.LogInformation("All packages are up to date.");
                     }
+                }
+                catch (Exception ex) when (_beutlApiApplication.IsDisposed
+                    && ex is OperationCanceledException or ObjectDisposedException)
+                {
+                    // Shutdown cancellation is a normal exit, not a failed update check:
+                    // skip the error telemetry and the error log.
                 }
                 catch (Exception ex)
                 {

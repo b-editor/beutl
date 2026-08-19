@@ -119,7 +119,8 @@ public sealed class RendererIntentTests
     private static CompositionFrame CreateEmptyFrame() => new(
         ImmutableArray<EngineObject.Resource>.Empty,
         new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-        new PixelSize(8, 8));
+        new PixelSize(8, 8),
+        null);
 
     private sealed class CpuRenderTarget(int width, int height)
         : RenderTarget(

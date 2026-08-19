@@ -35,7 +35,11 @@
 
             <Setter Property="HeaderTemplate">
                 <DataTemplate DataType="core:IDockable">
-                    <TextBlock Padding="{DynamicResource DockHeaderContentPadding}" Text="{Binding Title}" />
+                    <TextBlock MaxWidth="180"
+                               Padding="{DynamicResource DockHeaderContentPadding}"
+                               Text="{Binding Title}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding Title}" />
                 </DataTemplate>
             </Setter>
 

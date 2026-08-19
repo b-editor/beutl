@@ -4,6 +4,7 @@ using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
+using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
@@ -71,7 +72,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         if (_app.AuthenticatedUser.Value != null)
                         {
-                            await _app.AuthenticatedUser.Value.RefreshAsync();
+                            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
                         }
 
                         Release release = await AcquirePackage();
@@ -79,7 +80,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
                         try
                         {
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId, CancellationToken.None);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
@@ -127,7 +128,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         if (_app.AuthenticatedUser.Value != null)
                         {
-                            await _app.AuthenticatedUser.Value.RefreshAsync();
+                            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
                         }
 
                         Release release = await AcquirePackage();
@@ -135,11 +136,15 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
                         try
                         {
-                            await _handler.UnloadPackages(Package.Name);
+                            if (!await _handler.UnloadPackages(Package.Name))
+                            {
+                                throw new InvalidOperationException(
+                                    $"Package '{Package.Name}' could not be unloaded safely.");
+                            }
 
                             _handler.DeleteOldVersionFiles(Package.Name);
 
-                            await _handler.DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId, CancellationToken.None);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
                                 message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));
@@ -270,8 +275,8 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         if (_app.AuthenticatedUser.Value != null)
                         {
-                            await _app.AuthenticatedUser.Value.RefreshAsync();
-                            await _library.RemovePackage(Package);
+                            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
+                            await _library.RemovePackage(Package, CancellationToken.None);
                         }
 
                         activity?.AddEvent(new("Removed_PackageFromLibrary"));
@@ -296,10 +301,10 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
     {
         if (_app.AuthenticatedUser.Value != null)
         {
-            return await _library.Acquire(Package);
+            return await _library.Acquire(Package, CancellationToken.None);
         }
 
-        return (await Package.GetReleasesAsync())[0];
+        return await PackageReleaseResolver.GetFirstReleaseAsync(Package, CancellationToken.None);
     }
 
     public Package Package { get; }

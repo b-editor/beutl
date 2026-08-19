@@ -166,6 +166,53 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
         }
 
+        // Drain installs first so fallback queueing is reflected in the snapshot below.
+        try
+        {
+            if (_beutlClients.TryGetCreatedResource<PackageInstaller>() is { } installer)
+            {
+                Task drain = installer.DisposeAsync().AsTask();
+                // Pump UI jobs while draining so the queued activation can complete.
+                long deadline = Environment.TickCount64 + 30_000;
+                while (!drain.IsCompleted && Environment.TickCount64 < deadline)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                    Thread.Sleep(10);
+                }
+
+                if (drain.IsCompleted)
+                {
+                    drain.GetAwaiter().GetResult();
+                }
+                else
+                {
+                    _logger.LogWarning("Package installer did not drain within the shutdown deadline.");
+                    // Disposal keeps installer resources alive until the tracked work
+                    // stops, so fallback queueing for a still-running install/update can
+                    // still happen after the deadline. Wait for actual idleness so the
+                    // snapshot below reflects every queued recovery, while continuing to
+                    // pump UI jobs so queued activations keep progressing. The extra wait
+                    // is bounded so shutdown never hangs behind a non-cooperative install.
+                    Task idle = installer.WaitUntilIdleAsync(TimeSpan.FromSeconds(30));
+                    long idleDeadline = Environment.TickCount64 + 30_000;
+                    while (!idle.IsCompleted && Environment.TickCount64 < idleDeadline)
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                        Thread.Sleep(10);
+                    }
+
+                    if (!idle.IsCompleted)
+                    {
+                        _logger.LogWarning("Package installer did not become idle within the shutdown deadline.");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Package installer failed to drain during shutdown.");
+        }
+
         PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
         PackageIdentity[] installs = queue.GetInstalls().ToArray();
         PackageIdentity[] uninstalls = queue.GetUninstalls().ToArray();
@@ -199,6 +246,15 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 startInfo.ArgumentList.Add("--launch-debugger");
 
             Process.Start(startInfo);
+        }
+
+        try
+        {
+            _beutlClients.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Beutl API application failed to dispose during shutdown.");
         }
     }
 

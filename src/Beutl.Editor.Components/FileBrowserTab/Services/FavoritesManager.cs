@@ -1,7 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.Text.Json;
-using Beutl.Configuration;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -9,52 +6,52 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
-// ファイルブラウザのお気に入りディレクトリを管理する。
-// Preferencesへの永続化とホームビュー用のアイテム生成を担当。
+/// <summary>
+/// Per-tab view over shared favorite paths.
+/// </summary>
+/// <remarks>
+/// Favorite items remain per tab because they own expansion and subscription state.
+/// </remarks>
 internal sealed class FavoritesManager : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<FavoritesManager>();
+    private readonly FileBrowserFavoritesStore _store;
+    private readonly Action _onStoreChanged;
+    private bool _disposed;
 
     public FavoritesManager()
+        : this(FileBrowserFavoritesStore.Instance)
     {
-        LoadFavorites();
-        Favorites.CollectionChanged += OnFavoritesChanged;
     }
 
-    public ObservableCollection<string> Favorites { get; } = [];
+    internal FavoritesManager(FileBrowserFavoritesStore store)
+    {
+        _store = store;
+        _onStoreChanged = () => Changed?.Invoke();
+        _store.Changed += _onStoreChanged;
+    }
+
+    public ReadOnlyObservableCollection<string> Favorites => _store.Favorites;
 
     public ObservableCollection<FileSystemItemViewModel> FavoriteItems { get; } = [];
 
-    public void ToggleFavorite(string currentPath)
-    {
-        if (string.IsNullOrEmpty(currentPath))
-            return;
+    public void ToggleFavorite(string currentPath) => _store.Toggle(currentPath);
 
-        if (Favorites.Contains(currentPath))
-        {
-            Favorites.Remove(currentPath);
-        }
-        else
-        {
-            Favorites.Add(currentPath);
-        }
-    }
-
-    public void RemoveFavorite(string path)
-    {
-        Favorites.Remove(path);
-    }
+    public void AddRange(IEnumerable<string> paths) => _store.AddRange(paths);
 
     public void RefreshFavoriteItems()
     {
+        // Debounced refreshes may arrive after disposal.
+        if (_disposed)
+            return;
+
         DisposeAndClearItems();
 
         // テンプレートフォルダを常に先頭に表示（ローカライズ名で）
-        string templatesDir = ObjectTemplateService.Instance.DirectoryPath;
-        Directory.CreateDirectory(templatesDir);
-        var templatesItem = new FileSystemItemViewModel(templatesDir, true);
-        templatesItem.Name.Value = Strings.Templates;
-        FavoriteItems.Add(templatesItem);
+        AddFixedFolder(ObjectTemplateService.Instance.DirectoryPath, Strings.Templates);
+
+        // 素材フォルダも常に表示（ローカライズ名で）
+        AddFixedFolder(BeutlEnvironment.GetMaterialsDirectoryPath(), Strings.Materials);
 
         foreach (string path in Favorites)
         {
@@ -72,42 +69,22 @@ internal sealed class FavoritesManager : IDisposable
     // お気に入りコレクション変更時のコールバック。ホームビュー表示中の場合にアイテムを更新する。
     public event Action? Changed;
 
-    private void OnFavoritesChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        SaveFavorites();
-        Changed?.Invoke();
-    }
-
-    private void LoadFavorites()
+    // Isolate tab refresh failures so one tab cannot block the others.
+    private void AddFixedFolder(string directory, string localizedName)
     {
         try
         {
-            string json = Preferences.Default.Get("FileBrowser.Favorites", "[]");
-            var paths = JsonSerializer.Deserialize<string[]>(json);
-            if (paths != null)
-            {
-                foreach (var p in paths)
-                {
-                    Favorites.Add(p);
-                }
-            }
+            Directory.CreateDirectory(directory);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load favorites from preferences");
+            _logger.LogWarning(ex, "Failed to create the favorites folder {Directory}", directory);
+            return;
         }
-    }
 
-    private void SaveFavorites()
-    {
-        try
-        {
-            Preferences.Default.Set("FileBrowser.Favorites", JsonSerializer.Serialize(Favorites.ToArray()));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to save favorites to preferences");
-        }
+        var item = new FileSystemItemViewModel(directory, true);
+        item.Name.Value = localizedName;
+        FavoriteItems.Add(item);
     }
 
     private void DisposeAndClearItems()
@@ -116,12 +93,19 @@ internal sealed class FavoritesManager : IDisposable
         {
             item.Dispose();
         }
+
         FavoriteItems.Clear();
     }
 
     public void Dispose()
     {
-        Favorites.CollectionChanged -= OnFavoritesChanged;
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        // Unsubscribe because the store outlives each tab.
+        _store.Changed -= _onStoreChanged;
+        Changed = null;
         DisposeAndClearItems();
     }
 }

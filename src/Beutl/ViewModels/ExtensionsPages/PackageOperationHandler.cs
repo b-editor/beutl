@@ -37,38 +37,74 @@ internal class PackageOperationHandler
 
     public PackageChangesQueue Queue => _queue;
 
-    public async Task DownloadAndLoadPackage(Release release, PackageIdentity packageId)
+    public async Task DownloadAndLoadPackage(
+        Release release,
+        PackageIdentity packageId,
+        CancellationToken cancellationToken)
     {
-        PackageInstallContext context = await _packageInstaller.PrepareForInstall(release, force: true);
-        await _packageInstaller.DownloadPackageFile(context);
-        await _packageInstaller.VerifyPackageFile(context);
-        await _packageInstaller.ResolveDependencies(context, null);
+        await _packageInstaller.TrackInstallOperationAsync(async () =>
+        {
+            PackageInstallContext context = await _packageInstaller.PrepareForInstall(
+                release,
+                force: true,
+                cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
-        _installedPackageRepository.UpgradePackages(packageId);
-
-        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
-                           ?? throw new InvalidOperationException(
-                               $"Package '{packageId}' was not found under the install directory after installation.");
-        PackageFolderReader reader = new(directory);
-        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
+            cancellationToken.ThrowIfCancellationRequested();
+            // Plugin activation may touch the UI; run it on the UI thread.
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _installedPackageRepository.UpgradePackages(packageId);
+                ActivateInstalledPackage(packageId);
+            });
+        }).ConfigureAwait(false);
     }
 
-    public async Task DownloadAndLoadPackage(PackageIdentity packageId)
+    public async Task DownloadAndLoadPackage(
+        PackageIdentity packageId,
+        CancellationToken cancellationToken)
     {
-        PackageInstallContext context = _packageInstaller.PrepareForInstall(packageId.Id, packageId.Version.ToString(), force: true);
-        await _packageInstaller.DownloadPackageFile(context);
-        await _packageInstaller.VerifyPackageFile(context);
-        await _packageInstaller.ResolveDependencies(context, null);
+        await _packageInstaller.TrackInstallOperationAsync(async () =>
+        {
+            PackageInstallContext context = _packageInstaller.PrepareForInstall(
+                packageId.Id,
+                packageId.Version.ToString(),
+                force: true,
+                cancellationToken);
+            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
-        _installedPackageRepository.UpgradePackages(packageId);
+            cancellationToken.ThrowIfCancellationRequested();
+            // Plugin activation may touch the UI; run it on the UI thread.
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _installedPackageRepository.UpgradePackages(packageId);
+                ActivateInstalledPackage(packageId);
+            });
+        }).ConfigureAwait(false);
+    }
 
+    private void ActivateInstalledPackage(PackageIdentity packageId)
+    {
         string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
                            ?? throw new InvalidOperationException(
                                $"Package '{packageId}' was not found under the install directory after installation.");
         PackageFolderReader reader = new(directory);
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
+
+        if (localPackage.Tags.GetPackageKind() != PackageKind.Extension)
+        {
+            _packageInstaller.InstallDataPackage(localPackage);
+        }
+        else
+        {
+            _packageManager.Load(localPackage);
+        }
     }
 
     public async ValueTask<bool> UnloadPackages(string packageName)
@@ -116,6 +152,20 @@ internal class PackageOperationHandler
                     {
                         _queue.UninstallQueue(item);
                         hasFallback = true;
+                    }
+                }
+                else
+                {
+                    // The extracted package is already gone, but a data package's payload
+                    // lives outside it and still has to be removed.
+                    if (!_packageInstaller.UninstallDataPackage(item.Id))
+                    {
+                        _queue.UninstallQueue(item);
+                        hasFallback = true;
+                    }
+                    else
+                    {
+                        _installedPackageRepository.RemovePackage(item);
                     }
                 }
             }

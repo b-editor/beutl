@@ -12,18 +12,151 @@ public sealed class SpeedNode : AudioNode
     private SpeedProcessor? _processor;
     private int _lastSampleRate;
     private List<AudioNode>? _upstreamSnapshot;
+    private bool _mappingInvalidated;
+    private double _lastAnimatedSpeed;
+    private bool _hasLastAnimatedSpeed;
 
     private readonly SpeedIntegrator _integrator;
 
     public SpeedNode()
     {
-        _integrator = new SpeedIntegrator(0, () => _processor = null);
+        _integrator = new SpeedIntegrator(0, () =>
+        {
+            _mappingInvalidated = true;
+            _hasLastAnimatedSpeed = false;
+        });
     }
 
     public IProperty<float>? Speed { get; set; }
 
     public override AudioBuffer Process(AudioProcessContext context)
+        => RecordProcessedOutput(ProcessCore(context, draining: false));
+
+    public override AudioBuffer Flush(AudioProcessContext context)
+        => RecordProcessedOutput(ProcessCore(context, draining: true));
+
+    /// <summary>
+    /// Converts upstream latency from source-domain samples to the output-domain samples that a caller
+    /// must reserve to drain it through this speed mapping. Static speed uses its current value;
+    /// keyframed speed and animations that expose a conservative output range use their slowest value.
+    /// </summary>
+    public override int GetTotalLatencySamples(int sampleRate)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int upstreamLatency = 0;
+        foreach (AudioNode input in Inputs)
+        {
+            int inputTotal = input.GetTotalLatencySamples(sampleRate);
+            if (inputTotal < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative total latency {inputTotal}.");
+            }
+
+            upstreamLatency = Math.Max(upstreamLatency, inputTotal);
+        }
+
+        if (upstreamLatency == 0)
+            return 0;
+        if (upstreamLatency == int.MaxValue)
+            return int.MaxValue;
+
+        if (!TryGetMinimumSpeedFactor(out double minimumSpeed)
+            || !double.IsFinite(minimumSpeed)
+            || minimumSpeed <= 0)
+        {
+            // Saturate when no positive finite speed bounds the drain duration.
+            return int.MaxValue;
+        }
+
+        double scaled = Math.Ceiling(upstreamLatency / minimumSpeed);
+        return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
+    }
+
+    public override int GetDrainLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int upstreamLatency = 0;
+        foreach (AudioNode input in Inputs)
+        {
+            int inputTotal = input.GetDrainLatencySamples(sampleRate);
+            if (inputTotal < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{input.GetType().Name} returned negative drain latency {inputTotal}.");
+            }
+
+            upstreamLatency = Math.Max(upstreamLatency, inputTotal);
+        }
+
+        if (upstreamLatency == 0 || upstreamLatency == int.MaxValue)
+            return upstreamLatency;
+
+        if (!TryGetDrainSpeedFactor(sampleRate, out double drainSpeed))
+        {
+            return int.MaxValue;
+        }
+
+        double scaled = Math.Ceiling(upstreamLatency / drainSpeed);
+        return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
+    }
+
+    internal bool TryGetDrainSpeedFactor(int sampleRate, out double drainSpeed)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        if (Speed?.Animation is not null)
+        {
+            // An animation whose output range cannot be proven bounded remains unbounded even when
+            // its last sampled value happened to be finite.
+            if (!TryGetMinimumSpeedFactor(out double minimumSpeed)
+                || !double.IsFinite(minimumSpeed)
+                || minimumSpeed <= 0)
+            {
+                drainSpeed = default;
+                return false;
+            }
+
+            drainSpeed = _hasLastAnimatedSpeed && _lastSampleRate == sampleRate
+                ? _lastAnimatedSpeed
+                : minimumSpeed;
+        }
+        else
+        {
+            drainSpeed = (Speed?.CurrentValue ?? 100f) / 100d;
+        }
+
+        return double.IsFinite(drainSpeed) && drainSpeed > 0;
+    }
+
+    private bool TryGetMinimumSpeedFactor(out double minimumSpeed)
+    {
+        IAnimation<float>? speedAnimation = Speed?.Animation;
+        if (speedAnimation is null)
+        {
+            minimumSpeed = (Speed?.CurrentValue ?? 100f) / 100d;
+            return true;
+        }
+
+        if (!speedAnimation.TryGetOutputRange(out float minimumPercent, out float maximumPercent)
+            || !float.IsFinite(minimumPercent)
+            || !float.IsFinite(maximumPercent)
+            || minimumPercent > maximumPercent)
+        {
+            minimumSpeed = default;
+            return false;
+        }
+
+        minimumSpeed = minimumPercent / 100d;
+        return true;
+    }
+
+    private AudioBuffer ProcessCore(AudioProcessContext context, bool draining)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Variable speed node requires exactly one input.");
 
@@ -49,30 +182,61 @@ public sealed class SpeedNode : AudioNode
 
         if (animation == null)
         {
-            return ProcessStaticSpeed(context, expectedOutputSampleCount);
+            AudioBuffer result = ProcessStaticSpeed(
+                context,
+                expectedOutputSampleCount,
+                draining,
+                forceReanchor: _mappingInvalidated && !draining);
+            if (!draining)
+                _mappingInvalidated = false;
+            return result;
         }
 
-        return ProcessAnimatedSpeed(context, expectedOutputSampleCount);
+        AudioBuffer animatedResult = ProcessAnimatedSpeed(
+            context,
+            expectedOutputSampleCount,
+            draining,
+            forceReanchor: _mappingInvalidated && !draining);
+        if (!draining)
+            _mappingInvalidated = false;
+        return animatedResult;
     }
 
-    private AudioBuffer ProcessStaticSpeed(AudioProcessContext context, int expectedOutputSampleCount)
+    private AudioBuffer ProcessStaticSpeed(
+        AudioProcessContext context,
+        int expectedOutputSampleCount,
+        bool draining,
+        bool forceReanchor)
     {
         float speed = (Speed?.CurrentValue ?? 100f) / 100f;
         // If speed is 1.0, use normal processing
-        if (Math.Abs(speed - 1.0f) < float.Epsilon)
+        if (Math.Abs(speed - 1.0f) < float.Epsilon
+            && (!draining || _processor!.CanPassThroughDrain))
         {
-            return Inputs[0].Process(context);
+            AudioBuffer result = draining
+                ? Inputs[0].Flush(context)
+                : Inputs[0].Process(context);
+            _processor!.TrackPassthrough(context, expectedOutputSampleCount);
+            return result;
         }
 
         // The processor streams the source continuously, deriving the read range itself so the
         // resampler is never re-seeked mid-stream.
-        return _processor!.ProcessBuffer(context, speed, expectedOutputSampleCount);
+        return _processor!.ProcessBuffer(
+            context,
+            speed,
+            expectedOutputSampleCount,
+            draining,
+            forceReanchor);
     }
 
-    private AudioBuffer ProcessAnimatedSpeed(AudioProcessContext context, int expectedOutputSampleCount)
+    private AudioBuffer ProcessAnimatedSpeed(
+        AudioProcessContext context,
+        int expectedOutputSampleCount,
+        bool draining,
+        bool forceReanchor)
     {
         var animation = Speed?.Animation!;
-        var keyFrameAnimation = (KeyFrameAnimation<float>)animation;
 
         // ClipNode 通過後の context.TimeRange.Start は要素ローカル時刻。
         // SpeedIntegrator.Integrate(t) は「時刻 0 から t までの累積積分」を返すため、
@@ -82,14 +246,14 @@ public sealed class SpeedNode : AudioNode
         // owner.TimeRange.Start を一律加算してグローバル時刻へ変換する。
         var ownerStart = Speed?.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
         TimeSpan sourceStartTime;
-        if (keyFrameAnimation.UseGlobalClock)
+        if (animation.UseGlobalClock)
         {
-            sourceStartTime = _integrator.Integrate(context.TimeRange.Start + ownerStart, keyFrameAnimation)
-                            - _integrator.Integrate(ownerStart, keyFrameAnimation);
+            sourceStartTime = _integrator.Integrate(context.TimeRange.Start + ownerStart, animation)
+                            - _integrator.Integrate(ownerStart, animation);
         }
         else
         {
-            sourceStartTime = _integrator.Integrate(context.TimeRange.Start, keyFrameAnimation);
+            sourceStartTime = _integrator.Integrate(context.TimeRange.Start, animation);
         }
 
         // Per-sample speed buffer, sized to expectedOutputSampleCount and allocated every render —
@@ -101,16 +265,36 @@ public sealed class SpeedNode : AudioNode
         {
             // The rented array can be larger than requested, so always slice before passing it.
             Span<double> speeds = speedsArray.AsSpan(0, expectedOutputSampleCount);
-            for (int i = 0; i < expectedOutputSampleCount; i++)
+            // A drain represents retained upstream samples after the clip ended; future animation
+            // values must not change the mapping of that tail.
+            if (draining && _hasLastAnimatedSpeed)
             {
-                speeds[i] = animation.GetAnimatedValue(
-                    ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
+                speeds.Fill(_lastAnimatedSpeed);
+            }
+            else
+            {
+                for (int i = 0; i < expectedOutputSampleCount; i++)
+                {
+                    speeds[i] = animation.GetAnimatedValue(
+                        ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
+                }
+
+                if (!draining && expectedOutputSampleCount > 0)
+                {
+                    _lastAnimatedSpeed = speeds[^1];
+                    _hasLastAnimatedSpeed = true;
+                }
             }
 
             // sourceStartTime only seeds the read cursor on the first chunk / after a seek; context
             // supplies the sampler and original time range for the per-read sub-contexts.
             return _processor!.ProcessBufferWithVariableSpeed(
-                context, speeds, expectedOutputSampleCount, sourceStartTime.TotalSeconds);
+                context,
+                speeds,
+                expectedOutputSampleCount,
+                sourceStartTime.TotalSeconds,
+                draining,
+                forceReanchor);
         }
         finally
         {
@@ -163,6 +347,7 @@ public sealed class SpeedNode : AudioNode
         _integrator.Dispose();
         _processor = null;
         _upstreamSnapshot = null;
+        _hasLastAnimatedSpeed = false;
         base.Dispose(disposing);
     }
 
@@ -180,6 +365,7 @@ public sealed class SpeedNode : AudioNode
         private readonly int _channels;
         private readonly SpeedNode _speedNode;
         private readonly WdlResampler _rs;
+        private ResamplingMode _resamplingMode;
         private float _currentSpeed = 1.0f;
 
         // Continuous-streaming state, persisted across chunks. The resampler retains filter history
@@ -188,6 +374,7 @@ public sealed class SpeedNode : AudioNode
         private long _srcReadPos;        // absolute next source sample to feed, in the source timeline
         private double _nextOutputStart; // expected output start (seconds) of the next contiguous chunk
         private bool _initialized;
+        private bool _sourceCursorMatchesOutputTimeline;
 
         public SpeedProcessor(int sampleRate, int channels, SpeedNode speedNode)
         {
@@ -200,6 +387,37 @@ public sealed class SpeedNode : AudioNode
             _rs.SetFilterParms();
             _rs.SetFeedMode(false);
             _rs.SetRates(sampleRate, sampleRate);
+        }
+
+        public bool CanPassThroughDrain => !_initialized || _sourceCursorMatchesOutputTimeline;
+
+        public void TrackPassthrough(AudioProcessContext context, int sampleCount)
+        {
+            double outputStart = context.TimeRange.Start.TotalSeconds;
+            _rs.Reset();
+            _srcReadPos = (long)Math.Round(outputStart * _sampleRate) + sampleCount;
+            _nextOutputStart = outputStart + (double)sampleCount / _sampleRate;
+            _currentSpeed = 1f;
+            _resamplingMode = ResamplingMode.Passthrough;
+            _initialized = true;
+            _sourceCursorMatchesOutputTimeline = true;
+        }
+
+        private void ConfigureStaticResampling(float speed)
+        {
+            _rs.SetRates(_sampleRate, _sampleRate / speed);
+            _rs.SetFilterParms();
+            _currentSpeed = speed;
+            _resamplingMode = ResamplingMode.Static;
+        }
+
+        private void ConfigureVariableResampling(double speed)
+        {
+            _rs.SetRates(_sampleRate, _sampleRate / speed);
+            float cutoff = 0.97f / (float)speed;
+            _rs.SetFilterParms(cutoff, 0.707f);
+            _currentSpeed = (float)speed;
+            _resamplingMode = ResamplingMode.Variable;
         }
 
         // Decides whether this chunk continues the stream or is a seek; on a seek the resampler is
@@ -224,17 +442,30 @@ public sealed class SpeedNode : AudioNode
         // Reads exactly the requested source samples, continuing from the persistent cursor so the
         // stream never jumps between chunks. Advances the cursor by what was actually produced (short
         // only at end-of-source) and returns that count.
-        private int Read(float[] buffer, int interleavedOffset, int count, AudioProcessContext context)
+        private int Read(
+            float[] buffer,
+            int interleavedOffset,
+            int count,
+            AudioProcessContext context,
+            bool draining)
         {
             if (count <= 0)
                 return 0;
 
-            // _srcReadPos is whole samples, but reaches the input as a TimeSpan that the source
-            // truncates back (e.g. (int)(seconds * sampleRate)). Bias by half a sample so the
-            // round-trip lands on _srcReadPos rather than occasionally _srcReadPos - 1.
+            // Derive each sub-range from the exact sample cursor to avoid repeated samples at fractional rates.
+            long sourceStartTicks = checked((long)Math.Ceiling(
+                _srcReadPos * (double)TimeSpan.TicksPerSecond / _sampleRate));
+            // TimeSpan.TotalSeconds can round an exact sample boundary just below its integer when
+            // the request is converted back by an upstream node. Bias only those boundaries forward;
+            // an unconditional tick would turn an otherwise contiguous drain into a two-tick gap.
+            if (AudioMath.TimeToSampleIndex(TimeSpan.FromTicks(sourceStartTicks), _sampleRate) < _srcReadPos)
+            {
+                sourceStartTicks = checked(sourceStartTicks + 1);
+            }
+            TimeSpan sourceStart = TimeSpan.FromTicks(sourceStartTicks);
             var range = new TimeRange(
-                TimeSpan.FromSeconds((_srcReadPos + 0.5) / _sampleRate),
-                TimeSpan.FromSeconds(count / (double)_sampleRate));
+                sourceStart,
+                AudioProcessContext.GetDurationForSampleCount(count, _sampleRate));
             var subContext = new AudioProcessContext(
                 range,
                 _sampleRate,
@@ -244,7 +475,9 @@ public sealed class SpeedNode : AudioNode
             // Read consumes the child buffer fully into the interleaved span and never returns it, so
             // dispose its pooled MemoryPool<float> lease here; otherwise every resampler iteration leaks
             // one input buffer (matches the disposal contract the sibling audio nodes already honor).
-            using var result = _speedNode.Inputs[0].Process(subContext);
+            using AudioBuffer result = draining
+                ? _speedNode.Inputs[0].Flush(subContext)
+                : _speedNode.Inputs[0].Process(subContext);
             var leftData = result.GetChannelData(0);
             var rightData = result.GetChannelData(1);
             int samplesToRead = Math.Min(count, result.SampleCount);
@@ -258,7 +491,12 @@ public sealed class SpeedNode : AudioNode
             return samplesToRead;
         }
 
-        public AudioBuffer ProcessBuffer(AudioProcessContext context, float speed, int expectedOut)
+        public AudioBuffer ProcessBuffer(
+            AudioProcessContext context,
+            float speed,
+            int expectedOut,
+            bool draining,
+            bool forceReanchor)
         {
             double outputStart = context.TimeRange.Start.TotalSeconds;
 
@@ -266,16 +504,21 @@ public sealed class SpeedNode : AudioNode
             // BeginStream's output-time comparison cannot see: output stays contiguous, but _srcReadPos
             // (tracking the old speed) no longer maps to outputStart. Force a re-anchor to outputStart *
             // speed. _initialized gates this so the first-chunk anchor still uses the normal seek path.
-            bool speedChanged = _initialized && Math.Abs(_currentSpeed - speed) > 1e-4f;
-            bool seek = BeginStream(outputStart, outputStart * speed, speedChanged);
+            bool configurationChanged = _resamplingMode != ResamplingMode.Static
+                || Math.Abs(_currentSpeed - speed) > 1e-4f;
+            bool seek = BeginStream(
+                outputStart,
+                outputStart * speed,
+                forceReanchor: _initialized
+                    && !draining
+                    && (configurationChanged || forceReanchor));
 
             // Re-set the rate after a seek (resampler just reset) or when the constant speed changes.
             // Never Reset() outside a seek: that zero-fills filter history and silences a continuous
-            // stream — a static-speed change is promoted to a seek above, so its reset is intentional.
-            if (seek || speedChanged)
+            // Draining keeps the cursor at the upstream end while changing only the resampling rate.
+            if (seek || configurationChanged)
             {
-                _currentSpeed = speed;
-                _rs.SetRates(_sampleRate, _sampleRate / speed);
+                ConfigureStaticResampling(speed);
             }
 
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
@@ -287,7 +530,7 @@ public sealed class SpeedNode : AudioNode
                 while (framesDone < expectedOut)
                 {
                     int want = _rs.ResamplePrepare(expectedOut - framesDone, _channels, out float[] inBuf, out int inOff);
-                    int got = Read(inBuf, inOff, want, context);
+                    int got = Read(inBuf, inOff, want, context, draining);
 
                     int made = _rs.ResampleOut(dst, framesDone * _channels, got, expectedOut - framesDone, _channels);
 
@@ -302,6 +545,7 @@ public sealed class SpeedNode : AudioNode
                 WriteAndPad(output, dst, framesDone, expectedOut);
                 // Advance only on full success.
                 _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
+                _sourceCursorMatchesOutputTimeline = false;
                 return output;
             }
             catch
@@ -313,10 +557,18 @@ public sealed class SpeedNode : AudioNode
         }
 
         public AudioBuffer ProcessBufferWithVariableSpeed(
-            AudioProcessContext context, ReadOnlySpan<double> speedCurve, int expectedOut, double sourceStartSeconds)
+            AudioProcessContext context,
+            ReadOnlySpan<double> speedCurve,
+            int expectedOut,
+            double sourceStartSeconds,
+            bool draining,
+            bool forceReanchor)
         {
             double outputStart = context.TimeRange.Start.TotalSeconds;
-            BeginStream(outputStart, sourceStartSeconds);
+            BeginStream(
+                outputStart,
+                sourceStartSeconds,
+                forceReanchor: _initialized && !draining && forceReanchor);
 
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             try
@@ -336,12 +588,10 @@ public sealed class SpeedNode : AudioNode
                         sumSpeed += speedCurve[framesDone + i];
 
                     double vAvg = sumSpeed / framesThis;
-                    _rs.SetRates(_sampleRate, _sampleRate / vAvg);
-                    float cutoff = 0.97f / (float)vAvg; // vAvg > 1 lowers Nyquist to avoid aliasing
-                    _rs.SetFilterParms(cutoff, 0.707f);
+                    ConfigureVariableResampling(vAvg);
 
                     int want = _rs.ResamplePrepare(framesThis, _channels, out float[] inBuf, out int inOff);
-                    int got = Read(inBuf, inOff, want, context);
+                    int got = Read(inBuf, inOff, want, context, draining);
 
                     int made = _rs.ResampleOut(dst, framesDone * _channels, got, framesThis, _channels);
 
@@ -354,6 +604,7 @@ public sealed class SpeedNode : AudioNode
                 WriteAndPad(output, dst, framesDone, expectedOut);
                 // Advance only on full success.
                 _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
+                _sourceCursorMatchesOutputTimeline = false;
                 return output;
             }
             catch
@@ -361,6 +612,14 @@ public sealed class SpeedNode : AudioNode
                 output.Dispose();
                 throw;
             }
+        }
+
+        private enum ResamplingMode
+        {
+            Unconfigured,
+            Passthrough,
+            Static,
+            Variable,
         }
 
         // De-interleaves the produced frames into the output and pads any shortfall (source exhausted)

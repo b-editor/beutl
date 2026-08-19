@@ -1540,6 +1540,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
+  <data name="ToolTabHeaderFormat" xml:space="preserve">
+    <value>{0} - {1}</value>
+  </data>
   <data name="Start" xml:space="preserve">
     <value>Start</value>
   </data>
@@ -1569,5 +1572,8 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="ClickBrowse" xml:space="preserve">
     <value>Click Browse...</value>
+  </data>
+  <data name="Materials" xml:space="preserve">
+    <value>Materials</value>
   </data>
 </root>

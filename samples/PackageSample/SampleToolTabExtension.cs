@@ -40,11 +40,15 @@ public sealed class SampleToolTabExtension : ToolTabExtension
 
     private sealed class Context(ToolTabExtension extension) : IToolContext
     {
+        // Number each instance because CanMultiple is enabled.
+        private static int s_lastInstanceNumber;
+
         public ToolTabExtension Extension { get; } = extension;
 
         public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-        public string Header => "Sample tab";
+        public IReadOnlyReactiveProperty<string> Header { get; } =
+            new ReactivePropertySlim<string>($"Sample tab {Interlocked.Increment(ref s_lastInstanceNumber)}");
 
         public void Dispose()
         {

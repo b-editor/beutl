@@ -424,7 +424,8 @@ public sealed class ComposedSceneRenderCacheTests
         var frameData = new CompositionFrame(
             [resource],
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            s_frameSize);
+            s_frameSize,
+            null);
         for (int frame = 0; frame < 6; frame++)
         {
             cachedRenderer.Render(frameData);
@@ -473,7 +474,8 @@ public sealed class ComposedSceneRenderCacheTests
         renderer.Render(new CompositionFrame(
             [resource],
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            s_frameSize));
+            s_frameSize,
+            null));
         return renderer.Snapshot();
     }
 

@@ -3,16 +3,20 @@ using System.CommandLine.Parsing;
 
 using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
+using Beutl.PackageTools.UI.Services;
 
 using Reactive.Bindings;
 
 namespace Beutl.PackageTools.UI.ViewModels;
 
-public class MainViewModel
+public class MainViewModel : IAsyncDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
     private readonly ChangesModel _model;
     private readonly BeutlApiApplication _app;
+    private readonly HttpClient _httpClient;
+    private readonly AsyncOperationLifetime _operationLifetime;
+    private readonly Task _initializationTask;
 
     private readonly List<ActionViewModel> _viewModels = [];
 
@@ -22,66 +26,49 @@ public class MainViewModel
     private readonly Process[] _pkgProcesses;
 
     public MainViewModel()
+        : this(new HttpClient())
     {
-        // This standalone package-tools process owns its own extension provider; it never
-        // loads editor extensions, so a fresh instance is sufficient for the API resource graph.
-        _app = new BeutlApiApplication(new HttpClient(), new ExtensionProvider());
-        _model = new ChangesModel();
+    }
 
-        _beutlProcesses =
-        [
-            .. Process.GetProcessesByName("Beutl"),
-            .. Process.GetProcessesByName("beutl")
-        ];
+    // This standalone package-tools process owns its own extension provider; it never
+    // loads editor extensions, so a fresh instance is sufficient for the API resource graph.
+    private MainViewModel(HttpClient httpClient)
+        : this(
+            httpClient,
+            new BeutlApiApplication(httpClient, new ExtensionProvider()),
+            new ChangesModel(),
+            [
+                .. Process.GetProcessesByName("Beutl"),
+                .. Process.GetProcessesByName("beutl")
+            ],
+            [
+                .. Process.GetProcessesByName("Beutl.PackageTools"),
+                .. Process.GetProcessesByName("Beutl.PackageTools.UI"),
+                .. Process.GetProcessesByName("beutl-pkg"),
+            ])
+    {
+    }
 
-        _pkgProcesses =
-        [
-            .. Process.GetProcessesByName("Beutl.PackageTools"),
-            .. Process.GetProcessesByName("Beutl.PackageTools.UI"),
-            .. Process.GetProcessesByName("beutl-pkg"),
-        ];
+    internal MainViewModel(
+        HttpClient httpClient,
+        BeutlApiApplication app,
+        ChangesModel model,
+        Process[] beutlProcesses,
+        Process[] pkgProcesses,
+        Func<CancellationToken, Task>? initialize = null,
+        Action? cancelPendingRequests = null,
+        Func<ValueTask>? disposeResources = null)
+    {
+        _httpClient = httpClient;
+        _app = app;
+        _model = model;
+        _beutlProcesses = beutlProcesses;
+        _pkgProcesses = pkgProcesses;
 
-        Task.Run(async () =>
-        {
-            AreOthersRunning.Value = _pkgProcesses.Length > 1;
-            if (AreOthersRunning.Value)
-            {
-                return;
-            }
-
-            await WaitForTermination();
-
-            IsBusy.Value = true;
-            try
-            {
-                await _app.RestoreUserAsync(null);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred during authentication");
-            }
-
-            (string[] installItems, string[] uninstallItems, string[] updateItems, bool launchDebugger) = ParseArgs();
-
-            if (!Debugger.IsAttached && launchDebugger)
-            {
-                AttachDebugger();
-            }
-
-            try
-            {
-                await _model.Load(_app, installItems, uninstallItems, updateItems);
-
-                _viewModels.AddRange(InstallItems.Concat(UpdateItems)
-                    .Concat(UninstallItems)
-                    .Select(i => i.CreateViewModel(_app, _model))
-                    .Where(i => i != null)!);
-            }
-            finally
-            {
-                IsBusy.Value = false;
-            }
-        });
+        _operationLifetime = new AsyncOperationLifetime(
+            cancelPendingRequests ?? _httpClient.CancelPendingRequests,
+            disposeResources ?? DisposeOwnedResources);
+        _initializationTask = _operationLifetime.RunAsync(initialize ?? InitializeAsync);
     }
 
     public ReactiveCollection<PackageChangeModel> InstallItems => _model.InstallItems;
@@ -98,7 +85,76 @@ public class MainViewModel
 
     public ReactiveProperty<PackageChangeModel> SelectedItem { get; } = new();
 
-    private async ValueTask WaitForTermination()
+    internal Task InitializationTask => _initializationTask;
+
+    internal Task RunOperationAsync(
+        Func<CancellationToken, Task> operation,
+        Action completion,
+        CancellationToken cancellationToken)
+        => _operationLifetime.RunAsync(operation, completion, cancellationToken);
+
+    private async Task InitializeAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            AreOthersRunning.Value = _pkgProcesses.Length > 1;
+            if (AreOthersRunning.Value)
+                return;
+
+            await WaitForTermination(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            IsBusy.Value = true;
+            try
+            {
+                await _app.RestoreUserAsync(null, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred during authentication");
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            (string[] installItems, string[] uninstallItems, string[] updateItems, bool launchDebugger) = ParseArgs();
+
+            if (!Debugger.IsAttached && launchDebugger)
+            {
+                // The attach loop blocks until a debugger connects; keep it off the UI
+                // thread so the window can still paint and close while waiting.
+                await Task.Run(() => AttachDebugger(cancellationToken), cancellationToken);
+            }
+
+            await _model.Load(
+                _app,
+                installItems,
+                uninstallItems,
+                updateItems,
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            _viewModels.AddRange(InstallItems.Concat(UpdateItems)
+                .Concat(UninstallItems)
+                .Select(i => i.CreateViewModel(_app, _model))
+                .Where(i => i != null)!);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initialize package tools");
+        }
+        finally
+        {
+            IsBusy.Value = false;
+        }
+    }
+
+    private async ValueTask WaitForTermination(CancellationToken cancellationToken)
     {
         if (_beutlProcesses.Length == 0)
         {
@@ -112,7 +168,7 @@ public class MainViewModel
             {
                 if (!item.HasExited)
                 {
-                    await item.WaitForExitAsync();
+                    await item.WaitForExitAsync(cancellationToken);
                 }
             }
         }
@@ -123,10 +179,11 @@ public class MainViewModel
     }
 
     [Conditional("DEBUG")]
-    private static void AttachDebugger()
+    private static void AttachDebugger(CancellationToken cancellationToken)
     {
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             Thread.Sleep(100);
 
             if (Debugger.Launch())
@@ -209,5 +266,40 @@ public class MainViewModel
             uninstall: [.. _viewModels.Where(x => x is { Model.Action: PackageChangeAction.Uninstall })],
             update: [.. _viewModels.Where(x => x is { Model.Action: PackageChangeAction.Update })],
             clean: _cleanViewModel?.Items?.Length > 0 ? _cleanViewModel : null);
+    }
+
+    public ValueTask DisposeAsync()
+        => _operationLifetime.DisposeAsync();
+
+    protected virtual async ValueTask DisposeOwnedResources()
+    {
+        foreach (Process process in _beutlProcesses.Concat(_pkgProcesses))
+        {
+            try
+            {
+                process.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to dispose a tracked process handle");
+            }
+        }
+
+        try
+        {
+            await _app.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to dispose the package-tools API application");
+        }
+        finally
+        {
+            _httpClient.Dispose();
+            IsBusy.Dispose();
+            IsWaitingForTermination.Dispose();
+            AreOthersRunning.Dispose();
+            SelectedItem.Dispose();
+        }
     }
 }

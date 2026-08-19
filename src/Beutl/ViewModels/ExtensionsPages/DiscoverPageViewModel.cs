@@ -14,6 +14,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
 {
     private readonly ILogger _logger = Log.CreateLogger<DiscoverPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
+    private readonly LifetimeCancellationSource _lifetimeCts = new();
     private readonly DiscoverService _discover;
     private readonly BeutlApiApplication _apiApp;
 
@@ -34,7 +35,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
                     Items.Clear();
                     Items.AddRange(Enumerable.Repeat(new DummyItem(), 10));
 
-                    Package[] array = await LoadItems(0, 30, activity);
+                    Package[] array = await LoadItems(0, 30, activity, _lifetimeCts.Token);
                     Items.Clear();
                     Items.AddRange(array);
 
@@ -42,6 +43,9 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
                     {
                         Items.Add(new LoadMoreItem());
                     }
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -65,13 +69,16 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
                 {
                     IsBusy.Value = true;
                     Items.RemoveAt(Items.Count - 1);
-                    Package[] array = await LoadItems(Items.Count, 30, activity);
+                    Package[] array = await LoadItems(Items.Count, 30, activity, _lifetimeCts.Token);
                     Items.AddRange(array);
 
                     if (array.Length == 30)
                     {
                         Items.Add(new LoadMoreItem());
                     }
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -86,8 +93,13 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
             })
             .DisposeWith(_disposables);
 
+        Kind = new PackageKindFilterViewModel(() => Refresh.Execute())
+            .DisposeWith(_disposables);
+
         Refresh.Execute();
     }
+
+    public PackageKindFilterViewModel Kind { get; }
 
     public AvaloniaList<object> Items { get; } = [];
 
@@ -99,22 +111,38 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
 
     public DataContextFactory DataContextFactory { get; }
 
-    private async Task<Package[]> LoadItems(int start, int count, Activity? activity)
+    private async Task<Package[]> LoadItems(
+        int start,
+        int count,
+        Activity? activity,
+        CancellationToken cancellationToken)
     {
-        using (await _discover.Lock.LockAsync())
+        using (await _discover.Lock.LockAsync(cancellationToken))
         {
             activity?.AddEvent(new("Entered_AsyncLock"));
             if (_apiApp.AuthenticatedUser.Value != null)
             {
-                await _apiApp.AuthenticatedUser.Value.RefreshAsync();
+                await _apiApp.AuthenticatedUser.Value.RefreshAsync(cancellationToken);
             }
 
-            return await _discover.GetFeatured(start, count);
+            return await _discover.GetFeatured(cancellationToken, start, count, Kind.Selected);
         }
     }
 
     public override void Dispose()
     {
-        _disposables.Dispose();
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cancel the lifetime token during disposal.");
+        }
+        finally
+        {
+            _disposables.Dispose();
+            _lifetimeCts.Dispose();
+        }
     }
 }

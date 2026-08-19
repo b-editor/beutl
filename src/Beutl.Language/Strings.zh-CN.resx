@@ -1540,6 +1540,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
+  <data name="ToolTabHeaderFormat" xml:space="preserve">
+    <value>{0} - {1}</value>
+  </data>
   <data name="Start" xml:space="preserve">
     <value>开始</value>
   </data>
@@ -1569,5 +1572,8 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="ClickBrowse" xml:space="preserve">
     <value>单击浏览...</value>
+  </data>
+  <data name="Materials" xml:space="preserve">
+    <value>素材</value>
   </data>
 </root>

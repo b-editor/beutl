@@ -30,7 +30,8 @@ public sealed class RendererWideRecordingTests
             var frame = new CompositionFrame(
                 ImmutableArray<EngineObject.Resource>.Empty,
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(8, 8));
+                new PixelSize(8, 8),
+                null);
 
             renderer.Render(frame);
             renderer.Render(frame);
@@ -59,7 +60,8 @@ public sealed class RendererWideRecordingTests
             var frame = new CompositionFrame(
                 ImmutableArray<EngineObject.Resource>.Empty,
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(8, 8));
+                new PixelSize(8, 8),
+                null);
 
             renderer.Render(frame);
 
@@ -83,7 +85,8 @@ public sealed class RendererWideRecordingTests
         var frame = new CompositionFrame(
             ImmutableArray<EngineObject.Resource>.Empty,
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            new PixelSize(8, 8));
+            new PixelSize(8, 8),
+            null);
         RenderThread.Dispatcher.Invoke(() => renderer.Render(frame));
 
         Assert.That(RenderThread.Dispatcher.CheckAccess(), Is.False,
@@ -459,7 +462,8 @@ public sealed class RendererWideRecordingTests
             var frame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(resource),
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(8, 8));
+                new PixelSize(8, 8),
+                null);
             using var renderer = new Renderer(8, 8)
             {
                 CacheOptions = RenderCacheOptions.Disabled,
@@ -512,7 +516,8 @@ public sealed class RendererWideRecordingTests
         var frame = new CompositionFrame(
             ImmutableArray.Create<EngineObject.Resource>(resource),
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            new PixelSize(8, 8));
+            new PixelSize(8, 8),
+            null);
         Renderer renderer = VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var result = new Renderer(8, 8);
@@ -556,7 +561,8 @@ public sealed class RendererWideRecordingTests
         var frame = new CompositionFrame(
             ImmutableArray.Create<EngineObject.Resource>(resource),
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            new PixelSize(8, 8));
+            new PixelSize(8, 8),
+            null);
         Renderer renderer = VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var result = new Renderer(8, 8);
@@ -679,7 +685,8 @@ public sealed class RendererWideRecordingTests
             var frame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(firstResource, secondResource),
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(8, 8));
+                new PixelSize(8, 8),
+                null);
             using var renderer = new Renderer(
                 width: 8,
                 height: 8,
@@ -756,7 +763,8 @@ public sealed class RendererWideRecordingTests
             var frame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(resource),
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(8, 8));
+                new PixelSize(8, 8),
+                null);
             using var renderer = new Renderer(
                 width: 8,
                 height: 8,
@@ -841,7 +849,8 @@ public sealed class RendererWideRecordingTests
         var frame = new CompositionFrame(
             ImmutableArray.Create<EngineObject.Resource>(resource),
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            new PixelSize(8, 8));
+            new PixelSize(8, 8),
+            null);
         var renderer = new Renderer(
             width: 8,
             height: 8,

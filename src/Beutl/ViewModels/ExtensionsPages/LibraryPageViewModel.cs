@@ -17,6 +17,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
     private readonly AuthenticatedUser? _user;
     private readonly BeutlApiApplication _clients;
     private readonly CompositeDisposable _disposables = [];
+    private readonly LifetimeCancellationSource _lifetimeCts = new();
     private readonly LibraryService _service;
     private readonly EditorService _editorService;
     private readonly ProjectService _projectService;
@@ -37,25 +38,28 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 try
                 {
                     IsBusy.Value = true;
-                    Task task = RefreshLocalPackages();
+                    Task task = RefreshLocalPackages(_lifetimeCts.Token);
                     DisposeAll(Packages.OfType<IDisposable>());
                     Packages.Clear();
                     Packages.AddRange(Enumerable.Repeat(new DummyItem(), 6));
 
-                    using (await _clients.Lock.LockAsync())
+                    using (await _clients.Lock.LockAsync(_lifetimeCts.Token))
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
 
                         if (_user != null)
                         {
-                            await _user.RefreshAsync();
+                            await _user.RefreshAsync(_lifetimeCts.Token);
                         }
 
-                        await RefreshPackages(_user != null);
+                        await RefreshPackages(_user != null, _lifetimeCts.Token);
                         activity?.AddEvent(new("Refreshed_Packages"));
                     }
 
                     await task;
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -80,18 +84,21 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 try
                 {
                     IsBusy.Value = true;
-                    using (await _clients.Lock.LockAsync())
+                    using (await _clients.Lock.LockAsync(_lifetimeCts.Token))
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
 
                         if (_user != null)
                         {
-                            await _user.RefreshAsync();
+                            await _user.RefreshAsync(_lifetimeCts.Token);
                         }
 
                         PackageManager manager = _clients.GetResource<PackageManager>();
-                        foreach (PackageUpdate item in await manager.CheckUpdate())
+                        IReadOnlyList<PackageUpdate> updates = await manager.CheckUpdate(_lifetimeCts.Token);
+                        _lifetimeCts.Token.ThrowIfCancellationRequested();
+                        foreach (PackageUpdate item in updates)
                         {
+                            _lifetimeCts.Token.ThrowIfCancellationRequested();
                             LocalUserPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
                                 x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
 
@@ -117,6 +124,9 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                             Packages.Insert(0, remotePackage);
                         }
                     }
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -144,17 +154,33 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
     public override void Dispose()
     {
-        _disposables.Dispose();
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cancel the lifetime token during disposal.");
+        }
+        finally
+        {
+            _disposables.Dispose();
+            _lifetimeCts.Dispose();
+        }
     }
 
     public async Task<Package?> TryFindPackage(LocalPackage localPackage)
     {
-        using (await _clients.Lock.LockAsync())
+        using (await _clients.Lock.LockAsync(_lifetimeCts.Token))
         {
             DiscoverService discover = _clients.GetResource<DiscoverService>();
             try
             {
-                return await discover.GetPackage(localPackage.Name);
+                return await discover.GetPackage(localPackage.Name, _lifetimeCts.Token);
+            }
+            catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+            {
+                throw;
             }
             catch
             {
@@ -169,7 +195,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         obj.Dispose();
     }
 
-    private async Task RefreshLocalPackages()
+    private async Task RefreshLocalPackages(CancellationToken cancellationToken)
     {
         PackageManager manager = _clients.GetResource<PackageManager>();
         DisposeAll(LocalPackages);
@@ -179,6 +205,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         foreach (LocalPackage item in manager.GetLocalSourcePackages()
                      .Concat(await manager.GetPackages()))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (dict.TryGetValue(item.Name, out LocalPackage? localPackage))
             {
                 // itemのほうが新しいバージョン
@@ -195,29 +222,36 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         foreach (KeyValuePair<string, LocalPackage> item in dict)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             LocalPackages.Add(new LocalUserPackageViewModel(item.Value, _clients, _editorService, _projectService));
         }
     }
 
-    private async Task RefreshPackages(bool auth)
+    private async Task RefreshPackages(bool auth, CancellationToken cancellationToken)
     {
         PackageManager manager = _clients.GetResource<PackageManager>();
         DiscoverService discover = _clients.GetResource<DiscoverService>();
-        List<Package> own = auth ? await LoadAll() : [];
+        List<Package> own = auth ? await LoadAll(cancellationToken) : [];
         Packages.Clear();
         var installed = await manager.GetPackages();
 
         foreach (var name in own.Select(i => i.Name).Union(installed.Select(i => i.Name)))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var remote = own.FirstOrDefault(i => i.Name == name);
             if (remote == null)
             {
                 try
                 {
-                    remote = await discover.GetPackage(name);
+                    remote = await discover.GetPackage(name, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var item = installed.FirstOrDefault(i => i.Name == name);
                     if (item != null)
                         Packages.Add(new LocalUserPackageViewModel(item, _clients, _editorService, _projectService));
@@ -226,6 +260,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
             if (remote != null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 Packages.Add(new RemoteUserPackageViewModel(remote, _clients, _editorService, _projectService)
                 {
                     OnRemoveFromLibrary = OnPackageRemoveFromLibrary
@@ -234,14 +269,15 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         }
     }
 
-    private async Task<List<Package>> LoadAll()
+    private async Task<List<Package>> LoadAll(CancellationToken cancellationToken)
     {
         var list = new List<Package>();
-        Package[] array = await _service.GetPackages(0, 30);
+        Package[] array = await _service.GetPackages(cancellationToken, 0, 30);
         list.AddRange(array);
         while (array.Length == 30)
         {
-            array = await _service.GetPackages(list.Count, 30);
+            cancellationToken.ThrowIfCancellationRequested();
+            array = await _service.GetPackages(cancellationToken, list.Count, 30);
             list.AddRange(array);
         }
 

@@ -18,6 +18,7 @@ public class FileItemDragBehavior : Behavior<Control>
 
     // FileBrowserTab内部から開始されたドラッグ操作が進行中かどうかを示す。
     // ドロップ時にコピーではなく移動として扱うべきかの判定に用いる。
+    // Keep this static so drags between file-browser tabs remain moves.
     public static bool IsInternalDragInProgress { get; private set; }
 
     protected override void OnAttached()

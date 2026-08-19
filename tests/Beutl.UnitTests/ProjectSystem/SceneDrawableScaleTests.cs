@@ -389,7 +389,7 @@ public class SceneDrawableScaleTests
             firstOutput.ThrowOnDispose = true;
 
             CompositionFrame frame = resource.Frame!.Value;
-            resource.Frame = new CompositionFrame([frame.Objects[0]], frame.Time, frame.Size);
+            resource.Frame = new CompositionFrame([frame.Objects[0]], frame.Time, frame.Size, null);
             resource.Version++;
             Assert.That(root.Update(resource), Is.True);
 

@@ -39,7 +39,11 @@ public record PackageChangeModel(
         return File.Exists(localNupkgPath);
     }
 
-    private static async Task<PackageChangeModel?> ReadLocalSource(PackageIdentity package, bool alreadyInstalled, PackageChangeAction action)
+    private static async Task<PackageChangeModel?> ReadLocalSource(
+        PackageIdentity package,
+        bool alreadyInstalled,
+        PackageChangeAction action,
+        CancellationToken cancellationToken)
     {
         string localNupkgPath = Path.Combine(Helper.LocalSourcePath, $"{package}.nupkg");
         s_logger.LogDebug("Reading local source for package {PackageId} at path {Path}", package.Id, localNupkgPath);
@@ -48,7 +52,7 @@ public record PackageChangeModel(
             try
             {
                 using var reader = new PackageArchiveReader(localNupkgPath);
-                NuspecReader nuspec = await reader.GetNuspecReaderAsync(default);
+                NuspecReader nuspec = await reader.GetNuspecReaderAsync(cancellationToken);
                 s_logger.LogInformation("Successfully read local package {PackageId} from path {Path}", package.Id, localNupkgPath);
                 return new PackageChangeModel(package.Id, package.Version, nuspec.GetTitle() ?? package.Id, false, action)
                 {
@@ -56,6 +60,10 @@ public record PackageChangeModel(
                     Publisher = nuspec.GetAuthors(),
                     AlreadyInstalled = alreadyInstalled
                 };
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -70,8 +78,13 @@ public record PackageChangeModel(
         return null;
     }
 
-    public static async ValueTask<PackageChangeModel?> TryParse(BeutlApiApplication apiApp, string s, PackageChangeAction action)
+    public static async ValueTask<PackageChangeModel?> TryParse(
+        BeutlApiApplication apiApp,
+        string s,
+        PackageChangeAction action,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         InstalledPackageRepository repos = apiApp.GetResource<InstalledPackageRepository>();
         DiscoverService discover = apiApp.GetResource<DiscoverService>();
         string[] splited = s.Split('/');
@@ -85,7 +98,7 @@ public record PackageChangeModel(
             try
             {
                 s_logger.LogDebug("Attempting to discover package {PackageId}", pkg.Id);
-                Package package = await discover.GetPackage(pkg.Id);
+                Package package = await discover.GetPackage(pkg.Id, cancellationToken);
                 s_logger.LogInformation("Successfully discovered package {PackageId}", pkg.Id);
                 item = new PackageChangeModel(pkg.Id, pkg.Version, package.DisplayName.Value ?? pkg.Id, true, action)
                 {
@@ -96,6 +109,10 @@ public record PackageChangeModel(
                     Conflict = CheckLocalSource(pkg)
                 };
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 s_logger.LogError(ex, "An exception occurred while discovering package {PackageId}", pkg.Id);
@@ -105,7 +122,7 @@ public record PackageChangeModel(
                 }
                 else if (CheckLocalSource(pkg))
                 {
-                    item = await ReadLocalSource(pkg, alreadyInstalled, action);
+                    item = await ReadLocalSource(pkg, alreadyInstalled, action, cancellationToken);
                 }
             }
 
@@ -116,8 +133,8 @@ public record PackageChangeModel(
             try
             {
                 s_logger.LogDebug("Attempting to discover package {PackageId}", s);
-                Package package = await discover.GetPackage(s);
-                Release[] releases = await package.GetReleasesAsync(0, 1);
+                Package package = await discover.GetPackage(s, cancellationToken);
+                Release[] releases = await package.GetReleasesAsync(cancellationToken, 0, 1);
 
                 if (releases.Length > 0)
                 {
@@ -138,6 +155,10 @@ public record PackageChangeModel(
                 {
                     s_logger.LogWarning("No releases found for package {PackageId}", s);
                 }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {

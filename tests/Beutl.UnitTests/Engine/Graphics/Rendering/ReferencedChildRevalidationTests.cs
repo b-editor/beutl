@@ -33,7 +33,8 @@ public class ReferencedChildRevalidationTests
             [.. drawables.Select(static drawable =>
                 (EngineObject.Resource)drawable.ToResource(CompositionContext.Default))],
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            new PixelSize(16, 16));
+            new PixelSize(16, 16),
+            null);
 
     private sealed class CpuRenderTarget(int width, int height)
         : RenderTarget(

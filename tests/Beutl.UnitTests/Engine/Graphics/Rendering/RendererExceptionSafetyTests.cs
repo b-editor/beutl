@@ -76,7 +76,8 @@ public class RendererExceptionSafetyTests
             var previousFrame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(previousResource),
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(16, 16));
+                new PixelSize(16, 16),
+                null);
             renderer.Render(previousFrame);
             Assert.That(renderer.GetBoundary(previous), Is.Not.Null);
 
@@ -85,7 +86,8 @@ public class RendererExceptionSafetyTests
             var faultingFrame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(faultingResource),
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(16, 16));
+                new PixelSize(16, 16),
+                null);
 
             Assert.That(
                 () => renderer.Render(faultingFrame),
@@ -117,7 +119,8 @@ public class RendererExceptionSafetyTests
             var frame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(firstResource, faultingResource),
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(16, 16));
+                new PixelSize(16, 16),
+                null);
 
             Assert.That(
                 () => renderer.UpdateFrame(frame),
@@ -151,7 +154,8 @@ public class RendererExceptionSafetyTests
         return new CompositionFrame(
             ImmutableArray.Create<EngineObject.Resource>(resource),
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            new PixelSize(16, 16));
+            new PixelSize(16, 16),
+            new CompositionEligibility([drawable]));
     }
 
     private sealed class CpuRenderTarget(int width, int height)

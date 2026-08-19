@@ -17,6 +17,8 @@ public sealed class SourceNode : AudioNode
 
         var resource = Source.Value.Resource;
         var sampleCount = context.GetSampleCount();
+        // Match the stereo output when Flush creates silence.
+        RecordProcessedChannelCount(2);
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
 
         // An unloaded or failed-to-open source has SampleRate == 0 and is unreadable — return silence

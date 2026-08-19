@@ -41,7 +41,8 @@ public class FrameClearCoverageTests
             var frame = new CompositionFrame(
                 ImmutableArray<EngineObject.Resource>.Empty,
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(width, height));
+                new PixelSize(width, height),
+                null);
 
             renderer.Render(frame);
             using Bitmap snapshot = renderer.Snapshot();

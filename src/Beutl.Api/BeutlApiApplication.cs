@@ -22,7 +22,7 @@ using IUsersClient = Beutl.Api.Clients.IUsersClient;
 
 namespace Beutl.Api;
 
-public class BeutlApiApplication
+public class BeutlApiApplication : IAsyncDisposable
 {
 #if false
     private const string BaseUrl = "http://localhost:3001";
@@ -35,7 +35,11 @@ public class BeutlApiApplication
     private readonly ExtensionProvider _extensionProvider;
     private readonly ReactivePropertySlim<AuthenticatedUser?> _authenticatedUser = new();
     private readonly Dictionary<Type, Lazy<object>> _services = [];
+    private readonly object _disposeGate = new();
+    private readonly CancellationTokenSource _lifetimeCts = new();
     private static readonly ILogger s_logger = Log.CreateLogger<BeutlApiApplication>();
+    private volatile bool _disposed;
+    private Task? _disposeTask;
     private static readonly AsyncLazy<AssetMetadataJson?> s_metadata = new(async () =>
     {
         s_logger.LogInformation("Loading asset metadata");
@@ -102,16 +106,29 @@ public class BeutlApiApplication
 
     public IReadOnlyReactiveProperty<AuthenticatedUser?> AuthenticatedUser => _authenticatedUser;
 
+    public bool IsDisposed => _disposed;
+
     // 更新があるかどうかをチェックします
     // このアプリケーションがアセットメタデータを持っている場合は、AppUpdateResponseを返します
     // そうでない場合は、CheckForUpdatesResponseを返します
-    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(string version)
+    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(
+        string version,
+        CancellationToken cancellationToken)
     {
-        var metadata = await LoadMetadata();
-        if (metadata == null) return (await App.CheckForUpdates(version), null);
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        var metadata = await LoadMetadata().WaitAsync(token);
+        if (metadata == null)
+        {
+            var updateResponse = await App.CheckForUpdates(version, token);
+            token.ThrowIfCancellationRequested();
+            return (updateResponse, null);
+        }
+
         var update = await App.GetUpdate(
             version, ToServerType(metadata.Type), metadata.OS, metadata.Arch,
-            metadata.Standalone, "false");
+            metadata.Standalone, "false", token);
+        token.ThrowIfCancellationRequested();
         return (null, update);
     }
 
@@ -125,6 +142,34 @@ public class BeutlApiApplication
     }
 
     public T GetResource<T>()
+        where T : IBeutlApiResource
+    {
+        lock (_disposeGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return GetResourceCore<T>();
+        }
+    }
+
+    // Resolves the resource and links the lifetime token under one dispose-gate hold, so a
+    // concurrent DisposeAsync cannot invalidate the resource between admission and use.
+    internal T GetResourceWithLifetime<T>(CancellationToken cancellationToken, out CancellationTokenSource lifetimeCts)
+        where T : IBeutlApiResource
+    {
+        lock (_disposeGate)
+        {
+            // A canceled caller token must surface as cancellation, not ObjectDisposedException.
+            cancellationToken.ThrowIfCancellationRequested();
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            T resource = GetResourceCore<T>();
+            lifetimeCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCts.Token);
+            return resource;
+        }
+    }
+
+    private T GetResourceCore<T>()
         where T : IBeutlApiResource
     {
         if (_services.TryGetValue(typeof(T), out Lazy<object>? lazy))
@@ -143,6 +188,125 @@ public class BeutlApiApplication
         throw new Exception("Resource not found");
     }
 
+    // Returns only resources another caller has already materialized; a registered-but-
+    // uncreated resource is not available yet, so the resolver-style name would conflate
+    // that state with unavailable. The sole production use is a shutdown-time probe for
+    // resources that must have been created by then.
+    internal T? TryGetCreatedResource<T>()
+        where T : class, IBeutlApiResource
+    {
+        lock (_disposeGate)
+        {
+            if (_disposed)
+                return null;
+
+            if (_services.TryGetValue(typeof(T), out Lazy<object>? lazy) && lazy.IsValueCreated)
+            {
+                return (T)lazy.Value;
+            }
+
+            foreach (KeyValuePair<Type, Lazy<object>> item in _services)
+            {
+                if (item.Key.IsAssignableTo(typeof(T)) && item.Value.IsValueCreated)
+                {
+                    return (T)item.Value.Value;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        TaskCompletionSource? proxy = null;
+        Task disposeTask;
+        lock (_disposeGate)
+        {
+            // Publish the disposal task before cancellation so re-entrant callbacks
+            // observe the original teardown.
+            if (_disposeTask == null)
+            {
+                proxy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = proxy.Task;
+            }
+            disposeTask = _disposeTask;
+        }
+
+        // Start teardown after releasing the lock so re-entrant callbacks do not deadlock.
+        if (proxy != null)
+        {
+            _ = RunDisposeCoreAsync(proxy);
+        }
+
+        return new ValueTask(disposeTask);
+    }
+
+    private async Task RunDisposeCoreAsync(TaskCompletionSource proxy)
+    {
+        try
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+            proxy.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
+        }
+    }
+
+    protected virtual async Task DisposeCoreAsync()
+    {
+        List<object> disposableResources;
+        lock (_disposeGate)
+        {
+            _disposed = true;
+            disposableResources = _services.Values
+                .Where(lazy => lazy.IsValueCreated)
+                .Select(lazy => lazy.Value)
+                .Where(resource => resource is IDisposable or IAsyncDisposable)
+                .Distinct(ReferenceEqualityComparer.Instance)
+                .Reverse()
+                .ToList();
+        }
+
+        Exception? cancellationFailure = null;
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            cancellationFailure = ex;
+        }
+
+        foreach (object resource in disposableResources)
+        {
+            try
+            {
+                if (resource is IAsyncDisposable asyncDisposable)
+                    await asyncDisposable.DisposeAsync();
+                else
+                    ((IDisposable)resource).Dispose();
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(
+                    ex,
+                    "Failed to dispose API resource {ResourceType}.",
+                    resource.GetType());
+            }
+        }
+
+        _lifetimeCts.Dispose();
+        ActivitySource.Dispose();
+
+        if (cancellationFailure != null)
+        {
+            throw cancellationFailure;
+        }
+    }
+
     private void RegisterAll()
     {
         Register(() => new DiscoverService(this));
@@ -156,7 +320,11 @@ public class BeutlApiApplication
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
-        Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>(), this));
+        Register(() => new PackageInstaller(
+            new HttpClient(),
+            ownsHttpClient: true,
+            GetResource<InstalledPackageRepository>(),
+            this));
         Register(() =>
         {
             // Unload diagnostics take a heavy ClrMD self-snapshot and write a dump; they are a development-only aid,
@@ -175,6 +343,19 @@ public class BeutlApiApplication
         where T : IBeutlApiResource
     {
         _services.Add(typeof(T), new Lazy<object>(() => factory()));
+    }
+
+    protected internal CancellationTokenSource CreateLifetimeLinkedTokenSource(CancellationToken cancellationToken)
+    {
+        lock (_disposeGate)
+        {
+            // A canceled caller token must surface as cancellation, not ObjectDisposedException.
+            cancellationToken.ThrowIfCancellationRequested();
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCts.Token);
+        }
     }
 
     public void SignOut(bool deleteFile = true)
@@ -202,13 +383,16 @@ public class BeutlApiApplication
 
     private async Task<AuthenticatedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
     {
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
         using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client))
         {
             string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
             CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
             {
                 ContinueUri = continueUri
-            });
+            }, token);
+            token.ThrowIfCancellationRequested();
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
@@ -217,7 +401,7 @@ public class BeutlApiApplication
 
             Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
-            string? code = await GetResponseFromListener(listener, cancellationToken);
+            string? code = await GetResponseFromListener(listener, token);
             activity?.AddEvent(new("Received_Code"));
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -228,33 +412,36 @@ public class BeutlApiApplication
             {
                 Code = code,
                 SessionId = authUriRes.SessionId
-            });
+            }, token);
             activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", authResponse.Token);
-            ProfileResponse profileResponse = await Users.GetSelf();
-            var profile = new Profile(profileResponse, this);
-
-            _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
-            SaveUser();
-            activity?.AddEvent(new("Saved_User"));
-            return _authenticatedUser.Value;
+            // Serialize only the authentication state transition; the OAuth wait above must
+            // not hold the application-wide lock.
+            using (await Lock.LockAsync(token))
+            {
+                activity?.AddEvent(new("Entered_AsyncLock"));
+                AuthenticatedUser user = await CompleteSignInAsync(authResponse, token);
+                activity?.AddEvent(new("Saved_User"));
+                return user;
+            }
         }
     }
 
     public async Task<AuthenticatedUser> SignInAsync(CancellationToken cancellationToken)
     {
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
         using (Activity? activity = ActivitySource.StartActivity("SignInAsync", ActivityKind.Client))
         {
-            using (await Lock.LockAsync(cancellationToken))
+            using (await Lock.LockAsync(token))
             {
                 activity?.AddEvent(new("Entered_AsyncLock"));
                 string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
                 CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
                 {
                     ContinueUri = continueUri
-                });
+                }, token);
+                token.ThrowIfCancellationRequested();
                 using HttpListener listener = StartListener($"{continueUri}/");
                 activity?.AddEvent(new("Started_Listener"));
 
@@ -262,7 +449,7 @@ public class BeutlApiApplication
 
                 Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
-                string? code = await GetResponseFromListener(listener, cancellationToken);
+                string? code = await GetResponseFromListener(listener, token);
                 activity?.AddEvent(new("Received_Code"));
                 if (string.IsNullOrWhiteSpace(code))
                 {
@@ -273,19 +460,56 @@ public class BeutlApiApplication
                 {
                     Code = code,
                     SessionId = authUriRes.SessionId
-                });
+                }, token);
                 activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-                _httpClient.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", authResponse.Token);
-                ProfileResponse profileResponse = await Users.GetSelf();
-                var profile = new Profile(profileResponse, this);
-
-                _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
-                SaveUser();
+                AuthenticatedUser user = await CompleteSignInAsync(authResponse, token);
                 activity?.AddEvent(new("Saved_User"));
-                return _authenticatedUser.Value;
+                return user;
             }
+        }
+    }
+
+    internal async Task<AuthenticatedUser> CompleteSignInAsync(
+        AuthResponse authResponse,
+        CancellationToken cancellationToken)
+    {
+        string? previousAuthorization = _httpClient.DefaultRequestHeaders.Authorization?.ToString();
+        AuthenticatedUser? previousUser = _authenticatedUser.Value;
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", authResponse.Token);
+        AuthenticatedUser? attemptedUser = null;
+        try
+        {
+            ProfileResponse profileResponse = await Users.GetSelf(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            var profile = new Profile(profileResponse, this);
+
+            attemptedUser = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
+            _authenticatedUser.Value = attemptedUser;
+            SaveUser();
+            return _authenticatedUser.Value;
+        }
+        catch
+        {
+            // Only roll back state still owned by this failing attempt: a SignOut or a
+            // later successful sign-in may have replaced the user while GetSelf was pending,
+            // and must not be overwritten by the stale snapshot.
+            if (ReferenceEquals(_authenticatedUser.Value, attemptedUser)
+                || (attemptedUser == null && ReferenceEquals(_authenticatedUser.Value, previousUser)))
+            {
+                _authenticatedUser.Value = previousUser;
+                if (previousAuthorization != null)
+                {
+                    _httpClient.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(previousAuthorization);
+                }
+                else
+                {
+                    _httpClient.DefaultRequestHeaders.Authorization = null;
+                }
+            }
+
+            throw;
         }
     }
 
@@ -317,48 +541,74 @@ public class BeutlApiApplication
         }
     }
 
-    public async Task RestoreUserAsync(Activity? activity)
+    public async Task RestoreUserAsync(Activity? activity, CancellationToken cancellationToken)
     {
-        using (await Lock.LockAsync())
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        using (await Lock.LockAsync(token))
         {
             activity?.AddEvent(new("Entered_AsyncLock"));
 
-            AuthenticatedUser? user = await ReadUserAsync();
+            string? previousAuthorization = _httpClient.DefaultRequestHeaders.Authorization?.ToString();
+            AuthenticatedUser? previousUser = _authenticatedUser.Value;
+            AuthenticatedUser? user = await ReadUserAsync(token);
             if (user != null)
             {
-                await user.RefreshAsync();
+                try
+                {
+                    await user.RefreshAsync(token);
 
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
-                await user.Profile.RefreshAsync(true);
-                _authenticatedUser.Value = user;
-                SaveUser();
+                    _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
+                    await user.Profile.RefreshAsync(token, true);
+                    token.ThrowIfCancellationRequested();
+                    _authenticatedUser.Value = user;
+                    SaveUser();
+                }
+                catch
+                {
+                    _authenticatedUser.Value = previousUser;
+                    if (previousAuthorization != null)
+                    {
+                        _httpClient.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(previousAuthorization);
+                    }
+                    else
+                    {
+                        _httpClient.DefaultRequestHeaders.Authorization = null;
+                    }
+
+                    throw;
+                }
             }
         }
     }
 
-    public async ValueTask<AuthenticatedUser?> ReadUserAsync()
+    public async ValueTask<AuthenticatedUser?> ReadUserAsync(CancellationToken cancellationToken)
     {
+        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        token.ThrowIfCancellationRequested();
         string fileName = Path.Combine(Helper.AppRoot, UserFileName);
         if (File.Exists(fileName))
         {
-            JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName));
+            JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName, token));
+            token.ThrowIfCancellationRequested();
             DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
 
             if (node != null)
             {
                 ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
-                string? token = (string?)node["token"];
+                string? persistedToken = (string?)node["token"];
                 string? refreshToken = (string?)node["refresh_token"];
                 var expiration = (DateTime?)node["expiration"];
 
                 if (profile != null
-                    && token != null
+                    && persistedToken != null
                     && refreshToken != null
                     && expiration.HasValue)
                 {
                     return new AuthenticatedUser(
                         new Profile(profile, this),
-                        new AuthResponse { Expiration = expiration.Value, RefreshToken = refreshToken, Token = token },
+                        new AuthResponse { Expiration = expiration.Value, RefreshToken = refreshToken, Token = persistedToken },
                         this,
                         _httpClient,
                         lastWriteTime);

@@ -1,6 +1,9 @@
-﻿using Beutl.Editor.Components.TerminalTab;
+﻿using System.Text.Json.Nodes;
+
+using Beutl.Editor.Components.TerminalTab;
 using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
@@ -156,6 +159,56 @@ public class TerminalTabViewModelTests
         string? result = TerminalTabViewModel.ResolveWorkingDirectory(editorContext);
 
         Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public void Header_NumbersEachInstance()
+    {
+        var scene = new Scene(640, 480, string.Empty);
+        var editorContext = new TestEditorContext(scene);
+        using var first = new TerminalTabViewModel(editorContext);
+        using var second = new TerminalTabViewModel(editorContext);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.InstanceNumber, Is.EqualTo(first.InstanceNumber + 1));
+            Assert.That(first.Header.Value, Is.EqualTo($"{Strings.Terminal} {first.InstanceNumber}"));
+            Assert.That(second.Header.Value, Is.Not.EqualTo(first.Header.Value));
+        });
+    }
+
+    [Test]
+    public void Header_AppendsTheTitleTheShellReports()
+    {
+        var scene = new Scene(640, 480, string.Empty);
+        using var viewModel = new TerminalTabViewModel(new TestEditorContext(scene));
+        string numbered = viewModel.Header.Value;
+
+        viewModel.TerminalTitle.Value = "  vim Program.cs  ";
+        Assert.That(viewModel.Header.Value, Is.EqualTo($"{numbered}: vim Program.cs"));
+
+        viewModel.TerminalTitle.Value = "   ";
+        Assert.That(viewModel.Header.Value, Is.EqualTo(numbered));
+    }
+
+    [Test]
+    public void Instance_numbers_stay_unique_across_a_view_state_round_trip()
+    {
+        var scene = new Scene(640, 480, string.Empty);
+        var editorContext = new TestEditorContext(scene);
+        using var sceneA = new TerminalTabViewModel(editorContext);
+        var json = new JsonObject();
+        sceneA.WriteToJson(json);
+
+        using var sceneB = new TerminalTabViewModel(editorContext);
+        sceneB.ReadFromJson(json);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(json, Is.Empty);
+            Assert.That(sceneB.InstanceNumber, Is.Not.EqualTo(sceneA.InstanceNumber));
+            Assert.That(sceneB.Header.Value, Is.Not.EqualTo(sceneA.Header.Value));
+        });
     }
 
     [Test]

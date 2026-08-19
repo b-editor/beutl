@@ -20,4 +20,35 @@ public sealed partial class AudioEffectGroup : AudioEffect
         return Children.Where(item => item.IsEnabled)
             .Aggregate(inputNode, (current, item) => item.CreateNode(context, current));
     }
+
+    // Report the same enabled serial cascade that CreateNode builds.
+    public override int GetLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        if (!IsEnabled)
+            return 0;
+
+        long total = 0;
+        foreach (AudioEffect item in Children)
+        {
+            if (!item.IsEnabled)
+                continue;
+
+            int latency = item.GetLatencySamples(sampleRate);
+            if (latency < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{item.GetType().Name} reported a negative latency ({latency} samples).");
+            }
+
+            if (latency == int.MaxValue)
+                return int.MaxValue;
+
+            total += latency;
+            if (total >= int.MaxValue)
+                return int.MaxValue;
+        }
+
+        return (int)total;
+    }
 }
