@@ -149,11 +149,127 @@ public sealed class LegacyFilterRequiredRegionTests
         });
     }
 
+    [Test]
+    public void OutOfDomainMorphologyRadius_RecordsNoStageAndLeavesTheDeclaredBoundsAlone(
+        [Values(-6f, 0f)] float radius)
+    {
+        var bounds = new Rect(0, 0, 120, 80);
+        using var dilate = new FilterEffectContext(bounds);
+        using var erode = new FilterEffectContext(bounds);
+
+        dilate.Dilate(radius, radius);
+        erode.Erode(radius, radius);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dilate.CountItems(), Is.Zero,
+                "a morphology radius outside the operation's domain must record no stage");
+            Assert.That(erode.CountItems(), Is.Zero,
+                "a morphology radius outside the operation's domain must record no stage");
+            Assert.That(dilate.Bounds, Is.EqualTo(bounds),
+                "a pass-through must not deflate the declared output bounds");
+            Assert.That(erode.Bounds, Is.EqualTo(bounds));
+        });
+    }
+
+    [Test]
+    public void MixedSignDilateRadius_StillRecordsTheInDomainAxis()
+    {
+        var bounds = new Rect(0, 0, 120, 80);
+        using var context = new FilterEffectContext(bounds);
+
+        context.Dilate(-6, 5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.CountItems(), Is.EqualTo(1),
+                "clamping is per axis, so an in-domain y radius still describes a real dilate");
+            Assert.That(context.Bounds, Is.EqualTo(new Rect(0, -5, 120, 90)),
+                "only the in-domain axis may grow the declared output bounds");
+        });
+    }
+
+    [Test]
+    public void NegativeDilateRadius_RasterizesTheCompleteSource(
+        [Values(RenderIntent.Preview, RenderIntent.Delivery)] RenderIntent intent)
+    {
+        var sourceBounds = new Rect(0, 0, 120, 80);
+
+        (Rect passThroughBounds, float[] passThroughAlpha, int passThroughWidth) =
+            RasterizeDilatedSquare(sourceBounds, radius: 0, intent);
+        (Rect negativeBounds, float[] negativeAlpha, int negativeWidth) =
+            RasterizeDilatedSquare(sourceBounds, radius: -6, intent);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(negativeBounds, Is.EqualTo(sourceBounds),
+                "a dilate can never delete source content, so a negative radius must be a pass-through");
+            Assert.That(negativeWidth, Is.EqualTo(passThroughWidth));
+            Assert.That(passThroughBounds, Is.EqualTo(sourceBounds));
+        });
+        Assert.That(negativeAlpha, Is.EqualTo(passThroughAlpha).Within(0.01f));
+    }
+
+    [Test]
+    public void NegativeDilateRadiusWiderThanHalfTheSource_DoesNotFailADeliveryRender()
+    {
+        var sourceBounds = new Rect(0, 0, 120, 80);
+
+        // A radius past half the shorter side is where an unclamped deflation turns the declared
+        // output negative-extent, which the flush reports as a non-allocatable delivery failure.
+        (Rect bounds, float[] alpha, _) = RasterizeDilatedSquare(sourceBounds, radius: -21, RenderIntent.Delivery);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bounds, Is.EqualTo(sourceBounds));
+            Assert.That(alpha, Has.Some.GreaterThan(0.01f), "the frame must not be blank");
+        });
+    }
+
     private static FilterEffectRenderNode CreateBlurNode(float sigma)
     {
         var blur = new Blur();
         blur.Sigma.CurrentValue = new Size(sigma, sigma);
         return new FilterEffectRenderNode(blur.ToResource(CompositionContext.Default));
+    }
+
+    private static FilterEffectRenderNode CreateDilateNode(float radius)
+    {
+        var dilate = new Dilate();
+        dilate.RadiusX.CurrentValue = radius;
+        dilate.RadiusY.CurrentValue = radius;
+        return new FilterEffectRenderNode(dilate.ToResource(CompositionContext.Default));
+    }
+
+    private static (Rect Bounds, float[] Alpha, int Width) RasterizeDilatedSquare(
+        Rect sourceBounds,
+        float radius,
+        RenderIntent intent)
+    {
+        using FilterEffectRenderNode filter = CreateDilateNode(radius);
+        filter.AddChild(new RectangleRenderNode(sourceBounds, Brushes.Resource.White, null));
+        using var renderer = new RenderNodeRenderer(
+            filter,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = intent,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new BudgetedCpuTargetFactory(int.MaxValue),
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Bitmap bitmap = rasterization.Bitmap
+                        ?? throw new InvalidOperationException("The dilate render produced no bitmap.");
+
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        var alpha = new float[bitmap.Width * bitmap.Height];
+        for (int index = 0; index < alpha.Length; index++)
+            alpha[index] = (float)BitConverter.UInt16BitsToHalf(pixels[(index * 4) + 3]);
+
+        return (rasterization.Bounds, alpha, bitmap.Width);
     }
 
     private static FilterEffectRenderNode CreateErodeNode(float radius)

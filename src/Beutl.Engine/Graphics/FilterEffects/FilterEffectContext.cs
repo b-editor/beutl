@@ -506,26 +506,38 @@ public sealed class FilterEffectContext : IDisposable
 
     public void Erode(float radiusX, float radiusY)
     {
+        if (!TryClampMorphologyRadius(ref radiusX, ref radiusY))
+            return;
+
         AppendSkiaFilter(
             (radiusX, radiusY),
             (data, input, _) => SKImageFilter.CreateErode(data.radiusX, data.radiusY, input),
             (data, rect) => rect,
             // Erode shrinks its declared output but still reads the whole radius neighbourhood.
-            (data, region) => region.Inflate(MorphologyRadius(data.radiusX, data.radiusY)));
+            (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)));
     }
 
     public void Dilate(float radiusX, float radiusY)
     {
+        if (!TryClampMorphologyRadius(ref radiusX, ref radiusY))
+            return;
+
         AppendSkiaFilter(
             (radiusX, radiusY),
             (data, input, _) => SKImageFilter.CreateDilate(data.radiusX, data.radiusY, input),
             (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)),
-            (data, region) => region.Inflate(MorphologyRadius(data.radiusX, data.radiusY)));
+            (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)));
     }
 
-    // Skia rejects a negative morphology radius, so such a filter degrades to a pass-through.
-    private static Thickness MorphologyRadius(float radiusX, float radiusY)
-        => new(MathF.Max(radiusX, 0), MathF.Max(radiusY, 0));
+    // Skia rejects a negative morphology radius, so it degrades to a pass-through. The all-zero
+    // case records no stage rather than an identity one because a degenerate stage still re-grids
+    // the content through an intermediate and shifts antialiased edges.
+    private static bool TryClampMorphologyRadius(ref float radiusX, ref float radiusY)
+    {
+        radiusX = MathF.Max(radiusX, 0);
+        radiusY = MathF.Max(radiusY, 0);
+        return radiusX != 0 || radiusY != 0;
+    }
 
     public void ColorMatrix(in ColorMatrix matrix)
     {
