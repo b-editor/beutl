@@ -509,6 +509,13 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         {
             operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
         }
+        // The job ran and was charged for; only fetching what it produced
+        // failed, and that is still waiting in the job history.
+        catch (AiContentUnavailableException ex)
+        {
+            _logger.LogError(ex, "Failed to download the AI result.");
+            operation.TryPublish(() => Error.Value = Strings.AiResultDownloadFailed);
+        }
         catch (AiProviderErrorException)
         {
             operation.TryPublish(() => Error.Value = Strings.AiProviderError);

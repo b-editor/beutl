@@ -40,12 +40,26 @@ public sealed class AiUploadSource
     public long? Length { get; }
 
     public static AiUploadSource FromFile(string filePath)
+        => FromFile(filePath, Path.GetFileName(Path.GetFullPath(filePath)));
+
+    /// <summary>
+    /// The same file sent under a name of the caller's choosing.
+    /// </summary>
+    /// <remarks>
+    /// The server fingerprints a request by, among other things, the name the
+    /// file was uploaded under, and a request that repeats an idempotency key
+    /// with a different fingerprint is refused. A caller that wants a retry to
+    /// recover the result it already paid for therefore has to send the same
+    /// name every time — which a temporary path, named for uniqueness on disk,
+    /// cannot do.
+    /// </remarks>
+    public static AiUploadSource FromFile(string filePath, string fileName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         string fullPath = Path.GetFullPath(filePath);
         long length = new FileInfo(fullPath).Length;
         return new AiUploadSource(
-            Path.GetFileName(fullPath),
+            fileName,
             AiMediaTypes.Get(fullPath),
             cancellationToken =>
             {

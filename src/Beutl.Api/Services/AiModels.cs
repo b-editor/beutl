@@ -252,6 +252,12 @@ public static class AiRequestLimits
 
     public const long MaxImageUploadBytes = 20L * 1024 * 1024;
 
+    // What the transcription endpoint takes in one upload. Speech is sent as
+    // 16 kHz mono 16-bit PCM, so this is a little under fourteen minutes of it:
+    // audio longer than that has to be split before it is sent, and a caller
+    // that sends it anyway is refused after the whole upload has gone out.
+    public const long MaxTranscriptionUploadBytes = 25L * 1024 * 1024;
+
     // What the server is priced for. Each model publishes its own count and the
     // smaller of the two is what may be sent; this client sends one picture
     // today, and the number is what a server that publishes nothing is read as.
@@ -303,6 +309,28 @@ public static class AiRequestLimits
         if (seed.Value is < MinSeed or > MaxSeed)
             throw new ArgumentOutOfRangeException(parameterName);
         return seed;
+    }
+
+    // The server holds an idempotency key to printable ASCII and refuses the
+    // request outright when it does not match, so a key that could never be
+    // accepted is caught here rather than after the whole upload has gone out.
+    internal static string? ValidateOptionalIdempotencyKey(string? key, string parameterName)
+    {
+        if (key is null)
+            return null;
+        if (key.Length is 0 or > 255)
+            throw new ArgumentException("The idempotency key length is invalid.", parameterName);
+        foreach (char character in key)
+        {
+            if (character is < '\u0021' or > '\u007e')
+            {
+                throw new ArgumentException(
+                    "An idempotency key may only contain printable ASCII.",
+                    parameterName);
+            }
+        }
+
+        return key;
     }
 
     // A default-constructed AiModelId carries no id, and sending an empty
@@ -510,12 +538,19 @@ public sealed record AiTranscriptionRequest
     public AiTranscriptionRequest(
         AiUploadSource audio,
         string? language = null,
-        AiModelId? model = null)
+        AiModelId? model = null,
+        string? idempotencyKey = null)
     {
         ArgumentNullException.ThrowIfNull(audio);
+        if (audio.Length > AiRequestLimits.MaxTranscriptionUploadBytes)
+            throw new AiFileTooLargeException();
+
         Audio = audio;
         Language = string.IsNullOrWhiteSpace(language) ? null : language.Trim();
         Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
+            idempotencyKey,
+            nameof(idempotencyKey));
     }
 
     public AiUploadSource Audio { get; }
@@ -523,6 +558,20 @@ public sealed record AiTranscriptionRequest
     public string? Language { get; }
 
     public AiModelId? Model { get; }
+
+    /// <summary>
+    /// Names this request, so that sending it again asks the server for the
+    /// same one rather than for another.
+    /// </summary>
+    /// <remarks>
+    /// A transcription is charged when it is accepted, and the server answers a
+    /// repeat of a key it has already seen with the result that key produced —
+    /// free, and even while the first attempt is still running. A caller that
+    /// retries after a lost response, or resumes a run it split into chunks,
+    /// must send the key it used the first time or it pays twice for one piece
+    /// of audio. Left unset, each attempt is a new request.
+    /// </remarks>
+    public string? IdempotencyKey { get; }
 }
 
 /// <summary>

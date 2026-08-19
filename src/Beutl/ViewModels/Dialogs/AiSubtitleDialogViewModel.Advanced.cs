@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Reactive.Disposables;
+using System.Security.Cryptography;
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
@@ -29,7 +30,12 @@ public sealed partial class AiSubtitleDialogViewModel
 {
     private const int TranslationBatchSegmentLimit = 200;
     private const int TranslationBatchCharacterLimit = 20_000;
+    // Long enough to keep the number of paid requests down, short enough that a
+    // chunk stays inside what one upload may carry: 16 kHz mono 16-bit PCM runs
+    // at 32 kB a second, so the endpoint's 25 MiB stops a little under fourteen
+    // minutes.
     private static readonly TimeSpan s_sceneMixChunkDuration = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan s_sceneMixComposeSlice = TimeSpan.FromSeconds(5);
     private readonly CompositeDisposable _captionDisposables = [];
     private readonly ObservableCollection<EditableCaptionCueViewModel> _editableCues = [];
     private readonly ReactivePropertySlim<long> _transcriptionEstimateRevision = new();
@@ -115,6 +121,14 @@ public sealed partial class AiSubtitleDialogViewModel
             _sceneMixChunkDuration = value;
         }
     }
+
+    /// <summary>
+    /// How much of the scene one composition call asks for. An upload chunk is
+    /// minutes long, and composing that in one call materializes every sample in
+    /// it as float — hundreds of megabytes — while the compose thread, and the
+    /// editor waiting on it, can do nothing else.
+    /// </summary>
+    internal static TimeSpan SceneMixComposeSlice => s_sceneMixComposeSlice;
 
     internal Func<TimeSpan, TimeSpan, CancellationToken, Task<AudioFrameSnapshot?>>?
         SceneMixAudioComposer
@@ -364,9 +378,14 @@ public sealed partial class AiSubtitleDialogViewModel
         long draftScopeRevision)
     {
         SourceAudioFingerprint fingerprint = GetSourceAudioFingerprint(filePath);
-        using MediaReader reader = MediaReader.Open(
-            filePath,
-            new MediaOptions(MediaMode.Audio) { PreferProxy = false });
+        // Opening and decoding are the editor's own work, not the server's, and
+        // both run for as long as the audio is: off the UI thread, or the window
+        // stops answering for the length of the file.
+        using MediaReader reader = await Task.Run(
+            () => MediaReader.Open(
+                filePath,
+                new MediaOptions(MediaMode.Audio) { PreferProxy = false }),
+            _lifetimeCts.Token);
         if (!reader.HasAudio)
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
@@ -431,11 +450,13 @@ public sealed partial class AiSubtitleDialogViewModel
                 SpeechWaveChunkResult chunk;
                 using (stream)
                 {
-                    chunk = WriteSpeechWave(
-                        reader,
-                        checked((int)chunkOffset),
-                        requestedSamples,
-                        stream,
+                    chunk = await Task.Run(
+                        () => WriteSpeechWave(
+                            reader,
+                            checked((int)chunkOffset),
+                            requestedSamples,
+                            stream,
+                            _lifetimeCts.Token),
                         _lifetimeCts.Token);
                 }
                 if (chunk.SourceSampleCount <= 0)
@@ -453,9 +474,14 @@ public sealed partial class AiSubtitleDialogViewModel
                         TranscriptionModelPicker.SelectedModel));
                 AiTranscriptionResponse response = await _aiService.TranscribeAsync(
                     new AiTranscriptionRequest(
-                        AiUploadSource.FromFile(path),
+                        AiUploadSource.FromFile(
+                            path,
+                            FormatChunkFileName("source", chunkIndex)),
                         language,
-                        TranscriptionModelPicker.SelectedModel),
+                        TranscriptionModelPicker.SelectedModel,
+                        operation.RequestKeyFor(
+                            chunkIndex,
+                            TranscriptionModelPicker.SelectedModel)),
                     _lifetimeCts.Token);
                 operation.DetectedLanguage ??= response.Language;
                 double offsetSeconds = chunkOffset / (double)operation.SampleRate;
@@ -545,14 +571,6 @@ public sealed partial class AiSubtitleDialogViewModel
                 Math.Min(duration.Ticks, index * operation.ChunkDuration.Ticks));
             TimeSpan chunkDuration = TimeSpan.FromTicks(
                 Math.Min(operation.ChunkDuration.Ticks, duration.Ticks - chunkOffset.Ticks));
-            AudioFrameSnapshot? snapshot = SceneMixAudioComposer is { } composer
-                ? await composer(rangeStart + chunkOffset, chunkDuration, _lifetimeCts.Token)
-                : await ((IPreviewPlayer)_editViewModel.Player)
-                    .ComposeAudioAsync(rangeStart + chunkOffset, chunkDuration, _lifetimeCts.Token);
-            _lifetimeCts.Token.ThrowIfCancellationRequested();
-            if (snapshot is null || snapshot.SampleCount == 0)
-                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
-
             await EnsureAvailableAsync(
                 new AiOperationAvailabilityRequest.Transcription(
                     chunkDuration.TotalSeconds,
@@ -566,13 +584,22 @@ public sealed partial class AiSubtitleDialogViewModel
             {
                 using (stream)
                 {
-                    WriteSpeechWave(snapshot, stream, _lifetimeCts.Token);
+                    await WriteSceneMixWaveAsync(
+                        stream,
+                        rangeStart + chunkOffset,
+                        chunkDuration,
+                        _lifetimeCts.Token);
                 }
                 AiTranscriptionResponse response = await _aiService.TranscribeAsync(
                     new AiTranscriptionRequest(
-                        AiUploadSource.FromFile(path),
+                        AiUploadSource.FromFile(
+                            path,
+                            FormatChunkFileName("scene-mix", index)),
                         language,
-                        TranscriptionModelPicker.SelectedModel),
+                        TranscriptionModelPicker.SelectedModel,
+                        operation.RequestKeyFor(
+                            index,
+                            TranscriptionModelPicker.SelectedModel)),
                     _lifetimeCts.Token);
                 operation.DetectedLanguage ??= response.Language;
                 foreach (AiTranscriptionSegment segment in response.Segments)
@@ -614,6 +641,32 @@ public sealed partial class AiSubtitleDialogViewModel
         DetectedLanguageText.Value = CreateDetectedLanguageText(_lastCaptionLanguage);
         ResultSegments.Value = CloneSegments(operation.Segments);
         ClearPartialResult();
+    }
+
+    private async Task WriteSceneMixWaveAsync(
+        Stream stream,
+        TimeSpan start,
+        TimeSpan duration,
+        CancellationToken cancellationToken)
+    {
+        var writer = new SpeechWaveWriter(stream);
+        for (TimeSpan offset = TimeSpan.Zero; offset < duration; offset += SceneMixComposeSlice)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            TimeSpan sliceDuration = TimeSpan.FromTicks(
+                Math.Min(SceneMixComposeSlice.Ticks, (duration - offset).Ticks));
+            AudioFrameSnapshot? snapshot = SceneMixAudioComposer is { } composer
+                ? await composer(start + offset, sliceDuration, cancellationToken)
+                : await ((IPreviewPlayer)_editViewModel!.Player)
+                    .ComposeAudioAsync(start + offset, sliceDuration, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (snapshot is null || snapshot.SampleCount == 0)
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+            writer.Append(snapshot, cancellationToken);
+        }
+
+        writer.Complete();
     }
 
     private async Task TranslateCore()
@@ -1119,7 +1172,8 @@ public sealed partial class AiSubtitleDialogViewModel
                 sourceTranscription.ChunkCount,
                 CloneSegments(sourceTranscription.SourceSegments),
                 sourceTranscription.DetectedLanguage,
-                sourceTranscription.CompletedChunkCount);
+                sourceTranscription.CompletedChunkCount,
+                sourceTranscription.RequestKeySeed);
         }
 
         return new CaptionDraft(
@@ -1260,7 +1314,8 @@ public sealed partial class AiSubtitleDialogViewModel
                     source.ChunkSamples,
                     source.ChunkCount,
                     Interlocked.Read(ref _captionDocumentRevision),
-                    draftScopeRevision)
+                    draftScopeRevision,
+                    string.IsNullOrEmpty(source.RequestKeySeed) ? null : source.RequestKeySeed)
                 {
                     CompletedChunkCount = source.CompletedChunkCount,
                     DetectedLanguage = source.DetectedLanguage,
@@ -1927,6 +1982,32 @@ public sealed partial class AiSubtitleDialogViewModel
         IReadOnlyList<CaptionValidationIssue> issues)
         => issues.Where(issue => issue.Kind != CaptionValidationIssueKind.Overlap).ToArray();
 
+    private static string NewRequestKeySeed() => Guid.NewGuid().ToString("N");
+
+    // One key per chunk, derived from the run's seed so that resuming — even in
+    // another session — reproduces the key the chunk was first sent under. The
+    // server holds a key to printable ASCII, which this is.
+    //
+    // The model belongs in it because the server refuses a key that comes back
+    // with a different request behind it, and it fingerprints the model. A
+    // chunk sent to another model is another request and takes another key,
+    // which is also what it costs.
+    private static string FormatChunkRequestKey(
+        string seed,
+        int chunkIndex,
+        AiModelId? model)
+        => $"{seed}-{ShortHash(model?.Value ?? string.Empty)}-{chunkIndex}";
+
+    private static string ShortHash(string value)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)).AsSpan(0, 8))
+            .ToLowerInvariant();
+
+    // The name the chunk is uploaded under. Part of what the server fingerprints
+    // the request by, so it has to be the same on every attempt at one chunk;
+    // the file it is read from is named for uniqueness on disk instead.
+    private static string FormatChunkFileName(string prefix, int chunkIndex)
+        => $"{prefix}-chunk-{chunkIndex:D4}.wav";
+
     private static IReadOnlyList<CaptionLanguageOption> CreateLanguageOptions(bool includeAuto)
     {
         var result = new List<CaptionLanguageOption>();
@@ -2093,64 +2174,6 @@ public sealed partial class AiSubtitleDialogViewModel
         }
     }
 
-    internal static void WriteSpeechWave(
-        AudioFrameSnapshot snapshot,
-        string path,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        WriteSpeechWave(snapshot, stream, cancellationToken);
-    }
-
-    internal static void WriteSpeechWave(
-        AudioFrameSnapshot snapshot,
-        Stream stream,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (snapshot.SampleRate <= 0 || snapshot.ChannelCount <= 0 || snapshot.SampleCount <= 0)
-            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
-
-        int outputRate = Math.Min(snapshot.SampleRate, 16_000);
-        double sourceFramesPerOutputFrame = snapshot.SampleRate / (double)outputRate;
-        int outputFrames = Math.Max(1, (int)Math.Floor(snapshot.SampleCount / sourceFramesPerOutputFrame));
-        int dataLength = checked(outputFrames * sizeof(short));
-        using var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true);
-        writer.Write(Encoding.ASCII.GetBytes("RIFF"));
-        writer.Write(36 + dataLength);
-        writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
-        writer.Write(16);
-        writer.Write((short)1);
-        writer.Write((short)1);
-        writer.Write(outputRate);
-        writer.Write(outputRate * sizeof(short));
-        writer.Write((short)sizeof(short));
-        writer.Write((short)16);
-        writer.Write(Encoding.ASCII.GetBytes("data"));
-        writer.Write(dataLength);
-
-        for (int outputIndex = 0; outputIndex < outputFrames; outputIndex++)
-        {
-            if ((outputIndex & 4095) == 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-
-            int sourceFrame = Math.Min(
-                snapshot.SampleCount - 1,
-                (int)Math.Floor(outputIndex * sourceFramesPerOutputFrame));
-            double mono = 0;
-            for (int channel = 0; channel < snapshot.ChannelCount; channel++)
-            {
-                float sample = snapshot.Interleaved[sourceFrame * snapshot.ChannelCount + channel];
-                mono += float.IsFinite(sample) ? sample : 0;
-            }
-            mono = Math.Clamp(mono / snapshot.ChannelCount, -1, 1);
-            writer.Write((short)Math.Round(mono * short.MaxValue));
-        }
-    }
-
     internal static SpeechWaveChunkResult WriteSpeechWave(
         MediaReader reader,
         int startSample,
@@ -2230,7 +2253,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     mono = double.IsFinite(mono) ? Math.Clamp(mono, -1, 1) : 0;
                     writer.Write((short)Math.Round(mono * short.MaxValue));
                     outputSamplesWritten++;
-                    nextOutputSourcePosition = outputSamplesWritten * sourceRate / (double)outputRate;
+                    nextOutputSourcePosition = outputSamplesWritten * (double)sourceRate / outputRate;
                 }
                 sourceSamplesWritten += decodedSamples;
                 if (decodedSamples < length)
@@ -2251,6 +2274,104 @@ public sealed partial class AiSubtitleDialogViewModel
             sourceSamplesWritten,
             outputSamplesWritten,
             TimeSpan.FromSeconds(sourceSamplesWritten / (double)sourceRate));
+    }
+
+    /// <summary>
+    /// Writes one 16-bit mono PCM wave from as many composed slices as it is
+    /// handed. The slices are separate calls because a whole upload chunk cannot
+    /// be composed at once (see <see cref="SceneMixComposeSlice"/>), and the
+    /// resampling position carries across them so a slice boundary neither drops
+    /// a sample nor shifts the ones after it.
+    /// </summary>
+    internal sealed class SpeechWaveWriter(Stream stream)
+    {
+        private const int WaveHeaderLength = 44;
+        private const int MaximumOutputRate = 16_000;
+        private readonly Stream _stream = stream;
+        private int _sourceRate;
+        private int _outputRate;
+        private long _sourceFramesWritten;
+        private double _nextOutputSourcePosition;
+        private int _outputSampleCount;
+
+        public void Append(AudioFrameSnapshot snapshot, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(snapshot);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (snapshot.SampleRate <= 0 || snapshot.ChannelCount <= 0 || snapshot.SampleCount <= 0)
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+            if (_sourceRate == 0)
+            {
+                _sourceRate = snapshot.SampleRate;
+                _outputRate = Math.Min(_sourceRate, MaximumOutputRate);
+                WriteHeader();
+            }
+            else if (snapshot.SampleRate != _sourceRate)
+            {
+                // Resampling assumes one rate for the whole wave; a slice at another
+                // rate would land its samples at the wrong time.
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+            }
+
+            using var writer = new BinaryWriter(_stream, Encoding.ASCII, leaveOpen: true);
+            long sliceStart = _sourceFramesWritten;
+            long sliceEnd = sliceStart + snapshot.SampleCount;
+            while (_nextOutputSourcePosition < sliceEnd)
+            {
+                if ((_outputSampleCount & 4095) == 0)
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                int frame = (int)Math.Clamp(
+                    (long)Math.Floor(_nextOutputSourcePosition) - sliceStart,
+                    0,
+                    snapshot.SampleCount - 1);
+                double mono = 0;
+                for (int channel = 0; channel < snapshot.ChannelCount; channel++)
+                {
+                    float sample = snapshot.Interleaved[(frame * snapshot.ChannelCount) + channel];
+                    mono += float.IsFinite(sample) ? sample : 0;
+                }
+
+                mono = Math.Clamp(mono / snapshot.ChannelCount, -1, 1);
+                writer.Write((short)Math.Round(mono * short.MaxValue));
+                _outputSampleCount++;
+                _nextOutputSourcePosition = _outputSampleCount * (double)_sourceRate / _outputRate;
+            }
+
+            _sourceFramesWritten = sliceEnd;
+        }
+
+        public void Complete()
+        {
+            if (_outputSampleCount == 0)
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+            int dataLength = checked(_outputSampleCount * sizeof(short));
+            using var writer = new BinaryWriter(_stream, Encoding.ASCII, leaveOpen: true);
+            _stream.Position = 4;
+            writer.Write(checked(WaveHeaderLength - 8 + dataLength));
+            _stream.Position = 40;
+            writer.Write(dataLength);
+            _stream.Position = WaveHeaderLength + dataLength;
+        }
+
+        private void WriteHeader()
+        {
+            using var writer = new BinaryWriter(_stream, Encoding.ASCII, leaveOpen: true);
+            writer.Write(Encoding.ASCII.GetBytes("RIFF"));
+            writer.Write(0);
+            writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
+            writer.Write(16);
+            writer.Write((short)1);
+            writer.Write((short)1);
+            writer.Write(_outputRate);
+            writer.Write(_outputRate * sizeof(short));
+            writer.Write((short)sizeof(short));
+            writer.Write((short)16);
+            writer.Write(Encoding.ASCII.GetBytes("data"));
+            writer.Write(0);
+        }
     }
 
     private FilePickerFileType CreateCaptionFileType()
@@ -2324,9 +2445,20 @@ public sealed partial class AiSubtitleDialogViewModel
         long expectedCaptionRevision,
         long expectedDraftScopeRevision,
         long expectedSceneAudioRevision,
-        Guid sceneId)
+        Guid sceneId,
+        string? requestKeySeed = null)
     {
         public AudioSourceItem? Source { get; set; } = source;
+
+        /// <summary>
+        /// Names this run's requests, one key per chunk. Held with the rest of
+        /// the resume state so a retried chunk asks for the transcription it
+        /// already paid for instead of buying a second one.
+        /// </summary>
+        public string RequestKeySeed { get; } = requestKeySeed ?? NewRequestKeySeed();
+
+        public string RequestKeyFor(int chunkIndex, AiModelId? model) =>
+            FormatChunkRequestKey(RequestKeySeed, chunkIndex, model);
 
         public string? Language { get; } = language;
 
@@ -2365,9 +2497,20 @@ public sealed partial class AiSubtitleDialogViewModel
         int chunkSamples,
         int chunkCount,
         long expectedCaptionRevision,
-        long expectedDraftScopeRevision)
+        long expectedDraftScopeRevision,
+        string? requestKeySeed = null)
     {
         public AudioSourceItem? Source { get; set; } = source;
+
+        /// <summary>
+        /// Names this run's requests, one key per chunk. Restored with the rest
+        /// of the resume state so a chunk resumed after a restart asks for the
+        /// transcription it already paid for instead of buying a second one.
+        /// </summary>
+        public string RequestKeySeed { get; } = requestKeySeed ?? NewRequestKeySeed();
+
+        public string RequestKeyFor(int chunkIndex, AiModelId? model) =>
+            FormatChunkRequestKey(RequestKeySeed, chunkIndex, model);
 
         public string FilePath { get; } = filePath;
 

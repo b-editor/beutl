@@ -29,46 +29,79 @@ public sealed class AiSubtitleAdvancedTests
     [Test]
     public void SpeechWave_DownmixesAndResamplesToCompactPcm16()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.wav");
-        try
-        {
-            const int sampleRate = 48_000;
-            float[] stereo = Enumerable.Repeat(new[] { 0.5f, -0.5f }, sampleRate)
-                .SelectMany(value => value)
-                .ToArray();
-            var snapshot = new AudioFrameSnapshot(stereo, sampleRate, 2, TimeSpan.Zero);
+        const int sampleRate = 48_000;
+        float[] stereo = Enumerable.Repeat(new[] { 0.5f, -0.5f }, sampleRate)
+            .SelectMany(value => value)
+            .ToArray();
+        using var stream = new MemoryStream();
 
-            AiSubtitleDialogViewModel.WriteSpeechWave(snapshot, path, CancellationToken.None);
+        var writer = new AiSubtitleDialogViewModel.SpeechWaveWriter(stream);
+        writer.Append(new AudioFrameSnapshot(stereo, sampleRate, 2, TimeSpan.Zero), CancellationToken.None);
+        writer.Complete();
 
-            byte[] bytes = File.ReadAllBytes(path);
-            Assert.Multiple(() =>
-            {
-                Assert.That(Encoding.ASCII.GetString(bytes, 0, 4), Is.EqualTo("RIFF"));
-                Assert.That(BitConverter.ToInt32(bytes, 24), Is.EqualTo(16_000));
-                Assert.That(BitConverter.ToInt16(bytes, 22), Is.EqualTo(1));
-                Assert.That(bytes.Length, Is.EqualTo(44 + 16_000 * sizeof(short)));
-            });
-        }
-        finally
+        byte[] bytes = stream.ToArray();
+        Assert.Multiple(() =>
         {
-            File.Delete(path);
-        }
+            Assert.That(Encoding.ASCII.GetString(bytes, 0, 4), Is.EqualTo("RIFF"));
+            Assert.That(BitConverter.ToInt32(bytes, 4), Is.EqualTo(bytes.Length - 8));
+            Assert.That(BitConverter.ToInt32(bytes, 24), Is.EqualTo(16_000));
+            Assert.That(BitConverter.ToInt16(bytes, 22), Is.EqualTo(1));
+            Assert.That(BitConverter.ToInt32(bytes, 40), Is.EqualTo(16_000 * sizeof(short)));
+            Assert.That(bytes.Length, Is.EqualTo(44 + (16_000 * sizeof(short))));
+        });
     }
 
     [Test]
-    public void SpeechWave_PreCanceledRequestDoesNotCreateTemporaryFile()
+    public void SpeechWave_JoinsSlicesWithoutDroppingOrShiftingSamples()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.wav");
-        var snapshot = new AudioFrameSnapshot(new float[32_000], 16_000, 1, TimeSpan.Zero);
+        const int sampleRate = 48_000;
+        using var stream = new MemoryStream();
+        var writer = new AiSubtitleDialogViewModel.SpeechWaveWriter(stream);
+
+        float[] levels = [0.5f, -0.5f, 0.25f];
+        for (int slice = 0; slice < levels.Length; slice++)
+        {
+            float[] mono = Enumerable.Repeat(levels[slice], sampleRate).ToArray();
+            writer.Append(
+                new AudioFrameSnapshot(mono, sampleRate, 1, TimeSpan.FromSeconds(slice)),
+                CancellationToken.None);
+        }
+
+        writer.Complete();
+
+        byte[] bytes = stream.ToArray();
+        short[] samples = new short[(bytes.Length - 44) / sizeof(short)];
+        Buffer.BlockCopy(bytes, 44, samples, 0, bytes.Length - 44);
+        Assert.Multiple(() =>
+        {
+            // Three one-second slices are one three-second wave: a boundary that
+            // dropped or repeated a sample would move every word after it.
+            Assert.That(samples, Has.Length.EqualTo(3 * 16_000));
+            Assert.That(BitConverter.ToInt32(bytes, 40), Is.EqualTo(3 * 16_000 * sizeof(short)));
+            for (int slice = 0; slice < levels.Length; slice++)
+            {
+                short expected = (short)Math.Round(levels[slice] * short.MaxValue);
+                Assert.That(
+                    samples.Skip(slice * 16_000).Take(16_000),
+                    Is.All.EqualTo(expected),
+                    $"Slice {slice} lands whole in the wave.");
+            }
+        });
+    }
+
+    [Test]
+    public void SpeechWave_PreCanceledRequestWritesNothing()
+    {
+        using var stream = new MemoryStream();
+        var writer = new AiSubtitleDialogViewModel.SpeechWaveWriter(stream);
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
         Assert.Throws<OperationCanceledException>(() =>
-            AiSubtitleDialogViewModel.WriteSpeechWave(
-                snapshot,
-                path,
+            writer.Append(
+                new AudioFrameSnapshot(new float[32_000], 16_000, 1, TimeSpan.Zero),
                 cancellationTokenSource.Token));
-        Assert.That(File.Exists(path), Is.False);
+        Assert.That(stream.Length, Is.Zero);
     }
 
     [Test]
@@ -98,6 +131,32 @@ public sealed class AiSubtitleAdvancedTests
             Assert.That(BitConverter.ToInt32(bytes, 4), Is.EqualTo(bytes.Length - 8));
             Assert.That(BitConverter.ToInt32(bytes, 40), Is.EqualTo(24_000 * sizeof(short)));
             Assert.That(bytes.Length, Is.EqualTo(44 + 24_000 * sizeof(short)));
+        });
+    }
+
+    [Test]
+    public void SpeechWave_MediaReaderKeepsItsPlaceAcrossAWholeChunk()
+    {
+        const int sampleRate = 48_000;
+        const int decodedSamples = sampleRate * 4;
+        using var reader = new StreamingAudioReader(sampleRate, decodedSamples);
+        using var stream = new MemoryStream();
+
+        SpeechWaveChunkResult result = AiSubtitleDialogViewModel.WriteSpeechWave(
+            reader,
+            startSample: 0,
+            requestedSamples: decodedSamples,
+            stream,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            // The resample cursor is written samples times the source rate, which
+            // leaves int after about three seconds of 48 kHz audio. Wrapped
+            // negative, the cursor never reaches the end of the block and the
+            // loop writes until the disk is full.
+            Assert.That(result.OutputSampleCount, Is.EqualTo(4 * 16_000));
+            Assert.That(stream.Length, Is.EqualTo(44 + (4 * 16_000 * sizeof(short))));
         });
     }
 

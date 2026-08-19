@@ -52,7 +52,12 @@ internal sealed record CaptionSourceTranscriptionResume(
     int ChunkCount,
     AiTranscriptionSegment[] Segments,
     string? DetectedLanguage,
-    int CompletedChunkCount);
+    int CompletedChunkCount,
+    // What the chunks of this run were named to the server. Kept so that a run
+    // resumed in a later session asks for the transcriptions it already paid
+    // for rather than buying them again. Empty in a draft written before this
+    // was recorded, which resumes as a run of its own.
+    string RequestKeySeed = "");
 
 internal sealed record CaptionDraft(
     int Version,

@@ -106,6 +106,70 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task SceneMixTranscription_ComposesTheSceneInSlicesRatherThanOneLongCall()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-subtitle-scene-mix-slices");
+        var requestedDurations = new List<TimeSpan>();
+        byte[]? uploaded = null;
+        int transcriptionRequests = 0;
+        using var handler = new StubHandler(async (request, cancellationToken) =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/transcriptions":
+                    Interlocked.Increment(ref transcriptionRequests);
+                    uploaded = await request.Content!.ReadAsByteArrayAsync(cancellationToken);
+                    return CreateTranscriptionResponse("transcription-slices");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(clients, editor);
+        viewModel.SceneMixChunkDuration = TimeSpan.FromSeconds(12);
+        viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            requestedDurations.Add(duration);
+            int sampleCount = Math.Max(1, (int)Math.Round(duration.TotalSeconds * 16_000));
+            return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
+                new float[sampleCount],
+                16_000,
+                1,
+                start));
+        };
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
+        editor.Scene.Start = TimeSpan.Zero;
+        editor.Scene.Duration = TimeSpan.FromSeconds(12);
+        await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
+
+        await viewModel.Transcribe.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(transcriptionRequests, Is.EqualTo(1),
+                "Slicing is about how the scene is composed, not how much is uploaded at a time.");
+            Assert.That(requestedDurations, Has.Count.GreaterThan(1));
+            Assert.That(
+                requestedDurations,
+                Is.All.LessThanOrEqualTo(AiSubtitleDialogViewModel.SceneMixComposeSlice),
+                "Asking for a whole chunk in one call is what left the editor unresponsive.");
+            Assert.That(
+                requestedDurations.Aggregate(TimeSpan.Zero, (total, slice) => total + slice),
+                Is.EqualTo(TimeSpan.FromSeconds(12)));
+            Assert.That(ReadWaveDataLength(uploaded), Is.EqualTo(12 * 16_000 * sizeof(short)),
+                "Every slice reaches the wave, so no audio is lost at a boundary.");
+            Assert.That(viewModel.Error.Value, Is.Null);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ImageGeneration_SendsTheSeedAsJsonAndTheReferenceAsAnUpload()
     {
         await TestReset.ResetShellAsync();
@@ -1437,17 +1501,26 @@ public sealed class AiDialogWorkflowTests
             "scene-mix-failure-drafts"));
         CaptionDraftScope draftScope = new("user-a", Guid.NewGuid(), editor.Scene.Id);
         int transcriptionRequests = 0;
+        // What each chunk was sent as. A retry that names its request the way
+        // the first attempt did is the difference between recovering a paid
+        // transcription and buying it a second time.
+        var sentKeys = new List<string>();
+        var sentBodies = new List<string>();
         string audioDirectory = AiTemporaryFileStore.GetCategoryDirectory("audio");
         string[] filesBefore = Directory.Exists(audioDirectory)
             ? Directory.GetFiles(audioDirectory, "scene-mix-*.wav")
             : [];
-        using var handler = new StubHandler(request =>
+        using var handler = new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
             {
                 int requestNumber = Interlocked.Increment(ref transcriptionRequests);
+                sentKeys.Add(request.Headers.GetValues("Idempotency-Key").Single());
+                sentBodies.Add(request.Content is null
+                    ? string.Empty
+                    : await request.Content.ReadAsStringAsync(cancellationToken));
                 return requestNumber is 1 or 3
                     ? CreateTranscriptionResponse("transcription-first")
                     : JsonResponse(HttpStatusCode.InternalServerError, """
@@ -1533,6 +1606,19 @@ public sealed class AiDialogWorkflowTests
         {
             Assert.That(transcriptionRequests, Is.EqualTo(3),
                 "The completed first chunk must not be submitted and billed again.");
+            // The failed chunk is asked for again under its own name, so a
+            // failure the server had already charged for comes back as the
+            // result it produced rather than as a second purchase.
+            Assert.That(sentKeys, Has.Count.EqualTo(3));
+            Assert.That(sentKeys[2], Is.EqualTo(sentKeys[1]),
+                "A retried chunk must repeat the key its first attempt used.");
+            Assert.That(sentKeys[0], Is.Not.EqualTo(sentKeys[1]),
+                "Separate chunks are separate requests and must not share a key.");
+            // The name is part of what the server fingerprints, so repeating the
+            // key with a different one would be refused as a conflict.
+            Assert.That(sentBodies[1], Does.Contain("scene-mix-chunk-0001.wav"));
+            Assert.That(sentBodies[2], Does.Contain("scene-mix-chunk-0001.wav"));
+            Assert.That(sentBodies[0], Does.Contain("scene-mix-chunk-0000.wav"));
             Assert.That(viewModel.Cues, Has.Count.EqualTo(2));
             Assert.That(viewModel.HasPartialResult.Value, Is.False);
             Assert.That(filesAfterResume, Is.EqualTo(filesBefore));
@@ -1764,6 +1850,16 @@ public sealed class AiDialogWorkflowTests
             language = "en",
             segments = new[] { new { start = 0.0, end = 0.04, text = "new caption" } },
         }));
+
+    // The wave is one part of a multipart upload, so its own header says how much
+    // audio actually made it into the request.
+    private static int ReadWaveDataLength(byte[]? body)
+    {
+        Assert.That(body, Is.Not.Null);
+        int start = body.AsSpan().IndexOf("RIFF"u8);
+        Assert.That(start, Is.GreaterThanOrEqualTo(0), "The upload carries a wave.");
+        return BitConverter.ToInt32(body, start + 40);
+    }
 
     private static AiImageGenerationDialogViewModel CreateImageGenerationDialog(
         BeutlApiApplication clients,

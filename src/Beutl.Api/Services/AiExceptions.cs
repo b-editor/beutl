@@ -122,6 +122,27 @@ public sealed class AiRequestWasDeletedException : AiException
 }
 
 /// <summary>
+/// The job produced a result, but the file it produced could not be fetched.
+/// The work is done and paid for either way, so it is worth saying so: the
+/// result is still in the job history.
+/// </summary>
+public sealed class AiContentUnavailableException : AiException
+{
+    public AiContentUnavailableException(
+        int statusCode,
+        Exception? innerException = null)
+        : base(
+            $"The AI result could not be downloaded (HTTP {statusCode}).",
+            innerException,
+            isTransient: statusCode >= 500)
+    {
+        StatusCode = statusCode;
+    }
+
+    public int StatusCode { get; }
+}
+
+/// <summary>
 /// The requested AI job is still active and cannot be deleted (409 aiJobIsActive).
 /// </summary>
 public sealed class AiJobIsActiveException : AiException

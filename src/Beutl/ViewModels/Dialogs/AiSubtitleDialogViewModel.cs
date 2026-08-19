@@ -315,6 +315,17 @@ public sealed partial class AiSubtitleDialogViewModel : IToolContext
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProviderError);
         }
+        // Reachable because a chunk keeps its name across attempts: asking again
+        // for one the server is still working on is how its result is recovered
+        // rather than bought twice, and until it finishes the answer is this.
+        catch (AiRequestInProgressException)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestInProgress);
+        }
+        catch (AiRequestWasDeletedException)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted);
+        }
         catch (SubtitleInputException ex)
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message);

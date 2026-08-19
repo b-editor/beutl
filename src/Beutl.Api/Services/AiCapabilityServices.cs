@@ -300,7 +300,9 @@ internal sealed class AiTranscriptionService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        string idempotencyKey = CreateIdempotencyKey();
+        // The caller's key when it has one: that is what lets a retry recover a
+        // transcription already paid for instead of buying it again.
+        string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         cancellationToken.ThrowIfCancellationRequested();
         await using Stream stream = await request.Audio.OpenReadAsync(cancellationToken);
         var filePart = new StreamPart(
@@ -555,7 +557,14 @@ internal sealed class AuthenticatedContentService(BeutlApiApplication applicatio
                         request,
                         HttpCompletionOption.ResponseHeadersRead,
                         requestToken);
-                response.EnsureSuccessStatusCode();
+                if (!response.IsSuccessStatusCode)
+                {
+                    // Said as its own failure rather than as a failed request:
+                    // by the time a result is fetched the job has run and been
+                    // charged for, and the caller has somewhere to send the
+                    // user for it.
+                    throw new AiContentUnavailableException((int)response.StatusCode);
+                }
                 string? fileName = NormalizeContentDispositionFileName(
                     response.Content.Headers.ContentDisposition);
                 string? contentType = response.Content.Headers.ContentType?.MediaType;

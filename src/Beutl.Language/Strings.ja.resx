@@ -1642,6 +1642,15 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiAuthenticationRequired" xml:space="preserve">
     <value>AI 機能を利用するにはサインインが必要です。</value>
   </data>
+  <data name="AiRequestInProgress" xml:space="preserve">
+    <value>同じリクエストがまだサーバーで処理中です。少し待ってからもう一度実行すると、その結果を受け取れます (二重に課金されません)。</value>
+  </data>
+  <data name="AiRequestWasDeleted" xml:space="preserve">
+    <value>このリクエストは削除済みのため、結果を取り出せません。途中結果を破棄してから実行し直してください。</value>
+  </data>
+  <data name="AiResultDownloadFailed" xml:space="preserve">
+    <value>生成は完了しています (課金済み) が、結果を取得できませんでした。ジョブ履歴から取得してください。</value>
+  </data>
   <data name="AiUnexpectedError" xml:space="preserve">
     <value>リクエストが中断されました。再実行する前に、AIジョブに完了済みの結果がないか確認してください。</value>
   </data>

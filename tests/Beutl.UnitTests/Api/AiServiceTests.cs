@@ -405,6 +405,102 @@ public sealed class AiCapabilityServiceTests
     }
 
     [Test]
+    public async Task Transcription_SendsTheCallersKeyAndUploadName()
+    {
+        using var handler = new RecordingHandler(request => request.Path switch
+        {
+            "/api/v3/ai/transcriptions" => JsonResponse(HttpStatusCode.OK, """
+                {
+                  "jobId": "job-stt-1",
+                  "segments": [ { "start": 0, "end": 1, "text": "Hello" } ]
+                }
+                """),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        IAiTranscriptionService transcription = app.GetResource<IAiTranscriptionService>();
+        AiUploadSource Upload(string name, string mediaType) => new(
+            name,
+            mediaType,
+            _ => ValueTask.FromResult<Stream>(new MemoryStream([1, 2, 3])),
+            3);
+
+        // A chunk sent twice under one key: the second ask is for the
+        // transcription the first was charged for, not for another one.
+        await transcription.TranscribeAsync(
+            new AiTranscriptionRequest(
+                Upload("chunk-0003.wav", "audio/wav"),
+                idempotencyKey: "run-7-chunk-3"),
+            CancellationToken.None);
+        await transcription.TranscribeAsync(
+            new AiTranscriptionRequest(
+                Upload("chunk-0003.wav", "audio/wav"),
+                idempotencyKey: "run-7-chunk-3"),
+            CancellationToken.None);
+        await transcription.TranscribeAsync(
+            new AiTranscriptionRequest(Upload("chunk-0004.wav", "audio/wav")),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(handler.Requests[0].IdempotencyKey, Is.EqualTo("run-7-chunk-3"));
+            Assert.That(handler.Requests[1].IdempotencyKey, Is.EqualTo("run-7-chunk-3"));
+            Assert.That(handler.Requests[0].Body, Does.Contain("chunk-0003.wav"));
+            // Without a key of its own a request is a new one every time, which
+            // is what a caller with nothing to resume wants.
+            Assert.That(handler.Requests[2].IdempotencyKey, Is.Not.Null);
+            Assert.That(
+                handler.Requests[2].IdempotencyKey,
+                Is.Not.EqualTo("run-7-chunk-3"));
+        }
+    }
+
+    [Test]
+    public void Transcription_RefusesAnUploadLargerThanTheEndpointTakes()
+    {
+        AiUploadSource oversized = new(
+            "chunk.wav",
+            "audio/wav",
+            _ => ValueTask.FromResult<Stream>(new MemoryStream()),
+            AiRequestLimits.MaxTranscriptionUploadBytes + 1);
+
+        // Refused here rather than after twenty-five megabytes have been sent
+        // for the server to refuse.
+        Assert.Throws<AiFileTooLargeException>(
+            () => _ = new AiTranscriptionRequest(oversized));
+        Assert.DoesNotThrow(() => _ = new AiTranscriptionRequest(new AiUploadSource(
+            "chunk.wav",
+            "audio/wav",
+            _ => ValueTask.FromResult<Stream>(new MemoryStream()),
+            AiRequestLimits.MaxTranscriptionUploadBytes)));
+    }
+
+    [Test]
+    public void UploadSource_KeepsTheNameTheCallerChoseOverTheFileOnDisk()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-upload-{Guid.NewGuid():N}.wav");
+        File.WriteAllBytes(path, [1, 2, 3]);
+        try
+        {
+            AiUploadSource named = AiUploadSource.FromFile(path, "scene-mix-chunk-0002.wav");
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(named.FileName, Is.EqualTo("scene-mix-chunk-0002.wav"));
+                Assert.That(named.Length, Is.EqualTo(3));
+                Assert.That(
+                    AiUploadSource.FromFile(path).FileName,
+                    Is.EqualTo(Path.GetFileName(path)));
+            }
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Test]
     public async Task Transcription_UsesMediaRequestAndReturnsDomainSegments()
     {
         using var handler = new RecordingHandler(request => request.Path switch
@@ -550,6 +646,35 @@ public sealed class AiCapabilityServiceTests
             Assert.That(handler.Requests[0].Query, Does.Contain("cursor=cursor-value"));
             Assert.That(handler.Requests[0].Query, Does.Contain("limit=25"));
             Assert.That(handler.Requests[1].Method, Is.EqualTo(HttpMethod.Delete));
+        }
+    }
+
+    [Test]
+    public async Task AuthenticatedContent_SaysWhenAPaidResultCannotBeFetched()
+    {
+        using var handler = new RecordingHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent("""{"message":"ファイルが見つかりません"}"""),
+            });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var destination = new MemoryStream();
+
+        // By the time a result is fetched the job has run and been charged for,
+        // so this is not the request failing: it is the result being out of
+        // reach, and the caller can point the user at the job history.
+        AiContentUnavailableException error = Assert.ThrowsAsync<AiContentUnavailableException>(
+            async () => await app.GetResource<IAuthenticatedContentService>().CopyToAsync(
+                new Uri(app.HttpClient.BaseAddress!, "/api/contents/file-1"),
+                destination,
+                CancellationToken.None))!;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(error.StatusCode, Is.EqualTo(404));
+            Assert.That(error.IsTransient, Is.False);
         }
     }
 

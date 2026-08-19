@@ -973,6 +973,18 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
             throw;
         }
+        // The clip was rendered and charged for; only fetching it failed, and it
+        // is still waiting in the job history.
+        catch (AiContentUnavailableException ex)
+        {
+            if (filePath is not null)
+            {
+                DeleteTemporaryFile(filePath);
+            }
+            _logger.LogError(ex, "Failed to download the AI video.");
+            operation.TryPublish(() => Error.Value = Strings.AiResultDownloadFailed);
+            return null;
+        }
         catch (Exception ex)
         {
             if (filePath is not null)

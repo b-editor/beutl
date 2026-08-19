@@ -228,7 +228,8 @@ public sealed class CaptionDraftStoreTests
                 2,
                 [segment],
                 "en",
-                1));
+                1,
+                "1f4c2b0d9e6a4f118b7c3d5e6f708192"));
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
         using (session)
@@ -249,6 +250,12 @@ public sealed class CaptionDraftStoreTests
                     Is.EqualTo(1));
                 Assert.That(restored.Draft.SourceTranscriptionResume.Segments[0].Text,
                     Is.EqualTo("decoded source"));
+                // The name the finished chunks were sent under. Without it a run
+                // resumed in a later session would ask for chunks it has already
+                // paid for as though they were new.
+                Assert.That(
+                    restored.Draft.SourceTranscriptionResume.RequestKeySeed,
+                    Is.EqualTo("1f4c2b0d9e6a4f118b7c3d5e6f708192"));
             });
         }
     }
