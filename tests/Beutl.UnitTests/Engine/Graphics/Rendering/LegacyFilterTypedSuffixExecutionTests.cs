@@ -124,10 +124,13 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         });
     }
 
+    // A custom effect lays its targets out in device pixels against its input, which is anchored on the
+    // whole-pixel part of the ambient translation. The grid it allocates on has to be that same grid:
+    // keeping the translation's fraction would place every new target half a pixel off the input.
     [Test]
-    public void MaterializedInput_CustomEffect_UsesAmbientGridWithoutReanchoringInput()
+    public void MaterializedInput_CustomEffect_AllocatesOnTheGridItsInputIsAnchoredOn()
     {
-        var translation = new Vector(0.25f, 0.75f);
+        var translation = new Vector(2.25f, 3.75f);
         Vector observedAmbientGrid = default;
         Vector observedInputGrid = default;
         var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
@@ -144,15 +147,15 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(observedAmbientGrid, Is.EqualTo(translation));
-            Assert.That(observedInputGrid, Is.EqualTo(default(Vector)));
+            Assert.That(observedAmbientGrid, Is.EqualTo(new Vector(2f, 3f)));
+            Assert.That(observedInputGrid, Is.EqualTo(new Vector(2f, 3f)));
         });
     }
 
     [Test]
     public void SourceGridReplacement_FlowsIntoFollowingCustomStage()
     {
-        var translation = new Vector(0.25f, 0.75f);
+        var translation = new Vector(2.25f, 3.75f);
         Vector replacementGrid = new(float.NaN, float.NaN);
         Vector followingAmbientGrid = default;
         Vector followingInputGrid = new(float.NaN, float.NaN);
@@ -186,9 +189,9 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(replacementGrid, Is.EqualTo(default(Vector)));
-            Assert.That(followingAmbientGrid, Is.EqualTo(translation));
-            Assert.That(followingInputGrid, Is.EqualTo(default(Vector)));
+            Assert.That(replacementGrid, Is.EqualTo(new Vector(2f, 3f)));
+            Assert.That(followingAmbientGrid, Is.EqualTo(new Vector(2f, 3f)));
+            Assert.That(followingInputGrid, Is.EqualTo(new Vector(2f, 3f)));
         });
     }
 

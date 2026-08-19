@@ -274,7 +274,9 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas currentTarget)
             => ExecuteOnDeviceGrid(
                 currentTarget,
-                () => ExecuteLegacyFilterCore(fragment, currentTarget));
+                () => ExecuteLegacyFilterCore(fragment, currentTarget),
+                normalizeGridPhase: fragment.Payload is FilterEffectSegmentRenderFragmentPayload payload
+                                    && payload.HasImperativeItem);
 
         private IReadOnlyList<MaterializedRenderValue> ExecuteLegacyFilterCore(
             RenderFragmentReference fragment,

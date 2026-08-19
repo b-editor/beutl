@@ -66,17 +66,33 @@ internal sealed partial class RenderRequestExecutor
             domains[fragmentId] = domain;
         }
 
-        private T ExecuteOnDeviceGrid<T>(ImmediateCanvas currentTarget, Func<T> execute)
+        private T ExecuteOnDeviceGrid<T>(
+            ImmediateCanvas currentTarget,
+            Func<T> execute,
+            bool normalizeGridPhase = false)
         {
-            Vector previous = _activeDeviceGridOffset;
-            _activeDeviceGridOffset = DeviceGridAlignment.ResolveLogicalOffset(currentTarget);
+            Vector previousOffset = _activeDeviceGridOffset;
+            bool previousNormalized = _deviceGridPhaseNormalized;
+            // A custom effect's buffers must start on the pixel its logical origin names, because the
+            // effect does its own device-pixel arithmetic against them. A grid whose phase is
+            // fractional cannot deliver that, so the flush would resample the input onto the phase
+            // instead, and half a pixel of edge coverage is lost before the effect ever sees it.
+            // The requirement is inherited: the input is rasterized in whatever frame materializes it,
+            // which for a chained segment is a nested frame that re-derives the grid from this canvas.
+            bool normalized = previousNormalized || normalizeGridPhase;
+            Vector offset = DeviceGridAlignment.ResolveLogicalOffset(currentTarget);
+            if (normalized)
+                offset -= DeviceGridAlignment.NormalizePhase(offset, currentTarget.Density);
+            _activeDeviceGridOffset = offset;
+            _deviceGridPhaseNormalized = normalized;
             try
             {
                 return execute();
             }
             finally
             {
-                _activeDeviceGridOffset = previous;
+                _activeDeviceGridOffset = previousOffset;
+                _deviceGridPhaseNormalized = previousNormalized;
             }
         }
 

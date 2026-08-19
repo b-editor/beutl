@@ -619,7 +619,7 @@ internal sealed class ExecutionIslandPlanner
     // the island cannot fuse when the segment actually contains one.
     private static ExecutionIslandBoundaryReason SegmentBoundaryReason(
         FilterEffectSegmentRenderFragmentPayload payload)
-        => payload.BoundsItems.Any(static item => item is IFEItem_Custom)
+        => payload.HasImperativeItem
             ? ExecutionIslandBoundaryReason.LegacyCustomEffect
             : ExecutionIslandBoundaryReason.FilterEffectSegment;
 

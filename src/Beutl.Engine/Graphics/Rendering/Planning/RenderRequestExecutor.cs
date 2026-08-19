@@ -334,6 +334,7 @@ internal sealed partial class RenderRequestExecutor
         private int _replayDepth;
         private bool _previewAllocationDropObserved;
         private Vector _activeDeviceGridOffset;
+        private bool _deviceGridPhaseNormalized;
 
         public RenderRequestExecutionState(
             RenderRequestOptions options,
