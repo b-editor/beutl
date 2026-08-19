@@ -533,11 +533,16 @@ public sealed class ShaderExecutionContext
         get { _token.ThrowIfInactive(); return _requiredRegion; }
     }
 
-    /// <summary>Gets the destination footprint in composition-device pixels.</summary>
+    /// <summary>Gets the footprint the stage is evaluated over, in composition-device pixels.</summary>
     /// <remarks>
     /// The footprint reflects the actual runtime-clamped <see cref="WorkingScale"/>.
     /// Subtract <see cref="DeviceGridOffset"/> after converting it to logical units to obtain
     /// the stage-local footprint.
+    /// A <see cref="ShaderDescriptionKind.CurrentPixel"/> stage is evaluated over the region the request asked
+    /// for, so this is its destination footprint. A <see cref="ShaderDescriptionKind.WholeSource"/> stage is
+    /// evaluated over its complete output regardless of how much of it was requested, so this is the complete
+    /// output footprint and its size equals <see cref="SemanticOutputSize"/>; use <see cref="RequiredRegion"/>
+    /// for the part actually being produced.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public PixelRect DeviceBounds
@@ -545,7 +550,7 @@ public sealed class ShaderExecutionContext
         get { _token.ThrowIfInactive(); return _deviceBounds; }
     }
 
-    /// <summary>Gets the destination footprint size, equal to <see cref="DeviceBounds"/>.<c>Size</c>.</summary>
+    /// <summary>Gets the evaluated footprint size, equal to <see cref="DeviceBounds"/>.<c>Size</c>.</summary>
     /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public PixelSize DeviceSize
     {
@@ -556,7 +561,9 @@ public sealed class ShaderExecutionContext
     /// <remarks>
     /// The size is derived from <see cref="OutputBounds"/>, <see cref="WorkingScale"/>, and
     /// <see cref="DeviceGridOffset"/>. It is independent of the physical backing selected by the execution planner.
-    /// Unlike <see cref="DeviceSize"/>, it describes the stage's complete output rather than the requested region.
+    /// It matches <see cref="DeviceSize"/> for a <see cref="ShaderDescriptionKind.WholeSource"/> stage and
+    /// describes the complete output rather than the requested region for a
+    /// <see cref="ShaderDescriptionKind.CurrentPixel"/> one.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public PixelSize SemanticOutputSize
@@ -576,7 +583,9 @@ public sealed class ShaderExecutionContext
     /// <summary>Gets the logical point represented by local output-device coordinate <c>(0, 0)</c>.</summary>
     /// <remarks>
     /// A local device coordinate <c>coord</c> represents
-    /// <c>LogicalOrigin + coord / WorkingScale</c>.
+    /// <c>LogicalOrigin + coord / WorkingScale</c>. The origin follows <see cref="DeviceBounds"/>, so a
+    /// <see cref="ShaderDescriptionKind.WholeSource"/> stage's <c>coord</c> spans
+    /// <c>[0, SemanticOutputSize]</c> over its complete output even when a smaller region was requested.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public Point LogicalOrigin

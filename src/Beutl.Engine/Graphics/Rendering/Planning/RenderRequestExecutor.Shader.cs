@@ -500,6 +500,13 @@ internal sealed partial class RenderRequestExecutor
             float outputScale,
             Action<SKShader> draw)
         {
+            ShaderEvaluationFrame frame = run.WholeSourceHead is null
+                ? ShaderEvaluationFrame.Destination(outputDeviceBounds, outputRasterBounds)
+                : RasterShaderMapping.CreateWholeSourceFrame(
+                    outputBounds,
+                    outputDeviceBounds,
+                    outputRasterBounds,
+                    outputScale);
             using SKImage inputImage = input.Target.Value.Snapshot();
             ProgramCacheContextKey contextKey = CreateProgramContextKey(run.Program.Budget);
             using ProgramCacheLease<CachedSkRuntimeEffect> lease = AcquireProgram(run, contextKey);
@@ -523,7 +530,7 @@ internal sealed partial class RenderRequestExecutor
                                 input.DeviceBounds,
                                 input.RasterBounds,
                                 outputScale,
-                                outputRasterBounds,
+                                frame.RasterBounds,
                                 head.SourceTileMode);
                         }
                         else
@@ -597,7 +604,7 @@ internal sealed partial class RenderRequestExecutor
                     });
 
                 using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
-                draw(shader);
+                DrawInEvaluationFrame(shader, frame, draw);
 
                 _shaderRunExecutions++;
                 _shaderStageExecutions = checked(_shaderStageExecutions + run.Stages.Length);
@@ -611,6 +618,24 @@ internal sealed partial class RenderRequestExecutor
                 foreach (SKShader child in children.AsEnumerable().Reverse())
                     child.Dispose();
             }
+        }
+
+        // Only valid while the run's source child is mapped against the same frame's raster bounds; the two
+        // shifts cancel, so the program keeps sampling the texel the destination pixel already resolved to.
+        private static void DrawInEvaluationFrame(
+            SKShader shader,
+            ShaderEvaluationFrame frame,
+            Action<SKShader> draw)
+        {
+            if (frame.FragmentOrigin == default)
+            {
+                draw(shader);
+                return;
+            }
+
+            using SKShader rebased = shader.WithLocalMatrix(
+                SKMatrix.CreateTranslation(-frame.FragmentOrigin.X, -frame.FragmentOrigin.Y));
+            draw(rebased);
         }
 
         private ShaderExecutionContext CreateCompiledShaderStageContext(
@@ -643,11 +668,25 @@ internal sealed partial class RenderRequestExecutor
             Vector deviceGridOffset = new(
                 (runOutputDeviceBounds.X / workingScale) - runOutputRasterBounds.X,
                 (runOutputDeviceBounds.Y / workingScale) - runOutputRasterBounds.Y);
-            PixelRect deviceBounds = isLast
-                ? runOutputDeviceBounds
-                : PixelRect.FromRect(
-                    requiredRegion.Translate(deviceGridOffset),
-                    workingScale);
+            PixelRect deviceBounds;
+            if (stage.Description.Kind == ShaderDescriptionKind.WholeSource)
+            {
+                deviceBounds = RasterShaderMapping.CreateWholeSourceFrame(
+                        outputBounds,
+                        runOutputDeviceBounds,
+                        runOutputRasterBounds,
+                        workingScale)
+                    .DeviceBounds;
+            }
+            else
+            {
+                deviceBounds = isLast
+                    ? runOutputDeviceBounds
+                    : PixelRect.FromRect(
+                        requiredRegion.Translate(deviceGridOffset),
+                        workingScale);
+            }
+
             Rect rasterBounds = deviceBounds
                 .ToRect(workingScale)
                 .Translate(-deviceGridOffset);
@@ -734,6 +773,13 @@ internal sealed partial class RenderRequestExecutor
             Rect requiredRegion)
         {
             using SKImage inputImage = input.Target.Value.Snapshot();
+            ShaderEvaluationFrame frame = description.Kind == ShaderDescriptionKind.WholeSource
+                ? RasterShaderMapping.CreateWholeSourceFrame(
+                    outputBounds,
+                    output.DeviceBounds,
+                    output.RasterBounds,
+                    output.EffectiveScale.Value)
+                : ShaderEvaluationFrame.Destination(output.DeviceBounds, output.RasterBounds);
             string childName;
             string programSource;
             SKShaderTileMode tileMode;
@@ -767,8 +813,8 @@ internal sealed partial class RenderRequestExecutor
                             input.Bounds,
                             outputBounds,
                             requiredRegion,
-                            output.DeviceBounds,
-                            output.RasterBounds,
+                            frame.DeviceBounds,
+                            frame.RasterBounds,
                             input.EffectiveScale,
                             _options.OutputScale,
                             output.EffectiveScale.Value,
@@ -797,7 +843,7 @@ internal sealed partial class RenderRequestExecutor
                             input.DeviceBounds,
                             input.RasterBounds,
                             output.EffectiveScale.Value,
-                            output.RasterBounds,
+                            frame.RasterBounds,
                             tileMode);
                         children.Add(inputShader);
                         runtimeChildren[childName] = inputShader;
@@ -811,21 +857,27 @@ internal sealed partial class RenderRequestExecutor
                     });
 
                 using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
-                using var paint = new SKPaint { Shader = shader };
-                using var canvas = CreateExecutorCanvas(
-                    output.Target,
-                    output.EffectiveScale.Value,
-                    _options.MaxWorkingScale,
-                    output.RasterBounds.Size,
-                    _options.Intent,
-                    output.DeviceBounds.Position);
-                canvas.Clear();
-                using (canvas.PushDeviceSpace())
-                {
-                    canvas.Canvas.DrawRect(
-                        SKRect.Create(output.Target.Width, output.Target.Height),
-                        paint);
-                }
+                DrawInEvaluationFrame(
+                    shader,
+                    frame,
+                    rebased =>
+                    {
+                        using var paint = new SKPaint { Shader = rebased };
+                        using var canvas = CreateExecutorCanvas(
+                            output.Target,
+                            output.EffectiveScale.Value,
+                            _options.MaxWorkingScale,
+                            output.RasterBounds.Size,
+                            _options.Intent,
+                            output.DeviceBounds.Position);
+                        canvas.Clear();
+                        using (canvas.PushDeviceSpace())
+                        {
+                            canvas.Canvas.DrawRect(
+                                SKRect.Create(output.Target.Width, output.Target.Height),
+                                paint);
+                        }
+                    });
             }
             finally
             {

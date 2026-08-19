@@ -13,6 +13,28 @@ internal static class RasterShaderMapping
     public static SKSamplingOptions SamplingFor(float sourceScale, float destinationScale)
         => destinationScale > sourceScale ? s_cubicSampling : s_linearSampling;
 
+    /// <summary>
+    /// Resolves the complete-output device frame a WholeSource stage is evaluated in, given the destination
+    /// footprint the renderer actually allocated for the requested region.
+    /// </summary>
+    public static ShaderEvaluationFrame CreateWholeSourceFrame(
+        Rect outputBounds,
+        PixelRect destinationDeviceBounds,
+        Rect destinationRasterBounds,
+        float workingScale)
+    {
+        var deviceGridOffset = new Vector(
+            (destinationDeviceBounds.X / workingScale) - destinationRasterBounds.X,
+            (destinationDeviceBounds.Y / workingScale) - destinationRasterBounds.Y);
+        PixelRect deviceBounds = PixelRect.FromRect(
+            outputBounds.Translate(deviceGridOffset),
+            workingScale);
+        return new ShaderEvaluationFrame(
+            deviceBounds,
+            deviceBounds.ToRect(workingScale).Translate(-deviceGridOffset),
+            destinationDeviceBounds.Position - deviceBounds.Position);
+    }
+
     public static SKShader CreateSemanticImageShader(
         SKImage image,
         GRRecordingContext? recordingContext,
@@ -120,4 +142,22 @@ internal static class RasterShaderMapping
             0,
             1);
     }
+}
+
+/// <summary>
+/// Describes the device frame a shader stage's <c>coord</c> argument is expressed in.
+/// </summary>
+/// <param name="DeviceBounds">The frame's footprint on the composition-device grid.</param>
+/// <param name="RasterBounds">The frame's stage-local logical footprint.</param>
+/// <param name="FragmentOrigin">
+/// The device offset added to a destination-local coordinate to obtain the stage's <c>coord</c>. It is non-zero
+/// only when a WholeSource stage was asked for a strict subset of its complete output.
+/// </param>
+internal readonly record struct ShaderEvaluationFrame(
+    PixelRect DeviceBounds,
+    Rect RasterBounds,
+    PixelPoint FragmentOrigin)
+{
+    public static ShaderEvaluationFrame Destination(PixelRect deviceBounds, Rect rasterBounds)
+        => new(deviceBounds, rasterBounds, default);
 }

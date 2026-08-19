@@ -417,6 +417,14 @@ RenderScaleContract scale = RenderScaleContract.MapInputSupply(
 
 The map is reevaluated when required to resolve symbolic upstream metadata. Source, capture, combination, and expansion work must choose their own valid scale contract.
 
+## Whole-source shader coordinate space
+
+BREAKING CHANGE: a `ShaderDescription.WholeSource` stage is now evaluated over its **complete** output. Its `coord` argument spans `[0, SemanticOutputSize]` and `ShaderExecutionContext.DeviceBounds` / `LogicalOrigin` describe the complete output footprint, even when the renderer only required a sub-region (content that overhangs the frame). Previously `coord` started at the required region's origin while `SemanticOutputSize` still described the complete output, so `coord / iResolution` never reached `1.0` and any absolute anchor — a mirror axis, a tile-grid origin, a pivot — moved by the clipped-off overhang.
+
+`RequiredRegion` still reports the region actually being produced, so a stage that wants the destination extent reads it there.
+
+Out-of-tree whole-source shaders and `ShaderResourceCoordinateSpace.OutputDevice` binders that worked around the old behaviour by subtracting `LogicalOrigin` (or by differencing `OutputBounds` against `DeviceBounds`) now compute zero and need no further change. Any binder that instead hard-coded the old required-region origin must drop that correction; leaving it in place double-corrects and moves the stage by the overhang in the opposite direction.
+
 ## Direct processor consumers
 
 Replace each `RenderNodeProcessor` use according to its intent:
