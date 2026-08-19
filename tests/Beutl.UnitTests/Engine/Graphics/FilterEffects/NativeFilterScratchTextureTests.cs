@@ -1,4 +1,4 @@
-using Beutl.Graphics.Backend;
+﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Moq;
