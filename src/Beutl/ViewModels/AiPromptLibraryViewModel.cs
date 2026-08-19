@@ -7,6 +7,12 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
+/// <summary>
+/// The saved prompts behind one task's prompt box. Templates and history are
+/// two lists rather than one: a template is something the account named and
+/// keeps, history is only what it happened to run, and the tab reaches them
+/// from different places.
+/// </summary>
 internal sealed class AiPromptLibraryViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
@@ -14,7 +20,8 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
     private readonly PromptTaskKind _taskKind;
     private readonly Func<string> _getPrompt;
     private readonly Action<string> _applyPrompt;
-    private readonly ObservableCollection<AiPromptChoice> _choices = [];
+    private readonly ObservableCollection<AiPromptChoice> _templates = [];
+    private readonly ObservableCollection<AiPromptChoice> _history = [];
 
     public AiPromptLibraryViewModel(
         PromptTaskKind taskKind,
@@ -26,31 +33,19 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         _getPrompt = getPrompt ?? throw new ArgumentNullException(nameof(getPrompt));
         _applyPrompt = applyPrompt ?? throw new ArgumentNullException(nameof(applyPrompt));
         _library = library ?? PromptLibraryProvider.Current;
-        Choices = new ReadOnlyObservableCollection<AiPromptChoice>(_choices);
+        Templates = new ReadOnlyObservableCollection<AiPromptChoice>(_templates);
+        History = new ReadOnlyObservableCollection<AiPromptChoice>(_history);
 
-        CanUseSelection = SelectedChoice
-            .Select(choice => choice is not null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        ApplySelected = new ReactiveCommand(
-            CanUseSelection,
-            ImmediateScheduler.Instance,
-            CanUseSelection.Value);
-        ApplySelected.Subscribe(ApplySelectedCore).DisposeWith(_disposables);
-        TogglePinSelected = new ReactiveCommand(
-            CanUseSelection,
-            ImmediateScheduler.Instance,
-            CanUseSelection.Value);
-        TogglePinSelected.Subscribe(TogglePinSelectedCore).DisposeWith(_disposables);
-        DeleteSelected = new ReactiveCommand(
-            CanUseSelection,
-            ImmediateScheduler.Instance,
-            CanUseSelection.Value);
-        DeleteSelected.Subscribe(DeleteSelectedCore).DisposeWith(_disposables);
+        Apply = new ReactiveCommand<AiPromptChoice>(ImmediateScheduler.Instance);
+        Apply.Subscribe(ApplyCore).DisposeWith(_disposables);
+        TogglePin = new ReactiveCommand<AiPromptChoice>(ImmediateScheduler.Instance);
+        TogglePin.Subscribe(TogglePinCore).DisposeWith(_disposables);
+        Delete = new ReactiveCommand<AiPromptChoice>(ImmediateScheduler.Instance);
+        Delete.Subscribe(DeleteCore).DisposeWith(_disposables);
         SaveTemplate = new ReactiveCommand();
         SaveTemplate.Subscribe(SaveTemplateCore).DisposeWith(_disposables);
-        ClearRecent = new ReactiveCommand();
-        ClearRecent.Subscribe(() =>
+        ClearHistory = new ReactiveCommand();
+        ClearHistory.Subscribe(() =>
         {
             _library.ClearHistory();
             Refresh();
@@ -59,27 +54,35 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         Refresh();
     }
 
-    public ReadOnlyObservableCollection<AiPromptChoice> Choices { get; }
+    /// <summary>Named prompts the account keeps, newest and pinned first.</summary>
+    public ReadOnlyObservableCollection<AiPromptChoice> Templates { get; }
 
-    public ReactivePropertySlim<AiPromptChoice?> SelectedChoice { get; } = new();
+    /// <summary>Prompts this account has run, newest and pinned first.</summary>
+    public ReadOnlyObservableCollection<AiPromptChoice> History { get; }
+
+    /// <summary>
+    /// Drives the history popup. Applying a prompt closes it, so the tab does
+    /// not keep a panel open over the box the prompt just landed in.
+    /// </summary>
+    public ReactivePropertySlim<bool> IsHistoryOpen { get; } = new();
 
     public ReactivePropertySlim<string> TemplateName { get; } = new();
 
-    public ReadOnlyReactivePropertySlim<bool> CanUseSelection { get; }
+    public ReactivePropertySlim<bool> HasTemplates { get; } = new();
 
-    public ReactivePropertySlim<bool> HasChoices { get; } = new();
+    public ReactivePropertySlim<bool> HasHistory { get; } = new();
 
     public ReactivePropertySlim<string?> Error { get; } = new();
 
-    public ReactiveCommand ApplySelected { get; }
+    public ReactiveCommand<AiPromptChoice> Apply { get; }
 
-    public ReactiveCommand TogglePinSelected { get; }
+    public ReactiveCommand<AiPromptChoice> TogglePin { get; }
 
-    public ReactiveCommand DeleteSelected { get; }
+    public ReactiveCommand<AiPromptChoice> Delete { get; }
 
     public ReactiveCommand SaveTemplate { get; }
 
-    public ReactiveCommand ClearRecent { get; }
+    public ReactiveCommand ClearHistory { get; }
 
     public string PrivacyText => Strings.AiPromptLibraryPrivacy;
 
@@ -94,25 +97,27 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
 
     public void Dispose()
     {
-        SelectedChoice.Dispose();
+        IsHistoryOpen.Dispose();
         TemplateName.Dispose();
-        HasChoices.Dispose();
+        HasTemplates.Dispose();
+        HasHistory.Dispose();
         Error.Dispose();
         _disposables.Dispose();
     }
 
-    private void ApplySelectedCore()
+    private void ApplyCore(AiPromptChoice? choice)
     {
-        if (SelectedChoice.Value is { } choice)
-        {
-            _applyPrompt(choice.Prompt);
-            Error.Value = null;
-        }
+        if (choice is null)
+            return;
+
+        _applyPrompt(choice.Prompt);
+        Error.Value = null;
+        IsHistoryOpen.Value = false;
     }
 
-    private void TogglePinSelectedCore()
+    private void TogglePinCore(AiPromptChoice? choice)
     {
-        if (SelectedChoice.Value is not { } choice)
+        if (choice is null)
             return;
 
         bool changed = choice.IsTemplate
@@ -124,9 +129,9 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         }
     }
 
-    private void DeleteSelectedCore()
+    private void DeleteCore(AiPromptChoice? choice)
     {
-        if (SelectedChoice.Value is not { } choice)
+        if (choice is null)
             return;
 
         bool deleted = choice.IsTemplate
@@ -143,12 +148,9 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         Error.Value = null;
         try
         {
-            PromptTemplate template = _library.SaveTemplate(
-                TemplateName.Value,
-                _taskKind,
-                _getPrompt());
+            _library.SaveTemplate(TemplateName.Value, _taskKind, _getPrompt());
             TemplateName.Value = string.Empty;
-            Refresh(template.Id);
+            Refresh();
         }
         catch (ArgumentException)
         {
@@ -156,16 +158,15 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         }
     }
 
-    private void Refresh(Guid? selectedId = null)
+    private void Refresh()
     {
-        Guid? previousId = selectedId ?? SelectedChoice.Value?.Id;
-        _choices.Clear();
+        _templates.Clear();
         foreach (PromptTemplate template in _library.Templates
                      .Where(item => item.TaskKind == _taskKind)
                      .OrderByDescending(item => item.IsPinned)
                      .ThenByDescending(item => item.UpdatedAtUtc))
         {
-            _choices.Add(new AiPromptChoice(
+            _templates.Add(new AiPromptChoice(
                 template.Id,
                 template.Name,
                 template.Prompt,
@@ -173,28 +174,29 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
                 template.IsPinned));
         }
 
+        _history.Clear();
         foreach (PromptHistoryEntry history in _library.History
                      .Where(item => item.TaskKind == _taskKind)
                      .OrderByDescending(item => item.IsPinned)
                      .ThenByDescending(item => item.LastUsedAtUtc))
         {
-            string summary = history.Prompt.Split('\n', 2)[0];
-            if (summary.Length > 72)
-            {
-                summary = summary[..69] + "…";
-            }
-            _choices.Add(new AiPromptChoice(
+            _history.Add(new AiPromptChoice(
                 history.Id,
-                summary,
+                Summarize(history.Prompt),
                 history.Prompt,
                 IsTemplate: false,
                 history.IsPinned));
         }
 
-        HasChoices.Value = _choices.Count > 0;
-        SelectedChoice.Value = previousId is { } id
-            ? _choices.FirstOrDefault(choice => choice.Id == id)
-            : null;
+        HasTemplates.Value = _templates.Count > 0;
+        HasHistory.Value = _history.Count > 0;
+    }
+
+    // A history entry has no name, so its first line stands in for one.
+    private static string Summarize(string prompt)
+    {
+        string summary = prompt.Split('\n', 2)[0];
+        return summary.Length > 72 ? summary[..69] + "…" : summary;
     }
 }
 
@@ -205,7 +207,5 @@ internal sealed record AiPromptChoice(
     bool IsTemplate,
     bool IsPinned)
 {
-    public string DisplayName => IsPinned ? $"★ {Name}" : Name;
-
-    public override string ToString() => DisplayName;
+    public override string ToString() => Name;
 }

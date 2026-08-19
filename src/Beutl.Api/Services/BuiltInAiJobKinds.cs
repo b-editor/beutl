@@ -146,7 +146,7 @@ internal abstract class MeteredAiJobRetryHandler(
             // user to buy credits that would not help.
             result = new AiJobRetryPreflight(true, false, Strings.AiModelUnavailable);
         }
-        else if (!entitlements.Availability.CanStart(operation)
+        else if (entitlements.Availability.GetState(operation) == AiOperationAvailabilityState.Unavailable
                  || !await availabilityService.CheckAsync(
                      CreateAvailabilityRequest(job),
                      cancellationToken))
@@ -240,11 +240,21 @@ internal sealed class AiImageJobRetryHandler(
             new AiImageGenerationRequest(
                 prompt,
                 new AiImageAspectRatioId(ResolveAspectRatio(job)),
-                transparentBackground: AiJobInputParameters.GetString(job, "background")
-                    == "transparent",
+                // Rerun with whatever background the run recorded. A job that
+                // recorded none asked the model to decide, which is what an
+                // empty id sends.
+                background: ResolveBackground(job),
                 seed: AiJobInputParameters.GetInt32(job, "seed"),
                 model: job.Model),
             cancellationToken);
+    }
+
+    private static AiImageBackgroundId ResolveBackground(AiJob job)
+    {
+        string? background = AiJobInputParameters.GetString(job, "background");
+        return string.IsNullOrWhiteSpace(background)
+            ? default
+            : new AiImageBackgroundId(background);
     }
 
     // Jobs recorded before the endpoint spoke ratios carry the fixed size they
@@ -312,10 +322,17 @@ internal sealed class AiVideoJobRetryHandler(
             cancellationToken);
     }
 
+    // The length the job ran at, so a rerun repeats the clip that was asked
+    // for. Only a length the server would refuse falls back, and any whole
+    // second in range is one some model takes.
     private static int GetDurationSeconds(AiJob job)
     {
         int? durationSeconds = AiJobInputParameters.GetInt32(job, "durationSeconds");
-        return durationSeconds is 4 or 6 or 8 ? durationSeconds.Value : 6;
+        return durationSeconds is { } seconds
+               && seconds >= AiRequestLimits.MinVideoDurationSeconds
+               && seconds <= AiRequestLimits.MaxVideoDurationSeconds
+            ? seconds
+            : 6;
     }
 }
 

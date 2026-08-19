@@ -10,7 +10,7 @@ namespace Beutl.HeadlessUITests;
 public sealed class AiPromptLibraryViewModelTests
 {
     [Test]
-    public void Choices_FilterTaskAndGroupTemplatesBeforeHistoryWithPinnedItemsFirst()
+    public void TemplatesAndHistory_AreSeparateListsFilteredByTaskWithPinnedItemsFirst()
     {
         PromptTemplate recentTemplate = CreateTemplate(
             PromptTaskKind.Image,
@@ -50,25 +50,50 @@ public sealed class AiPromptLibraryViewModelTests
             _ => { },
             library);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(
-                viewModel.Choices.Select(choice => choice.Id),
-                Is.EqualTo(new[]
-                {
-                    pinnedTemplate.Id,
-                    recentTemplate.Id,
-                    pinnedHistory.Id,
-                    recentHistory.Id,
-                }));
-            Assert.That(viewModel.Choices.Select(choice => choice.Id), Does.Not.Contain(foreignTemplate.Id));
-            Assert.That(viewModel.Choices.Select(choice => choice.Id), Does.Not.Contain(foreignHistory.Id));
-            Assert.That(viewModel.HasChoices.Value, Is.True);
-        });
+                viewModel.Templates.Select(choice => choice.Id),
+                Is.EqualTo(new[] { pinnedTemplate.Id, recentTemplate.Id }));
+            Assert.That(
+                viewModel.History.Select(choice => choice.Id),
+                Is.EqualTo(new[] { pinnedHistory.Id, recentHistory.Id }));
+            Assert.That(
+                viewModel.Templates.Select(choice => choice.Id),
+                Does.Not.Contain(foreignTemplate.Id));
+            Assert.That(
+                viewModel.History.Select(choice => choice.Id),
+                Does.Not.Contain(foreignHistory.Id));
+            Assert.That(viewModel.HasTemplates.Value, Is.True);
+            Assert.That(viewModel.HasHistory.Value, Is.True);
+        }
     }
 
     [Test]
-    public void ApplySelected_AppliesFullPromptAndClearsPreviousError()
+    public void HistorySummary_ShortensALongPromptWithoutLosingWhatIsApplied()
+    {
+        string prompt = new string('a', 120) + "\nsecond line";
+        var library = new FakePromptLibrary(history: [CreateHistory(PromptTaskKind.Image, prompt, usedMinute: 1)]);
+        string? applied = null;
+        using var viewModel = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            () => string.Empty,
+            value => applied = value,
+            library);
+
+        AiPromptChoice choice = viewModel.History.Single();
+        Execute(viewModel.Apply, choice);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(choice.Name, Has.Length.EqualTo(70));
+            Assert.That(choice.Name, Does.EndWith("\u2026"));
+            Assert.That(applied, Is.EqualTo(prompt), "The whole prompt is applied, not the summary.");
+        }
+    }
+
+    [Test]
+    public void Apply_AppliesTheFullPromptAndClosesTheHistoryPopup()
     {
         PromptHistoryEntry history = CreateHistory(
             PromptTaskKind.Image,
@@ -81,141 +106,106 @@ public sealed class AiPromptLibraryViewModelTests
             () => string.Empty,
             prompt => appliedPrompt = prompt,
             library);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.CanUseSelection.Value, Is.False);
-            Assert.That(((ICommand)viewModel.ApplySelected).CanExecute(null), Is.False);
-            Assert.That(((ICommand)viewModel.TogglePinSelected).CanExecute(null), Is.False);
-            Assert.That(((ICommand)viewModel.DeleteSelected).CanExecute(null), Is.False);
-        });
-
         viewModel.Error.Value = "previous error";
-        viewModel.SelectedChoice.Value = viewModel.Choices.Single();
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.CanUseSelection.Value, Is.True);
-            Assert.That(((ICommand)viewModel.ApplySelected).CanExecute(null), Is.True);
-            Assert.That(((ICommand)viewModel.TogglePinSelected).CanExecute(null), Is.True);
-            Assert.That(((ICommand)viewModel.DeleteSelected).CanExecute(null), Is.True);
-        });
-        Execute(viewModel.ApplySelected);
+        viewModel.IsHistoryOpen.Value = true;
 
-        Assert.Multiple(() =>
+        Execute(viewModel.Apply, viewModel.History.Single());
+
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(appliedPrompt, Is.EqualTo(history.Prompt));
             Assert.That(viewModel.Error.Value, Is.Null);
-        });
-
-        viewModel.SelectedChoice.Value = null;
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.CanUseSelection.Value, Is.False);
-            Assert.That(((ICommand)viewModel.ApplySelected).CanExecute(null), Is.False);
-            Assert.That(((ICommand)viewModel.TogglePinSelected).CanExecute(null), Is.False);
-            Assert.That(((ICommand)viewModel.DeleteSelected).CanExecute(null), Is.False);
-        });
-    }
-
-    [TestCase(true)]
-    [TestCase(false)]
-    public void TogglePinSelected_RoutesByChoiceTypeAndPreservesSelection(bool isTemplate)
-    {
-        PromptTemplate? template = isTemplate
-            ? CreateTemplate(PromptTaskKind.Image, "Template", updatedMinute: 1)
-            : null;
-        PromptHistoryEntry? history = isTemplate
-            ? null
-            : CreateHistory(PromptTaskKind.Image, "history", usedMinute: 1);
-        var library = new FakePromptLibrary(
-            history: history is null ? [] : [history],
-            templates: template is null ? [] : [template]);
-        using var viewModel = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            () => string.Empty,
-            _ => { },
-            library);
-        Guid selectedId = viewModel.Choices.Single().Id;
-        viewModel.SelectedChoice.Value = viewModel.Choices.Single();
-
-        Execute(viewModel.TogglePinSelected);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.SelectedChoice.Value?.Id, Is.EqualTo(selectedId));
-            Assert.That(viewModel.SelectedChoice.Value?.IsPinned, Is.True);
-        });
-        if (isTemplate)
-        {
-            Assert.Multiple(() =>
-            {
-                Assert.That(library.TemplatePinCalls, Is.EqualTo(new[] { (selectedId, true) }));
-                Assert.That(library.HistoryPinCalls, Is.Empty);
-            });
-        }
-        else
-        {
-            Assert.Multiple(() =>
-            {
-                Assert.That(library.HistoryPinCalls, Is.EqualTo(new[] { (selectedId, true) }));
-                Assert.That(library.TemplatePinCalls, Is.Empty);
-            });
+            Assert.That(viewModel.IsHistoryOpen.Value, Is.False,
+                "The popup closes over the box the prompt just landed in.");
         }
     }
 
     [TestCase(true)]
     [TestCase(false)]
-    public void DeleteSelected_RoutesByChoiceTypeAndClearsDeletedSelection(bool isTemplate)
+    public void TogglePin_RoutesByChoiceType(bool isTemplate)
     {
-        PromptTemplate? template = isTemplate
-            ? CreateTemplate(PromptTaskKind.Image, "Template", updatedMinute: 1)
-            : null;
-        PromptHistoryEntry? history = isTemplate
-            ? null
-            : CreateHistory(PromptTaskKind.Image, "history", usedMinute: 1);
-        var library = new FakePromptLibrary(
-            history: history is null ? [] : [history],
-            templates: template is null ? [] : [template]);
+        var library = CreateSingleItemLibrary(isTemplate);
         using var viewModel = new AiPromptLibraryViewModel(
             PromptTaskKind.Image,
             () => string.Empty,
             _ => { },
             library);
-        Guid selectedId = viewModel.Choices.Single().Id;
-        viewModel.SelectedChoice.Value = viewModel.Choices.Single();
+        AiPromptChoice choice = Single(viewModel, isTemplate);
 
-        Execute(viewModel.DeleteSelected);
+        Execute(viewModel.TogglePin, choice);
 
-        Assert.Multiple(() =>
+        AiPromptChoice refreshed = Single(viewModel, isTemplate);
+        using (Assert.EnterMultipleScope())
         {
-            Assert.That(viewModel.Choices, Is.Empty);
-            Assert.That(viewModel.SelectedChoice.Value, Is.Null);
-            Assert.That(viewModel.HasChoices.Value, Is.False);
-        });
-        if (isTemplate)
-        {
-            Assert.Multiple(() =>
-            {
-                Assert.That(library.TemplateDeleteCalls, Is.EqualTo(new[] { selectedId }));
-                Assert.That(library.HistoryDeleteCalls, Is.Empty);
-            });
+            Assert.That(refreshed.Id, Is.EqualTo(choice.Id));
+            Assert.That(refreshed.IsPinned, Is.True);
+            Assert.That(
+                isTemplate ? library.TemplatePinCalls : library.HistoryPinCalls,
+                Is.EqualTo(new[] { (choice.Id, true) }));
+            Assert.That(
+                isTemplate ? library.HistoryPinCalls : library.TemplatePinCalls,
+                Is.Empty);
         }
-        else
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Delete_RoutesByChoiceType(bool isTemplate)
+    {
+        var library = CreateSingleItemLibrary(isTemplate);
+        using var viewModel = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            () => string.Empty,
+            _ => { },
+            library);
+        AiPromptChoice choice = Single(viewModel, isTemplate);
+
+        Execute(viewModel.Delete, choice);
+
+        using (Assert.EnterMultipleScope())
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(library.HistoryDeleteCalls, Is.EqualTo(new[] { selectedId }));
-                Assert.That(library.TemplateDeleteCalls, Is.Empty);
-            });
+            Assert.That(viewModel.Templates, Is.Empty);
+            Assert.That(viewModel.History, Is.Empty);
+            Assert.That(viewModel.HasTemplates.Value, Is.False);
+            Assert.That(viewModel.HasHistory.Value, Is.False);
+            Assert.That(
+                isTemplate ? library.TemplateDeleteCalls : library.HistoryDeleteCalls,
+                Is.EqualTo(new[] { choice.Id }));
+            Assert.That(
+                isTemplate ? library.HistoryDeleteCalls : library.TemplateDeleteCalls,
+                Is.Empty);
         }
     }
 
     [Test]
-    public void Record_PreservesAnExistingSelectionAcrossRefresh()
+    public void ClearHistory_LeavesTheSavedTemplatesAlone()
+    {
+        var library = new FakePromptLibrary(
+            history: [CreateHistory(PromptTaskKind.Image, "history", usedMinute: 1)],
+            templates: [CreateTemplate(PromptTaskKind.Image, "Template", updatedMinute: 1)]);
+        using var viewModel = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            () => string.Empty,
+            _ => { },
+            library);
+
+        Execute(viewModel.ClearHistory);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(viewModel.History, Is.Empty);
+            Assert.That(viewModel.HasHistory.Value, Is.False);
+            Assert.That(viewModel.Templates, Has.Count.EqualTo(1));
+            Assert.That(library.Templates, Has.Count.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void Record_AddsToHistoryWithoutTouchingTemplates()
     {
         PromptTemplate template = CreateTemplate(
             PromptTaskKind.Image,
-            "Selected template",
+            "Saved template",
             updatedMinute: 1);
         var library = new FakePromptLibrary(templates: [template]);
         using var viewModel = new AiPromptLibraryViewModel(
@@ -223,22 +213,21 @@ public sealed class AiPromptLibraryViewModelTests
             () => string.Empty,
             _ => { },
             library);
-        viewModel.SelectedChoice.Value = viewModel.Choices.Single();
 
         viewModel.Record("new history");
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(
                 library.RecordCalls,
                 Is.EqualTo(new[] { (PromptTaskKind.Image, "new history") }));
-            Assert.That(viewModel.Choices, Has.Count.EqualTo(2));
-            Assert.That(viewModel.SelectedChoice.Value?.Id, Is.EqualTo(template.Id));
-        });
+            Assert.That(viewModel.History.Select(choice => choice.Prompt), Is.EqualTo(new[] { "new history" }));
+            Assert.That(viewModel.Templates.Select(choice => choice.Id), Is.EqualTo(new[] { template.Id }));
+        }
     }
 
     [Test]
-    public void SaveTemplate_RoutesCurrentValuesAndSelectsTheSavedTemplate()
+    public void SaveTemplate_RoutesCurrentValuesAndShowsTheSavedTemplate()
     {
         var library = new FakePromptLibrary();
         using var viewModel = new AiPromptLibraryViewModel(
@@ -251,16 +240,16 @@ public sealed class AiPromptLibraryViewModelTests
 
         Execute(viewModel.SaveTemplate);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(
                 library.SaveTemplateCalls,
                 Is.EqualTo(new[] { ("Trailer", PromptTaskKind.Video, "current prompt") }));
             Assert.That(viewModel.TemplateName.Value, Is.Empty);
             Assert.That(viewModel.Error.Value, Is.Null);
-            Assert.That(viewModel.SelectedChoice.Value?.Id, Is.EqualTo(library.Templates.Single().Id));
-            Assert.That(viewModel.SelectedChoice.Value?.IsTemplate, Is.True);
-        });
+            Assert.That(viewModel.Templates.Single().Id, Is.EqualTo(library.Templates.Single().Id));
+            Assert.That(viewModel.Templates.Single().IsTemplate, Is.True);
+        }
     }
 
     [TestCase("", "valid prompt")]
@@ -283,13 +272,13 @@ public sealed class AiPromptLibraryViewModelTests
 
             Execute(viewModel.SaveTemplate);
 
-            Assert.Multiple(() =>
+            using (Assert.EnterMultipleScope())
             {
                 Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiPromptTemplateInvalid));
-                Assert.That(viewModel.Choices, Is.Empty);
+                Assert.That(viewModel.Templates, Is.Empty);
                 Assert.That(library.Templates, Is.Empty);
                 Assert.That(File.Exists(storagePath), Is.False);
-            });
+            }
         }
         finally
         {
@@ -299,6 +288,14 @@ public sealed class AiPromptLibraryViewModelTests
             }
         }
     }
+
+    private static FakePromptLibrary CreateSingleItemLibrary(bool isTemplate) =>
+        isTemplate
+            ? new FakePromptLibrary(templates: [CreateTemplate(PromptTaskKind.Image, "Template", updatedMinute: 1)])
+            : new FakePromptLibrary(history: [CreateHistory(PromptTaskKind.Image, "history", usedMinute: 1)]);
+
+    private static AiPromptChoice Single(AiPromptLibraryViewModel viewModel, bool isTemplate) =>
+        isTemplate ? viewModel.Templates.Single() : viewModel.History.Single();
 
     private static PromptTemplate CreateTemplate(
         PromptTaskKind taskKind,
@@ -333,10 +330,10 @@ public sealed class AiPromptLibraryViewModelTests
     private static DateTimeOffset CreateTimestamp(int minute) =>
         new DateTimeOffset(2026, 8, 9, 0, 0, 0, TimeSpan.Zero).AddMinutes(minute);
 
-    private static void Execute(ICommand command)
+    private static void Execute(ICommand command, object? parameter = null)
     {
-        Assert.That(command.CanExecute(null), Is.True);
-        command.Execute(null);
+        Assert.That(command.CanExecute(parameter), Is.True);
+        command.Execute(parameter);
     }
 
     private sealed class FakePromptLibrary : IPromptLibrary

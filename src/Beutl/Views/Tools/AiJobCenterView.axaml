@@ -5,6 +5,7 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:tools="using:Beutl.Views.Tools"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
              d:DesignHeight="640"
@@ -36,26 +37,9 @@
             </Button>
         </Grid>
 
-        <Border Grid.Row="1"
-                Margin="8,0"
-                Padding="8"
-                Background="{DynamicResource ControlFillColorDefaultBrush}"
-                CornerRadius="6"
-                IsVisible="{CompiledBinding Usage.HasSnapshot.Value}">
-            <StackPanel Spacing="3">
-                <TextBlock FontSize="11"
-                           Text="{CompiledBinding Usage.MonthlyUsageText.Value}" />
-                <ProgressBar MinWidth="0"
-                             Maximum="100"
-                             Minimum="0"
-                             AutomationProperties.Name="{CompiledBinding Usage.MonthlyUsageText.Value}"
-                             Value="{CompiledBinding Usage.UsagePercent.Value}" />
-                <TextBlock FontSize="11"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           Text="{CompiledBinding Usage.MonthlyRemainingText.Value}"
-                           TextWrapping="Wrap" />
-            </StackPanel>
-        </Border>
+        <tools:AiUsageSummaryView Grid.Row="1"
+                                  Margin="8,0"
+                                  DataContext="{CompiledBinding Usage}" />
 
         <TextBlock Grid.Row="2"
                    Margin="8"

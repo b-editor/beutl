@@ -77,6 +77,319 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task SceneMixTranscription_TakesItsRangeFromTheSceneItself()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-subtitle-scene-range");
+        editor.Scene.Start = TimeSpan.Zero;
+        editor.Scene.Duration = TimeSpan.Zero;
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(clients, editor);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
+
+        Assert.That(viewModel.CanTranscribeInput.Value, Is.False,
+            "A scene with no duration has nothing to transcribe.");
+
+        editor.Scene.Duration = TimeSpan.FromSeconds(3);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(viewModel.CanTranscribeInput.Value, Is.True,
+            "Retiming the scene reaches the tab without it asking for a range of its own.");
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_SendsTheSeedAsJsonAndTheReferenceAsAnUpload()
+    {
+        await TestReset.ResetShellAsync();
+        string referencePath = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-ai-reference-{Guid.NewGuid():N}.png");
+        await File.WriteAllBytesAsync(referencePath, s_png);
+        string? jsonBody = null;
+        string? uploadBody = null;
+        using var handler = new StubHandler(async (request, cancellationToken) =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/images":
+                    string body = await request.Content!.ReadAsStringAsync(cancellationToken);
+                    if (request.Content is MultipartFormDataContent)
+                    {
+                        uploadBody = body;
+                    }
+                    else
+                    {
+                        jsonBody = body;
+                    }
+
+                    return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        try
+        {
+            using var viewModel = CreateImageGenerationDialog(clients);
+            await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+            viewModel.Prompt.Value = "A calm blue sky";
+            viewModel.Seed.Value = 4242;
+
+            await viewModel.Generate.ExecuteAsync();
+
+            viewModel.ReferenceImagePath.Value = referencePath;
+            await viewModel.Generate.ExecuteAsync();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(jsonBody, Does.Contain("\"seed\":4242"),
+                    "A seed is what makes a result reproducible, so it has to reach the server.");
+                Assert.That(viewModel.ReferenceImagePreview.Value, Is.Not.Null,
+                    "The chosen picture is shown back before it is paid for.");
+                Assert.That(uploadBody, Is.Not.Null,
+                    "A reference turns the request into an upload.");
+                Assert.That(uploadBody, Does.Contain("name=reference"));
+                Assert.That(uploadBody, Does.Contain(Path.GetFileName(referencePath)));
+                Assert.That(uploadBody, Does.Contain("4242"));
+                Assert.That(viewModel.Error.Value, Is.Null);
+            }
+        }
+        finally
+        {
+            File.Delete(referencePath);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_ClearingTheReferenceReturnsToTheJsonRequest()
+    {
+        await TestReset.ResetShellAsync();
+        string referencePath = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-ai-reference-{Guid.NewGuid():N}.png");
+        await File.WriteAllBytesAsync(referencePath, s_png);
+        bool lastRequestWasUpload = true;
+        using var handler = new StubHandler(request =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/images":
+                    lastRequestWasUpload = request.Content is MultipartFormDataContent;
+                    return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        try
+        {
+            using var viewModel = CreateImageGenerationDialog(clients);
+            await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+            viewModel.Prompt.Value = "A calm blue sky";
+            viewModel.ReferenceImagePath.Value = referencePath;
+            Assert.That(viewModel.HasReferenceImage.Value, Is.True);
+
+            viewModel.ClearReferenceImage.Execute();
+            await viewModel.Generate.ExecuteAsync();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.HasReferenceImage.Value, Is.False);
+                Assert.That(viewModel.ReferenceImagePreview.Value, Is.Null,
+                    "The preview is released with the reference it belonged to.");
+                Assert.That(lastRequestWasUpload, Is.False,
+                    "With no reference the cheaper JSON request is used again.");
+            }
+        }
+        finally
+        {
+            File.Delete(referencePath);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task VideoGeneration_SendsTheSeedItWasGiven()
+    {
+        await TestReset.ResetShellAsync();
+        string? requestBody = null;
+        using var handler = new StubHandler(async (request, cancellationToken) =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/videos":
+                    requestBody = await request.Content!.ReadAsStringAsync(cancellationToken);
+                    return JsonResponse(HttpStatusCode.OK, """
+                        {
+                          "jobId": "video-job",
+                          "status": "queued"
+                        }
+                        """);
+                case "/api/v3/ai/videos/video-job":
+                    return JsonResponse(HttpStatusCode.OK, """
+                        {
+                          "jobId": "video-job",
+                          "status": "succeeded",
+                          "fileId": "video-file",
+                          "url": "https://beutl.beditor.net/api/contents/video-file",
+                          "error": null
+                        }
+                        """);
+                case "/api/contents/video-file":
+                    return ByteResponse([1, 2, 3, 4], "video/mp4");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        await using AiVideoGenerationDialogViewModel viewModel = CreateVideoGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
+        viewModel.Prompt.Value = "A slow camera pan";
+        viewModel.Seed.Value = 77;
+
+        await viewModel.Generate.ExecuteAsync();
+
+        Assert.That(requestBody, Does.Contain("\"seed\":77"));
+    }
+
+    [AvaloniaTest]
+    public async Task VideoOptions_FollowTheChosenModel()
+    {
+        await TestReset.ResetShellAsync();
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/capabilities" => JsonResponse(
+                HttpStatusCode.OK,
+                VideoCapabilitiesJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        await using AiVideoGenerationDialogViewModel viewModel =
+            CreateVideoGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 2);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                viewModel.ResolutionOptions.Select(option => option.Value),
+                Is.EqualTo(new[] { "720p", "1080p" }));
+            Assert.That(
+                viewModel.DurationOptions.Select(option => option.Seconds),
+                Is.EqualTo(new[] { 4, 6, 8 }));
+            Assert.That(viewModel.SupportsSeed.Value, Is.True);
+        }
+
+        viewModel.SelectedDuration.Value = viewModel.DurationOptions
+            .First(option => option.Seconds == 4);
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "minimax/hailuo-3");
+
+        using (Assert.EnterMultipleScope())
+        {
+            // What the model renders at, not what the dialog used to offer.
+            Assert.That(
+                viewModel.ResolutionOptions.Select(option => option.Value),
+                Is.EqualTo(new[] { "2K" }));
+            Assert.That(viewModel.SelectedResolution.Value.Value, Is.EqualTo("2K"));
+            // The lengths this model takes, not the three the dialog used to
+            // offer: 5 and 7 were unreachable before.
+            Assert.That(
+                viewModel.DurationOptions.Select(option => option.Seconds),
+                Is.EqualTo(new[] { 5, 6, 7, 8 }));
+            // 4 seconds is gone; the nearest length it does take is 5, and
+            // leaving 4 in place would be charged for and then refused.
+            Assert.That(viewModel.SelectedDuration.Value.Seconds, Is.EqualTo(5));
+            // A seed it cannot take is not offered, and never sent.
+            Assert.That(viewModel.SupportsSeed.Value, Is.False);
+            Assert.That(viewModel.Seed.Value, Is.Null);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImageBackgrounds_FollowTheChosenModel()
+    {
+        await TestReset.ResetShellAsync();
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/capabilities" => JsonResponse(
+                HttpStatusCode.OK,
+                ImageCapabilitiesJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using AiImageGenerationDialogViewModel viewModel =
+            CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
+
+        using (Assert.EnterMultipleScope())
+        {
+            // What GPT Image-1 publishes, in the order the server lists it.
+            Assert.That(
+                viewModel.BackgroundOptions.Select(option => option.Value),
+                Is.EqualTo(new[] { "auto", "opaque", "transparent" }));
+            Assert.That(viewModel.HasBackgroundChoice.Value, Is.True);
+        }
+
+        viewModel.SelectedBackground.Value = viewModel.BackgroundOptions
+            .First(option => option.Value == "transparent");
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-2");
+
+        using (Assert.EnterMultipleScope())
+        {
+            // GPT Image-2 fills a background in rather than cutting one out, so
+            // transparent is gone and the choice falls back to the model's own.
+            Assert.That(
+                viewModel.BackgroundOptions.Select(option => option.Value),
+                Is.EqualTo(new[] { "auto", "opaque" }));
+            Assert.That(viewModel.SelectedBackground.Value.Value, Is.EqualTo("auto"));
+        }
+
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "qwen/qwen-image-3-pro");
+
+        using (Assert.EnterMultipleScope())
+        {
+            // A model that publishes no background at all leaves nothing to
+            // choose, so the control is hidden and nothing is sent.
+            Assert.That(
+                viewModel.BackgroundOptions.Select(option => option.Value),
+                Is.EqualTo(new[] { "auto" }));
+            Assert.That(viewModel.HasBackgroundChoice.Value, Is.False);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ComposedPromptLimit_DisablesImageAndVideoCommandsBeforeSubmission()
     {
         await TestReset.ResetShellAsync();
@@ -92,7 +405,7 @@ public sealed class AiDialogWorkflowTests
         await using var video = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => image.Usage.HasSnapshot.Value
             && video.Usage.HasSnapshot.Value
-            && video.EstimatedUsage.IsAvailable.Value);
+            && video.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
 
         image.Prompt.Value = "subject";
         image.Style.Value = new string('s', 2_000);
@@ -183,7 +496,7 @@ public sealed class AiDialogWorkflowTests
         SetAuthenticatedUser(clients, httpClient);
         var viewModel = CreateVideoGenerationDialog(clients, editor);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
-            && viewModel.EstimatedUsage.IsAvailable.Value);
+            && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
         viewModel.Prompt.Value = "A slow camera pan";
 
         await viewModel.Generate.ExecuteAsync();
@@ -244,7 +557,7 @@ public sealed class AiDialogWorkflowTests
         viewModel.PollInterval = TimeSpan.FromMilliseconds(10);
         viewModel.MaximumTransientPollDelay = TimeSpan.FromMilliseconds(25);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
-            && viewModel.EstimatedUsage.IsAvailable.Value);
+            && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
         viewModel.Prompt.Value = "WebM output";
         await WaitUntilAsync(() => viewModel.CanGenerate.Value);
 
@@ -313,9 +626,9 @@ public sealed class AiDialogWorkflowTests
 
         viewModel.SelectedDuration.Value = viewModel.DurationOptions.Single(option => option.Seconds == 4);
         await sixSecondCheckCanceled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await WaitUntilAsync(() => viewModel.EstimatedUsage.IsAvailable.Value);
+        await WaitUntilAsync(() => viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
         viewModel.SelectedDuration.Value = viewModel.DurationOptions.Single(option => option.Seconds == 8);
-        Assert.That(viewModel.EstimatedUsage.IsAvailable.Value, Is.False);
+        Assert.That(viewModel.EstimatedUsage.State.Value, Is.EqualTo(AiOperationAvailabilityState.Unknown));
         await Task.Delay(350);
         HeadlessTestHelpers.Settle();
 
@@ -323,7 +636,7 @@ public sealed class AiDialogWorkflowTests
         {
             Assert.That(durations, Does.Contain(4));
             Assert.That(durations, Does.Contain(8));
-            Assert.That(viewModel.EstimatedUsage.IsAvailable.Value, Is.False);
+            Assert.That(viewModel.EstimatedUsage.State.Value, Is.EqualTo(AiOperationAvailabilityState.Unknown));
         }
     }
 
@@ -367,7 +680,7 @@ public sealed class AiDialogWorkflowTests
         SetAuthenticatedUser(clients, httpClient);
         var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
-            && viewModel.EstimatedUsage.IsAvailable.Value);
+            && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
         viewModel.Prompt.Value = "Replace this preview";
 
         await viewModel.Generate.ExecuteAsync();
@@ -604,7 +917,7 @@ public sealed class AiDialogWorkflowTests
         SetAuthenticatedUser(clients, httpClient);
         var viewModel = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
-            && viewModel.EstimatedUsage.IsAvailable.Value);
+            && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
         viewModel.Prompt.Value = "Cancel this video";
 
         Task operation = viewModel.Generate.ExecuteAsync();
@@ -1169,8 +1482,8 @@ public sealed class AiDialogWorkflowTests
         };
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
-        viewModel.SceneRangeStartText.Value = "00:00:00.000";
-        viewModel.SceneRangeEndText.Value = "00:00:00.100";
+        editor.Scene.Start = TimeSpan.Zero;
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
         var originalSegments = new[]
         {
             new AiTranscriptionSegment { Start = 0, End = 0.04, Text = "existing caption" },
@@ -1202,11 +1515,11 @@ public sealed class AiDialogWorkflowTests
         });
 
         // A partial resume belongs only to the exact source/range/language
-        // tuple. Changing the range must price a first chunk for that range.
-        viewModel.SceneRangeEndText.Value = "00:00:00.040";
+        // tuple. Changing the scene's own range must price a first chunk for it.
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(40);
         viewModel.RefreshAvailability();
         await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
-        viewModel.SceneRangeEndText.Value = "00:00:00.100";
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
         viewModel.RefreshAvailability();
         await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
 
@@ -1307,8 +1620,8 @@ public sealed class AiDialogWorkflowTests
         };
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
-        viewModel.SceneRangeStartText.Value = "00:00:00.000";
-        viewModel.SceneRangeEndText.Value = "00:00:00.100";
+        editor.Scene.Start = TimeSpan.Zero;
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
         var originalSegments = new[]
         {
             new AiTranscriptionSegment { Start = 0, End = 0.04, Text = "existing caption" },
@@ -1385,8 +1698,8 @@ public sealed class AiDialogWorkflowTests
         };
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
-        viewModel.SceneRangeStartText.Value = "00:00:00.000";
-        viewModel.SceneRangeEndText.Value = "00:00:00.100";
+        editor.Scene.Start = TimeSpan.Zero;
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
         viewModel.ResultSegments.Value =
         [
             new AiTranscriptionSegment { Start = 0, End = 0.04, Text = "existing caption" },
@@ -1570,6 +1883,89 @@ public sealed class AiDialogWorkflowTests
             BindingFlags.NonPublic | BindingFlags.Instance)!;
         ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
     }
+
+    // Two video models with different shapes: one takes 4/6/8 seconds at 720p or
+    // 1080p, the other renders only at 2K, refuses anything under five seconds
+    // and takes no seed.
+    private static string VideoCapabilitiesJson() => """
+        {
+          "operations": {
+            "video.generate": {
+              "models": [
+                {
+                  "id": "google/veo-3.1",
+                  "displayName": "Veo 3.1",
+                  "costTier": "medium",
+                  "isDefault": true,
+                  "durationsSeconds": [4, 6, 8],
+                  "resolutions": ["720p", "1080p"],
+                  "aspectRatios": ["16:9", "9:16"],
+                  "audio": true,
+                  "seed": true
+                },
+                {
+                  "id": "minimax/hailuo-3",
+                  "displayName": "MiniMax H3",
+                  "costTier": "low",
+                  "isDefault": false,
+                  "durationsSeconds": [5, 6, 7, 8],
+                  "resolutions": ["2K"],
+                  "aspectRatios": ["16:9"],
+                  "audio": true,
+                  "seed": false
+                }
+              ],
+              "minDurationSeconds": 1,
+              "maxDurationSeconds": 60,
+              "resolutions": ["720p", "1080p", "2K"],
+              "aspectRatios": ["16:9", "9:16"]
+            }
+          }
+        }
+        """;
+
+    private static string ImageCapabilitiesJson() => """
+        {
+          "operations": {
+            "image.generate": {
+              "models": [
+                {
+                  "id": "openai/gpt-image-1",
+                  "displayName": "GPT Image-1",
+                  "costTier": "medium",
+                  "isDefault": true,
+                  "aspectRatios": ["1:1", "3:2", "2:3"],
+                  "backgrounds": ["auto", "opaque", "transparent"],
+                  "seed": false,
+                  "maxReferenceImages": 4
+                },
+                {
+                  "id": "openai/gpt-image-2",
+                  "displayName": "GPT Image-2",
+                  "costTier": "low",
+                  "isDefault": false,
+                  "aspectRatios": ["16:9", "1:1"],
+                  "backgrounds": ["auto", "opaque"],
+                  "seed": false,
+                  "maxReferenceImages": 4
+                },
+                {
+                  "id": "qwen/qwen-image-3-pro",
+                  "displayName": "Qwen Image 3 Pro",
+                  "costTier": "low",
+                  "isDefault": false,
+                  "aspectRatios": ["16:9", "1:1"],
+                  "backgrounds": ["auto"],
+                  "seed": false,
+                  "maxReferenceImages": 4
+                }
+              ],
+              "aspectRatios": ["16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3"],
+              "backgrounds": ["auto", "opaque", "transparent"]
+            }
+          }
+        }
+        """;
 
     private static string EntitlementsJson() => """
         {

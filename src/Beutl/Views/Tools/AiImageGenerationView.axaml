@@ -2,11 +2,12 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:btl="using:Beutl.Controls"
+             xmlns:cv="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:tools="using:Beutl.Views.Tools"
              xmlns:vm="using:Beutl.ViewModels.Dialogs"
              d:DesignHeight="640"
              d:DesignWidth="480"
@@ -14,187 +15,187 @@
              x:DataType="vm:AiImageGenerationDialogViewModel"
              mc:Ignorable="d">
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="12" Spacing="12">
-        <ui:InfoBar IsClosable="False"
-                    IsOpen="True"
-                    Message="{x:Static lang:Strings.AiDataDisclosure}"
-                    Severity="Informational"
-                    Title="{x:Static lang:Strings.AiDataDisclosureTitle}" />
-        <StackPanel Spacing="4">
-            <TextBlock Text="{x:Static lang:Strings.AiPrompt}" />
-            <TextBox AcceptsReturn="True"
-                     AutomationProperties.Name="{x:Static lang:Strings.AiPrompt}"
-                     Height="80"
-                     MaxLength="4000"
-                     Text="{CompiledBinding Prompt.Value}"
-                     TextWrapping="Wrap"
-                     Watermark="{x:Static lang:Strings.AiPrompt_Placeholder}" />
-            <Expander Header="{x:Static lang:Strings.AiPromptDetails}">
-                <StackPanel Margin="0,8,0,0" Spacing="8">
-                    <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptStyle}"
-                             MaxLength="4000"
-                             Text="{CompiledBinding Style.Value}"
-                             Watermark="{x:Static lang:Strings.AiPromptStylePlaceholder}" />
-                    <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptComposition}"
-                             MaxLength="4000"
-                             Text="{CompiledBinding Composition.Value}"
-                             Watermark="{x:Static lang:Strings.AiPromptCompositionPlaceholder}" />
-                    <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptAvoid}"
-                             MaxLength="4000"
-                             Text="{CompiledBinding Exclusions.Value}"
-                             Watermark="{x:Static lang:Strings.AiPromptAvoidPlaceholder}" />
-                </StackPanel>
+        <StackPanel Margin="12,10" Spacing="8">
+            <Expander Header="{x:Static lang:Strings.AiPromptTemplates}">
+                <tools:AiPromptTemplatesView Margin="0,8,0,0"
+                                             DataContext="{CompiledBinding PromptLibrary}" />
             </Expander>
-            <TextBlock AutomationProperties.LiveSetting="Assertive"
-                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                       IsVisible="{CompiledBinding PromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                       Text="{CompiledBinding PromptValidationError.Value}"
-                       TextWrapping="Wrap" />
-            <Expander Header="{x:Static lang:Strings.AiPromptLibrary}">
-                <StackPanel Margin="0,8,0,0" Spacing="8">
-                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               Text="{CompiledBinding PromptLibrary.PrivacyText}"
-                               TextWrapping="Wrap" />
-                    <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptLibrary}"
-                              ItemsSource="{CompiledBinding PromptLibrary.Choices}"
-                              SelectedItem="{CompiledBinding PromptLibrary.SelectedChoice.Value}" />
-                    <WrapPanel Orientation="Horizontal">
-                        <Button Margin="0,0,4,4"
-                                AutomationProperties.Name="{x:Static lang:Strings.AiPromptApply}"
-                                Command="{CompiledBinding PromptLibrary.ApplySelected}"
-                                Content="{x:Static lang:Strings.AiPromptApply}" />
-                        <Button Margin="0,0,4,4"
-                                AutomationProperties.Name="{x:Static lang:Strings.AiPromptPin}"
-                                Command="{CompiledBinding PromptLibrary.TogglePinSelected}"
-                                Content="{x:Static lang:Strings.AiPromptPin}" />
-                        <Button Margin="0,0,0,4"
-                                AutomationProperties.Name="{x:Static lang:Strings.Delete}"
-                                Command="{CompiledBinding PromptLibrary.DeleteSelected}"
-                                Content="{x:Static lang:Strings.Delete}" />
-                    </WrapPanel>
-                    <StackPanel Spacing="4">
-                        <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptTemplateName}"
-                                 Text="{CompiledBinding PromptLibrary.TemplateName.Value}"
-                                 Watermark="{x:Static lang:Strings.AiPromptTemplateName}" />
-                        <Button HorizontalAlignment="Left"
-                                AutomationProperties.Name="{x:Static lang:Strings.AiPromptSaveTemplate}"
-                                Command="{CompiledBinding PromptLibrary.SaveTemplate}"
-                                Content="{x:Static lang:Strings.AiPromptSaveTemplate}" />
-                    </StackPanel>
-                    <Button HorizontalAlignment="Left"
-                            AutomationProperties.Name="{x:Static lang:Strings.AiPromptClearRecent}"
-                            Command="{CompiledBinding PromptLibrary.ClearRecent}"
-                            Content="{x:Static lang:Strings.AiPromptClearRecent}" />
-                    <TextBlock AutomationProperties.LiveSetting="Assertive"
-                               AutomationProperties.Name="{CompiledBinding PromptLibrary.Error.Value}"
-                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                               IsVisible="{CompiledBinding PromptLibrary.Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                               Text="{CompiledBinding PromptLibrary.Error.Value}"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-            </Expander>
-        </StackPanel>
 
-        <!--  Hidden when the operation offers a single model: there is nothing
-              to choose, and the server runs that one either way.  -->
-        <StackPanel IsVisible="{CompiledBinding ModelPicker.HasChoice.Value}" Spacing="4">
-            <TextBlock Text="{x:Static lang:Strings.AiModel}" />
-            <ComboBox HorizontalAlignment="Stretch"
-                      AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
-                      ItemsSource="{CompiledBinding ModelPicker.Options}"
-                      SelectedItem="{CompiledBinding ModelPicker.Selected.Value}" />
-        </StackPanel>
-
-        <StackPanel Spacing="4">
-            <TextBlock Text="{x:Static lang:Strings.AiAspectRatio}" />
-            <ComboBox HorizontalAlignment="Stretch"
-                      AutomationProperties.Name="{x:Static lang:Strings.AiAspectRatio}"
-                      ItemsSource="{CompiledBinding AspectRatioOptions}"
-                      SelectedItem="{CompiledBinding SelectedAspectRatio.Value}" />
-        </StackPanel>
-
-        <CheckBox Content="{x:Static lang:Strings.AiTransparentBackground}"
-                  IsChecked="{CompiledBinding TransparentBackground.Value}" />
-
-        <StackPanel Spacing="8">
-            <StackPanel VerticalAlignment="Center"
-                        IsVisible="{CompiledBinding Usage.HasSnapshot.Value}"
-                        Spacing="2">
-                <TextBlock Text="{CompiledBinding Usage.MonthlyUsageText.Value}" />
-                <ProgressBar MinWidth="0"
-                             Maximum="100"
-                             Minimum="0"
-                             AutomationProperties.Name="{CompiledBinding Usage.MonthlyUsageText.Value}"
-                             Value="{CompiledBinding Usage.UsagePercent.Value}" />
-                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           Text="{CompiledBinding Usage.MonthlyRemainingText.Value}"
-                           TextWrapping="Wrap" />
-                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           IsVisible="{CompiledBinding Usage.HasAdditionalCredits.Value}"
-                           Text="{CompiledBinding Usage.AdditionalCreditsText.Value}"
-                           TextWrapping="Wrap" />
-                <TextBlock IsVisible="{CompiledBinding Usage.HasAdditionalCreditDebt.Value}"
+            <StackPanel Spacing="4">
+                <!--  The history button sits over the box it fills in, so reaching for an
+                      earlier prompt does not mean opening the templates panel below.  -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.AiPrompt}" />
+                    <tools:AiPromptHistoryButton Grid.Column="1"
+                                                 DataContext="{CompiledBinding PromptLibrary}" />
+                </Grid>
+                <TextBox AcceptsReturn="True"
+                         AutomationProperties.Name="{x:Static lang:Strings.AiPrompt}"
+                         Height="80"
+                         MaxLength="4000"
+                         Text="{CompiledBinding Prompt.Value}"
+                         TextWrapping="Wrap"
+                         Watermark="{x:Static lang:Strings.AiPrompt_Placeholder}" />
+                <TextBlock AutomationProperties.LiveSetting="Assertive"
                            Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                           Text="{CompiledBinding Usage.AdditionalCreditDebtText.Value}"
-                           TextWrapping="Wrap" />
-                <TextBlock FontWeight="SemiBold"
-                           IsVisible="{CompiledBinding EstimatedUsage.HasSummary.Value}"
-                           Text="{CompiledBinding EstimatedUsage.Summary.Value}"
-                           TextWrapping="Wrap" />
-                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           IsVisible="{CompiledBinding EstimatedUsage.HasExplanation.Value}"
-                           Text="{CompiledBinding EstimatedUsage.Explanation.Value}"
+                           IsVisible="{CompiledBinding PromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                           Text="{CompiledBinding PromptValidationError.Value}"
                            TextWrapping="Wrap" />
             </StackPanel>
-            <WrapPanel Orientation="Horizontal">
-                <Button Margin="0,0,8,8"
+
+            <!--  The model picker is hidden when the operation offers a single model: there
+                  is nothing to choose, and the aspect ratio then takes the whole row.  -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <StackPanel x:Name="AspectRatioField"
+                            Grid.ColumnSpan="{CompiledBinding ModelPicker.HasChoice.Value, Converter={x:Static cv:GridSpanConverter.Instance}}"
+                            Spacing="4">
+                    <TextBlock Text="{x:Static lang:Strings.AiAspectRatio}" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              AutomationProperties.Name="{x:Static lang:Strings.AiAspectRatio}"
+                              ItemsSource="{CompiledBinding AspectRatioOptions}"
+                              SelectedItem="{CompiledBinding SelectedAspectRatio.Value}" />
+                </StackPanel>
+                <StackPanel x:Name="ModelField"
+                            Grid.Column="1"
+                            IsVisible="{CompiledBinding ModelPicker.HasChoice.Value}"
+                            Spacing="4">
+                    <TextBlock Text="{x:Static lang:Strings.AiModel}" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
+                              ItemsSource="{CompiledBinding ModelPicker.Options}"
+                              SelectedItem="{CompiledBinding ModelPicker.Selected.Value}" />
+                </StackPanel>
+            </Grid>
+
+            <!--  Hidden for a model that publishes no background of its own: there is
+                  nothing to choose, and asking for one would be refused.  -->
+            <StackPanel IsVisible="{CompiledBinding HasBackgroundChoice.Value}" Spacing="4">
+                <TextBlock Text="{x:Static lang:Strings.AiBackground}" />
+                <ComboBox HorizontalAlignment="Stretch"
+                          AutomationProperties.Name="{x:Static lang:Strings.AiBackground}"
+                          ItemsSource="{CompiledBinding BackgroundOptions}"
+                          SelectedItem="{CompiledBinding SelectedBackground.Value}" />
+            </StackPanel>
+
+            <Expander Header="{x:Static lang:Strings.AiPromptDetails}">
+                <StackPanel Margin="0,8,0,0" Spacing="8">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{x:Static lang:Strings.AiPromptStyle}" />
+                        <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptStyle}"
+                                 MaxLength="4000"
+                                 Text="{CompiledBinding Style.Value}"
+                                 Watermark="{x:Static lang:Strings.AiPromptStylePlaceholder}" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{x:Static lang:Strings.AiPromptComposition}" />
+                        <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptComposition}"
+                                 MaxLength="4000"
+                                 Text="{CompiledBinding Composition.Value}"
+                                 Watermark="{x:Static lang:Strings.AiPromptCompositionPlaceholder}" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{x:Static lang:Strings.AiPromptAvoid}" />
+                        <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptAvoid}"
+                                 MaxLength="4000"
+                                 Text="{CompiledBinding Exclusions.Value}"
+                                 Watermark="{x:Static lang:Strings.AiPromptAvoidPlaceholder}" />
+                    </StackPanel>
+                    <StackPanel IsVisible="{CompiledBinding SupportsSeed.Value}" Spacing="4">
+                        <TextBlock Text="{x:Static lang:Strings.AiPromptSeed}" />
+                        <NumericUpDown AutomationProperties.Name="{x:Static lang:Strings.AiPromptSeed}"
+                                       FormatString="0"
+                                       Maximum="{CompiledBinding SeedMaximum}"
+                                       Minimum="{CompiledBinding SeedMinimum}"
+                                       Value="{CompiledBinding Seed.Value}"
+                                       Watermark="{x:Static lang:Strings.AiPromptSeedPlaceholder}" />
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <Expander Header="{x:Static lang:Strings.AiReferenceImage}"
+                      IsVisible="{CompiledBinding SupportsReferenceImage.Value}">
+                <StackPanel Margin="0,8,0,0" Spacing="8">
+                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{x:Static lang:Strings.AiReferenceImageDescription}"
+                               TextWrapping="Wrap" />
+                    <Border Height="96"
+                            Background="{DynamicResource ControlFillColorDefaultBrush}"
+                            CornerRadius="4">
+                        <Grid>
+                            <btl:BitmapView Source="{CompiledBinding ReferenceImagePreview.Value}"
+                                            Stretch="Uniform" />
+                            <TextBlock HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{CompiledBinding ReferenceImagePreview.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                                       Opacity="0.6"
+                                       Text="{x:Static lang:Strings.AiOptional}" />
+                        </Grid>
+                    </Border>
+                    <TextBlock MaxLines="1"
+                               Text="{CompiledBinding ReferenceImagePath.Value}"
+                               TextTrimming="CharacterEllipsis" />
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Margin="0,0,4,4"
+                                AutomationProperties.Name="{x:Static lang:Strings.AiReferenceImage}"
+                                Command="{CompiledBinding SelectReferenceImage}"
+                                Content="{x:Static lang:Strings.AiEditBrowse}" />
+                        <Button Margin="0,0,0,4"
+                                Command="{CompiledBinding ClearReferenceImage}"
+                                Content="{x:Static lang:Strings.AiClearReferenceImage}"
+                                IsVisible="{CompiledBinding HasReferenceImage.Value}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Expander>
+
+            <StackPanel Spacing="8">
+                <StackPanel IsVisible="{CompiledBinding Usage.HasSnapshot.Value}" Spacing="4">
+                    <tools:AiUsageSummaryView DataContext="{CompiledBinding Usage}" />
+                    <tools:AiUsageEstimateView DataContext="{CompiledBinding EstimatedUsage}" />
+                </StackPanel>
+                <Button HorizontalAlignment="Stretch"
+                        Classes="accent"
                         Command="{CompiledBinding Generate}"
                         Content="{CompiledBinding GenerateButtonText.Value}"
                         IsEnabled="{CompiledBinding CanGenerate.Value}" />
-                <Button Margin="0,0,0,8"
+            </StackPanel>
+
+            <Border Height="320"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    CornerRadius="8">
+                <Grid>
+                    <btl:BitmapView Stretch="Uniform"
+                                    Source="{CompiledBinding ResultImage.Value}" />
+                    <TextBlock HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               IsVisible="{CompiledBinding ResultImage.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                               Opacity="0.6"
+                               Text="{x:Static lang:Strings.AiImageGeneration}" />
+                </Grid>
+            </Border>
+
+            <TextBlock AutomationProperties.LiveSetting="Assertive"
+                       AutomationProperties.Name="{CompiledBinding Error.Value}"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Text="{CompiledBinding Error.Value}"
+                       TextWrapping="Wrap" />
+
+            <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}" Spacing="8">
+                <TextBlock Text="{x:Static lang:Strings.AiProRequired}"
+                           TextWrapping="Wrap" />
+                <Button HorizontalAlignment="Left"
                         Command="{CompiledBinding OpenAiPlan}"
-                        Content="{x:Static lang:Strings.AiManageAndTopUp}"
-                        IsVisible="{CompiledBinding Usage.CanUseAi.Value}" />
+                        Content="{x:Static lang:Strings.AiJoinPro}" />
+            </StackPanel>
+
+            <WrapPanel Orientation="Horizontal">
+                <Button Margin="0,0,8,8"
+                        Command="{CompiledBinding AddToScene}"
+                        Content="{x:Static lang:Strings.AiAddToScene}" />
+                <Button Margin="0,0,0,8"
+                        Command="{CompiledBinding SaveToFile}"
+                        Content="{x:Static lang:Strings.AiSaveToFile}" />
             </WrapPanel>
         </StackPanel>
-
-        <Border Height="320"
-                Background="{DynamicResource ControlFillColorDefaultBrush}"
-                CornerRadius="8">
-            <Grid>
-                <btl:BitmapView Stretch="Uniform"
-                                Source="{CompiledBinding ResultImage.Value}" />
-                <TextBlock HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           IsVisible="{CompiledBinding ResultImage.Value, Converter={x:Static ObjectConverters.IsNull}}"
-                           Opacity="0.6"
-                           Text="{x:Static lang:Strings.AiImageGeneration}" />
-            </Grid>
-        </Border>
-
-        <TextBlock AutomationProperties.LiveSetting="Assertive"
-                   AutomationProperties.Name="{CompiledBinding Error.Value}"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                   Text="{CompiledBinding Error.Value}"
-                   TextWrapping="Wrap" />
-
-        <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}" Spacing="8">
-            <TextBlock Text="{x:Static lang:Strings.AiProRequired}"
-                       TextWrapping="Wrap" />
-            <Button HorizontalAlignment="Left"
-                    Command="{CompiledBinding OpenAiPlan}"
-                    Content="{x:Static lang:Strings.AiJoinPro}" />
-        </StackPanel>
-
-        <WrapPanel Orientation="Horizontal">
-            <Button Margin="0,0,8,8"
-                    Command="{CompiledBinding AddToScene}"
-                    Content="{x:Static lang:Strings.AiAddToScene}" />
-            <Button Margin="0,0,0,8"
-                    Command="{CompiledBinding SaveToFile}"
-                    Content="{x:Static lang:Strings.AiSaveToFile}" />
-        </WrapPanel>
-    </StackPanel>
     </ScrollViewer>
 </UserControl>

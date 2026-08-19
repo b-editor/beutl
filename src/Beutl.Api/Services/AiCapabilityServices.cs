@@ -198,8 +198,10 @@ internal sealed class AiImageGenerationService(
         ArgumentNullException.ThrowIfNull(request);
         string idempotencyKey = CreateIdempotencyKey();
         // The endpoint reads "auto" and an absent background the same way, so
-        // only a transparent one is worth sending.
-        string? background = request.TransparentBackground ? "transparent" : null;
+        // leaving it to the model is sent as nothing at all.
+        string backgroundValue = request.Background.Value;
+        string? background =
+            backgroundValue.Length > 0 && backgroundValue != "auto" ? backgroundValue : null;
 
         if (request.Reference is null)
         {
@@ -248,7 +250,7 @@ internal sealed class AiImageGenerationService(
     private static void SetImageTags(Activity? activity, AiImageGenerationRequest request)
     {
         activity?.SetTag("aspectRatio", request.AspectRatio.Value);
-        activity?.SetTag("transparentBackground", request.TransparentBackground);
+        activity?.SetTag("background", request.Background.Value);
         activity?.SetTag("hasReference", request.Reference is not null);
     }
 }

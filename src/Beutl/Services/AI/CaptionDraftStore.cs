@@ -31,8 +31,6 @@ internal sealed record CaptionTranslationResume(
 
 internal sealed record CaptionSceneTranscriptionResume(
     Guid SceneId,
-    string StartText,
-    string EndText,
     string? Language,
     TimeSpan RangeStart,
     TimeSpan Duration,
@@ -381,8 +379,6 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         }
             && resume.CompletedChunkCount <= resume.ChunkCount
             && resume.SceneId != Guid.Empty
-            && !string.IsNullOrWhiteSpace(resume.StartText)
-            && !string.IsNullOrWhiteSpace(resume.EndText)
             && duration > TimeSpan.Zero
             && chunkDuration > TimeSpan.Zero
             && resume.Segments.All(segment => segment is not null

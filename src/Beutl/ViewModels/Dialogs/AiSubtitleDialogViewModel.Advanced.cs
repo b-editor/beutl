@@ -126,12 +126,6 @@ public sealed partial class AiSubtitleDialogViewModel
 
     public ReactivePropertySlim<EditableCaptionCueViewModel?> SelectedCue { get; private set; } = null!;
 
-    public ReactivePropertySlim<string> SceneRangeStartText { get; private set; } = null!;
-
-    public ReactivePropertySlim<string> SceneRangeEndText { get; private set; } = null!;
-
-    public ReadOnlyReactivePropertySlim<bool> UseSceneMix { get; private set; } = null!;
-
     internal ReadOnlyReactivePropertySlim<bool> CanTranscribeInput { get; private set; } = null!;
 
     internal ReactivePropertySlim<bool> HasValidCues { get; private set; } = null!;
@@ -199,12 +193,6 @@ public sealed partial class AiSubtitleDialogViewModel
         Cues = new ReadOnlyObservableCollection<EditableCaptionCueViewModel>(_editableCues);
         SelectedCue = new ReactivePropertySlim<EditableCaptionCueViewModel?>()
             .DisposeWith(_captionDisposables);
-        TimeSpan rangeStart = _editViewModel?.Scene.Start ?? TimeSpan.Zero;
-        TimeSpan rangeEnd = rangeStart + (_editViewModel?.Scene.Duration ?? TimeSpan.FromMinutes(5));
-        SceneRangeStartText = new ReactivePropertySlim<string>(EditableCaptionCueViewModel.FormatTime(rangeStart))
-            .DisposeWith(_captionDisposables);
-        SceneRangeEndText = new ReactivePropertySlim<string>(EditableCaptionCueViewModel.FormatTime(rangeEnd))
-            .DisposeWith(_captionDisposables);
         MaximumLineLength = new ReactivePropertySlim<int>(42).DisposeWith(_captionDisposables);
         MaximumLineCount = new ReactivePropertySlim<int>(2).DisposeWith(_captionDisposables);
         CaptionValidationMessage = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
@@ -224,16 +212,14 @@ public sealed partial class AiSubtitleDialogViewModel
                 GetDefaultTargetLanguage())
             .DisposeWith(_captionDisposables);
 
-        UseSceneMix = SelectedAudioSource
-            .Select(source => source?.IsSceneMix == true)
-            .ToReadOnlyReactivePropertySlim(false)
-            .DisposeWith(_captionDisposables);
+        // The scene mix is transcribed over the scene's own range, so retiming the
+        // scene has to reach the estimate without the account re-picking anything.
+        IObservable<TimeSpan> sceneRange = CreateSceneRangeObservable();
         CanTranscribeInput = SelectedAudioSource
             .CombineLatest(
-                SceneRangeStartText,
-                SceneRangeEndText,
-                (source, start, end) => source is not null
-                    && (!source.IsSceneMix || TryGetSceneRange(start, end, out _, out _)))
+                sceneRange,
+                (source, duration) => source is not null
+                    && (!source.IsSceneMix || duration > TimeSpan.Zero))
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_captionDisposables);
 
@@ -243,27 +229,24 @@ public sealed partial class AiSubtitleDialogViewModel
         _translationAvailability = new AiOperationAvailabilityTracker(
             _availability,
             _lifetimeCts.Token);
-        IObservable<(AudioSourceItem? Source, string Start, string End, long Revision)>
+        IObservable<(AudioSourceItem? Source, TimeSpan Duration, long Revision)>
             transcriptionInputs = SelectedAudioSource.CombineLatest(
-                SceneRangeStartText,
-                SceneRangeEndText,
+                sceneRange,
                 _transcriptionEstimateRevision,
-                (source, start, end, revision) => (source, start, end, revision));
+                (source, duration, revision) => (source, duration, revision));
         transcriptionInputs.Subscribe(input =>
-                _transcriptionAvailability.Check(CreateTranscriptionAvailabilityRequest(
-                    input.Source,
-                    input.Start,
-                    input.End)))
+                _transcriptionAvailability.Check(
+                    CreateTranscriptionAvailabilityRequest(input.Source)))
             .DisposeWith(_captionDisposables);
         _translationEstimateRevision.Subscribe(_ => RefreshTranslationAvailability())
             .DisposeWith(_captionDisposables);
         TranscriptionEstimate = new AiUsageEstimateViewModel(
                 Usage,
-                _transcriptionAvailability.IsAvailable)
+                _transcriptionAvailability.State)
             .DisposeWith(_captionDisposables);
         TranslationEstimate = new AiUsageEstimateViewModel(
                 Usage,
-                _translationAvailability.IsAvailable)
+                _translationAvailability.State)
             .DisposeWith(_captionDisposables);
 
         CanTranslate = HasTimingValidCues
@@ -522,10 +505,8 @@ public sealed partial class AiSubtitleDialogViewModel
         string? language,
         long draftScopeRevision)
     {
-        string startText = SceneRangeStartText.Value;
-        string endText = SceneRangeEndText.Value;
         if (_editViewModel is null
-            || !TryGetSceneRange(startText, endText, out TimeSpan rangeStart, out TimeSpan duration))
+            || !TryGetSceneRange(out TimeSpan rangeStart, out TimeSpan duration))
         {
             throw new SubtitleInputException(Strings.AiSubtitle_InvalidRange);
         }
@@ -533,8 +514,6 @@ public sealed partial class AiSubtitleDialogViewModel
         int chunkCount = (int)Math.Ceiling(duration.TotalSeconds / SceneMixChunkDuration.TotalSeconds);
         bool canResume = CanResumeSceneTranscription(
             source,
-            startText,
-            endText,
             language,
             rangeStart,
             duration,
@@ -546,8 +525,6 @@ public sealed partial class AiSubtitleDialogViewModel
             ? _pendingSceneTranscription!
             : new SceneTranscriptionOperation(
                 source,
-                startText,
-                endText,
                 language,
                 rangeStart,
                 duration,
@@ -619,8 +596,9 @@ public sealed partial class AiSubtitleDialogViewModel
         }
 
         if (!ReferenceEquals(SelectedAudioSource.Value, source)
-            || SceneRangeStartText.Value != startText
-            || SceneRangeEndText.Value != endText
+            || !TryGetSceneRange(out TimeSpan currentRangeStart, out TimeSpan currentDuration)
+            || currentRangeStart != operation.RangeStart
+            || currentDuration != operation.Duration
             || !string.Equals(
                 SelectedSourceLanguage.Value.Code,
                 operation.Language,
@@ -891,8 +869,6 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private bool CanResumeSceneTranscription(
         AudioSourceItem source,
-        string startText,
-        string endText,
         string? language,
         TimeSpan rangeStart,
         TimeSpan duration,
@@ -904,8 +880,6 @@ public sealed partial class AiSubtitleDialogViewModel
             && operation.CompletedChunkCount < operation.ChunkCount
             && (operation.Source is null && source.IsSceneMix
                 || ReferenceEquals(operation.Source, source))
-            && operation.StartText == startText
-            && operation.EndText == endText
             && operation.Language == language
             && operation.RangeStart == rangeStart
             && operation.Duration == duration
@@ -1110,8 +1084,6 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             sceneResume = new CaptionSceneTranscriptionResume(
                 scene.SceneId,
-                scene.StartText,
-                scene.EndText,
                 scene.Language,
                 scene.RangeStart,
                 scene.Duration,
@@ -1268,8 +1240,6 @@ public sealed partial class AiSubtitleDialogViewModel
             {
                 // The paid partial remains applicable, but scene audio has no durable
                 // content fingerprint. Never append newly composed chunks after a restart.
-                SceneRangeStartText.Value = scene.StartText;
-                SceneRangeEndText.Value = scene.EndText;
                 CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
                     string.Equals(option.Code, scene.Language, StringComparison.Ordinal));
                 if (sourceOption is not null)
@@ -1618,10 +1588,6 @@ public sealed partial class AiSubtitleDialogViewModel
         ReplaceCues(new CaptionDocument());
         SelectedSourceLanguage.Value = SourceLanguages[0];
         SelectedTargetLanguage.Value = GetDefaultTargetLanguage();
-        TimeSpan rangeStart = _editViewModel?.Scene.Start ?? TimeSpan.Zero;
-        TimeSpan rangeEnd = rangeStart + (_editViewModel?.Scene.Duration ?? TimeSpan.FromMinutes(5));
-        SceneRangeStartText.Value = EditableCaptionCueViewModel.FormatTime(rangeStart);
-        SceneRangeEndText.Value = EditableCaptionCueViewModel.FormatTime(rangeEnd);
         _transcriptionEstimateRevision.Value++;
         RefreshTranslationEstimate();
     }
@@ -1987,27 +1953,23 @@ public sealed partial class AiSubtitleDialogViewModel
     }
 
     private AiOperationAvailabilityRequest? CreateTranscriptionAvailabilityRequest(
-        AudioSourceItem? source,
-        string startText,
-        string endText)
+        AudioSourceItem? source)
     {
         if (source is null)
             return null;
         TimeSpan duration = source.Duration;
+        TimeSpan rangeStart = TimeSpan.Zero;
         if (source.IsSceneMix
-            && (!TryGetSceneRange(startText, endText, out _, out duration) || duration <= TimeSpan.Zero))
+            && (!TryGetSceneRange(out rangeStart, out duration) || duration <= TimeSpan.Zero))
         {
             return null;
         }
         if (source.IsSceneMix)
         {
-            TryGetSceneRange(startText, endText, out TimeSpan rangeStart, out _);
             int chunkCount = (int)Math.Ceiling(
                 duration.TotalSeconds / SceneMixChunkDuration.TotalSeconds);
             int completed = CanResumeSceneTranscription(
                 source,
-                startText,
-                endText,
                 SelectedSourceLanguage.Value.Code,
                 rangeStart,
                 duration,
@@ -2049,23 +2011,22 @@ public sealed partial class AiSubtitleDialogViewModel
             throw new AiUsageLimitExceededException();
     }
 
-    private static bool TryGetSceneRange(
-        string startText,
-        string endText,
-        out TimeSpan start,
-        out TimeSpan duration)
+    // The transcribed range is the scene's own: the tab has nothing to add to
+    // what the timeline already says about where the work starts and ends.
+    private bool TryGetSceneRange(out TimeSpan start, out TimeSpan duration)
     {
-        duration = default;
-        if (!EditableCaptionCueViewModel.TryParseTime(startText, out start)
-            || !EditableCaptionCueViewModel.TryParseTime(endText, out TimeSpan end)
-            || start < TimeSpan.Zero
-            || end <= start)
-        {
-            return false;
-        }
-        duration = end - start;
-        return true;
+        start = _editViewModel?.Scene.Start ?? TimeSpan.Zero;
+        duration = _editViewModel?.Scene.Duration ?? TimeSpan.Zero;
+        return _editViewModel is not null && start >= TimeSpan.Zero && duration > TimeSpan.Zero;
     }
+
+    private IObservable<TimeSpan> CreateSceneRangeObservable()
+        => _editViewModel is { } editor
+            ? editor.Scene.GetObservable(Scene.StartProperty)
+                .CombineLatest(
+                    editor.Scene.GetObservable(Scene.DurationProperty),
+                    (start, duration) => start < TimeSpan.Zero ? TimeSpan.Zero : duration)
+            : Observable.Return(TimeSpan.Zero);
 
     private static string? CreateDetectedLanguageText(string? language)
         => string.IsNullOrWhiteSpace(language)
@@ -2355,8 +2316,6 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private sealed class SceneTranscriptionOperation(
         AudioSourceItem? source,
-        string startText,
-        string endText,
         string? language,
         TimeSpan rangeStart,
         TimeSpan duration,
@@ -2368,10 +2327,6 @@ public sealed partial class AiSubtitleDialogViewModel
         Guid sceneId)
     {
         public AudioSourceItem? Source { get; set; } = source;
-
-        public string StartText { get; } = startText;
-
-        public string EndText { get; } = endText;
 
         public string? Language { get; } = language;
 

@@ -1,4 +1,5 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Collections.ObjectModel;
+using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
@@ -61,7 +62,8 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         EstimatedUsage = new AiUsageEstimateViewModel(
                 Usage,
                 _entitlements.Entitlements.Select(value =>
-                    value?.Availability.CanStart(AiOperations.ImageGeneration) ?? false))
+                    value?.Availability.GetState(AiOperations.ImageGeneration)
+                    ?? AiOperationAvailabilityState.Unknown))
             .DisposeWith(_disposables);
         PromptLibrary = new AiPromptLibraryViewModel(
                 PromptTaskKind.Image,
@@ -69,18 +71,41 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
                 prompt => Prompt.Value = prompt)
             .DisposeWith(_disposables);
 
-        AspectRatioOptions =
-        [
-            new AiImageAspectRatioOption("16:9"),
-            new AiImageAspectRatioOption("1:1"),
-            new AiImageAspectRatioOption("9:16"),
-            new AiImageAspectRatioOption("4:3"),
-            new AiImageAspectRatioOption("3:4"),
-        ];
+        Replace(
+            AspectRatioOptions,
+            DefaultAspectRatios.Select(value => new AiImageAspectRatioOption(value)));
         SelectedAspectRatio = new ReactivePropertySlim<AiImageAspectRatioOption>(
                 GetSuggestedAspectRatio(AspectRatioOptions, editViewModel?.Scene.FrameSize))
             .DisposeWith(_disposables);
-        TransparentBackground = new ReactivePropertySlim<bool>(false)
+        Replace(
+            BackgroundOptions,
+            DefaultBackgrounds.Select(value => new AiImageBackgroundOption(value)));
+        SelectedBackground = new ReactivePropertySlim<AiImageBackgroundOption>(
+                BackgroundOptions[0])
+            .DisposeWith(_disposables);
+        HasBackgroundChoice = new ReactivePropertySlim<bool>(true)
+            .DisposeWith(_disposables);
+        SupportsSeed = new ReactivePropertySlim<bool>(true)
+            .DisposeWith(_disposables);
+        SupportsReferenceImage = new ReactivePropertySlim<bool>(true)
+            .DisposeWith(_disposables);
+        Seed = new ReactivePropertySlim<int?>()
+            .DisposeWith(_disposables);
+        // A model that takes no picture cannot generate from one; offering it
+        // would only ever produce a request the server refuses.
+        ModelPicker.Filter = model =>
+            model.Image is not { } image || image.CanServeAnything(false);
+        ModelPicker.Selected.Subscribe(option => ApplyModelCapabilities(option?.Model))
+            .DisposeWith(_disposables);
+
+        SelectReferenceImage = new AsyncReactiveCommand()
+            .WithSubscribe(SelectReferenceImageAsync);
+        ClearReferenceImage = new ReactiveCommand();
+        ClearReferenceImage.Subscribe(() => ReferenceImagePath.Value = null).DisposeWith(_disposables);
+        ReferenceImagePath.Subscribe(LoadReferencePreview).DisposeWith(_disposables);
+        HasReferenceImage = ReferenceImagePath
+            .Select(path => !string.IsNullOrEmpty(path))
+            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         IsGenerating = new ReactivePropertySlim<bool>(false)
@@ -142,15 +167,57 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.AiImageGeneration);
 
-    public IReadOnlyList<AiImageAspectRatioOption> AspectRatioOptions { get; }
+    /// <summary>
+    /// The shapes on offer, which follow the chosen model: GPT Image-1 renders
+    /// 1:1, 3:2 and 2:3 and refuses the rest. A model the server says nothing
+    /// about keeps the list this client has always offered.
+    /// </summary>
+    public ObservableCollection<AiImageAspectRatioOption> AspectRatioOptions { get; } = [];
 
     public ReactivePropertySlim<AiImageAspectRatioOption> SelectedAspectRatio { get; }
 
     /// <summary>
-    /// Produces the image on a transparent background, which is what a
-    /// compositing asset dropped onto a timeline needs.
+    /// The backgrounds on offer, which follow the chosen model the same way the
+    /// shapes do: GPT Image-1 publishes auto, opaque and transparent while GPT
+    /// Image-2 publishes auto and opaque. "auto" is always among them — it
+    /// sends no background at all, which every model takes.
     /// </summary>
-    public ReactivePropertySlim<bool> TransparentBackground { get; }
+    public ObservableCollection<AiImageBackgroundOption> BackgroundOptions { get; } = [];
+
+    public ReactivePropertySlim<AiImageBackgroundOption> SelectedBackground { get; }
+
+    /// <summary>
+    /// False for a model that publishes no background of its own, and for a
+    /// model that takes no seed or no picture to work from. The controls are
+    /// hidden rather than left to fail: the request would be refused after the
+    /// usage was reserved.
+    /// </summary>
+    public ReactivePropertySlim<bool> HasBackgroundChoice { get; }
+
+    public ReactivePropertySlim<bool> SupportsSeed { get; }
+
+    public ReactivePropertySlim<bool> SupportsReferenceImage { get; }
+
+    /// <summary>
+    /// Repeating a seed with the same prompt reproduces the same picture. Null
+    /// leaves the choice to the server, which is a different image every run.
+    /// </summary>
+    public ReactivePropertySlim<int?> Seed { get; }
+
+    public decimal SeedMinimum => AiRequestLimits.MinSeed;
+
+    public decimal SeedMaximum => AiRequestLimits.MaxSeed;
+
+    /// <summary>An existing picture the generation is guided by. One at most.</summary>
+    public ReactivePropertySlim<string?> ReferenceImagePath { get; } = new();
+
+    public ReactivePropertySlim<Ref<Bitmap>?> ReferenceImagePreview { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> HasReferenceImage { get; }
+
+    public AsyncReactiveCommand SelectReferenceImage { get; }
+
+    public ReactiveCommand ClearReferenceImage { get; }
 
     public ReactivePropertySlim<string> Prompt { get; } = new();
 
@@ -206,6 +273,66 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         // Prompts and generated content are intentionally kept out of the persisted dock layout.
     }
 
+    /// <summary>
+    /// What this client asks for when the server says nothing about a model —
+    /// the shapes it offered before models could publish their own.
+    /// </summary>
+    private static readonly string[] DefaultAspectRatios =
+        ["16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3"];
+
+    /// <summary>
+    /// What a server that publishes no backgrounds is read as. "auto" leads
+    /// because it is the one every model takes.
+    /// </summary>
+    private static readonly string[] DefaultBackgrounds = ["auto", "opaque", "transparent"];
+
+    /// <summary>
+    /// Rebuilds the shapes around the chosen model, keeping the selection where
+    /// the model still takes it and falling back to the one nearest the scene.
+    /// </summary>
+    private void ApplyModelCapabilities(AiModelOption? model)
+    {
+        AiImageModelCapabilities image =
+            model?.Image ?? AiImageModelCapabilities.Unrestricted;
+
+        IEnumerable<string> aspectRatios = image.AspectRatios.IsDefaultOrEmpty
+            ? DefaultAspectRatios
+            : image.AspectRatios;
+        Replace(
+            AspectRatioOptions,
+            aspectRatios.Select(value => new AiImageAspectRatioOption(value)));
+        SelectedAspectRatio.Value =
+            AspectRatioOptions.FirstOrDefault(option => option == SelectedAspectRatio.Value)
+            ?? GetSuggestedAspectRatio(AspectRatioOptions, _editViewModel?.Scene.FrameSize);
+
+        IEnumerable<string> backgrounds = image.Backgrounds.IsDefaultOrEmpty
+            ? DefaultBackgrounds
+            : image.Backgrounds;
+        Replace(
+            BackgroundOptions,
+            backgrounds.Select(value => new AiImageBackgroundOption(value)));
+        // Falling back to the first, which is always "leave it to the model":
+        // keeping a background the new model does not take would be refused
+        // after the usage was reserved.
+        SelectedBackground.Value =
+            BackgroundOptions.FirstOrDefault(option => option == SelectedBackground.Value)
+            ?? BackgroundOptions[0];
+        HasBackgroundChoice.Value = BackgroundOptions.Count > 1;
+        SupportsSeed.Value = image.SupportsSeed;
+        if (!image.SupportsSeed)
+            Seed.Value = null;
+        SupportsReferenceImage.Value = image.MaxReferenceImages > 0;
+        if (image.MaxReferenceImages < 1)
+            ReferenceImagePath.Value = null;
+    }
+
+    private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> values)
+    {
+        target.Clear();
+        foreach (T value in values)
+            target.Add(value);
+    }
+
     internal static AiImageAspectRatioOption GetSuggestedAspectRatio(
         IReadOnlyList<AiImageAspectRatioOption> options,
         Beutl.Media.PixelSize? frameSize)
@@ -242,6 +369,9 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         await _operations.DisposeAsync();
         ResultImage.Value?.Dispose();
         ResultImage.Dispose();
+        ReferenceImagePreview.Value?.Dispose();
+        ReferenceImagePreview.Dispose();
+        ReferenceImagePath.Dispose();
         Prompt.Dispose();
         Style.Dispose();
         Composition.Dispose();
@@ -292,6 +422,7 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
             string prompt = ComposePrompt();
             string aspectRatio = SelectedAspectRatio.Value.Value;
             AiModelId? model = ModelPicker.SelectedModel;
+            string? referencePath = ReferenceImagePath.Value;
             if (!await _availability.CheckAsync(
                     new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, model),
                     operation.CancellationToken))
@@ -302,7 +433,11 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
                 new AiImageGenerationRequest(
                     prompt,
                     new AiImageAspectRatioId(aspectRatio),
-                    TransparentBackground.Value,
+                    new AiImageBackgroundId(SelectedBackground.Value.Value),
+                    seed: Seed.Value,
+                    reference: string.IsNullOrEmpty(referencePath)
+                        ? null
+                        : AiUploadSource.FromFile(referencePath),
                     model: model),
                 operation.CancellationToken);
 
@@ -336,6 +471,10 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         catch (AiProviderErrorException)
         {
             operation.TryPublish(() => Error.Value = Strings.AiProviderError);
+        }
+        catch (AiFileTooLargeException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -446,6 +585,53 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
         }
     }
 
+    private async Task SelectReferenceImageAsync()
+    {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+            { MainWindow: { } window }
+            || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+        {
+            return;
+        }
+
+        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(
+            SharedFilePickerOptions.OpenImage());
+        if (files.Count > 0)
+        {
+            operation.TryPublish(() => ReferenceImagePath.Value = files[0].Path.LocalPath);
+        }
+    }
+
+    private void LoadReferencePreview(string? path)
+    {
+        ReferenceImagePreview.Value?.Dispose();
+        ReferenceImagePreview.Value = null;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return;
+
+        // The upload is refused server-side once it is too big, so the file is
+        // measured here instead of after the account has waited for a round trip.
+        if (new FileInfo(path).Length > AiRequestLimits.MaxImageUploadBytes)
+        {
+            Error.Value = Strings.AiFileTooLarge;
+            ReferenceImagePath.Value = null;
+            return;
+        }
+
+        try
+        {
+            ReferenceImagePreview.Value = Ref<Bitmap>.Create(Bitmap.FromFile(path));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load an AI reference image preview from {Path}", path);
+            Error.Value = Strings.AiEditSourcePreviewFailed;
+        }
+    }
+
     private string ComposePrompt() => AiPromptComposer.Compose(new AiPromptParts(
         Prompt.Value,
         Style.Value,
@@ -466,4 +652,20 @@ public sealed class AiImageGenerationDialogViewModel : IToolContext, IAsyncDispo
 public sealed record AiImageAspectRatioOption(string Value)
 {
     public override string ToString() => Value;
+}
+
+/// <summary>
+/// One background the chosen model publishes. The three this client knows are
+/// named in the user's language; anything a later server adds is shown as it
+/// came, which is still better than dropping a shape the model offers.
+/// </summary>
+public sealed record AiImageBackgroundOption(string Value)
+{
+    public override string ToString() => Value switch
+    {
+        "auto" => Strings.AiBackgroundAuto,
+        "opaque" => Strings.AiBackgroundOpaque,
+        "transparent" => Strings.AiBackgroundTransparent,
+        _ => Value,
+    };
 }

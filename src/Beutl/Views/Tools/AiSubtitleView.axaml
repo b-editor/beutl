@@ -3,10 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:captions="using:Beutl.Editor.Services.Captions"
+             xmlns:cv="using:Beutl.Converters"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:tools="using:Beutl.Views.Tools"
              xmlns:vm="using:Beutl.ViewModels.Dialogs"
              d:DesignHeight="640"
              d:DesignWidth="520"
@@ -14,30 +15,24 @@
              x:DataType="vm:AiSubtitleDialogViewModel"
              mc:Ignorable="d">
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="12" Spacing="12">
-            <ui:InfoBar IsClosable="False"
-                        IsOpen="True"
-                        Message="{x:Static lang:Strings.AiDataDisclosure}"
-                        Severity="Informational"
-                        Title="{x:Static lang:Strings.AiDataDisclosureTitle}" />
-            <StackPanel Spacing="4">
-                <TextBlock Text="{x:Static lang:Strings.AiSubtitle_AudioSource}" />
-                <ComboBox HorizontalAlignment="Stretch"
-                          AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_AudioSource}"
-                          ItemsSource="{CompiledBinding AudioSources.Value}"
-                          SelectedItem="{CompiledBinding SelectedAudioSource.Value}" />
-                <StackPanel IsVisible="{CompiledBinding UseSceneMix.Value}" Spacing="8">
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="{x:Static lang:Strings.AiSubtitle_RangeStart}" />
-                        <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_RangeStart}"
-                                 Text="{CompiledBinding SceneRangeStartText.Value}" />
+        <StackPanel Margin="12,10" Spacing="8">
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{x:Static lang:Strings.AiSubtitle_AudioSource}" />
+                        <ComboBox HorizontalAlignment="Stretch"
+                                  AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_AudioSource}"
+                                  ItemsSource="{CompiledBinding AudioSources.Value}"
+                                  SelectedItem="{CompiledBinding SelectedAudioSource.Value}" />
                     </StackPanel>
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="{x:Static lang:Strings.AiSubtitle_RangeEnd}" />
-                        <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_RangeEnd}"
-                                 Text="{CompiledBinding SceneRangeEndText.Value}" />
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Text="{x:Static lang:Strings.AiSubtitle_SourceLanguage}" />
+                        <ComboBox HorizontalAlignment="Stretch"
+                                  AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_SourceLanguage}"
+                                  ItemsSource="{CompiledBinding SourceLanguages}"
+                                  SelectedItem="{CompiledBinding SelectedSourceLanguage.Value}" />
                     </StackPanel>
-                </StackPanel>
+                </Grid>
                 <StackPanel IsVisible="{CompiledBinding TranscriptionModelPicker.HasChoice.Value}" Spacing="4">
                     <TextBlock Text="{x:Static lang:Strings.AiModel}" />
                     <ComboBox HorizontalAlignment="Stretch"
@@ -45,10 +40,6 @@
                               ItemsSource="{CompiledBinding TranscriptionModelPicker.Options}"
                               SelectedItem="{CompiledBinding TranscriptionModelPicker.Selected.Value}" />
                 </StackPanel>
-                <TextBlock Text="{x:Static lang:Strings.AiSubtitle_SourceLanguage}" />
-                <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_SourceLanguage}"
-                          ItemsSource="{CompiledBinding SourceLanguages}"
-                          SelectedItem="{CompiledBinding SelectedSourceLanguage.Value}" />
                 <TextBlock AutomationProperties.LiveSetting="Polite"
                            AutomationProperties.Name="{CompiledBinding DetectedLanguageText.Value}"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -57,284 +48,259 @@
             </StackPanel>
 
             <StackPanel Spacing="4">
-                <TextBlock Text="{x:Static lang:Strings.AiSubtitle_Template}" />
+                <TextBlock Text="{x:Static lang:Strings.AiSubtitle_Template}"
+                           ToolTip.Tip="{x:Static lang:Strings.AiSubtitle_TemplateDescription}" />
                 <ComboBox x:Name="CaptionTemplateComboBox"
-                      HorizontalAlignment="Stretch"
-                      AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Template}"
-                      ItemsSource="{CompiledBinding CaptionTemplates}"
-                      SelectedItem="{CompiledBinding SelectedCaptionTemplate.Value}">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="captions:CaptionTemplateDescriptor">
-                        <StackPanel>
-                            <TextBlock Text="{CompiledBinding Name}" />
-                            <TextBlock FontSize="11"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       Text="{CompiledBinding ProviderId.Value}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
+                          HorizontalAlignment="Stretch"
+                          AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Template}"
+                          ItemsSource="{CompiledBinding CaptionTemplates}"
+                          SelectedItem="{CompiledBinding SelectedCaptionTemplate.Value}"
+                          ToolTip.Tip="{x:Static lang:Strings.AiSubtitle_TemplateDescription}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="captions:CaptionTemplateDescriptor">
+                            <StackPanel>
+                                <TextBlock Text="{CompiledBinding Name}" />
+                                <TextBlock FontSize="11"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           Text="{CompiledBinding ProviderId.Value}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
                 </ComboBox>
-                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Text="{x:Static lang:Strings.AiSubtitle_TemplateDescription}"
-                       TextWrapping="Wrap" />
-                <TextBlock Margin="0,4,0,0"
-                       FontSize="11"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Text="{x:Static lang:Strings.AiSubtitle_TemplatePreview}" />
-                <Border MinHeight="72"
-                    Padding="12"
-                    Background="{DynamicResource ControlFillColorDefaultBrush}"
-                    CornerRadius="6">
-                <TextBlock HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           FontSize="{CompiledBinding TemplatePreviewFontSize.Value}"
-                           Text="{CompiledBinding TemplatePreviewText.Value}"
-                           TextAlignment="Center"
-                           TextWrapping="Wrap" />
+                <Border MinHeight="56"
+                        Padding="8"
+                        Background="{DynamicResource ControlFillColorDefaultBrush}"
+                        CornerRadius="6"
+                        ToolTip.Tip="{x:Static lang:Strings.AiSubtitle_TemplatePreview}">
+                    <TextBlock HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TemplatePreview}"
+                               FontSize="{CompiledBinding TemplatePreviewFontSize.Value}"
+                               Text="{CompiledBinding TemplatePreviewText.Value}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
                 </Border>
             </StackPanel>
 
-        <StackPanel Spacing="8">
-            <StackPanel VerticalAlignment="Center"
-                        IsVisible="{CompiledBinding Usage.HasSnapshot.Value}"
-                        Spacing="2">
-                <TextBlock Text="{CompiledBinding Usage.MonthlyUsageText.Value}" />
-                <ProgressBar MinWidth="0"
-                             Maximum="100"
-                             Minimum="0"
-                             AutomationProperties.Name="{CompiledBinding Usage.MonthlyUsageText.Value}"
-                             Value="{CompiledBinding Usage.UsagePercent.Value}" />
-                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           Text="{CompiledBinding Usage.MonthlyRemainingText.Value}"
-                           TextWrapping="Wrap" />
-                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           IsVisible="{CompiledBinding Usage.HasAdditionalCredits.Value}"
-                           Text="{CompiledBinding Usage.AdditionalCreditsText.Value}"
-                           TextWrapping="Wrap" />
-                <TextBlock IsVisible="{CompiledBinding Usage.HasAdditionalCreditDebt.Value}"
-                           Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                           Text="{CompiledBinding Usage.AdditionalCreditDebtText.Value}"
-                           TextWrapping="Wrap" />
-                <TextBlock FontWeight="SemiBold"
-                           Text="{CompiledBinding TranscriptionEstimate.Summary.Value}" />
-                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           Text="{CompiledBinding TranscriptionEstimate.Explanation.Value}"
-                           TextWrapping="Wrap" />
-            </StackPanel>
-            <WrapPanel Orientation="Horizontal">
-                <Button Margin="0,0,8,8"
+            <StackPanel Spacing="8">
+                <StackPanel IsVisible="{CompiledBinding Usage.HasSnapshot.Value}" Spacing="4">
+                    <tools:AiUsageSummaryView DataContext="{CompiledBinding Usage}" />
+                    <tools:AiUsageEstimateView DataContext="{CompiledBinding TranscriptionEstimate}" />
+                </StackPanel>
+                <Button HorizontalAlignment="Stretch"
+                        Classes="accent"
                         Command="{CompiledBinding Transcribe}"
                         Content="{x:Static lang:Strings.AiSubtitle_Transcribe}"
                         IsEnabled="{CompiledBinding CanTranscribe.Value}" />
-                <Button Margin="0,0,0,8"
-                        Command="{CompiledBinding OpenAiPlan}"
-                        Content="{x:Static lang:Strings.AiManageAndTopUp}"
-                        IsVisible="{CompiledBinding Usage.CanUseAi.Value}" />
-            </WrapPanel>
-        </StackPanel>
-
-        <Border Padding="10"
-                Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-                CornerRadius="6"
-                IsVisible="{CompiledBinding HasPendingHistoryResult.Value}">
-            <StackPanel Spacing="8">
-                <TextBlock AutomationProperties.LiveSetting="Polite"
-                           AutomationProperties.Name="{CompiledBinding HistoryOverwriteMessage.Value}"
-                           Text="{CompiledBinding HistoryOverwriteMessage.Value}"
-                           TextWrapping="Wrap" />
-                <WrapPanel Orientation="Horizontal">
-                    <Button x:Name="ConfirmHistoryOverwriteButton"
-                            Margin="0,0,8,0"
-                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_HistoryOverwriteApply}"
-                            Click="OnConfirmHistoryOverwriteClick"
-                            Content="{x:Static lang:Strings.AiSubtitle_HistoryOverwriteApply}" />
-                    <Button x:Name="CancelHistoryOverwriteButton"
-                            AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
-                            Click="OnCancelHistoryOverwriteClick"
-                            Content="{x:Static lang:Strings.Cancel}" />
-                </WrapPanel>
             </StackPanel>
-        </Border>
 
-        <Border Padding="10"
-                Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-                CornerRadius="6"
-                IsVisible="{CompiledBinding HasPartialResult.Value}">
-            <StackPanel Spacing="8">
-                <TextBlock AutomationProperties.LiveSetting="Polite"
-                           Text="{CompiledBinding PartialResultMessage.Value}"
-                           TextWrapping="Wrap" />
-                <WrapPanel Orientation="Horizontal">
-                    <Button Margin="0,0,8,0"
-                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_UsePartialResult}"
-                            Command="{CompiledBinding ApplyPartialResult}"
-                            Content="{x:Static lang:Strings.AiSubtitle_UsePartialResult}" />
-                    <Button AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_DiscardPartialResult}"
-                            Command="{CompiledBinding DiscardPartialResult}"
-                            Content="{x:Static lang:Strings.AiSubtitle_DiscardPartialResult}" />
-                </WrapPanel>
-            </StackPanel>
-        </Border>
-
-        <StackPanel IsEnabled="{CompiledBinding !IsTranslating.Value}"
-                    Spacing="8">
-            <WrapPanel Orientation="Horizontal">
-                <Button Margin="0,0,6,6"
-                        AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Import}"
-                        Command="{CompiledBinding ImportCaptions}"
-                        Content="{x:Static lang:Strings.AiSubtitle_Import}" />
-                <Button Margin="0,0,6,6"
-                        AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Export}"
-                        Command="{CompiledBinding ExportCaptions}"
-                        Content="{x:Static lang:Strings.AiSubtitle_Export}" />
-                <Button Margin="0,0,6,6"
-                        AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_AddCue}"
-                        Command="{CompiledBinding AddCue}"
-                        Content="{x:Static lang:Strings.AiSubtitle_AddCue}" />
-                <Button Margin="0,0,6,6"
-                        AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_DeleteCue}"
-                        Command="{CompiledBinding DeleteCue}"
-                        Content="{x:Static lang:Strings.AiSubtitle_DeleteCue}" />
-                <Button Margin="0,0,6,6"
-                        AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_SplitCue}"
-                        Command="{CompiledBinding SplitCue}"
-                        Content="{x:Static lang:Strings.AiSubtitle_SplitCue}" />
-                <Button Margin="0,0,6,6"
-                        AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_MergeCue}"
-                        Command="{CompiledBinding MergeCue}"
-                        Content="{x:Static lang:Strings.AiSubtitle_MergeCue}" />
-                <Button Margin="0,0,0,6"
-                        AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_WrapCues}"
-                        Command="{CompiledBinding WrapCues}"
-                        Content="{x:Static lang:Strings.AiSubtitle_WrapCues}" />
-            </WrapPanel>
-
-            <WrapPanel Orientation="Horizontal">
-                <StackPanel MinWidth="120"
-                            Margin="0,0,8,8"
-                            Spacing="2">
-                    <TextBlock Text="{x:Static lang:Strings.AiSubtitle_MaxLineLength}" />
-                    <NumericUpDown AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_MaxLineLength}"
-                                   Maximum="200"
-                                   Minimum="1"
-                                   Value="{CompiledBinding MaximumLineLength.Value}" />
-                </StackPanel>
-                <StackPanel MinWidth="120"
-                            Margin="0,0,0,8"
-                            Spacing="2">
-                    <TextBlock Text="{x:Static lang:Strings.AiSubtitle_MaxLineCount}" />
-                    <NumericUpDown AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_MaxLineCount}"
-                                   Maximum="10"
-                                   Minimum="1"
-                                   Value="{CompiledBinding MaximumLineCount.Value}" />
-                </StackPanel>
-            </WrapPanel>
-
-            <ListBox x:Name="CaptionCueList"
-                     Height="280"
-                     AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle}"
-                     ItemsSource="{CompiledBinding Cues}"
-                     SelectedItem="{CompiledBinding SelectedCue.Value}">
-                <ListBox.Styles>
-                    <Style Selector="ListBoxItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    </Style>
-                </ListBox.Styles>
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:EditableCaptionCueViewModel">
-                        <Border Margin="0,0,0,6"
-                                Padding="8"
-                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                BorderThickness="1"
-                                CornerRadius="6">
-                            <StackPanel Spacing="5">
-                                <TextBlock Text="{CompiledBinding Number}" />
-                                <WrapPanel Orientation="Horizontal">
-                                    <TextBox MinWidth="116"
-                                             Margin="0,0,6,6"
-                                             AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_CueStart}"
-                                             Text="{CompiledBinding StartText}" />
-                                    <TextBox MinWidth="116"
-                                             Margin="0,0,0,6"
-                                             AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_CueEnd}"
-                                             Text="{CompiledBinding EndText}" />
-                                </WrapPanel>
-                                <WrapPanel Orientation="Horizontal">
-                                    <TextBox MinWidth="116"
-                                             Margin="0,0,6,6"
-                                             AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Speaker}"
-                                             Text="{CompiledBinding Speaker}"
-                                             Watermark="{x:Static lang:Strings.AiSubtitle_Speaker}" />
-                                    <TextBox MinWidth="116"
-                                             Margin="0,0,0,6"
-                                             AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Language}"
-                                             Text="{CompiledBinding Language}"
-                                             Watermark="{x:Static lang:Strings.AiSubtitle_Language}" />
-                                </WrapPanel>
-                                <TextBox AcceptsReturn="True"
-                                         AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Text}"
-                                         CaretIndex="{CompiledBinding CaretIndex, Mode=TwoWay}"
-                                         MinHeight="48"
-                                         Text="{CompiledBinding Text}"
-                                         TextWrapping="Wrap"
-                                         Watermark="{x:Static lang:Strings.AiSubtitle_Text}" />
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-
-            <TextBlock AutomationProperties.LiveSetting="Polite"
-                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                       IsVisible="{CompiledBinding CaptionValidationMessage.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                       Text="{CompiledBinding CaptionValidationMessage.Value}"
-                       TextWrapping="Wrap" />
-
-            <StackPanel Spacing="8">
-                <StackPanel Spacing="2">
-                    <TextBlock Text="{x:Static lang:Strings.AiSubtitle_TargetLanguage}" />
-                    <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TargetLanguage}"
-                              ItemsSource="{CompiledBinding TargetLanguages}"
-                              SelectedItem="{CompiledBinding SelectedTargetLanguage.Value}" />
-                    <StackPanel IsVisible="{CompiledBinding TranslationModelPicker.HasChoice.Value}" Spacing="4">
-                        <TextBlock Text="{x:Static lang:Strings.AiModel}" />
-                        <ComboBox HorizontalAlignment="Stretch"
-                                  AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
-                                  ItemsSource="{CompiledBinding TranslationModelPicker.Options}"
-                                  SelectedItem="{CompiledBinding TranslationModelPicker.Selected.Value}" />
-                    </StackPanel>
-                    <TextBlock FontWeight="SemiBold"
-                               Text="{CompiledBinding TranslationEstimate.Summary.Value}" />
-                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               Text="{CompiledBinding TranslationEstimate.Explanation.Value}"
+            <Border Padding="10"
+                    Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                    CornerRadius="6"
+                    IsVisible="{CompiledBinding HasPendingHistoryResult.Value}">
+                <StackPanel Spacing="8">
+                    <TextBlock AutomationProperties.LiveSetting="Polite"
+                               AutomationProperties.Name="{CompiledBinding HistoryOverwriteMessage.Value}"
+                               Text="{CompiledBinding HistoryOverwriteMessage.Value}"
                                TextWrapping="Wrap" />
+                    <WrapPanel Orientation="Horizontal">
+                        <Button x:Name="ConfirmHistoryOverwriteButton"
+                                Margin="0,0,8,0"
+                                AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_HistoryOverwriteApply}"
+                                Click="OnConfirmHistoryOverwriteClick"
+                                Content="{x:Static lang:Strings.AiSubtitle_HistoryOverwriteApply}" />
+                        <Button x:Name="CancelHistoryOverwriteButton"
+                                AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                                Click="OnCancelHistoryOverwriteClick"
+                                Content="{x:Static lang:Strings.Cancel}" />
+                    </WrapPanel>
                 </StackPanel>
-                <Button HorizontalAlignment="Left"
-                        AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Translate}"
-                        Command="{CompiledBinding Translate}"
-                        Content="{x:Static lang:Strings.AiSubtitle_Translate}"
-                        IsEnabled="{CompiledBinding CanTranslate.Value}" />
+            </Border>
+
+            <Border Padding="10"
+                    Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                    CornerRadius="6"
+                    IsVisible="{CompiledBinding HasPartialResult.Value}">
+                <StackPanel Spacing="8">
+                    <TextBlock AutomationProperties.LiveSetting="Polite"
+                               Text="{CompiledBinding PartialResultMessage.Value}"
+                               TextWrapping="Wrap" />
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Margin="0,0,8,0"
+                                AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_UsePartialResult}"
+                                Command="{CompiledBinding ApplyPartialResult}"
+                                Content="{x:Static lang:Strings.AiSubtitle_UsePartialResult}" />
+                        <Button AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_DiscardPartialResult}"
+                                Command="{CompiledBinding DiscardPartialResult}"
+                                Content="{x:Static lang:Strings.AiSubtitle_DiscardPartialResult}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <StackPanel IsEnabled="{CompiledBinding !IsTranslating.Value}"
+                        Spacing="8">
+                <WrapPanel Orientation="Horizontal">
+                    <Button Margin="0,0,6,6"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Import}"
+                            Command="{CompiledBinding ImportCaptions}"
+                            Content="{x:Static lang:Strings.AiSubtitle_Import}" />
+                    <Button Margin="0,0,6,6"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Export}"
+                            Command="{CompiledBinding ExportCaptions}"
+                            Content="{x:Static lang:Strings.AiSubtitle_Export}" />
+                    <Button Margin="0,0,6,6"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_AddCue}"
+                            Command="{CompiledBinding AddCue}"
+                            Content="{x:Static lang:Strings.AiSubtitle_AddCue}" />
+                    <Button Margin="0,0,6,6"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_DeleteCue}"
+                            Command="{CompiledBinding DeleteCue}"
+                            Content="{x:Static lang:Strings.AiSubtitle_DeleteCue}" />
+                    <Button Margin="0,0,6,6"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_SplitCue}"
+                            Command="{CompiledBinding SplitCue}"
+                            Content="{x:Static lang:Strings.AiSubtitle_SplitCue}" />
+                    <Button Margin="0,0,6,6"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_MergeCue}"
+                            Command="{CompiledBinding MergeCue}"
+                            Content="{x:Static lang:Strings.AiSubtitle_MergeCue}" />
+                    <Button Margin="0,0,0,6"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_WrapCues}"
+                            Command="{CompiledBinding WrapCues}"
+                            Content="{x:Static lang:Strings.AiSubtitle_WrapCues}" />
+                </WrapPanel>
+
+                <WrapPanel Orientation="Horizontal">
+                    <StackPanel MinWidth="120"
+                                Margin="0,0,8,8"
+                                Spacing="2">
+                        <TextBlock Text="{x:Static lang:Strings.AiSubtitle_MaxLineLength}" />
+                        <NumericUpDown AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_MaxLineLength}"
+                                       Maximum="200"
+                                       Minimum="1"
+                                       Value="{CompiledBinding MaximumLineLength.Value}" />
+                    </StackPanel>
+                    <StackPanel MinWidth="120"
+                                Margin="0,0,0,8"
+                                Spacing="2">
+                        <TextBlock Text="{x:Static lang:Strings.AiSubtitle_MaxLineCount}" />
+                        <NumericUpDown AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_MaxLineCount}"
+                                       Maximum="10"
+                                       Minimum="1"
+                                       Value="{CompiledBinding MaximumLineCount.Value}" />
+                    </StackPanel>
+                </WrapPanel>
+
+                <!--  Sized to its cues so an empty list does not reserve a screenful,
+                      and capped so it never crowds out the actions below it.  -->
+                <ListBox x:Name="CaptionCueList"
+                         MinHeight="64"
+                         MaxHeight="320"
+                         AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle}"
+                         ItemsSource="{CompiledBinding Cues}"
+                         SelectedItem="{CompiledBinding SelectedCue.Value}">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:EditableCaptionCueViewModel">
+                            <Border Margin="0,0,0,6"
+                                    Padding="8"
+                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6">
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="{CompiledBinding Number}" />
+                                    <WrapPanel Orientation="Horizontal">
+                                        <TextBox MinWidth="116"
+                                                 Margin="0,0,6,6"
+                                                 AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_CueStart}"
+                                                 Text="{CompiledBinding StartText}" />
+                                        <TextBox MinWidth="116"
+                                                 Margin="0,0,0,6"
+                                                 AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_CueEnd}"
+                                                 Text="{CompiledBinding EndText}" />
+                                    </WrapPanel>
+                                    <WrapPanel Orientation="Horizontal">
+                                        <TextBox MinWidth="116"
+                                                 Margin="0,0,6,6"
+                                                 AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Speaker}"
+                                                 Text="{CompiledBinding Speaker}"
+                                                 Watermark="{x:Static lang:Strings.AiSubtitle_Speaker}" />
+                                        <TextBox MinWidth="116"
+                                                 Margin="0,0,0,6"
+                                                 AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Language}"
+                                                 Text="{CompiledBinding Language}"
+                                                 Watermark="{x:Static lang:Strings.AiSubtitle_Language}" />
+                                    </WrapPanel>
+                                    <TextBox AcceptsReturn="True"
+                                             AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Text}"
+                                             CaretIndex="{CompiledBinding CaretIndex, Mode=TwoWay}"
+                                             MinHeight="48"
+                                             Text="{CompiledBinding Text}"
+                                             TextWrapping="Wrap"
+                                             Watermark="{x:Static lang:Strings.AiSubtitle_Text}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock AutomationProperties.LiveSetting="Polite"
+                           Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                           IsVisible="{CompiledBinding CaptionValidationMessage.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                           Text="{CompiledBinding CaptionValidationMessage.Value}"
+                           TextWrapping="Wrap" />
+
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <StackPanel Grid.ColumnSpan="{CompiledBinding TranslationModelPicker.HasChoice.Value, Converter={x:Static cv:GridSpanConverter.Instance}}"
+                                    Spacing="4">
+                            <TextBlock Text="{x:Static lang:Strings.AiSubtitle_TargetLanguage}" />
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TargetLanguage}"
+                                      ItemsSource="{CompiledBinding TargetLanguages}"
+                                      SelectedItem="{CompiledBinding SelectedTargetLanguage.Value}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1"
+                                    IsVisible="{CompiledBinding TranslationModelPicker.HasChoice.Value}"
+                                    Spacing="4">
+                            <TextBlock Text="{x:Static lang:Strings.AiModel}" />
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
+                                      ItemsSource="{CompiledBinding TranslationModelPicker.Options}"
+                                      SelectedItem="{CompiledBinding TranslationModelPicker.Selected.Value}" />
+                        </StackPanel>
+                    </Grid>
+                    <tools:AiUsageEstimateView DataContext="{CompiledBinding TranslationEstimate}" />
+                    <Button HorizontalAlignment="Left"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Translate}"
+                            Command="{CompiledBinding Translate}"
+                            Content="{x:Static lang:Strings.AiSubtitle_Translate}"
+                            IsEnabled="{CompiledBinding CanTranslate.Value}" />
+                </StackPanel>
             </StackPanel>
-        </StackPanel>
 
-        <TextBlock AutomationProperties.LiveSetting="Assertive"
-                   AutomationProperties.Name="{CompiledBinding Error.Value}"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                   Text="{CompiledBinding Error.Value}"
-                   TextWrapping="Wrap" />
-
-        <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}" Spacing="8">
-            <TextBlock Text="{x:Static lang:Strings.AiProRequired}"
+            <TextBlock AutomationProperties.LiveSetting="Assertive"
+                       AutomationProperties.Name="{CompiledBinding Error.Value}"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Text="{CompiledBinding Error.Value}"
                        TextWrapping="Wrap" />
-            <Button HorizontalAlignment="Left"
-                    Command="{CompiledBinding OpenAiPlan}"
-                    Content="{x:Static lang:Strings.AiJoinPro}" />
-        </StackPanel>
 
-        <Button Command="{CompiledBinding AddToScene}"
-                Content="{x:Static lang:Strings.AiSubtitle_AddToScene}"
-                IsEnabled="{CompiledBinding CanAddToScene.Value}" />
+            <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}" Spacing="8">
+                <TextBlock Text="{x:Static lang:Strings.AiProRequired}"
+                           TextWrapping="Wrap" />
+                <Button HorizontalAlignment="Left"
+                        Command="{CompiledBinding OpenAiPlan}"
+                        Content="{x:Static lang:Strings.AiJoinPro}" />
+            </StackPanel>
+
+            <Button Command="{CompiledBinding AddToScene}"
+                    Content="{x:Static lang:Strings.AiSubtitle_AddToScene}"
+                    IsEnabled="{CompiledBinding CanAddToScene.Value}" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

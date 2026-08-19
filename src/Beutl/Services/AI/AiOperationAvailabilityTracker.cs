@@ -26,7 +26,13 @@ internal sealed class AiOperationAvailabilityTracker : IDisposable
             throw new ArgumentOutOfRangeException(nameof(debounce));
     }
 
-    public ReactivePropertySlim<bool> IsAvailable { get; } = new(false);
+    /// <summary>
+    /// What the server last said. A check that is pending, was never asked, or
+    /// failed leaves this <see cref="AiOperationAvailabilityState.Unknown"/> —
+    /// the caller must not read that as a refusal.
+    /// </summary>
+    public ReactivePropertySlim<AiOperationAvailabilityState> State { get; } =
+        new(AiOperationAvailabilityState.Unknown);
 
     internal Task? CurrentCheck { get; private set; }
 
@@ -55,7 +61,7 @@ internal sealed class AiOperationAvailabilityTracker : IDisposable
 
         previous?.Cancel();
         previous?.Dispose();
-        Publish(revision, false);
+        Publish(revision, AiOperationAvailabilityState.Unknown);
         CurrentCheck = current is null
             ? null
             : CheckCoreAsync(request!, revision, current);
@@ -76,12 +82,14 @@ internal sealed class AiOperationAvailabilityTracker : IDisposable
         long revision,
         CancellationTokenSource requestCts)
     {
-        bool available = false;
+        AiOperationAvailabilityState state = AiOperationAvailabilityState.Unknown;
         try
         {
             if (_debounce > TimeSpan.Zero)
                 await Task.Delay(_debounce, requestCts.Token);
-            available = await _service.CheckAsync(request, requestCts.Token);
+            state = await _service.CheckAsync(request, requestCts.Token)
+                ? AiOperationAvailabilityState.Available
+                : AiOperationAvailabilityState.Unavailable;
         }
         catch (OperationCanceledException) when (requestCts.IsCancellationRequested)
         {
@@ -89,7 +97,8 @@ internal sealed class AiOperationAvailabilityTracker : IDisposable
         }
         catch
         {
-            // Availability is intentionally fail closed. The paid operation will not be sent.
+            // A check that could not be made has not refused anything. The
+            // authoritative check still runs before the paid request is sent.
         }
         finally
         {
@@ -102,10 +111,10 @@ internal sealed class AiOperationAvailabilityTracker : IDisposable
             requestCts.Dispose();
         }
 
-        Publish(revision, available);
+        Publish(revision, state);
     }
 
-    private void Publish(long revision, bool available)
+    private void Publish(long revision, AiOperationAvailabilityState state)
     {
         void Apply()
         {
@@ -113,7 +122,7 @@ internal sealed class AiOperationAvailabilityTracker : IDisposable
             {
                 if (_disposed || revision != _revision)
                     return;
-                IsAvailable.Value = available;
+                State.Value = state;
             }
         }
 
@@ -138,6 +147,6 @@ internal sealed class AiOperationAvailabilityTracker : IDisposable
 
         source?.Cancel();
         source?.Dispose();
-        IsAvailable.Dispose();
+        State.Dispose();
     }
 }

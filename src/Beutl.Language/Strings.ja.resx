@@ -1585,8 +1585,17 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiAspectRatio" xml:space="preserve">
     <value>アスペクト比</value>
   </data>
-  <data name="AiTransparentBackground" xml:space="preserve">
-    <value>背景を透過にする</value>
+  <data name="AiBackground" xml:space="preserve">
+    <value>背景</value>
+  </data>
+  <data name="AiBackgroundAuto" xml:space="preserve">
+    <value>モデルにまかせる</value>
+  </data>
+  <data name="AiBackgroundOpaque" xml:space="preserve">
+    <value>不透明</value>
+  </data>
+  <data name="AiBackgroundTransparent" xml:space="preserve">
+    <value>透過</value>
   </data>
   <data name="AiGenerateAudio" xml:space="preserve">
     <value>音声を生成する</value>
@@ -1620,9 +1629,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiJoinPro" xml:space="preserve">
     <value>Pro に加入</value>
-  </data>
-  <data name="AiManageAndTopUp" xml:space="preserve">
-    <value>管理 / 追加購入</value>
   </data>
   <data name="AiUsageLimitExceeded" xml:space="preserve">
     <value>このリクエストに必要な使用量が、今月の残り利用枠と追加クレジットの合計を超えています。続行するには追加クレジットを購入してください。</value>
@@ -1744,6 +1750,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiVideoSaved" xml:space="preserve">
     <value>動画を保存しました。</value>
   </data>
+  <data name="AiVideoWaitStopped" xml:space="preserve">
+    <value>ローカルでの待機を停止しました。サーバー側のジョブはAIジョブ履歴から確認できます。</value>
+  </data>
   <data name="AiClearFrame" xml:space="preserve">
     <value>フレームを解除</value>
   </data>
@@ -1863,12 +1872,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiSubtitle_Range" xml:space="preserve">
     <value>シーン範囲</value>
-  </data>
-  <data name="AiSubtitle_RangeStart" xml:space="preserve">
-    <value>開始位置</value>
-  </data>
-  <data name="AiSubtitle_RangeEnd" xml:space="preserve">
-    <value>終了位置</value>
   </data>
   <data name="AiSubtitle_SourceLanguage" xml:space="preserve">
     <value>音声の言語</value>
@@ -2029,9 +2032,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiVideoClearLastFrame" xml:space="preserve">
     <value>最後のフレームをクリア</value>
   </data>
-  <data name="AiVideoOptional" xml:space="preserve">
-    <value>任意</value>
-  </data>
   <data name="AiVideoFrameCaptureFailed" xml:space="preserve">
     <value>現在のシーンフレームを取得できませんでした。プレビューのエラーを解消するか、画像ファイルを選択してください。</value>
   </data>
@@ -2041,11 +2041,38 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiVideoPreviewOpenFailed" xml:space="preserve">
     <value>生成した動画を既定のメディアプレイヤーで開けませんでした。</value>
   </data>
-  <data name="AiPromptLibrary" xml:space="preserve">
-    <value>プロンプト履歴とテンプレート</value>
-  </data>
   <data name="AiPromptLibraryPrivacy" xml:space="preserve">
     <value>最近のプロンプトはこのセッション中だけメモリに保持します。名前を付けたテンプレートとピン留めしたプロンプトだけをローカルに保存します。</value>
+  </data>
+  <data name="AiOptional" xml:space="preserve">
+    <value>任意</value>
+  </data>
+  <data name="AiPromptHistory" xml:space="preserve">
+    <value>プロンプト履歴</value>
+  </data>
+  <data name="AiPromptHistoryEmpty" xml:space="preserve">
+    <value>まだ実行したプロンプトはありません。</value>
+  </data>
+  <data name="AiPromptTemplates" xml:space="preserve">
+    <value>プロンプトテンプレート</value>
+  </data>
+  <data name="AiPromptTemplatesEmpty" xml:space="preserve">
+    <value>保存されたテンプレートはありません。</value>
+  </data>
+  <data name="AiPromptSeed" xml:space="preserve">
+    <value>シード値</value>
+  </data>
+  <data name="AiPromptSeedPlaceholder" xml:space="preserve">
+    <value>毎回ランダム</value>
+  </data>
+  <data name="AiReferenceImage" xml:space="preserve">
+    <value>参照画像</value>
+  </data>
+  <data name="AiReferenceImageDescription" xml:space="preserve">
+    <value>既存の画像をもとに生成します。画像は生成を実行したときだけアップロードされます。</value>
+  </data>
+  <data name="AiClearReferenceImage" xml:space="preserve">
+    <value>参照画像を解除</value>
   </data>
   <data name="AiPromptApply" xml:space="preserve">
     <value>適用</value>
@@ -2085,12 +2112,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiEditOutpaintExpansion" xml:space="preserve">
     <value>各辺の拡張量</value>
-  </data>
-  <data name="AiDataDisclosureTitle" xml:space="preserve">
-    <value>サーバーAIとデータの取り扱い</value>
-  </data>
-  <data name="AiDataDisclosure" xml:space="preserve">
-    <value>機能を実行したときだけ、プロンプトと選択したメディアをBeutlのサーバーおよび設定されたAIプロバイダーへ送信します。結果と利用履歴は「AIジョブ」で削除するまで確認できます。復旧可能な字幕の途中結果は、完了または破棄するまでローカルにも保存されます。機密情報や秘密の素材は送信しないでください。</value>
   </data>
   <data name="AiSubtitle_PartialTranslationAvailable" xml:space="preserve">
     <value>翻訳は{1}バッチ中{0}バッチまで完了しています。課金済みの途中結果を今すぐ使用するか、もう一度「翻訳」を実行すると完了済みバッチを再処理せずに続行できます。</value>

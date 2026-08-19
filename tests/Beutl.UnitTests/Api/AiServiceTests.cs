@@ -239,11 +239,20 @@ public sealed class AiCapabilityServiceTests
             Assert.That(result, Is.Not.Null);
             Assert.That(result!.CanUseAi, Is.True);
             Assert.That(result.Balance.MonthlyUsage.RemainingPercent, Is.EqualTo(88));
-            Assert.That(result.Availability.CanStart(AiOperations.ImageGeneration), Is.True);
+            Assert.That(
+                result.Availability.GetState(AiOperations.ImageGeneration),
+                Is.EqualTo(AiOperationAvailabilityState.Available));
             Assert.That(
                 AiOperations.ImageEdit(new AiImageEditTaskId("remove_background")),
                 Is.EqualTo(new AiOperationId("image.edit.remove_background")));
-            Assert.That(result.Availability.CanStart(new AiOperationId("vendor.custom")), Is.False);
+            Assert.That(
+                result.Availability.GetState(new AiOperationId("vendor.custom")),
+                Is.EqualTo(AiOperationAvailabilityState.Unavailable),
+                "A reported false is an actual refusal.");
+            Assert.That(
+                result.Availability.GetState(AiOperations.VideoGeneration),
+                Is.EqualTo(AiOperationAvailabilityState.Unknown),
+                "An operation the server never mentioned has not been refused.");
             Assert.That(service.Entitlements.Value, Is.SameAs(result));
             Assert.That(handler.Requests.Single().Authorization, Is.EqualTo("Bearer token"));
         }
@@ -274,7 +283,7 @@ public sealed class AiCapabilityServiceTests
             new AiImageGenerationRequest(
                 "A moonlit harbor",
                 new AiImageAspectRatioId("16:9"),
-                transparentBackground: true,
+                new AiImageBackgroundId("transparent"),
                 seed: 42),
             CancellationToken.None);
 
@@ -598,11 +607,22 @@ public sealed class AiCapabilityServiceTests
             4,
             new AiVideoResolutionId("720p"),
             new AiVideoAspectRatioId("16:9")));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new AiVideoGenerationRequest(
+        // Five seconds is a length some models take and others refuse, which
+        // their own capability lists decide; this checks only the span the
+        // server considers at all.
+        Assert.DoesNotThrow(() => new AiVideoGenerationRequest(
             "prompt",
             5,
             new AiVideoResolutionId("720p"),
             new AiVideoAspectRatioId("16:9")));
+        foreach (int durationSeconds in new[] { 0, 61 })
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new AiVideoGenerationRequest(
+                "prompt",
+                durationSeconds,
+                new AiVideoResolutionId("720p"),
+                new AiVideoAspectRatioId("16:9")));
+        }
 
         var oversized = new AiUploadSource(
             "frame.png",

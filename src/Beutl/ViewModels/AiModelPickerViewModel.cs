@@ -66,6 +66,13 @@ internal sealed class AiModelPickerViewModel : IDisposable
 
     public ObservableCollection<AiModelPickerOption> Options { get; } = [];
 
+    /// <summary>
+    /// Which models an operation is willing to offer, beyond what the server
+    /// registered. Video drops the ones that take no shape it can ask for:
+    /// offering one would only ever produce a request the server refuses.
+    /// </summary>
+    public Func<AiModelOption, bool>? Filter { get; set; }
+
     public ReactivePropertySlim<AiModelPickerOption?> Selected { get; }
 
     /// <summary>False while a single model is on offer, which is nothing to choose between.</summary>
@@ -78,13 +85,19 @@ internal sealed class AiModelPickerViewModel : IDisposable
     {
         AiModelCatalog catalog = await _catalog.GetAsync(cancellationToken);
         AiEntitlements? entitlements = _entitlements.Entitlements.Value;
+        // Only a reported refusal rules the operation out. Silence says nothing,
+        // so its models stay offered rather than reading as unaffordable.
         bool operationIsAvailable =
-            entitlements?.Availability.CanStart(operation) ?? false;
+            entitlements is not null
+            && entitlements.Availability.GetState(operation) != AiOperationAvailabilityState.Unavailable;
 
         Operation = operation;
         Options.Clear();
         foreach (AiModelOption model in catalog.ModelsFor(operation))
         {
+            if (Filter is { } filter && !filter(model))
+                continue;
+
             Options.Add(new AiModelPickerOption(
                 model,
                 entitlements?.ModelAvailability.CanStart(

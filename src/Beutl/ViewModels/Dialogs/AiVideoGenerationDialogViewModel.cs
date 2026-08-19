@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -81,14 +82,25 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                 prompt => Prompt.Value = prompt)
             .DisposeWith(_disposables);
 
-        DurationOptions =
-        [
-            new AiVideoDurationOption(4),
-            new AiVideoDurationOption(6),
-            new AiVideoDurationOption(8),
-        ];
+        Replace(
+            DurationOptions,
+            DefaultDurations.Select(seconds => new AiVideoDurationOption(seconds)));
         SelectedDuration = new ReactivePropertySlim<AiVideoDurationOption>(DurationOptions[1])
             .DisposeWith(_disposables);
+        // The lengths a model takes are a short, unevenly spaced list, so the
+        // slider walks that list by index instead of pretending every second in
+        // between can be asked for.
+        DurationIndex = new ReactivePropertySlim<int>(DurationOptions.IndexOf(SelectedDuration.Value))
+            .DisposeWith(_disposables);
+        MaxDurationIndex = new ReactivePropertySlim<int>(DurationOptions.Count - 1)
+            .DisposeWith(_disposables);
+        SelectedDuration.Subscribe(option => DurationIndex.Value = IndexOfDuration(option))
+            .DisposeWith(_disposables);
+        DurationIndex.Subscribe(index =>
+        {
+            if (index >= 0 && index < DurationOptions.Count)
+                SelectedDuration.Value = DurationOptions[index];
+        }).DisposeWith(_disposables);
         _availabilityTracker = new AiOperationAvailabilityTracker(
             _availability,
             _availabilityLifetimeCts.Token);
@@ -106,29 +118,37 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
             .DisposeWith(_disposables);
         EstimatedUsage = new AiUsageEstimateViewModel(
                 Usage,
-                _availabilityTracker.IsAvailable)
+                _availabilityTracker.State)
             .DisposeWith(_disposables);
 
-        ResolutionOptions =
-        [
-            new AiVideoResolutionOption("720p"),
-            new AiVideoResolutionOption("1080p"),
-        ];
+        Replace(
+            ResolutionOptions,
+            DefaultResolutions.Select(value => new AiVideoResolutionOption(value)));
         SelectedResolution = new ReactivePropertySlim<AiVideoResolutionOption>(ResolutionOptions[0])
             .DisposeWith(_disposables);
 
         // Resolution says how many pixels; this says what shape they are in.
         // Without it a vertical clip could not be asked for at all.
-        AspectRatioOptions =
-        [
-            new AiVideoAspectRatioOption("16:9"),
-            new AiVideoAspectRatioOption("9:16"),
-        ];
+        Replace(
+            AspectRatioOptions,
+            DefaultAspectRatios.Select(value => new AiVideoAspectRatioOption(value)));
         SelectedAspectRatio = new ReactivePropertySlim<AiVideoAspectRatioOption>(
                 GetSuggestedAspectRatio(AspectRatioOptions, editViewModel?.Scene.FrameSize))
             .DisposeWith(_disposables);
         // On by default: the model produces sound and the plan is priced for it.
         GenerateAudio = new ReactivePropertySlim<bool>(true)
+            .DisposeWith(_disposables);
+        SupportsAudio = new ReactivePropertySlim<bool>(true)
+            .DisposeWith(_disposables);
+        SupportsSeed = new ReactivePropertySlim<bool>(true)
+            .DisposeWith(_disposables);
+        Seed = new ReactivePropertySlim<int?>()
+            .DisposeWith(_disposables);
+        // A model that cannot be given a shape must not be offered one, so the
+        // lists are rebuilt from whichever model is chosen.
+        ModelPicker.Filter = model =>
+            model.Video is not { } video || video.CanServeAnything();
+        ModelPicker.Selected.Subscribe(option => ApplyModelCapabilities(option?.Model))
             .DisposeWith(_disposables);
 
         IsGenerating = new ReactivePropertySlim<bool>(false)
@@ -216,19 +236,136 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.AiVideoGeneration);
 
-    public IReadOnlyList<AiVideoDurationOption> DurationOptions { get; }
+    /// <summary>
+    /// The lengths on offer, which follow the chosen model: Veo 3.1 takes 4, 6
+    /// or 8 seconds and nothing between, MiniMax H3 nothing under five. A model
+    /// that publishes none leaves the list this client has always offered.
+    /// </summary>
+    public ObservableCollection<AiVideoDurationOption> DurationOptions { get; } = [];
 
     public ReactivePropertySlim<AiVideoDurationOption> SelectedDuration { get; }
 
-    public IReadOnlyList<AiVideoResolutionOption> ResolutionOptions { get; }
+    /// <summary>Where the duration slider sits in <see cref="DurationOptions"/>.</summary>
+    public ReactivePropertySlim<int> DurationIndex { get; }
+
+    /// <summary>The last index <see cref="DurationOptions"/> currently holds.</summary>
+    public ReactivePropertySlim<int> MaxDurationIndex { get; }
+
+    public ObservableCollection<AiVideoResolutionOption> ResolutionOptions { get; } = [];
 
     public ReactivePropertySlim<AiVideoResolutionOption> SelectedResolution { get; }
 
-    public IReadOnlyList<AiVideoAspectRatioOption> AspectRatioOptions { get; }
+    public ObservableCollection<AiVideoAspectRatioOption> AspectRatioOptions { get; } = [];
 
     public ReactivePropertySlim<AiVideoAspectRatioOption> SelectedAspectRatio { get; }
 
     public ReactivePropertySlim<bool> GenerateAudio { get; }
+
+    /// <summary>
+    /// False for a model that produces no sound, or takes no seed. The controls
+    /// are hidden rather than left to fail: a request carrying either would be
+    /// refused, and a switch that does nothing is worse than none.
+    /// </summary>
+    public ReactivePropertySlim<bool> SupportsAudio { get; }
+
+    public ReactivePropertySlim<bool> SupportsSeed { get; }
+
+    /// <summary>
+    /// Repeating a seed with the same prompt reproduces the same clip. Null
+    /// leaves the choice to the server, which is a different clip every run.
+    /// </summary>
+    public ReactivePropertySlim<int?> Seed { get; }
+
+    public decimal SeedMinimum => AiRequestLimits.MinSeed;
+
+    public decimal SeedMaximum => AiRequestLimits.MaxSeed;
+
+    /// <summary>
+    /// What this client asks for when the server says nothing about a model —
+    /// the lists it offered before models could publish their own. The server
+    /// accepts more than these; a shape it would take but this dialog has no
+    /// control for is simply not offered.
+    /// </summary>
+    private static readonly int[] DefaultDurations = [4, 6, 8];
+
+    private static readonly string[] DefaultResolutions = ["720p", "1080p"];
+
+    private static readonly string[] DefaultAspectRatios = ["16:9", "9:16"];
+
+    /// <summary>
+    /// Rebuilds the lists around the chosen model, keeping each selection where
+    /// the model still takes it. A length is snapped to the nearest on offer
+    /// rather than reset: a model that takes 6 but not 5 should land on 6, and
+    /// leaving 5 in place would be charged for and then refused.
+    /// </summary>
+    private void ApplyModelCapabilities(AiModelOption? model)
+    {
+        AiVideoModelCapabilities video = model?.Video ?? AiVideoModelCapabilities.Unrestricted;
+
+        // The model's own lists, already narrowed to what the server accepts.
+        // The client's own are a fallback for a server that publishes none.
+        IEnumerable<int> durations = video.DurationsSeconds.IsDefaultOrEmpty
+            ? DefaultDurations
+            : video.DurationsSeconds;
+        Replace(DurationOptions, durations.Select(seconds => new AiVideoDurationOption(seconds)));
+        SelectedDuration.Value = NearestDuration(SelectedDuration.Value, DurationOptions);
+        MaxDurationIndex.Value = DurationOptions.Count - 1;
+        DurationIndex.Value = IndexOfDuration(SelectedDuration.Value);
+
+        IEnumerable<string> resolutions = video.Resolutions.IsDefaultOrEmpty
+            ? DefaultResolutions
+            : video.Resolutions;
+        Replace(ResolutionOptions, resolutions.Select(value => new AiVideoResolutionOption(value)));
+        SelectedResolution.Value =
+            ResolutionOptions.FirstOrDefault(option => option == SelectedResolution.Value)
+            ?? ResolutionOptions[0];
+
+        IEnumerable<string> aspectRatios = video.AspectRatios.IsDefaultOrEmpty
+            ? DefaultAspectRatios
+            : video.AspectRatios;
+        Replace(
+            AspectRatioOptions,
+            aspectRatios.Select(value => new AiVideoAspectRatioOption(value)));
+        SelectedAspectRatio.Value =
+            AspectRatioOptions.FirstOrDefault(option => option == SelectedAspectRatio.Value)
+            // The shape it would have started on, which is the one nearest the
+            // scene rather than whichever the model happens to list first.
+            ?? GetSuggestedAspectRatio(AspectRatioOptions, _editViewModel?.Scene.FrameSize);
+
+        SupportsAudio.Value = video.SupportsAudio;
+        if (!video.SupportsAudio)
+            GenerateAudio.Value = false;
+        SupportsSeed.Value = video.SupportsSeed;
+        if (!video.SupportsSeed)
+            Seed.Value = null;
+    }
+
+    private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> values)
+    {
+        target.Clear();
+        foreach (T value in values)
+            target.Add(value);
+    }
+
+    private int IndexOfDuration(AiVideoDurationOption option)
+        => Math.Max(0, DurationOptions.IndexOf(option));
+
+    private static AiVideoDurationOption NearestDuration(
+        AiVideoDurationOption current,
+        IReadOnlyList<AiVideoDurationOption> options)
+    {
+        AiVideoDurationOption nearest = options[0];
+        foreach (AiVideoDurationOption option in options)
+        {
+            if (Math.Abs(option.Seconds - current.Seconds)
+                < Math.Abs(nearest.Seconds - current.Seconds))
+            {
+                nearest = option;
+            }
+        }
+
+        return nearest;
+    }
 
     internal static AiVideoAspectRatioOption GetSuggestedAspectRatio(
         IReadOnlyList<AiVideoAspectRatioOption> options,
@@ -625,6 +762,7 @@ public sealed class AiVideoGenerationDialogViewModel : IToolContext, IAsyncDispo
                     new AiVideoResolutionId(resolution),
                     new AiVideoAspectRatioId(aspectRatio),
                     generateAudio,
+                    seed: Seed.Value,
                     firstFrame: firstFramePath is null
                         ? null
                         : AiUploadSource.FromFile(firstFramePath),

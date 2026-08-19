@@ -61,11 +61,64 @@ public enum AiModelCostTier
     High,
 }
 
+/// <summary>
+/// What one video model will take. Published per model because it differs per
+/// model: MiniMax H3 renders only at 2K and refuses anything under five
+/// seconds, while Veo 3.1 takes 4, 6 or 8 seconds at 720p or 1080p. An empty
+/// list is the server saying nothing about that dimension, which leaves the
+/// dialog offering everything it knows how to ask for.
+/// </summary>
+public sealed record AiVideoModelCapabilities(
+    ImmutableArray<int> DurationsSeconds,
+    ImmutableArray<string> Resolutions,
+    ImmutableArray<string> AspectRatios,
+    bool SupportsAudio,
+    bool SupportsSeed)
+{
+    public static AiVideoModelCapabilities Unrestricted { get; } =
+        new([], [], [], true, true);
+
+    /// <summary>
+    /// False for a model that shares no resolution or shape with what the
+    /// server accepts. The lists are already narrowed to that when they are
+    /// read, so nothing left on one of them means every request naming this
+    /// model would be refused, and offering it is worse than hiding it.
+    /// </summary>
+    public bool CanServeAnything()
+        => !Resolutions.IsDefaultOrEmpty && !AspectRatios.IsDefaultOrEmpty;
+}
+
+/// <summary>
+/// What one image model will take. GPT Image-1 renders 1:1, 3:2 and 2:3 and
+/// refuses everything else; the backgrounds differ per model as well, and only
+/// some take a seed or accept a picture to work from — which every edit
+/// depends on.
+/// </summary>
+public sealed record AiImageModelCapabilities(
+    ImmutableArray<string> AspectRatios,
+    ImmutableArray<string> Backgrounds,
+    bool SupportsSeed,
+    int MaxReferenceImages)
+{
+    public static AiImageModelCapabilities Unrestricted { get; } =
+        new([], [], true, AiRequestLimits.MaxImageReferences);
+
+    /// <summary>
+    /// False for a model that shares no shape with what the server accepts, or
+    /// that cannot be handed the picture an edit is made of.
+    /// </summary>
+    public bool CanServeAnything(bool requiresReferenceImages)
+        => !AspectRatios.IsDefaultOrEmpty
+           && (!requiresReferenceImages || MaxReferenceImages > 0);
+}
+
 public sealed record AiModelOption(
     AiModelId Id,
     string DisplayName,
     AiModelCostTier? CostTier,
-    bool IsDefault);
+    bool IsDefault,
+    AiVideoModelCapabilities? Video = null,
+    AiImageModelCapabilities? Image = null);
 
 /// <summary>
 /// The models each operation offers. Empty for an operation the server did not
@@ -156,9 +209,9 @@ public abstract record AiOperationAvailabilityRequest
         public Video(int durationSeconds, AiModelId? model = null)
             : base(AiOperations.VideoGeneration, model)
         {
-            if (durationSeconds is not (4 or 6 or 8))
-                throw new ArgumentOutOfRangeException(nameof(durationSeconds));
-            DurationSeconds = durationSeconds;
+            DurationSeconds = AiRequestLimits.ValidateVideoDurationSeconds(
+                durationSeconds,
+                nameof(durationSeconds));
         }
 
         public int DurationSeconds { get; }
@@ -199,11 +252,33 @@ public static class AiRequestLimits
 
     public const long MaxImageUploadBytes = 20L * 1024 * 1024;
 
+    // What the server is priced for. Each model publishes its own count and the
+    // smaller of the two is what may be sent; this client sends one picture
+    // today, and the number is what a server that publishes nothing is read as.
+    public const int MaxImageReferences = 4;
+
     // The provider accepts a signed 32-bit seed. Bounding it here keeps the
     // same number intact through every JSON encoder on the way.
     public const int MinSeed = 0;
 
     public const int MaxSeed = int.MaxValue;
+
+    // The span the server considers at all. Which whole seconds within it a
+    // given model takes is published per model: Veo 3.1 takes 4, 6 or 8 and
+    // Seedance 2.5 anything from 4 to 30, so a fixed three would offer lengths
+    // one model refuses and hide most of another's.
+    public const int MinVideoDurationSeconds = 1;
+
+    public const int MaxVideoDurationSeconds = 60;
+
+    internal static int ValidateVideoDurationSeconds(
+        int durationSeconds,
+        string parameterName)
+    {
+        if (durationSeconds is < MinVideoDurationSeconds or > MaxVideoDurationSeconds)
+            throw new ArgumentOutOfRangeException(parameterName);
+        return durationSeconds;
+    }
 
     internal static string ValidatePrompt(string prompt, string parameterName)
     {
@@ -261,6 +336,30 @@ public readonly struct AiImageAspectRatioId : IEquatable<AiImageAspectRatioId>
     public static bool operator ==(AiImageAspectRatioId left, AiImageAspectRatioId right) => left.Equals(right);
 
     public static bool operator !=(AiImageAspectRatioId left, AiImageAspectRatioId right) => !left.Equals(right);
+}
+
+// Named rather than a flag: the server publishes which backgrounds each model
+// takes, and a model that fills a background in is not the same as one that
+// cuts it out.
+public readonly struct AiImageBackgroundId : IEquatable<AiImageBackgroundId>
+{
+    private readonly string? _value;
+
+    public AiImageBackgroundId(string value) => _value = AiIdentifier.Normalize(value, nameof(value));
+
+    public string Value => _value ?? string.Empty;
+
+    public bool Equals(AiImageBackgroundId other) => StringComparer.Ordinal.Equals(Value, other.Value);
+
+    public override bool Equals(object? obj) => obj is AiImageBackgroundId other && Equals(other);
+
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
+
+    public override string ToString() => Value;
+
+    public static bool operator ==(AiImageBackgroundId left, AiImageBackgroundId right) => left.Equals(right);
+
+    public static bool operator !=(AiImageBackgroundId left, AiImageBackgroundId right) => !left.Equals(right);
 }
 
 public readonly struct AiVideoAspectRatioId : IEquatable<AiVideoAspectRatioId>
@@ -331,7 +430,7 @@ public sealed record AiImageGenerationRequest
     public AiImageGenerationRequest(
         string prompt,
         AiImageAspectRatioId aspectRatio,
-        bool transparentBackground = false,
+        AiImageBackgroundId background = default,
         int? seed = null,
         AiUploadSource? reference = null,
         AiModelId? model = null)
@@ -343,7 +442,7 @@ public sealed record AiImageGenerationRequest
 
         Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
         AspectRatio = aspectRatio;
-        TransparentBackground = transparentBackground;
+        Background = background;
         Seed = AiRequestLimits.ValidateOptionalSeed(seed, nameof(seed));
         Reference = reference;
         Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
@@ -354,10 +453,12 @@ public sealed record AiImageGenerationRequest
     public AiImageAspectRatioId AspectRatio { get; }
 
     /// <summary>
-    /// Produces the image on a transparent background, which is what a
-    /// compositing asset needs. The generated file stays PNG either way.
+    /// The background to render, named as the server names it: "transparent"
+    /// for a compositing asset, "opaque" for a filled one. Empty leaves the
+    /// choice to the model, which is what sending no background means. The
+    /// generated file stays PNG whichever is asked for.
     /// </summary>
-    public bool TransparentBackground { get; }
+    public AiImageBackgroundId Background { get; }
 
     /// <summary>
     /// Repeating a seed with the same prompt reproduces the same picture, which
@@ -523,8 +624,7 @@ public sealed record AiVideoGenerationRequest
         AiUploadSource? lastFrame = null,
         AiModelId? model = null)
     {
-        if (durationSeconds is not (4 or 6 or 8))
-            throw new ArgumentOutOfRangeException(nameof(durationSeconds));
+        AiRequestLimits.ValidateVideoDurationSeconds(durationSeconds, nameof(durationSeconds));
         if (resolution.Value.Length == 0)
             throw new ArgumentException("A video resolution is required.", nameof(resolution));
         if (aspectRatio.Value.Length == 0)
@@ -595,6 +695,19 @@ public sealed record AiBalance(
     int AdditionalCredits,
     bool HasAdditionalCreditDebt);
 
+/// <summary>
+/// What the server has said about starting an operation. "Not answered" is a
+/// state of its own: a server that never mentioned an operation has not refused
+/// it, and reporting that as a refusal sends the account to buy credits it
+/// already has.
+/// </summary>
+public enum AiOperationAvailabilityState
+{
+    Unknown,
+    Available,
+    Unavailable,
+}
+
 // Which operations the server will accept right now, keyed by operation id.
 public sealed class AiOperationAvailability
 {
@@ -606,8 +719,19 @@ public sealed class AiOperationAvailability
 
     public ImmutableDictionary<AiOperationId, bool> Operations { get; }
 
-    public bool CanStart(AiOperationId operation)
-        => Operations.TryGetValue(operation, out bool allowed) && allowed;
+    /// <summary>
+    /// An operation the server did not report reads as
+    /// <see cref="AiOperationAvailabilityState.Unknown"/>, mirroring
+    /// <see cref="AiModelAvailability.CanStart"/>: silence is not a refusal.
+    /// </summary>
+    public AiOperationAvailabilityState GetState(AiOperationId operation)
+    {
+        if (!Operations.TryGetValue(operation, out bool allowed))
+            return AiOperationAvailabilityState.Unknown;
+        return allowed
+            ? AiOperationAvailabilityState.Available
+            : AiOperationAvailabilityState.Unavailable;
+    }
 }
 
 /// <summary>
@@ -921,6 +1045,65 @@ internal static class AiModelMapper
                 .Where(pair => !pair.Value.IsDefaultOrEmpty));
     }
 
+    // Null for every operation but image, where the server publishes nothing of
+    // the sort. The ratios are narrowed to the operation's own list, so a shape
+    // the server would refuse never reaches a dialog.
+    private static AiImageModelCapabilities? ToImageCapabilities(
+        AiModelDescriptionResponse model,
+        AiOperationCapabilityResponse capability)
+    {
+        if (model.AspectRatios is null
+            && model.Backgrounds is null
+            && model.MaxReferenceImages is null)
+        {
+            return null;
+        }
+
+        return new AiImageModelCapabilities(
+            NarrowToOperation(
+                model.AspectRatios is { } aspectRatios
+                    ? [.. aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value))]
+                    : [],
+                capability.AspectRatios),
+            NarrowToOperation(
+                model.Backgrounds is { } backgrounds
+                    ? [.. backgrounds.Where(value => !string.IsNullOrWhiteSpace(value))]
+                    : [],
+                capability.Backgrounds),
+            model.Seed ?? true,
+            model.MaxReferenceImages ?? AiRequestLimits.MaxImageReferences);
+    }
+
+    // Null for every operation but video, where the server publishes nothing of
+    // the sort. A video model that publishes none of the five reads the same as
+    // one this client asked about before they existed: unrestricted.
+    private static AiVideoModelCapabilities? ToVideoCapabilities(
+        AiModelDescriptionResponse model,
+        AiOperationCapabilityResponse capability)
+    {
+        if (model.DurationsSeconds is null
+            && model.Resolutions is null
+            && model.AspectRatios is null
+            && model.Audio is null
+            && model.Seed is null)
+        {
+            return null;
+        }
+
+        return Narrow(
+            new AiVideoModelCapabilities(
+                model.DurationsSeconds ?? [],
+                model.Resolutions is { } resolutions
+                    ? [.. resolutions.Where(value => !string.IsNullOrWhiteSpace(value))]
+                    : [],
+                model.AspectRatios is { } aspectRatios
+                    ? [.. aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value))]
+                    : [],
+                model.Audio ?? true,
+                model.Seed ?? true),
+            capability);
+    }
+
     private static ImmutableArray<AiModelOption> ToModelOptions(
         AiOperationCapabilityResponse capability)
     {
@@ -935,8 +1118,44 @@ internal static class AiModelMapper
                     ? model.Id.Trim()
                     : model.DisplayName.Trim(),
                 ToCostTier(model.CostTier),
-                model.IsDefault))
+                model.IsDefault,
+                ToVideoCapabilities(model, capability),
+                ToImageCapabilities(model, capability)))
             .ToImmutableArray();
+    }
+
+    // A model's own lists narrowed to what the operation accepts, so a shape
+    // the server would refuse never reaches the dialog. Order follows the
+    // operation's, which runs from the smallest resolution upwards.
+    private static AiVideoModelCapabilities Narrow(
+        AiVideoModelCapabilities model,
+        AiOperationCapabilityResponse capability)
+    {
+        ImmutableArray<int> durations = model.DurationsSeconds.IsDefaultOrEmpty
+            ? []
+            : [.. model.DurationsSeconds.Where(seconds =>
+                seconds >= (capability.MinDurationSeconds ?? int.MinValue)
+                && seconds <= (capability.MaxDurationSeconds ?? int.MaxValue))];
+        return model with
+        {
+            DurationsSeconds = durations,
+            Resolutions = NarrowToOperation(model.Resolutions, capability.Resolutions),
+            AspectRatios = NarrowToOperation(model.AspectRatios, capability.AspectRatios),
+        };
+    }
+
+    // A model that publishes nothing takes whatever the operation accepts, so
+    // what comes back is always the list to offer rather than a hint that one
+    // has to be guessed at. Empty then means the two share nothing.
+    private static ImmutableArray<string> NarrowToOperation(
+        ImmutableArray<string> model,
+        ImmutableArray<string>? operation)
+    {
+        if (operation is not { IsDefaultOrEmpty: false } offered)
+            return model;
+        if (model.IsDefaultOrEmpty)
+            return offered;
+        return [.. offered.Where(model.Contains)];
     }
 
     // An unrecognized tier is reported as none rather than guessed at: the

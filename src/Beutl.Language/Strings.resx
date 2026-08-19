@@ -1591,8 +1591,17 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiAspectRatio" xml:space="preserve">
     <value>Aspect ratio</value>
   </data>
-  <data name="AiTransparentBackground" xml:space="preserve">
-    <value>Transparent background</value>
+  <data name="AiBackground" xml:space="preserve">
+    <value>Background</value>
+  </data>
+  <data name="AiBackgroundAuto" xml:space="preserve">
+    <value>Leave it to the model</value>
+  </data>
+  <data name="AiBackgroundOpaque" xml:space="preserve">
+    <value>Opaque</value>
+  </data>
+  <data name="AiBackgroundTransparent" xml:space="preserve">
+    <value>Transparent</value>
   </data>
   <data name="AiGenerateAudio" xml:space="preserve">
     <value>Generate audio</value>
@@ -1626,9 +1635,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiJoinPro" xml:space="preserve">
     <value>Join Pro</value>
-  </data>
-  <data name="AiManageAndTopUp" xml:space="preserve">
-    <value>Manage / top up</value>
   </data>
   <data name="AiUsageLimitExceeded" xml:space="preserve">
     <value>This request exceeds your remaining monthly allowance and additional credits. Top up additional credits to continue.</value>
@@ -1870,12 +1876,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiSubtitle_Range" xml:space="preserve">
     <value>Scene range</value>
   </data>
-  <data name="AiSubtitle_RangeStart" xml:space="preserve">
-    <value>Range start</value>
-  </data>
-  <data name="AiSubtitle_RangeEnd" xml:space="preserve">
-    <value>Range end</value>
-  </data>
   <data name="AiSubtitle_SourceLanguage" xml:space="preserve">
     <value>Spoken language</value>
   </data>
@@ -2035,9 +2035,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiVideoClearLastFrame" xml:space="preserve">
     <value>Clear last frame</value>
   </data>
-  <data name="AiVideoOptional" xml:space="preserve">
-    <value>Optional</value>
-  </data>
   <data name="AiVideoFrameCaptureFailed" xml:space="preserve">
     <value>The current scene frame could not be captured. Fix preview errors or choose an image file.</value>
   </data>
@@ -2047,11 +2044,38 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiVideoPreviewOpenFailed" xml:space="preserve">
     <value>The generated video could not be opened in the default media player.</value>
   </data>
-  <data name="AiPromptLibrary" xml:space="preserve">
-    <value>Prompt history and templates</value>
-  </data>
   <data name="AiPromptLibraryPrivacy" xml:space="preserve">
     <value>Recent prompts stay in memory for this session. Only named templates and prompts you pin are saved locally.</value>
+  </data>
+  <data name="AiOptional" xml:space="preserve">
+    <value>Optional</value>
+  </data>
+  <data name="AiPromptHistory" xml:space="preserve">
+    <value>Prompt history</value>
+  </data>
+  <data name="AiPromptHistoryEmpty" xml:space="preserve">
+    <value>No prompts have been run yet.</value>
+  </data>
+  <data name="AiPromptTemplates" xml:space="preserve">
+    <value>Prompt templates</value>
+  </data>
+  <data name="AiPromptTemplatesEmpty" xml:space="preserve">
+    <value>No templates saved yet.</value>
+  </data>
+  <data name="AiPromptSeed" xml:space="preserve">
+    <value>Seed</value>
+  </data>
+  <data name="AiPromptSeedPlaceholder" xml:space="preserve">
+    <value>Random every time</value>
+  </data>
+  <data name="AiReferenceImage" xml:space="preserve">
+    <value>Reference image</value>
+  </data>
+  <data name="AiReferenceImageDescription" xml:space="preserve">
+    <value>Guide the generation with an existing picture. It is uploaded only when you generate.</value>
+  </data>
+  <data name="AiClearReferenceImage" xml:space="preserve">
+    <value>Clear reference</value>
   </data>
   <data name="AiPromptApply" xml:space="preserve">
     <value>Apply</value>
@@ -2094,12 +2118,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiEditOutpaintExpansion" xml:space="preserve">
     <value>Expansion on each edge</value>
-  </data>
-  <data name="AiDataDisclosureTitle" xml:space="preserve">
-    <value>Server AI and data handling</value>
-  </data>
-  <data name="AiDataDisclosure" xml:space="preserve">
-    <value>Your prompt and selected media are sent to Beutl's server and its configured AI provider only when you run the feature. Results and usage history remain available in AI Jobs until you delete them. Recoverable partial caption results are also stored locally until you complete or discard them. Avoid sensitive or confidential material.</value>
   </data>
   <data name="AiSubtitle_PartialTranslationAvailable" xml:space="preserve">
     <value>Translation completed for {0} of {1} batches. You can use the paid partial result now, or run Translate again to continue without processing completed batches again.</value>

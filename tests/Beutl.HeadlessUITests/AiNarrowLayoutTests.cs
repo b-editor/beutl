@@ -57,11 +57,10 @@ public sealed class AiNarrowLayoutTests
                     Is.LessThanOrEqualTo(scrollViewer.Viewport.Width + 1),
                     $"{view.GetType().Name} must keep every action reachable without horizontal scrolling.");
 
-                foreach (ProgressBar progressBar in view.GetLogicalDescendants().OfType<ProgressBar>())
-                {
-                    Assert.That(progressBar.MinWidth, Is.Zero,
-                        $"{view.GetType().Name} progress must shrink with its dock pane.");
-                }
+                Assert.That(
+                    view.GetLogicalDescendants().OfType<ProgressBar>(),
+                    Is.Empty,
+                    $"{view.GetType().Name} reports usage as text, which a narrow pane can trim.");
             }
             finally
             {
@@ -89,9 +88,6 @@ public sealed class AiNarrowLayoutTests
                 .Single(panel => panel.Children.OfType<Button>()
                     .Any(button => button.Name == "LoadMoreButton"));
             Assert.That(footerActions.Orientation, Is.EqualTo(Orientation.Horizontal));
-
-            ProgressBar usageProgress = view.GetLogicalDescendants().OfType<ProgressBar>().Single();
-            Assert.That(usageProgress.MinWidth, Is.Zero);
         }
     }
 }

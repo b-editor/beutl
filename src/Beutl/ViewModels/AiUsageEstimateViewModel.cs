@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Disposables;
+using Beutl.Api.Services;
 using Beutl.Language;
 using Reactive.Bindings;
 
@@ -9,27 +10,35 @@ internal sealed class AiUsageEstimateViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
 
     // Availability is decided by the server. The client only reflects it, so no
-    // pricing information is needed here.
-    public AiUsageEstimateViewModel(AiUsageViewModel usage, IObservable<bool> isAvailable)
+    // pricing information is needed here. Until the server has answered the
+    // state is Unknown, which is neither a go-ahead nor a shortfall: the run
+    // stays offered and nothing is claimed about the balance, because the
+    // authoritative check runs again before the paid request is sent.
+    public AiUsageEstimateViewModel(
+        AiUsageViewModel usage,
+        IObservable<AiOperationAvailabilityState> availability)
     {
         ArgumentNullException.ThrowIfNull(usage);
-        ArgumentNullException.ThrowIfNull(isAvailable);
+        ArgumentNullException.ThrowIfNull(availability);
 
-        IsAvailable = usage.HasSnapshot
-            .CombineLatest(isAvailable, (hasSnapshot, available) => hasSnapshot && available)
-            .ToReadOnlyReactivePropertySlim(false)
+        State = usage.HasSnapshot
+            .CombineLatest(
+                availability,
+                (hasSnapshot, state) => hasSnapshot ? state : AiOperationAvailabilityState.Unknown)
+            .ToReadOnlyReactivePropertySlim(AiOperationAvailabilityState.Unknown)
             .DisposeWith(_disposables);
 
         CanAfford = usage.CanUseAi
-            .CombineLatest(IsAvailable, (canUseAi, available) => canUseAi && available)
+            .CombineLatest(
+                State,
+                (canUseAi, state) => canUseAi && state != AiOperationAvailabilityState.Unavailable)
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_disposables);
 
-        IsInsufficient = usage.HasSnapshot
+        IsInsufficient = usage.CanUseAi
             .CombineLatest(
-                usage.CanUseAi,
-                IsAvailable,
-                (hasSnapshot, canUseAi, available) => hasSnapshot && canUseAi && !available)
+                State,
+                (canUseAi, state) => canUseAi && state == AiOperationAvailabilityState.Unavailable)
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_disposables);
 
@@ -46,10 +55,10 @@ internal sealed class AiUsageEstimateViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim(true)
             .DisposeWith(_disposables);
 
-        Explanation = usage.IsMonthlyAllowanceExhausted
+        Explanation = State
             .CombineLatest(
+                usage.IsMonthlyAllowanceExhausted,
                 usage.HasAdditionalCredits,
-                IsInsufficient,
                 CreateExplanation)
             .ToReadOnlyReactivePropertySlim(string.Empty)
             .DisposeWith(_disposables);
@@ -60,10 +69,15 @@ internal sealed class AiUsageEstimateViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<bool> IsAvailable { get; }
+    public ReadOnlyReactivePropertySlim<AiOperationAvailabilityState> State { get; }
 
+    /// <summary>
+    /// Whether the run may be offered. An unanswered check leaves this true so a
+    /// pending or failed lookup does not lock the account out of what it paid for.
+    /// </summary>
     public ReadOnlyReactivePropertySlim<bool> CanAfford { get; }
 
+    /// <summary>True only where the server actually refused the operation.</summary>
     public ReadOnlyReactivePropertySlim<bool> IsInsufficient { get; }
 
     public ReadOnlyReactivePropertySlim<string> Summary { get; }
@@ -77,14 +91,16 @@ internal sealed class AiUsageEstimateViewModel : IDisposable
     public void Dispose() => _disposables.Dispose();
 
     private static string CreateExplanation(
+        AiOperationAvailabilityState state,
         bool isExhausted,
-        bool hasAdditionalCredits,
-        bool isInsufficient)
+        bool hasAdditionalCredits)
     {
-        if (isInsufficient)
-            return Strings.AiEstimatedUsageInsufficient;
-        if (!isExhausted)
-            return Strings.AiEstimatedUsageMonthly;
-        return hasAdditionalCredits ? Strings.AiEstimatedUsageTopUp : string.Empty;
+        return state switch
+        {
+            AiOperationAvailabilityState.Unavailable => Strings.AiEstimatedUsageInsufficient,
+            AiOperationAvailabilityState.Available when !isExhausted => Strings.AiEstimatedUsageMonthly,
+            AiOperationAvailabilityState.Available when hasAdditionalCredits => Strings.AiEstimatedUsageTopUp,
+            _ => string.Empty,
+        };
     }
 }

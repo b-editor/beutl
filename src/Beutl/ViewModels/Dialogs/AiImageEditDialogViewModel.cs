@@ -57,7 +57,14 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
         _content = content ?? throw new ArgumentNullException(nameof(content));
         _editViewModel = editViewModel;
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
+        // Every edit hands the model the picture being edited, so one that takes
+        // no reference image is registered and unusable however the request is
+        // shaped.
         ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
+        {
+            Filter = model =>
+                model.Image is not { } image || image.CanServeAnything(true),
+        }
             .DisposeWith(_disposables);
         PromptLibrary = new AiPromptLibraryViewModel(
                 PromptTaskKind.ImageEdit,
@@ -79,8 +86,9 @@ public sealed class AiImageEditDialogViewModel : IToolContext, IAsyncDisposable
                 Usage,
                 SelectedTask.CombineLatest(
                     _entitlements.Entitlements,
-                    (task, entitlements) => entitlements?.Availability.CanStart(
-                        AiOperations.ImageEdit(new AiImageEditTaskId(task.Value))) ?? false))
+                    (task, entitlements) => entitlements?.Availability.GetState(
+                        AiOperations.ImageEdit(new AiImageEditTaskId(task.Value)))
+                        ?? AiOperationAvailabilityState.Unknown))
             .DisposeWith(_disposables);
 
         ComparisonModes =
