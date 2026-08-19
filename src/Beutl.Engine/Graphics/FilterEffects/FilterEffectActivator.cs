@@ -503,9 +503,14 @@ public sealed class FilterEffectActivator : IDisposable
         {
             Rect physicalBounds = target.RasterBounds.Translate(
                 target.OriginalBounds.Position - target.Bounds.Position);
+            // OriginalBounds cannot serve as the anchor frame: a stage the fallback executor allocated
+            // itself begins a chain with OriginalBounds == Bounds, which anchors the chain at zero.
             _pendingSkiaTargets.Add(
                 target,
-                new PendingSkiaTarget(target.Bounds, physicalBounds));
+                new PendingSkiaTarget(
+                    target.Bounds,
+                    physicalBounds,
+                    new Rect(default, target.Bounds.Size)));
         }
     }
 
@@ -560,15 +565,16 @@ public sealed class FilterEffectActivator : IDisposable
                         {
                             PendingSkiaTarget pending = _pendingSkiaTargets![t];
                             pending.PhysicalBounds = item.TransformBounds(pending.PhysicalBounds);
+                            pending.AnchorFrame = item.TransformBounds(pending.AnchorFrame);
                             t.Bounds = item.TransformBounds(t.Bounds);
                             t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
                             // The chain's execution frame is anchored at InputBounds.Position, which
-                            // must stay equal to the offset between the two frames the item just
-                            // mapped. A translation-invariant item preserves that offset, so this is
-                            // a no-op there; a matrix item moves the frames apart relative to each
-                            // other and has to re-anchor with them.
+                            // must stay equal to the displacement this item's accumulated mapping
+                            // gives the chain-start Bounds.Position. A translation-invariant item
+                            // preserves that displacement, so this is a no-op there; a matrix item
+                            // moves Bounds relative to the anchor frame and has to re-anchor with it.
                             pending.InputBounds = new Rect(
-                                t.Bounds.Position - t.OriginalBounds.Position,
+                                t.Bounds.Position - pending.AnchorFrame.Position,
                                 pending.InputBounds.Size);
                         }
 
@@ -700,11 +706,21 @@ public sealed class FilterEffectActivator : IDisposable
 
     private sealed class PendingSkiaTarget(
         Rect inputBounds,
-        Rect physicalBounds)
+        Rect physicalBounds,
+        Rect anchorFrame)
     {
         public Rect InputBounds { get; set; } = inputBounds;
 
         public Rect PhysicalBounds { get; set; } = physicalBounds;
+
+        /// <summary>
+        /// The chain-start frame: the origin at the chain-start <see cref="EffectTarget.Bounds"/> size,
+        /// mapped by every item alongside them. Subtracting its position from the mapped Bounds position
+        /// leaves the chain-start Bounds position under the accumulated linear part, which is the anchor
+        /// the flush frame needs. The matching size is what makes that subtraction cancel: a bounds map
+        /// displaces two rects by the same amount only while their sizes agree.
+        /// </summary>
+        public Rect AnchorFrame { get; set; } = anchorFrame;
     }
 
     private readonly record struct FlushTarget(

@@ -576,6 +576,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     internal bool CanBlitLossless(Rect dest, PixelSize sourceSize)
     {
         VerifyAccess();
+        VerifyNativeTargetOperation();
         return TryGetLosslessDeviceOrigin(dest, sourceSize, out _);
     }
 

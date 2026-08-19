@@ -759,6 +759,87 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         });
     }
 
+    // A Skia chain executes in a frame anchored at the displacement its items give the chain-start
+    // Bounds.Position. A target the fallback executor allocated - or one handed in through the public
+    // EffectTarget(RenderTarget, Rect, EffectiveScale) constructor - starts that chain with
+    // OriginalBounds == Bounds, so anything reading the anchor off those two rects reads zero and the
+    // flush composites the content at -Bounds.Position, dropping all but a corner of the buffer.
+    [Test]
+    public void SkiaFilterOnAnOffsetOriginalBoundsTarget_FlushesTheWholeBuffer()
+    {
+        var bounds = new Rect(8, 6, 12, 10);
+        var effect = new LegacySuffixCallbackFilterEffect((context, _) => AppendOpaqueSkiaFilter(context));
+
+        using EffectTargets targets = CreateSolidTargets(bounds, Colors.White);
+        Apply(effect, bounds, targets);
+
+        AssertFlushedBufferIsFullyCovered(targets);
+    }
+
+    // The production stream: an unknown CustomEffect (no bounds function - Clipping with AutoClip, or
+    // any out-of-tree effect) sends the tail render-time, the shader takes the fallback executor, and
+    // the Skia item behind it begins its chain on the stage output that executor allocated.
+    [Test]
+    public void SkiaFilterAfterAFallbackShaderStage_FlushesTheWholeBuffer()
+    {
+        var bounds = new Rect(8, 6, 12, 10);
+        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        {
+            context.CustomEffect(0, static (_, _) => { });
+            context.Shader(ShaderDescription.CurrentPixel(
+                "half4 apply(half4 color) { return color; }"));
+            AppendOpaqueSkiaFilter(context);
+        });
+
+        using EffectTargets targets = CreateSolidTargets(bounds, Colors.White);
+        Apply(effect, bounds, targets);
+
+        AssertFlushedBufferIsFullyCovered(targets);
+    }
+
+    private static void AppendOpaqueSkiaFilter(FilterEffectContext context)
+        => context.AppendSkiaFilter(
+            0,
+            static (_, input, _) => SKImageFilter.CreateColorFilter(
+                SKColorFilter.CreateBlendMode(SKColors.Red, SKBlendMode.SrcIn),
+                input),
+            static (_, current) => current);
+
+    private static void AssertFlushedBufferIsFullyCovered(EffectTargets targets)
+    {
+        Assert.That(targets, Has.Count.EqualTo(1));
+        using Bitmap bitmap = targets[0].RenderTarget!.Snapshot();
+        Assert.That(
+            OpaqueBounds(bitmap),
+            Is.EqualTo(new PixelRect(0, 0, bitmap.Width, bitmap.Height)),
+            "a filtered opaque source must still cover the buffer it was flushed into");
+    }
+
+    private static PixelRect OpaqueBounds(Bitmap bitmap)
+    {
+        int left = bitmap.Width;
+        int top = bitmap.Height;
+        int right = 0;
+        int bottom = 0;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if (bitmap.SKBitmap.GetPixel(x, y).Alpha == 0)
+                    continue;
+
+                left = Math.Min(left, x);
+                top = Math.Min(top, y);
+                right = Math.Max(right, x + 1);
+                bottom = Math.Max(bottom, y + 1);
+            }
+        }
+
+        return right <= left || bottom <= top
+            ? default
+            : new PixelRect(left, top, right - left, bottom - top);
+    }
+
     private static void Apply(FilterEffect effect, Rect bounds, EffectTargets targets)
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);

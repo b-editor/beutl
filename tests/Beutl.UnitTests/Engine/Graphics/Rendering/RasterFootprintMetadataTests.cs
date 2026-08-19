@@ -732,6 +732,70 @@ public sealed class RasterFootprintMetadataTests
         Assert.That(MeasureAlphaBounds(bitmap), Is.EqualTo(new PixelRect(5, 0, 1, 1)));
     }
 
+    // EffectTarget.Draw picks the nearest-sampled point blit only while this gate holds, so the gate
+    // has to reject anything the blit would silently snap: a fractional destination or a scaled one.
+    [Test]
+    public void CanBlitLossless_AcceptsOnlyADestinationOnExactDevicePixels()
+    {
+        var dest = new Rect(0, 0, 12, 10);
+        var sourceSize = new PixelSize(12, 10);
+        using RenderTarget target = RenderTarget.CreateNull(40, 40);
+        using var canvas = new ImmediateCanvas(target, 1f, logicalSize: new Size(40, 40));
+
+        bool aligned;
+        bool fractional;
+        bool scaled;
+        using (canvas.PushTransform(Matrix.CreateTranslation(new Vector(5, 7))))
+        {
+            aligned = canvas.CanBlitLossless(dest, sourceSize);
+        }
+
+        using (canvas.PushTransform(Matrix.CreateTranslation(new Vector(5.5f, 7.5f))))
+        {
+            fractional = canvas.CanBlitLossless(dest, sourceSize);
+        }
+
+        using (canvas.PushTransform(Matrix.CreateScale(1.5f, 1.5f)))
+        {
+            scaled = canvas.CanBlitLossless(dest, sourceSize);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(aligned, Is.True, "an integral translation lands the buffer on device pixels");
+            Assert.That(fractional, Is.False, "a fractional translation would snap the buffer to the grid");
+            Assert.That(scaled, Is.False, "a scaled destination no longer matches the buffer's extent");
+        });
+    }
+
+    [Test]
+    public void CanBlitLossless_OnAGuardedCallbackCanvas_IsRefusedLikeCanDrawPixelAligned()
+    {
+        const float density = 1;
+        var bounds = new Rect(0, 0, 8, 6);
+        PixelRect deviceBounds = PixelRect.FromRect(bounds, density);
+        var token = new RenderExecutionSessionToken();
+        using RenderTarget target = RenderTarget.CreateNull(deviceBounds.Width, deviceBounds.Height);
+        var canvas = new RenderCallbackCanvas(
+            token,
+            density,
+            bounds,
+            deviceBounds,
+            () => new ImmediateCanvas(target, density, logicalSize: bounds.Size),
+            CallbackCanvasCapability.Draw);
+
+        canvas.Use(guarded => Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => guarded.CanBlitLossless(bounds, deviceBounds.Size),
+                Throws.InstanceOf<InvalidOperationException>()
+                    .With.Message.Contains("render targets are not available"));
+            Assert.That(
+                () => guarded.CanDrawPixelAligned(bounds, density, deviceBounds.Size),
+                Throws.InstanceOf<InvalidOperationException>());
+        }));
+    }
+
     private static PixelRect MeasureAlphaBounds(Bitmap bitmap)
     {
         ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
