@@ -29,7 +29,8 @@ public sealed class FilterEffectActivator : IDisposable
         RenderRequestPurpose purpose,
         float outputScale = 1f,
         float workingScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity)
+        float maxWorkingScale = float.PositiveInfinity,
+        DrawableBrushMaterializer? drawableBrushMaterializer = null)
         : this(
             targets,
             builder,
@@ -41,7 +42,7 @@ public sealed class FilterEffectActivator : IDisposable
             acquireProgram: null,
             deviceGridOffset: null,
             ownsProgramCache: true,
-            drawableBrushMaterializer: null,
+            drawableBrushMaterializer,
             useExecutorManagedCanvas: false,
             renderTargetLeaseSession: null)
     {

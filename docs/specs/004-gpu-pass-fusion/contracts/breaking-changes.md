@@ -540,6 +540,17 @@ The trailing `DrawableBrushMaterializer` is optional for source compatibility, b
 
 Positional callers after `intent` must be updated for the trailing materializer parameter. Custom `IRenderTargetFactory` implementations must drop `GetMaximumDimension`; the current hard axis bound remains `RenderScaleUtilities.MaxBufferDimension`.
 
+`FilterEffectActivator`'s public constructor takes the same trailing optional `DrawableBrushMaterializer?` for the same reason: the activator is a direct host, and it forwards the materializer into every `CustomFilterEffectContext` it opens. Without one, a `DrawableBrush` used as a displacement map (or any other brush a custom effect paints) degrades to transparent, which for a displacement map silently turns the effect into a no-op:
+
+```csharp
+using var activator = new FilterEffectActivator(
+    targets,
+    builder,
+    RenderIntent.Preview,
+    RenderRequestPurpose.Auxiliary,
+    drawableBrushMaterializer: materializer);
+```
+
 ## Ownership summary
 
 - `RenderNodeContext.Inputs` and every `RenderFragmentHandle` are borrowed, transaction-scoped values; authors never dispose or retain them.

@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -200,6 +201,43 @@ public sealed class BrushMaterializationSmokeTests
 
         Assert.That(handedOff.Handle, Is.EqualTo(IntPtr.Zero),
             "BrushConstructor takes ownership of the materialized image and disposes it before returning");
+    }
+
+    [Test]
+    public void PublicActivator_PaintsADrawableBrushDisplacementMapThroughASuppliedMaterializer()
+    {
+        var content = new EllipseShape();
+        content.Width.CurrentValue = 24;
+        content.Height.CurrentValue = 24;
+        content.Fill.CurrentValue = Brushes.White;
+        var effect = new DisplacementMapEffect();
+        effect.DisplacementMap.CurrentValue = new DrawableBrush(content);
+        effect.ShowDisplacementMap.CurrentValue = true;
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+
+        var bounds = new Rect(0, 0, 32, 32);
+        using RenderTarget backing = RenderTarget.Create(32, 32)
+                                     ?? throw new InvalidOperationException("Could not create the backing target.");
+        using var targets = new EffectTargets { new EffectTarget(backing, bounds, EffectiveScale.At(1)) };
+        using var builder = new SKImageFilterBuilder();
+        using var context = new FilterEffectContext(bounds);
+        effect.ApplyTo(context, resource);
+
+        DrawableBrushMaterializer materializer =
+            (_, _, _) => new MaterializedDrawableBrush(CreateOpaqueImage(32, 32), bounds);
+        using var activator = new FilterEffectActivator(
+            targets,
+            builder,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: materializer);
+        activator.Apply(context);
+        activator.Flush(false);
+
+        using Bitmap bitmap = targets[0].RenderTarget!.Snapshot();
+
+        Assert.That(GetAlpha(bitmap, 16, 16), Is.GreaterThan(0.9f),
+            "a materializer supplied to the public activator must reach the custom-effect brush constructor");
     }
 
     private static SKImage CreateOpaqueImage(int width, int height)

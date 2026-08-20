@@ -48,6 +48,7 @@ public sealed class FilterEffectCompatibilityContractTests
             typeof(float),
             typeof(float),
             typeof(float),
+            typeof(DrawableBrushMaterializer),
         ];
         System.Reflection.ParameterInfo[] constructorParameters = typeof(FilterEffectActivator)
             .GetConstructors()
