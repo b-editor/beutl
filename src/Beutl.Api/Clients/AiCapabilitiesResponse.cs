@@ -37,6 +37,11 @@ internal sealed record AiModelDescriptionResponse
     [JsonPropertyName("maxReferenceImages")]
     public int? MaxReferenceImages { get; init; }
 
+    // Whether a size can be asked for, which is what upscaling is. Absent from
+    // a server that predates it, which reads as "no restriction published".
+    [JsonPropertyName("resolution")]
+    public bool? Resolution { get; init; }
+
     // Video models only. Absent for every other operation, and absent from a
     // server that predates them, which reads as "no restriction published".
     [JsonPropertyName("durationsSeconds")]
@@ -50,6 +55,14 @@ internal sealed record AiModelDescriptionResponse
 
     [JsonPropertyName("seed")]
     public bool? Seed { get; init; }
+
+    // Video models only, and separately: a model that conditions on a first
+    // frame does not necessarily take a last one.
+    [JsonPropertyName("firstFrame")]
+    public bool? FirstFrame { get; init; }
+
+    [JsonPropertyName("lastFrame")]
+    public bool? LastFrame { get; init; }
 }
 
 internal sealed record AiOperationCapabilityResponse

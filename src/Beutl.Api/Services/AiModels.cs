@@ -73,7 +73,9 @@ public sealed record AiVideoModelCapabilities(
     ImmutableArray<string> Resolutions,
     ImmutableArray<string> AspectRatios,
     bool SupportsAudio,
-    bool SupportsSeed)
+    bool SupportsSeed,
+    bool SupportsFirstFrame = true,
+    bool SupportsLastFrame = true)
 {
     public static AiVideoModelCapabilities Unrestricted { get; } =
         new([], [], [], true, true);
@@ -98,7 +100,8 @@ public sealed record AiImageModelCapabilities(
     ImmutableArray<string> AspectRatios,
     ImmutableArray<string> Backgrounds,
     bool SupportsSeed,
-    int MaxReferenceImages)
+    int MaxReferenceImages,
+    bool SupportsResolution = true)
 {
     public static AiImageModelCapabilities Unrestricted { get; } =
         new([], [], true, AiRequestLimits.MaxImageReferences);
@@ -108,8 +111,17 @@ public sealed record AiImageModelCapabilities(
     /// that cannot be handed the picture an edit is made of.
     /// </summary>
     public bool CanServeAnything(bool requiresReferenceImages)
+        => CanServeAnything(requiresReferenceImages, requiresResolution: false);
+
+    /// <summary>
+    /// The same, for an operation that also has to be able to ask for a size —
+    /// which is what an upscale is, and what a model that publishes no sizes
+    /// cannot serve.
+    /// </summary>
+    public bool CanServeAnything(bool requiresReferenceImages, bool requiresResolution)
         => !AspectRatios.IsDefaultOrEmpty
-           && (!requiresReferenceImages || MaxReferenceImages > 0);
+           && (!requiresReferenceImages || MaxReferenceImages > 0)
+           && (!requiresResolution || SupportsResolution);
 }
 
 public sealed record AiModelOption(
@@ -1216,7 +1228,8 @@ internal static class AiModelMapper
                     : [],
                 capability.Backgrounds),
             model.Seed ?? true,
-            model.MaxReferenceImages ?? AiRequestLimits.MaxImageReferences);
+            model.MaxReferenceImages ?? AiRequestLimits.MaxImageReferences,
+            model.Resolution ?? true);
     }
 
     // Null for every operation but video, where the server publishes nothing of
@@ -1230,7 +1243,9 @@ internal static class AiModelMapper
             && model.Resolutions is null
             && model.AspectRatios is null
             && model.Audio is null
-            && model.Seed is null)
+            && model.Seed is null
+            && model.FirstFrame is null
+            && model.LastFrame is null)
         {
             return null;
         }
@@ -1245,7 +1260,9 @@ internal static class AiModelMapper
                     ? [.. aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value))]
                     : [],
                 model.Audio ?? true,
-                model.Seed ?? true),
+                model.Seed ?? true,
+                model.FirstFrame ?? true,
+                model.LastFrame ?? true),
             capability);
     }
 

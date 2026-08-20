@@ -37,6 +37,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     private readonly AiRequestKey _requestKey = new();
     private readonly EditViewModel? _editViewModel;
     private string? _sourceElementId;
+    private bool _modelsRequireResolution;
     private Task? _disposeTask;
     private AsyncOperationLifetime.Operation? _runningRequest;
 
@@ -60,11 +61,15 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
         // Every edit hands the model the picture being edited, so one that takes
         // no reference image is registered and unusable however the request is
-        // shaped.
+        // shaped. An upscale asks for a size on top of that, which not every
+        // model that takes a picture can be asked for.
         ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
         {
             Filter = model =>
-                model.Image is not { } image || image.CanServeAnything(true),
+                model.Image is not { } image
+                || image.CanServeAnything(
+                    requiresReferenceImages: true,
+                    requiresResolution: _modelsRequireResolution),
         }
             .DisposeWith(_disposables);
         PromptLibrary = new AiPromptLibraryViewModel(
@@ -351,11 +356,18 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         }
     }
 
+    // Asking for a size is what upscaling is; the other tasks keep the one they
+    // were given.
+    private static bool RequiresResolution(string? task)
+        => string.Equals(task, "upscale", StringComparison.Ordinal);
+
     private async Task ReloadModelsAsync(AiImageEditTaskOption task)
     {
         using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
         if (operation is null)
             return;
+        // Read by the picker's filter, which runs while the list below loads.
+        _modelsRequireResolution = RequiresResolution(task.Value);
         try
         {
             await ModelPicker.LoadAsync(
@@ -534,6 +546,17 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         }
         // Settled and refunded server-side: the key that named it would keep
         // answering with that failure, so the next attempt asks under a new one.
+        // Charged for and still the server's; asking again under the same name
+        // is what recovers it, so the key stays.
+        catch (AiResultUnavailableException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
+        }
+        catch (AiModelUnavailableException)
+        {
+            _requestKey.Retire();
+            operation.TryPublish(() => Error.Value = Strings.AiModelUnavailable);
+        }
         // Refused before the operation was reserved, so nothing was charged;
         // what has to change is the model or the shape of the request.
         catch (AiModelDoesNotSupportRequestException)

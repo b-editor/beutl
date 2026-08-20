@@ -122,6 +122,27 @@ public sealed class AiRequestWasDeletedException : AiException
 }
 
 /// <summary>
+/// A paid result the server holds could not be read just now
+/// (503 aiResultUnavailable).
+/// </summary>
+/// <remarks>
+/// The job succeeded and was charged for; only fetching what it produced
+/// failed. Nothing is settled by this, so asking again under the same
+/// idempotency key is what recovers it — which is why it is told apart from a
+/// failure the server owns and has refunded.
+/// </remarks>
+public sealed class AiResultUnavailableException : AiException
+{
+    public AiResultUnavailableException(Exception? innerException = null)
+        : base(
+            "The AI result could not be read. Ask for it again.",
+            innerException,
+            isTransient: true)
+    {
+    }
+}
+
+/// <summary>
 /// The chosen model does not take the request as it stands — an aspect ratio,
 /// a background, a seed or a reference picture it does not accept
 /// (400 aiModelDoesNotSupportRequest).

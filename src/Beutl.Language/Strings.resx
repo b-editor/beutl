@@ -1657,6 +1657,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiModelDoesNotSupportRequest" xml:space="preserve">
     <value>The chosen model does not support this request. Change the model or the options and try again.</value>
   </data>
+  <data name="AiResultUnavailable" xml:space="preserve">
+    <value>The result could not be read just now. Run it again — the same request is asked for, so what has already been paid for is not paid for twice.</value>
+  </data>
   <data name="AiResultDownloadFailed" xml:space="preserve">
     <value>The result was produced and has been charged for, but it could not be downloaded. Open the job history to fetch it.</value>
   </data>

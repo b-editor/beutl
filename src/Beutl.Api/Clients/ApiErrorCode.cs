@@ -79,4 +79,8 @@ public enum ApiErrorCode
     AiRequestWasDeleted,
 
     AiModelDoesNotSupportRequest,
+
+    AiModelUnavailable,
+
+    AiResultUnavailable,
 }

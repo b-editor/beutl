@@ -551,6 +551,17 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         {
             operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
         }
+        // Charged for and still the server's; asking again under the same name
+        // is what recovers it, so the key stays.
+        catch (AiResultUnavailableException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
+        }
+        catch (AiModelUnavailableException)
+        {
+            _requestKey.Retire();
+            operation.TryPublish(() => Error.Value = Strings.AiModelUnavailable);
+        }
         // Refused before the operation was reserved, so nothing was charged;
         // what has to change is the model or the shape of the request.
         catch (AiModelDoesNotSupportRequestException)

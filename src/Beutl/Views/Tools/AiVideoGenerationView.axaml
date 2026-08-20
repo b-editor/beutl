@@ -158,7 +158,8 @@
                 </StackPanel>
             </Expander>
 
-            <Expander Header="{x:Static lang:Strings.AiVideoFrameGuidanceHeader}">
+            <Expander Header="{x:Static lang:Strings.AiVideoFrameGuidanceHeader}"
+                      IsVisible="{CompiledBinding SupportsFrameGuidance.Value}">
                 <StackPanel Margin="0,8,0,0" Spacing="8">
                     <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                Text="{x:Static lang:Strings.AiVideoFrameGuidanceDescription}"
@@ -169,7 +170,7 @@
                             Content="{x:Static lang:Strings.AiVideoUseCurrentFrame}"
                             ToolTip.Tip="{x:Static lang:Strings.AiVideoUseCurrentFrame}" />
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <StackPanel Spacing="4">
+                        <StackPanel IsVisible="{CompiledBinding SupportsFirstFrame.Value}" Spacing="4">
                             <TextBlock Text="{x:Static lang:Strings.AiVideoFirstFrame}" />
                             <Border Height="96"
                                     Background="{DynamicResource ControlFillColorDefaultBrush}"
@@ -194,7 +195,9 @@
                                         IsVisible="{CompiledBinding FirstFramePath.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                             </WrapPanel>
                         </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="4">
+                        <StackPanel Grid.Column="1"
+                                    IsVisible="{CompiledBinding SupportsLastFrame.Value}"
+                                    Spacing="4">
                             <TextBlock Text="{x:Static lang:Strings.AiVideoLastFrame}" />
                             <Border Height="96"
                                     Background="{DynamicResource ControlFillColorDefaultBrush}"

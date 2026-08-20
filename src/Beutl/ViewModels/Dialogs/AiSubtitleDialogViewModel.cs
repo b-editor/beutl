@@ -313,6 +313,14 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiFileTooLarge);
         }
+        catch (AiResultUnavailableException)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiResultUnavailable);
+        }
+        catch (AiModelUnavailableException)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiModelUnavailable);
+        }
         catch (AiModelDoesNotSupportRequestException)
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiModelDoesNotSupportRequest);

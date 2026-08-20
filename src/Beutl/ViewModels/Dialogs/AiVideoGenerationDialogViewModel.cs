@@ -338,6 +338,17 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         SupportsSeed.Value = video.SupportsSeed;
         if (!video.SupportsSeed)
             Seed.Value = null;
+        // A model conditions on the frames it publishes, and one of the two is
+        // not the other. A picker left up for a frame the model does not take
+        // only produces a request refused after the shape has been checked.
+        SupportsFirstFrame.Value = video.SupportsFirstFrame;
+        if (!video.SupportsFirstFrame)
+            FirstFramePath.Value = null;
+        SupportsLastFrame.Value = video.SupportsLastFrame;
+        if (!video.SupportsLastFrame)
+            LastFramePath.Value = null;
+        SupportsFrameGuidance.Value =
+            video.SupportsFirstFrame || video.SupportsLastFrame;
     }
 
     private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> values)
@@ -395,6 +406,15 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     public ReactivePropertySlim<string> Motion { get; } = new();
 
     public ReactivePropertySlim<string> Exclusions { get; } = new();
+
+    /// <summary>Whether the chosen model conditions on a starting frame.</summary>
+    public ReactivePropertySlim<bool> SupportsFirstFrame { get; } = new(true);
+
+    /// <summary>Whether it conditions on an ending one, which is not the same.</summary>
+    public ReactivePropertySlim<bool> SupportsLastFrame { get; } = new(true);
+
+    /// <summary>Whether it takes either, and the section is worth showing.</summary>
+    public ReactivePropertySlim<bool> SupportsFrameGuidance { get; } = new(true);
 
     public ReactivePropertySlim<string?> FirstFramePath { get; } = new();
 
@@ -519,6 +539,9 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         LastFramePath.Value = null;
         FirstFramePreview.Dispose();
         LastFramePreview.Dispose();
+        SupportsFirstFrame.Dispose();
+        SupportsLastFrame.Dispose();
+        SupportsFrameGuidance.Dispose();
         FirstFramePath.Dispose();
         LastFramePath.Dispose();
         Error.Dispose();
@@ -809,6 +832,17 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         catch (AiUsageLimitExceededException)
         {
             operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
+        }
+        // Charged for and still the server's; asking again under the same name
+        // is what recovers it, so the key stays.
+        catch (AiResultUnavailableException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
+        }
+        catch (AiModelUnavailableException)
+        {
+            _requestKey.Retire();
+            operation.TryPublish(() => Error.Value = Strings.AiModelUnavailable);
         }
         // Refused before the operation was reserved, so nothing was charged;
         // what has to change is the model or the shape of the request.

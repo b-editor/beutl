@@ -790,6 +790,76 @@ public sealed class AiCapabilityServiceTests
     }
 
     [Test]
+    public async Task ModelCatalog_ReadsWhichFramesAndSizesEachModelTakes()
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+            {
+              "operations": {
+                "video.generate": {
+                  "models": [
+                    {
+                      "id": "first/only",
+                      "displayName": "First only",
+                      "isDefault": true,
+                      "durationsSeconds": [4],
+                      "resolutions": ["720p"],
+                      "aspectRatios": ["16:9"],
+                      "audio": true,
+                      "seed": true,
+                      "firstFrame": true,
+                      "lastFrame": false
+                    }
+                  ]
+                },
+                "image.edit.upscale": {
+                  "models": [
+                    {
+                      "id": "no/upscale",
+                      "displayName": "No upscale",
+                      "isDefault": true,
+                      "aspectRatios": ["1:1"],
+                      "backgrounds": ["auto"],
+                      "seed": true,
+                      "maxReferenceImages": 1,
+                      "resolution": false
+                    }
+                  ]
+                }
+              }
+            }
+            """));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var service = new AiModelCatalogService(app, new StepTimeProvider());
+
+        AiModelCatalog catalog = await service.GetAsync(CancellationToken.None);
+        AiVideoModelCapabilities video = catalog
+            .ModelsFor(new AiOperationId("video.generate"))
+            .Single().Video!;
+        AiImageModelCapabilities image = catalog
+            .ModelsFor(new AiOperationId("image.edit.upscale"))
+            .Single().Image!;
+
+        using (Assert.EnterMultipleScope())
+        {
+            // A model that conditions on a starting frame does not necessarily
+            // take an ending one, and offering both produces a request refused
+            // after the shape has been checked.
+            Assert.That(video.SupportsFirstFrame, Is.True);
+            Assert.That(video.SupportsLastFrame, Is.False);
+            // Asking for a size is what an upscale is.
+            Assert.That(image.SupportsResolution, Is.False);
+            Assert.That(
+                image.CanServeAnything(requiresReferenceImages: true, requiresResolution: true),
+                Is.False);
+            Assert.That(
+                image.CanServeAnything(requiresReferenceImages: true, requiresResolution: false),
+                Is.True);
+        }
+    }
+
+    [Test]
     public void ErrorCode_ReadsOneThisClientHasNeverHeardOfAsUnknown()
     {
         // A code with no handling of its own must still leave the status and the

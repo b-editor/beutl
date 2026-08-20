@@ -52,6 +52,8 @@ internal static class AiErrorConverter
             ApiErrorCode.AiRequestWasDeleted => new AiRequestWasDeletedException(innerException),
             ApiErrorCode.AiModelDoesNotSupportRequest =>
                 new AiModelDoesNotSupportRequestException(innerException),
+            ApiErrorCode.AiModelUnavailable => new AiModelUnavailableException(innerException),
+            ApiErrorCode.AiResultUnavailable => new AiResultUnavailableException(innerException),
             _ => new AiException(
                 error?.Message ?? fallbackMessage ?? "The AI request failed.",
                 innerException,
