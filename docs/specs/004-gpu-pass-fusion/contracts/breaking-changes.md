@@ -10,7 +10,9 @@ BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation
 
 The affected public surface is in `Beutl.Engine`. In-tree consumers in `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and the test/benchmark hosts have already migrated, but out-of-tree render-node, filter-effect, geometry, mesh, renderer, target-factory, and brush-construction code must apply the recipes below.
 
-The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). Both commits contain a literal `BREAKING CHANGE:` footer; no history rewrite or footer repair is required.
+The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The rendering-correctness follow-ups each carry their own footer as well: `14caa5eab`, `c144a917d`, `db8ed2af2`, `6cd58b87d`, `ef2bc38f7`, `c644647a6` and `ea03db4c2`, documented in the sections below. Every one of those commits contains a literal `BREAKING CHANGE:` footer, so no history rewrite is required.
+
+`main` is squash-only, so the single commit that lands there is built from the pull request's title and body, not from any of those messages. The footer that reaches changelog tooling is therefore the one in the **pull request description**; a branch full of correctly footed commits does not supply it. Keep a `BREAKING CHANGE:` footer in the description that names `Beutl.Engine` and summarises the migrations below, and update it whenever a new breaking commit is added to the branch.
 
 ## Removed executable surface
 
@@ -553,3 +555,55 @@ Positional callers after `intent` must be updated for the trailing materializer 
 The renderer decides whether recorded output is retained. Author code must only report changed node content through `HasChanges`; it cannot force, suppress, seed, or identify retained output. Raw target work is never persistently reusable.
 
 Every `Process` invocation is transactional. An exception from recording or deferred execution preserves the primary failure, releases request-owned values best-effort, and yields no partial output.
+
+## Zero-radius morphology records no stage
+
+BREAKING CHANGE: `FilterEffectContext.Dilate` and `.Erode` clamp each radius per axis at record time and record **no stage at all** when both clamped radii land on zero. A call that used to contribute an item to `CountItems()` no longer does.
+
+A negative radius previously produced three contradictory descriptions of the same operation: the Skia factory returned null (a pass-through), the sampling map clamped to the identity, but the forward bounds map used the raw radius and deflated the declared output by `|r|` per side. Under the region-driven pipeline that deflation applied twice, hard-cropping the content by `2|r|` logical px per side at every scale; past half the shorter side the doubled deflation went negative-extent and failed the render outright.
+
+The early return also repairs the pre-existing zero-radius case: a degenerate morphology stage still re-grids the content through an intermediate and shifts antialiased edges, so recording nothing is now a byte-exact pass-through where an identity-radius stage used to deviate.
+
+A subtree built only from such calls has no isolation fragment of its own and takes the working scale of its surroundings rather than resolving one for itself. Out-of-tree code that kept bounds bookkeeping keyed on `CountItems()`, or derived a cache key from it, must stop assuming a one-to-one mapping from call to recorded item. The per-axis clamp keeps a mixed radius such as `(-6, 5)` a real y-only morphology.
+
+## Built-in Skia filters replay on the destination's device grid
+
+BREAKING CHANGE: `DropShadow`, `DropShadowOnly`, `Dilate`, `Erode`, `MatrixConvolution` and `Transform(Matrix, BitmapInterpolationMode)` now report `SupportsDirectReplay`, and a **chain** of built-in Skia filter segments over a vector drawable is replayed as one device-space save layer whenever the fragment the chain terminates at admits it. Previously only `Blur` took that path, and any chain of two or more segments fell back to materializing each segment in the drawable's local space under a non-pixel-aligned drawable transform.
+
+Filter parameters keep their units — `Drawable.Render` pushes the drawable transform outside `PushFilterEffect`, so the filter's local space still carries it — but every effect in the stack now resolves at the destination's device resolution. Under a drawable transform that scales an axis down, a morphology radius or shadow offset that used to be applied in the drawable's own units is applied after that transform, so a spatial parameter that maps to less than one device pixel rounds away instead of growing the content.
+
+This is what stops a drawable squeezed below one device pixel from losing its ink: measured on a 6 x 100 bar under `ScaleTransform(10%, 100%)`, blur kept 0.06% of the unfiltered ink at output scale 0.5 and 2.8% at 0.333, while drop-shadow-only and dilate went to exactly zero at 0.25 and 0.5.
+
+Output under an identity or pixel-aligned drawable transform is unchanged.
+
+The filter's save layer is opened one device pixel wider than the content on every side, because a layer whose device bounds hug the content loses the coverage of content thinner than one device pixel. The layer therefore guarantees a **bound, not an exclusion**: nothing more than one device pixel outside the content is reachable, and that margin starts transparent because `SaveLayer` clears it, so it can never carry pixels nobody wrote. A spatial filter that relied on the layer clipping exactly at the content bound now samples up to one device pixel further.
+
+## A pending Skia colour filter is applied once
+
+BREAKING CHANGE: `SKImageFilterBuilder.GetFilter()` now clears the pending colour filter once it has folded it into the returned image filter, so repeated calls return the same chain instead of stacking another copy on each call.
+
+`AppendSkiaFilter` calls `GetFilter()` mid-chain to take the filter built so far as its input, and the flush that materializes the chain calls it again. A colour filter recorded through `FilterEffectContext.ColorMatrix`, `LuminanceToAlpha`, `BlendMode(Color, BlendMode)` or `AppendSKColorFilter` and followed by any Skia image filter was therefore folded twice and applied twice. Measured on `Split(2, 2)` wrapping `Delay(250ms, Group(animated Brightness, animated Blur))`, the per-tile factors came out as the exact squares of the correct ones: 1.6890 / 1.1564 / 0.7224 / 0.3906 against 1.30 / 1.075 / 0.85 / 0.625.
+
+No built-in effect reaches this path on the current branch — `Brightness` and the other colour operations record a `CurrentPixel` shader stage instead — so in-tree rendering is unchanged. A plugin that compensated for the doubling will render differently.
+
+## A custom effect's input is rasterized on the grid it crops on
+
+BREAKING CHANGE: the executor strips the sub-pixel phase from the device grid a filter-effect segment containing a custom (imperative) effect executes on, and **every nested execution frame that materializes that segment's inputs inherits the stripped grid**.
+
+An imperative callback crops and re-lays-out its targets in whole device pixels, and its input is anchored on the whole-pixel part of the ambient translation. Handing it a grid with the fraction intact made the flush resample the input onto the whole-pixel grid instead; a bilinear half-pixel shift over an edge already at 0.5 coverage leaves 0.75, so the effect's outer edge lost coverage before the callback ever saw it. The inheritance is load-bearing: `FilterEffectRenderNode.Process` emits a separate fragment per shader and geometry stage, so an ordinary colour effect in front of the custom one moves that rasterization into a nested frame that would otherwise re-derive the fractional grid.
+
+Content rasterized in those frames is snapped rather than resampled, so it keeps its edge coverage but moves by the phase that was stripped — anywhere in `[0, 1)` device pixels, since the grid origin drops `frac(offset x density)`. A fragment that feeds both the segment and a consumer outside it is materialized once, so whichever consumer reaches it first fixes the grid for both; in practice the outside consumer runs at top level, where the grid is already zero-phase, so the segment still gets a snapped input.
+
+Two phases are deliberately not touched, and are therefore not snapped: the phase carried by a callback's own target bounds, and the grid of a separate render request such as a `DrawableBrush` source materialized below the segment.
+
+This affects `SplitEffect`, `PartsSplitEffect`, `LayerEffect`, `Clipping`, `TransformEffect`, `StrokeEffect`, `FlatShadow`, `PixelSortEffect`, `PathFollowEffect`, `ShakeEffect`, `DelayAnimationEffect`, the displacement-map effects, the script effects, and any plugin effect built on `FilterEffectContext.CustomEffect`.
+
+## One rectangle-bounds map
+
+BREAKING CHANGE: `Rect.TransformToClippedAABB` is gone. `Rect.TransformToAABB` takes its place, gaining an optional `nearPlane` parameter and clipping the rectangle at the matrix's camera plane before mapping it. The raw mapped-corner box is no longer public surface.
+
+Rename `TransformToClippedAABB` calls to `TransformToAABB`; they are otherwise unchanged, including the default near plane, so a caller that opted into `Rect.RasterizerNearPlane` keeps that behaviour. Existing `TransformToAABB` calls compile unchanged and return the same box for every affine matrix, and for every perspective matrix the rectangle does not straddle.
+
+Where the rectangle **does** straddle the `w = 0` plane, the answer changes from a box on the wrong side of the image to one that contains it. The two methods were bit-identical everywhere except in precisely that broken case, so a caller could not discover the difference by testing — which is why only the safe one is published now. Code that genuinely wants the raw mapped corners there must map the four corners itself.
+
+`Rect.DefaultNearPlane` (0.05) is a pragmatic bound, not the rasterizer's: it sits 820x in front of `Rect.RasterizerNearPlane` (Skia's `1 / 16384`), so a near-edge-on layer declares bounds that exclude pixels Skia still draws. Clipping at the exact value is not affordable as a default — a 1200x54 layer at the default Depth of 500 rotated 60 degrees about Y would declare a box 4.73 million px wide and collapse the working scale by ~289x. Callers that intersect the result with their own target before sizing a buffer should pass `Rect.RasterizerNearPlane`.
