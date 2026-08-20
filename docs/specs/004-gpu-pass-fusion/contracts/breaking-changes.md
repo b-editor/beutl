@@ -545,6 +545,7 @@ Positional callers after `intent` must be updated for the trailing materializer 
 - `RenderNodeContext.Inputs` and every `RenderFragmentHandle` are borrowed, transaction-scoped values; authors never dispose or retain them.
 - `RenderNodeRenderer` borrows its root, target factory, and destinations, and owns its structural/program caches and accepted factory-created targets.
 - Each returned `RenderNodeRasterization` exclusively owns its nullable bitmap until disposal.
+- `MaterializedDrawableBrush.Image` transfers to the `BrushConstructor` that requested it; the constructor disposes it once the tile shader is built, or once the fill fails, so a materializer returns a fresh image per call and never caches, shares, or disposes one.
 - `Own` transfers one disposable resource to the request family; `Borrow` leaves the raw resource with its external owner.
 - Definition slots and call bindings declare how deferred callbacks access resources; callbacks borrow session inputs, canvases, and declared resources only for callback duration.
 - Deferred outputs remain executor-owned until publication or discard.

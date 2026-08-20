@@ -158,9 +158,8 @@ public sealed class BrushMaterializationSmokeTests
         using DrawableBrush.Resource brushResource = brush.ToResource(CompositionContext.Default);
 
         var bounds = new Rect(0, 0, 64, 36);
-        using SKImage materialized = CreateOpaqueImage(20, 12);
         DrawableBrushMaterializer materializer =
-            (_, _, _) => new MaterializedDrawableBrush(materialized, new Rect(0, 0, 20, 12));
+            (_, _, _) => new MaterializedDrawableBrush(CreateOpaqueImage(20, 12), new Rect(0, 0, 20, 12));
 
         using var withMaterializer = new SKPaint();
         new BrushConstructor(bounds, brushResource, BlendMode.SrcOver, drawableBrushMaterializer: materializer)
@@ -175,6 +174,32 @@ public sealed class BrushMaterializationSmokeTests
                 "a supplied materializer must let the public path paint drawable content");
             Assert.That(withoutMaterializer.Shader, Is.Null);
         });
+    }
+
+    [Test]
+    public void SuppliedMaterializerImage_IsOwnedByTheBrushConstructor()
+    {
+        var content = new EllipseShape();
+        content.Width.CurrentValue = 20;
+        content.Height.CurrentValue = 12;
+        content.Fill.CurrentValue = Brushes.White;
+        var brush = new DrawableBrush(content);
+        using DrawableBrush.Resource brushResource = brush.ToResource(CompositionContext.Default);
+
+        SKImage handedOff = CreateOpaqueImage(20, 12);
+        DrawableBrushMaterializer materializer =
+            (_, _, _) => new MaterializedDrawableBrush(handedOff, new Rect(0, 0, 20, 12));
+
+        using var paint = new SKPaint();
+        new BrushConstructor(
+                new Rect(0, 0, 64, 36),
+                brushResource,
+                BlendMode.SrcOver,
+                drawableBrushMaterializer: materializer)
+            .ConfigurePaint(paint);
+
+        Assert.That(handedOff.Handle, Is.EqualTo(IntPtr.Zero),
+            "BrushConstructor takes ownership of the materialized image and disposes it before returning");
     }
 
     private static SKImage CreateOpaqueImage(int width, int height)
