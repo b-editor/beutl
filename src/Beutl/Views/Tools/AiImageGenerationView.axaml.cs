@@ -17,7 +17,10 @@ public partial class AiImageGenerationView : UserControl
     {
         _planReturnRefresh?.Dispose();
         _planReturnRefresh = DataContext is AiImageGenerationDialogViewModel viewModel
-            ? AiPlanReturnRefresh.Attach(this, viewModel.AiPlanCoordinator)
+            ? AiPlanReturnRefresh.Attach(
+                this,
+                viewModel.AiPlanCoordinator,
+                viewModel.RefreshModels)
             : null;
     }
 }

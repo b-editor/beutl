@@ -978,6 +978,70 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageGeneration_CollectsAPaidPictureEvenWithNothingLeftToSpend()
+    {
+        await TestReset.ResetShellAsync();
+        var keys = new List<string?>();
+        bool cutFirstAttempt = true;
+        bool anythingLeftToSpend = true;
+        using var handler = new StubHandler(
+            (request, _) =>
+            {
+                switch (request.RequestUri?.AbsolutePath)
+                {
+                    case "/api/v3/user/entitlements":
+                        return Task.FromResult(JsonResponse(HttpStatusCode.OK, EntitlementsJson()));
+                    case "/api/v3/user/ai-availability":
+                        return Task.FromResult(JsonResponse(
+                            HttpStatusCode.OK,
+                            anythingLeftToSpend
+                                ? "{ \"available\": true }"
+                                : "{ \"available\": false }"));
+                    case "/api/v3/ai/images":
+                        keys.Add(IdempotencyKeyOf(request));
+                        if (cutFirstAttempt)
+                        {
+                            cutFirstAttempt = false;
+                            // The picture was made and charged for; only the
+                            // answer went missing, and it took the last of the
+                            // allowance with it.
+                            anythingLeftToSpend = false;
+                            throw new HttpRequestException("The connection was reset.");
+                        }
+
+                        return Task.FromResult(JsonResponse(
+                            HttpStatusCode.OK,
+                            ImageResponseJson("image-job", "image-file")));
+                    case "/api/contents/image-file":
+                        return Task.FromResult(ByteResponse(s_png, "image/png"));
+                    default:
+                        return Task.FromResult(JsonResponse(HttpStatusCode.NotFound, "{}"));
+                }
+            },
+            handleAvailability: false);
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.Prompt.Value = "A calm blue sky";
+
+        await viewModel.Generate.ExecuteAsync();
+        await viewModel.Generate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            // The server hands back the job this name already made before it
+            // looks at the balance, so checking the balance here would refuse to
+            // collect the very picture that emptied it.
+            Assert.That(keys, Has.Count.EqualTo(2));
+            Assert.That(keys[1], Is.EqualTo(keys[0]));
+            Assert.That(viewModel.ResultImage.Value, Is.Not.Null);
+            Assert.That(viewModel.Error.Value, Is.Null);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ImageGeneration_AsksUnderANewNameOnceTheJobItNamedIsGone()
     {
         await TestReset.ResetShellAsync();

@@ -51,6 +51,10 @@ public sealed partial class AiSubtitleDialogViewModel
     private TranslationOperation? _pendingTranslation;
     private SceneTranscriptionOperation? _pendingSceneTranscription;
     private SourceTranscriptionOperation? _pendingSourceTranscription;
+    // Which model a restored run was named for, until the pickers have loaded
+    // and can be put back on it.
+    private AiModelId? _restoredTranscriptionModel;
+    private AiModelId? _restoredTranslationModel;
     private AiCaptionHistoryResult? _pendingHistoryResult;
     private ICaptionDraftSession? _captionDraftSession;
     private CaptionDraftScope? _captionDraftBaseScope;
@@ -487,10 +491,20 @@ public sealed partial class AiSubtitleDialogViewModel
                     operation.ChunkCount = chunkIndex + 1;
                 }
 
-                await EnsureAvailableAsync(
-                    new AiOperationAvailabilityRequest.Transcription(
-                        chunk.Duration.TotalSeconds,
-                        TranscriptionModelPicker.SelectedModel));
+                AiRequestName name = operation.RequestNameFor(
+                    chunkIndex,
+                    TranscriptionModelPicker.SelectedModel);
+                // Not for a repeat: the server looks up the job this name
+                // already made before it looks at the balance, so refusing here
+                // would refuse to collect a piece already paid for.
+                if (!name.IsRepeat)
+                {
+                    await EnsureAvailableAsync(
+                        new AiOperationAvailabilityRequest.Transcription(
+                            chunk.Duration.TotalSeconds,
+                            TranscriptionModelPicker.SelectedModel));
+                }
+
                 AiTranscriptionResponse response;
                 try
                 {
@@ -501,9 +515,7 @@ public sealed partial class AiSubtitleDialogViewModel
                                 FormatChunkFileName("source", chunkIndex)),
                             language,
                             TranscriptionModelPicker.SelectedModel,
-                            operation.RequestKeyFor(
-                                chunkIndex,
-                                TranscriptionModelPicker.SelectedModel)),
+                            name.Key),
                         RequestToken);
                 }
                 catch (AiProviderErrorException)
@@ -605,10 +617,16 @@ public sealed partial class AiSubtitleDialogViewModel
                 Math.Min(duration.Ticks, index * operation.ChunkDuration.Ticks));
             TimeSpan chunkDuration = TimeSpan.FromTicks(
                 Math.Min(operation.ChunkDuration.Ticks, duration.Ticks - chunkOffset.Ticks));
-            await EnsureAvailableAsync(
-                new AiOperationAvailabilityRequest.Transcription(
-                    chunkDuration.TotalSeconds,
-                    TranscriptionModelPicker.SelectedModel));
+            AiRequestName name = operation.RequestNameFor(
+                index,
+                TranscriptionModelPicker.SelectedModel);
+            if (!name.IsRepeat)
+            {
+                await EnsureAvailableAsync(
+                    new AiOperationAvailabilityRequest.Transcription(
+                        chunkDuration.TotalSeconds,
+                        TranscriptionModelPicker.SelectedModel));
+            }
 
             (string path, FileStream stream) = AiTemporaryFileStore.Create(
                 "audio",
@@ -634,9 +652,7 @@ public sealed partial class AiSubtitleDialogViewModel
                                 FormatChunkFileName("scene-mix", index)),
                             language,
                             TranscriptionModelPicker.SelectedModel,
-                            operation.RequestKeyFor(
-                                index,
-                                TranscriptionModelPicker.SelectedModel)),
+                            name.Key),
                         RequestToken);
                 }
                 catch (AiProviderErrorException)
@@ -755,7 +771,14 @@ public sealed partial class AiSubtitleDialogViewModel
             for (int index = operation.CompletedBatchCount; index < operation.Batches.Count; index++)
             {
                 TranslationBatch batch = operation.Batches[index];
-                await EnsureAvailableAsync(CreateTranslationAvailabilityRequest(batch));
+                AiRequestName name = operation.RequestNameFor(
+                    index,
+                    TranslationModelPicker.SelectedModel);
+                if (!name.IsRepeat)
+                {
+                    await EnsureAvailableAsync(CreateTranslationAvailabilityRequest(batch));
+                }
+
                 AiCaptionTranslationResponse response;
                 try
                 {
@@ -774,9 +797,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             operation.TargetLanguage,
                             operation.SourceLanguage,
                             model: TranslationModelPicker.SelectedModel,
-                            idempotencyKey: operation.RequestKeyFor(
-                                index,
-                                TranslationModelPicker.SelectedModel)),
+                            idempotencyKey: name.Key),
                         new Progress<AiCaptionTranslationSegment>(ShowTranslatedLine),
                         RequestToken);
                 }
@@ -784,8 +805,11 @@ public sealed partial class AiSubtitleDialogViewModel
                 {
                     // The server settled this batch as failed and refunded it.
                     // Its key would keep answering with that failure, so what is
-                    // left of the run goes out under new ones.
+                    // left of the run goes out under new ones — and the resume
+                    // state is rewritten with them, or a run resumed after a
+                    // restart would ask under the spent key again.
                     operation.RequestKey.Retire();
+                    PublishTranslationPartial(operation);
                     throw;
                 }
                 AddTranslatedBatch(operation, batch, response);
@@ -830,6 +854,37 @@ public sealed partial class AiSubtitleDialogViewModel
         catch (AiProviderErrorException)
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProviderError);
+        }
+        // Reachable because a batch keeps its name across attempts. None of
+        // these is a settlement, so the run keeps its names and can be resumed:
+        // saying "an unexpected error" instead sent the user back to a button
+        // that looked like it would start over.
+        catch (AiResultUnavailableException)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiResultUnavailable);
+        }
+        catch (AiRequestInProgressException)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestInProgress);
+        }
+        catch (AiRequestWasDeletedException)
+        {
+            // The job those names made is gone, so the rest of the run needs
+            // new ones; the partial that has been paid for is still good.
+            _pendingTranslation?.RequestKey.Retire();
+            if (_pendingTranslation is { } deleted)
+                PublishTranslationPartial(deleted);
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted);
+        }
+        catch (AiModelDoesNotSupportRequestException)
+        {
+            SetCaptionErrorIfCurrent(
+                draftScopeRevision,
+                Strings.AiModelDoesNotSupportRequest);
+        }
+        catch (AiModelUnavailableException)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiModelUnavailable);
         }
         catch (OperationCanceledException) when (IsRequestCanceled)
         {
@@ -1191,7 +1246,8 @@ public sealed partial class AiSubtitleDialogViewModel
                 translation.TargetLanguage,
                 new Dictionary<string, string>(translation.TranslatedPieces, StringComparer.Ordinal),
                 translation.CompletedBatchCount,
-                translation.RequestKeySeed);
+                translation.RequestKeySeed,
+                translation.RequestKeyModel);
         }
 
         CaptionSceneTranscriptionResume? sceneResume = null;
@@ -1240,7 +1296,8 @@ public sealed partial class AiSubtitleDialogViewModel
                 CloneSegments(sourceTranscription.SourceSegments),
                 sourceTranscription.DetectedLanguage,
                 sourceTranscription.CompletedChunkCount,
-                sourceTranscription.RequestKeySeed);
+                sourceTranscription.RequestKeySeed,
+                sourceTranscription.RequestKeyModel);
         }
 
         return new CaptionDraft(
@@ -1321,7 +1378,18 @@ public sealed partial class AiSubtitleDialogViewModel
                             : translation.RequestKeySeed)
                     {
                         CompletedBatchCount = translation.CompletedBatchCount,
+                        RequestKeyModel = translation.RequestKeyModel,
                     };
+                    // The unfinished batches are named partly by the model the
+                    // run used. Landing on another one would name them
+                    // differently and buy them again.
+                    _restoredTranslationModel =
+                        string.IsNullOrEmpty(translation.RequestKeyModel)
+                            ? null
+                            : new AiModelId(translation.RequestKeyModel);
+                    PreferRestoredModel(
+                        TranslationModelPicker,
+                        _restoredTranslationModel);
                     HashSet<string> completedIds = batches
                         .Take(operation.CompletedBatchCount)
                         .SelectMany(batch => batch.Pieces)
@@ -1389,7 +1457,15 @@ public sealed partial class AiSubtitleDialogViewModel
                 {
                     CompletedChunkCount = source.CompletedChunkCount,
                     DetectedLanguage = source.DetectedLanguage,
+                    RequestKeyModel = source.RequestKeyModel,
                 };
+                _restoredTranscriptionModel =
+                    string.IsNullOrEmpty(source.RequestKeyModel)
+                        ? null
+                        : new AiModelId(source.RequestKeyModel);
+                PreferRestoredModel(
+                    TranscriptionModelPicker,
+                    _restoredTranscriptionModel);
                 _pendingSourceTranscription.SourceSegments.AddRange(CloneSegments(source.Segments));
                 CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
                     string.Equals(option.Code, source.Language, StringComparison.Ordinal));
@@ -1670,6 +1746,22 @@ public sealed partial class AiSubtitleDialogViewModel
 
         OpenCaptionDraftSession(scope);
         RestoreCaptionDraft();
+    }
+
+    // A draft can be restored before the pickers have loaded or after, so the
+    // model a run was named for is both remembered for a load still to come and
+    // applied at once to one that has already happened.
+    private static void PreferRestoredModel(
+        AiModelPickerViewModel picker,
+        AiModelId? model)
+    {
+        if (model is not { } wanted)
+            return;
+
+        AiModelPickerOption? option =
+            picker.Options.FirstOrDefault(candidate => candidate.Id == wanted);
+        if (option is not null)
+            picker.Selected.Value = option;
     }
 
     private bool IsCurrentCaptionDraftScope(long revision)
@@ -2502,8 +2594,15 @@ public sealed partial class AiSubtitleDialogViewModel
 
         public string RequestKeySeed => RequestKey.Seed;
 
-        public string RequestKeyFor(int batchIndex, AiModelId? model) =>
-            RequestKey.For(batchIndex, model?.Value, TargetLanguage, SourceLanguage);
+
+        /// <summary>The model the names handed out so far were built from.</summary>
+        public string RequestKeyModel { get; set; } = string.Empty;
+
+        public AiRequestName RequestNameFor(int batchIndex, AiModelId? model)
+        {
+            RequestKeyModel = model?.Value ?? string.Empty;
+            return RequestKey.NameFor(batchIndex, model?.Value, TargetLanguage, SourceLanguage);
+        }
 
         public Dictionary<string, string> TranslatedPieces { get; } = new(StringComparer.Ordinal);
 
@@ -2534,12 +2633,19 @@ public sealed partial class AiSubtitleDialogViewModel
 
         public string RequestKeySeed => RequestKey.Seed;
 
+
+        /// <summary>The model the names handed out so far were built from.</summary>
+        public string RequestKeyModel { get; set; } = string.Empty;
+
         // The model belongs in the key because the server refuses a key that
         // comes back with a different request behind it, and it fingerprints
         // the model. A chunk sent to another model is another request and takes
         // another key, which is also what it costs.
-        public string RequestKeyFor(int chunkIndex, AiModelId? model) =>
-            RequestKey.For(chunkIndex, model?.Value);
+        public AiRequestName RequestNameFor(int chunkIndex, AiModelId? model)
+        {
+            RequestKeyModel = model?.Value ?? string.Empty;
+            return RequestKey.NameFor(chunkIndex, model?.Value);
+        }
 
         public string? Language { get; } = language;
 
@@ -2592,8 +2698,15 @@ public sealed partial class AiSubtitleDialogViewModel
 
         public string RequestKeySeed => RequestKey.Seed;
 
-        public string RequestKeyFor(int chunkIndex, AiModelId? model) =>
-            RequestKey.For(chunkIndex, model?.Value);
+
+        /// <summary>The model the names handed out so far were built from.</summary>
+        public string RequestKeyModel { get; set; } = string.Empty;
+
+        public AiRequestName RequestNameFor(int chunkIndex, AiModelId? model)
+        {
+            RequestKeyModel = model?.Value ?? string.Empty;
+            return RequestKey.NameFor(chunkIndex, model?.Value);
+        }
 
         public string FilePath { get; } = filePath;
 

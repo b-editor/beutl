@@ -341,14 +341,19 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         // A model conditions on the frames it publishes, and one of the two is
         // not the other. A picker left up for a frame the model does not take
         // only produces a request refused after the shape has been checked.
+        //
+        // A last frame is only ever sent alongside a first one — the endpoint
+        // takes no request without one — so a model that publishes a last frame
+        // and no first frame can be given neither.
         SupportsFirstFrame.Value = video.SupportsFirstFrame;
-        if (!video.SupportsFirstFrame)
-            FirstFramePath.Value = null;
-        SupportsLastFrame.Value = video.SupportsLastFrame;
-        if (!video.SupportsLastFrame)
-            LastFramePath.Value = null;
-        SupportsFrameGuidance.Value =
-            video.SupportsFirstFrame || video.SupportsLastFrame;
+        SupportsLastFrame.Value = video.SupportsFirstFrame && video.SupportsLastFrame;
+        SupportsFrameGuidance.Value = SupportsFirstFrame.Value;
+        // Cleared the way the button clears it, so the preview goes with the
+        // path and the temporary file it was captured into is released.
+        if (!SupportsFirstFrame.Value)
+            SetFrameCore(isFirstFrame: true, null, null);
+        if (!SupportsLastFrame.Value)
+            SetFrameCore(isFirstFrame: false, null, null);
     }
 
     private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> values)
@@ -551,6 +556,26 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         foreach (string path in temporaryFiles)
         {
             DeleteTemporaryFile(path);
+        }
+    }
+
+    /// <summary>
+    /// Re-reads the model list. The catalog is cached with a freshness window,
+    /// so this costs nothing while it is fresh and picks up a model an operator
+    /// added, removed or reordered once it is not — which a workspace tab left
+    /// open would otherwise never see.
+    /// </summary>
+    internal void RefreshModels() => _ = RefreshModelsAsync();
+
+    private async Task RefreshModelsAsync()
+    {
+        try
+        {
+            await ModelPicker.LoadAsync(AiOperations.VideoGeneration, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to reload the AI models for video generation.");
         }
     }
 
@@ -771,11 +796,26 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             using IDisposable firstFrameLease = AcquireTemporaryFileLease(firstFramePath);
             using IDisposable lastFrameLease = AcquireTemporaryFileLease(lastFramePath);
             AiModelId? model = ModelPicker.SelectedModel;
-            bool available = await _availabilityTracker.CheckNowAsync(
-                new AiOperationAvailabilityRequest.Video(durationSeconds, model),
-                operation.CancellationToken);
-            if (!available)
+            AiRequestName name = _requestKey.NameFor(
+                prompt,
+                durationSeconds.ToString(CultureInfo.InvariantCulture),
+                resolution,
+                aspectRatio,
+                generateAudio ? "audio" : "silent",
+                Seed.Value?.ToString(CultureInfo.InvariantCulture),
+                model?.Value,
+                AiRequestKey.FileStamp(firstFramePath),
+                AiRequestKey.FileStamp(lastFramePath));
+            // Not for a repeat: the server looks up the job this name already
+            // made before it looks at the balance, so refusing here would refuse
+            // to collect something already paid for.
+            if (!name.IsRepeat
+                && !await _availabilityTracker.CheckNowAsync(
+                    new AiOperationAvailabilityRequest.Video(durationSeconds, model),
+                    operation.CancellationToken))
+            {
                 throw new AiUsageLimitExceededException();
+            }
             AiVideoGenerationResult response = await _videos.CreateAsync(
                 new AiVideoGenerationRequest(
                     prompt,
@@ -791,16 +831,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                         ? null
                         : AiUploadSource.FromFile(lastFramePath),
                     model: model,
-                    idempotencyKey: _requestKey.For(
-                        prompt,
-                        durationSeconds.ToString(CultureInfo.InvariantCulture),
-                        resolution,
-                        aspectRatio,
-                        generateAudio ? "audio" : "silent",
-                        Seed.Value?.ToString(CultureInfo.InvariantCulture),
-                        model?.Value,
-                        AiRequestKey.FileStamp(firstFramePath),
-                        AiRequestKey.FileStamp(lastFramePath))),
+                    idempotencyKey: name.Key),
                 operation.CancellationToken);
             persistedServerJob = true;
 

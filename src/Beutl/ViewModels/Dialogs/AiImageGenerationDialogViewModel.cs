@@ -449,6 +449,26 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         _disposables.Dispose();
     }
 
+    /// <summary>
+    /// Re-reads the model list. The catalog is cached with a freshness window,
+    /// so this costs nothing while it is fresh and picks up a model an operator
+    /// added, removed or reordered once it is not — which a workspace tab left
+    /// open would otherwise never see.
+    /// </summary>
+    internal void RefreshModels() => _ = RefreshModelsAsync();
+
+    private async Task RefreshModelsAsync()
+    {
+        try
+        {
+            await ModelPicker.LoadAsync(AiOperations.ImageGeneration, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to reload the AI models for image generation.");
+        }
+    }
+
     private async Task LoadEntitlementsAsync()
     {
         using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
@@ -492,12 +512,6 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             string aspectRatio = SelectedAspectRatio.Value.Value;
             AiModelId? model = ModelPicker.SelectedModel;
             string[] referencePaths = ReferenceImages.Select(reference => reference.Path).ToArray();
-            if (!await _availability.CheckAsync(
-                    new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, model),
-                    operation.CancellationToken))
-            {
-                throw new AiUsageLimitExceededException();
-            }
             string background = SelectedBackground.Value.Value;
             // Every picture is part of what makes this request the request it
             // is, so each one is named in the key: the same prompt guided by
@@ -511,6 +525,19 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                 model?.Value,
                 .. referencePaths.Select(AiRequestKey.FileStamp),
             ];
+            AiRequestName name = _requestKey.NameFor(requestParts);
+            // Not for a repeat: the server looks up the job this name already
+            // made before it looks at the balance, so refusing here would refuse
+            // to collect a picture already paid for — which is exactly what the
+            // request that emptied the balance is.
+            if (!name.IsRepeat
+                && !await _availability.CheckAsync(
+                    new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, model),
+                    operation.CancellationToken))
+            {
+                throw new AiUsageLimitExceededException();
+            }
+
             AiImageResult response = await _images.GenerateAsync(
                 new AiImageGenerationRequest(
                     prompt,
@@ -519,7 +546,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                     seed: Seed.Value,
                     references: Array.ConvertAll(referencePaths, AiUploadSource.FromFile),
                     model: model,
-                    idempotencyKey: _requestKey.For(requestParts)),
+                    idempotencyKey: name.Key),
                 new Progress<AiImagePreview>(preview => ShowPreview(preview, operation)),
                 operation.CancellationToken);
 

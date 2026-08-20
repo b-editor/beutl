@@ -1,4 +1,4 @@
-namespace Beutl.Services;
+﻿namespace Beutl.Services;
 
 internal static class AiPromptValidation
 {

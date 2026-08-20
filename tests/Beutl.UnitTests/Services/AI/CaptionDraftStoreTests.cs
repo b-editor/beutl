@@ -215,7 +215,8 @@ public sealed class CaptionDraftStoreTests
                 "ja",
                 new Dictionary<string, string>(StringComparer.Ordinal) { ["line-1"] = "こんにちは" },
                 1,
-                "8c1d7e2a5b904f36a1e0c4d8f7b62039"),
+                "8c1d7e2a5b904f36a1e0c4d8f7b62039",
+                "openai/gpt-5"),
             null);
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
@@ -239,6 +240,12 @@ public sealed class CaptionDraftStoreTests
                 Assert.That(
                     restored.Draft.TranslationResume.RequestKeySeed,
                     Is.EqualTo("8c1d7e2a5b904f36a1e0c4d8f7b62039"));
+                // 名前はモデルまで含めて作られる。どのモデルで走っていたかを
+                // 覚えていないと、再開時に別のモデルが選ばれ、未完了のバッチが
+                // 別の名前で送られて二重に課金される。
+                Assert.That(
+                    restored.Draft.TranslationResume.RequestKeyModel,
+                    Is.EqualTo("openai/gpt-5"));
             }
         }
     }
@@ -277,7 +284,8 @@ public sealed class CaptionDraftStoreTests
                 [segment],
                 "en",
                 1,
-                "1f4c2b0d9e6a4f118b7c3d5e6f708192"));
+                "1f4c2b0d9e6a4f118b7c3d5e6f708192",
+                "openai/whisper-1"));
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
         using (session)
@@ -304,6 +312,9 @@ public sealed class CaptionDraftStoreTests
                 Assert.That(
                     restored.Draft.SourceTranscriptionResume.RequestKeySeed,
                     Is.EqualTo("1f4c2b0d9e6a4f118b7c3d5e6f708192"));
+                Assert.That(
+                    restored.Draft.SourceTranscriptionResume.RequestKeyModel,
+                    Is.EqualTo("openai/whisper-1"));
             });
         }
     }

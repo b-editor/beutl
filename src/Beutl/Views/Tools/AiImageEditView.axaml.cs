@@ -17,7 +17,10 @@ public partial class AiImageEditView : UserControl
     {
         _planReturnRefresh?.Dispose();
         _planReturnRefresh = DataContext is AiImageEditDialogViewModel viewModel
-            ? AiPlanReturnRefresh.Attach(this, viewModel.AiPlanCoordinator)
+            ? AiPlanReturnRefresh.Attach(
+                this,
+                viewModel.AiPlanCoordinator,
+                viewModel.RefreshModels)
             : null;
     }
 }

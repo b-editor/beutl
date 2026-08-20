@@ -43,6 +43,12 @@ internal sealed class AiModelPickerViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly IAiModelCatalogService _catalog;
     private readonly IAiEntitlementService _entitlements;
+    // What the list currently on offer was built from. Reloading is how a model
+    // an operator changed reaches a screen that is already open, and most
+    // reloads find exactly what is already there — rebuilding then would empty
+    // the list and move the user's choice for nothing.
+    private AiModelCatalog? _loadedCatalog;
+    private AiEntitlements? _loadedEntitlements;
 
     public AiModelPickerViewModel(
         IAiModelCatalogService catalog,
@@ -81,17 +87,46 @@ internal sealed class AiModelPickerViewModel : IDisposable
     /// <summary>What the request should carry. Null asks the server for its default.</summary>
     public AiModelId? SelectedModel => Selected.Value?.Id;
 
-    public async Task LoadAsync(AiOperationId operation, CancellationToken cancellationToken)
+    public Task LoadAsync(AiOperationId operation, CancellationToken cancellationToken)
+        => LoadAsync(operation, null, cancellationToken);
+
+    /// <summary>
+    /// Loads the list and lands on <paramref name="preferred"/> when it is
+    /// still offered.
+    /// </summary>
+    /// <remarks>
+    /// A run that was interrupted names its requests partly by the model it ran
+    /// on, so a resumed run has to go back to that model: landing on whichever
+    /// the account can afford today would name the unfinished pieces
+    /// differently and buy them again.
+    /// </remarks>
+    public async Task LoadAsync(
+        AiOperationId operation,
+        AiModelId? preferred,
+        CancellationToken cancellationToken)
     {
         AiModelCatalog catalog = await _catalog.GetAsync(cancellationToken);
         AiEntitlements? entitlements = _entitlements.Entitlements.Value;
+        if (preferred is null
+            && Operation == operation
+            && ReferenceEquals(_loadedCatalog, catalog)
+            && ReferenceEquals(_loadedEntitlements, entitlements))
+        {
+            return;
+        }
+
         // Only a reported refusal rules the operation out. Silence says nothing,
         // so its models stay offered rather than reading as unaffordable.
         bool operationIsAvailable =
             entitlements is not null
             && entitlements.Availability.GetState(operation) != AiOperationAvailabilityState.Unavailable;
 
+        // The choice already made, kept when it is still on offer: a reload is
+        // not a reason to move it.
+        AiModelId? keep = preferred ?? SelectedModel;
         Operation = operation;
+        _loadedCatalog = catalog;
+        _loadedEntitlements = entitlements;
         Options.Clear();
         foreach (AiModelOption model in catalog.ModelsFor(operation))
         {
@@ -109,7 +144,10 @@ internal sealed class AiModelPickerViewModel : IDisposable
         HasChoice.Value = Options.Count > 1;
         // Start on the first model the account can actually pay for, falling
         // back to the server's default so the picker is never empty.
-        Selected.Value = Options.FirstOrDefault(option => option.IsAvailable)
+        Selected.Value = (keep is { } wanted
+                             ? Options.FirstOrDefault(option => option.Id == wanted)
+                             : null)
+                         ?? Options.FirstOrDefault(option => option.IsAvailable)
                          ?? Options.FirstOrDefault();
     }
 

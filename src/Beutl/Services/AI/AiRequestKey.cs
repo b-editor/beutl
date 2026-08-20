@@ -28,9 +28,22 @@ namespace Beutl.Services.AI;
 /// under fresh keys.
 /// </para>
 /// </remarks>
+/// <summary>
+/// A request's name, and whether it has been sent under that name before.
+/// </summary>
+/// <remarks>
+/// A repeat may be answered by the job the first attempt already reserved, and
+/// the server looks that job up before it looks at what the account can afford.
+/// A caller that checks the balance itself must not check it for a repeat, or
+/// it refuses to collect something already bought — most visibly when the
+/// request that emptied the balance is the one being collected.
+/// </remarks>
+internal readonly record struct AiRequestName(string Key, bool IsRepeat);
+
 internal sealed class AiRequestKey
 {
     private readonly Lock _gate = new();
+    private readonly HashSet<string> _issued = new(StringComparer.Ordinal);
     private string _seed;
 
     public AiRequestKey(string? seed = null)
@@ -56,15 +69,25 @@ internal sealed class AiRequestKey
     /// The key for a request identified by <paramref name="parts"/>. The server
     /// holds a key to printable ASCII and to 255 characters, which this is.
     /// </summary>
-    public string For(params ReadOnlySpan<string?> parts)
-        => $"{Seed}-{Fingerprint(parts)}";
+    public string For(params ReadOnlySpan<string?> parts) => NameFor(parts).Key;
+
+    /// <summary>
+    /// The key for a request identified by <paramref name="parts"/>, and
+    /// whether it has been handed out since the last <see cref="Retire"/>.
+    /// </summary>
+    public AiRequestName NameFor(params ReadOnlySpan<string?> parts)
+        => Remember($"{Seed}-{Fingerprint(parts)}");
 
     /// <summary>
     /// The key for the <paramref name="pieceIndex"/>th piece of a request sent
     /// in pieces, each of which is charged and recovered on its own.
     /// </summary>
     public string For(int pieceIndex, params ReadOnlySpan<string?> parts)
-        => $"{For(parts)}-{pieceIndex.ToString(CultureInfo.InvariantCulture)}";
+        => NameFor(pieceIndex, parts).Key;
+
+    public AiRequestName NameFor(int pieceIndex, params ReadOnlySpan<string?> parts)
+        => Remember(
+            $"{Seed}-{Fingerprint(parts)}-{pieceIndex.ToString(CultureInfo.InvariantCulture)}");
 
     /// <summary>
     /// Identifies a file as it stands now. The server fingerprints an upload by
@@ -94,7 +117,16 @@ internal sealed class AiRequestKey
     public void Retire()
     {
         lock (_gate)
+        {
             _seed = NewSeed();
+            _issued.Clear();
+        }
+    }
+
+    private AiRequestName Remember(string key)
+    {
+        lock (_gate)
+            return new AiRequestName(key, !_issued.Add(key));
     }
 
     // Length-prefixed so that no arrangement of parts can read as another one.

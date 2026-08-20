@@ -1,4 +1,4 @@
-namespace Beutl.Services.AI;
+﻿namespace Beutl.Services.AI;
 
 internal static class RelativeTimeText
 {

@@ -32,7 +32,11 @@ internal sealed record CaptionTranslationResume(
     // resumed in a later session asks for the translations it already paid for
     // rather than buying them again. Empty in a draft written before this was
     // recorded, which resumes as a run of its own.
-    string RequestKeySeed = "");
+    string RequestKeySeed = "",
+    // The model those names were built from. A run resumed on another model
+    // would name its unfinished batches differently and buy them again, so the
+    // picker is put back on this one.
+    string RequestKeyModel = "");
 
 internal sealed record CaptionSceneTranscriptionResume(
     Guid SceneId,
@@ -62,7 +66,11 @@ internal sealed record CaptionSourceTranscriptionResume(
     // resumed in a later session asks for the transcriptions it already paid
     // for rather than buying them again. Empty in a draft written before this
     // was recorded, which resumes as a run of its own.
-    string RequestKeySeed = "");
+    string RequestKeySeed = "",
+    // The model those names were built from. A run resumed on another model
+    // would name its unfinished chunks differently and buy them again, so the
+    // picker is put back on this one.
+    string RequestKeyModel = "");
 
 internal sealed record CaptionDraft(
     int Version,

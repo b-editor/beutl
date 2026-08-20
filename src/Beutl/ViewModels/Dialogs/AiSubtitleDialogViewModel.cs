@@ -205,16 +205,51 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable
         _lifetimeCts.Dispose();
     }
 
+    /// <summary>
+    /// Re-reads the model list. The catalog is cached with a freshness window,
+    /// so this costs nothing while it is fresh and picks up a model an operator
+    /// added, removed or reordered once it is not — which a workspace tab left
+    /// open would otherwise never see.
+    /// </summary>
+    internal void RefreshModels() => _ = RefreshModelsAsync();
+
+    private async Task RefreshModelsAsync()
+    {
+        try
+        {
+            await TranscriptionModelPicker.LoadAsync(
+                AiOperations.Transcription,
+                _restoredTranscriptionModel,
+                _lifetimeCts.Token);
+            await TranslationModelPicker.LoadAsync(
+                AiOperations.CaptionTranslation,
+                _restoredTranslationModel,
+                _lifetimeCts.Token);
+        }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to reload the AI models for subtitles.");
+        }
+    }
+
     private async Task LoadEntitlementsAsync()
     {
         try
         {
             await _entitlements.RefreshAsync(_lifetimeCts.Token);
+            // A restored run is put back on the model it was named for; without
+            // that, its unfinished pieces would be named differently and bought
+            // a second time.
             await TranscriptionModelPicker.LoadAsync(
                 AiOperations.Transcription,
+                _restoredTranscriptionModel,
                 _lifetimeCts.Token);
             await TranslationModelPicker.LoadAsync(
                 AiOperations.CaptionTranslation,
+                _restoredTranslationModel,
                 _lifetimeCts.Token);
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)

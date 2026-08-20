@@ -38,6 +38,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     private readonly EditViewModel? _editViewModel;
     private string? _sourceElementId;
     private bool _modelsRequireResolution;
+    private string? _modelsRequiredBackground;
     private Task? _disposeTask;
     private AsyncOperationLifetime.Operation? _runningRequest;
 
@@ -61,15 +62,17 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
         // Every edit hands the model the picture being edited, so one that takes
         // no reference image is registered and unusable however the request is
-        // shaped. An upscale asks for a size on top of that, which not every
-        // model that takes a picture can be asked for.
+        // shaped. An upscale asks for a size on top of that, and removing a
+        // background asks for a transparent one — neither of which every model
+        // that takes a picture can be asked for.
         ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
         {
             Filter = model =>
                 model.Image is not { } image
                 || image.CanServeAnything(
                     requiresReferenceImages: true,
-                    requiresResolution: _modelsRequireResolution),
+                    requiresResolution: _modelsRequireResolution,
+                    requiredBackground: _modelsRequiredBackground),
         }
             .DisposeWith(_disposables);
         PromptLibrary = new AiPromptLibraryViewModel(
@@ -361,6 +364,20 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     private static bool RequiresResolution(string? task)
         => string.Equals(task, "upscale", StringComparison.Ordinal);
 
+    // Cutting a background out is asking for a transparent one.
+    private static string? RequiredBackground(string? task)
+        => string.Equals(task, "remove_background", StringComparison.Ordinal)
+            ? "transparent"
+            : null;
+
+    /// <summary>
+    /// Re-reads the model list. The catalog is cached with a freshness window,
+    /// so this costs nothing while it is fresh and picks up a model an operator
+    /// added, removed or reordered once it is not — which a workspace tab left
+    /// open would otherwise never see.
+    /// </summary>
+    internal void RefreshModels() => _ = ReloadModelsAsync(SelectedTask.Value);
+
     private async Task ReloadModelsAsync(AiImageEditTaskOption task)
     {
         using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
@@ -368,6 +385,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             return;
         // Read by the picker's filter, which runs while the list below loads.
         _modelsRequireResolution = RequiresResolution(task.Value);
+        _modelsRequiredBackground = RequiredBackground(task.Value);
         try
         {
             await ModelPicker.LoadAsync(
@@ -480,7 +498,17 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             AiModelId? model = ModelPicker.Operation == editOperation
                 ? ModelPicker.SelectedModel
                 : null;
-            if (!await _availability.CheckAsync(
+            AiRequestName name = _requestKey.NameFor(
+                task,
+                prompt,
+                model?.Value,
+                outpaintExpansionPercent?.ToString(CultureInfo.InvariantCulture),
+                AiRequestKey.FileStamp(filePath));
+            // Not for a repeat: the server looks up the job this name already
+            // made before it looks at the balance, so refusing here would refuse
+            // to collect something already paid for.
+            if (!name.IsRepeat
+                && !await _availability.CheckAsync(
                     new AiOperationAvailabilityRequest.Fixed(editOperation, model),
                     operation.CancellationToken))
             {
@@ -493,12 +521,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
                     new AiImageEditTaskId(task),
                     prompt,
                     model,
-                    _requestKey.For(
-                        task,
-                        prompt,
-                        model?.Value,
-                        outpaintExpansionPercent?.ToString(CultureInfo.InvariantCulture),
-                        AiRequestKey.FileStamp(filePath))),
+                    name.Key),
                 operation.CancellationToken);
 
             using var stream = new MemoryStream();

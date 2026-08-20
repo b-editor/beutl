@@ -21,7 +21,11 @@ public partial class AiSubtitleView : UserControl
             ? AiPlanReturnRefresh.Attach(
                 this,
                 viewModel.AiPlanCoordinator,
-                viewModel.RefreshAvailability)
+                () =>
+                {
+                    viewModel.RefreshAvailability();
+                    viewModel.RefreshModels();
+                })
             : null;
     }
 

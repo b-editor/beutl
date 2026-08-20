@@ -110,18 +110,25 @@ public sealed record AiImageModelCapabilities(
     /// False for a model that shares no shape with what the server accepts, or
     /// that cannot be handed the picture an edit is made of.
     /// </summary>
-    public bool CanServeAnything(bool requiresReferenceImages)
-        => CanServeAnything(requiresReferenceImages, requiresResolution: false);
-
-    /// <summary>
-    /// The same, for an operation that also has to be able to ask for a size —
-    /// which is what an upscale is, and what a model that publishes no sizes
-    /// cannot serve.
-    /// </summary>
-    public bool CanServeAnything(bool requiresReferenceImages, bool requiresResolution)
+    /// <param name="requiresResolution">
+    /// The operation asks for a size, which is what an upscale is; a model that
+    /// publishes no sizes cannot serve it.
+    /// </param>
+    /// <param name="requiredBackground">
+    /// The background the operation always asks for. Removing a background is
+    /// asking for a transparent one, and a model offering only auto and opaque
+    /// would refuse every such request.
+    /// </param>
+    public bool CanServeAnything(
+        bool requiresReferenceImages,
+        bool requiresResolution = false,
+        string? requiredBackground = null)
         => !AspectRatios.IsDefaultOrEmpty
            && (!requiresReferenceImages || MaxReferenceImages > 0)
-           && (!requiresResolution || SupportsResolution);
+           && (!requiresResolution || SupportsResolution)
+           && (requiredBackground is not { Length: > 0 } background
+               || Backgrounds.IsDefaultOrEmpty
+               || Backgrounds.Contains(background));
 }
 
 public sealed record AiModelOption(

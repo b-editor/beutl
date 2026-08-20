@@ -20,7 +20,11 @@ public partial class AiVideoGenerationView : UserControl
             ? AiPlanReturnRefresh.Attach(
                 this,
                 viewModel.AiPlanCoordinator,
-                viewModel.RefreshAvailability)
+                () =>
+                {
+                    viewModel.RefreshAvailability();
+                    viewModel.RefreshModels();
+                })
             : null;
     }
 
