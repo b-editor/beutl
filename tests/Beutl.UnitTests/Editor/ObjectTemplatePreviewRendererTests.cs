@@ -126,6 +126,20 @@ public class ObjectTemplatePreviewRendererTests
         Assert.That(png, Is.Null);
     }
 
+    // A SourceBackdrop records a symbolic full-target capture, which a target-less Measure cannot bound.
+    // The measurement must fall back to the authored frame rather than lose the whole preview.
+    [Test]
+    public async Task RenderPngAsync_DrawableWithFullTargetAccess_StillPreviewsItsVisibleContent()
+    {
+        var group = new DrawableGroup();
+        group.Children.Add(CreateRedRect());
+        group.Children.Add(new SourceBackdrop());
+
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(group);
+
+        Assert.That(png, Is.Not.Null);
+    }
+
     private static RectShape CreateRedRect()
     {
         return new RectShape

@@ -225,19 +225,34 @@ public static class ObjectTemplatePreviewRenderer
                 resource.GetOriginal().Render(context, resource);
             }
 
-            using var renderer = new RenderNodeRenderer(
-                root,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        CacheOptions = RenderCacheOptions.Disabled,
-                    },
-                });
-            bounds = bounds.Union(renderer.Measure().OutputBounds);
+            try
+            {
+                bounds = bounds.Union(MeasureOutputBounds(root, targetDomain: null));
+            }
+            catch (RenderTargetDomainRequiredException)
+            {
+                // A TargetDomain also clips the measured extent, so it serves only as a fallback owner
+                // for graphs whose Full target access cannot resolve without one.
+                bounds = bounds.Union(MeasureOutputBounds(root, new Rect(default, availableSize)));
+            }
         }
 
         return bounds;
+    }
+
+    private static Rect MeasureOutputBounds(DrawableRenderNode root, Rect? targetDomain)
+    {
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = targetDomain,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                },
+            });
+        return renderer.Measure().OutputBounds;
     }
 
     private static Size AvailableSize => new(PreviewWidth, PreviewHeight);
