@@ -97,7 +97,7 @@ The renderer owns compiled shader reuse based on the complete merged source, lay
 
 ### Working density
 
-`RenderScaleContract.PreserveInputSupply` copies the resolved supply for an element-wise one-input map or replay scope. `RenderScaleContract.MapInputSupply(Func<EffectiveScale, EffectiveScale>)` applies a pure transform to the corresponding input supply and may return `EffectiveScale.Unbounded`. The callback is reevaluated after symbolic metadata resolves.
+`RenderScaleContract.PreserveInputSupply` copies the resolved supply for an element-wise one-input map or replay scope. `RenderScaleContract.MapInputSupply` applies a pure transform to the corresponding input supply, which may return `EffectiveScale.Unbounded`, together with the pure transform that carries a backward output demand to the input demand. `RenderScaleContract.MapInputSupplyPreservingDemand` declares the forward transform alone and leaves demand unchanged. The callbacks are reevaluated after symbolic metadata resolves.
 
 Materializing values choose a concrete positive density from complete bounds, input supplies, output scale, and maximum working scale. The renderer applies its per-buffer device-axis clamp and binds the actual resulting density to execution. Region cropping does not recompute a declared supply.
 

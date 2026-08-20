@@ -845,29 +845,6 @@ public readonly struct RenderScaleContract
         new(RenderScaleContractKind.MaterializeAtWorkingScale);
 
     /// <summary>
-    /// Maps the resolved supply metadata of an element-wise one-input operation.
-    /// </summary>
-    /// <param name="map">
-    /// A pure metadata callback that maps the corresponding input supply to the output supply.
-    /// The callback may return <see cref="EffectiveScale.Unbounded"/>.
-    /// </param>
-    /// <returns>A declarative one-input supply mapping contract.</returns>
-    /// <remarks>
-    /// The callback may be evaluated again during graph-wide metadata resolution when an upstream fragment has
-    /// symbolic recording metadata, so it must remain deterministic and side-effect-free.
-    /// Backward demand passes through unchanged, so an operation that changes density must instead use
-    /// <see cref="MapInputSupply(Func{EffectiveScale, EffectiveScale}, Func{EffectiveScale, EffectiveScale})"/>
-    /// or an unbounded input will materialize below the density the operation consumes.
-    /// </remarks>
-    public static RenderScaleContract MapInputSupply(
-        Func<EffectiveScale, EffectiveScale> map)
-    {
-        ArgumentNullException.ThrowIfNull(map);
-        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
-        return new RenderScaleContract(map, map.Method);
-    }
-
-    /// <summary>
     /// Maps both directions of the density relationship of an element-wise one-input operation: the resolved
     /// input supply forward to the output supply, and the resolved output demand backward to the input demand.
     /// </summary>
@@ -881,8 +858,9 @@ public readonly struct RenderScaleContract
     /// </param>
     /// <returns>A declarative bidirectional one-input density mapping contract.</returns>
     /// <remarks>
-    /// An operation that enlarges its input lowers its output supply and raises its input demand, so a purely
-    /// forward map would let an unbounded input rasterize below the density the enlargement consumes.
+    /// This is the complete form and the right default for a one-input density map. An operation that enlarges
+    /// its input lowers its output supply and raises its input demand, so a purely forward map would let an
+    /// unbounded input rasterize below the density the enlargement consumes.
     /// Both callbacks may be evaluated again during graph-wide metadata resolution, so they must remain
     /// deterministic and side-effect-free. The backward map is not derived from the forward one: the forward
     /// map may collapse to <see cref="EffectiveScale.Unbounded"/> and need not be invertible.
@@ -906,6 +884,32 @@ public readonly struct RenderScaleContract
     }
 
     /// <summary>
+    /// Maps the resolved supply metadata of an element-wise one-input operation that consumes its input at the
+    /// density its own consumer demands, so backward demand passes through unchanged.
+    /// </summary>
+    /// <param name="map">
+    /// A pure metadata callback that maps the corresponding input supply to the output supply.
+    /// The callback may return <see cref="EffectiveScale.Unbounded"/>.
+    /// </param>
+    /// <returns>A declarative forward-only one-input supply mapping contract.</returns>
+    /// <remarks>
+    /// The unchanged demand is the precondition, not a degraded default: it is what a supply map that reports a
+    /// different density without resampling, or one that collapses to <see cref="EffectiveScale.Unbounded"/>,
+    /// actually needs. An operation that resamples — an enlargement, a reduction — must use
+    /// <see cref="MapInputSupply"/> instead, because leaving demand unchanged lets an unbounded input
+    /// materialize below the density the operation consumes and blurs the result by the resampling factor.
+    /// The callback may be evaluated again during graph-wide metadata resolution when an upstream fragment has
+    /// symbolic recording metadata, so it must remain deterministic and side-effect-free.
+    /// </remarks>
+    public static RenderScaleContract MapInputSupplyPreservingDemand(
+        Func<EffectiveScale, EffectiveScale> map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
+        return new RenderScaleContract(map, map.Method);
+    }
+
+    /// <summary>
     /// Resolves this operation's own concrete supply density from its inputs, output bounds, and the request's
     /// output scale and ceiling.
     /// </summary>
@@ -915,10 +919,11 @@ public readonly struct RenderScaleContract
     /// </param>
     /// <returns>A custom supply-resolving contract.</returns>
     /// <remarks>
-    /// A custom resolver declares no backward map, so demand reaches its inputs unchanged. A one-input
-    /// operation whose density differs from its input's must therefore use
-    /// <see cref="MapInputSupply(Func{EffectiveScale, EffectiveScale}, Func{EffectiveScale, EffectiveScale})"/>
-    /// instead, or an unbounded input materializes below the density this operation consumes.
+    /// A custom resolver declares no backward map, and none can be attached to one: an output demand reaches
+    /// this operation's inputs unchanged. That is correct only when this operation consumes its inputs at the
+    /// density its own consumer demands. A one-input operation that resamples must instead use
+    /// <see cref="MapInputSupply"/>, whose second callback carries the demand back; declaring the density here
+    /// rather than there lets an unbounded input materialize below the density this operation consumes.
     /// </remarks>
     public static RenderScaleContract Custom(
         Func<RenderScaleContext, float> resolve)
@@ -935,7 +940,7 @@ public readonly struct RenderScaleContract
     /// <see cref="EffectiveScale.Unbounded"/> and adopts whatever density its consumer renders at.
     /// </summary>
     /// <remarks>
-    /// <see cref="PreserveInputSupply"/> and the <c>MapInputSupply</c> overloads can also resolve to
+    /// <see cref="PreserveInputSupply"/> and the supply-mapping factories can also resolve to
     /// <see cref="EffectiveScale.Unbounded"/>, but only for a one-input map, whose supply is its input's rather
     /// than the consumer's. Every other kind resolves to a concrete positive density.
     /// </remarks>
@@ -986,7 +991,7 @@ public readonly struct RenderScaleContract
             if (inputSupplies.Count != 1)
             {
                 throw new InvalidOperationException(
-                    "MapInputSupply requires exactly one corresponding input supply.");
+                    "MapInputSupply and MapInputSupplyPreservingDemand require exactly one corresponding input supply.");
             }
 
             EffectiveScale mapped = _mapInputSupply!(inputSupplies[0]);
@@ -1064,7 +1069,7 @@ public readonly struct RenderScaleContract
             && topology != OpaqueRenderTopology.Map)
         {
             throw new ArgumentException(
-                $"{_kind} is valid only for an element-wise one-input opaque map.",
+                "A supply-preserving or supply-mapping contract is valid only for an element-wise one-input opaque map.",
                 parameterName);
         }
     }

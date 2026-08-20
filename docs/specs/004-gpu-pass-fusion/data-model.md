@@ -84,7 +84,7 @@ Raw definitions declare metadata and typed slots even though their canvas work i
 
 Definitions use `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleContract`, `RenderValueCardinality`, target region/access, input readback, and device-grid contracts as appropriate. Metadata callbacks are deterministic, side-effect-free, and non-capturing. The engine derives operation-shape information from the definition and contract callbacks.
 
-`RenderScaleContract.MapInputSupply` accepts a pure one-input supply transform and can be reevaluated after symbolic upstream metadata becomes concrete.
+`RenderScaleContract.MapInputSupply` accepts a pure one-input supply transform together with the backward demand transform that matches it; `RenderScaleContract.MapInputSupplyPreservingDemand` accepts the supply transform alone and leaves demand unchanged. Both are reevaluated after symbolic upstream metadata becomes concrete.
 
 ## Recorded request entities
 

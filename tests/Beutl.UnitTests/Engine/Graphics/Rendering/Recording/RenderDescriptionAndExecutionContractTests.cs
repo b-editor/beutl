@@ -144,7 +144,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             RenderScaleContract.Custom(
                     static _ => 1)
                 .Resolve([], positiveOrigin, outputScale: 1, maxWorkingScale: 1),
-            RenderScaleContract.MapInputSupply(
+            RenderScaleContract.MapInputSupplyPreservingDemand(
                     static _ => EffectiveScale.At(1))
                 .Resolve([EffectiveScale.At(1)], positiveOrigin, outputScale: 1, maxWorkingScale: 1),
         ];

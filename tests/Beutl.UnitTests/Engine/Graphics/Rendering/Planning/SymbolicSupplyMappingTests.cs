@@ -59,7 +59,7 @@ public sealed class SymbolicSupplyMappingTests
                     bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                     hitTest: RenderHitTestContract.AnyInput,
                     valueCardinality: RenderValueCardinality.Single,
-                    scale: RenderScaleContract.MapInputSupply(
+                    scale: RenderScaleContract.MapInputSupplyPreservingDemand(
                         HalfSupply));
                 context.Publish(context.OpaqueMap(input, description));
             }

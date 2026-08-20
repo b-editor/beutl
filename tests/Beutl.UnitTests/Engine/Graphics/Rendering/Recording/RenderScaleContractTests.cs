@@ -9,9 +9,9 @@ public sealed class RenderScaleContractTests
     private static readonly Rect s_bounds = new(0, 0, 100, 80);
 
     [Test]
-    public void MapInputSupply_MapsConcreteSupplyAndPreservesUnbounded()
+    public void MapInputSupplyPreservingDemand_MapsConcreteSupplyAndPreservesUnbounded()
     {
-        RenderScaleContract contract = RenderScaleContract.MapInputSupply(
+        RenderScaleContract contract = RenderScaleContract.MapInputSupplyPreservingDemand(
             DoubleSupply);
 
         Assert.Multiple(() =>
@@ -29,9 +29,9 @@ public sealed class RenderScaleContractTests
     }
 
     [Test]
-    public void MapInputSupply_RequiresAnElementWiseSingleInputTopology()
+    public void MapInputSupplyPreservingDemand_RequiresAnElementWiseSingleInputTopology()
     {
-        RenderScaleContract contract = RenderScaleContract.MapInputSupply(
+        RenderScaleContract contract = RenderScaleContract.MapInputSupplyPreservingDemand(
             static input => input);
 
         Assert.Multiple(() =>
@@ -56,11 +56,11 @@ public sealed class RenderScaleContractTests
     }
 
     [Test]
-    public void MapInputSupply_HasStableKindSpecificStructuralIdentity()
+    public void MapInputSupplyPreservingDemand_HasStableKindSpecificStructuralIdentity()
     {
         const string sharedKey = "shared-scale-key";
-        RenderScaleContract first = RenderScaleContract.MapInputSupply(DoubleSupply);
-        RenderScaleContract second = RenderScaleContract.MapInputSupply(DoubleSupply);
+        RenderScaleContract first = RenderScaleContract.MapInputSupplyPreservingDemand(DoubleSupply);
+        RenderScaleContract second = RenderScaleContract.MapInputSupplyPreservingDemand(DoubleSupply);
         RenderScaleContract custom = RenderScaleContract.Custom(
             static _ => 2);
 
@@ -72,12 +72,12 @@ public sealed class RenderScaleContractTests
     }
 
     [Test]
-    public void MapInputSupply_RejectsMutableCallbackCapture()
+    public void MapInputSupplyPreservingDemand_RejectsMutableCallbackCapture()
     {
         var mutable = new List<float> { 2 };
 
         Assert.That(
-            () => RenderScaleContract.MapInputSupply(
+            () => RenderScaleContract.MapInputSupplyPreservingDemand(
                 input => input.IsUnbounded
                     ? EffectiveScale.Unbounded
                     : EffectiveScale.At(input.Value * mutable[0])),

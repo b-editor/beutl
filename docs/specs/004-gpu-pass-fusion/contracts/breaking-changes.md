@@ -410,16 +410,7 @@ catch
 
 Bounds, hit testing, scale, cardinality, input readback, target access, and device-grid behavior are fixed definition metadata. Their callbacks must be deterministic, side-effect-free, and non-capturing.
 
-For a one-input element-wise density transform, use:
-
-```csharp
-RenderScaleContract scale = RenderScaleContract.MapInputSupply(
-    static inputSupply => inputSupply);
-```
-
-The map is reevaluated when required to resolve symbolic upstream metadata. Source, capture, combination, and expansion work must choose their own valid scale contract.
-
-That forward-only overload passes backward demand through unchanged, so an operation whose density differs from its input's — an enlargement, a reduction — must declare both directions:
+For a one-input element-wise density transform, declare both directions of the density relationship:
 
 ```csharp
 RenderScaleContract scale = RenderScaleContract.MapInputSupply(
@@ -429,11 +420,20 @@ RenderScaleContract scale = RenderScaleContract.MapInputSupply(
     static outputDemand => EffectiveScale.At(outputDemand.Value * 2));
 ```
 
-Without the second callback an unbounded input rasterizes at the operation's own output demand and is then magnified, so the result is blurred by exactly the enlargement factor. The backward map is not derived from the forward one: the forward map may collapse to `EffectiveScale.Unbounded` and need not be invertible. `mapOutputDemandToInput` receives a concrete output demand and must return a finite positive density; the engine bounds the result by the request ceiling. Both callbacks may be reevaluated during graph-wide metadata resolution.
+Both callbacks are reevaluated when required to resolve symbolic upstream metadata. Source, capture, combination, and expansion work must choose their own valid scale contract.
+
+An operation that consumes its input at the density its own consumer demands — a supply map that reports a different density without resampling, or one that collapses to `Unbounded` — declares the forward callback alone:
+
+```csharp
+RenderScaleContract scale = RenderScaleContract.MapInputSupplyPreservingDemand(
+    static inputSupply => inputSupply);
+```
+
+The name states that precondition, because the contract leaves backward demand unchanged. Reaching for it from an operation that resamples — an enlargement, a reduction — lets an unbounded input rasterize at the operation's own output demand and then be magnified, so the result is blurred by exactly the enlargement factor. The backward map is not derived from the forward one: the forward map may collapse to `EffectiveScale.Unbounded` and need not be invertible. `mapOutputDemandToInput` receives a concrete output demand and must return a finite positive density; the engine bounds the result by the request ceiling. Both callbacks may be reevaluated during graph-wide metadata resolution.
 
 For a matrix-shaped operation, `TransformRenderNode.RescaleDensity` and `TransformRenderNode.RescaleDemand` supply the two halves; hold the matrix in a non-capturing metadata state and pass their bound methods as the two callbacks. They are not inverses — forward reports the least-scaled axis and backward answers the operator norm, each erring toward more detail — so under an anisotropic or sheared transform a round trip does not return its input.
 
-`RenderScaleContract.Custom` has no backward map and keeps the identity fallback, so a map-topology operation whose density differs from its input's must use the bidirectional `MapInputSupply` rather than a custom resolver.
+`RenderScaleContract.Custom` declares no backward map and none can be attached to one, so an output demand reaches its inputs unchanged. A map-topology operation whose density differs from its input's must therefore use `MapInputSupply` rather than a custom resolver.
 
 ## Whole-source shader coordinate space
 
@@ -661,3 +661,22 @@ This was never confined to the fused pipeline, and never to rectangles. Only an 
 Content that already keyed is unaffected: the tolerated neighbourhood of `rgb(206,92,42)`, `rgb(240,240,250)` and `rgb(12,12,12)` measured identical before and after, level for level. Because the band is tested premultiplied, it is independent of coverage, so the antialiased edge of a keyed shape now keys with its interior; the same property means a pixel faint enough that half a linear code swamps its colour matches any key, which at that alpha is a change of at most a fraction of a percent of coverage.
 
 The chroma gate has one visible consequence beyond the fix. A neutral fill has no hue to compare, so it can no longer be kept out of a key by the hue term alone: with `SaturationRange` widened to 100, a mid grey that a lime key used to leave alone is now removed. At any narrower `SaturationRange` the saturation term still keeps it, as before. This replaces the previous behaviour, where a neutral pixel took the `h = 0` that `rgb2hsv` returns at zero chroma and therefore matched a red key while surviving every other hue — a distinction the pixel did not carry.
+
+## The short supply-mapping name is the one that carries demand back
+
+BREAKING CHANGE: `RenderScaleContract.MapInputSupply(Func<EffectiveScale, EffectiveScale>)` is renamed to `RenderScaleContract.MapInputSupplyPreservingDemand(Func<EffectiveScale, EffectiveScale>)`. The two-callback `RenderScaleContract.MapInputSupply(Func<EffectiveScale, EffectiveScale>, Func<EffectiveScale, EffectiveScale>)` keeps its name and is unchanged.
+
+| Before | After |
+|---|---|
+| `RenderScaleContract.MapInputSupply(map)` | `RenderScaleContract.MapInputSupplyPreservingDemand(map)` |
+| `RenderScaleContract.MapInputSupply(map, mapOutputDemandToInput)` | unchanged |
+
+Nothing about how either contract resolves changed; this is a rename and a documentation change.
+
+The two forms were overloads of one name, and the name described only the forward half both of them share. An author reaching for a one-input density map met the one-callback signature first and had no signal that a second existed, so a map that resampled — an out-of-tree `OpaqueMap` that enlarges — declared its output supply, silently fell back to the identity backward map, and let a downstream materialization rasterize the source below the density the enlargement needed. The failure is invisible until someone looks at a blurry frame.
+
+The sibling `RenderBoundsContract` had already settled this: `Create` takes both directions and the narrower `CreateFullInput` names its own backward behaviour. `RenderScaleContract` now reads the same way, and splitting the overload set means the narrow form can no longer be reached by dropping an argument — each name carries its own documentation, and the compiler rejects a one-argument `MapInputSupply` outright.
+
+The new name is a precondition, not a warning label. Leaving demand unchanged is exactly right for a supply map that reports a different density without resampling, or one that collapses to `Unbounded`, which is the common case; `MapInputSupplyPreservingDemand` says which operations it fits rather than implying the contract is a degraded variant. It also pairs with the well-known `PreserveInputSupply`, whose demand pass-through is correct by construction.
+
+`RenderScaleContract.Custom` has the same unchanged-demand fallback and no way to attach a backward map. It is deliberately left alone here — adding a demand callback to a custom resolver is a design change, not a rename — but its documentation now states the fallback and points at `MapInputSupply`.

@@ -8,7 +8,7 @@ namespace Beutl.PublicApiContractTests;
 public sealed class RenderScaleMappingContractTests
 {
     [TestCase(2, 4)]
-    public void MapInputSupply_IsUsableByExternalRenderNodeAuthors(
+    public void MapInputSupplyPreservingDemand_IsUsableByExternalRenderNodeAuthors(
         float inputDensity,
         float expectedDensity)
     {
@@ -29,7 +29,7 @@ public sealed class RenderScaleMappingContractTests
     }
 
     [Test]
-    public void MapInputSupply_AllowsExternalAuthorsToPreserveUnboundedSupply()
+    public void MapInputSupplyPreservingDemand_AllowsExternalAuthorsToPreserveUnboundedSupply()
     {
         using var node = new SupplyMappingNode(EffectiveScale.Unbounded);
         using var renderer = new RenderNodeRenderer(
@@ -64,7 +64,7 @@ public sealed class RenderScaleMappingContractTests
     }
 
     [Test]
-    public void MapInputSupply_ForwardOnlyOverloadPassesOutputDemandThroughUnchanged()
+    public void MapInputSupplyPreservingDemand_PassesOutputDemandThroughUnchanged()
     {
         var probe = new MaterializationDensityProbe();
         using var node = new EnlargingMapNode(probe, mapsOutputDemand: false);
@@ -159,7 +159,7 @@ public sealed class RenderScaleMappingContractTests
                 scale: RenderScaleContract.Vector));
             RenderScaleContract scale = mapsOutputDemand
                 ? RenderScaleContract.MapInputSupply(HalveSupply, DoubleDemand)
-                : RenderScaleContract.MapInputSupply(HalveSupply);
+                : RenderScaleContract.MapInputSupplyPreservingDemand(HalveSupply);
             RenderFragmentHandle enlarged = context.OpaqueMap(source, RenderDefinitionCallFactory.Opaque(
                 execute: static session =>
                 {
@@ -210,7 +210,7 @@ public sealed class RenderScaleMappingContractTests
                 bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.MapInputSupply(DoubleSupply)));
+                scale: RenderScaleContract.MapInputSupplyPreservingDemand(DoubleSupply)));
             context.Publish(mapped);
         }
 
