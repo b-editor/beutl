@@ -24,8 +24,8 @@ namespace Beutl.Api;
 
 public class BeutlApiApplication : IAsyncDisposable
 {
-#if true
-    public const string BaseUrl = "http://localhost:3000";
+#if false
+    public const string BaseUrl = "http://localhost:3001";
     public const string UserFileName = "user.local.json";
 #else
     public const string BaseUrl = "https://beutl.beditor.net";
