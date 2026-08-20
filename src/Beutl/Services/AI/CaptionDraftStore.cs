@@ -27,7 +27,12 @@ internal sealed record CaptionTranslationResume(
     string? SelectedSourceLanguage,
     string TargetLanguage,
     Dictionary<string, string> TranslatedPieces,
-    int CompletedBatchCount);
+    int CompletedBatchCount,
+    // What the batches of this run were named to the server. Kept so that a run
+    // resumed in a later session asks for the translations it already paid for
+    // rather than buying them again. Empty in a draft written before this was
+    // recorded, which resumes as a run of its own.
+    string RequestKeySeed = "");
 
 internal sealed record CaptionSceneTranscriptionResume(
     Guid SceneId,

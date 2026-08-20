@@ -814,6 +814,21 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             _requestKey.Retire();
             operation.TryPublish(() => Error.Value = Strings.AiProviderError);
         }
+        // Reachable because a request keeps its name across attempts: asking
+        // again for one the server is still working on is how its result is
+        // recovered rather than bought twice, and until it finishes the answer
+        // is this. The key stays — it is still the way back to that job.
+        catch (AiRequestInProgressException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiRequestInProgress);
+        }
+        // The job that key created is gone, so the key can only ever answer
+        // with that. The next attempt has to be a new request.
+        catch (AiRequestWasDeletedException)
+        {
+            _requestKey.Retire();
+            operation.TryPublish(() => Error.Value = Strings.AiRequestWasDeleted);
+        }
         catch (AiJobLimitReachedException)
         {
             operation.TryPublish(() => Error.Value = Strings.AiVideoJobLimitReached);

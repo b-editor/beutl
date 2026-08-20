@@ -196,6 +196,54 @@ public sealed class CaptionDraftStoreTests
     }
 
     [Test]
+    public void TranslationResume_RoundTripsTheNameItsBatchesWereSentUnder()
+    {
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        var draft = new CaptionDraft(
+            FileCaptionDraftStore.CurrentVersion,
+            [new StoredCaptionCue(0, TimeSpan.FromSeconds(1).Ticks, "Hello", null, "en", [])],
+            "ja",
+            null,
+            CaptionDraftKind.Translation,
+            1,
+            2,
+            new CaptionTranslationResume(
+                [new StoredCaptionCue(0, TimeSpan.FromSeconds(1).Ticks, "Hello", null, "en", [])],
+                "en",
+                "en",
+                "ja",
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["line-1"] = "こんにちは" },
+                1,
+                "8c1d7e2a5b904f36a1e0c4d8f7b62039"),
+            null);
+
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(new CaptionDraftEntry("job-translation", draft));
+        }
+
+        Assert.That(store.TryOpen(scope, out session), Is.True);
+        using (session)
+        {
+            CaptionDraftEntry? restored = session!.Load();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(restored, Is.Not.Null);
+                Assert.That(restored!.Draft.TranslationResume, Is.Not.Null);
+                Assert.That(restored.Draft.TranslationResume!.CompletedBatchCount, Is.EqualTo(1));
+                // The name the unfinished batches will be asked for under. Without
+                // it a run resumed in a later session would buy a batch the first
+                // session may already have paid for.
+                Assert.That(
+                    restored.Draft.TranslationResume.RequestKeySeed,
+                    Is.EqualTo("8c1d7e2a5b904f36a1e0c4d8f7b62039"));
+            }
+        }
+    }
+
+    [Test]
     public void SourceTranscriptionResume_RoundTripsIncompleteProgress()
     {
         var store = new FileCaptionDraftStore(_storageDirectory);

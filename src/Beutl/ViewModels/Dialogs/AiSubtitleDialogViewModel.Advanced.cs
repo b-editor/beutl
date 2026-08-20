@@ -1190,7 +1190,8 @@ public sealed partial class AiSubtitleDialogViewModel
                 translation.SelectedSourceLanguage,
                 translation.TargetLanguage,
                 new Dictionary<string, string>(translation.TranslatedPieces, StringComparer.Ordinal),
-                translation.CompletedBatchCount);
+                translation.CompletedBatchCount,
+                translation.RequestKeySeed);
         }
 
         CaptionSceneTranscriptionResume? sceneResume = null;
@@ -1314,7 +1315,10 @@ public sealed partial class AiSubtitleDialogViewModel
                         translation.SelectedSourceLanguage,
                         translation.TargetLanguage,
                         draftScopeRevision,
-                        batches)
+                        batches,
+                        string.IsNullOrEmpty(translation.RequestKeySeed)
+                            ? null
+                            : translation.RequestKeySeed)
                     {
                         CompletedBatchCount = translation.CompletedBatchCount,
                     };
@@ -2472,7 +2476,8 @@ public sealed partial class AiSubtitleDialogViewModel
         string? selectedSourceLanguage,
         string targetLanguage,
         long expectedDraftScopeRevision,
-        IReadOnlyList<TranslationBatch> batches)
+        IReadOnlyList<TranslationBatch> batches,
+        string? requestKeySeed = null)
     {
         public CaptionDocument SourceDocument { get; } = sourceDocument;
 
@@ -2489,11 +2494,13 @@ public sealed partial class AiSubtitleDialogViewModel
         public IReadOnlyList<TranslationBatch> Batches { get; } = batches;
 
         /// <summary>
-        /// Names this run's requests, one key per batch, so a batch retried
-        /// after a lost answer asks for the translation it already paid for
-        /// instead of buying a second one.
+        /// Names this run's requests, one key per batch. Restored with the rest
+        /// of the resume state so a batch resumed after a restart asks for the
+        /// translation it already paid for instead of buying a second one.
         /// </summary>
-        public AiRequestKey RequestKey { get; } = new();
+        public AiRequestKey RequestKey { get; } = new(requestKeySeed);
+
+        public string RequestKeySeed => RequestKey.Seed;
 
         public string RequestKeyFor(int batchIndex, AiModelId? model) =>
             RequestKey.For(batchIndex, model?.Value, TargetLanguage, SourceLanguage);

@@ -978,6 +978,110 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageGeneration_AsksUnderANewNameOnceTheJobItNamedIsGone()
+    {
+        await TestReset.ResetShellAsync();
+        var keys = new List<string?>();
+        bool reportDeleted = true;
+        using var handler = new StubHandler(request =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/images":
+                    keys.Add(IdempotencyKeyOf(request));
+                    if (reportDeleted)
+                    {
+                        reportDeleted = false;
+                        // The job that key created was deleted, so the key can
+                        // only ever answer with this.
+                        return JsonResponse(HttpStatusCode.Conflict, """
+                            { "error_code": "aiRequestWasDeleted", "message": "Gone." }
+                            """);
+                    }
+
+                    return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.Prompt.Value = "A calm blue sky";
+
+        await viewModel.Generate.ExecuteAsync();
+        Assert.That(viewModel.Error.Value, Is.EqualTo(Beutl.Language.Strings.AiRequestWasDeleted));
+
+        await viewModel.Generate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(keys, Has.Count.EqualTo(2));
+            Assert.That(keys[1], Is.Not.EqualTo(keys[0]),
+                "A key whose job is gone would answer with that forever.");
+            Assert.That(viewModel.ResultImage.Value, Is.Not.Null);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_KeepsTheNameOfAJobTheServerIsStillWorkingOn()
+    {
+        await TestReset.ResetShellAsync();
+        var keys = new List<string?>();
+        bool reportInProgress = true;
+        using var handler = new StubHandler(request =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/images":
+                    keys.Add(IdempotencyKeyOf(request));
+                    if (reportInProgress)
+                    {
+                        reportInProgress = false;
+                        // The first attempt is still running and already paid
+                        // for; its key is the only way back to it.
+                        return JsonResponse(HttpStatusCode.Conflict, """
+                            { "error_code": "aiRequestInProgress", "message": "Still running." }
+                            """);
+                    }
+
+                    return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.Prompt.Value = "A calm blue sky";
+
+        await viewModel.Generate.ExecuteAsync();
+        Assert.That(viewModel.Error.Value, Is.EqualTo(Beutl.Language.Strings.AiRequestInProgress));
+
+        await viewModel.Generate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(keys, Has.Count.EqualTo(2));
+            Assert.That(keys[1], Is.EqualTo(keys[0]),
+                "Asking again for the running job is how its result is recovered.");
+            Assert.That(viewModel.ResultImage.Value, Is.Not.Null);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ImageGeneration_SendsEveryReferenceAndStopsAtWhatTheModelTakes()
     {
         await TestReset.ResetShellAsync();
