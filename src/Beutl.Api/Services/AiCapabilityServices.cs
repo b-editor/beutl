@@ -58,42 +58,66 @@ internal sealed class AiEntitlementService(
     }
 }
 
-internal sealed class AiModelCatalogService(BeutlApiApplication application)
-    : IAiModelCatalogService
+internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposable
 {
+    // Long enough that opening a few dialogs in a row does not fetch the list
+    // again, short enough that a model the operator disables — or adds, or
+    // reorders — stops being offered without the editor being restarted.
+    private static readonly TimeSpan s_freshness = TimeSpan.FromMinutes(5);
+    private readonly BeutlApiApplication _application;
+    private readonly TimeProvider _timeProvider;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly IDisposable _authenticationSubscription;
+    private readonly object _cacheGate = new();
     private AiModelCatalog? _catalog;
+    private long _fetchedAt;
+
+    public AiModelCatalogService(BeutlApiApplication application, TimeProvider? timeProvider = null)
+    {
+        _application = application;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        // The catalog is the list one account may pay for. Another account's is
+        // a different list, so signing in as someone else drops it rather than
+        // offering them models that were never theirs.
+        _authenticationSubscription = application.AuthenticatedUser.Subscribe(_ => Invalidate());
+    }
 
     public async Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken)
     {
-        if (_catalog is { } cached)
-            return cached;
+        if (TryGetFresh(out AiModelCatalog? cached))
+            return cached!;
 
         using CancellationTokenSource operationCts =
-            application.CreateLifetimeLinkedTokenSource(cancellationToken);
+            _application.CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = operationCts.Token;
         await _gate.WaitAsync(token);
         try
         {
-            if (_catalog is { } raced)
-                return raced;
+            if (TryGetFresh(out AiModelCatalog? raced))
+                return raced!;
 
-            using Activity? activity = application.ActivitySource.StartActivity(
+            using Activity? activity = _application.ActivitySource.StartActivity(
                 "AiModelCatalogService.Get",
                 ActivityKind.Client);
-            if (application.AuthenticatedUser.Value is null)
+            if (_application.AuthenticatedUser.Value is null)
                 return AiModelCatalog.Empty;
 
             try
             {
                 AuthenticatedApiResult<AiCapabilitiesResponse> response =
-                    await application.SendAuthenticatedAsync(
+                    await _application.SendAuthenticatedAsync(
                         (authorization, requestToken) =>
-                            application.Ai.GetCapabilities(authorization, requestToken),
+                            _application.Ai.GetCapabilities(authorization, requestToken),
                         token,
-                        application.AuthenticatedUser.Value);
-                _catalog = AiModelMapper.ToModel(response.Value);
-                return _catalog;
+                        _application.AuthenticatedUser.Value);
+                AiModelCatalog catalog = AiModelMapper.ToModel(response.Value);
+                lock (_cacheGate)
+                {
+                    _catalog = catalog;
+                    _fetchedAt = _timeProvider.GetTimestamp();
+                }
+
+                return catalog;
             }
             catch (ApiException ex)
             {
@@ -111,7 +135,27 @@ internal sealed class AiModelCatalogService(BeutlApiApplication application)
         }
     }
 
-    public void Invalidate() => _catalog = null;
+    public void Invalidate()
+    {
+        lock (_cacheGate)
+            _catalog = null;
+    }
+
+    public void Dispose()
+    {
+        _authenticationSubscription.Dispose();
+        _gate.Dispose();
+    }
+
+    private bool TryGetFresh(out AiModelCatalog? catalog)
+    {
+        lock (_cacheGate)
+        {
+            catalog = _catalog;
+            return catalog is not null
+                   && _timeProvider.GetElapsedTime(_fetchedAt) < s_freshness;
+        }
+    }
 }
 
 internal sealed class AiOperationAvailabilityService(BeutlApiApplication application)

@@ -122,6 +122,36 @@ public class PackageManagerExtensionLifecycleTests
     }
 
     [Test]
+    public void LoadExtensionsAndRegister_UnloadsTheLoadContextOfARejectedDuplicate()
+    {
+        PackageManager manager = CreatePackageManager(out _, out _);
+        var package = new LocalPackage { Name = "DuplicateWithContext" };
+        manager.LoadExtensionsAndRegister(
+            activity: null,
+            package,
+            assemblies: [],
+            loadContext: null,
+            [typeof(SuccessfulViewExtension)]);
+
+        // The assemblies of a second load are resolved into a collectible
+        // context before the duplicate is noticed. Left loaded, that context —
+        // and everything in it — stays for the life of the process.
+        var loadContext = new PluginLoadContext(AppContext.BaseDirectory);
+        var unloaded = false;
+        loadContext.Unloading += _ => unloaded = true;
+
+        Assert.Throws<InvalidOperationException>(() =>
+            manager.LoadExtensionsAndRegister(
+                activity: null,
+                package,
+                assemblies: [],
+                loadContext: loadContext,
+                [typeof(SuccessfulViewExtension)]));
+
+        Assert.That(unloaded, Is.True);
+    }
+
+    [Test]
     public async Task LoadExtensionsAndRegister_DoesNotExecutePluginCodeForConcurrentDuplicateLoad()
     {
         PackageManager manager = CreatePackageManager(out _, out _);

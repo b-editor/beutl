@@ -226,10 +226,13 @@ internal sealed class AiImageJobRetryHandler(
     {
         string prompt = AiJobInputParameters.GetString(job, "prompt")
             ?? throw new InvalidOperationException("The retained image prompt is missing.");
-        // A generation guided by a reference image cannot be repeated: the
-        // picture itself was never retained, so this would produce something
-        // else at full price. The server refuses it too.
-        if (AiJobInputParameters.Has(job, "reference"))
+        // A generation guided by reference pictures cannot be repeated: the
+        // pictures themselves were never retained, so this would produce
+        // something else at full price. The server refuses it too. Both names
+        // are checked: a job recorded while only one picture was allowed
+        // carries "reference", and one recorded since carries "references".
+        if (AiJobInputParameters.Has(job, "reference")
+            || AiJobInputParameters.Has(job, "references"))
         {
             throw new InvalidOperationException(
                 "An image generated from a reference image cannot be retried.");
@@ -311,11 +314,13 @@ internal sealed class AiVideoJobRetryHandler(
             new AiVideoGenerationRequest(
                 prompt,
                 durationSeconds,
-                new AiVideoResolutionId(resolution is "720p" or "1080p" ? resolution : "720p"),
-                // Both defaults match what the endpoint applies to a request
-                // that omits them, so a job recorded before they existed is
-                // repeated exactly as it ran.
-                new AiVideoAspectRatioId(aspectRatio is "16:9" or "9:16" ? aspectRatio : "16:9"),
+                // Whatever the job ran at. The server settled these when it
+                // accepted the request, so narrowing them here would rerun a
+                // 2K or 4:3 clip as a 720p 16:9 one and charge for it. Only a
+                // job recorded before they existed falls back, and the fallback
+                // is what the endpoint applies to a request that omits them.
+                new AiVideoResolutionId(resolution is { Length: > 0 } ? resolution : "720p"),
+                new AiVideoAspectRatioId(aspectRatio is { Length: > 0 } ? aspectRatio : "16:9"),
                 generateAudio: AiJobInputParameters.GetBoolean(job, "generateAudio") ?? true,
                 seed: AiJobInputParameters.GetInt32(job, "seed"),
                 model: job.Model),

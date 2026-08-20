@@ -643,18 +643,32 @@ public sealed class PackageManager(
         ExtensionRemoval? rollbackRemoval = null;
         var addedToProvider = false;
         var addedToLoadedPackages = false;
+        bool alreadyKnown;
         lock (_packageLifecycleGate)
         {
-            if (_loadingPackages.Contains(package.LocalId)
-                || _unloadOperations.ContainsKey(package.LocalId)
-                || _quarantinedPackages.Contains(package.LocalId)
-                || _loadedPackages.ContainsKey(package.LocalId))
+            alreadyKnown = _loadingPackages.Contains(package.LocalId)
+                           || _unloadOperations.ContainsKey(package.LocalId)
+                           || _quarantinedPackages.Contains(package.LocalId)
+                           || _loadedPackages.ContainsKey(package.LocalId);
+            if (!alreadyKnown)
             {
-                throw new InvalidOperationException(
-                    $"Package {package.Name} is already loaded, loading, unloading, or quarantined.");
+                _loadingPackages.Add(package.LocalId);
+            }
+        }
+
+        if (alreadyKnown)
+        {
+            // The caller resolved the package's assemblies into a collectible
+            // context before this could be known. Nothing will ever reference
+            // them, so the context goes with the rejection rather than staying
+            // loaded for the life of the process.
+            if (loadContext is { })
+            {
+                TryUnloadLoadContext(package, loadContext);
             }
 
-            _loadingPackages.Add(package.LocalId);
+            throw new InvalidOperationException(
+                $"Package {package.Name} is already loaded, loading, unloading, or quarantined.");
         }
 
         try

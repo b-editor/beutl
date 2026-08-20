@@ -1648,6 +1648,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiRequestWasDeleted" xml:space="preserve">
     <value>このリクエストは削除済みのため、結果を取り出せません。途中結果を破棄してから実行し直してください。</value>
   </data>
+  <data name="AiModelDoesNotSupportRequest" xml:space="preserve">
+    <value>選択したモデルはこの内容に対応していません。モデルか設定を変更してやり直してください。</value>
+  </data>
   <data name="AiResultDownloadFailed" xml:space="preserve">
     <value>生成は完了しています (課金済み) が、結果を取得できませんでした。ジョブ履歴から取得してください。</value>
   </data>

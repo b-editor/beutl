@@ -122,6 +122,24 @@ public sealed class AiRequestWasDeletedException : AiException
 }
 
 /// <summary>
+/// The chosen model does not take the request as it stands — an aspect ratio,
+/// a background, a seed or a reference picture it does not accept
+/// (400 aiModelDoesNotSupportRequest).
+/// </summary>
+/// <remarks>
+/// Refused before the operation is reserved, so nothing was charged. What the
+/// caller has to change is the model or the shape of the request; repeating it
+/// unchanged is refused the same way.
+/// </remarks>
+public sealed class AiModelDoesNotSupportRequestException : AiException
+{
+    public AiModelDoesNotSupportRequestException(Exception? innerException = null)
+        : base("The chosen AI model does not support this request.", innerException)
+    {
+    }
+}
+
+/// <summary>
 /// The connection carrying an answer ended before the answer did. The work may
 /// well have finished and been charged for, so this is not the same as a run
 /// that failed: asking again under the same idempotency key is what recovers it.

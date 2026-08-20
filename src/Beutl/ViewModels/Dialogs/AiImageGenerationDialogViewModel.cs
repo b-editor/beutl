@@ -551,6 +551,12 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         {
             operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
         }
+        // Refused before the operation was reserved, so nothing was charged;
+        // what has to change is the model or the shape of the request.
+        catch (AiModelDoesNotSupportRequestException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiModelDoesNotSupportRequest);
+        }
         catch (AiProviderErrorException)
         {
             _requestKey.Retire();
@@ -740,7 +746,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             return;
         }
 
-        FilePickerOpenOptions options = SharedFilePickerOptions.OpenImage();
+        FilePickerOpenOptions options = SharedFilePickerOptions.OpenAiInputImage();
         options.AllowMultiple = true;
         IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(options);
         if (files.Count == 0)

@@ -77,4 +77,6 @@ public enum ApiErrorCode
     AiRequestInProgress,
 
     AiRequestWasDeleted,
+
+    AiModelDoesNotSupportRequest,
 }

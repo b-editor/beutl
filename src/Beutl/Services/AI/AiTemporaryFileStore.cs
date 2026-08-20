@@ -7,8 +7,12 @@ internal static class AiTemporaryFileStore
         | UnixFileMode.UserWrite
         | UnixFileMode.UserExecute;
     private const UnixFileMode FileMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+    private const string SessionLockName = ".lock";
     private static readonly object s_gate = new();
     private static readonly HashSet<string> s_cleanedDirectories = new(StringComparer.Ordinal);
+    private static readonly string s_sessionId = Guid.NewGuid().ToString("N");
+    private static readonly Dictionary<string, FileStream> s_sessionLocks =
+        new(StringComparer.Ordinal);
 
     public static string RootDirectory => Path.Combine(
         BeutlEnvironment.GetHomeDirectoryPath(),
@@ -24,7 +28,10 @@ internal static class AiTemporaryFileStore
         string normalizedPrefix = NormalizeComponent(prefix, nameof(prefix));
         string normalizedExtension = NormalizeExtension(extension);
         EnsurePrivateDirectory(directory);
-        CleanStaleFilesOnce(directory, DateTimeOffset.UtcNow);
+        HoldSession(directory);
+        CleanAbandonedSessionsOnce(
+            GetCategoryRootDirectory(category),
+            DateTimeOffset.UtcNow);
 
         while (true)
         {
@@ -68,8 +75,58 @@ internal static class AiTemporaryFileStore
         }
     }
 
+    /// <summary>
+    /// Where this process writes. Every process keeps its own directory, so
+    /// clearing up after one that exited can never take a file another is
+    /// still using.
+    /// </summary>
     internal static string GetCategoryDirectory(string category)
+        => Path.Combine(GetCategoryRootDirectory(category), s_sessionId);
+
+    internal static string GetCategoryRootDirectory(string category)
         => Path.Combine(RootDirectory, NormalizeComponent(category, nameof(category)));
+
+    /// <summary>
+    /// Clears up after sessions that are over. A session directory whose lock
+    /// is still held belongs to a process that is still running, and nothing in
+    /// it is removed however old it looks.
+    /// </summary>
+    internal static void CleanAbandonedSessions(string categoryRoot, DateTimeOffset now)
+    {
+        if (!Directory.Exists(categoryRoot))
+            return;
+
+        // Files written directly here belong to a version that had no sessions.
+        CleanStaleFiles(categoryRoot, now);
+
+        foreach (string session in Directory.EnumerateDirectories(categoryRoot))
+        {
+            if (string.Equals(Path.GetFileName(session), s_sessionId, StringComparison.Ordinal))
+                continue;
+
+            FileStream? claimed;
+            try
+            {
+                claimed = OpenSessionLock(session);
+            }
+            catch (IOException)
+            {
+                // Held by a live process.
+                continue;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            using (claimed)
+            {
+                CleanStaleFiles(session, now);
+            }
+
+            TryRemoveFinishedSession(session);
+        }
+    }
 
     internal static void CleanStaleFiles(string directory, DateTimeOffset now)
     {
@@ -78,6 +135,9 @@ internal static class AiTemporaryFileStore
 
         foreach (string path in Directory.EnumerateFiles(directory))
         {
+            if (string.Equals(Path.GetFileName(path), SessionLockName, StringComparison.Ordinal))
+                continue;
+
             try
             {
                 if (now - File.GetLastWriteTimeUtc(path) >= StaleAge)
@@ -95,11 +155,19 @@ internal static class AiTemporaryFileStore
     internal static void EnsurePrivateDirectory(string directory)
     {
         Directory.CreateDirectory(directory);
-        if (!OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows())
+            return;
+
+        // Every level down from the root, so a category or session directory
+        // created along the way is no more readable than the root itself.
+        File.SetUnixFileMode(RootDirectory, DirectoryMode);
+        for (string? current = directory;
+             current is not null
+             && current.StartsWith(RootDirectory, StringComparison.Ordinal)
+             && !string.Equals(current, RootDirectory, StringComparison.Ordinal);
+             current = Path.GetDirectoryName(current))
         {
-            File.SetUnixFileMode(RootDirectory, DirectoryMode);
-            if (!string.Equals(directory, RootDirectory, StringComparison.Ordinal))
-                File.SetUnixFileMode(directory, DirectoryMode);
+            File.SetUnixFileMode(current, DirectoryMode);
         }
     }
 
@@ -109,14 +177,64 @@ internal static class AiTemporaryFileStore
             File.SetUnixFileMode(path, FileMode);
     }
 
-    private static void CleanStaleFilesOnce(string directory, DateTimeOffset now)
+    private static void CleanAbandonedSessionsOnce(string categoryRoot, DateTimeOffset now)
     {
         lock (s_gate)
         {
-            if (!s_cleanedDirectories.Add(directory))
+            if (!s_cleanedDirectories.Add(categoryRoot))
                 return;
         }
-        CleanStaleFiles(directory, now);
+        CleanAbandonedSessions(categoryRoot, now);
+    }
+
+    // Held for as long as this process runs. Another process reads the lock it
+    // cannot take as "the owner is still here".
+    private static void HoldSession(string sessionDirectory)
+    {
+        lock (s_gate)
+        {
+            if (s_sessionLocks.ContainsKey(sessionDirectory))
+                return;
+
+            try
+            {
+                s_sessionLocks[sessionDirectory] = OpenSessionLock(sessionDirectory);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Without the lock the directory only looks abandoned to another
+                // process once its files are stale, which is what the store did
+                // before sessions existed.
+            }
+        }
+    }
+
+    private static FileStream OpenSessionLock(string sessionDirectory)
+        => new(
+            Path.Combine(sessionDirectory, SessionLockName),
+            System.IO.FileMode.OpenOrCreate,
+            FileAccess.ReadWrite,
+            FileShare.None);
+
+    private static void TryRemoveFinishedSession(string sessionDirectory)
+    {
+        try
+        {
+            if (Directory.EnumerateFileSystemEntries(sessionDirectory)
+                .Any(entry => !string.Equals(
+                    Path.GetFileName(entry),
+                    SessionLockName,
+                    StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            File.Delete(Path.Combine(sessionDirectory, SessionLockName));
+            Directory.Delete(sessionDirectory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 
     private static string NormalizeComponent(string value, string parameterName)

@@ -50,6 +50,8 @@ internal static class AiErrorConverter
             ApiErrorCode.AiJobLimitReached => new AiJobLimitReachedException(innerException),
             ApiErrorCode.AiRequestInProgress => new AiRequestInProgressException(innerException),
             ApiErrorCode.AiRequestWasDeleted => new AiRequestWasDeletedException(innerException),
+            ApiErrorCode.AiModelDoesNotSupportRequest =>
+                new AiModelDoesNotSupportRequestException(innerException),
             _ => new AiException(
                 error?.Message ?? fallbackMessage ?? "The AI request failed.",
                 innerException,

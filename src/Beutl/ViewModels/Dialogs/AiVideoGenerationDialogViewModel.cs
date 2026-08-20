@@ -564,7 +564,8 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             return;
         }
 
-        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(SharedFilePickerOptions.OpenImage());
+        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(
+            SharedFilePickerOptions.OpenAiVideoFrame());
         if (files.Count > 0)
         {
             operation.TryPublish(() =>
@@ -808,6 +809,12 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         catch (AiUsageLimitExceededException)
         {
             operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
+        }
+        // Refused before the operation was reserved, so nothing was charged;
+        // what has to change is the model or the shape of the request.
+        catch (AiModelDoesNotSupportRequestException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiModelDoesNotSupportRequest);
         }
         catch (AiProviderErrorException)
         {

@@ -2,6 +2,7 @@
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Beutl.Api;
 using Beutl.Api.Clients;
@@ -742,6 +743,89 @@ public sealed class AiCapabilityServiceTests
     }
 
     [Test]
+    public async Task ModelCatalog_IsAskedForAgainOnceItsFreshnessRunsOut()
+    {
+        int fetches = 0;
+        using var handler = new RecordingHandler(_ =>
+        {
+            fetches++;
+            return JsonResponse(HttpStatusCode.OK, "{ \"operations\": {} }");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        var clock = new StepTimeProvider();
+        using var catalog = new AiModelCatalogService(app, clock);
+
+        await catalog.GetAsync(CancellationToken.None);
+        await catalog.GetAsync(CancellationToken.None);
+        // A model the operator disables has to stop being offered without the
+        // editor being restarted, so the list does not live forever.
+        clock.Advance(TimeSpan.FromMinutes(10));
+        await catalog.GetAsync(CancellationToken.None);
+
+        Assert.That(fetches, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task ModelCatalog_IsNotCarriedOverToAnotherAccount()
+    {
+        int fetches = 0;
+        using var handler = new RecordingHandler(_ =>
+        {
+            fetches++;
+            return JsonResponse(HttpStatusCode.OK, "{ \"operations\": {} }");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var catalog = new AiModelCatalogService(app, new StepTimeProvider());
+
+        await catalog.GetAsync(CancellationToken.None);
+        // What one account may pay for is not what the next one may.
+        SetAuthenticatedUser(app);
+        await catalog.GetAsync(CancellationToken.None);
+
+        Assert.That(fetches, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void ErrorCode_ReadsOneThisClientHasNeverHeardOfAsUnknown()
+    {
+        // A code with no handling of its own must still leave the status and the
+        // message readable rather than throwing the whole body away.
+        ApiErrorResponse? unknown = JsonSerializer.Deserialize<ApiErrorResponse>(
+            """{ "error_code": "somethingAddedLater", "message": "Later.", "documentation_url": null }""",
+            AiStreamJson.Options);
+        ApiErrorResponse? known = JsonSerializer.Deserialize<ApiErrorResponse>(
+            """{ "error_code": "aiModelDoesNotSupportRequest", "message": "No.", "documentation_url": null }""",
+            AiStreamJson.Options);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(unknown!.ErrorCode, Is.EqualTo(ApiErrorCode.Unknown));
+            Assert.That(unknown.Message, Is.EqualTo("Later."));
+            Assert.That(known!.ErrorCode, Is.EqualTo(ApiErrorCode.AiModelDoesNotSupportRequest));
+        }
+    }
+
+    [Test]
+    public void ModelRefusal_IsToldApartFromAnUnexpectedFailure()
+    {
+        AiException converted = AiErrorConverter.Convert(
+            400,
+            new ApiErrorResponse
+            {
+                ErrorCode = ApiErrorCode.AiModelDoesNotSupportRequest,
+                Message = "The model does not take this aspect ratio.",
+                DocumentationUrl = null,
+            },
+            null);
+
+        Assert.That(converted, Is.InstanceOf<AiModelDoesNotSupportRequestException>());
+    }
+
+    [Test]
     public void Transcription_RefusesAnUploadLargerThanTheEndpointTakes()
     {
         AiUploadSource oversized = new(
@@ -1152,6 +1236,17 @@ public sealed class AiCapabilityServiceTests
             lock (_reports)
                 _reports.Add(value);
         }
+    }
+
+    // Freshness is measured, not waited for.
+    private sealed class StepTimeProvider : TimeProvider
+    {
+        private long _timestamp;
+
+        public void Advance(TimeSpan amount)
+            => _timestamp += (long)(amount.TotalSeconds * TimestampFrequency);
+
+        public override long GetTimestamp() => _timestamp;
     }
 
     private sealed class TrackingMemoryStream(byte[] buffer) : MemoryStream(buffer)

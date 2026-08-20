@@ -383,7 +383,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         if (TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
             return;
 
-        FilePickerOpenOptions options = SharedFilePickerOptions.OpenImage();
+        FilePickerOpenOptions options = SharedFilePickerOptions.OpenAiInputImage();
         IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(options);
         if (files.Count > 0)
         {
@@ -534,6 +534,12 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         }
         // Settled and refunded server-side: the key that named it would keep
         // answering with that failure, so the next attempt asks under a new one.
+        // Refused before the operation was reserved, so nothing was charged;
+        // what has to change is the model or the shape of the request.
+        catch (AiModelDoesNotSupportRequestException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiModelDoesNotSupportRequest);
+        }
         catch (AiProviderErrorException)
         {
             _requestKey.Retire();
