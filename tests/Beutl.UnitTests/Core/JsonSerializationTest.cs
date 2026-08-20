@@ -235,6 +235,25 @@ public class JsonSerializationTest
     }
 
     [Test]
+    public void RestoreFromUri_RejectsWrongDiscriminatorForSealedProject()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-project-discriminator-{Guid.NewGuid():N}.bep");
+        try
+        {
+            JsonObject json = CoreSerializer.SerializeToJsonObject(new Project());
+            json["$type"] = TypeFormat.ToString(typeof(Scene));
+            File.WriteAllText(path, json.ToJsonString());
+
+            Assert.Throws<InvalidCastException>(() =>
+                CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(path)));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Test]
     public void Resolve()
     {
         var original1 = new TestSerializable();

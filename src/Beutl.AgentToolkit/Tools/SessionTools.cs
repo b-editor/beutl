@@ -1,12 +1,16 @@
-﻿using System.ComponentModel;
+﻿using System.Collections;
+using System.ComponentModel;
 using System.Globalization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Animation;
 using Beutl.Editor;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit.Tools;
@@ -15,7 +19,20 @@ public sealed record SceneSummary(string SceneId, string Name, int Width, int He
 
 public sealed record SessionSummary(IReadOnlyList<SceneSummary> Scenes);
 
-public sealed record OpenProjectResponse(string Session, string Source, SessionSummary Summary);
+public sealed record RecoveryIncident(
+    string SceneId,
+    string SceneName,
+    string ElementFile,
+    string Reason,
+    string? TypeName,
+    string? Message);
+
+public sealed record OpenProjectResponse(string Session, string Source, SessionSummary Summary)
+{
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    public IReadOnlyList<RecoveryIncident> RecoveryIncidents { get; init; } = [];
+}
 
 public sealed record CreateProjectResponse(string Session, string SavedPath, SessionSummary Summary);
 
@@ -68,12 +85,94 @@ public sealed class SessionTools(
             }
 
             ProjectSessionResult result = await projects.OpenProjectAsync(fullPath, cancellationToken).ConfigureAwait(false);
+            DeserializationWarningCollection recovery = result.Session.ReadOnSession(
+                () => CollectDeserializationWarnings(result.Project));
             return new OpenProjectResponse(
                 result.Session.SessionId,
                 result.Session.Source.ToString(),
-                CreateSummary(result.Session, result.Project));
+                CreateSummary(result.Session, result.Project))
+            {
+                Warnings = recovery.Warnings,
+                RecoveryIncidents = recovery.RecoveryIncidents,
+            };
         });
     }
+
+    private static DeserializationWarningCollection CollectDeserializationWarnings(Project project)
+    {
+        var warnings = new List<string>();
+        var incidents = new List<RecoveryIncident>();
+        foreach (Scene scene in project.Items.OfType<Scene>())
+        {
+            foreach (Element element in scene.Children)
+            {
+                IFallback[] fallbacks = SerializedGraphTraversal.Enumerate(element)
+                    .OfType<IFallback>()
+                    .ToArray();
+
+                string elementFile = element.Uri is { IsFile: true } uri
+                    && scene.Uri is { IsFile: true } sceneUri
+                    ? Path.GetRelativePath(
+                        Path.GetDirectoryName(sceneUri.LocalPath)!,
+                        uri.LocalPath).Replace('\\', '/')
+                    : element.Name;
+                foreach (IFallback fallback in fallbacks)
+                {
+                    fallback.TryGetTypeName(out string? typeName);
+                    if (string.Equals(
+                            typeName,
+                            IdentityHelper.WriteDiscriminator(fallback.GetType()),
+                            StringComparison.Ordinal))
+                    {
+                        typeName = null;
+                    }
+
+                    incidents.Add(new RecoveryIncident(
+                        scene.Id.ToString(),
+                        scene.Name,
+                        elementFile,
+                        fallback.Reason.ToString(),
+                        typeName,
+                        fallback.ErrorMessage));
+                    string error = string.IsNullOrWhiteSpace(fallback.ErrorMessage)
+                        ? fallback.Reason.ToString()
+                        : fallback.ErrorMessage;
+                    warnings.Add(
+                        $"Element file '{elementFile}' contains content that could not be deserialized: {error}");
+                }
+
+                if (element.SuppressedStorageSource is { HasNonFallbackIncidents: true } source)
+                {
+                    SuppressedRecoveryIncident[] recoveryIncidents
+                        = source.RecoveryIncidents is { Length: > 0 } details
+                            ? details
+                            : [new SuppressedRecoveryIncident(
+                                nameof(FallbackReason.DeserializationFailed),
+                                null,
+                                "A value was replaced during load, and the original element file is preserved.")];
+                    foreach (SuppressedRecoveryIncident recoveryIncident in recoveryIncidents)
+                    {
+                        incidents.Add(new RecoveryIncident(
+                            scene.Id.ToString(),
+                            scene.Name,
+                            elementFile,
+                            recoveryIncident.Reason,
+                            recoveryIncident.TypeName,
+                            recoveryIncident.Message));
+                        string message = recoveryIncident.Message ?? recoveryIncident.Reason;
+                        warnings.Add(
+                            $"Element file '{elementFile}' had a value replaced during load: {message}");
+                    }
+                }
+            }
+        }
+
+        return new DeserializationWarningCollection(warnings, incidents);
+    }
+
+    private sealed record DeserializationWarningCollection(
+        IReadOnlyList<string> Warnings,
+        IReadOnlyList<RecoveryIncident> RecoveryIncidents);
 
     [McpServerTool(Name = "create_project")]
     [Description("Creates and saves a new Beutl .bep project with one scene, then makes it the active editing session. In the in-app host the project opens in the Beutl editor (single open project, LiveEditor session); in the stdio host it becomes a file-backed session. Paths without an extension are saved as .bep; .beutl is reserved for project packages. The output path is restricted to BEUTL_WORKSPACE.")]
@@ -178,7 +277,7 @@ public sealed class SessionTools(
             {
                 string writePath = NormalizeProjectPath(workspace, path, nameof(path));
                 string currentPath = fileSession.Project.Uri?.LocalPath ?? string.Empty;
-                if (!string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(writePath), PathComparison.ForCurrentPlatform))
+                if (!string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(writePath), PathBoundary.Comparison))
                 {
                     destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
                     fileSession.SaveAs(writePath, skipConflictCheck: confirmOverwrite);

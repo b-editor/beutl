@@ -101,7 +101,8 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public void SetJsonString(string? str)
     {
-        SetValue(Value.Value, FallbackHelper.DeserializeInstance<Geometry>(str));
+        Geometry? previous = Value.Value;
+        SetValue(previous, FallbackHelper.DeserializeInstance<Geometry>(str));
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
@@ -132,8 +133,15 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
     {
         if (template.CreateInstance() is not Geometry instance) return false;
         IsExpanded.Value = true;
-        PropertyAdapter.SetValue(instance);
-        Commit(CommandNames.ApplyTemplate);
+        if (EditingKeyFrame.Value is { } keyFrame)
+        {
+            SetValue(keyFrame.Value, instance, CommandNames.ApplyTemplate);
+        }
+        else
+        {
+            SetValue(PropertyAdapter.GetValue(), instance, CommandNames.ApplyTemplate);
+        }
+
         return true;
     }
 
@@ -144,18 +152,18 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         IsExpanded.Value = true;
         if (EditingKeyFrame.Value is { } kf)
         {
-            kf.Value = pasted;
+            SetValue(kf.Value, pasted, CommandNames.PasteObject);
         }
         else if (PropertyAdapter is ListItemAccessorImpl<Geometry> listItemAccessor)
         {
             listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+            Commit(CommandNames.PasteObject);
         }
         else
         {
-            PropertyAdapter.SetValue(pasted);
+            SetValue(PropertyAdapter.GetValue(), pasted, CommandNames.PasteObject);
         }
 
-        Commit(CommandNames.PasteObject);
         return true;
     }
 

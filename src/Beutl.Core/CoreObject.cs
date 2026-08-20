@@ -74,6 +74,10 @@ public abstract class CoreObject : ICoreObject
 
     public Uri? Uri { get; set; }
 
+    // Non-null while this object stands in for a file the serializer must not regenerate:
+    // StoreToUri skips the source location and copies the raw text verbatim to any new one.
+    internal SuppressedStorageSource? SuppressedStorageSource { get; set; }
+
     private Dictionary<int, IEntry> Values => _values ??= [];
 
     private Dictionary<int, string> Errors => _errors ??= [];
@@ -185,6 +189,26 @@ public abstract class CoreObject : ICoreObject
 
     public void SetValue<TValue>(CoreProperty<TValue> property, TValue? value)
     {
+        SetValueCore(property, value, forceReferenceReplacement: false);
+    }
+
+    internal void ReplaceValue<TValue>(CoreProperty<TValue> property, TValue? value)
+    {
+        SetValueCore(property, value, forceReferenceReplacement: true);
+    }
+
+    internal void ReplaceValue(CoreProperty property, object? value)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+
+        property.RouteReplaceValue(this, value);
+    }
+
+    private void SetValueCore<TValue>(
+        CoreProperty<TValue> property,
+        TValue? value,
+        bool forceReferenceReplacement)
+    {
         if (value != null && !value.GetType().IsAssignableTo(property.PropertyType))
         {
             throw new InvalidOperationException(
@@ -211,7 +235,7 @@ public abstract class CoreObject : ICoreObject
             oldEntry is Entry<TValue> entryT)
         {
             TValue? oldValue = entryT.Value;
-            if (!EqualityComparer<TValue>.Default.Equals(oldValue, value))
+            if (ValueReplacement.RequiresReplacement(oldValue, value, forceReferenceReplacement))
             {
                 entryT.Value = value;
                 RaisePropertyChanged(property, metadata, value, oldValue);
@@ -219,7 +243,7 @@ public abstract class CoreObject : ICoreObject
         }
         else
         {
-            if (!EqualityComparer<TValue>.Default.Equals(metadata.DefaultValue, value))
+            if (ValueReplacement.RequiresReplacement(metadata.DefaultValue, value, forceReferenceReplacement))
             {
                 entryT = new Entry<TValue> { Value = value, };
                 Values[property.Id] = entryT;
@@ -271,10 +295,19 @@ public abstract class CoreObject : ICoreObject
 
     protected bool SetAndRaise<T>(CoreProperty<T> property, ref T field, T value)
     {
+        return SetAndRaise(property, ref field, value, forceReferenceReplacement: false);
+    }
+
+    protected bool SetAndRaise<T>(
+        CoreProperty<T> property,
+        ref T field,
+        T value,
+        bool forceReferenceReplacement)
+    {
         CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
         ValidateProperty(metadata, property, ref value!);
 
-        bool result = !EqualityComparer<T>.Default.Equals(field, value);
+        bool result = ValueReplacement.RequiresReplacement(field, value, forceReferenceReplacement);
         if (result)
         {
             T old = field;

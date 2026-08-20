@@ -1,13 +1,16 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reflection;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -16,6 +19,87 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 
 public sealed class ApplyEditTests
 {
+    private sealed class RegisteredTransformElement : Element
+    {
+        public static readonly CoreProperty<Transform?> PluginTransformProperty;
+
+        static RegisteredTransformElement()
+        {
+            PluginTransformProperty = ConfigureProperty<Transform?, RegisteredTransformElement>(
+                    nameof(PluginTransform))
+                .Register();
+        }
+
+        public Transform? PluginTransform
+        {
+            get => GetValue(PluginTransformProperty);
+            set => SetValue(PluginTransformProperty, value);
+        }
+    }
+
+    [SuppressResourceClassGeneration]
+    public sealed class DictionaryTransformHolder : EngineObject
+    {
+        public DictionaryTransformHolder()
+        {
+            ScanProperties<DictionaryTransformHolder>();
+        }
+
+        public IProperty<Dictionary<string, Transform>> Transforms { get; }
+            = Property.Create<Dictionary<string, Transform>>();
+    }
+
+    [SuppressResourceClassGeneration]
+    public sealed class ArbitraryValueHolder : EngineObject
+    {
+        public ArbitraryValueHolder()
+        {
+            ScanProperties<ArbitraryValueHolder>();
+        }
+
+        public IProperty<object?> Value { get; } = Property.Create<object?>();
+    }
+
+    [SuppressResourceClassGeneration]
+    public sealed class OptionalTransformHolder : EngineObject
+    {
+        public OptionalTransformHolder()
+        {
+            ScanProperties<OptionalTransformHolder>();
+        }
+
+        public IProperty<Optional<Transform>> Transform { get; }
+            = Property.Create<Optional<Transform>>();
+    }
+
+    private sealed class PlainFallback : IFallback
+    {
+        public JsonObject? Json { get; set; } = new()
+        {
+            ["$type"] = "[Missing.Plugin]Missing.Namespace:MissingValue",
+        };
+
+        public FallbackReason Reason { get; set; } = FallbackReason.TypeNotFound;
+
+        public string? ErrorMessage { get; set; }
+
+        public void Serialize(ICoreSerializationContext context)
+        {
+            (context as IJsonSerializationContext)?.SetJsonObject(Json!);
+        }
+
+        public void Deserialize(ICoreSerializationContext context)
+        {
+            Json = (context as IJsonSerializationContext)?.GetJsonObject();
+        }
+
+        public bool TryGetTypeName([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? result)
+        {
+            result = "[Missing.Plugin]Missing.Namespace:MissingValue";
+            return true;
+        }
+    }
+
     [Test]
     public void Apply_edit_applies_patch_directly()
     {
@@ -133,6 +217,198 @@ public sealed class ApplyEditTests
             Assert.That(apply.Error.Hint, Does.Contain("Objects require concrete EngineObject discriminators"));
             Assert.That(scene.Children, Is.Empty);
         });
+    }
+
+    [Test]
+    public void Validate_no_new_fallback_objects_rejects_dictionary_values()
+    {
+        Scene current = CreateSceneWithElement(out Element currentElement);
+        var currentHolder = new DictionaryTransformHolder();
+        var currentTransform = new TranslateTransform(10, 20);
+        currentHolder.Transforms.CurrentValue = new Dictionary<string, Transform>
+        {
+            ["move"] = currentTransform,
+        };
+        currentElement.AddObject(currentHolder);
+        using var session = new AgentToolkitTestSession(current);
+
+        Scene sandbox = CreateSceneWithElement(out Element sandboxElement);
+        var sandboxHolder = new DictionaryTransformHolder();
+        sandboxHolder.Transforms.CurrentValue = new Dictionary<string, Transform>
+        {
+            ["move"] = new FallbackTransform(),
+        };
+        sandboxElement.AddObject(sandboxHolder);
+        MethodInfo method = typeof(Reconciler).GetMethod(
+            "ValidateNoNewFallbackObjects",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+            method.Invoke(null, new object[] { session, sandbox }))!;
+        var error = (ReconcileException)exception.InnerException!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(error.Error.Message, Does.Contain("fallback object"));
+            Assert.That(error.Error.Target, Does.Contain(nameof(DictionaryTransformHolder.Transforms)));
+            Assert.That(currentHolder.Transforms.CurrentValue!["move"], Is.SameAs(currentTransform));
+        });
+    }
+
+    [Test]
+    public void Validate_no_new_fallback_objects_rejects_optional_values()
+    {
+        Scene current = CreateSceneWithElement(out Element currentElement);
+        var currentHolder = new OptionalTransformHolder();
+        currentHolder.Transform.CurrentValue = new Optional<Transform>(new RotationTransform());
+        currentElement.AddObject(currentHolder);
+        using var session = new AgentToolkitTestSession(current);
+
+        Scene sandbox = CreateSceneWithElement(out Element sandboxElement);
+        var sandboxHolder = new OptionalTransformHolder();
+        sandboxHolder.Transform.CurrentValue = new Optional<Transform>(new FallbackTransform());
+        sandboxElement.AddObject(sandboxHolder);
+        MethodInfo method = typeof(Reconciler).GetMethod(
+            "ValidateNoNewFallbackObjects",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+            method.Invoke(null, new object[] { session, sandbox }))!;
+        var error = (ReconcileException)exception.InnerException!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(error.Error.Target, Does.Contain(nameof(OptionalTransformHolder.Transform)));
+        });
+    }
+
+    [Test]
+    public void Validate_no_new_fallback_objects_rejects_element_hierarchy_children_outside_objects()
+    {
+        Scene current = CreateSceneWithElement(out _);
+        using var session = new AgentToolkitTestSession(current);
+        Scene sandbox = CreateSceneWithElement(out Element sandboxElement);
+        ((IModifiableHierarchical)sandboxElement).AddChild(new FallbackTransform());
+        MethodInfo method = typeof(Reconciler).GetMethod(
+            "ValidateNoNewFallbackObjects",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+            method.Invoke(null, new object[] { session, sandbox }))!;
+        var error = (ReconcileException)exception.InnerException!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sandboxElement.Objects, Is.Empty);
+            Assert.That(error.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(error.Error.Message, Does.Contain("fallback object"));
+            Assert.That(error.Error.Target, Does.Contain("HierarchicalChildren"));
+        });
+    }
+
+    [Test]
+    public void Validate_no_new_fallback_objects_rejects_registered_properties_on_non_engine_objects()
+    {
+        Scene current = CreateScene();
+        current.Children.Add(new RegisteredTransformElement
+        {
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(current.Uri!.LocalPath)!, "element.belm")),
+            PluginTransform = new RotationTransform(),
+        });
+        using var session = new AgentToolkitTestSession(current);
+        Scene sandbox = CreateScene();
+        sandbox.Children.Add(new RegisteredTransformElement
+        {
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(sandbox.Uri!.LocalPath)!, "element.belm")),
+            PluginTransform = new FallbackTransform(),
+        });
+        MethodInfo method = typeof(Reconciler).GetMethod(
+            "ValidateNoNewFallbackObjects",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+            method.Invoke(null, new object[] { session, sandbox }))!;
+        var error = (ReconcileException)exception.InnerException!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(error.Error.Target, Does.Contain(nameof(RegisteredTransformElement.PluginTransform)));
+        });
+    }
+
+    [Test]
+    public void Validate_no_new_fallback_objects_rejects_non_core_fallbacks()
+    {
+        Scene current = CreateSceneWithElement(out _);
+        using var session = new AgentToolkitTestSession(current);
+        Scene sandbox = CreateSceneWithElement(out Element sandboxElement);
+        var holder = new ArbitraryValueHolder();
+        holder.Value.CurrentValue = new PlainFallback();
+        sandboxElement.AddObject(holder);
+        MethodInfo method = typeof(Reconciler).GetMethod(
+            "ValidateNoNewFallbackObjects",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+            method.Invoke(null, new object[] { session, sandbox }))!;
+        var error = (ReconcileException)exception.InnerException!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(error.Error.Target, Does.Contain(nameof(ArbitraryValueHolder.Value)));
+        });
+    }
+
+    [Test]
+    public void Validate_no_new_fallback_objects_allows_existing_non_core_fallbacks()
+    {
+        Scene current = CreateSceneWithElement(out Element currentElement);
+        var currentHolder = new ArbitraryValueHolder();
+        currentHolder.Value.CurrentValue = new PlainFallback();
+        currentElement.AddObject(currentHolder);
+        using var session = new AgentToolkitTestSession(current);
+        Scene sandbox = CreateSceneWithElement(out Element sandboxElement);
+        var sandboxHolder = new ArbitraryValueHolder();
+        sandboxHolder.Value.CurrentValue = new PlainFallback();
+        sandboxElement.AddObject(sandboxHolder);
+        MethodInfo method = typeof(Reconciler).GetMethod(
+            "ValidateNoNewFallbackObjects",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.DoesNotThrow(() => method.Invoke(null, new object[] { session, sandbox }));
+    }
+
+    [Test]
+    public void Validate_no_new_fallback_objects_rejects_additional_matching_non_core_fallbacks()
+    {
+        Scene current = CreateSceneWithElement(out Element currentElement);
+        var currentHolder = new ArbitraryValueHolder();
+        currentHolder.Value.CurrentValue = new PlainFallback();
+        currentElement.AddObject(currentHolder);
+        using var session = new AgentToolkitTestSession(current);
+        Scene sandbox = CreateSceneWithElement(out Element sandboxElement);
+        for (int i = 0; i < 2; i++)
+        {
+            var holder = new ArbitraryValueHolder();
+            holder.Value.CurrentValue = new PlainFallback();
+            sandboxElement.AddObject(holder);
+        }
+
+        MethodInfo method = typeof(Reconciler).GetMethod(
+            "ValidateNoNewFallbackObjects",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() =>
+            method.Invoke(null, new object[] { session, sandbox }))!;
+        var error = (ReconcileException)exception.InnerException!;
+
+        Assert.That(error.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
     }
 
     [Test]

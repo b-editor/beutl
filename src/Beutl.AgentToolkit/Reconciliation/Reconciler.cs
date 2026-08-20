@@ -330,6 +330,7 @@ public sealed class Reconciler
     {
         JsonObject desiredDocument = PrepareDesired(session, desired);
         ReconcilePlan plan = PlanPrepared(session, desiredDocument, knownNewIds);
+        Element[] affectedSuppressedElements = GetAffectedSuppressedElements(session.Root, plan);
         session.History.ExecuteInTransaction(
             () =>
             {
@@ -337,6 +338,20 @@ public sealed class Reconciler
                 if (session.Root is Scene scene)
                 {
                     ProjectOperations.NormalizeSidecarUrisWithinProject(scene);
+                }
+
+                foreach (Element element in affectedSuppressedElements)
+                {
+                    if (Scene.TryResumeElementPersistence(element) is { } suppression)
+                    {
+                        session.History.Record(
+                            () => element.SuppressedStorageSource = null,
+                            () =>
+                            {
+                                suppression.WasReinstated = true;
+                                element.SuppressedStorageSource = suppression;
+                            });
+                    }
                 }
             },
             "Agent edit");
@@ -347,6 +362,49 @@ public sealed class Reconciler
         }
 
         return new ReconcileResult(plan, session.Documents.Read(session.Root));
+    }
+
+    private static Element[] GetAffectedSuppressedElements(CoreObject root, ReconcilePlan plan)
+    {
+        if (plan.Changes.Count == 0)
+        {
+            return [];
+        }
+
+        if (root is Element { SuppressedStorageSource: not null } element)
+        {
+            return [element];
+        }
+
+        if (root is not Scene scene)
+        {
+            return [];
+        }
+
+        var affectedIds = new HashSet<Guid>();
+        const string pathPrefix = "$/Elements[Id=";
+        foreach (var change in plan.Changes)
+        {
+            if (Guid.TryParse(change.TargetId, out Guid targetId))
+            {
+                affectedIds.Add(targetId);
+            }
+
+            if (change.Path.StartsWith(pathPrefix, StringComparison.Ordinal))
+            {
+                int end = change.Path.IndexOf(']', pathPrefix.Length);
+                if (end >= 0
+                    && Guid.TryParse(change.Path.AsSpan(pathPrefix.Length, end - pathPrefix.Length), out Guid pathId))
+                {
+                    affectedIds.Add(pathId);
+                }
+            }
+        }
+
+        return scene.Children
+            .Where(static child => child.SuppressedStorageSource is not null)
+            .Where(child => affectedIds.Contains(child.Id))
+            .ToArray();
     }
 
     // Build the plan on the editor's dispatcher: PlanPrepared reads session.Documents/Root, so off
@@ -643,8 +701,8 @@ public sealed class Reconciler
 
     private static void ValidateNoNewFallbackObjects(IEditingSession session, CoreObject sandboxRoot)
     {
-        HashSet<Guid> existingFallbackIds = CollectFallbackIds(session.Root);
-        if (FindFirstNewFallback(sandboxRoot, "$", existingFallbackIds) is { } occurrence)
+        Dictionary<FallbackIdentity, int> existingFallbacks = CollectFallbackIdentities(session.Root);
+        if (FindFirstNewFallback(sandboxRoot, "$", existingFallbacks) is { } occurrence)
         {
             string typeDetail = string.IsNullOrWhiteSpace(occurrence.FallbackTypeName)
                 ? "unknown serialized type"
@@ -678,139 +736,61 @@ public sealed class Reconciler
         return clone;
     }
 
-    private static HashSet<Guid> CollectFallbackIds(CoreObject root)
+    private static Dictionary<FallbackIdentity, int> CollectFallbackIdentities(CoreObject root)
     {
-        var ids = new HashSet<Guid>();
-        if (root is IHierarchical hierarchical)
+        var identities = new Dictionary<FallbackIdentity, int>();
+        SerializedGraphTraversal.Visit(root, "$", (node, _) =>
         {
-            foreach (IFallback fallback in hierarchical.EnumerateAllChildren<IFallback>())
+            if (node is IFallback fallback)
             {
-                if (fallback is CoreObject coreObject)
-                {
-                    ids.Add(coreObject.Id);
-                }
+                FallbackIdentity identity = CreateFallbackIdentity(fallback);
+                identities[identity] = identities.GetValueOrDefault(identity) + 1;
             }
-        }
 
-        if (root is IFallback rootFallback)
-        {
-            ids.Add(((CoreObject)rootFallback).Id);
-        }
+            return false;
+        });
 
-        return ids;
+        return identities;
     }
 
     private static FallbackOccurrence? FindFirstNewFallback(
         CoreObject root,
         string path,
-        HashSet<Guid> existingFallbackIds)
+        Dictionary<FallbackIdentity, int> existingFallbacks)
     {
-        var visited = new HashSet<Guid>();
-        return FindFirstNewFallbackCore(root, path, existingFallbackIds, visited);
-    }
-
-    private static FallbackOccurrence? FindFirstNewFallbackCore(
-        CoreObject node,
-        string path,
-        HashSet<Guid> existingFallbackIds,
-        HashSet<Guid> visited)
-    {
-        if (!visited.Add(node.Id))
+        FallbackOccurrence? result = null;
+        SerializedGraphTraversal.Visit(root, path, (node, nodePath) =>
         {
-            return null;
-        }
+            if (node is not IFallback fallback)
+            {
+                return false;
+            }
 
-        if (node is IFallback fallback && !existingFallbackIds.Contains(node.Id))
-        {
+            FallbackIdentity identity = CreateFallbackIdentity(fallback);
+            if (existingFallbacks.TryGetValue(identity, out int remaining) && remaining > 0)
+            {
+                existingFallbacks[identity] = remaining - 1;
+                return false;
+            }
+
             fallback.TryGetTypeName(out string? fallbackTypeName);
-            return new FallbackOccurrence(
-                path,
-                node.Id,
+            result = new FallbackOccurrence(
+                nodePath,
                 fallbackTypeName,
                 fallback.Reason.ToString(),
                 fallback.ErrorMessage);
-        }
-
-        switch (node)
-        {
-            case Scene scene:
-                for (int i = 0; i < scene.Children.Count; i++)
-                {
-                    if (FindFirstNewFallbackCore(
-                            scene.Children[i],
-                            $"{path}/Elements[{i}]",
-                            existingFallbackIds,
-                            visited) is { } occurrence)
-                    {
-                        return occurrence;
-                    }
-                }
-                break;
-
-            case Element element:
-                for (int i = 0; i < element.Objects.Count; i++)
-                {
-                    if (FindFirstNewFallbackCore(
-                            element.Objects[i],
-                            $"{path}/Objects[{i}]",
-                            existingFallbackIds,
-                            visited) is { } occurrence)
-                    {
-                        return occurrence;
-                    }
-                }
-                break;
-
-            case EngineObject engineObject:
-                foreach (IProperty property in engineObject.Properties)
-                {
-                    if (FindFirstNewFallbackInValue(
-                            property.CurrentValue,
-                            $"{path}/{property.Name}",
-                            existingFallbackIds,
-                            visited) is { } occurrence)
-                    {
-                        return occurrence;
-                    }
-                }
-                break;
-        }
-
-        return null;
+            return true;
+        });
+        return result;
     }
 
-    private static FallbackOccurrence? FindFirstNewFallbackInValue(
-        object? value,
-        string path,
-        HashSet<Guid> existingFallbackIds,
-        HashSet<Guid> visited)
+    private static FallbackIdentity CreateFallbackIdentity(IFallback fallback)
     {
-        switch (value)
-        {
-            case CoreObject coreObject:
-                return FindFirstNewFallbackCore(coreObject, path, existingFallbackIds, visited);
-            case IEnumerable enumerable when value is not string:
-                {
-                    int index = 0;
-                    foreach (object? item in enumerable)
-                    {
-                        if (FindFirstNewFallbackInValue(
-                                item,
-                                $"{path}[{index}]",
-                                existingFallbackIds,
-                                visited) is { } occurrence)
-                        {
-                            return occurrence;
-                        }
-
-                        index++;
-                    }
-
-                    break;
-                }
-        }
-
-        return null;
+        return fallback is CoreObject { Id: var id } && id != Guid.Empty
+            ? new FallbackIdentity(id, null)
+            : new FallbackIdentity(
+                null,
+                $"{fallback.GetType().AssemblyQualifiedName}|{fallback.Json?.ToJsonString()}");
     }
 
     private static string CreateFallbackHint(FallbackOccurrence occurrence)
@@ -1242,9 +1222,10 @@ public sealed class Reconciler
         return left.ToJsonString() == right.ToJsonString();
     }
 
+    private readonly record struct FallbackIdentity(Guid? Id, string? Signature);
+
     private sealed record FallbackOccurrence(
         string Path,
-        Guid Id,
         string? FallbackTypeName,
         string Reason,
         string? Message);

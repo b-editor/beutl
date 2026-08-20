@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
@@ -13,6 +14,52 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 
 public sealed class ReconcilerIdIntegrityTests
 {
+    [Test]
+    public void Apply_repair_of_last_fallback_resumes_persistence_in_same_transaction()
+    {
+        Scene source = CreateSceneWithElement(out Element sourceElement);
+        sourceElement.AddObject(new RectShape());
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        string elementPath = sourceElement.Uri!.LocalPath;
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject()["$type"]
+            = "[Beutl.Engine]Beutl.Graphics.Shapes:MissingShape";
+        File.WriteAllText(elementPath, elementJson.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(source.Uri!);
+        Element recoveredElement = recovered.Children.Single();
+        var fallback = (EngineObject)recoveredElement.Objects.Single();
+        using var session = new AgentToolkitTestSession(recovered);
+        JsonObject desired = session.Documents.Read(recovered);
+        JsonObject repairedJson = CoreSerializer.SerializeToJsonObject(new RectShape
+        {
+            Name = "Repaired shape",
+        });
+        // Omit the Id: the reconciler mints one for the inserted entity and treats the
+        // subtree as new, the sanctioned replacement for a fallback whose type cannot
+        // change in place.
+        repairedJson.Remove(nameof(CoreObject.Id));
+        JsonObject desiredElement = desired["Elements"]!.AsArray()[0]!.AsObject();
+        desiredElement[nameof(Element.Objects)] = new JsonArray(repairedJson);
+
+        var reconciler = new Reconciler();
+        ReconcileResult result = reconciler.Apply(session, desired);
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+        byte[] repairedBytes = File.ReadAllBytes(elementPath);
+        bool undone = session.History.Undo();
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Plan.Valid, Is.True);
+            Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
+            Assert.That(undone, Is.True);
+            Assert.That(recoveredElement.Objects.Single(), Is.SameAs(fallback));
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
+    }
+
     [Test]
     public void Mint_missing_ids_avoids_reserved_collisions()
     {
@@ -176,6 +223,57 @@ public sealed class ReconcilerIdIntegrityTests
         });
     }
 
+    [Test]
+    public void Apply_edit_allows_preexisting_fallback_in_nonhierarchical_property_value()
+    {
+        Scene scene = CreateSceneWithElement(out Element healthy);
+        string directory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        var carrier = new Element
+        {
+            Start = TimeSpan.FromSeconds(4),
+            Length = TimeSpan.FromSeconds(4),
+            Uri = new Uri(Path.Combine(directory, "carrier.belm")),
+        };
+        var holder = new NonHierarchicalValueHolder();
+        holder.Value.CurrentValue = new RectShape();
+        carrier.AddObject(holder);
+        scene.Children.Add(carrier);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+
+        JsonObject carrierJson = JsonNode.Parse(File.ReadAllText(carrier.Uri.LocalPath))!.AsObject();
+        JsonObject valueJson = carrierJson[nameof(Element.Objects)]!.AsArray()[0]!
+            [nameof(NonHierarchicalValueHolder.Value)]!.AsObject();
+        valueJson["$type"] = "[Beutl.Engine]Beutl.Engine:MissingPropertyValue";
+        valueJson.Remove(nameof(CoreObject.Id));
+        File.WriteAllText(carrier.Uri.LocalPath, carrierJson.ToJsonString());
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        Element recoveredHealthy = recovered.Children.Single(item => item.Id == healthy.Id);
+
+        using var session = new AgentToolkitTestSession(recovered);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+        JsonObject renamePatch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["Id"] = healthy.Id.ToString(),
+                ["Name"] = "Renamed healthy element",
+            }),
+        };
+
+        ToolResult<ApplyEditResponse> renamed = tools.ApplyEdit(
+            patch: renamePatch,
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renamed.IsSuccess, Is.True, renamed.Error?.Message);
+            Assert.That(recoveredHealthy.Name, Is.EqualTo("Renamed healthy element"));
+        });
+    }
+
     private static JsonObject CreateDocumentWithIdlessRect(out string mintPath)
     {
         mintPath = "$/Elements[0]/Objects[0]";
@@ -210,5 +308,17 @@ public sealed class ReconcilerIdIntegrityTests
         };
         scene.Children.Add(element);
         return scene;
+    }
+
+    public sealed class NonHierarchicalValueHolder : EngineObject
+    {
+        public NonHierarchicalValueHolder()
+        {
+            Value.SetAttributes(nameof(Value), []);
+            Value.SetValidator(Value.CreateValidator([]));
+            RegisterProperty(Value);
+        }
+
+        public IProperty<EngineObject?> Value { get; } = Property.Create<EngineObject?>();
     }
 }

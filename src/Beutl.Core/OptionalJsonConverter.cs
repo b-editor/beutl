@@ -33,7 +33,9 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
                 goto Return;
             }
 
-            instance = JsonSerializer.Deserialize(jsonNode, valueType, options);
+            instance = typeof(ICoreSerializable).IsAssignableFrom(valueType)
+                ? CoreSerializer.DeserializeFromJsonNode(jsonNode, valueType)
+                : JsonSerializer.Deserialize(jsonNode, valueType, options);
 
         Return:
             var o = (IOptional?)Activator.CreateInstance(typeToConvert, instance);

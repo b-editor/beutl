@@ -244,6 +244,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     {
         if (Value.Value is IPresenter<FilterEffect> presenter)
         {
+            FilterEffect? previous = presenter.Target.CurrentValue;
             if (target != null)
             {
                 var expression = Expression.CreateReference<FilterEffect>(target.Id);
@@ -255,6 +256,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
                 presenter.Target.CurrentValue = null;
             }
 
+            ResumeElementPersistenceAfterFallbackReplacement(previous);
             Commit();
         }
     }
@@ -280,7 +282,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public void SetJsonString(string? str)
     {
-        SetValue(Value.Value, FallbackHelper.DeserializeInstance<FilterEffect>(str));
+        FilterEffect? previous = Value.Value;
+        SetValue(previous, FallbackHelper.DeserializeInstance<FilterEffect>(str));
     }
 
     protected override void Dispose(bool disposing)
