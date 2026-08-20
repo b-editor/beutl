@@ -106,18 +106,21 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
                 (hasInput, transcribing, translating) => hasInput && !transcribing && !translating)
             .CombineLatest(
                 TranscriptionEstimate.CanAfford,
-                HasPartialResult,
+                HasOutstandingCaptionRequest,
                 // Or a run that has already named pieces: the server answers a
                 // repeat with the job that name made before it looks at the
                 // balance, so a run whose last piece spent the balance has to
                 // stay collectable.
-                (canTranscribe, canAfford, resumable) =>
-                    canTranscribe && (canAfford || resumable))
+                (canTranscribe, canAfford, outstanding) =>
+                    canTranscribe && (canAfford || outstanding))
             .CombineLatest(
                 TranscriptionModelPicker.OffersNothingUsable,
-                // Every model the operation registered was ruled out, so a
-                // request would be refused however it is shaped.
-                (can, nothingUsable) => can && !nothingUsable)
+                HasOutstandingCaptionRequest,
+                // Every model the operation registered was ruled out, so a new
+                // request would be refused however it is shaped — but a run
+                // already holding a name is answered from the job it made.
+                (can, nothingUsable, outstanding) =>
+                    can && (!nothingUsable || outstanding))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 

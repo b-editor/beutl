@@ -37,6 +37,10 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     private readonly IAiImageGenerationService _images;
     private readonly IAuthenticatedContentService _content;
     private readonly AiRequestKey _requestKey = new();
+    // The model the outstanding name was built from. A refresh that withdraws
+    // that model would otherwise rebuild the name around whatever the picker
+    // fell back to, and the job the first attempt paid for would be left behind.
+    private AiModelId? _outstandingModel;
     private readonly EditViewModel? _editViewModel;
     private Task? _disposeTask;
 
@@ -153,9 +157,13 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                     canGenerate && (canAfford || outstanding))
             .CombineLatest(
                 ModelPicker.OffersNothingUsable,
-                // Every model the operation registered was ruled out, so a
-                // request would be refused however it is shaped.
-                (can, nothingUsable) => can && !nothingUsable)
+                _requestKey.HasOutstandingName,
+                // Every model the operation registered was ruled out, so a new
+                // request would be refused however it is shaped — but a name
+                // already handed out is answered from the job it made, whatever
+                // the catalog says now.
+                (can, nothingUsable, outstanding) =>
+                    can && (!nothingUsable || outstanding))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -482,6 +490,19 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
     }
 
+    // The model a request should carry: the one the outstanding name was built
+    // from while there is one, and the picker's otherwise.
+    private void RetireRequestName()
+    {
+        _requestKey.Retire();
+        _outstandingModel = null;
+    }
+
+    private AiModelId? PinnedOrSelectedModel(AiModelId? selected)
+        => _requestKey.HasOutstandingName.Value && _outstandingModel is { } pinned
+            ? pinned
+            : selected;
+
     private async Task LoadEntitlementsAsync()
     {
         using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
@@ -523,7 +544,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         {
             string prompt = ComposePrompt();
             string aspectRatio = SelectedAspectRatio.Value.Value;
-            AiModelId? model = ModelPicker.SelectedModel;
+            AiModelId? model = PinnedOrSelectedModel(ModelPicker.SelectedModel);
             string[] referencePaths = ReferenceImages.Select(reference => reference.Path).ToArray();
             string background = SelectedBackground.Value.Value;
             // Every picture is part of what makes this request the request it
@@ -539,6 +560,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                 .. referencePaths.Select(AiRequestKey.FileStamp),
             ];
             AiRequestName name = _requestKey.NameFor(requestParts);
+            _outstandingModel = model;
             // Not for a repeat: the server looks up the job this name already
             // made before it looks at the balance, so refusing here would refuse
             // to collect a picture already paid for — which is exactly what the
@@ -559,7 +581,8 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                     seed: Seed.Value,
                     references: Array.ConvertAll(referencePaths, AiUploadSource.FromFile),
                     model: model,
-                    idempotencyKey: name.Key),
+                    idempotencyKey: name.Key,
+                    referencesTotalLimitBytes: ModelPicker.MaxImageReferencesTotalBytes),
                 new Progress<AiImagePreview>(preview => ShowPreview(preview, operation)),
                 operation.CancellationToken);
 
@@ -568,7 +591,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             operation.CancellationToken.ThrowIfCancellationRequested();
             stream.Position = 0;
             var resultImage = Ref<Bitmap>.Create(Bitmap.FromStream(stream));
-            _requestKey.Retire();
+            RetireRequestName();
             if (!operation.TryPublish(() =>
                 {
                     ResultImage.Value?.Dispose();
@@ -599,7 +622,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
         catch (AiModelUnavailableException)
         {
-            _requestKey.Retire();
+            RetireRequestName();
             operation.TryPublish(() => Error.Value = Strings.AiModelUnavailable);
         }
         // Refused before the operation was reserved, so nothing was charged;
@@ -610,7 +633,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
         catch (AiProviderErrorException)
         {
-            _requestKey.Retire();
+            RetireRequestName();
             operation.TryPublish(() => Error.Value = Strings.AiProviderError);
         }
         // Reachable because a request keeps its name across attempts: asking
@@ -625,7 +648,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         // with that. The next attempt has to be a new request.
         catch (AiRequestWasDeletedException)
         {
-            _requestKey.Retire();
+            RetireRequestName();
             operation.TryPublish(() => Error.Value = Strings.AiRequestWasDeleted);
         }
         catch (AiFileTooLargeException)

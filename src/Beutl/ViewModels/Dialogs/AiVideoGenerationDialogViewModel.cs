@@ -40,6 +40,10 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     private readonly IAiJobMonitor _jobMonitor;
     private readonly AiOperationAvailabilityTracker _availabilityTracker;
     private readonly AiRequestKey _requestKey = new();
+    // The model the outstanding name was built from. A refresh that withdraws
+    // that model would otherwise rebuild the name around whatever the picker
+    // fell back to, and the job the first attempt paid for would be left behind.
+    private AiModelId? _outstandingModel;
     private readonly CancellationTokenSource _availabilityLifetimeCts = new();
     private readonly EditViewModel? _editViewModel;
     private readonly HashSet<string> _temporaryFiles = new(StringComparer.Ordinal);
@@ -207,9 +211,13 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                     canGenerate && (canAfford || outstanding))
             .CombineLatest(
                 ModelPicker.OffersNothingUsable,
-                // Every model the operation registered was ruled out, so a
-                // request would be refused however it is shaped.
-                (can, nothingUsable) => can && !nothingUsable)
+                _requestKey.HasOutstandingName,
+                // Every model the operation registered was ruled out, so a new
+                // request would be refused however it is shaped — but a name
+                // already handed out is answered from the job it made, whatever
+                // the catalog says now.
+                (can, nothingUsable, outstanding) =>
+                    can && (!nothingUsable || outstanding))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -592,6 +600,19 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
     }
 
+    // The model a request should carry: the one the outstanding name was built
+    // from while there is one, and the picker's otherwise.
+    private void RetireRequestName()
+    {
+        _requestKey.Retire();
+        _outstandingModel = null;
+    }
+
+    private AiModelId? PinnedOrSelectedModel(AiModelId? selected)
+        => _requestKey.HasOutstandingName.Value && _outstandingModel is { } pinned
+            ? pinned
+            : selected;
+
     private async Task LoadEntitlementsAsync()
     {
         using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
@@ -808,7 +829,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             string? lastFrameElementId = _lastFrameElementId;
             using IDisposable firstFrameLease = AcquireTemporaryFileLease(firstFramePath);
             using IDisposable lastFrameLease = AcquireTemporaryFileLease(lastFramePath);
-            AiModelId? model = ModelPicker.SelectedModel;
+            AiModelId? model = PinnedOrSelectedModel(ModelPicker.SelectedModel);
             AiRequestName name = _requestKey.NameFor(
                 prompt,
                 durationSeconds.ToString(CultureInfo.InvariantCulture),
@@ -819,6 +840,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                 model?.Value,
                 AiRequestKey.FileStamp(firstFramePath),
                 AiRequestKey.FileStamp(lastFramePath));
+            _outstandingModel = model;
             // Not for a repeat: the server looks up the job this name already
             // made before it looks at the balance, so refusing here would refuse
             // to collect something already paid for.
@@ -862,7 +884,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             // that created it, and asking again under a new one would pay twice.
             if (await PollJobAsync(response.JobId, operation, pendingSnapshot))
             {
-                _requestKey.Retire();
+                RetireRequestName();
             }
         }
         catch (AuthenticationRequiredException)
@@ -885,7 +907,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
         catch (AiModelUnavailableException)
         {
-            _requestKey.Retire();
+            RetireRequestName();
             operation.TryPublish(() => Error.Value = Strings.AiModelUnavailable);
         }
         // Refused before the operation was reserved, so nothing was charged;
@@ -896,7 +918,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
         catch (AiProviderErrorException)
         {
-            _requestKey.Retire();
+            RetireRequestName();
             operation.TryPublish(() => Error.Value = Strings.AiProviderError);
         }
         // Reachable because a request keeps its name across attempts: asking
@@ -911,7 +933,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         // with that. The next attempt has to be a new request.
         catch (AiRequestWasDeletedException)
         {
-            _requestKey.Retire();
+            RetireRequestName();
             operation.TryPublish(() => Error.Value = Strings.AiRequestWasDeleted);
         }
         catch (AiJobLimitReachedException)

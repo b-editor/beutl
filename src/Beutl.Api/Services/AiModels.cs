@@ -513,7 +513,12 @@ public sealed record AiImageGenerationRequest
         int? seed = null,
         IReadOnlyList<AiUploadSource>? references = null,
         AiModelId? model = null,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null,
+        // What the server publishes as the total its reference pictures may come
+        // to. Left unset, the outer bound this client knows is used; a server
+        // that publishes a different figure is what
+        // <see cref="AiModelCatalog.MaxImageReferencesTotalBytes"/> carries.
+        long? referencesTotalLimitBytes = null)
     {
         if (aspectRatio.Value.Length == 0)
             throw new ArgumentException("An image aspect ratio is required.", nameof(aspectRatio));
@@ -528,11 +533,11 @@ public sealed record AiImageGenerationRequest
             throw new ArgumentException("Reference pictures cannot contain null.", nameof(references));
         if (references?.Any(reference => reference.Length > AiRequestLimits.MaxImageUploadBytes) == true)
             throw new AiFileTooLargeException();
-        if (references?.Sum(reference => reference.Length ?? 0)
-            > AiRequestLimits.MaxImageReferencesTotalBytes)
-        {
+        long totalLimit = referencesTotalLimitBytes is { } published && published > 0
+            ? published
+            : AiRequestLimits.MaxImageReferencesTotalBytes;
+        if (references?.Sum(reference => reference.Length ?? 0) > totalLimit)
             throw new AiFileTooLargeException();
-        }
 
         Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
         AspectRatio = aspectRatio;
