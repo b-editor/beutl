@@ -146,29 +146,51 @@ public class GraphicsContext2DTests
     }
 
     [Test]
-    public void DirectRecordingFailure_PreservesExistingTreeAndDisposesRejectedNode()
+    public void DirectRecordingFailure_KeepsTheInstalledReplacementWhenTheOldChildFailsToDispose()
     {
         using var root = new ContainerRenderNode();
         var replacementFailure = new InvalidOperationException("existing node cleanup failed");
         var existing = new ThrowOnceDisposeRenderNode(replacementFailure);
         var trailing = new TrackingRenderNode();
-        var rejected = new TrackingRenderNode();
+        var replacement = new TrackingRenderNode();
         root.AddChild(existing);
         root.AddChild(trailing);
 
         using (var context = new GraphicsContext2D(root))
         {
             InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-                () => context.DrawNode(rejected));
+                () => context.DrawNode(replacement));
             Assert.That(failure, Is.SameAs(replacementFailure));
         }
 
         Assert.Multiple(() =>
         {
-            Assert.That(root.Children, Is.EqualTo(new RenderNode[] { existing, trailing }));
-            Assert.That(existing.IsDisposed, Is.False);
+            Assert.That(root.Children, Is.EqualTo(new RenderNode[] { replacement, trailing }));
+            Assert.That(replacement.IsDisposed, Is.False);
             Assert.That(trailing.IsDisposed, Is.False);
-            Assert.That(rejected.IsDisposed, Is.True);
+            Assert.That(existing.DisposeCalls, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void DirectRecordingFailure_NeverLeavesAChildWhoseDisposalAlreadyRan()
+    {
+        using var root = new ContainerRenderNode();
+        var existing = new ReleaseThenThrowRenderNode();
+        var replacement = new TrackingRenderNode();
+        root.AddChild(existing);
+
+        using (var context = new GraphicsContext2D(root))
+        {
+            Assert.Throws<InvalidOperationException>(() => context.DrawNode(replacement));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(existing.Released, Is.True);
+            Assert.That(root.Children, Does.Not.Contain(existing));
+            Assert.That(root.Children, Is.EqualTo(new RenderNode[] { replacement }));
+            Assert.That(replacement.IsDisposed, Is.False);
         });
     }
 
@@ -443,6 +465,25 @@ public class GraphicsContext2DTests
         public override void Process(RenderNodeContext context)
         {
             context.PassThrough();
+        }
+    }
+
+    private sealed class ReleaseThenThrowRenderNode : RenderNode
+    {
+        public bool Released { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            ObjectDisposedException.ThrowIf(Released, this);
+            context.PassThrough();
+        }
+
+        protected override void OnDispose(bool disposing)
+        {
+            Released = true;
+            // The finalizer calls OnDispose(false) unguarded, and a throwing finalizer kills the test host.
+            if (disposing)
+                throw new InvalidOperationException("resource release failed");
         }
     }
 

@@ -62,28 +62,23 @@ public sealed class GraphicsContext2D(
         }
         catch
         {
-            if (replacementAttempted
-                && previous is not null
-                && ReferenceEquals(_container.Children[_drawOperationindex], node))
+            // SetChild installs before it disposes, so an installed replacement means the previous child is
+            // already torn down — and RenderNode.Dispose sets IsDisposed only after OnDispose and
+            // Cache.Dispose return, so a failed teardown leaves a node the pipeline's guards wave through.
+            bool ownershipTransferred = replacementAttempted
+                && ReferenceEquals(_container.Children[_drawOperationindex], node);
+
+            if (!ownershipTransferred)
             {
                 try
                 {
-                    _container.SetChild(_drawOperationindex, previous);
+                    node.Dispose();
                 }
                 catch (Exception cleanupFailure)
                 {
-                    ReportCleanupFailure(cleanupFailure, "rolling back a rejected render node");
+                    // Preserve the recording failure that prevented ownership transfer.
+                    ReportCleanupFailure(cleanupFailure, "disposing a rejected render node");
                 }
-            }
-
-            try
-            {
-                node.Dispose();
-            }
-            catch (Exception cleanupFailure)
-            {
-                // Preserve the recording failure that prevented ownership transfer.
-                ReportCleanupFailure(cleanupFailure, "disposing a rejected render node");
             }
 
             throw;
