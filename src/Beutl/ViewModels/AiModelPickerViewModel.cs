@@ -76,6 +76,13 @@ internal sealed class AiModelPickerViewModel : IDisposable
     public ObservableCollection<AiModelPickerOption> Options { get; } = [];
 
     /// <summary>
+    /// What all the reference pictures of one request may come to together, as
+    /// the server publishes it.
+    /// </summary>
+    public long MaxImageReferencesTotalBytes { get; private set; } =
+        AiRequestLimits.MaxImageReferencesTotalBytes;
+
+    /// <summary>
     /// Which models an operation is willing to offer, beyond what the server
     /// registered. Video drops the ones that take no shape it can ask for:
     /// offering one would only ever produce a request the server refuses.
@@ -142,6 +149,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
         // not a reason to move it.
         AiModelId? keep = preferred ?? SelectedModel;
         Operation = operation;
+        MaxImageReferencesTotalBytes = catalog.MaxImageReferencesTotalBytes;
         _loadedCatalog = catalog;
         _loadedEntitlements = entitlements;
         Options.Clear();
@@ -160,7 +168,13 @@ internal sealed class AiModelPickerViewModel : IDisposable
         }
 
         HasChoice.Value = Options.Count > 1;
-        OffersNothingUsable.Value = !registered.IsDefaultOrEmpty && Options.Count == 0;
+        // Two ways an operation has nothing to run on: every model it registered
+        // was ruled out here, or the server named the operation and offered no
+        // model for it at all. A server that says nothing about the operation is
+        // neither — a request then names no model and the server picks.
+        OffersNothingUsable.Value =
+            (!registered.IsDefaultOrEmpty && Options.Count == 0)
+            || catalog.OffersNoModel(operation);
         // Start on the first model the account can actually pay for, falling
         // back to the server's default so the picker is never empty.
         Selected.Value = (keep is { } wanted

@@ -22,7 +22,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
+public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
@@ -165,7 +165,14 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             .Select(x => !string.IsNullOrEmpty(x))
             .CombineLatest(IsEditing, (hasSource, editing) => hasSource && !editing)
             .CombineLatest(PromptValidationError, (canEdit, error) => canEdit && error is null)
-            .CombineLatest(EstimatedUsage.CanAfford, (canEdit, canAfford) => canEdit && canAfford)
+            .CombineLatest(
+                EstimatedUsage.CanAfford,
+                _requestKey.HasOutstandingName,
+                // Or a name already handed out: the server answers a repeat with the
+                // job that name made before it looks at the balance, so the request
+                // that spent the last of it is exactly the one that must stay
+                // collectable.
+                (canEdit, canAfford, outstanding) => canEdit && (canAfford || outstanding))
             .CombineLatest(
                 ModelPicker.OffersNothingUsable,
                 // Every model the operation registered was ruled out, so a
@@ -381,7 +388,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     /// added, removed or reordered once it is not — which a workspace tab left
     /// open would otherwise never see.
     /// </summary>
-    internal void RefreshModels() => _ = ReloadModelsAsync(SelectedTask.Value);
+    public void RefreshModels() => _ = ReloadModelsAsync(SelectedTask.Value);
 
     private async Task ReloadModelsAsync(AiImageEditTaskOption task)
     {

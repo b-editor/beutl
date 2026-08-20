@@ -150,13 +150,38 @@ public sealed class AiModelCatalog
         new(ImmutableDictionary<AiOperationId, ImmutableArray<AiModelOption>>.Empty);
 
     public AiModelCatalog(
-        IEnumerable<KeyValuePair<AiOperationId, ImmutableArray<AiModelOption>>> operations)
+        IEnumerable<KeyValuePair<AiOperationId, ImmutableArray<AiModelOption>>> operations,
+        IEnumerable<AiOperationId>? withoutModels = null)
     {
         ArgumentNullException.ThrowIfNull(operations);
         Operations = operations.ToImmutableDictionary(pair => pair.Key, pair => pair.Value);
+        WithoutModels = withoutModels?.ToImmutableHashSet() ?? [];
     }
 
     public ImmutableDictionary<AiOperationId, ImmutableArray<AiModelOption>> Operations { get; }
+
+    /// <summary>
+    /// Operations the server named and offered no model for.
+    /// </summary>
+    /// <remarks>
+    /// Told apart from an operation the server said nothing about, which is how
+    /// a server that predates per-operation models reads and which a request
+    /// answers by naming no model at all. Named with nothing behind it means the
+    /// operation has been stopped, and a request would be refused however it is
+    /// shaped.
+    /// </remarks>
+    public ImmutableHashSet<AiOperationId> WithoutModels { get; }
+
+    public bool OffersNoModel(AiOperationId operation) => WithoutModels.Contains(operation);
+
+    /// <summary>
+    /// What all the reference pictures of one image generation may come to
+    /// together, as the server publishes it. Falls back to
+    /// <see cref="AiRequestLimits.MaxImageReferencesTotalBytes"/> for a server
+    /// that publishes none.
+    /// </summary>
+    public long MaxImageReferencesTotalBytes { get; init; } =
+        AiRequestLimits.MaxImageReferencesTotalBytes;
 
     public ImmutableArray<AiModelOption> ModelsFor(AiOperationId operation)
         => Operations.TryGetValue(operation, out ImmutableArray<AiModelOption> models)
@@ -282,10 +307,11 @@ public static class AiRequestLimits
     // publishes nothing is read as.
     public const int MaxImageReferences = 4;
 
-    // What all the reference pictures of one request may come to together. The
-    // per-picture limit taken four times over is more than the server can hold:
-    // every picture is kept raw, again as base64 and again through JSON, so the
-    // total is held to what one picture was already allowed to be.
+    // What all the reference pictures of one request may come to together, for
+    // a server that publishes no figure of its own. The per-picture limit taken
+    // four times over is more than the server can hold: every picture is kept
+    // raw, again as base64 and again through JSON, so the fallback is what one
+    // picture was already allowed to be.
     public const long MaxImageReferencesTotalBytes = MaxImageUploadBytes;
 
     // The provider accepts a signed 32-bit seed. Bounding it here keeps the
@@ -1219,7 +1245,22 @@ internal static class AiModelMapper
                 .Select(pair => new KeyValuePair<AiOperationId, ImmutableArray<AiModelOption>>(
                     new AiOperationId(pair.Key),
                     ToModelOptions(pair.Value)))
-                .Where(pair => !pair.Value.IsDefaultOrEmpty));
+                .Where(pair => !pair.Value.IsDefaultOrEmpty),
+            // A models list the server sent and left empty. A server that sends
+            // none at all is another thing entirely, and stays absent here.
+            response.Operations
+                .Where(pair => pair.Value.Models is { IsDefaultOrEmpty: true })
+                .Select(pair => new AiOperationId(pair.Key)))
+        {
+            MaxImageReferencesTotalBytes =
+                response.Operations.TryGetValue(
+                    AiOperations.ImageGeneration.Value,
+                    out AiOperationCapabilityResponse? imageGeneration)
+                && imageGeneration.MaxReferenceImagesTotalBytes is { } published
+                && published > 0
+                    ? published
+                    : AiRequestLimits.MaxImageReferencesTotalBytes,
+        };
     }
 
     // Null for every operation but image, where the server publishes nothing of

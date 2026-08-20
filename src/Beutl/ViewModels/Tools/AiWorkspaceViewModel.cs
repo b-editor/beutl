@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.ViewModels.Dialogs;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using Icon = FluentIcons.Common.Icon;
@@ -99,6 +100,14 @@ public sealed class AiWorkspaceViewModel : IToolContext
         ActiveContent = shown
             .Select(section => section.EnsureContent())
             .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        // A page is built once and kept, so coming back to it does not reload
+        // the model list the way opening it the first time did. Without this, a
+        // tab left in the foreground goes on offering models an operator has
+        // since withdrawn for as long as the tab lives.
+        ActiveContent
+            .Subscribe(content => (content as IAiModelListConsumer)?.RefreshModels())
             .DisposeWith(_disposables);
 
         // Two AI tabs side by side are told apart by the page each one is on,

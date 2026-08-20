@@ -84,6 +84,13 @@ internal sealed record AiOperationCapabilityResponse
     [JsonPropertyName("backgrounds")]
     public ImmutableArray<string>? Backgrounds { get; init; }
 
+    // Image generation only. What all the reference pictures of one request may
+    // come to together, which is not the per-picture limit multiplied by the
+    // count: the server holds every picture raw, again as base64 and again
+    // through JSON. Absent from a server that publishes no figure of its own.
+    [JsonPropertyName("maxReferenceImagesTotalBytes")]
+    public long? MaxReferenceImagesTotalBytes { get; init; }
+
     [JsonPropertyName("minDurationSeconds")]
     public int? MinDurationSeconds { get; init; }
 

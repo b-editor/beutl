@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Reactive.Bindings;
 
 namespace Beutl.Services.AI;
 
@@ -44,11 +45,16 @@ internal sealed class AiRequestKey
 {
     private readonly Lock _gate = new();
     private readonly HashSet<string> _issued = new(StringComparer.Ordinal);
+    private readonly ReactivePropertySlim<bool> _hasOutstandingName = new(false);
     private string _seed;
     private bool _resumedAttemptPending;
 
     public AiRequestKey(string? seed = null)
     {
+        // A run picked up from a draft has names outstanding before it hands one
+        // out, so the way back to what it may have paid for is open from the
+        // start.
+        _hasOutstandingName.Value = !string.IsNullOrEmpty(seed);
         _seed = string.IsNullOrEmpty(seed) ? NewSeed() : seed;
         // A run picked up from a draft carries its names but not the record of
         // which of them have been sent, so the first one it asks for again may
@@ -72,6 +78,18 @@ internal sealed class AiRequestKey
     }
 
     public static string NewSeed() => Guid.NewGuid().ToString("N");
+
+    /// <summary>
+    /// Whether a name has been handed out that the server has not been seen to
+    /// settle.
+    /// </summary>
+    /// <remarks>
+    /// While this holds, asking again may be answered by a job already paid
+    /// for. The server looks that job up before it looks at the balance, so a
+    /// caller that gates on the balance itself has to leave the way open — most
+    /// of all when the request being collected is the one that emptied it.
+    /// </remarks>
+    public IReadOnlyReactiveProperty<bool> HasOutstandingName => _hasOutstandingName;
 
     /// <summary>
     /// The key for a request identified by <paramref name="parts"/>. The server
@@ -131,20 +149,30 @@ internal sealed class AiRequestKey
             // Nothing under the new seed has been paid for.
             _resumedAttemptPending = false;
         }
+
+        _hasOutstandingName.Value = false;
     }
 
     private AiRequestName Remember(string key)
     {
+        AiRequestName name;
         lock (_gate)
         {
             bool issuedBefore = !_issued.Add(key);
             if (issuedBefore)
-                return new AiRequestName(key, true);
-
-            bool resumed = _resumedAttemptPending;
-            _resumedAttemptPending = false;
-            return new AiRequestName(key, resumed);
+            {
+                name = new AiRequestName(key, true);
+            }
+            else
+            {
+                bool resumed = _resumedAttemptPending;
+                _resumedAttemptPending = false;
+                name = new AiRequestName(key, resumed);
+            }
         }
+
+        _hasOutstandingName.Value = true;
+        return name;
     }
 
     // Length-prefixed so that no arrangement of parts can read as another one.

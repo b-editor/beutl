@@ -287,8 +287,14 @@ public sealed partial class AiSubtitleDialogViewModel
                 IsTranslating,
                 IsTranscribing,
                 TranslationEstimate.CanAfford,
-                (hasCues, translating, transcribing, canAfford) =>
-                    hasCues && !translating && !transcribing && canAfford)
+                HasPartialResult,
+                // Or a run that has already named pieces: the server answers a
+                // repeat with the job that name made before it looks at the
+                // balance, so a run whose last piece spent the balance has to
+                // stay collectable.
+                (hasCues, translating, transcribing, canAfford, resumable) =>
+                    hasCues && !translating && !transcribing
+                    && (canAfford || resumable))
             .CombineLatest(
                 TranslationModelPicker.OffersNothingUsable,
                 // Every model the operation registered was ruled out, so a
@@ -459,12 +465,15 @@ public sealed partial class AiSubtitleDialogViewModel
         operation.Source = source;
         _pendingSourceTranscription = operation;
         _pendingSceneTranscription = null;
-        // Read once for the whole run. Every piece is named partly by the model,
-        // so a picker that moved between naming a piece and sending it would put
-        // one model in the name and another in the body — which the server
-        // refuses — and a picker that moved between pieces would rename the rest
-        // of the run and buy it again.
-        AiModelId? runModel = TranscriptionModelPicker.SelectedModel;
+        // Read once for the whole run, and taken from the run itself once it has
+        // named anything. Every piece is named partly by the model, so a picker
+        // that moved between naming a piece and sending it would put one model
+        // in the name and another in the body — which the server refuses — and
+        // one that moved between pieces, or fell back because the run's model
+        // was withdrawn, would rename the rest of the run and buy it again.
+        AiModelId? runModel = ModelOfRun(
+            operation.RequestKeyModel,
+            TranscriptionModelPicker.SelectedModel);
 
         for (int chunkIndex = operation.CompletedChunkCount;
             chunkIndex < operation.ChunkCount;
@@ -618,12 +627,15 @@ public sealed partial class AiSubtitleDialogViewModel
         operation.Source = source;
         _pendingSceneTranscription = operation;
         _pendingSourceTranscription = null;
-        // Read once for the whole run. Every piece is named partly by the model,
-        // so a picker that moved between naming a piece and sending it would put
-        // one model in the name and another in the body — which the server
-        // refuses — and a picker that moved between pieces would rename the rest
-        // of the run and buy it again.
-        AiModelId? runModel = TranscriptionModelPicker.SelectedModel;
+        // Read once for the whole run, and taken from the run itself once it has
+        // named anything. Every piece is named partly by the model, so a picker
+        // that moved between naming a piece and sending it would put one model
+        // in the name and another in the body — which the server refuses — and
+        // one that moved between pieces, or fell back because the run's model
+        // was withdrawn, would rename the rest of the run and buy it again.
+        AiModelId? runModel = ModelOfRun(
+            operation.RequestKeyModel,
+            TranscriptionModelPicker.SelectedModel);
 
         for (int index = operation.CompletedChunkCount; index < chunkCount; index++)
         {
@@ -775,12 +787,11 @@ public sealed partial class AiSubtitleDialogViewModel
                     targetLanguage,
                     draftScopeRevision);
             _pendingTranslation = operation;
-            // Read once for the whole run. Every piece is named partly by the model,
-            // so a picker that moved between naming a piece and sending it would put
-            // one model in the name and another in the body — which the server
-            // refuses — and a picker that moved between pieces would rename the rest
-            // of the run and buy it again.
-            AiModelId? runModel = TranslationModelPicker.SelectedModel;
+            // Read once for the whole run, and taken from the run itself once
+            // it has named anything — see ModelOfRun.
+            AiModelId? runModel = ModelOfRun(
+                operation.RequestKeyModel,
+                TranslationModelPicker.SelectedModel);
             if (operation.Batches.Count == 0)
             {
                 _pendingTranslation = null;
@@ -793,7 +804,8 @@ public sealed partial class AiSubtitleDialogViewModel
                 AiRequestName name = operation.RequestNameFor(index, runModel);
                 if (!name.IsRepeat)
                 {
-                    await EnsureAvailableAsync(CreateTranslationAvailabilityRequest(batch));
+                    await EnsureAvailableAsync(
+                        CreateTranslationAvailabilityRequest(batch, runModel));
                 }
 
                 AiCaptionTranslationResponse response;
@@ -2274,10 +2286,19 @@ public sealed partial class AiSubtitleDialogViewModel
     }
 
     private AiOperationAvailabilityRequest.Translation CreateTranslationAvailabilityRequest(
-        TranslationBatch batch)
+        TranslationBatch batch,
+        AiModelId? model = null)
+        // What the batch will actually be sent to. A run in progress is priced
+        // against the model its names were built from, not against whichever the
+        // picker is showing now.
         => new(
             batch.Pieces.Sum(piece => piece.Text.Length),
-            TranslationModelPicker.SelectedModel);
+            model ?? TranslationModelPicker.SelectedModel);
+
+    // The model a run is named for. Empty until the run has named anything, and
+    // from then on the run's own rather than the picker's.
+    private static AiModelId? ModelOfRun(string recorded, AiModelId? selected)
+        => string.IsNullOrEmpty(recorded) ? selected : new AiModelId(recorded);
 
     private async Task EnsureAvailableAsync(AiOperationAvailabilityRequest request)
     {

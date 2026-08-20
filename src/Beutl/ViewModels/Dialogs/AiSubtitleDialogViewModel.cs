@@ -22,7 +22,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed partial class AiSubtitleDialogViewModel : IDisposable
+public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelListConsumer
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly LifetimeCancellationSource _lifetimeCts = new();
@@ -106,7 +106,13 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable
                 (hasInput, transcribing, translating) => hasInput && !transcribing && !translating)
             .CombineLatest(
                 TranscriptionEstimate.CanAfford,
-                (canTranscribe, canAfford) => canTranscribe && canAfford)
+                HasPartialResult,
+                // Or a run that has already named pieces: the server answers a
+                // repeat with the job that name made before it looks at the
+                // balance, so a run whose last piece spent the balance has to
+                // stay collectable.
+                (canTranscribe, canAfford, resumable) =>
+                    canTranscribe && (canAfford || resumable))
             .CombineLatest(
                 TranscriptionModelPicker.OffersNothingUsable,
                 // Every model the operation registered was ruled out, so a
@@ -216,7 +222,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable
     /// added, removed or reordered once it is not — which a workspace tab left
     /// open would otherwise never see.
     /// </summary>
-    internal void RefreshModels() => _ = RefreshModelsAsync();
+    public void RefreshModels() => _ = RefreshModelsAsync();
 
     private async Task RefreshModelsAsync()
     {

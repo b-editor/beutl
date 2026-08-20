@@ -24,7 +24,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisposable
+public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
@@ -196,7 +196,15 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                 LastFramePath,
                 (canGenerate, firstFrame, lastFrame) =>
                     canGenerate && (string.IsNullOrEmpty(lastFrame) || !string.IsNullOrEmpty(firstFrame)))
-            .CombineLatest(EstimatedUsage.CanAfford, (canGenerate, canAfford) => canGenerate && canAfford)
+            .CombineLatest(
+                EstimatedUsage.CanAfford,
+                _requestKey.HasOutstandingName,
+                // Or a name already handed out: the server answers a repeat with the
+                // job that name made before it looks at the balance, so the request
+                // that spent the last of it is exactly the one that must stay
+                // collectable.
+                (canGenerate, canAfford, outstanding) =>
+                    canGenerate && (canAfford || outstanding))
             .CombineLatest(
                 ModelPicker.OffersNothingUsable,
                 // Every model the operation registered was ruled out, so a
@@ -570,7 +578,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     /// added, removed or reordered once it is not — which a workspace tab left
     /// open would otherwise never see.
     /// </summary>
-    internal void RefreshModels() => _ = RefreshModelsAsync();
+    public void RefreshModels() => _ = RefreshModelsAsync();
 
     private async Task RefreshModelsAsync()
     {
