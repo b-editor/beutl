@@ -2,7 +2,6 @@
 using Avalonia.Input;
 using Beutl.Editor.Components.VersionControlTab.Views;
 using Beutl.Extensibility;
-using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -136,7 +135,7 @@ public class VersionControlTabViewTests
         public void Execute(ContextCommandExecution execution)
         {
             ExecuteCount++;
-            execution.Execute(new AsyncReactiveCommand().WithSubscribe(() => completion));
+            execution.Completion = completion;
         }
     }
 

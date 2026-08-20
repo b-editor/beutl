@@ -1,6 +1,4 @@
-﻿using System.Windows.Input;
-using Beutl.Extensibility;
-using Reactive.Bindings;
+﻿using Beutl.Extensibility;
 
 namespace Beutl.UnitTests.Extensibility;
 
@@ -16,14 +14,12 @@ public class ContextCommandExecutionTests
     }
 
     [Test]
-    public async Task Completion_tracks_an_asynchronous_command_until_its_handler_returns()
+    public async Task Completion_carries_the_work_a_handler_started()
     {
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        AsyncReactiveCommand command = new AsyncReactiveCommand()
-            .WithSubscribe(() => gate.Task);
         var execution = new ContextCommandExecution("EnableVersionControl");
 
-        execution.Execute(command);
+        execution.Completion = gate.Task;
 
         Assert.That(execution.Completion.IsCompleted, Is.False);
 
@@ -31,35 +27,5 @@ public class ContextCommandExecutionTests
         await execution.Completion;
 
         Assert.That(execution.Completion.IsCompletedSuccessfully, Is.True);
-    }
-
-    [Test]
-    public void Completion_stays_finished_for_a_synchronous_command()
-    {
-        var command = new RecordingCommand();
-        var execution = new ContextCommandExecution("EnableVersionControl");
-
-        execution.Execute(command);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(command.ExecuteCount, Is.EqualTo(1));
-            Assert.That(execution.Completion.IsCompletedSuccessfully, Is.True);
-        });
-    }
-
-    private sealed class RecordingCommand : ICommand
-    {
-        public event EventHandler? CanExecuteChanged
-        {
-            add { }
-            remove { }
-        }
-
-        public int ExecuteCount { get; private set; }
-
-        public bool CanExecute(object? parameter) => true;
-
-        public void Execute(object? parameter) => ExecuteCount++;
     }
 }

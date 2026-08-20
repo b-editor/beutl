@@ -403,7 +403,16 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
         if (MenuBar.FindContextCommand(execution.CommandName) is { } command)
         {
             if (command.CanExecute(null))
-                execution.Execute(command);
+            {
+                // MenuBar resolves to ReactiveCommandSlim or AsyncReactiveCommand only. The async
+                // one returns from Execute as soon as its handler yields, so the awaitable overload
+                // is what lets a caller keep a progress indicator up for the whole operation.
+                if (command is AsyncReactiveCommand asyncCommand)
+                    execution.Completion = asyncCommand.ExecuteAsync(null!);
+                else
+                    command.Execute(null);
+            }
+
             return;
         }
 
