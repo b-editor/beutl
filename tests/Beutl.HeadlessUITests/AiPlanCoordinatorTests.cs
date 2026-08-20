@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -19,7 +20,8 @@ public sealed class AiPlanCoordinatorTests
         var coordinator = new AiPlanCoordinator(
             entitlements,
             opened.Add,
-            () => "ja");
+            () => "ja",
+            new Uri("https://beutl.beditor.net/"));
 
         coordinator.OpenAiPlan();
         coordinator.OpenAccountSettings();
@@ -35,6 +37,28 @@ public sealed class AiPlanCoordinatorTests
             }));
             Assert.That(entitlements.RefreshCount, Is.EqualTo(1));
         }
+    }
+
+    // A build pointed at a local server has to open that server's plan pages;
+    // opening the live site would show a plan this build cannot act on.
+    [Test]
+    public void OpenPages_FollowTheConfiguredApiOrigin()
+    {
+        var opened = new List<Uri>();
+        var coordinator = new AiPlanCoordinator(
+            new StubEntitlementService(),
+            opened.Add,
+            () => "en");
+
+        coordinator.OpenAiPlan();
+        coordinator.OpenAccountSettings();
+
+        var expected = new Uri(BeutlApiApplication.BaseUrl, UriKind.Absolute);
+        Assert.That(opened, Is.EqualTo(new[]
+        {
+            new Uri(expected, "en/account/manage/ai-plan"),
+            new Uri(expected, "account/manage"),
+        }));
     }
 
     [Test]
