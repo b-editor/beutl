@@ -14,6 +14,18 @@ internal sealed class GitCliVersionControlService :
     private const int PendingPullRecoveryFormatVersion = 1;
     private const int MaxPendingRecoveryListBytes = 1024 * 1024;
     private const int MaxPendingRecoveryDescriptorBytes = 64 * 1024;
+    // A repository can restrict which LFS paths are hydrated (lfs.fetchinclude / lfs.fetchexclude).
+    // A transition has to reopen the project on its real media, so the prefetch and the checkout it
+    // feeds both clear those filters: an excluded pointer is copied through unchanged, which would
+    // leave pointer text in the work tree where the media belongs.
+    private static readonly string[] s_lfsPathFilterOverrides =
+    [
+        "-c",
+        "lfs.fetchinclude=",
+        "-c",
+        "lfs.fetchexclude=",
+    ];
+
     private static readonly JsonSerializerOptions s_recoveryJsonOptions =
         new(JsonSerializerOptions.Strict);
 
@@ -3500,6 +3512,7 @@ internal sealed class GitCliVersionControlService :
                 await runner.RunAsync(
                     refUpdateRepository,
                     [
+                        .. s_lfsPathFilterOverrides,
                         "-c",
                         "core.hooksPath=/dev/null",
                         "checkout",
@@ -3861,6 +3874,7 @@ internal sealed class GitCliVersionControlService :
                         await runner.RunAsync(
                             refUpdateRepository,
                             [
+                                .. s_lfsPathFilterOverrides,
                                 "-c",
                                 "core.hooksPath=/dev/null",
                                 "checkout",
@@ -4471,7 +4485,7 @@ internal sealed class GitCliVersionControlService :
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         await runner.RunAsync(
             repository,
-            ["switch", "-c", name, startPoint],
+            [.. s_lfsPathFilterOverrides, "switch", "-c", name, startPoint],
             new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
             cancellationToken).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
@@ -4705,7 +4719,7 @@ internal sealed class GitCliVersionControlService :
         {
             await runner.RunAsync(
                 repository,
-                ["lfs", "fetch", remotes[0].Name, reference],
+                [.. s_lfsPathFilterOverrides, "lfs", "fetch", remotes[0].Name, reference],
                 GitCommandOptions.Network,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -4740,7 +4754,7 @@ internal sealed class GitCliVersionControlService :
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         await runner.RunAsync(
             repository,
-            ["switch", name],
+            [.. s_lfsPathFilterOverrides, "switch", name],
             new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
             cancellationToken).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);

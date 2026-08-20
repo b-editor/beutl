@@ -2684,7 +2684,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Is.EqualTo("current\n"));
             Assert.That(
                 runner.Invocations
-                    .Where(static invocation => invocation.Arguments.FirstOrDefault() == "switch")
+                    .Where(static invocation => GetGitSubcommand(invocation.Arguments) == "switch")
                     .Select(static invocation => invocation.Options.ExecutionKind),
                 Is.EqualTo(
                 [
@@ -4403,6 +4403,86 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Worktree_transitions_clear_the_repository_lfs_path_filters()
+    {
+        await CommitFileAsync("project.bep", "base\n", "base");
+        string baseSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await CommitFileAsync("project.bep", "later\n", "later");
+        var recording = new ArgumentRecordingRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => recording);
+
+        CheckedOutBranchTip tip = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        await service.CommitProjectTreeAsync(
+            tip,
+            baseSha,
+            "beutl: restore base",
+            SnapshotKind.Restore,
+            CancellationToken.None);
+        await service.CreateBranchAsync("alternate", baseSha, CancellationToken.None);
+        await service.SwitchBranchAsync("alternate", CancellationToken.None);
+
+        string[][] worktreeCommands = recording.Commands
+            .Where(static arguments =>
+                arguments.Contains("checkout") || arguments.Contains("switch"))
+            .ToArray();
+
+        Assert.That(worktreeCommands, Is.Not.Empty);
+        Assert.Multiple(() =>
+        {
+            foreach (string[] arguments in worktreeCommands)
+            {
+                // git-lfs copies a pointer excluded by these filters through unchanged, so a
+                // transition that inherited them would leave pointer text where the media belongs.
+                Assert.That(arguments, Does.Contain("lfs.fetchinclude="), string.Join(' ', arguments));
+                Assert.That(arguments, Does.Contain("lfs.fetchexclude="), string.Join(' ', arguments));
+            }
+        });
+    }
+
+    [Test]
+    public async Task Lfs_prefetch_clears_the_repository_lfs_path_filters()
+    {
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n");
+        Directory.CreateDirectory(Path.Combine(Root, "media"));
+        await File.WriteAllTextAsync(Path.Combine(Root, "media", "clip.mp4"), "media\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "media");
+        // A local path remote keeps the prefetch off the network; whether git-lfs is installed only
+        // decides if the command fails, and the prefetch swallows that by design.
+        await RunGitAsync("remote", "add", "origin", CreateTemporaryDirectory());
+        var recording = new ArgumentRecordingRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true),
+            Repository,
+            watcher: null,
+            _ => recording);
+
+        await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            async transaction =>
+            {
+                await transaction.PrefetchBranchLfsObjectsAsync("main", CancellationToken.None);
+                return true;
+            },
+            CancellationToken.None);
+
+        string[]? prefetch = recording.Commands
+            .FirstOrDefault(static arguments =>
+                arguments.Contains("lfs") && arguments.Contains("fetch"));
+        Assert.That(prefetch, Is.Not.Null, "The prefetch did not reach git-lfs.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(prefetch, Does.Contain("lfs.fetchinclude="));
+            Assert.That(prefetch, Does.Contain("lfs.fetchexclude="));
+        });
+    }
+
     private GitCliVersionControlService CreateService(RepositoryWatcher? watcher = null)
     {
         return new GitCliVersionControlService(
@@ -4466,6 +4546,65 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         return arguments.FirstOrDefault() is "rev-parse" or "show-ref"
             ? throw new GitOperationException(1, string.Empty)
             : new GitCommandResult(0, "# branch.head main\0", string.Empty);
+    }
+
+    // Worktree-mutating commands carry `-c` overrides (LFS path filters, hooks) before the
+    // subcommand, so tests match past that prefix instead of pinning its exact shape.
+    private static bool IsTransitionCheckout(IReadOnlyList<string> arguments)
+    {
+        int index = SkipConfigOverrides(arguments);
+        return index + 2 < arguments.Count
+               && arguments[index] == "checkout"
+               && arguments[index + 1] == "--detach"
+               && arguments[index + 2] == "--no-overwrite-ignore";
+    }
+
+    private static string? GetGitSubcommand(IReadOnlyList<string> arguments)
+    {
+        int index = SkipConfigOverrides(arguments);
+        return index < arguments.Count ? arguments[index] : null;
+    }
+
+    private static int SkipConfigOverrides(IReadOnlyList<string> arguments)
+    {
+        int index = 0;
+        while (index + 1 < arguments.Count && arguments[index] == "-c")
+        {
+            index += 2;
+        }
+
+        return index;
+    }
+
+    private sealed class ArgumentRecordingRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        public List<string[]> Commands { get; } = [];
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            Commands.Add([.. arguments]);
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     private sealed class ConcurrencyTrackingRunner : IGitCliRunner
@@ -4727,7 +4866,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         private static bool IsDurableMutation(IReadOnlyList<string> arguments)
         {
-            string? command = arguments.FirstOrDefault();
+            string? command = GetGitSubcommand(arguments);
             return IsCommitCommand(arguments)
                    || command is "push" or "switch"
                    || (command == "remote"
@@ -5233,15 +5372,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     cancellationToken,
                     stderrProgress)
                 .ConfigureAwait(false);
-            if (arguments is
-                [
-                    "-c",
-                    "core.hooksPath=/dev/null",
-                    "checkout",
-                    "--detach",
-                    "--no-overwrite-ignore",
-                    _,
-                ]
+            if (IsTransitionCheckout(arguments)
                 && Interlocked.Exchange(ref _interceptionPending, 0) == 1)
             {
                 InterceptionCount++;

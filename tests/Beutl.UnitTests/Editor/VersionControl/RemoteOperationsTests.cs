@@ -677,15 +677,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         var interceptingRunner = new InterceptingRunner(
             CreateRunner(),
             static (_, arguments, _) =>
-                arguments is
-                [
-                    "-c",
-                    "core.hooksPath=/dev/null",
-                    "checkout",
-                    "--detach",
-                    "--no-overwrite-ignore",
-                    ..
-                ],
+                IsTransitionCheckout(arguments),
             async (_, _, _) =>
             {
                 if (collisionKind == "ignored")
@@ -750,15 +742,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         var interceptingRunner = new InterceptingRunner(
             CreateRunner(),
             static (_, arguments, _) =>
-                arguments is
-                [
-                    "-c",
-                    "core.hooksPath=/dev/null",
-                    "checkout",
-                    "--detach",
-                    "--no-overwrite-ignore",
-                    ..
-                ],
+                IsTransitionCheckout(arguments),
             async (_, _, _) =>
             {
                 if (collisionKind == "ignored")
@@ -3222,6 +3206,34 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         return result.Stdout.Trim();
     }
 
+    // Worktree-mutating commands carry `-c` overrides (LFS path filters, hooks) before the
+    // subcommand, so tests match past that prefix instead of pinning its exact shape.
+    private static bool IsTransitionCheckout(IReadOnlyList<string> arguments)
+    {
+        int index = SkipConfigOverrides(arguments);
+        return index + 2 < arguments.Count
+               && arguments[index] == "checkout"
+               && arguments[index + 1] == "--detach"
+               && arguments[index + 2] == "--no-overwrite-ignore";
+    }
+
+    private static string? GetGitSubcommand(IReadOnlyList<string> arguments)
+    {
+        int index = SkipConfigOverrides(arguments);
+        return index < arguments.Count ? arguments[index] : null;
+    }
+
+    private static int SkipConfigOverrides(IReadOnlyList<string> arguments)
+    {
+        int index = 0;
+        while (index + 1 < arguments.Count && arguments[index] == "-c")
+        {
+            index += 2;
+        }
+
+        return index;
+    }
+
     private sealed class RecordingProgress : IProgress<string>
     {
         public List<string> Messages { get; } = [];
@@ -3252,15 +3264,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            if (arguments is
-                [
-                    "-c",
-                    "core.hooksPath=/dev/null",
-                    "checkout",
-                    "--detach",
-                    "--no-overwrite-ignore",
-                    ..
-                ])
+            if (IsTransitionCheckout(arguments))
             {
                 Interlocked.Increment(ref _checkoutCount);
                 if (Interlocked.CompareExchange(ref _forwardFaulted, 1, 0) == 0)
@@ -3326,15 +3330,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            if (arguments is
-                [
-                    "-c",
-                    "core.hooksPath=/dev/null",
-                    "checkout",
-                    "--detach",
-                    "--no-overwrite-ignore",
-                    ..
-                ])
+            if (IsTransitionCheckout(arguments))
             {
                 int invocation = Interlocked.Increment(ref _checkoutCount);
                 if (invocation == 2 && failReverse)
@@ -3463,15 +3459,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 cancellationToken,
                 stderrProgress);
             if (!CheckoutFaulted
-                && arguments is
-                [
-                    "-c",
-                    "core.hooksPath=/dev/null",
-                    "checkout",
-                    "--detach",
-                    "--no-overwrite-ignore",
-                    ..
-                ])
+                && IsTransitionCheckout(arguments))
             {
                 Interlocked.Exchange(ref _checkoutFaulted, 1);
                 throw new IOException("simulated lost checkout response");
