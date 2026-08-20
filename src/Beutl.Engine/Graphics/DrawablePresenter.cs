@@ -19,7 +19,7 @@ public sealed partial class DrawablePresenter : Drawable, IPresenter<Drawable>
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        r.Target?.GetOriginal().Render(context, r.Target);
+        r.Target?.RequireOriginal().Render(context, r.Target);
     }
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
@@ -29,6 +29,6 @@ public sealed partial class DrawablePresenter : Drawable, IPresenter<Drawable>
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        return r.Target?.GetOriginal().MeasureInternal(availableSize, r.Target) ?? Size.Empty;
+        return r.Target?.RequireOriginal().MeasureInternal(availableSize, r.Target) ?? Size.Empty;
     }
 }

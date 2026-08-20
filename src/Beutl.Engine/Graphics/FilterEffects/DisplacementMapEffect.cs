@@ -86,7 +86,7 @@ public partial class DisplacementMapEffect : FilterEffect
         }
         else if (r.Transform is { } transform)
         {
-            transform.GetOriginal().ApplyTo(displacementMap, transform, r.SpreadMethod, r.Channel, r.Signed, context);
+            transform.RequireOriginal().ApplyTo(displacementMap, transform, r.SpreadMethod, r.Channel, r.Signed, context);
         }
     }
 }

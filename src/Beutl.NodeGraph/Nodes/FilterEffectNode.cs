@@ -52,7 +52,7 @@ public partial class FilterEffectNode<T> : ConfigureNode
     {
         protected override void UpdateCore(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = RequireOriginal();
             FilterEffect.Resource? resource;
             var output = OutputPort;
 

@@ -46,7 +46,7 @@ public abstract partial class Geometry : EngineObject
                 _cachedStrokePath?.Dispose();
                 _cachedStrokePath = null;
                 _cachedPath?.Dispose();
-                var geometry = GetOriginal();
+                var geometry = RequireOriginal();
 
                 _cachedPath = new GeometryContext { FillType = FillType };
                 geometry.ApplyTo(_cachedPath, this);

@@ -157,7 +157,7 @@ public sealed partial class PathGeometry : Geometry
 
         foreach (PathFigure.Resource item in r.Figures)
         {
-            item.GetOriginal().ApplyTo(context, item);
+            item.RequireOriginal().ApplyTo(context, item);
         }
     }
 
@@ -171,7 +171,7 @@ public sealed partial class PathGeometry : Geometry
             using (var context = new GeometryContext())
             {
                 context.FillType = r.FillType;
-                item.GetOriginal().ApplyTo(context, item);
+                item.RequireOriginal().ApplyTo(context, item);
                 if (r.Transform != null)
                 {
                     context.Transform(r.Transform.Matrix);

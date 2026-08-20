@@ -157,7 +157,7 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
             {
                 using (var context = new GeometryContext { FillType = geometry.FillType })
                 {
-                    geometry.GetOriginal().ApplyTo(context, geometry);
+                    geometry.RequireOriginal().ApplyTo(context, geometry);
                     string s = context.NativeObject.ToSvgPathData();
 
                     var newGeometry = Avalonia.Media.PathGeometry.Parse(s);
