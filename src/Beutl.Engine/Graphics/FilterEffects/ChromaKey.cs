@@ -12,16 +12,30 @@ public partial class ChromaKey : FilterEffect
     private const string ShaderSource =
         """
         uniform float3 keyColor;
+        uniform float3 keyColorLinear;
         uniform float hueRange;
         uniform float saturationRange;
         uniform float boundary;
 
-        // A solid fill reaches this shader quantized onto an 8-bit colour grid, so a pixel that was
-        // authored as the key colour arrives up to one 8-bit step away from the uniform. Matching on
-        // exact equality would make the mask depend on that, and it also leaves the smoothstep edges
-        // equal, which the shading languages do not define. Unpremultiplying divides the same error
-        // by alpha, so a key on heavily transparent content stays approximate.
-        const half kMatchTolerance = 1.0 / 255.0;
+        // A solid fill reaches this shader quantized onto an 8-bit grid in the render target's colour
+        // space, which is linear light, so a pixel authored as the key colour arrives up to half a linear
+        // code away from the uniform. Only in linear light is that error uniform - half a code spans about
+        // ten sRGB levels near black and a fifth of one near white - so the match is tested here, before
+        // the transfer curve, instead of on the hue and saturation differences below. The second term
+        // covers the render target's own half-precision storage of the quantized value. Testing
+        // premultiplied keeps the bound independent of alpha, at the cost of matching any colour once
+        // alpha is small enough that the quantum swamps the difference.
+        const float kLinearQuantum = 0.5 / 255.0;
+        const float kHalfStorageUlp = 1.0 / 2048.0;
+
+        // Hue divides by the chroma, and that same quantization can manufacture one linear code of chroma,
+        // so hue carries no signal below one code and full signal only above two.
+        const half kHueChromaFloor = 1.0 / 255.0;
+
+        // Slack for content that arrives near, but not on, the key colour, and the narrowest smoothstep
+        // this shader will run: equal edges are undefined in the shading languages, and Boundary 0 is the
+        // natural authoring choice for a hard key.
+        const half kEdgeTolerance = 1.0 / 255.0;
 
         half3 rgb2hsv(half3 value) {
             half r = value.r;
@@ -54,13 +68,21 @@ public partial class ChromaKey : FilterEffect
             return mix(lo, hi, step(half3(0.0031308), value));
         }
 
+        half chroma(half3 value) {
+            return max(value.r, max(value.g, value.b)) - min(value.r, min(value.g, value.b));
+        }
+
         half4 apply(half4 color) {
             half alpha = color.a;
             if (alpha <= 0.0001) return half4(0.0);
             half3 rgb = color.rgb / alpha;
 
-            half3 srgbColor = linearToSrgb(rgb);
-            half3 hsv = rgb2hsv(srgbColor);
+            float3 keyPremul = keyColorLinear * float(alpha);
+            float3 excess = abs(float3(color.rgb) - keyPremul)
+                - (kLinearQuantum + (kHalfStorageUlp * keyPremul));
+            half onKeyColor = max(excess.r, max(excess.g, excess.b)) <= 0.0 ? 1.0 : 0.0;
+
+            half3 hsv = rgb2hsv(linearToSrgb(rgb));
             half3 keyHSV = rgb2hsv(keyColor);
 
             half hueDiff = abs(hsv.x - keyHSV.x);
@@ -68,12 +90,16 @@ public partial class ChromaKey : FilterEffect
 
             half satDiff = abs(hsv.y - keyHSV.y);
 
-            half width = max(boundary, kMatchTolerance);
-            half hueEdge0 = hueRange + kMatchTolerance;
-            half satEdge0 = saturationRange + kMatchTolerance;
-            half maskHue = smoothstep(hueEdge0, hueEdge0 + width, hueDiff);
+            half width = max(boundary, kEdgeTolerance);
+            half hueEdge0 = hueRange + kEdgeTolerance;
+            half satEdge0 = saturationRange + kEdgeTolerance;
+            half hueSignal = smoothstep(
+                kHueChromaFloor,
+                2.0 * kHueChromaFloor,
+                min(chroma(rgb), chroma(half3(keyColorLinear))));
+            half maskHue = smoothstep(hueEdge0, hueEdge0 + width, hueDiff) * hueSignal;
             half maskSat = smoothstep(satEdge0, satEdge0 + width, satDiff);
-            half mask = max(maskHue, maskSat);
+            half mask = max(maskHue, maskSat) * (1.0 - onKeyColor);
 
             return color * mask;
         }
@@ -102,6 +128,7 @@ public partial class ChromaKey : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
+        Vector4 linear = r.Color.ToLinear();
         context.Shader(ShaderDescription.CurrentPixel(
             s_shaderSource,
             bindings =>
@@ -112,6 +139,7 @@ public partial class ChromaKey : FilterEffect
                         r.Color.R / 255f,
                         r.Color.G / 255f,
                         r.Color.B / 255f));
+                bindings.Uniform("keyColorLinear", new Vector3(linear.X, linear.Y, linear.Z));
                 bindings.Uniform("hueRange", r.HueRange / 360f);
                 bindings.Uniform("saturationRange", r.SaturationRange / 100f);
                 bindings.Uniform("boundary", r.Boundary / 100f);
