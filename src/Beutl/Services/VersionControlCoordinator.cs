@@ -1504,10 +1504,16 @@ public sealed class VersionControlCoordinator :
                         // Same reason as the restore and branch-switch paths: the fast-forward
                         // checkout runs uncancellable with the project closed, so the objects its
                         // LFS smudge filter needs are pulled in here, while this is still
-                        // cancellable and the project is still open.
-                        await service.PrefetchBranchLfsObjectsAsync(
-                            GetLocalBranchName(originalHead.RefName),
-                            cancellationToken);
+                        // cancellable and the project is still open. The preflight's fetch moved
+                        // the remote-tracking ref and not the local branch, so the prefetch has to
+                        // name the fetched commit - a branch name would resolve to the pre-pull tip
+                        // and miss exactly the objects the checkout is about to need.
+                        if (preflight.UpstreamCommit is { } upstreamCommit)
+                        {
+                            await service.PrefetchCommitLfsObjectsAsync(
+                                upstreamCommit,
+                                cancellationToken);
+                        }
                         try
                         {
                             await CloseProjectForOperationAsync(transition, CancellationToken.None);
@@ -3694,7 +3700,8 @@ public sealed class VersionControlCoordinator :
             }
 
             bool enclosingRepositoryAccepted = !repository.IsNestedInForeignRepo
-                                                || await ConfirmUseEnclosingRepositoryAsync(
+                                                || await ConfirmUseEnclosingRepositoryIfNeededAsync(
+                                                    discoveryService,
                                                     repository,
                                                     cancellationToken);
             if (!enclosingRepositoryAccepted)
@@ -4806,7 +4813,8 @@ public sealed class VersionControlCoordinator :
                         return;
                     }
                 }
-                else if (!await ConfirmUseEnclosingRepositoryAsync(
+                else if (!await ConfirmUseEnclosingRepositoryIfNeededAsync(
+                             activation.Service,
                              repository,
                              activation.CancellationToken))
                 {
@@ -4939,6 +4947,18 @@ public sealed class VersionControlCoordinator :
     // Version tracking stays opt-in per project, so merely opening a project whose directory the
     // user has already made a repository must not start writing hygiene files and commits. Only a
     // repository that already records an earlier opt-in resumes tracking without asking.
+    // Adopting a foreign work tree is the user's call, but only the first time: a repository that
+    // already records an opt-in resumes tracking without asking, exactly like a non-nested one.
+    // Asking on every open would turn a dismissed prompt into a session with no snapshots at all.
+    private async Task<bool> ConfirmUseEnclosingRepositoryIfNeededAsync(
+        IProjectVersionControlBackend service,
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        return await service.HasVersionTrackingOptInAsync(repository, cancellationToken)
+               || await ConfirmUseEnclosingRepositoryAsync(repository, cancellationToken);
+    }
+
     private async Task<bool> ConfirmAdoptRepositoryIfNeededAsync(
         IProjectVersionControlBackend service,
         RepositoryInfo repository,
