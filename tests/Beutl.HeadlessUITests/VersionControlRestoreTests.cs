@@ -90,6 +90,66 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Restore_to_a_new_branch_branches_from_the_current_tip_and_applies_the_project_tree()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = false;
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-restore-branch-scope");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var originalTip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            const string SelectedCommit = "2222222222222222222222222222222222222222";
+            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
+            var backend = new PullCycleTestBackend(repository, repository, originalTip);
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool restored = await coordinator.RestoreToNewBranchAsync(
+                SelectedCommit,
+                "restored-version");
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored, Is.True);
+                // Branching at the selected commit would check its whole tree out, rolling back
+                // files outside the project in an enclosing repository.
+                Assert.That(backend.LastBranchStartPoint, Is.EqualTo(originalTip.Commit));
+                Assert.That(backend.CommitProjectTreeCalls, Is.EqualTo(1));
+                Assert.That(backend.LastProjectTreeSource, Is.EqualTo(SelectedCommit));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Manual_commit_records_edits_made_while_the_identity_prompt_is_open()
     {
         await TestReset.ResetShellAsync();
@@ -10369,6 +10429,10 @@ public class VersionControlRestoreTests
             return CommitAllResult;
         }
 
+        public int CommitProjectTreeCalls { get; private set; }
+
+        public string? LastProjectTreeSource { get; private set; }
+
         public Task<CommitResult> CommitProjectTreeAsync(
             CheckedOutBranchTip expectedCurrent,
             string sourceCommit,
@@ -10376,6 +10440,8 @@ public class VersionControlRestoreTests
             SnapshotKind kind,
             CancellationToken cancellationToken)
         {
+            CommitProjectTreeCalls++;
+            LastProjectTreeSource = sourceCommit;
             return Task.FromResult<CommitResult>(new CommitResult.NoChanges());
         }
 
@@ -10506,12 +10572,15 @@ public class VersionControlRestoreTests
                     : true);
         }
 
+        public string? LastBranchStartPoint { get; private set; }
+
         public Task CreateBranchAsync(
             string name,
             string startPoint,
             CancellationToken cancellationToken)
         {
             CreateBranchCalls++;
+            LastBranchStartPoint = startPoint;
             return Task.CompletedTask;
         }
 

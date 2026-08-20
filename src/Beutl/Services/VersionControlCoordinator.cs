@@ -2442,12 +2442,20 @@ public sealed class VersionControlCoordinator :
                         }
                         else
                         {
+                            CheckedOutBranchTip branchTip;
                             try
                             {
+                                // Branching at the selected commit would check that whole tree out,
+                                // so in an enclosing repository it would roll back files outside the
+                                // project and could overwrite ignored ones. Branch from the current
+                                // tip instead and apply only the project tree on top of it.
                                 await service.CreateBranchAsync(
                                     branchName,
-                                    sha,
+                                    originalTip.Commit,
                                     CancellationToken.None);
+                                branchTip = await service.GetCheckedOutBranchTipAsync(
+                                    CancellationToken.None);
+                                expectedResultTip = branchTip;
                             }
                             catch
                             {
@@ -2456,8 +2464,17 @@ public sealed class VersionControlCoordinator :
                                 throw;
                             }
 
-                            expectedResultTip = await service.GetCheckedOutBranchTipAsync(
+                            CommitResult restoreResult = await service.CommitProjectTreeAsync(
+                                branchTip,
+                                sha,
+                                $"beutl: restore project state from {GetShortSha(sha)}",
+                                SnapshotKind.Restore,
                                 CancellationToken.None);
+
+                            expectedResultTip = GetExpectedTipAfterCommit(
+                                branchTip,
+                                restoreResult);
+                            EnsureAutomaticSnapshotWasNotSkipped(restoreResult);
                         }
 
                         await ReopenProjectAsync(transition, projectFile);
