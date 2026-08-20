@@ -187,13 +187,20 @@ internal sealed class GLSLFilterPipeline : IDisposable
             [new DescriptorPoolSize(DescriptorType.CombinedImageSampler, 1)]);
         descriptorSet.UpdateTexture(0, sourceTexture, _sampler);
 
-        // Execute render pass
+        // Execute render pass. The pass holds a render-pass scope on the context-wide recording batch,
+        // so a body that throws has to release it or every later transfer in the process is diverted.
         _renderPass.Begin(framebuffer, [default]);
-        _renderPass.BindPipeline(_pipeline);
-        _renderPass.BindDescriptorSet(_pipeline, descriptorSet);
-        _renderPass.SetPushConstants(pushConstants, ShaderStage.Fragment);
-        _renderPass.Draw(3); // Fullscreen triangle
-        _renderPass.End();
+        try
+        {
+            _renderPass.BindPipeline(_pipeline);
+            _renderPass.BindDescriptorSet(_pipeline, descriptorSet);
+            _renderPass.SetPushConstants(pushConstants, ShaderStage.Fragment);
+            _renderPass.Draw(3); // Fullscreen triangle
+        }
+        finally
+        {
+            _renderPass.End();
+        }
 
         // Prepare destination for sampling (next stage)
         destinationTexture.PrepareForSampling();
@@ -229,13 +236,20 @@ internal sealed class GLSLFilterPipeline : IDisposable
         descriptorSet.UpdateTexture(0, sourceTexture, _sampler);
         descriptorSet.UpdateTexture(1, maskTexture, _sampler);
 
-        // Execute render pass
+        // Execute render pass. The pass holds a render-pass scope on the context-wide recording batch,
+        // so a body that throws has to release it or every later transfer in the process is diverted.
         _renderPass.Begin(framebuffer, [default]);
-        _renderPass.BindPipeline(_pipeline);
-        _renderPass.BindDescriptorSet(_pipeline, descriptorSet);
-        _renderPass.SetPushConstants(pushConstants, ShaderStage.Fragment);
-        _renderPass.Draw(3); // Fullscreen triangle
-        _renderPass.End();
+        try
+        {
+            _renderPass.BindPipeline(_pipeline);
+            _renderPass.BindDescriptorSet(_pipeline, descriptorSet);
+            _renderPass.SetPushConstants(pushConstants, ShaderStage.Fragment);
+            _renderPass.Draw(3); // Fullscreen triangle
+        }
+        finally
+        {
+            _renderPass.End();
+        }
 
         // Prepare destination for sampling (next stage)
         destinationTexture.PrepareForSampling();

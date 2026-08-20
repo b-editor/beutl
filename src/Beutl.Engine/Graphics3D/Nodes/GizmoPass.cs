@@ -245,20 +245,19 @@ public sealed class GizmoPass : GraphicsNode3D
 
         // Begin pass (loadOp is set to Load in CreateGizmoResources, so content is preserved)
         Span<Color> clearColors = [Colors.Transparent];
-        BeginPass(clearColors, 1.0f);
+        using (UsePass(clearColors, 1.0f))
+        {
+            // Bind pipeline and descriptor set
+            RenderPass.BindPipeline(_pipeline);
+            RenderPass.BindDescriptorSet(_pipeline, _descriptorSet);
 
-        // Bind pipeline and descriptor set
-        RenderPass.BindPipeline(_pipeline);
-        RenderPass.BindDescriptorSet(_pipeline, _descriptorSet);
+            // Bind vertex and index buffers
+            RenderPass.BindVertexBuffer(vertexBuffer);
+            RenderPass.BindIndexBuffer(indexBuffer);
 
-        // Bind vertex and index buffers
-        RenderPass.BindVertexBuffer(vertexBuffer);
-        RenderPass.BindIndexBuffer(indexBuffer);
-
-        // Draw gizmo
-        RenderPass.DrawIndexed((uint)indexCount);
-
-        EndPass();
+            // Draw gizmo
+            RenderPass.DrawIndexed((uint)indexCount);
+        }
     }
 
     protected override void OnDispose()

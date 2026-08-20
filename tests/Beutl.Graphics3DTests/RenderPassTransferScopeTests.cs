@@ -1,5 +1,7 @@
-﻿using Beutl.Graphics.Backend;
+﻿using System.Runtime.InteropServices;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Graphics.Effects;
 using Beutl.Media;
 
 namespace Beutl.Graphics3DTests;
@@ -21,6 +23,25 @@ public sealed class RenderPassTransferScopeTests
 {
     private const int Width = 16;
     private const int Height = 8;
+
+    private const string PassthroughFragmentShader = """
+        #version 450
+
+        layout(location = 0) in vec2 fragCoord;
+        layout(location = 0) out vec4 outColor;
+        layout(binding = 0) uniform sampler2D sourceTexture;
+
+        void main() {
+            outColor = texture(sourceTexture, fragCoord);
+        }
+        """;
+
+    // Past VulkanRenderPass3D's 128-byte push-constant limit, so SetPushConstants rejects it.
+    [StructLayout(LayoutKind.Sequential, Size = 192)]
+    private struct OversizedPushConstants
+    {
+        public byte First;
+    }
 
     [Test]
     [Category("GpuPassFusionGpu")]
@@ -64,6 +85,54 @@ public sealed class RenderPassTransferScopeTests
                 Is.EqualTo(1),
                 "A transfer recorded inside a render pass must be submitted as its own batch, "
                 + "not appended to the batch the pass is still recording.");
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void APassBodyFailure_ReleasesTheRenderPassScope()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using GLSLFilterPipeline pipeline = GLSLFilterPipeline.Create(
+                    context,
+                    PassthroughFragmentShader,
+                    ShaderOutputCoverage.ProvablyFull)
+                ?? throw new AssertionException("The passthrough filter pipeline could not be created.");
+            using ITexture2D shaderSource = context.CreateTexture2D(Width, Height, TextureFormat.RGBA16Float);
+            using ITexture2D shaderDestination = context.CreateTexture2D(Width, Height, TextureFormat.RGBA16Float);
+
+            // Throws from VulkanRenderPass3D.SetPushConstants, between the pass's Begin and End.
+            Assert.Throws<ArgumentException>(
+                () => pipeline.Execute(shaderSource, shaderDestination, new OversizedPushConstants { First = 1 }));
+
+            uint[] payload = [0x11223344u, 0x55667788u];
+            ulong size = (ulong)(payload.Length * sizeof(uint));
+            using IBuffer source = context.CreateBuffer(
+                size,
+                BufferUsage.TransferSource,
+                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            using IBuffer destination = context.CreateBuffer(
+                size,
+                BufferUsage.VertexBuffer | BufferUsage.TransferDestination,
+                MemoryProperty.DeviceLocal);
+            source.Upload<uint>(payload);
+
+            var afterFailure = new List<VulkanCommandPoolEvent>();
+            using (VulkanCommandPool.Observe(afterFailure.Add))
+            {
+                context.CopyBuffer(source, destination, size);
+            }
+
+            Assert.That(
+                afterFailure.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                Is.Zero,
+                "A render pass whose body threw must release the render-pass scope, otherwise every later "
+                + "transfer in the process takes its own out-of-band submission and the shared batch keeps "
+                + "an unterminated render pass.");
+
+            context.WaitIdle();
         });
     }
 }

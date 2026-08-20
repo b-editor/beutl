@@ -118,16 +118,15 @@ public sealed class FlipPass : GraphicsNode3D
 
         // Begin flip pass
         Span<Color> clearColors = [new Color(0, 0, 0, 255)];
-        BeginPass(clearColors);
+        using (UsePass(clearColors))
+        {
+            // Bind pipeline and descriptor set
+            RenderPass.BindPipeline(_pipeline);
+            RenderPass.BindDescriptorSet(_pipeline, _descriptorSet);
 
-        // Bind pipeline and descriptor set
-        RenderPass.BindPipeline(_pipeline);
-        RenderPass.BindDescriptorSet(_pipeline, _descriptorSet);
-
-        // Draw fullscreen triangle
-        RenderPass.Draw(3);
-
-        EndPass();
+            // Draw fullscreen triangle
+            RenderPass.Draw(3);
+        }
     }
 
     protected override void OnDispose()

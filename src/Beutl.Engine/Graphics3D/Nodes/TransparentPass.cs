@@ -128,15 +128,14 @@ public sealed class TransparentPass : GraphicsNode3D
 
         // Begin transparent pass with load (preserves copied content and depth buffer)
         Span<Color> clearColors = [Colors.Transparent];
-        BeginPass(clearColors);
-
-        // Render transparent objects (already sorted far to near)
-        foreach (var entry in transparentObjects)
+        using (UsePass(clearColors))
         {
-            RenderTransparentObject(context3D, entry.Object, entry.WorldMatrix);
+            // Render transparent objects (already sorted far to near)
+            foreach (var entry in transparentObjects)
+            {
+                RenderTransparentObject(context3D, entry.Object, entry.WorldMatrix);
+            }
         }
-
-        EndPass();
     }
 
     private void RenderTransparentObject(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
