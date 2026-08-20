@@ -3,42 +3,47 @@
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
-public partial class VersionControlMenuCompletenessTests
+public partial class VersionControlCommandSurfaceTests
 {
-    private static readonly string[] s_expectedMenuCommands =
+    private static readonly string[] s_versionControlCommands =
     [
         "CommitVersion",
         "EnableVersionControl",
     ];
 
     [Test]
-    public void Native_menu_mirrors_version_control_commands_and_context_definitions()
+    public void Version_control_commands_are_not_duplicated_by_the_menu_bar()
     {
         string repositoryRoot = FindRepositoryRoot();
         string mainView = File.ReadAllText(Path.Combine(repositoryRoot, "src/Beutl/Views/MainView.axaml"));
         string macWindow = File.ReadAllText(Path.Combine(repositoryRoot, "src/Beutl/Views/MacWindow.axaml"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                GetVersionControlMenuCommands(mainView),
+                Is.Empty,
+                "The version control tab is the only surface for version control actions.");
+            Assert.That(
+                GetVersionControlMenuCommands(macWindow),
+                Is.Empty,
+                "The version control tab is the only surface for version control actions.");
+        });
+    }
+
+    [Test]
+    public void Version_control_commands_stay_reachable_as_context_commands()
+    {
+        string repositoryRoot = FindRepositoryRoot();
         string extension = File.ReadAllText(
             Path.Combine(repositoryRoot, "src/Beutl/Services/PrimitiveImpls/MainViewExtension.cs"));
         string palette = File.ReadAllText(
             Path.Combine(repositoryRoot, "src/Beutl/ViewModels/MenuBarViewModel.Palette.cs"));
 
-        string[] mainCommands = GetVersionControlMenuCommands(mainView);
-        string[] nativeCommands = GetVersionControlMenuCommands(macWindow);
-
         Assert.Multiple(() =>
         {
-            Assert.That(mainCommands, Is.EqualTo(s_expectedMenuCommands));
-            Assert.That(nativeCommands, Is.EqualTo(mainCommands));
-            foreach (string command in s_expectedMenuCommands)
+            foreach (string command in s_versionControlCommands)
             {
-                Assert.That(
-                    CountCommand(mainView, command),
-                    Is.EqualTo(1),
-                    $"{command} must appear exactly once in MainView.");
-                Assert.That(
-                    CountCommand(macWindow, command),
-                    Is.EqualTo(1),
-                    $"{command} must appear exactly once in the macOS native menu.");
                 Assert.That(
                     extension,
                     Does.Contain($"new(\"{command}\""),
@@ -68,13 +73,6 @@ public partial class VersionControlMenuCompletenessTests
                 || command.Contains("Branch", StringComparison.Ordinal))
             .Order(StringComparer.Ordinal)
             .ToArray();
-    }
-
-    private static int CountCommand(string xaml, string command)
-    {
-        return CommandBindingRegex()
-            .Matches(xaml)
-            .Count(match => match.Groups["command"].Value == command);
     }
 
     private static string FindRepositoryRoot()
