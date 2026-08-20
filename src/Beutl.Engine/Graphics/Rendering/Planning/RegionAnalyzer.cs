@@ -888,13 +888,16 @@ internal sealed class RegionAnalyzer
             return rawCommand.Description.QueryBounds;
         if (reference.Payload is LayerRenderFragmentPayload layerPayload)
         {
+            if (layerPayload is { DomainIsQueryFootprint: true, Domain: { } queryFootprint })
+                return queryFootprint;
+
             Rect layerQuery = Rect.Empty;
             foreach (RenderFragmentReference input in reference.Inputs)
                 layerQuery = layerQuery.Union(ResolveQueryBounds(input));
             return layerQuery.Intersect(layerPayload.Domain ?? reference.Bounds);
         }
         if (reference.ContributesValuesToTarget)
-            return reference.Bounds;
+            return reference.Bounds.Union(ResolveDeclaredQueryFootprint(reference));
         if (reference.Kind == RenderFragmentKind.OpacityMask)
         {
             return reference.Inputs.IsDefaultOrEmpty
@@ -905,6 +908,38 @@ internal sealed class RegionAnalyzer
         Rect result = default;
         foreach (RenderFragmentReference input in reference.Inputs)
             result = result.Union(ResolveQueryBounds(input));
+
+        if (result.Width == 0 || result.Height == 0)
+            return Rect.Empty;
+
+        return reference.Payload switch
+        {
+            TargetScopeRenderFragmentPayload scope
+                => scope.Description.Bounds.TransformBounds(result),
+            RawTargetScopeRenderFragmentPayload scope
+                => scope.Description.Bounds.TransformBounds(result),
+            TargetLayerScopeRenderFragmentPayload layer
+                => layer.Region.Kind == TargetRegionKind.Region
+                    ? result.Intersect(layer.Region.Value)
+                    : layer.Region.Kind == TargetRegionKind.Empty ? Rect.Empty : result,
+            _ => result,
+        };
+    }
+
+    // A fixed-size viewport declares a query footprint wider than what it draws, and every value-contributing
+    // ancestor above it reports only its own content-derived bounds. The footprint is therefore resolved on its
+    // own descent, mapped through the same scopes the ordinary descent maps through.
+    private static Rect ResolveDeclaredQueryFootprint(RenderFragmentReference reference)
+    {
+        if (reference.Payload is LayerRenderFragmentPayload
+            { DomainIsQueryFootprint: true, Domain: { } queryFootprint })
+        {
+            return queryFootprint;
+        }
+
+        Rect result = default;
+        foreach (RenderFragmentReference input in reference.Inputs)
+            result = result.Union(ResolveDeclaredQueryFootprint(input));
 
         if (result.Width == 0 || result.Height == 0)
             return Rect.Empty;

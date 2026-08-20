@@ -333,7 +333,7 @@ public sealed partial class SceneDrawable : Drawable
 
             PixelSize size = frame.Value.Size;
             var domain = new Rect(0, 0, size.Width, size.Height);
-            context.Publish(context.Layer(context.Inputs, domain));
+            context.Publish(context.Layer(context.Inputs, domain, domainIsQueryFootprint: true));
         }
 
         protected override void OnDispose(bool disposing)

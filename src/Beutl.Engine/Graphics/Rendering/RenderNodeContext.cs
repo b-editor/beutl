@@ -885,6 +885,12 @@ public sealed class RenderNodeContext
     /// <summary>Records a finite off-screen layer and returns its composited value.</summary>
     /// <param name="inputs">A non-null ordered list of non-null fragments replayed inside the layer.</param>
     /// <param name="domain">The finite logical layer domain.</param>
+    /// <param name="domainIsQueryFootprint">
+    /// <see langword="true"/> when the layer occupies its whole <paramref name="domain"/> for bounds queries even
+    /// where it draws nothing — a fixed-size viewport such as a nested scene, whose layout footprint is the frame
+    /// it references rather than its content. Output bounds, rasterization regions, and hit testing stay
+    /// content-derived either way; only the queried footprint changes.
+    /// </param>
     /// <returns>
     /// A new transaction-scoped single-value fragment. The result is not published automatically and owns no
     /// execution resource itself.
@@ -895,7 +901,8 @@ public sealed class RenderNodeContext
     /// </remarks>
     public RenderFragmentHandle Layer(
         IReadOnlyList<RenderFragmentHandle> inputs,
-        Rect domain)
+        Rect domain,
+        bool domainIsQueryFootprint = false)
     {
         if (!RenderRectValidation.IsFiniteNonNegative(domain)
             || domain.Width == 0
@@ -941,7 +948,7 @@ public sealed class RenderNodeContext
             hasTargetEffects: true,
             hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
             references,
-            new LayerRenderFragmentPayload(domain),
+            new LayerRenderFragmentPayload(domain, domainIsQueryFootprint),
             hitTest);
     }
 
@@ -1577,7 +1584,7 @@ internal sealed record GeometryRenderFragmentPayload(
     GeometryDescription Description,
     FilterEffectWorkingScalePolicy? WorkingScalePolicy = null);
 
-internal sealed record LayerRenderFragmentPayload(Rect? Domain);
+internal sealed record LayerRenderFragmentPayload(Rect? Domain, bool DomainIsQueryFootprint = false);
 
 internal sealed record TargetLayerScopeRenderFragmentPayload(TargetRegion Region);
 
