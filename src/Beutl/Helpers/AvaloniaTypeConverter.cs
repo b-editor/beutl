@@ -270,7 +270,6 @@ public static class AvaloniaTypeConverter
         private CancellationTokenSource? _cts;
         private int _queuedUpdates;
         private int _runningUpdates;
-        private bool _shutdownStarted;
         private bool _disposeRequested;
         private bool _resourceReleased;
 
@@ -303,7 +302,7 @@ public static class AvaloniaTypeConverter
             _renderDispatcher = renderDispatcher;
             _ownsResource = ownsResource;
             // A shutdown drops queued work without running it, so the resource must be released from here too.
-            _shutdownHandler = (_, _) => ReleaseResourceIfSettled(shutdown: true);
+            _shutdownHandler = (_, _) => ReleaseResourceIfSettled();
             _renderDispatcher.ShutdownStarted += _shutdownHandler;
         }
 
@@ -319,7 +318,7 @@ public static class AvaloniaTypeConverter
             }
 
             ClearPublishedBitmap();
-            ReleaseResourceIfSettled(shutdown: false);
+            ReleaseResourceIfSettled();
         }
 
         public void Update()
@@ -356,7 +355,7 @@ public static class AvaloniaTypeConverter
                         _runningUpdates--;
                     }
 
-                    ReleaseResourceIfSettled(shutdown: false);
+                    ReleaseResourceIfSettled();
                 }
             }, DispatchPriority.Low);
         }
@@ -382,19 +381,19 @@ public static class AvaloniaTypeConverter
                 Dispatcher.UIThread.Post(Clear, DispatcherPriority.Background);
         }
 
-        private void ReleaseResourceIfSettled(bool shutdown)
+        private void ReleaseResourceIfSettled()
         {
             lock (_gate)
             {
-                if (shutdown)
-                    _shutdownStarted = true;
                 if (_resourceReleased || !_disposeRequested)
                     return;
                 // An update already in flight is still recording from the resource, so it has to settle
                 // first even during shutdown; only work that never starts can be written off.
                 if (_runningUpdates > 0)
                     return;
-                if (!_shutdownStarted && _queuedUpdates > 0)
+                // The ShutdownStarted event is one-shot, so a dispatcher that stopped before this handler
+                // subscribed never delivers it. Its own state is the signal that queued work is dead.
+                if (!_renderDispatcher.HasShutdownStarted && _queuedUpdates > 0)
                     return;
 
                 _resourceReleased = true;

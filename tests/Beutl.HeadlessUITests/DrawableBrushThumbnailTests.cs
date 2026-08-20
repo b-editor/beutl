@@ -672,6 +672,44 @@ public class DrawableBrushThumbnailTests
     }
 
     [AvaloniaTest]
+    public void Handler_attached_to_an_already_stopped_dispatcher_still_releases_its_resource()
+    {
+        var drawableBrush = new DrawableBrush();
+        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(
+            new CompositionContext(TimeSpan.Zero));
+        var imageBrush = new AvaImageBrush();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        var loopEntered = new ManualResetEventSlim();
+
+        // Shutdown racing Start is swallowed and leaves the loop running forever, so wait until the
+        // loop is demonstrably live before stopping it.
+        dispatcher.Dispatch(loopEntered.Set, DispatchPriority.High);
+        Assert.That(loopEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+        dispatcher.Shutdown();
+        Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+
+        // ShutdownStarted is one-shot and already fired, so this handler never receives it.
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(
+            resource,
+            imageBrush,
+            dispatcher);
+
+        try
+        {
+            handler.Update();
+            handler.Dispose();
+
+            Assert.That(resource.IsDisposed, Is.True);
+        }
+        finally
+        {
+            handler.Dispose();
+            loopEntered.Dispose();
+            resource.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Grouped_content_publishes_a_thumbnail()
     {
         GpuTestGate.EnsureAvailable();
