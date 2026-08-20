@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor;
+using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -31,6 +32,22 @@ public class RepositoryWatcherTests
         string path = Path.Combine(_tempDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
         Assert.That(RepositoryWatcher.ShouldExcludePath(_tempDirectory, path), Is.True);
+    }
+
+    [TestCase(".BEUTL/view-state.json")]
+    [TestCase(".Git/config")]
+    public void Reserved_directories_are_excluded_exactly_when_the_filesystem_folds_their_case(
+        string relativePath)
+    {
+        string path = Path.Combine(
+            _tempDirectory,
+            relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+        // On a case-insensitive volume this names the reserved directory itself, so its writes must
+        // not drive the status refresh pipeline; on a case-sensitive one it is a different one.
+        Assert.That(
+            RepositoryWatcher.ShouldExcludePath(_tempDirectory, path),
+            Is.EqualTo(FileSystemPathComparison.IsCaseInsensitive));
     }
 
     [Test]

@@ -74,9 +74,13 @@ internal sealed class RepositoryWatcher : IDisposable
             return true;
         }
 
+        // A case-insensitive volume resolves `.BEUTL` to the same reserved directory, so matching it
+        // ordinally would let its view-state and autosave writes drive the status refresh pipeline.
         return relativePath
             .Split('/', StringSplitOptions.RemoveEmptyEntries)
-            .Any(segment => segment is ".git" or ".beutl");
+            .Any(static segment =>
+                string.Equals(segment, ".git", FileSystemPathComparison.ForCurrentPlatform)
+                || string.Equals(segment, ".beutl", FileSystemPathComparison.ForCurrentPlatform));
     }
 
     internal static bool ShouldIncludeGitMetadataPath(string metadataRoot, string path)
