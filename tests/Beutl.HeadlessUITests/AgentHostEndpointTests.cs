@@ -9,7 +9,9 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Extensibility;
+using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.ViewModels;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -17,6 +19,53 @@ namespace Beutl.HeadlessUITests;
 
 public sealed class AgentHostEndpointTests
 {
+    [AvaloniaTest]
+    public async Task Live_session_rejects_edits_while_the_editors_are_suspended()
+    {
+        await TestReset.ResetShellAsync();
+        string location = Path.Combine(
+            Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+            "agent-live-suspension");
+        Directory.CreateDirectory(location);
+        Project project = (await TestShell.Project.CreateProject(
+            640,
+            480,
+            30,
+            44100,
+            "live",
+            location))!;
+        Scene scene = project.Items.OfType<Scene>().Single();
+        TestShell.Editor.ActivateTabItem(scene);
+        Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var binding = new EditViewModelLiveBinding(editor);
+        LiveEditingSession session = new LiveSessionSource().Attach(binding);
+
+        Assert.That(session.ProbeIsAlive(), Is.True);
+
+        using (IDisposable suspension = TestShell.Editor.SuspendEditors())
+        {
+            // A transition holds this from before its pre-transition save until the project closes,
+            // so an edit accepted here would reach only the in-memory scene and be lost.
+            Assert.Multiple(() =>
+            {
+                Assert.That(binding.IsAlive, Is.False);
+                Assert.Throws<SessionUnavailableException>(() => session.Invoke(() => { }));
+            });
+        }
+
+        int invocations = 0;
+        session.Invoke(() => invocations++);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(binding.IsAlive, Is.True);
+            Assert.That(invocations, Is.EqualTo(1));
+        });
+
+        await TestReset.ResetShellAsync();
+    }
+
     [AvaloniaTest]
     public async Task Live_output_operation_provider_delegates_to_editor_service_exclusion()
     {
