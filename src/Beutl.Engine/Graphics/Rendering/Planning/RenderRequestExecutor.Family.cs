@@ -18,7 +18,8 @@ internal sealed partial class RenderRequestExecutor
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
         ICollection<FamilyExecutionFrame> frames,
         ICollection<Exception> cleanupFailures,
-        ref int nestedRootAcquisitions)
+        ref int nestedRootAcquisitions,
+        ref bool nestedPreviewDropObserved)
     {
         foreach (CompiledRenderRequest nested in request.NestedRequests)
         {
@@ -29,7 +30,8 @@ internal sealed partial class RenderRequestExecutor
                 spirvProgramCache,
                 frames,
                 cleanupFailures,
-                ref nestedRootAcquisitions);
+                ref nestedRootAcquisitions,
+                ref nestedPreviewDropObserved);
         }
 
         ExecuteSingle(
@@ -40,7 +42,8 @@ internal sealed partial class RenderRequestExecutor
             programCache,
             spirvProgramCache,
             frames,
-            cleanupFailures);
+            cleanupFailures,
+            nestedPreviewDropObserved);
     }
 
     private void ExecuteNested(
@@ -50,7 +53,8 @@ internal sealed partial class RenderRequestExecutor
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
         ICollection<FamilyExecutionFrame> frames,
         ICollection<Exception> cleanupFailures,
-        ref int nestedRootAcquisitions)
+        ref int nestedRootAcquisitions,
+        ref bool nestedPreviewDropObserved)
     {
         NestedRenderTargetBinding binding = request.Request.Options.TargetBinding
             ?? throw new InvalidOperationException("A nested request has no separate-target binding.");
@@ -67,7 +71,8 @@ internal sealed partial class RenderRequestExecutor
                 spirvProgramCache,
                 frames,
                 cleanupFailures,
-                ref nestedRootAcquisitions);
+                ref nestedRootAcquisitions,
+                ref nestedPreviewDropObserved);
             return;
         }
 
@@ -78,6 +83,7 @@ internal sealed partial class RenderRequestExecutor
         RenderTargetLease? lease = null;
         ImmediateCanvas? canvas = null;
         FamilyExecutionException? failure = null;
+        bool dropped = false;
         RenderTargetCleanupFailureCheckpoint cleanupCheckpoint =
             _targets.CaptureCleanupFailureCheckpoint();
         try
@@ -86,19 +92,30 @@ internal sealed partial class RenderRequestExecutor
             Rect rasterBounds = deviceBounds.ToRect(request.Request.Options.OutputScale);
             try
             {
-                lease = _targets.Acquire(deviceBounds.Size);
-                nestedRootAcquisitions++;
-                RenderTarget target = lease.Target;
-                binding.Stage(lease, bounds, request.Request.Options.OutputScale);
-                lease = null;
-                canvas = ImmediateCanvas.CreateExecutorManaged(
-                    target,
-                    request.Request.Options.OutputScale,
-                    request.Request.Options.MaxWorkingScale,
-                    rasterBounds.Size,
-                    request.Request.Options.Intent,
-                    deviceBounds.Position);
-                canvas.Clear();
+                // TryAcquire itself throws for a Delivery session, so a null result is a preview drop.
+                RenderTargetLease? acquired = _targets.TryAcquire(deviceBounds.Size);
+                if (acquired is null)
+                {
+                    dropped = true;
+                    nestedPreviewDropObserved = true;
+                    SkipNestedFamily(request);
+                }
+                else
+                {
+                    lease = acquired;
+                    nestedRootAcquisitions++;
+                    RenderTarget target = lease.Target;
+                    binding.Stage(lease, bounds, request.Request.Options.OutputScale);
+                    lease = null;
+                    canvas = ImmediateCanvas.CreateExecutorManaged(
+                        target,
+                        request.Request.Options.OutputScale,
+                        request.Request.Options.MaxWorkingScale,
+                        rasterBounds.Size,
+                        request.Request.Options.Intent,
+                        deviceBounds.Position);
+                    canvas.Clear();
+                }
             }
             catch (Exception ex)
             {
@@ -106,7 +123,7 @@ internal sealed partial class RenderRequestExecutor
                     ExceptionDispatchInfo.Capture(ex));
             }
 
-            if (failure is null)
+            if (failure is null && !dropped)
             {
                 using (canvas!.PushTransform(Matrix.CreateTranslation(
                            -rasterBounds.X,
@@ -121,7 +138,8 @@ internal sealed partial class RenderRequestExecutor
                         spirvProgramCache,
                         frames,
                         cleanupFailures,
-                        ref nestedRootAcquisitions);
+                        ref nestedRootAcquisitions,
+                        ref nestedPreviewDropObserved);
                 }
 
                 canvas.CloseWithoutFlush();
@@ -170,7 +188,8 @@ internal sealed partial class RenderRequestExecutor
         ProgramCache<CachedSkRuntimeEffect> programCache,
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
         ICollection<FamilyExecutionFrame> frames,
-        ICollection<Exception> cleanupFailures)
+        ICollection<Exception> cleanupFailures,
+        bool nestedPreviewDropObserved)
     {
         request.Request.TransitionTo(RenderRequestState.Executing);
         var state = new RenderRequestExecutionState(
@@ -188,6 +207,9 @@ internal sealed partial class RenderRequestExecutor
             spirvProgramCache,
             _shaderBackendPreference,
             _afterCaptureAllocation);
+        if (nestedPreviewDropObserved)
+            state.MarkPreviewAllocationDropped();
+
         var frame = new FamilyExecutionFrame(request, state);
         frames.Add(frame);
         using IDisposable materializerScope = destination.PushDrawableBrushMaterializer(
@@ -258,6 +280,17 @@ internal sealed partial class RenderRequestExecutor
     {
         foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
             member.Request.TransitionTo(RenderRequestState.Completed);
+    }
+
+    // A dropped subtree never runs, but CompleteFamily still transitions it, and RenderRequest only allows
+    // Planned -> Executing -> Completed.
+    private static void SkipNestedFamily(CompiledRenderRequest request)
+    {
+        foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
+        {
+            member.Request.Options.TargetBinding?.Reject();
+            member.Request.TransitionTo(RenderRequestState.Executing);
+        }
     }
 
     private static void RejectNestedBindings(CompiledRenderRequest request)

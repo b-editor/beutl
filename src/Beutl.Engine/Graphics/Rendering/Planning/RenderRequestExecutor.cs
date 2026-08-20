@@ -74,6 +74,7 @@ internal sealed partial class RenderRequestExecutor
         var cleanupFailures = new List<Exception>();
         ExceptionDispatchInfo? primaryFailure = null;
         int nestedRootAcquisitions = 0;
+        bool nestedPreviewDropObserved = false;
         RenderRequestOwner owner = request.Request.Options.Owner;
         try
         {
@@ -88,7 +89,8 @@ internal sealed partial class RenderRequestExecutor
                     familySpirvProgramCache,
                     frames,
                     cleanupFailures,
-                    ref nestedRootAcquisitions);
+                    ref nestedRootAcquisitions,
+                    ref nestedPreviewDropObserved);
             }
             catch (FamilyExecutionException ex)
             {
@@ -403,6 +405,12 @@ internal sealed partial class RenderRequestExecutor
                     AddResolvedDomain(_resolvedAccessDomains, step.FragmentId, domain);
             }
         }
+
+        /// <summary>
+        /// Records that a nested subtree this request depends on was dropped for want of a target, so the
+        /// request's degraded output is never published into the render cache.
+        /// </summary>
+        public void MarkPreviewAllocationDropped() => _previewAllocationDropObserved = true;
 
         public void Replay(RenderFragmentReference fragment, ImmediateCanvas destination)
         {

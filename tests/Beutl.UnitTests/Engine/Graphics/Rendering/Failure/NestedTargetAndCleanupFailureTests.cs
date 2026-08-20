@@ -407,6 +407,103 @@ public sealed class NestedTargetAndCleanupFailureTests
         });
     }
 
+    // FR-039 keeps main's allocation-failure outcome: a declined nested target left the 3D scene untextured
+    // inside an otherwise complete preview frame. Delivery still fails fast.
+    [Test]
+    public void NestedTargetAllocationFailureInPreview_DropsTheNestedValueAndStillRendersTheParent()
+    {
+        using var owner = new RenderRequestOwner();
+        var options = new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            targetDomain: s_bounds,
+            requestedRegion: s_bounds,
+            outputScale: 1,
+            maxWorkingScale: 1,
+            cachePolicy: RenderCacheOptions.Disabled,
+            owner: owner);
+        var executionOrder = new List<string>();
+        using var child = new NestedExecutionNode("child", executionOrder);
+        using var parent = new NestedExecutionNode(
+            "parent",
+            executionOrder,
+            nestedRoot: child,
+            parentOptions: options);
+        using var request = new RenderRequest(options);
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
+        RecordedNestedRenderTarget nested = parent.NestedRequest
+            ?? throw new AssertionException("The parent did not record its nested request.");
+        using RenderRequest nestedRequest = nested.Request;
+        using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
+        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
+        using var canvas = new ImmediateCanvas(destination);
+        var factory = new FailureTestTargetFactory(failAt: 0);
+        using var registry = new RenderTargetLeaseRegistry(factory);
+        using RenderTargetLeaseSession targets = registry.BeginSession(
+            RenderIntent.Preview,
+            destination);
+
+        Assert.DoesNotThrow(() => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.PrimaryFailure, Is.Null);
+            Assert.That(executionOrder, Is.EqualTo(new[] { "parent" }),
+                "The nested subtree is dropped; the parent still renders.");
+            Assert.That(child.ExecuteCalls, Is.Zero);
+            Assert.That(parent.ExecuteCalls, Is.EqualTo(1));
+            Assert.That(nested.Target.IsReady, Is.False);
+            Assert.That(nestedRequest.State, Is.EqualTo(RenderRequestState.Completed));
+            Assert.That(request.State, Is.EqualTo(RenderRequestState.Completed));
+            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void NestedTargetAllocationFailureInDelivery_StillFailsFast()
+    {
+        using var owner = new RenderRequestOwner();
+        var options = new RenderRequestOptions(
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Auxiliary,
+            targetDomain: s_bounds,
+            requestedRegion: s_bounds,
+            outputScale: 1,
+            maxWorkingScale: 1,
+            cachePolicy: RenderCacheOptions.Disabled,
+            owner: owner);
+        var executionOrder = new List<string>();
+        using var child = new NestedExecutionNode("child", executionOrder);
+        using var parent = new NestedExecutionNode(
+            "parent",
+            executionOrder,
+            nestedRoot: child,
+            parentOptions: options);
+        using var request = new RenderRequest(options);
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
+        RecordedNestedRenderTarget nested = parent.NestedRequest
+            ?? throw new AssertionException("The parent did not record its nested request.");
+        using RenderRequest nestedRequest = nested.Request;
+        using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
+        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
+        using var canvas = new ImmediateCanvas(destination);
+        var factory = new FailureTestTargetFactory(failAt: 0);
+        using var registry = new RenderTargetLeaseRegistry(factory);
+        using RenderTargetLeaseSession targets = registry.BeginSession(
+            RenderIntent.Delivery,
+            destination);
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure!.Message, Does.Contain("could not allocate"));
+            Assert.That(parent.ExecuteCalls, Is.Zero);
+            Assert.That(request.State, Is.EqualTo(RenderRequestState.Failed));
+        });
+    }
+
     [Test]
     public void ParentFailureAfterNestedCacheStaging_RejectsEveryFamilyCaptureAndFailsBothRequests()
     {
