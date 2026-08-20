@@ -24,8 +24,8 @@ public sealed class PerspectiveNearPlaneResidualTests
     {
         Matrix matrix = ComposeCenteredRotation(width, height, rotationY, depth);
         var local = new Rect(0, 0, width, height);
-        Rect declared = local.TransformToClippedAABB(matrix);
-        Rect rasterizerExact = local.TransformToClippedAABB(matrix, Rect.RasterizerNearPlane);
+        Rect declared = local.TransformToAABB(matrix);
+        Rect rasterizerExact = local.TransformToAABB(matrix, Rect.RasterizerNearPlane);
 
         int drawn = 0;
         int outsideDeclared = 0;
@@ -60,7 +60,7 @@ public sealed class PerspectiveNearPlaneResidualTests
         float width, float height, float rotationY, float depth)
     {
         Matrix matrix = ComposeCenteredRotation(width, height, rotationY, depth);
-        Rect declared = new Rect(0, 0, width, height).TransformToClippedAABB(matrix);
+        Rect declared = new Rect(0, 0, width, height).TransformToAABB(matrix);
 
         float radians = MathF.PI * rotationY / 180f;
         float expectedLeft = (s_frame.Width / 2f)
@@ -75,10 +75,10 @@ public sealed class PerspectiveNearPlaneResidualTests
     {
         Matrix matrix = ComposeCenteredRotation(1200f, 54f, 60f, 500f);
         var local = new Rect(0, 0, 1200f, 54f);
-        Rect declared = local.TransformToClippedAABB(matrix);
-        Rect rasterizerExact = local.TransformToClippedAABB(matrix, Rect.RasterizerNearPlane);
+        Rect declared = local.TransformToAABB(matrix);
+        Rect rasterizerExact = local.TransformToAABB(matrix, Rect.RasterizerNearPlane);
 
-        Rect belowCrossover = local.TransformToClippedAABB(matrix, 0.03f);
+        Rect belowCrossover = local.TransformToAABB(matrix, 0.03f);
 
         float exactScale = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(rasterizerExact, 1f);
         float declaredScale = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(declared, 2f);

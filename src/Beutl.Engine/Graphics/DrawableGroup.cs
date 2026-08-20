@@ -347,9 +347,9 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             bool HasInverse,
             Matrix Inverse)
         {
-            public Rect TransformBounds(Rect inputBounds) => inputBounds.TransformToClippedAABB(Transform);
+            public Rect TransformBounds(Rect inputBounds) => inputBounds.TransformToAABB(Transform);
 
-            public Rect GetRequiredInputBounds(Rect outputBounds) => outputBounds.TransformToClippedAABB(Inverse);
+            public Rect GetRequiredInputBounds(Rect outputBounds) => outputBounds.TransformToAABB(Inverse);
 
             public bool HitTest(RenderHitTestContext context, Point point)
             {

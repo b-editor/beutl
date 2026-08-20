@@ -29,7 +29,7 @@ public readonly struct Rect
       ITupleConvertible<Rect, float>
 {
     /// <summary>
-    /// The homogeneous divisor <see cref="TransformToClippedAABB"/> clips at by default. This is a
+    /// The homogeneous divisor <see cref="TransformToAABB"/> clips at by default. This is a
     /// pragmatic bound, not the rasterizer's: it sits 820x in front of <see cref="RasterizerNearPlane"/>,
     /// so content whose divisor falls between the two is drawn but is <b>not</b> covered by the box the
     /// default returns. A <c>Rotation3DTransform</c>'s divisor is <c>1 + z / Depth</c>, so the default
@@ -440,18 +440,17 @@ public readonly struct Rect
     }
 
     /// <summary>
-    /// Returns the axis-aligned bounding box of a transformed rectangle.
+    /// The box around the four mapped corners, with no camera-plane handling.
     /// </summary>
-    /// <param name="matrix">The transform.</param>
-    /// <returns>The bounding box</returns>
     /// <remarks>
-    /// A projective map takes lines to lines, so the mapped-corner box is exact — but only while the
-    /// rectangle stays on one side of <paramref name="matrix"/>'s <c>w = 0</c> plane. A rectangle that
-    /// crosses that plane has an unbounded image and its behind-plane corners are point-reflected
-    /// through the origin, so the box lands on the wrong side of the image rather than containing it.
-    /// Use <see cref="TransformToClippedAABB"/> when the matrix may carry perspective.
+    /// A projective map takes lines to lines, so this box is exact — but only while the rectangle stays
+    /// on one side of <paramref name="matrix"/>'s <c>w = 0</c> plane. A rectangle that crosses that
+    /// plane has an unbounded image and its behind-plane corners are point-reflected through the origin,
+    /// so the box lands on the wrong side of the image rather than containing it. That is why this is
+    /// not the public answer: <see cref="TransformToAABB"/> establishes the precondition and then calls
+    /// this.
     /// </remarks>
-    public Rect TransformToAABB(Matrix matrix)
+    internal Rect TransformToMappedCornerAABB(Matrix matrix)
     {
         ReadOnlySpan<Point> points =
         [
@@ -478,7 +477,7 @@ public readonly struct Rect
     }
 
     /// <summary>
-    /// Returns the axis-aligned bounding box of this rectangle transformed by <paramref name="matrix"/>,
+    /// Returns an axis-aligned bounding box of this rectangle transformed by <paramref name="matrix"/>,
     /// with the part behind the matrix's camera plane clipped away first.
     /// </summary>
     /// <param name="matrix">The transform.</param>
@@ -495,14 +494,14 @@ public readonly struct Rect
     /// <returns>
     /// The bounding box, or <see cref="Empty"/> when no part of the rectangle reaches the near plane —
     /// which, at <see cref="DefaultNearPlane"/>, does not mean the rasterizer draws none of it.
-    /// Identical to <see cref="TransformToAABB"/> whenever the rectangle does not cross the camera plane,
-    /// which is every case that plain mapped corners already answer exactly.
+    /// Identical to the plain mapped-corner box whenever the rectangle does not cross the camera
+    /// plane, which is every case those corners already answer exactly.
     /// </returns>
-    public Rect TransformToClippedAABB(Matrix matrix, float nearPlane = DefaultNearPlane)
+    public Rect TransformToAABB(Matrix matrix, float nearPlane = DefaultNearPlane)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(nearPlane);
         if (!matrix.ContainsPerspective())
-            return TransformToAABB(matrix);
+            return TransformToMappedCornerAABB(matrix);
 
         ReadOnlySpan<Point> corners = [TopLeft, TopRight, BottomRight, BottomLeft];
         Span<float> divisors = stackalloc float[4];
@@ -519,7 +518,7 @@ public readonly struct Rect
         // The divisor is affine over the rectangle, so a single sign at the corners means no interior
         // point reaches the plane and the mapped-corner box is already exact.
         if (min > 0 || max < 0)
-            return TransformToAABB(matrix);
+            return TransformToMappedCornerAABB(matrix);
 
         Span<Point> clipped = stackalloc Point[8];
         int count = 0;

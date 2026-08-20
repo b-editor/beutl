@@ -70,7 +70,7 @@ internal static class TransformHandleMath
     /// </remarks>
     public static Matrix AlignUserMatrixToRenderedBounds(Matrix userMatrix, Size localSize, Rect renderedBounds)
     {
-        Rect transformBounds = new Rect(localSize).TransformToClippedAABB(userMatrix);
+        Rect transformBounds = new Rect(localSize).TransformToAABB(userMatrix);
         if (transformBounds.IsEmpty)
         {
             return userMatrix;

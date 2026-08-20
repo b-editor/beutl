@@ -911,7 +911,7 @@ public sealed class RenderNodeRenderer : IDisposable
         Size viewportSize = destination.Density == 1f && destination.SurfaceDensity != 1f
             ? destination.DeviceSize.ToSize(1)
             : destination.LogicalSize;
-        domain = new Rect(default, viewportSize).TransformToClippedAABB(inverse);
+        domain = new Rect(default, viewportSize).TransformToAABB(inverse);
         if (!RenderRectValidation.IsFiniteNonNegative(domain)
             || domain.Width == 0
             || domain.Height == 0)

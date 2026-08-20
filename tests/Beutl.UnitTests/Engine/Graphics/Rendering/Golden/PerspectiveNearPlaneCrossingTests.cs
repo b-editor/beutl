@@ -70,7 +70,7 @@ public sealed class PerspectiveNearPlaneCrossingTests
                 straddling, s_frame, 1f, clearColor: Colors.Transparent);
 
             Matrix matrix = ComposeCenteredRotation(Width, Height, RotationY, depth: 500f);
-            Rect declared = new Rect(0, 0, Width, Height).TransformToClippedAABB(matrix);
+            Rect declared = new Rect(0, 0, Width, Height).TransformToAABB(matrix);
             NearPlaneResidual residual = MeasureResidual(bitmap, matrix, Width, Height, declared);
             TestContext.WriteLine(
                 $"[wdefault 1200x54 @89.5deg depth500] declared={declared} "

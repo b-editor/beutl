@@ -483,11 +483,12 @@ public class TransformHandleMathTests
         Matrix userMatrix = ComposeCenteredRotation(width, height, rotationY, depth);
         var localSize = new Size(width, height);
         var local = new Rect(localSize);
-        Rect renderedBounds = local.TransformToClippedAABB(userMatrix);
+        Rect renderedBounds = local.TransformToAABB(userMatrix);
 
         // Without the clip the reference centre lands on the far side of the image, which is the
         // difference this alignment would otherwise read as an effect offset.
-        float mirroredGap = MathF.Abs(local.TransformToAABB(userMatrix).Center.X - renderedBounds.Center.X);
+        float mirroredGap = MathF.Abs(
+            local.TransformToMappedCornerAABB(userMatrix).Center.X - renderedBounds.Center.X);
         TestContext.WriteLine($"unclipped reference centre is off by {mirroredGap}px");
         Assert.That(mirroredGap, Is.GreaterThan(0.5f), "the fixture must move the centre past the alignment epsilon");
 
@@ -502,7 +503,7 @@ public class TransformHandleMathTests
         Matrix userMatrix = ComposeCenteredRotation(1200, 54, 60f, 500f);
         var localSize = new Size(1200, 54);
         var local = new Rect(localSize);
-        Rect renderedBounds = local.TransformToClippedAABB(userMatrix).Translate(new Vector(10, 5));
+        Rect renderedBounds = local.TransformToAABB(userMatrix).Translate(new Vector(10, 5));
 
         Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds);
 
@@ -526,7 +527,7 @@ public class TransformHandleMathTests
         // the camera is nearer than the near plane, so there is no reference box to align against.
         var userMatrix = new Matrix(1, 0, -0.0004f, 0, 1, 0, 0, 0, 0.02f);
         var localSize = new Size(100, 50);
-        Assert.That(new Rect(localSize).TransformToClippedAABB(userMatrix).IsEmpty, Is.True);
+        Assert.That(new Rect(localSize).TransformToAABB(userMatrix).IsEmpty, Is.True);
 
         Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(
             userMatrix, localSize, new Rect(-500, -500, 1000, 1000));

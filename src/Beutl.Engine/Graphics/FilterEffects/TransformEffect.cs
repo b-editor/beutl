@@ -58,7 +58,7 @@ public sealed partial class TransformEffect : FilterEffect
                         Matrix m1 = -offset1 * data.mat * offset1;
                         Matrix m2 = -offset2 * data.mat * offset2;
 
-                        EffectTarget newTarget = effectContext.CreateTarget(target.Bounds.TransformToClippedAABB(m1));
+                        EffectTarget newTarget = effectContext.CreateTarget(target.Bounds.TransformToAABB(m1));
                         if (newTarget.IsEmpty)
                         {
                             newTarget.Dispose();

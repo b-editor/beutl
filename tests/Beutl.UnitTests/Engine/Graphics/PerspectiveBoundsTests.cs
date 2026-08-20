@@ -28,8 +28,8 @@ public sealed class PerspectiveBoundsTests
         Matrix matrix = Compose(Perspective(persX));
         Assert.That(matrix.GetTransformDivisor(s_local.TopLeft), Is.GreaterThan(0));
 
-        Rect expected = s_local.TransformToAABB(matrix);
-        Rect actual = s_local.TransformToClippedAABB(matrix);
+        Rect expected = s_local.TransformToMappedCornerAABB(matrix);
+        Rect actual = s_local.TransformToAABB(matrix);
 
         Assert.Multiple(() =>
         {
@@ -48,7 +48,7 @@ public sealed class PerspectiveBoundsTests
         var behind = new Rect(0, 0, 40, 58);
         Assert.That(matrix.GetTransformDivisor(new Point(40, 0)), Is.LessThan(0));
 
-        Assert.That(behind.TransformToClippedAABB(matrix), Is.EqualTo(behind.TransformToAABB(matrix)));
+        Assert.That(behind.TransformToAABB(matrix), Is.EqualTo(behind.TransformToMappedCornerAABB(matrix)));
     }
 
     [Test]
@@ -63,7 +63,7 @@ public sealed class PerspectiveBoundsTests
             matrix.GetTransformDivisor(new Point(42.5f, 0)),
             Is.GreaterThan(0).And.LessThan(Rect.DefaultNearPlane));
 
-        Assert.That(sliver.TransformToClippedAABB(matrix), Is.EqualTo(Rect.Empty));
+        Assert.That(sliver.TransformToAABB(matrix), Is.EqualTo(Rect.Empty));
     }
 
     [TestCase(0.0163f)]
@@ -77,8 +77,8 @@ public sealed class PerspectiveBoundsTests
         Assert.That(MathF.Abs(persX), Is.GreaterThan(StraddleThreshold));
         Matrix matrix = Compose(Perspective(persX));
 
-        Rect clipped = s_local.TransformToClippedAABB(matrix);
-        Rect mappedCorners = s_local.TransformToAABB(matrix);
+        Rect clipped = s_local.TransformToAABB(matrix);
+        Rect mappedCorners = s_local.TransformToMappedCornerAABB(matrix);
 
         int outsideClipped = 0;
         int outsideMappedCorners = 0;
@@ -109,7 +109,7 @@ public sealed class PerspectiveBoundsTests
             0, 1, 0,
             0, 0, 1));
 
-        Rect clipped = s_local.TransformToClippedAABB(matrix);
+        Rect clipped = s_local.TransformToAABB(matrix);
 
         Assert.Multiple(() =>
         {
@@ -117,7 +117,7 @@ public sealed class PerspectiveBoundsTests
                 "the image is a left-opening wedge whose only finite extremity is its right edge");
             Assert.That(clipped.Left, Is.LessThan(0),
                 "the wedge opens left, so the box must reach past the frame origin");
-            Assert.That(s_local.TransformToAABB(matrix).Left, Is.EqualTo(142.9479f).Within(0.001f),
+            Assert.That(s_local.TransformToMappedCornerAABB(matrix).Left, Is.EqualTo(142.9479f).Within(0.001f),
                 "the mapped-corner box puts its LEFT edge where the image ends");
         });
     }
@@ -127,7 +127,7 @@ public sealed class PerspectiveBoundsTests
     public void NonPositiveNearPlane_IsRejected(float nearPlane)
     {
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => s_local.TransformToClippedAABB(Compose(Perspective(0.05f)), nearPlane));
+            () => s_local.TransformToAABB(Compose(Perspective(0.05f)), nearPlane));
     }
 
     // Only what DefaultNearPlane promises to cover, which is less than the rasterizer draws.
