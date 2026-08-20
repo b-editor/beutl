@@ -38,6 +38,13 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     internal bool CanCapture => _successfulStableRequests >= StableRequestCount;
 
+    /// <summary>
+    /// The dependency closure's change-version stamp at the request that published this cache, or 0 when
+    /// unstamped. Root-independent, so a change another root already consumed from
+    /// <see cref="RenderNode.HasChanges"/> still shows up here.
+    /// </summary>
+    internal long DependencySignature { get; set; }
+
     internal void RecordSuccessfulStableRequest()
     {
         if (!IsDisposed && _successfulStableRequests < StableRequestCount)
@@ -50,6 +57,7 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
             return;
 
         _successfulStableRequests = 0;
+        DependencySignature = 0;
         InvalidateStorage();
     }
 
@@ -83,6 +91,7 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
             return;
 
         IsDisposed = true;
+        DependencySignature = 0;
         CacheStorage storage = DetachStorage();
         if (disposing)
         {

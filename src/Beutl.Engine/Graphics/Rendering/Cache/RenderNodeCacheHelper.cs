@@ -48,11 +48,14 @@ internal sealed class RenderNodeCacheLifecycle
     {
         var snapshots = new Dictionary<RenderNode, NodeSnapshot>(ReferenceEqualityComparer.Instance);
         Collect(root, snapshots);
+        ResolveSignatures(snapshots.Values);
 
         var ancestors = new HashSet<NodeSnapshot>();
         foreach (NodeSnapshot snapshot in snapshots.Values)
         {
-            if (!snapshot.WasDirty)
+            // WasDirty alone cannot carry a shared child's change: HasChanges is one flag per node, and
+            // whichever root completes first clears it for the others. The signature is root-independent.
+            if (!snapshot.WasDirty && !HasStaleSignature(snapshot))
                 continue;
 
             MarkNodeAndAncestors(snapshot, ancestors);
@@ -109,6 +112,8 @@ internal sealed class RenderNodeCacheLifecycle
             }
         }
 
+        RestampSignatures();
+
         if (advanceWarmup)
         {
             foreach (NodeSnapshot snapshot in _nodes)
@@ -124,6 +129,84 @@ internal sealed class RenderNodeCacheLifecycle
         }
 
         _completed = true;
+    }
+
+    private void RestampSignatures()
+    {
+        ResolveSignatures(_nodes, useCurrentChangeVersion: true);
+        foreach (NodeSnapshot snapshot in _nodes)
+        {
+            if (!snapshot.Node.IsDisposed)
+                snapshot.Node.Cache.DependencySignature = snapshot.Signature;
+        }
+    }
+
+    private static bool HasStaleSignature(NodeSnapshot snapshot)
+    {
+        RenderNodeCache cache = snapshot.Node.Cache;
+        return cache.IsCached
+               && cache.DependencySignature != 0
+               && cache.DependencySignature != snapshot.Signature;
+    }
+
+    private static void ResolveSignatures(
+        IEnumerable<NodeSnapshot> all,
+        bool useCurrentChangeVersion = false)
+    {
+        var resolved = new HashSet<NodeSnapshot>();
+        var stack = new Stack<(NodeSnapshot Snapshot, bool ChildrenResolved)>();
+        foreach (NodeSnapshot start in all)
+        {
+            stack.Push((start, false));
+            while (stack.Count != 0)
+            {
+                (NodeSnapshot snapshot, bool childrenResolved) = stack.Pop();
+                if (childrenResolved)
+                {
+                    long changeVersion = useCurrentChangeVersion
+                        ? snapshot.Node.ChangeVersion
+                        : snapshot.ObservedChangeVersion;
+                    snapshot.Signature = ComputeSignature(snapshot, changeVersion);
+                    continue;
+                }
+
+                if (!resolved.Add(snapshot))
+                    continue;
+
+                stack.Push((snapshot, true));
+                foreach (NodeSnapshot child in snapshot.Children)
+                    stack.Push((child, false));
+            }
+        }
+    }
+
+    private static long ComputeSignature(NodeSnapshot snapshot, long changeVersion)
+    {
+        unchecked
+        {
+            const ulong Basis = 14695981039346656037UL;
+            ulong hash = Mix(Basis, (ulong)changeVersion);
+            foreach (NodeSnapshot child in snapshot.Children)
+                hash = Mix(hash, (ulong)child.Signature);
+
+            // 0 is the unstamped marker.
+            return hash == 0 ? 1 : (long)hash;
+        }
+    }
+
+    private static ulong Mix(ulong hash, ulong value)
+    {
+        unchecked
+        {
+            const ulong Prime = 1099511628211UL;
+            for (int shift = 0; shift < 64; shift += 8)
+            {
+                hash ^= (value >> shift) & 0xFF;
+                hash *= Prime;
+            }
+
+            return hash;
+        }
     }
 
     private static NodeSnapshot Collect(
@@ -192,6 +275,8 @@ internal sealed class RenderNodeCacheLifecycle
         public List<NodeSnapshot> Children { get; } = [];
 
         public List<NodeSnapshot> Parents { get; } = [];
+
+        public long Signature { get; set; }
 
         public bool IsVisiting { get; set; }
 
