@@ -312,7 +312,10 @@ internal enum PullTransitionState
 
 internal sealed record PullPreflightResult(
     RemoteOpResult Result,
-    bool RequiresTransition);
+    bool RequiresTransition,
+    // The fetched upstream commit a transition would fast-forward to. Null whenever no transition
+    // is required, because then nothing was verified to fast-forward to.
+    string? UpstreamCommit);
 
 internal sealed record FastForwardPullResult(
     RemoteOpResult Result,

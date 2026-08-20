@@ -5805,7 +5805,8 @@ public class VersionControlRestoreTests
                     HasConflicts: false),
                 PreflightResult = new PullPreflightResult(
                     new RemoteOpResult.Success(),
-                    RequiresTransition: false),
+                    RequiresTransition: false,
+                    UpstreamCommit: null),
                 PullResult = new FastForwardPullResult(
                     new RemoteOpResult.Success(),
                     originalTip),
@@ -6679,8 +6680,14 @@ public class VersionControlRestoreTests
             var originalTip = new CheckedOutBranchTip(
                 "refs/heads/main",
                 "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip);
-            var tracked = new PullCycleTestBackend(repository, repository, originalTip);
+            var discovery = new PullCycleTestBackend(null, repository, originalTip)
+            {
+                HasVersionTrackingOptIn = false,
+            };
+            var tracked = new PullCycleTestBackend(repository, repository, originalTip)
+            {
+                HasVersionTrackingOptIn = false,
+            };
             var checkpoint = new ProjectCheckpoint(
                 "refs/beutl/safety/test-checkpoint",
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -6942,8 +6949,14 @@ public class VersionControlRestoreTests
             var originalTip = new CheckedOutBranchTip(
                 "refs/heads/main",
                 "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip);
-            var tracked = new PullCycleTestBackend(repository, repository, originalTip);
+            var discovery = new PullCycleTestBackend(null, repository, originalTip)
+            {
+                HasVersionTrackingOptIn = false,
+            };
+            var tracked = new PullCycleTestBackend(repository, repository, originalTip)
+            {
+                HasVersionTrackingOptIn = false,
+            };
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider()),
@@ -6982,6 +6995,145 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Adopted_enclosing_repository_resumes_tracking_without_asking_again()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.AutoCommitOnClose = false;
+            Project target = await CreateProjectForFakeVersionControlAsync(
+                "version-control-enclosing-consent-opt-in");
+            string projectFile = target.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            string repositoryRoot = Path.GetDirectoryName(projectRoot)!;
+            await TestShell.Project.CloseProject();
+            var projectService = new ProjectService();
+            var repository = new RepositoryInfo(repositoryRoot, projectRoot);
+            var originalTip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            // The repository already records an earlier opt-in for this project.
+            var discovery = new PullCycleTestBackend(null, repository, originalTip)
+            {
+                HasVersionTrackingOptIn = true,
+            };
+            var tracked = new PullCycleTestBackend(repository, repository, originalTip)
+            {
+                HasVersionTrackingOptIn = true,
+            };
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            int confirmations = 0;
+            coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref confirmations);
+                return Task.FromResult(true);
+            };
+
+            await projectService.OpenProject(projectFile);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
+
+            Assert.Multiple(() =>
+            {
+                // Re-asking would turn a dismissed prompt into a session with no snapshots at all,
+                // even though the project is already tracked.
+                Assert.That(confirmations, Is.Zero);
+                Assert.That(projectService.CurrentProject.Value, Is.Not.Null);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Pull_prefetches_lfs_objects_at_the_fetched_upstream_commit()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = false;
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-pull-lfs-prefetch");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var originalTip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            const string UpstreamCommit = "2222222222222222222222222222222222222222";
+            var pulledTip = new CheckedOutBranchTip(originalTip.RefName, UpstreamCommit);
+            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
+            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            {
+                PreflightResult = new PullPreflightResult(
+                    new RemoteOpResult.Success(),
+                    RequiresTransition: true,
+                    UpstreamCommit),
+                PullResult = new FastForwardPullResult(
+                    new RemoteOpResult.Success(),
+                    pulledTip,
+                    PullTransitionState.Applied),
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            bool? projectWasOpenDuringPrefetch = null;
+            backend.PrefetchCommitLfsObserver = () =>
+                projectWasOpenDuringPrefetch = TestShell.Project.CurrentProject.Value is not null;
+
+            await coordinator.PullAsync();
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                // The fetch moved the remote-tracking ref only, so the local branch still points at
+                // the pre-pull tip: prefetching by branch name would download nothing.
+                Assert.That(backend.PrefetchBranchLfsCalls, Is.Zero);
+                Assert.That(backend.LastPrefetchedCommit, Is.EqualTo(UpstreamCommit));
+                // The checkout itself runs uncancellable with the project closed.
+                Assert.That(projectWasOpenDuringPrefetch, Is.True);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Changed_recovery_does_not_leak_enclosing_consent_to_the_next_open_attempt()
     {
         await TestReset.ResetShellAsync();
@@ -7003,8 +7155,15 @@ public class VersionControlRestoreTests
             var originalTip = new CheckedOutBranchTip(
                 "refs/heads/main",
                 "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip);
-            var tracked = new PullCycleTestBackend(repository, repository, originalTip);
+            // The repository has not been adopted for this project yet, so each attempt asks.
+            var discovery = new PullCycleTestBackend(null, repository, originalTip)
+            {
+                HasVersionTrackingOptIn = false,
+            };
+            var tracked = new PullCycleTestBackend(repository, repository, originalTip)
+            {
+                HasVersionTrackingOptIn = false,
+            };
             var checkpoint = new ProjectCheckpoint(
                 "refs/beutl/safety/test-checkpoint",
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -9762,7 +9921,8 @@ public class VersionControlRestoreTests
 
         public PullPreflightResult PreflightResult { get; init; } = new(
             new RemoteOpResult.Success(),
-            RequiresTransition: true);
+            RequiresTransition: true,
+            UpstreamCommit: null);
 
         public TaskCompletionSource? PreflightStarted { get; init; }
 
@@ -9884,9 +10044,13 @@ public class VersionControlRestoreTests
 
         public Action? PrefetchBranchLfsObserver { get; set; }
 
+        public string? LastPrefetchedBranch { get; private set; }
+
         public int PrefetchCommitLfsCalls { get; private set; }
 
         public Action? PrefetchCommitLfsObserver { get; set; }
+
+        public string? LastPrefetchedCommit { get; private set; }
 
         public int RetirementCalls => Volatile.Read(ref _retirementCalls);
 
@@ -10372,6 +10536,7 @@ public class VersionControlRestoreTests
         public Task PrefetchBranchLfsObjectsAsync(string name, CancellationToken cancellationToken)
         {
             PrefetchBranchLfsCalls++;
+            LastPrefetchedBranch = name;
             PrefetchBranchLfsObserver?.Invoke();
             return Task.CompletedTask;
         }
@@ -10379,6 +10544,7 @@ public class VersionControlRestoreTests
         public Task PrefetchCommitLfsObjectsAsync(string sha, CancellationToken cancellationToken)
         {
             PrefetchCommitLfsCalls++;
+            LastPrefetchedCommit = sha;
             PrefetchCommitLfsObserver?.Invoke();
             return Task.CompletedTask;
         }

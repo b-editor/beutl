@@ -5022,7 +5022,10 @@ internal sealed class GitCliVersionControlService :
         catch (GitOperationException ex)
         {
             CaptureRecoverableLock(ex);
-            return new PullPreflightResult(MapRemoteFailure(ex), RequiresTransition: false);
+            return new PullPreflightResult(
+                MapRemoteFailure(ex),
+                RequiresTransition: false,
+                UpstreamCommit: null);
         }
 
         string upstreamRef = hasOrigin
@@ -5040,7 +5043,10 @@ internal sealed class GitCliVersionControlService :
         catch (GitOperationException ex)
         {
             CaptureRecoverableLock(ex);
-            return new PullPreflightResult(MapRemoteFailure(ex), RequiresTransition: false);
+            return new PullPreflightResult(
+                MapRemoteFailure(ex),
+                RequiresTransition: false,
+                UpstreamCommit: null);
         }
 
         string upstreamCommit = upstreamResult.Stdout.Trim();
@@ -5073,13 +5079,16 @@ internal sealed class GitCliVersionControlService :
         {
             PullRelation.LocalBehind => new PullPreflightResult(
                 new RemoteOpResult.Success(),
-                RequiresTransition: true),
+                RequiresTransition: true,
+                upstreamCommit),
             PullRelation.Equal or PullRelation.LocalAhead => new PullPreflightResult(
                 new RemoteOpResult.Success(),
-                RequiresTransition: false),
+                RequiresTransition: false,
+                UpstreamCommit: null),
             _ => new PullPreflightResult(
                 new RemoteOpResult.Diverged(),
-                RequiresTransition: false),
+                RequiresTransition: false,
+                UpstreamCommit: null),
         };
     }
 
