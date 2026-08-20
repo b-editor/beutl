@@ -720,6 +720,29 @@ public sealed class AiCapabilityServiceTests
     }
 
     [Test]
+    public void ImageGeneration_RefusesReferencesThatComeToMoreThanTheServerHolds()
+    {
+        AiUploadSource Upload(string name, long length) => new(
+            name,
+            "image/png",
+            _ => ValueTask.FromResult<Stream>(new MemoryStream()),
+            length);
+        long half = AiRequestLimits.MaxImageReferencesTotalBytes / 2;
+
+        // Each picture is inside the per-picture limit; together they are past
+        // what the server can hold, and it is better said here than after the
+        // whole set has gone out.
+        Assert.Throws<AiFileTooLargeException>(() => _ = new AiImageGenerationRequest(
+            "a calm sky",
+            new AiImageAspectRatioId("1:1"),
+            references: [Upload("first.png", half + 1), Upload("second.png", half + 1)]));
+        Assert.DoesNotThrow(() => _ = new AiImageGenerationRequest(
+            "a calm sky",
+            new AiImageAspectRatioId("1:1"),
+            references: [Upload("first.png", half), Upload("second.png", half)]));
+    }
+
+    [Test]
     public void ImageGeneration_RefusesMoreReferencesThanThePriceCovers()
     {
         AiUploadSource Upload(string name) => new(

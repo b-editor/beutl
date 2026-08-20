@@ -282,6 +282,12 @@ public static class AiRequestLimits
     // publishes nothing is read as.
     public const int MaxImageReferences = 4;
 
+    // What all the reference pictures of one request may come to together. The
+    // per-picture limit taken four times over is more than the server can hold:
+    // every picture is kept raw, again as base64 and again through JSON, so the
+    // total is held to what one picture was already allowed to be.
+    public const long MaxImageReferencesTotalBytes = MaxImageUploadBytes;
+
     // The provider accepts a signed 32-bit seed. Bounding it here keeps the
     // same number intact through every JSON encoder on the way.
     public const int MinSeed = 0;
@@ -496,6 +502,11 @@ public sealed record AiImageGenerationRequest
             throw new ArgumentException("Reference pictures cannot contain null.", nameof(references));
         if (references?.Any(reference => reference.Length > AiRequestLimits.MaxImageUploadBytes) == true)
             throw new AiFileTooLargeException();
+        if (references?.Sum(reference => reference.Length ?? 0)
+            > AiRequestLimits.MaxImageReferencesTotalBytes)
+        {
+            throw new AiFileTooLargeException();
+        }
 
         Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
         AspectRatio = aspectRatio;
@@ -531,8 +542,10 @@ public sealed record AiImageGenerationRequest
     /// <summary>
     /// Existing pictures the generation is guided by, in the order the model
     /// should read them. Up to <see cref="AiRequestLimits.MaxImageReferences"/>,
-    /// which is what the operation's price covers; a model that takes fewer
-    /// says so through <see cref="AiImageModelCapabilities.MaxReferenceImages"/>.
+    /// which is what the operation's price covers, and together no larger than
+    /// <see cref="AiRequestLimits.MaxImageReferencesTotalBytes"/>; a model that
+    /// takes fewer says so through
+    /// <see cref="AiImageModelCapabilities.MaxReferenceImages"/>.
     /// </summary>
     public IReadOnlyList<AiUploadSource> References { get; }
 

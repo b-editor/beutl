@@ -45,9 +45,17 @@ internal sealed class AiRequestKey
     private readonly Lock _gate = new();
     private readonly HashSet<string> _issued = new(StringComparer.Ordinal);
     private string _seed;
+    private bool _resumedAttemptPending;
 
     public AiRequestKey(string? seed = null)
-        => _seed = string.IsNullOrEmpty(seed) ? NewSeed() : seed;
+    {
+        _seed = string.IsNullOrEmpty(seed) ? NewSeed() : seed;
+        // A run picked up from a draft carries its names but not the record of
+        // which of them have been sent, so the first one it asks for again may
+        // already name a job it paid for before the session ended. It is
+        // treated as a repeat once, and only once.
+        _resumedAttemptPending = !string.IsNullOrEmpty(seed);
+    }
 
     /// <summary>
     /// What the current keys are derived from. Held with the rest of a resumable
@@ -120,13 +128,23 @@ internal sealed class AiRequestKey
         {
             _seed = NewSeed();
             _issued.Clear();
+            // Nothing under the new seed has been paid for.
+            _resumedAttemptPending = false;
         }
     }
 
     private AiRequestName Remember(string key)
     {
         lock (_gate)
-            return new AiRequestName(key, !_issued.Add(key));
+        {
+            bool issuedBefore = !_issued.Add(key);
+            if (issuedBefore)
+                return new AiRequestName(key, true);
+
+            bool resumed = _resumedAttemptPending;
+            _resumedAttemptPending = false;
+            return new AiRequestName(key, resumed);
+        }
     }
 
     // Length-prefixed so that no arrangement of parts can read as another one.

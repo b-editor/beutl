@@ -143,6 +143,11 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         CanGenerate = PromptValidationError
             .CombineLatest(IsGenerating, (error, generating) => error is null && !generating)
             .CombineLatest(EstimatedUsage.CanAfford, (canGenerate, canAfford) => canGenerate && canAfford)
+            .CombineLatest(
+                ModelPicker.OffersNothingUsable,
+                // Every model the operation registered was ruled out, so a
+                // request would be refused however it is shaped.
+                (can, nothingUsable) => can && !nothingUsable)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -800,15 +805,43 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     /// </summary>
     internal void AddReferenceImages(IEnumerable<string> paths)
     {
+        long total = ReferenceImages.Sum(reference => SizeOf(reference.Path));
         foreach (string path in paths)
         {
             if (ReferenceImages.Count >= MaxReferenceImages.Value)
                 break;
+
+            // The server holds every picture raw, again as base64 and again
+            // through JSON, so what they come to together is bounded as well as
+            // what each one may be. Said here rather than after the whole set
+            // has been sent for the server to refuse.
+            long size = SizeOf(path);
+            if (total + size > AiRequestLimits.MaxImageReferencesTotalBytes)
+            {
+                Error.Value = Strings.AiFileTooLarge;
+                break;
+            }
+
             if (LoadReference(path) is { } reference)
+            {
                 ReferenceImages.Add(reference);
+                total += size;
+            }
         }
 
         UpdateReferenceImageState();
+    }
+
+    private static long SizeOf(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? new FileInfo(path).Length : 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
     }
 
     private AiReferenceImageViewModel? LoadReference(string path)

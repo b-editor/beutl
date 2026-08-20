@@ -197,6 +197,11 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                 (canGenerate, firstFrame, lastFrame) =>
                     canGenerate && (string.IsNullOrEmpty(lastFrame) || !string.IsNullOrEmpty(firstFrame)))
             .CombineLatest(EstimatedUsage.CanAfford, (canGenerate, canAfford) => canGenerate && canAfford)
+            .CombineLatest(
+                ModelPicker.OffersNothingUsable,
+                // Every model the operation registered was ruled out, so a
+                // request would be refused however it is shaped.
+                (can, nothingUsable) => can && !nothingUsable)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 

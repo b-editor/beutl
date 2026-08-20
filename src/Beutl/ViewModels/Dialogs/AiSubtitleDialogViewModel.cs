@@ -107,6 +107,11 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable
             .CombineLatest(
                 TranscriptionEstimate.CanAfford,
                 (canTranscribe, canAfford) => canTranscribe && canAfford)
+            .CombineLatest(
+                TranscriptionModelPicker.OffersNothingUsable,
+                // Every model the operation registered was ruled out, so a
+                // request would be refused however it is shaped.
+                (can, nothingUsable) => can && !nothingUsable)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -373,6 +378,11 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable
         }
         catch (AiRequestWasDeletedException)
         {
+            // The job those names made is gone, so the rest of the run needs new
+            // ones — written to the draft as well, or a run resumed after a
+            // restart would ask under the same deleted name and stop there for
+            // good. The pieces already paid for stay paid.
+            RetireDeletedTranscriptionNames();
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted);
         }
         catch (SubtitleInputException ex)

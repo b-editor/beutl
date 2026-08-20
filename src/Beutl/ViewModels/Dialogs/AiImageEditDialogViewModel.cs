@@ -166,6 +166,11 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             .CombineLatest(IsEditing, (hasSource, editing) => hasSource && !editing)
             .CombineLatest(PromptValidationError, (canEdit, error) => canEdit && error is null)
             .CombineLatest(EstimatedUsage.CanAfford, (canEdit, canAfford) => canEdit && canAfford)
+            .CombineLatest(
+                ModelPicker.OffersNothingUsable,
+                // Every model the operation registered was ruled out, so a
+                // request would be refused however it is shaped.
+                (can, nothingUsable) => can && !nothingUsable)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 

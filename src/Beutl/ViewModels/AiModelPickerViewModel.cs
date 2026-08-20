@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Reactive.Disposables;
 using Beutl.Api.Services;
 using Beutl.Language;
@@ -59,6 +60,8 @@ internal sealed class AiModelPickerViewModel : IDisposable
 
         Selected = new ReactivePropertySlim<AiModelPickerOption?>().DisposeWith(_disposables);
         HasChoice = new ReactivePropertySlim<bool>(false).DisposeWith(_disposables);
+        OffersNothingUsable = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
         Label = Strings.AiModel;
     }
 
@@ -83,6 +86,20 @@ internal sealed class AiModelPickerViewModel : IDisposable
 
     /// <summary>False while a single model is on offer, which is nothing to choose between.</summary>
     public ReactivePropertySlim<bool> HasChoice { get; }
+
+    /// <summary>
+    /// True when the server registered models for this operation and none of
+    /// them can serve it.
+    /// </summary>
+    /// <remarks>
+    /// An empty list on its own says nothing — a server that publishes no
+    /// models at all is answered by naming none and letting it choose, which is
+    /// how this client behaved before models could be chosen. It is only when
+    /// there were models to offer and every one was ruled out that a request
+    /// would be refused however it is shaped, and the screen has nothing to
+    /// offer rather than nothing to choose between.
+    /// </remarks>
+    public ReactivePropertySlim<bool> OffersNothingUsable { get; }
 
     /// <summary>What the request should carry. Null asks the server for its default.</summary>
     public AiModelId? SelectedModel => Selected.Value?.Id;
@@ -128,7 +145,8 @@ internal sealed class AiModelPickerViewModel : IDisposable
         _loadedCatalog = catalog;
         _loadedEntitlements = entitlements;
         Options.Clear();
-        foreach (AiModelOption model in catalog.ModelsFor(operation))
+        ImmutableArray<AiModelOption> registered = catalog.ModelsFor(operation);
+        foreach (AiModelOption model in registered)
         {
             if (Filter is { } filter && !filter(model))
                 continue;
@@ -142,6 +160,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
         }
 
         HasChoice.Value = Options.Count > 1;
+        OffersNothingUsable.Value = !registered.IsDefaultOrEmpty && Options.Count == 0;
         // Start on the first model the account can actually pay for, falling
         // back to the server's default so the picker is never empty.
         Selected.Value = (keep is { } wanted

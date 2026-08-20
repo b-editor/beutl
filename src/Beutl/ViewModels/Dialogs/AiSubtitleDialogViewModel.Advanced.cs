@@ -289,6 +289,11 @@ public sealed partial class AiSubtitleDialogViewModel
                 TranslationEstimate.CanAfford,
                 (hasCues, translating, transcribing, canAfford) =>
                     hasCues && !translating && !transcribing && canAfford)
+            .CombineLatest(
+                TranslationModelPicker.OffersNothingUsable,
+                // Every model the operation registered was ruled out, so a
+                // request would be refused however it is shaped.
+                (can, nothingUsable) => can && !nothingUsable)
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_captionDisposables);
         Translate = new AsyncReactiveCommand(CanTranslate)
@@ -454,6 +459,12 @@ public sealed partial class AiSubtitleDialogViewModel
         operation.Source = source;
         _pendingSourceTranscription = operation;
         _pendingSceneTranscription = null;
+        // Read once for the whole run. Every piece is named partly by the model,
+        // so a picker that moved between naming a piece and sending it would put
+        // one model in the name and another in the body — which the server
+        // refuses — and a picker that moved between pieces would rename the rest
+        // of the run and buy it again.
+        AiModelId? runModel = TranscriptionModelPicker.SelectedModel;
 
         for (int chunkIndex = operation.CompletedChunkCount;
             chunkIndex < operation.ChunkCount;
@@ -491,9 +502,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     operation.ChunkCount = chunkIndex + 1;
                 }
 
-                AiRequestName name = operation.RequestNameFor(
-                    chunkIndex,
-                    TranscriptionModelPicker.SelectedModel);
+                AiRequestName name = operation.RequestNameFor(chunkIndex, runModel);
                 // Not for a repeat: the server looks up the job this name
                 // already made before it looks at the balance, so refusing here
                 // would refuse to collect a piece already paid for.
@@ -502,7 +511,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     await EnsureAvailableAsync(
                         new AiOperationAvailabilityRequest.Transcription(
                             chunk.Duration.TotalSeconds,
-                            TranscriptionModelPicker.SelectedModel));
+                            runModel));
                 }
 
                 AiTranscriptionResponse response;
@@ -514,7 +523,7 @@ public sealed partial class AiSubtitleDialogViewModel
                                 path,
                                 FormatChunkFileName("source", chunkIndex)),
                             language,
-                            TranscriptionModelPicker.SelectedModel,
+                            runModel,
                             name.Key),
                         RequestToken);
                 }
@@ -609,6 +618,12 @@ public sealed partial class AiSubtitleDialogViewModel
         operation.Source = source;
         _pendingSceneTranscription = operation;
         _pendingSourceTranscription = null;
+        // Read once for the whole run. Every piece is named partly by the model,
+        // so a picker that moved between naming a piece and sending it would put
+        // one model in the name and another in the body — which the server
+        // refuses — and a picker that moved between pieces would rename the rest
+        // of the run and buy it again.
+        AiModelId? runModel = TranscriptionModelPicker.SelectedModel;
 
         for (int index = operation.CompletedChunkCount; index < chunkCount; index++)
         {
@@ -617,15 +632,13 @@ public sealed partial class AiSubtitleDialogViewModel
                 Math.Min(duration.Ticks, index * operation.ChunkDuration.Ticks));
             TimeSpan chunkDuration = TimeSpan.FromTicks(
                 Math.Min(operation.ChunkDuration.Ticks, duration.Ticks - chunkOffset.Ticks));
-            AiRequestName name = operation.RequestNameFor(
-                index,
-                TranscriptionModelPicker.SelectedModel);
+            AiRequestName name = operation.RequestNameFor(index, runModel);
             if (!name.IsRepeat)
             {
                 await EnsureAvailableAsync(
                     new AiOperationAvailabilityRequest.Transcription(
                         chunkDuration.TotalSeconds,
-                        TranscriptionModelPicker.SelectedModel));
+                        runModel));
             }
 
             (string path, FileStream stream) = AiTemporaryFileStore.Create(
@@ -651,7 +664,7 @@ public sealed partial class AiSubtitleDialogViewModel
                                 path,
                                 FormatChunkFileName("scene-mix", index)),
                             language,
-                            TranscriptionModelPicker.SelectedModel,
+                            runModel,
                             name.Key),
                         RequestToken);
                 }
@@ -762,6 +775,12 @@ public sealed partial class AiSubtitleDialogViewModel
                     targetLanguage,
                     draftScopeRevision);
             _pendingTranslation = operation;
+            // Read once for the whole run. Every piece is named partly by the model,
+            // so a picker that moved between naming a piece and sending it would put
+            // one model in the name and another in the body — which the server
+            // refuses — and a picker that moved between pieces would rename the rest
+            // of the run and buy it again.
+            AiModelId? runModel = TranslationModelPicker.SelectedModel;
             if (operation.Batches.Count == 0)
             {
                 _pendingTranslation = null;
@@ -771,9 +790,7 @@ public sealed partial class AiSubtitleDialogViewModel
             for (int index = operation.CompletedBatchCount; index < operation.Batches.Count; index++)
             {
                 TranslationBatch batch = operation.Batches[index];
-                AiRequestName name = operation.RequestNameFor(
-                    index,
-                    TranslationModelPicker.SelectedModel);
+                AiRequestName name = operation.RequestNameFor(index, runModel);
                 if (!name.IsRepeat)
                 {
                     await EnsureAvailableAsync(CreateTranslationAvailabilityRequest(batch));
@@ -796,7 +813,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             }).ToArray(),
                             operation.TargetLanguage,
                             operation.SourceLanguage,
-                            model: TranslationModelPicker.SelectedModel,
+                            model: runModel,
                             idempotencyKey: name.Key),
                         new Progress<AiCaptionTranslationSegment>(ShowTranslatedLine),
                         RequestToken);
@@ -1583,6 +1600,9 @@ public sealed partial class AiSubtitleDialogViewModel
         _pendingTranslation = null;
         _pendingSceneTranscription = null;
         _pendingSourceTranscription = null;
+        // The preference belonged to the run that has just gone; leaving it
+        // would move the picker back to that model on the next activation.
+        ClearRestoredModelPreference();
         try
         {
             _captionDraftSession?.Delete();
@@ -1748,6 +1768,27 @@ public sealed partial class AiSubtitleDialogViewModel
         RestoreCaptionDraft();
     }
 
+    private void RetireDeletedTranscriptionNames()
+    {
+        if (_pendingSourceTranscription is { } source)
+        {
+            source.RequestKey.Retire();
+            PublishSourceTranscriptionPartial(source);
+        }
+
+        if (_pendingSceneTranscription is { } scene)
+        {
+            scene.RequestKey.Retire();
+            PublishSceneTranscriptionPartial(scene);
+        }
+    }
+
+    private void ClearRestoredModelPreference()
+    {
+        _restoredTranscriptionModel = null;
+        _restoredTranslationModel = null;
+    }
+
     // A draft can be restored before the pickers have loaded or after, so the
     // model a run was named for is both remembered for a load still to come and
     // applied at once to one that has already happened.
@@ -1793,6 +1834,7 @@ public sealed partial class AiSubtitleDialogViewModel
         _pendingSourceTranscription = null;
         _pendingHistoryResult = null;
         _lastCaptionLanguage = null;
+        ClearRestoredModelPreference();
         HasPartialResult.Value = false;
         HasPendingHistoryResult.Value = false;
         PartialResultMessage.Value = null;
