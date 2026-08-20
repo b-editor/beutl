@@ -419,6 +419,22 @@ RenderScaleContract scale = RenderScaleContract.MapInputSupply(
 
 The map is reevaluated when required to resolve symbolic upstream metadata. Source, capture, combination, and expansion work must choose their own valid scale contract.
 
+That forward-only overload passes backward demand through unchanged, so an operation whose density differs from its input's — an enlargement, a reduction — must declare both directions:
+
+```csharp
+RenderScaleContract scale = RenderScaleContract.MapInputSupply(
+    static inputSupply => inputSupply.IsUnbounded
+        ? EffectiveScale.Unbounded
+        : EffectiveScale.At(inputSupply.Value / 2),
+    static outputDemand => EffectiveScale.At(outputDemand.Value * 2));
+```
+
+Without the second callback an unbounded input rasterizes at the operation's own output demand and is then magnified, so the result is blurred by exactly the enlargement factor. The backward map is not derived from the forward one: the forward map may collapse to `EffectiveScale.Unbounded` and need not be invertible. `mapOutputDemandToInput` receives a concrete output demand and must return a finite positive density; the engine bounds the result by the request ceiling. Both callbacks may be reevaluated during graph-wide metadata resolution.
+
+For a matrix-shaped operation, `TransformRenderNode.RescaleDensity` and `TransformRenderNode.RescaleDemand` supply the two halves; hold the matrix in a non-capturing metadata state and pass their bound methods as the two callbacks. They are not inverses — forward reports the least-scaled axis and backward answers the operator norm, each erring toward more detail — so under an anisotropic or sheared transform a round trip does not return its input.
+
+`RenderScaleContract.Custom` has no backward map and keeps the identity fallback, so a map-topology operation whose density differs from its input's must use the bidirectional `MapInputSupply` rather than a custom resolver.
+
 ## Whole-source shader coordinate space
 
 BREAKING CHANGE: a `ShaderDescription.WholeSource` stage is now evaluated over its **complete** output. Its `coord` argument spans `[0, SemanticOutputSize]` and `ShaderExecutionContext.DeviceBounds` / `LogicalOrigin` describe the complete output footprint, even when the renderer only required a sub-region (content that overhangs the frame). Previously `coord` started at the required region's origin while `SemanticOutputSize` still described the complete output, so `coord / iResolution` never reached `1.0` and any absolute anchor — a mirror axis, a tile-grid origin, a pivot — moved by the clipped-off overhang.

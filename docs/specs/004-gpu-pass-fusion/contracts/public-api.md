@@ -212,7 +212,7 @@ context.Geometry(s_geometry.Call(new GeometryState(_radius)));
 
 Definitions use `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleContract`, `RenderValueCardinality`, and, where applicable, `TargetRegion`, `TargetAccess`, `RenderInputReadback`, device-grid sensitivity, and device-grid mapping. Metadata callbacks must be deterministic, side-effect-free, and non-capturing. The engine derives their operation-shape fingerprint from the fixed callback and contract; author code supplies no manual identifier.
 
-`RenderScaleContract.MapInputSupply` takes only a pure `Func<EffectiveScale, EffectiveScale>` mapping for an element-wise one-input operation. It may be evaluated again while resolving symbolic upstream metadata.
+`RenderScaleContract.MapInputSupply` takes a pure `Func<EffectiveScale, EffectiveScale>` supply mapping for an element-wise one-input operation, and optionally a second pure `Func<EffectiveScale, EffectiveScale>` that maps backward demand to the input demand. Either may be evaluated again while resolving symbolic upstream metadata. An operation that changes density must declare both, or an unbounded input materializes at the operation's own output demand instead of the density the operation consumes.
 
 ## Recording rules
 

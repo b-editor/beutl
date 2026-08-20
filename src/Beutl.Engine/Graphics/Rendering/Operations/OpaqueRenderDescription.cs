@@ -855,6 +855,9 @@ public readonly struct RenderScaleContract
     /// <remarks>
     /// The callback may be evaluated again during graph-wide metadata resolution when an upstream fragment has
     /// symbolic recording metadata, so it must remain deterministic and side-effect-free.
+    /// Backward demand passes through unchanged, so an operation that changes density must instead use
+    /// <see cref="MapInputSupply(Func{EffectiveScale, EffectiveScale}, Func{EffectiveScale, EffectiveScale})"/>
+    /// or an unbounded input will materialize below the density the operation consumes.
     /// </remarks>
     public static RenderScaleContract MapInputSupply(
         Func<EffectiveScale, EffectiveScale> map)
@@ -864,7 +867,27 @@ public readonly struct RenderScaleContract
         return new RenderScaleContract(map, map.Method);
     }
 
-    internal static RenderScaleContract MapInputSupply(
+    /// <summary>
+    /// Maps both directions of the density relationship of an element-wise one-input operation: the resolved
+    /// input supply forward to the output supply, and the resolved output demand backward to the input demand.
+    /// </summary>
+    /// <param name="map">
+    /// A pure metadata callback that maps the corresponding input supply to the output supply.
+    /// The callback may return <see cref="EffectiveScale.Unbounded"/>.
+    /// </param>
+    /// <param name="mapOutputDemandToInput">
+    /// A pure metadata callback that maps a concrete output demand to the concrete input demand that satisfies
+    /// it. It must return a finite positive density; the engine bounds the result by the request ceiling.
+    /// </param>
+    /// <returns>A declarative bidirectional one-input density mapping contract.</returns>
+    /// <remarks>
+    /// An operation that enlarges its input lowers its output supply and raises its input demand, so a purely
+    /// forward map would let an unbounded input rasterize below the density the enlargement consumes.
+    /// Both callbacks may be evaluated again during graph-wide metadata resolution, so they must remain
+    /// deterministic and side-effect-free. The backward map is not derived from the forward one: the forward
+    /// map may collapse to <see cref="EffectiveScale.Unbounded"/> and need not be invertible.
+    /// </remarks>
+    public static RenderScaleContract MapInputSupply(
         Func<EffectiveScale, EffectiveScale> map,
         Func<EffectiveScale, EffectiveScale> mapOutputDemandToInput)
     {
@@ -882,6 +905,21 @@ public readonly struct RenderScaleContract
                 mapOutputDemandToInput.Method));
     }
 
+    /// <summary>
+    /// Resolves this operation's own concrete supply density from its inputs, output bounds, and the request's
+    /// output scale and ceiling.
+    /// </summary>
+    /// <param name="resolve">
+    /// A pure metadata callback returning a finite positive density. A throw or an invalid result fails the
+    /// recording rather than being sanitized to a fallback.
+    /// </param>
+    /// <returns>A custom supply-resolving contract.</returns>
+    /// <remarks>
+    /// A custom resolver declares no backward map, so demand reaches its inputs unchanged. A one-input
+    /// operation whose density differs from its input's must therefore use
+    /// <see cref="MapInputSupply(Func{EffectiveScale, EffectiveScale}, Func{EffectiveScale, EffectiveScale})"/>
+    /// instead, or an unbounded input materializes below the density this operation consumes.
+    /// </remarks>
     public static RenderScaleContract Custom(
         Func<RenderScaleContext, float> resolve)
     {
@@ -897,7 +935,7 @@ public readonly struct RenderScaleContract
     /// <see cref="EffectiveScale.Unbounded"/> and adopts whatever density its consumer renders at.
     /// </summary>
     /// <remarks>
-    /// <see cref="PreserveInputSupply"/> and <see cref="MapInputSupply"/> can also resolve to
+    /// <see cref="PreserveInputSupply"/> and the <c>MapInputSupply</c> overloads can also resolve to
     /// <see cref="EffectiveScale.Unbounded"/>, but only for a one-input map, whose supply is its input's rather
     /// than the consumer's. Every other kind resolves to a concrete positive density.
     /// </remarks>

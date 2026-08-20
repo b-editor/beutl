@@ -99,7 +99,8 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
 
     /// <summary>
     /// Re-scales a bitmap supply density across <paramref name="transform"/>. Enlarging lowers density;
-    /// shrinking raises it. Vector (Unbounded) inputs pass through unchanged.
+    /// shrinking raises it. Vector (Unbounded) inputs pass through unchanged. An anisotropic transform is
+    /// reported through its least-scaled axis, so the result is the density of the best-preserved direction.
     /// </summary>
     public static EffectiveScale RescaleDensity(EffectiveScale input, Matrix transform)
     {
@@ -122,7 +123,18 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
         return EffectiveScale.At(d);
     }
 
-    internal static EffectiveScale RescaleDemand(EffectiveScale outputDemand, Matrix transform)
+    /// <summary>
+    /// Re-scales an output demand back across <paramref name="transform"/> into the input demand that satisfies
+    /// it. Enlarging raises the demand; shrinking lowers it. An anisotropic transform is answered through its
+    /// operator norm, so the demand covers the most-stretched direction. A perspective transform has no single
+    /// scalar density, so its demand passes through unchanged.
+    /// </summary>
+    /// <remarks>
+    /// This is the backward half of the density relationship <see cref="RescaleDensity"/> maps forward, not its
+    /// inverse: each half errs toward more detail through a different axis, so under an anisotropic or sheared
+    /// transform a forward-then-backward round trip does not return its input.
+    /// </remarks>
+    public static EffectiveScale RescaleDemand(EffectiveScale outputDemand, Matrix transform)
     {
         if (transform.M13 != 0 || transform.M23 != 0 || transform.M33 != 1)
             return outputDemand;
