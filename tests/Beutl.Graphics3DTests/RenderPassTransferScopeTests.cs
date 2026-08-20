@@ -135,4 +135,39 @@ public sealed class RenderPassTransferScopeTests
             context.WaitIdle();
         });
     }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void WaitIdleInsideARenderPass_DoesNotSubmitThatPass()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D color = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            using ITexture2D depth = context.CreateTexture2D(Width, Height, TextureFormat.Depth32Float);
+            using IRenderPass3D renderPass = context.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm],
+                TextureFormat.Depth32Float);
+            using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(renderPass, [color], depth);
+
+            var duringPass = new List<VulkanCommandPoolEvent>();
+            renderPass.Begin(framebuffer, [Colors.Transparent]);
+            using (VulkanCommandPool.Observe(duringPass.Add))
+            {
+                // What an out-of-tree Material3D.Resource can reach from EnsurePipeline or Bind.
+                context.WaitIdle();
+            }
+
+            // Assert before End: unguarded, the pass's command buffer has already been freed by here,
+            // so End would record into freed memory and take the test host down with it.
+            Assert.That(
+                duringPass.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                Is.Zero,
+                "A synchronous flush inside a render pass must not submit the batch that pass is still "
+                + "recording into.");
+
+            renderPass.End();
+            context.WaitIdle();
+        });
+    }
 }

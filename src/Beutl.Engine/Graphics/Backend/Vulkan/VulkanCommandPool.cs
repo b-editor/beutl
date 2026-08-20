@@ -284,7 +284,15 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        SubmitRecordingCommandBuffer();
+        // A render pass instance owns the recording batch until it ends, so submitting it here would
+        // end and free the command buffer the pass is still recording into. Everything recorded during
+        // the scope already took its own batch through RecordOutOfBand, so waiting on the in-flight
+        // submissions is the whole of what a synchronous caller can be owed.
+        if (_renderPassScopeDepth == 0)
+        {
+            SubmitRecordingCommandBuffer();
+        }
+
         if (waitForCompletion)
         {
             WaitForInFlightSubmissions();
@@ -675,19 +683,45 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
             _disposed = true;
             try
             {
-                if (_inFlightSubmissions.Count == 0)
-                {
-                    ResetSubmissionSemaphore();
-                }
+                // A batch left recording means a render pass never ended, so the flush above withheld it.
+                // The pool is going away, so reclaim the buffer and retire the releases a submission
+                // would have run rather than dropping them.
+                ReclaimUnsubmittedRecording();
             }
             finally
             {
-                if (_commandPool.Handle != 0)
+                try
                 {
-                    _vk.DestroyCommandPool(_device, _commandPool, null);
+                    if (_inFlightSubmissions.Count == 0)
+                    {
+                        ResetSubmissionSemaphore();
+                    }
+                }
+                finally
+                {
+                    if (_commandPool.Handle != 0)
+                    {
+                        _vk.DestroyCommandPool(_device, _commandPool, null);
+                    }
                 }
             }
         }
+    }
+
+    private void ReclaimUnsubmittedRecording()
+    {
+        if (!_isRecording)
+            return;
+
+        CommandBuffer commandBuffer = _recordingCommandBuffer;
+        Action[] releases = [.. _recordingReleases];
+        _recordingCommandBuffer = default;
+        _recordingReleases.Clear();
+        _isRecording = false;
+        _renderPassScopeDepth = 0;
+
+        _vk.FreeCommandBuffers(_device, _commandPool, 1, &commandBuffer);
+        InvokeReleases(releases);
     }
 
     private static void RecordEvent(VulkanCommandPoolEvent eventType)
