@@ -21,6 +21,12 @@ internal enum ImmediateCanvasFlushKind : byte
 
 public partial class ImmediateCanvas : IDisposable, IPopable
 {
+    /// <summary>
+    /// The largest normalized basis dot product <see cref="InflateByOneDevicePixel"/> still reads as
+    /// orthogonal.
+    /// </summary>
+    private const float OrthogonalBasisTolerance = 1e-5f;
+
     private static readonly AsyncLocal<FlushObserverScope?> s_flushObserver = new();
     private static readonly AsyncLocal<PixelOperationObserverScope?> s_pixelOperationObserver = new();
     private static readonly AsyncLocal<DrawableBrushMaterializer?> s_drawableBrushMaterializer = new();
@@ -1099,8 +1105,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     }
 
     /// <summary>
-    /// Opens a filter's save layer over <paramref name="contentBounds"/>, widened by one device pixel
-    /// on every side.
+    /// Opens a filter's save layer over <paramref name="contentBounds"/>, widened so that every edge of
+    /// the content sits one device pixel inside the layer.
     /// </summary>
     /// <remarks>
     /// The bound keeps a spatial filter from sampling input pixels nobody wrote, but a layer whose
@@ -1108,18 +1114,25 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// Ganesh backend keeps only <c>(1 + w) / 2</c> of a w-device-pixel-wide feature. The apron restores
     /// it by giving the rasterizer somewhere to put the antialiased spill of the content, so the replay
     /// does write into the apron and a filter does sample it. What the layer guarantees is therefore a
-    /// bound, not an exclusion: nothing more than one device pixel outside the content is reachable, and
-    /// the apron starts transparent because <c>SaveLayer</c> clears it, so it can never carry pixels
-    /// nobody wrote.
+    /// bound, not an exclusion: no edge is more than one device pixel out from the content it bounds,
+    /// and the apron starts transparent because <c>SaveLayer</c> clears it, so it can never carry pixels
+    /// nobody wrote. A sheared basis needs a wider logical apron to buy that one perpendicular pixel, so
+    /// its device bounding box grows by more than a pixel along the sheared axis.
     /// </remarks>
     internal PushedState PushFilterLayer(SKPaint paint, Rect contentBounds)
         => PushPaint(paint, InflateByOneDevicePixel(contentBounds, _currentTransform));
 
     /// <summary>
-    /// Widens <paramref name="bounds"/> by the logical distance <paramref name="transform"/> maps to one
-    /// device pixel along each axis. Under a shear the perpendicular displacement of an edge is smaller
-    /// than that, so the apron is a lower bound on the margin only for scale and rotation.
+    /// Widens <paramref name="bounds"/> so that <paramref name="transform"/> carries every edge exactly
+    /// one device pixel away from the content, measured perpendicular to that edge.
     /// </summary>
+    /// <remarks>
+    /// Moving a vertical edge by one logical unit displaces it perpendicularly by
+    /// <c>|det| / devicePerY</c> device pixels, not by <c>devicePerX</c>, so the apron an axis needs is
+    /// the other axis's basis length over the determinant. For an orthogonal basis that is the
+    /// reciprocal of the axis's own basis length, which is what every scale and rotation reduces to;
+    /// only a sheared basis needs more. A transform that collapses the plane leaves the bounds alone.
+    /// </remarks>
     internal static Rect InflateByOneDevicePixel(Rect bounds, Matrix transform)
     {
         float devicePerX = MathF.Sqrt((transform.M11 * transform.M11) + (transform.M12 * transform.M12));
@@ -1130,7 +1143,22 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             return bounds;
         }
 
-        return bounds.Inflate(new Thickness(1f / devicePerX, 1f / devicePerY));
+        // Composing a rotation with an anisotropic scale leaves the basis orthogonal yet misses a zero
+        // dot product by up to ~1e-7 of the basis lengths, while the shallowest shear that can move a
+        // device pixel misses it by ~1e-3. Keeping the reciprocal form below that split holds every
+        // unsheared transform bit-identical instead of moving it by the rounding of the general form.
+        float obliqueness = MathF.Abs((transform.M11 * transform.M21) + (transform.M12 * transform.M22));
+        if (obliqueness <= devicePerX * devicePerY * OrthogonalBasisTolerance)
+            return bounds.Inflate(new Thickness(1f / devicePerX, 1f / devicePerY));
+
+        float area = MathF.Abs((transform.M11 * transform.M22) - (transform.M12 * transform.M21));
+        float horizontal = devicePerY / area;
+        float vertical = devicePerX / area;
+        // A singular basis has no area to divide by and drives the apron to infinity.
+        if (!float.IsFinite(horizontal) || !float.IsFinite(vertical))
+            return bounds;
+
+        return bounds.Inflate(new Thickness(horizontal, vertical));
     }
 
     public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect)
