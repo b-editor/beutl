@@ -122,12 +122,7 @@ public class RenderTarget : IDisposable
 
                 if (context != null)
                 {
-                    sharedTexture = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-                    surface = sharedTexture.CreateSkiaSurface();
-                    // Surface wrapping marks Skia access. Record initialization afterwards so an
-                    // untouched snapshot still observes and submits the backend clear.
-                    if (sharedTexture is ITransparentClearableTexture clearableTexture)
-                        clearableTexture.ClearToTransparent();
+                    surface = CreateSharedSurface(context, width, height, out sharedTexture);
                 }
                 else
                 {
@@ -159,6 +154,49 @@ public class RenderTarget : IDisposable
         catch
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Creates the backend texture and its Skia surface, releasing both when initialization fails.
+    /// </summary>
+    /// <remarks>
+    /// The backend texture has no finalizer, so escaping this method before the texture reaches a
+    /// <see cref="RenderTarget"/> strands its image, view and device memory for the life of the process.
+    /// </remarks>
+    internal static SKSurface CreateSharedSurface(
+        IGraphicsContext context,
+        int width,
+        int height,
+        out ITexture2D texture)
+    {
+        texture = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+        ITexture2D createdTexture = texture;
+        SKSurface? surface = null;
+        try
+        {
+            surface = createdTexture.CreateSkiaSurface();
+            // Surface wrapping marks Skia access. Record initialization afterwards so an
+            // untouched snapshot still observes and submits the backend clear.
+            if (createdTexture is ITransparentClearableTexture clearableTexture)
+                clearableTexture.ClearToTransparent();
+
+            return surface;
+        }
+        catch
+        {
+            // The surface only borrows the backend image, so it has to go first — the same order
+            // Release uses.
+            try
+            {
+                surface?.Dispose();
+            }
+            finally
+            {
+                createdTexture.Dispose();
+            }
+
+            throw;
         }
     }
 
