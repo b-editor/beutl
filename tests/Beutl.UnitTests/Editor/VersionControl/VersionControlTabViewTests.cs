@@ -1,6 +1,8 @@
 ﻿using System.Windows.Input;
 using Avalonia.Input;
 using Beutl.Editor.Components.VersionControlTab.Views;
+using Beutl.Extensibility;
+using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -86,6 +88,56 @@ public class VersionControlTabViewTests
             exception => reported = exception);
 
         Assert.That(reported, Is.Null);
+    }
+
+    [Test]
+    public async Task Context_command_request_awaits_the_handler_operation()
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new RecordingContextCommandHandler(canExecute: true, gate.Task);
+
+        Task completion = VersionControlTabView.RequestContextCommandAsync(
+            handler,
+            "EnableVersionControl");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.ExecuteCount, Is.EqualTo(1));
+            Assert.That(completion.IsCompleted, Is.False);
+        });
+
+        gate.SetResult();
+        await completion;
+    }
+
+    [Test]
+    public async Task Context_command_request_is_a_no_op_when_the_handler_rejects_it()
+    {
+        var handler = new RecordingContextCommandHandler(canExecute: false, Task.CompletedTask);
+
+        await VersionControlTabView.RequestContextCommandAsync(handler, "EnableVersionControl");
+
+        Assert.That(handler.ExecuteCount, Is.Zero);
+    }
+
+    [Test]
+    public async Task Context_command_request_is_a_no_op_without_a_handler()
+    {
+        await VersionControlTabView.RequestContextCommandAsync(null, "EnableVersionControl");
+    }
+
+    private sealed class RecordingContextCommandHandler(bool canExecute, Task completion)
+        : IContextCommandHandler
+    {
+        public int ExecuteCount { get; private set; }
+
+        public bool CanExecute(ContextCommandExecution execution) => canExecute;
+
+        public void Execute(ContextCommandExecution execution)
+        {
+            ExecuteCount++;
+            execution.Execute(new AsyncReactiveCommand().WithSubscribe(() => completion));
+        }
     }
 
     private sealed class RecordingCommand(bool canExecute) : ICommand

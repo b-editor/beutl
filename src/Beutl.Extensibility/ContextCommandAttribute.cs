@@ -1,6 +1,8 @@
 ﻿using System.Reactive;
 using System.Runtime.InteropServices;
+using System.Windows.Input;
 using Avalonia.Input;
+using Reactive.Bindings;
 
 namespace Beutl.Extensibility;
 
@@ -29,6 +31,24 @@ public class ContextCommandExecution
     public string CommandName { get; }
 
     public KeyEventArgs? KeyEventArgs { get; set; }
+
+    // Handlers publish the work they started here so a caller that raised the command can await it.
+    public Task Completion { get; set; } = Task.CompletedTask;
+
+    // ICommand.Execute returns as soon as an asynchronous handler yields, so dispatching through
+    // this method is the only way the caller learns when the command actually finished.
+    public void Execute(ICommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (command is AsyncReactiveCommand asyncCommand)
+        {
+            Completion = asyncCommand.ExecuteAsync(null!);
+            return;
+        }
+
+        command.Execute(null);
+        Completion = Task.CompletedTask;
+    }
 }
 
 [AttributeUsage(AttributeTargets.Method)]

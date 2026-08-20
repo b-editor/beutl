@@ -1543,6 +1543,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_Enable" xml:space="preserve">
     <value>バージョン管理を有効化…</value>
   </data>
+  <data name="VersionControl_Enabling" xml:space="preserve">
+    <value>バージョン管理を有効化しています…</value>
+  </data>
+  <data name="VersionControl_EnablingHint" xml:space="preserve">
+    <value>プロジェクトを保存して最初のバージョンを記録しています。プロジェクトが大きい場合は時間がかかることがあります。</value>
+  </data>
   <data name="VersionControl_UntrackedExplanation" xml:space="preserve">
     <value>このプロジェクトを Git で管理すると、保存時にバージョンが自動的に記録されます。</value>
   </data>

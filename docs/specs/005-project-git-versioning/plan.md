@@ -100,7 +100,7 @@ src/Beutl/
 ├── ViewModels/EditContext/ElementAdderImpl.cs  # touched: use ElementFileNaming
 ├── ViewModels/MenuBarViewModel.Files.cs        # touched: save hooks + new commands
 ├── ViewModels/Dialogs/CreateNewProjectViewModel.cs         # touched: tracking checkbox
-└── Views/MainView.axaml (+ InitializeMenuBar.cs, MacWindow) # touched: menu entries
+└── Views/MainView.axaml (+ InitializeMenuBar.cs, MacWindow) # touched: context command handlers
 
 src/Beutl.Language/
 └── Strings.resx (+ locales)                    # touched: new strings

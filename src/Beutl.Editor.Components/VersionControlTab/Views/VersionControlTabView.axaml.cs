@@ -102,16 +102,28 @@ public sealed partial class VersionControlTabView : UserControl
 
     private Task ExecuteEnableVersionControlAsync()
     {
-        if (TopLevel.GetTopLevel(this)?.DataContext is IContextCommandHandler handler)
+        return RequestContextCommandAsync(
+            TopLevel.GetTopLevel(this)?.DataContext as IContextCommandHandler,
+            "EnableVersionControl");
+    }
+
+    internal static Task RequestContextCommandAsync(
+        IContextCommandHandler? handler,
+        string commandName)
+    {
+        if (handler is null)
         {
-            var execution = new ContextCommandExecution("EnableVersionControl");
-            if (handler.CanExecute(execution))
-            {
-                handler.Execute(execution);
-            }
+            return Task.CompletedTask;
         }
 
-        return Task.CompletedTask;
+        var execution = new ContextCommandExecution(commandName);
+        if (!handler.CanExecute(execution))
+        {
+            return Task.CompletedTask;
+        }
+
+        handler.Execute(execution);
+        return execution.Completion;
     }
 
     private Task<bool> LaunchUriAsync(Uri uri)

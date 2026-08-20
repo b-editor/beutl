@@ -165,6 +165,14 @@ public sealed class VersionControlTabViewModel : IToolContext
                 static (available, tracked) => available && !tracked)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+        IsEnablingVersionControl = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        EnableActionLabel = IsEnablingVersionControl
+            .Select(static enabling => enabling
+                ? Strings.VersionControl_Enabling
+                : Strings.VersionControl_Enable)
+            .ToReadOnlyReactivePropertySlim(Strings.VersionControl_Enable)!
+            .DisposeWith(_disposables);
 
         LoadMoreCommand = new AsyncReactiveCommand()
             .WithSubscribe(LoadMoreAsync)
@@ -323,6 +331,10 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ReadOnlyReactivePropertySlim<bool> CanEnableVersionControl { get; }
 
+    public ReactivePropertySlim<bool> IsEnablingVersionControl { get; }
+
+    public ReadOnlyReactivePropertySlim<string> EnableActionLabel { get; }
+
     public AsyncReactiveCommand LoadMoreCommand { get; }
 
     public ReactiveCommandSlim BackToHistoryCommand { get; }
@@ -367,12 +379,23 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public async Task EnableVersionControlAsync()
     {
-        if (!CanEnableVersionControl.Value)
+        if (!CanEnableVersionControl.Value || IsEnablingVersionControl.Value)
         {
             return;
         }
 
-        await RequestEnableVersionControlAsync();
+        // Initialization saves the project, runs git init and writes the first commit, so the panel
+        // has to stay in a running state until the shell flow reports back.
+        IsEnablingVersionControl.Value = true;
+        try
+        {
+            await RequestEnableVersionControlAsync();
+        }
+        finally
+        {
+            IsEnablingVersionControl.Value = false;
+        }
+
         if (_service?.Repository is not null)
         {
             IsTracked.Value = true;

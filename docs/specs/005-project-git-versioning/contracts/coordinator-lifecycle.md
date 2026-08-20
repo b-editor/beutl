@@ -20,7 +20,7 @@
 | Dirty pull | durable private checkpoint before pull; promoted after fast-forward | `Safety` |
 | After restore | inside the cycle | `Restore` |
 | Restore recovery after a post-commit failure | inside the recovery path | `Recovery` |
-| Manual commit | tool tab / menu command, after saving the open project inside the exclusive lease so the version records what the user sees | `Manual` |
+| Manual commit | tool tab / command palette, after saving the open project inside the exclusive lease so the version records what the user sees | `Manual` |
 
 Autosave ticks never reach the coordinator (FR-015). All triggers no-op silently on a clean tree.
 
@@ -64,8 +64,8 @@ Application-window shutdown uses the same asynchronous close contract. The first
 ## Enablement flows (FR-001/FR-002/FR-003)
 
 - **Create dialog**: `CreateNewProjectViewModel` requires `IProjectVersionControlInitializer` and the identity callback; there is no degraded constructor that silently omits version control. The initializer exposes availability and project initialization without coupling the dialog to the app coordinator. `InitializeCurrentProjectAsync` accepts `Func<CancellationToken, Task<GitIdentity?>>` and forwards its exact operation token to the identity prompt, so cancellation is not lost at the UI callback boundary. The identity flyout registers that token, cancels its pending result, and closes itself on the UI thread rather than waiting for user dismissal. "Track history with Git" remains false and hidden until `GetAvailabilityAsync` reports `Installed`; only then is the configured default applied and shown. Creation snapshots that visible checked state before writing the project, so a detection completion during creation can never opt the user in silently. A checked visible option calls `InitializeCurrentProjectAsync` after creation.
-- **Existing project**: "Enable Version Control…" command (Project menu + command palette, gated on `ProjectService.IsOpened`).
-- **Menu lifecycle**: `MenuBarViewModel` depends on `IProjectVersionControlSession` only for read-only availability/tracking state and save notification. Project close remains the responsibility of the existing `ProjectService`; external hosts can substitute the version-control session without duplicating the general project-lifecycle surface.
+- **Existing project**: "Enable Version Control…" button in the version control tab, which raises the shell `EnableVersionControl` context command (also reachable from the command palette, gated on `ProjectService.IsOpened`) and awaits it through `ContextCommandExecution.Completion` so the tab can show the operation running.
+- **Command lifecycle**: `MenuBarViewModel` depends on `IProjectVersionControlSession` only for read-only availability/tracking state and save notification. Project close remains the responsibility of the existing `ProjectService`; external hosts can substitute the version-control session without duplicating the general project-lifecycle surface.
 - **Nested repo detected**: consent dialog with "use enclosing repository" (pathspec scoping, project-local `.gitignore`) / "leave unmanaged". Never `git init` inside a foreign work tree.
 - **Save As**: never copies `.git`; the copy is offered fresh enablement per the creation default (clarification #3).
 
@@ -74,8 +74,8 @@ Application-window shutdown uses the same asynchronous close contract. The first
 | Surface | Location | Content |
 |---|---|---|
 | Tool tab | `src/Beutl.Editor.Components/VersionControlTab/` + `VersionControlTabExtension` (`[PrimitiveImpl]`, registered in `LoadPrimitiveExtensionTask`) | branch + ahead/behind + dirty summary; commit box; paged history list (kind badges); changed files; unified diff view (monospace, +/- coloring, 1 MB cap) |
-| Menus | `MenuBarViewModel.Files.cs` + `MainView.axaml` (+ macOS mirror) + command palette | Enable Version Control…, Commit…, Push, Pull |
+| Commands | `MenuBarViewModel.Files.cs` + `MainViewExtension` context commands + command palette (no menu-bar entries: the tool tab is the only menu-level surface) | Enable Version Control…, Commit… |
 | Settings | `VersionControlConfig` page | per data-model.md table |
-| Degradation | tool tab + menu items collapse to one informational state | per-OS install guidance (FR-037) |
+| Degradation | tool tab + the version control commands collapse to one informational state | per-OS install guidance (FR-037) |
 
 All new XAML declares `x:CompileBindings="True"` + `x:DataType` (constitution IV). All user-facing strings go through `Beutl.Language` resources; repository content stays English (R-5).

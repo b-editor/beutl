@@ -1549,6 +1549,12 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="VersionControl_Enable" xml:space="preserve">
     <value>Enable Version Control…</value>
   </data>
+  <data name="VersionControl_Enabling" xml:space="preserve">
+    <value>Enabling version control…</value>
+  </data>
+  <data name="VersionControl_EnablingHint" xml:space="preserve">
+    <value>Saving the project and recording the first version. This can take a while for a large project.</value>
+  </data>
   <data name="VersionControl_UntrackedExplanation" xml:space="preserve">
     <value>Track this project with Git to record versions automatically when you save.</value>
   </data>

@@ -985,6 +985,90 @@ public class VersionControlTabViewTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Enable_button_reports_progress_until_the_shell_command_finishes()
+    {
+        await TestReset.ResetShellAsync();
+        using var gitEnvironment = new IsolatedGitEnvironment();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? previousGitPath = config.GitExecutablePath;
+        var window = new Window { Width = 900, Height = 700 };
+        try
+        {
+            config.GitExecutablePath = ProbeGitOrIgnore();
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-enable-progress");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "enable-progress",
+                location))!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            HeadlessTestHelpers.Settle();
+            IEditorContext editorContext = TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+
+            Assert.That(
+                VersionControlTabExtension.Instance.TryCreateContext(
+                    editorContext,
+                    out IToolContext? context),
+                Is.True);
+            using var viewModel = (VersionControlTabViewModel)context!;
+            var view = new VersionControlTabView { DataContext = viewModel };
+            var shellOperation = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            window.DataContext = new RecordingCommandHandler { Completion = shellOperation.Task };
+            window.Content = view;
+
+            await viewModel.Initialization;
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            Button enableButton = view.FindControl<Button>("EnableVersionControlButton")!;
+            ProgressRing progress = view.FindControl<ProgressRing>("EnableVersionControlProgress")!;
+            TextBlock label = view.FindControl<TextBlock>("EnableVersionControlLabel")!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(enableButton.IsVisible, Is.True);
+                Assert.That(progress.IsVisible, Is.False);
+                Assert.That(label.Text, Is.EqualTo(Strings.VersionControl_Enable));
+            });
+
+            enableButton.Command!.Execute(null);
+            HeadlessTestHelpers.Settle();
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.IsEnablingVersionControl.Value, Is.True);
+                Assert.That(progress.IsVisible, Is.True);
+                Assert.That(label.Text, Is.EqualTo(Strings.VersionControl_Enabling));
+                Assert.That(enableButton.IsEffectivelyEnabled, Is.False);
+            });
+
+            shellOperation.SetResult();
+            await WaitUntilAsync(() => !viewModel.IsEnablingVersionControl.Value);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(progress.IsVisible, Is.False);
+                Assert.That(label.Text, Is.EqualTo(Strings.VersionControl_Enable));
+                Assert.That(enableButton.IsEffectivelyEnabled, Is.True);
+            });
+        }
+        finally
+        {
+            window.Close();
+            config.GitExecutablePath = previousGitPath;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         // The states waited on here are reached behind real git subprocesses, which take longer
@@ -1093,9 +1177,12 @@ public class VersionControlTabViewTests
     {
         public ContextCommandExecution? LastExecution { get; private set; }
 
+        public Task Completion { get; init; } = Task.CompletedTask;
+
         public void Execute(ContextCommandExecution execution)
         {
             LastExecution = execution;
+            execution.Completion = Completion;
         }
     }
 

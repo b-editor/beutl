@@ -403,7 +403,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
         if (MenuBar.FindContextCommand(execution.CommandName) is { } command)
         {
             if (command.CanExecute(null))
-                command.Execute(null);
+                execution.Execute(command);
             return;
         }
 

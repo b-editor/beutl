@@ -236,6 +236,62 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Enable_action_reports_progress_until_the_shell_flow_returns()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.SetupGet(x => x.Repository).Returns(() => null);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool runningWhileRequested = false;
+        string? labelWhileRequested = null;
+        viewModel.RequestEnableVersionControlAsync = () =>
+        {
+            runningWhileRequested = viewModel.IsEnablingVersionControl.Value;
+            labelWhileRequested = viewModel.EnableActionLabel.Value;
+            return gate.Task;
+        };
+        await viewModel.Initialization;
+
+        Task enabling = viewModel.EnableVersionControlAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runningWhileRequested, Is.True);
+            Assert.That(labelWhileRequested, Is.EqualTo(Strings.VersionControl_Enabling));
+            Assert.That(viewModel.IsEnablingVersionControl.Value, Is.True);
+            Assert.That(enabling.IsCompleted, Is.False);
+        });
+
+        gate.SetResult();
+        await enabling;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsEnablingVersionControl.Value, Is.False);
+            Assert.That(viewModel.EnableActionLabel.Value, Is.EqualTo(Strings.VersionControl_Enable));
+        });
+    }
+
+    [Test]
+    public async Task Enable_action_clears_the_progress_state_when_the_shell_flow_fails()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.SetupGet(x => x.Repository).Returns(() => null);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        viewModel.RequestEnableVersionControlAsync = () =>
+            Task.FromException(new InvalidOperationException("simulated failure"));
+        await viewModel.Initialization;
+
+        Assert.ThrowsAsync<InvalidOperationException>(() => viewModel.EnableVersionControlAsync());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsEnablingVersionControl.Value, Is.False);
+            Assert.That(viewModel.EnableActionLabel.Value, Is.EqualTo(Strings.VersionControl_Enable));
+        });
+    }
+
+    [Test]
     public async Task Download_action_uses_the_injected_launcher_with_the_git_downloads_uri()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();

@@ -11,6 +11,8 @@ public class VersionControlStringsTests
     [
         "VersionControl",
         "VersionControl_Enable",
+        "VersionControl_Enabling",
+        "VersionControl_EnablingHint",
         "VersionControl_UntrackedExplanation",
         "VersionControl_DownloadGit",
         "VersionControl_TrackHistory",

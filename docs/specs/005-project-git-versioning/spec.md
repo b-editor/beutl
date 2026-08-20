@@ -50,7 +50,7 @@ Version history is powered by the Git tooling installed on the user's machine. W
 
 ### User Story 1 - Every save is a restorable version (Priority: P1)
 
-A user enables version tracking for a project (at creation time or later from the menu). From then on, every explicit save quietly records a snapshot of the whole project. The user never has to think about Git: saving is versioning.
+A user enables version tracking for a project (at creation time or later from the version control tab). From then on, every explicit save quietly records a snapshot of the whole project. The user never has to think about Git: saving is versioning.
 
 **Why this priority**: This is the core value — passive, zero-knowledge history. Without it, nothing else in the feature matters.
 
