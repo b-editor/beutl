@@ -1022,6 +1022,49 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Untracking_reserved_project_state_restores_the_index_when_it_is_cancelled()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await CommitFileAsync(
+            Path.Combine("nested", "project", ".beutl", "view-state.json"),
+            "{}\n",
+            "track reserved project state");
+        using var cancellation = new CancellationTokenSource();
+        // Cancel exactly between the index change and the commit that would make it durable.
+        using GitCliVersionControlService service = new(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => new CancelAfterCommandRunner(
+                CreateRunner(),
+                arguments => arguments.Count > 1
+                             && arguments[0] == "rm"
+                             && arguments[1] == "--cached",
+                cancellation));
+
+        await service.InitializeAsync(
+            new InitOptions(new RepositoryInfo(Root, projectRoot), UseLfsWhenAvailable: false),
+            CancellationToken.None);
+        IReadOnlyList<string> reserved = await service.GetTrackedReservedPathsAsync(
+            CancellationToken.None);
+
+        Assert.ThrowsAsync<OperationCanceledException>(
+            () => service.UntrackReservedPathsAsync(reserved, cancellation.Token));
+
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
+        GitCommandResult tracked = await RunGitAsync("ls-files", "--", "nested/project");
+
+        Assert.Multiple(() =>
+        {
+            // A cancelled untrack must not leave the removal staged: the next user commit would
+            // otherwise stop tracking the reserved state without anyone asking for it.
+            Assert.That(staged.Stdout.Trim(), Is.Empty);
+            Assert.That(tracked.Stdout, Does.Contain(".beutl/view-state.json"));
+        });
+    }
+
     private string CreateProjectDirectory()
     {
         string projectRoot = Path.Combine(Root, "nested", "project");
@@ -1074,6 +1117,45 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         RepositoryInfo Repository,
         IReadOnlyList<string> Arguments,
         GitCommandOptions Options);
+
+    // Cancels the shared token once a matching command has run, so a cancellation can be placed
+    // between two git invocations of the same operation.
+    private sealed class CancelAfterCommandRunner(
+        IGitCliRunner inner,
+        Func<IReadOnlyList<string>, bool> match,
+        CancellationTokenSource cancellation) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (match(arguments))
+            {
+                await cancellation.CancelAsync();
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
 
     private sealed class RecordingRunner(IGitCliRunner inner) : IGitCliRunner
     {

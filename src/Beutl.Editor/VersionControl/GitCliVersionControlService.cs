@@ -4620,28 +4620,50 @@ internal sealed class GitCliVersionControlService :
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (OperationCanceledException)
+        {
+            // Cancellation lands here with the reserved paths already removed from the index but not
+            // committed. Leaving that staged would let the next user commit drop them silently, so
+            // this step's own index change is undone before the cancellation surfaces.
+            await TryRestoreIndexAfterUntrackAsync(repository, runner, indexTree)
+                .ConfigureAwait(false);
+            throw;
+        }
+        catch (Exception ex)
         {
             // Initialization has already succeeded by the time this runs, so a failure here must not
             // fail it; undo only this step's own index change and leave the rest untouched.
-            if (indexTree is not null)
-            {
-                try
-                {
-                    await ResetIndexAsync(repository, runner, indexTree, repository.Pathspec)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception restoreException)
-                {
-                    LogWarningBestEffort(
-                        restoreException,
-                        "Could not restore the index after failing to untrack reserved project paths.");
-                }
-            }
+            await TryRestoreIndexAfterUntrackAsync(repository, runner, indexTree)
+                .ConfigureAwait(false);
 
             LogWarningBestEffort(
                 ex,
                 "Could not stop tracking reserved project paths; pulls will report the repository dirty until they are untracked manually.");
+        }
+    }
+
+    // ResetIndexAsync deliberately runs without a cancellation token: this is a compensating action
+    // that also has to complete on the cancellation path.
+    private async Task TryRestoreIndexAfterUntrackAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string? indexTree)
+    {
+        if (indexTree is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await ResetIndexAsync(repository, runner, indexTree, repository.Pathspec)
+                .ConfigureAwait(false);
+        }
+        catch (Exception restoreException)
+        {
+            LogWarningBestEffort(
+                restoreException,
+                "Could not restore the index after failing to untrack reserved project paths.");
         }
     }
 
