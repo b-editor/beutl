@@ -9,9 +9,9 @@ flowchart LR
     D[immutable Definition] --> K[per-recording Call]
     S[typed RenderResourceSlot] --> K
     K --> C
-    G --> M[ResolvedMetadata]
-    M --> R[RequiredRegionMap]
-    R --> P[ExecutionPlan]
+    G --> M[ResolvedFragmentMetadata]
+    M --> R[RequiredRegion]
+    R --> P[ExecutionIslandPlan]
     P --> E[RenderRequestExecutor]
 ```
 
@@ -28,6 +28,8 @@ The public model records an immutable operation shape and a request-local invoca
 ### RenderNodeContext
 
 The engine creates one sealed context for each `Process` invocation. It exposes borrowed `Inputs`, request intent/purpose/domain/scale metadata, and recording methods. It is invalid after the invocation returns.
+
+`IsRenderCacheEnabled` reports whether the current transaction is still cache-eligible, and `DisableRenderCache()` monotonically opts the node out. A node that records a child it does not list in `ChildNodes` must call `DisableRenderCache`, because the cache cannot observe a change reported only by that unlisted child.
 
 Publication is explicit:
 
@@ -82,7 +84,7 @@ Raw definitions declare metadata and typed slots even though their canvas work i
 
 ### Metadata contracts
 
-Definitions use `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleContract`, `RenderValueCardinality`, target region/access, input readback, and device-grid contracts as appropriate. Metadata callbacks are deterministic, side-effect-free, and non-capturing. The engine derives operation-shape information from the definition and contract callbacks.
+Definitions use `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleContract`, `RenderValueCardinality`, target region/access, input readback, and device-grid contracts as appropriate. Metadata callbacks are deterministic and side-effect-free, and may capture only lightweight immutable CPU values, never a resource, context, request graph, mutable payload, or capturing delegate. Shader-definition uniform and resource binders are stricter and must not capture at all. The engine derives operation-shape information from the definition and contract callbacks.
 
 `RenderScaleContract.MapInputSupply` accepts a pure one-input supply transform together with the backward demand transform that matches it; `RenderScaleContract.MapInputSupplyPreservingDemand` accepts the supply transform alone and leaves demand unchanged. Both are reevaluated after symbolic upstream metadata becomes concrete.
 
@@ -96,7 +98,7 @@ Options carry intent, purpose, optional target domain, requested region, output 
 
 The graph preserves authored painter order and consists of ordered fragments plus embedded value edges. Nested same-target recording remains in this graph. Separate-target work records a child request before parent execution.
 
-### RenderFragment
+### RecordedRenderFragment and RenderFragmentReference
 
 A fragment has ordered inputs, conservative bounds/scale/cardinality metadata, contribution behavior, hit-test provenance, and an execution payload. Value fragments can be transformed or combined. Target effects remain ordinary ordered fragments even when they produce no value.
 
@@ -106,23 +108,25 @@ Guarded scopes and commands declare their target behavior. Captures form explici
 
 ## Analysis and planning entities
 
-### ResolvedMetadata and RequiredRegionMap
+### ResolvedFragmentMetadata and RequiredRegion
 
 Forward analysis resolves conservative output bounds, hit-test provenance, value cardinality, and effective supply. Backward analysis maps requested output regions to the required regions of their producers. Symbolic target dependencies become concrete only after their enclosing scopes are known.
 
-### CacheCandidate and retained output
+### RenderCacheCandidate and retained output
 
-The renderer may select a safe retained-output candidate after complete graph analysis. Node content invalidation is driven by `HasChanges`; authors do not define cache fields or token content identities. Raw target fragments and other opaque/external boundaries are not candidates for persistent reuse.
+The renderer may select a safe retained-output candidate after complete graph analysis. Node content invalidation is driven by `HasChanges`; authors do not define cache fields or token content identities. Raw target scope/command fragments, fragments carrying an external target-token dependency, and filter-effect segments that cannot materialize are not candidates for persistent reuse.
 
-### ExecutionIsland and ExecutionPlan
+### ExecutionIsland and ExecutionIslandPlan
 
 The planner partitions the graph at materialization, target dependencies, readback, backend transitions, raw work, and unsupported fusion seams. It may combine compatible current-pixel shader stages into one island while preserving fragment order, bounds, scale, color/alpha semantics, and target behavior.
 
-### StructuralPlan and RuntimeBindings
+*Amended.* Fusion was widened past current-pixel color shaders in `991f49e70`. An island may now also fold an engine-proven invariant opacity stage, and a single whole-source shader may lead a fused run of downstream current-pixel or opacity stages, though it never consumes an upstream stage within that run. `research.md` and `plan.md` carry the current fusion-scope contract.
+
+### StructuralPlanCache and request-time binding
 
 An internal plan records fixed graph topology, operation schemas, shader source/binding layout, barriers, and allocation shape. Request-time bindings contain current call state, request-scoped resources, resolved bounds/regions, densities, target allocation data, and frame inputs. The engine owns this split; public authoring supplies definitions and calls only.
 
-### ResourcePlan and ResourceLease
+### ResourcePlanUseSchedule and RenderTargetLease
 
 The resource plan calculates first/last use for materialized values and manages pooled targets. A lease has one owner at a time and is released, transferred, or disposed exactly once. Externally borrowed root/presentation targets are never pooled or disposed by the request.
 

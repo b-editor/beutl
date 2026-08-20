@@ -19,7 +19,7 @@ update node state
   -> publish successful output and settle resources
 ```
 
-Content invalidation enters this sequence through `RenderNode.HasChanges`. It is the sole public signal that a node's recorded content must be refreshed. The renderer invalidates the changed node and its recorded ancestors, while independently reusable unchanged descendants retain their warm-up and may still satisfy cache lookup. The context has no public method for overriding retention and public resource tokens carry no content-invalidation fields.
+Content invalidation enters this sequence through `RenderNode.HasChanges`. It is the sole public signal that a node's recorded content must be refreshed. The renderer invalidates the changed node and its recorded ancestors, while independently reusable unchanged descendants retain their warm-up and may still satisfy cache lookup. The context's only public retention control is `DisableRenderCache()`, which a node must call when it records a child it cannot list in `ChildNodes`; there is no public way to force retention, and public resource tokens carry no content-invalidation fields.
 
 ## Recording
 
@@ -47,7 +47,7 @@ Every fragment preserves ordered child fragments, value inputs, target effects, 
 
 ### Scope-local target lowering
 
-Target effects are lowered as scoped target-token dependencies rather than a request-global side list. A guarded target scope has declared bounds/scale/access behavior; a guarded target command has declared affected region, query bounds, access, and optional readback. Raw scope and raw command are opaque external boundaries. A raw scope must replay its input exactly once.
+Target effects are lowered as scoped target-token dependencies rather than a request-global side list. A guarded target scope has declared bounds/hit-test/scale behavior; a guarded target command has declared affected region, query bounds, access, and optional readback. Raw scope and raw command are opaque external boundaries. A raw scope must replay its input exactly once.
 
 ### Provenance
 
@@ -57,7 +57,7 @@ Root provenance retains painter order and query behavior independently of materi
 
 ### Forward resolution
 
-Forward analysis resolves output bounds, effective supply, value cardinality, contribution, target dependence, and hit-test provenance from the complete graph. It may reevaluate pure bounds or scale mappings after symbolic upstream metadata becomes concrete. It does not execute callbacks.
+Forward analysis resolves output bounds, effective supply, value cardinality, contribution, target dependence, and hit-test provenance from the complete graph. It may reevaluate pure bounds or scale mappings after symbolic upstream metadata becomes concrete. It does not execute deferred execution callbacks; only pure metadata callbacks run during analysis.
 
 ### Backward regions
 
@@ -71,7 +71,7 @@ The public lifecycle is deliberately simple: if node content changes, the node s
 
 ## Island planning
 
-The planner partitions work at materialization, opaque callbacks, geometry callbacks, target commands/captures/readback, target scopes where equivalence is unproven, raw canvas work, external targets, backend transitions, dynamic topology, and unsupported shader capability/resource limits.
+The planner partitions work at materialization, opaque callbacks, geometry callbacks, target commands/captures/readback, target scopes where equivalence is unproven, raw canvas work, external targets, backend transitions, dynamic topology, unsupported shader capability/resource limits, a fragment consumed more than once, an incompatible working-scale transition between adjacent stages, and the retained-output substitution and capture points selected earlier in the sequence.
 
 An island is maximal only if combining adjacent work preserves painter order, target-token order, value semantics, bounds/ROI, scale, color/alpha semantics, hit-test provenance, output cardinality, and required synchronization.
 
@@ -81,17 +81,21 @@ An island is maximal only if combining adjacent work preserves painter order, ta
 
 Eligible stages are current-pixel `ShaderDefinition<TState>` calls and engine operations with a proved equivalent lowering. Whole-source shaders, geometry, opaque work, coordinate-changing or unknown sampling stages, blend/composite, readback, capture, external targets, raw work, and backend transitions are barriers.
 
+*Amended (`991f49e70`).* A whole-source shader is no longer a barrier. One may lead a fused run of downstream current-pixel and opacity stages, so a run's leading stage may be coordinate-changing; folding work upstream of a whole-source stage stays rejected, because its sampling is too broad to prove that rewrite equivalent. `research.md` R8 and `plan.md`'s Shader and Geometry seam carry the current rule.
+
 An arbitrary public current-pixel shader cannot cross an analytic or antialiased coverage-producing source. Coverage must first resolve into a materialized value unless an engine-owned stage has a mechanical premultiplied-coverage-homogeneity proof.
 
 ### Composition and binding
 
 The compiler merges compatible stages in authored order, isolates uniform/resource names and declarations, validates source and backend limits, and splits deterministically before an overflowing stage. A one-stage run is valid.
 
-After plan selection, runtime binding receives the resolved logical bounds, required region, effective supply, working density, device footprint, call-state uniforms, and child resources. Any resource or binding failure fails the request and suppresses output publication.
+After plan selection, runtime binding receives the resolved logical bounds, required region, effective supply, working density, device footprint, call-state uniforms, and child resources. A binding failure fails the request and suppresses output publication. A target-allocation failure fails the request under `RenderIntent.Delivery`; under `RenderIntent.Preview` the renderer drops the affected contribution, completes the request with degraded pixels, and publishes no retained output for that request.
 
 ### Program reuse
 
 The renderer owns compiled shader reuse based on the complete merged source, layout, backend capability, color/alpha/format contract, and relevant compile options. Hashing is only a lookup optimization; full equality decides reuse. Public shader calls never provide program identity fields.
+
+A stage may additionally carry an engine-authored SPIR-V lowering. When the run is that single stage, the shared graphics context supports it, and its input and output are matching RGBA16F footprints at equal density, the renderer executes that lowering through a separate SPIR-V program cache; a native compile or resource failure falls back to the SkSL lowering, which remains the compatibility contract. Backend selection is engine-owned and never author-declared.
 
 ## Resource and scale plan
 
@@ -107,7 +111,7 @@ The resource plan computes first/last use for each materialized value and leases
 
 ### Synchronization
 
-Synchronization occurs only for declared CPU readback, backend transitions, target-token dependencies that require it, and platform ownership transitions. Compatible same-backend shader stages do not introduce per-stage flushes. Guarded callback canvases are executor-managed one-shot leases; raw canvases remain opaque external work.
+Synchronization is declared per consumer through a sampling intent. Declared CPU readback, backend transitions, and cross-context or undetermined consumers submit and wait; same-context texture sampling at a materialization boundary submits without waiting. Target-token dependencies and platform ownership transitions synchronize where they require it. Compatible same-backend shader stages do not introduce per-stage flushes. Guarded callback canvases are executor-managed one-shot leases; raw canvases remain opaque external work.
 
 ## Execution and failure
 

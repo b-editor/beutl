@@ -7,20 +7,22 @@ Read [spec.md](spec.md), [plan.md](plan.md), [data-model.md](data-model.md), and
 ```bash
 set -euo pipefail
 
-expected_branch=speckit/004-gpu-pass-fusion
+expected_branch=speckit/004-gpu-pass-fusion-unified
 expected_baseline_sha=83e63689d8c72bd0b7fbd4cb01d9e468d7a78c53
 
 test "$(git branch --show-current)" = "$expected_branch"
 git merge-base --is-ancestor "$expected_baseline_sha" HEAD
 ```
 
-The evidence SHA is a behavioral ancestor, not a required current merge base. Do not cherry-pick an abandoned GPU-pass branch; adapt only reviewed algorithms to this request-wide architecture.
+The evidence SHA is a behavioral ancestor, not a required current merge base, so the ancestor guard stays true after the squash-merge while the branch-name guard does not. The earlier `speckit/004-gpu-pass-fusion` branch was superseded and is not an ancestor of the delivered work. Do not cherry-pick an abandoned GPU-pass branch; adapt only reviewed algorithms to this request-wide architecture.
 
 ## 2. Freeze evidence before changing scheduling
 
 First add test-owned visual and workload evidence: raw linear-premultiplied RGBA16F artifacts, image-quality assertions, immutable provenance manifests, baseline shape probes, and persistent-lifetime benchmarks. Capture primary chains, barriers, thin antialiased paths, multiple roots, ROI/scale, reuse hits and misses, nested work, 3D, preview, and allocation failures.
 
 The paired baseline runner must use a temporary worktree pinned to the evidence SHA and copy back only immutable artifacts and a manifest. Regular CI compares fusion-disabled and fusion-enabled schedules on the same process/device. The internal fusion mode is not a public renderer option.
+
+*Amended.* The pinned starting-SHA baseline, its temporary-worktree runner, the immutable provenance manifests and the baseline shape probes were withdrawn with the evidence tree (tasks T005–T007, T016, T019, T020, T114, T115, T123), and `docs/specs/004-gpu-pass-fusion/evidence/` is not part of the repository. The evidence that still comes first is narrower: the raw RGBA16F store and the image-quality assertions under `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/`, plus the same-process fusion-disabled/enabled A/B in `GpuPassFusionSameProcessParityHarness`. [tasks.md](tasks.md) records the retirement per task and [spec.md](spec.md) SC-007 carries the parity contract that now applies.
 
 ## 3. Introduce one request recorder
 
@@ -48,7 +50,7 @@ Each invocation checkpoints fragments, publications, and resource transfers; val
 - `OpaqueSource`, `OpaqueMap`, `OpaqueCombine`, or `OpaqueExpand` for callback-defined value work;
 - `TargetScope` and `TargetCommand` for guarded target work;
 - raw target calls only for unavoidable external-canvas behavior;
-- `Publish`, `PublishRange`, `RecordNode`, and `RecordSubtree` for all other topology.
+- `Publish`, `PublishRange`, `Drop`, `RecordNode`, and `RecordSubtree` for all other topology, where `Drop` abandons a fragment recorded only to inspect its metadata.
 
 Content invalidation is equally direct: set `HasChanges` whenever a node property can alter pixels, metadata, or topology. Do not introduce application-managed output identities or resource content fields.
 
@@ -152,7 +154,7 @@ public override void Process(RenderNodeContext context)
 }
 ```
 
-Use `.WholeSource` for a whole-input shader with `uniform shader src;` and fixed bounds behavior. `ShaderDefinitionBuilder<TState>.Resource` declares typed child-shader slots. `GeometryDefinition<TState>.Create` uses the same definition/call split for geometry callbacks, metadata, optional readback, and slots. `FilterEffectContext` accepts `ShaderCall<TState>` and `GeometryCall<TState>` directly.
+Use `.WholeSource` for a whole-input shader with `uniform shader src;` and fixed bounds behavior. Renderer-generated names are reserved: any shader source that declares a binding named `__beutl_pixel` or `__beutl_head_main`, a `__beutl_s<N>_`-prefixed name, or an `fe`-prefixed name containing `_`, is rejected, and a whole-source shader may not declare a renderer-generated top-level name. `ShaderDefinitionBuilder<TState>.Resource` declares typed child-shader slots. `GeometryDefinition<TState>.Create` uses the same definition/call split for geometry callbacks, metadata, optional readback, and slots. `FilterEffectContext` accepts `ShaderCall<TState>` and `GeometryCall<TState>` directly.
 
 ## 6. Record complete roots, then analyze and execute
 
@@ -160,11 +162,11 @@ Record every root into one ordered graph. Only after recording should the render
 
 Do not pass resolved ROI into `Process`. `Process` records contracts; analysis derives concrete regions after the complete graph is known. Bounds and hit-test requests use that same recorder but stop before deferred pixel work.
 
-Raw target callbacks, backend transitions, target readback, capture, and unsupported shader/geometry features create deliberate barriers. Adjacent eligible current-pixel shader stages can form a fused run after coverage has been resolved.
+Raw target callbacks, backend transitions, target readback, capture, and unsupported shader/geometry features create deliberate barriers. A fused run admits adjacent current-pixel shader stages and bounds- and scale-preserving opacity stages once coverage has been resolved, and it may be led by a whole-source shader head whose downstream current-pixel stages are appended to it; folding work upstream of a whole-source head is still rejected.
 
 ## 7. Add retained-output and resource planning last
 
-The renderer owns retained output, structural/program plans, and pooled targets. A node only reports content change through `HasChanges`. Raw target work cannot be retained across requests.
+The renderer owns retained output, structural/program plans, and pooled targets. A node only reports content change through `HasChanges`. A node that records a child it cannot list in `ChildNodes` must also call `context.DisableRenderCache()` during that transaction, because the cache cannot observe a change reported only by an unlisted child. Raw target work cannot be retained across requests.
 
 After the uncached plan is correct, verify stable parameter frames reuse immutable plans and programs, concrete target sizes reuse pools, and changed node content triggers correct rerecording. Keep direct output ownership and resource disposal inside the request/renderer lifecycle.
 
@@ -182,4 +184,6 @@ dotnet build Beutl.slnx
 dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings
 ```
 
-Run the fallback shader tests on every host and the GPU-required suites on a configured graphics host. Run paired persistent-lifetime benchmarks in the pinned baseline and feature worktrees on the same system. The public migration commit uses a breaking Conventional Commit and identifies downstream render-node authors in its footer.
+Run the fallback shader tests on every host and the GPU-required suites on a configured graphics host. Run paired persistent-lifetime benchmarks in the pinned baseline and feature worktrees on the same system. The branch's breaking commits each use a breaking Conventional Commit subject and carry their own `BREAKING CHANGE:` footer, but `main` is squash-only, so the footer that reaches changelog tooling is the one in the pull request description: keep a footer there that names `Beutl.Engine` and summarizes the migrations in [contracts/breaking-changes.md](contracts/breaking-changes.md), and update it whenever another breaking commit lands.
+
+*Amended.* The paired pinned-baseline benchmark comparison was withdrawn with the evidence tree (tasks T114, T115, T123). `tests/Beutl.Benchmarks/Rendering/RenderPipelineBenchmarks.cs` stays runnable on demand for the SC-008 workloads, but the same-fingerprint paired comparison and its confidence interval are not produced, so the performance improvement is measurable on demand and is not asserted as a met acceptance criterion; see [spec.md](spec.md) SC-008.

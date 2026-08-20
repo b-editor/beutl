@@ -10,7 +10,7 @@ BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation
 
 The affected public surface is in `Beutl.Engine`. In-tree consumers in `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and the test/benchmark hosts have already migrated, but out-of-tree render-node, filter-effect, geometry, mesh, renderer, target-factory, and brush-construction code must apply the recipes below.
 
-The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The rendering-correctness follow-ups each carry their own footer as well: `14caa5eab`, `c144a917d`, `db8ed2af2`, `6cd58b87d`, `ef2bc38f7`, `c644647a6` and `ea03db4c2`, documented in the sections below. Every one of those commits contains a literal `BREAKING CHANGE:` footer, so no history rewrite is required.
+The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The remaining fourteen each carry their own footer as well: `999ad728f`, `991f49e70`, `ee507067d`, `2974a6073`, `6dfd0f2d3`, `66cd2dc4c`, `7e2d928b5`, `48318a60f`, `70479b19f`, `a619d8046`, `3c33795ab`, `d53b155e8`, `449e71258` and `c8314e40f`, documented in the sections below. All sixteen contain a literal `BREAKING CHANGE:` footer, so no history rewrite is required.
 
 `main` is squash-only, so the single commit that lands there is built from the pull request's title and body, not from any of those messages. The footer that reaches changelog tooling is therefore the one in the **pull request description**; a branch full of correctly footed commits does not supply it. Keep a `BREAKING CHANGE:` footer in the description that names `Beutl.Engine` and summarises the migrations below, and update it whenever a new breaking commit is added to the branch.
 
@@ -437,7 +437,7 @@ For a matrix-shaped operation, `TransformRenderNode.RescaleDensity` and `Transfo
 
 ## Whole-source shader coordinate space
 
-BREAKING CHANGE: a `ShaderDescription.WholeSource` stage is now evaluated over its **complete** output. Its `coord` argument spans `[0, SemanticOutputSize]` and `ShaderExecutionContext.DeviceBounds` / `LogicalOrigin` describe the complete output footprint, even when the renderer only required a sub-region (content that overhangs the frame). Previously `coord` started at the required region's origin while `SemanticOutputSize` still described the complete output, so `coord / iResolution` never reached `1.0` and any absolute anchor — a mirror axis, a tile-grid origin, a pivot — moved by the clipped-off overhang.
+BREAKING CHANGE: a `ShaderDefinition<TState>.WholeSource` stage is now evaluated over its **complete** output. Its `coord` argument spans `[0, SemanticOutputSize]` and `ShaderExecutionContext.DeviceBounds` / `LogicalOrigin` describe the complete output footprint, even when the renderer only required a sub-region (content that overhangs the frame). Previously `coord` started at the required region's origin while `SemanticOutputSize` still described the complete output, so `coord / iResolution` never reached `1.0` and any absolute anchor — a mirror axis, a tile-grid origin, a pivot — moved by the clipped-off overhang.
 
 `RequiredRegion` still reports the region actually being produced, so a stage that wants the destination extent reads it there.
 
@@ -584,6 +584,38 @@ The renderer decides whether recorded output is retained. Author code must only 
 
 Every `Process` invocation is transactional. An exception from recording or deferred execution preserves the primary failure, releases request-owned values best-effort, and yields no partial output.
 
+## A custom effect's target allocation failure fails a delivery render
+
+BREAKING CHANGE: `CustomFilterEffectContext.CreateTarget` and `CreateTargetLike` throw `InvalidOperationException` when the allocation itself fails during a `RenderIntent.Delivery` render, instead of returning an empty target. The `RenderIntent.Preview` return value is unchanged: the failure is logged and an empty target comes back so the caller can keep the source pixels.
+
+Failure used to be reported the same way for both intents, which left every caller to invent its own policy — `SKSLScriptEffect` threw for both, `GLSLShader` silently kept the raw input, and `CreateTarget` relied on a later `Open()` throwing whatever the intent was. A delivery export could therefore ship an unprocessed frame while a preview failed outright. The policy now lives in the allocator, where the intent is known, so an out-of-tree effect gets it without having to find and use a helper.
+
+An unmaterialized or unbounded `CreateTargetLike` source remains a legitimate skip and still returns an empty target for either intent; only a real allocation failure fails a delivery render. Out-of-tree effects that relied on the empty-target return to skip work under `Delivery` must handle the exception, and an effect that must fail delivery for a case the allocator cannot see — a target that allocated but carries no GPU texture — has to throw for itself.
+
+## An SKSL script reads its semantic output size
+
+BREAKING CHANGE: an `SKSLScriptEffect` script sees the semantic output size in `width`, `height` and `iResolution` rather than the raster-padded backing the old path inherited from the source target, and `iScale` resolves through the supply-driven working scale instead of copying the source target's density. A script that normalizes coordinates with `iResolution` renders slightly differently. Group opacity is no longer rounded to 8 bits, so an opacity of 0.5 composites at 0.5 rather than at 127/255. A whole-source shader may no longer declare a top-level name the fusion merger generates; those names are reserved and rejected when the source is parsed.
+
+The uniform change follows from the script effect no longer recording a legacy custom effect, which used to make the whole enclosing segment opaque. A script now records declaratively — `main(float2)` as a whole-source stage and `apply(half4)` as a fully fusible current-pixel stage — and a declarative stage binds its size uniforms from the stage's own execution context rather than from whatever target the custom path was handed. Scripts the declarative surface cannot express still fall back to the custom-effect path, so no existing script stops running.
+
+Group opacity now rides a runtime colour filter on the layer paint. Skia's two idiomatic alternatives — a paint alpha on the `SaveLayer` paint, and the `DstIn` mask the pop used to draw — both quantize to a byte inside an otherwise 16-bit linear pipeline; dropping the mask also removes the extra `SaveLayer` and `DrawPaint` that pop performed.
+
+## A group's filter effect applies to each child
+
+BREAKING CHANGE: a `FilterEffect` on a `DrawableGroup` is applied to each child separately rather than to the group's composited result. A project that relies on a split, mosaic, stroke or other target-list effect seeing one assembled image renders differently; wrap the children in a nested `Scene` to get the previous behaviour.
+
+Measured before the change, a `SplitEffect` on a group of two children split the assembled image into four tiles; per child it gives eight, and a group holding five children gives twenty rather than four. A `SplitEffect` on a group is now byte-identical to that effect applied to each child individually, across every division setting, scale and budget.
+
+The group's isolation layer is still recorded, but only around the opacity and blend axes, so a group's opacity is still applied exactly once instead of once per nesting level and a child's non-`SrcOver` `BlendMode` still composites against the group.
+
+## An identity colour matrix records no stage
+
+BREAKING CHANGE: `FilterEffectContext.ColorMatrix` and the filters built on it — `Brightness`, `Saturate`, `HueRotate`, `Lighting` — record nothing when the resulting colour matrix is exactly the identity. As with the zero-radius morphology below, a call that used to contribute an item to `CountItems()` no longer does, and a subtree whose only effect was an identity matrix has no isolation fragment of its own, so it takes the working scale of its surroundings rather than resolving one for itself.
+
+Rendered output is unchanged, which is the whole point: the colour matrix stage unpremultiplies, applies the matrix, clamps, and re-premultiplies, so even an identity matrix computes `(c / a) * a`, which is not the identity in floating point, and the clamp at 1.0 can bite at an antialiased edge where `c / a` rounds just above one. A `Brightness` with `Amount` 100 is exactly the identity and still moved the output by one fp16 ULP; SwiftShader happened to round back to the original half and an Intel UHD Graphics 630 does not.
+
+The generic `ColorMatrix<T>(T, Func<T, ColorMatrix>)` overload now evaluates its factory while recording rather than deferring it into the recorded item, and keys identity on the resulting matrix rather than on the `(data, factory)` pair. A factory whose result depends on state mutated between recording and execution therefore yields its record-time value.
+
 ## Zero-radius morphology records no stage
 
 BREAKING CHANGE: `FilterEffectContext.Dilate` and `.Erode` clamp each radius per axis at record time and record **no stage at all** when both clamped radii land on zero. A call that used to contribute an item to `CountItems()` no longer does.
@@ -638,7 +670,7 @@ Where the rectangle **does** straddle the `w = 0` plane, the answer changes from
 
 ## A sheared filter layer keeps its perpendicular pixel
 
-BREAKING CHANGE: the apron `ImmediateCanvas.PushFilterLayer` opens around a directly replayed Skia filter is derived from the transformed basis **area**, not from the transformed basis lengths. Every edge of the content now sits exactly one device pixel inside the layer whatever basis the canvas carries, so content under a sheared transform — a `SkewTransform`, or any transform group that composes one — renders differently: its layer is wider and keeps antialiased coverage that used to be clipped away.
+BREAKING CHANGE: the apron the engine opens around a directly replayed Skia filter (internally `ImmediateCanvas.PushFilterLayer`) is derived from the transformed basis **area**, not from the transformed basis lengths. Every edge of the content now sits exactly one device pixel inside the layer whatever basis the canvas carries, so content under a sheared transform — a `SkewTransform`, or any transform group that composes one — renders differently: its layer is wider and keeps antialiased coverage that used to be clipped away.
 
 `Drawable.Render` pushes the drawable transform outside `PushFilterEffect`, so a shear is live on the destination canvas whenever the executor replays a built-in Skia filter chain onto it. Inflating the bounds by `dx` along x moves a vertical edge perpendicular to itself by `dx * |det| / devicePerY` device pixels, not by `dx * devicePerX`; the two agree only when the basis is orthogonal, and a shear drives `|det|` below the product of the basis lengths. The apron each axis needs is therefore the **other** axis's basis length over the determinant. Measured on the basis an 80 degree `SkewTransform` produces at output scale 2 — rows `(2, 0)` and `(1.134, 0.2)` — the previous apron bought 0.174 device pixels instead of one, and a 100 x 6 bar under it lost 9.4% of its ink to a blur too small to move a pixel, against 0.35% now.
 
@@ -650,7 +682,7 @@ A basis that collapses the plane now leaves the bounds uninflated, joining the e
 
 ## ChromaKey matches its key colour in linear light
 
-BREAKING CHANGE: `ChromaKey` no longer carries its match tolerance as a `1/255` widening of the hue and saturation edges. It tests the pixel against the key colour in premultiplied linear light, within half an 8-bit code per channel plus one half-precision ulp, and treats a match there as a mask of zero whatever the hue and saturation differences say. The hue term is additionally weighted by the smaller of the pixel's and the key's linear chroma, ramping in between one and two linear codes, so hue stops voting where quantization alone could have manufactured it. `Boundary` still controls only how gradually the mask ramps past the threshold.
+BREAKING CHANGE: `ChromaKey` no longer relies on a `1/255` widening of the hue and saturation edges as its match tolerance. That widening survives as smoothstep edge slack, but the match itself is now tested against the key colour in premultiplied linear light, within half an 8-bit code per channel plus one half-precision ulp, and a match there is a mask of zero whatever the hue and saturation differences say. The hue term is additionally weighted by the smaller of the pixel's and the key's linear chroma, ramping in between one and two linear codes, so hue stops voting where quantization alone could have manufactured it. `Boundary` still controls only how gradually the mask ramps past the threshold.
 
 The tolerance was applied in the wrong colour space. A constant paint colour reaches the shader folded to 8 bits in the destination colour space, and the render targets are linear F16, so the grid the error lands on is linear — but the tolerance sat after `linearToSrgb`, where half a linear code is not a fixed quantity. Near black it spans about ten sRGB levels, roughly forty times the tolerance; near white it spans a fifth of one.
 
@@ -671,7 +703,7 @@ BREAKING CHANGE: `RenderScaleContract.MapInputSupply(Func<EffectiveScale, Effect
 | `RenderScaleContract.MapInputSupply(map)` | `RenderScaleContract.MapInputSupplyPreservingDemand(map)` |
 | `RenderScaleContract.MapInputSupply(map, mapOutputDemandToInput)` | unchanged |
 
-Nothing about how either contract resolves changed; this is a rename and a documentation change.
+Nothing about how either contract resolves changed; this is a rename and a documentation change. `spec.md` FR-030 records the earlier plan for a state-first `MapInputSupply<TState>(state, map, structuralKey)`; that shape was never built, and the pair documented here is the delivered surface.
 
 The two forms were overloads of one name, and the name described only the forward half both of them share. An author reaching for a one-input density map met the one-callback signature first and had no signal that a second existed, so a map that resampled — an out-of-tree `OpaqueMap` that enlarges — declared its output supply, silently fell back to the identity backward map, and let a downstream materialization rasterize the source below the density the enlargement needed. The failure is invisible until someone looks at a blurry frame.
 
