@@ -124,27 +124,40 @@ public sealed class DirectBlurFiniteOutputTests
                 ImageMetrics.FirstNonFinite((label, bitmap)),
                 Is.Null,
                 "Blur must not sample pixels outside the source's declared content bounds.");
+            float peakAlpha = PeakAlpha(bitmap);
             Assert.That(
-                HasVisibleCoverage(bitmap),
-                Is.True,
+                peakAlpha,
+                Is.GreaterThan(0.01f),
                 "The offscreen source must still blur into the frame.");
+            Assert.That(
+                peakAlpha,
+                Is.LessThanOrEqualTo(1.01f),
+                $"Alpha of {peakAlpha} is a garbage read, not coverage: the blur reached a sample "
+                + "nobody wrote.");
         });
     }
 
-    private static bool HasVisibleCoverage(Bitmap bitmap)
+    /// <summary>
+    /// The largest finite alpha in the bitmap. The peak is what separates coverage from a garbage read:
+    /// a poisoned sample also leaves plenty of individually plausible pixels behind, so a test that
+    /// accepts the first in-range pixel it finds passes on junk. Measured, a correct blur of this
+    /// fixture peaks at 0.553; the poisoned x86-64 result peaks at 0 and the arm64 one at 2288.
+    /// </summary>
+    private static float PeakAlpha(Bitmap bitmap)
     {
+        float peak = 0f;
         for (int y = 0; y < bitmap.Height; y++)
         {
             ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
             for (int x = 0; x < bitmap.Width; x++)
             {
                 float alpha = (float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]);
-                if (float.IsFinite(alpha) && alpha > 0.01f)
-                    return true;
+                if (float.IsFinite(alpha) && alpha > peak)
+                    peak = alpha;
             }
         }
 
-        return false;
+        return peak;
     }
 
     private sealed class PoisonedOutsideBoundsSourceNode : RenderNode
@@ -166,6 +179,20 @@ public sealed class DirectBlurFiniteOutputTests
                         BlendMode = SKBlendMode.Src,
                     };
                     canvas.Canvas.DrawPaint(poisonPaint);
+
+                    // A source may leave the filter layer's one-device-pixel apron alone, and a
+                    // well-behaved one does: it is where the rasterizer puts the antialiased spill of
+                    // in-bounds content, so it holds transparent here. Poisoning it would only assert
+                    // that the apron is unreachable, which is not what the layer promises.
+                    using var apronPaint = new SKPaint
+                    {
+                        ColorF = new SKColorF(0f, 0f, 0f, 0f),
+                        BlendMode = SKBlendMode.Src,
+                        IsAntialias = false,
+                    };
+                    canvas.Canvas.DrawRect(
+                        ImmediateCanvas.InflateByOneDevicePixel(bounds, canvas.Transform).ToSKRect(),
+                        apronPaint);
 
                     using var paint = new SKPaint
                     {

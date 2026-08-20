@@ -1105,8 +1105,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// <remarks>
     /// The bound keeps a spatial filter from sampling input pixels nobody wrote, but a layer whose
     /// device bounds hug the content loses the coverage of content thinner than one device pixel — the
-    /// Ganesh backend keeps only <c>(1 + w) / 2</c> of a w-device-pixel-wide feature. The apron is
-    /// transparent margin, so it restores the coverage without exposing anything the bound excluded.
+    /// Ganesh backend keeps only <c>(1 + w) / 2</c> of a w-device-pixel-wide feature. The apron restores
+    /// it by giving the rasterizer somewhere to put the antialiased spill of the content, so the replay
+    /// does write into the apron and a filter does sample it. What the layer guarantees is therefore a
+    /// bound, not an exclusion: nothing more than one device pixel outside the content is reachable, and
+    /// the apron starts transparent because <c>SaveLayer</c> clears it, so it can never carry pixels
+    /// nobody wrote.
     /// </remarks>
     internal PushedState PushFilterLayer(SKPaint paint, Rect contentBounds)
         => PushPaint(paint, InflateByOneDevicePixel(contentBounds, _currentTransform));
