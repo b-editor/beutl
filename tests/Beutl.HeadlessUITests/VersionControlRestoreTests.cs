@@ -90,6 +90,68 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Manual_commit_records_edits_made_while_the_identity_prompt_is_open()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        var oldRequestIdentityAsync = TestShell.VersionControl.RequestIdentityAsync;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = false;
+            config.UseLfsWhenAvailable = false;
+
+            (Project project, _) = await CreateTrackedProjectAsync(
+                "version-control-manual-identity-edit");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            string projectFileName = Path.GetFileName(project.Uri.LocalPath);
+            await RunGitAsync(gitPath, projectRoot, "config", "--unset", "user.name");
+            await RunGitAsync(gitPath, projectRoot, "config", "--unset", "user.email");
+
+            // The prompt is where the user can keep editing: the manual version has to record what
+            // they see, not the state saved before the identity was asked for.
+            TestShell.VersionControl.RequestIdentityAsync = _ =>
+            {
+                project.Variables["identity-prompt-edit"] = "typed while prompting";
+                return Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Manual Commit Test", "manual@example.invalid"));
+            };
+
+            // Something has to be pending before the commit, or the clean tree short-circuits the
+            // whole attempt and the identity is never requested.
+            project.Variables["pre-prompt-edit"] = "typed before prompting";
+
+            CommitResult result = await TestShell.VersionControl.CommitManualAsync("prompted cut");
+            string committedProjectFile = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "show",
+                $"HEAD:{projectFileName}");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+                Assert.That(committedProjectFile, Does.Contain("pre-prompt-edit"));
+                Assert.That(committedProjectFile, Does.Contain("identity-prompt-edit"));
+            });
+        }
+        finally
+        {
+            TestShell.VersionControl.RequestIdentityAsync = oldRequestIdentityAsync;
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Disposal_during_a_lifecycle_operation_cleans_up_the_service_after_completion()
     {
         await TestReset.ResetShellAsync();

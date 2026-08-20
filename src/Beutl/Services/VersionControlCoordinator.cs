@@ -703,6 +703,15 @@ public sealed class VersionControlCoordinator :
 
             operationCancellation.ThrowIfCancellationRequested();
             await service.SetLocalIdentityAsync(identity, operationCancellation);
+            // The editor stays live while the identity prompt is open, so the save above can be
+            // stale by now; without a second one the retry reports a manual version as created
+            // without the edits the user made while typing their name and email.
+            if (_projectService.CurrentProject.Value is { } identifiedProject
+                && !await TrySaveOpenProjectAsync(identifiedProject, operationCancellation))
+            {
+                throw new InvalidOperationException(MessageStrings.OperationFailed);
+            }
+
             return await service.CommitAllAsync(
                 message.Trim(),
                 SnapshotKind.Manual,
