@@ -1595,7 +1595,7 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Sin seleccionar</value>
   </data>
   <data name="AiReferenceImageHeader" xml:space="preserve">
-    <value>Imagen de referencia (opcional)</value>
+    <value>Imágenes de referencia (opcional)</value>
   </data>
   <data name="AiVideoFrameGuidanceHeader" xml:space="preserve">
     <value>Guía de fotogramas (opcional)</value>

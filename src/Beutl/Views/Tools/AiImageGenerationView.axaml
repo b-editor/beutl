@@ -114,26 +114,47 @@
                     <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                Text="{x:Static lang:Strings.AiReferenceImageDescription}"
                                TextWrapping="Wrap" />
-                    <Border Height="96"
-                            Background="{DynamicResource ControlFillColorDefaultBrush}"
-                            CornerRadius="4"
-                            IsVisible="{CompiledBinding HasReferenceImage.Value}">
-                        <btl:BitmapView Source="{CompiledBinding ReferenceImagePreview.Value}"
-                                        Stretch="Uniform" />
-                    </Border>
-                    <TextBlock IsVisible="{CompiledBinding HasReferenceImage.Value}"
-                               MaxLines="1"
-                               Text="{CompiledBinding ReferenceImagePath.Value}"
-                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{CompiledBinding ReferenceImageCountText.Value}" />
+                    <!--  The order the rows are in is the order the model reads them in.  -->
+                    <ItemsControl IsVisible="{CompiledBinding HasReferenceImages.Value}"
+                                  ItemsSource="{CompiledBinding ReferenceImages}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AiReferenceImageViewModel">
+                                <Grid Margin="0,0,0,4" ColumnDefinitions="Auto,*,Auto">
+                                    <Border Width="96"
+                                            Height="96"
+                                            Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                            CornerRadius="4">
+                                        <btl:BitmapView Source="{CompiledBinding Preview}" Stretch="Uniform" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1"
+                                               Margin="8,0"
+                                               VerticalAlignment="Center"
+                                               MaxLines="2"
+                                               Text="{CompiledBinding FileName}"
+                                               TextTrimming="CharacterEllipsis"
+                                               TextWrapping="Wrap"
+                                               ToolTip.Tip="{CompiledBinding Path}" />
+                                    <Button Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.Name="{x:Static lang:Strings.AiRemoveReferenceImage}"
+                                            Command="{CompiledBinding Remove}"
+                                            Content="{x:Static lang:Strings.AiRemoveReferenceImage}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                     <WrapPanel Orientation="Horizontal">
                         <Button Margin="0,0,4,4"
                                 AutomationProperties.Name="{x:Static lang:Strings.AiReferenceImage}"
                                 Command="{CompiledBinding SelectReferenceImage}"
-                                Content="{x:Static lang:Strings.AiEditBrowse}" />
+                                Content="{x:Static lang:Strings.AiEditBrowse}"
+                                IsEnabled="{CompiledBinding CanAddReferenceImage.Value}" />
                         <Button Margin="0,0,0,4"
-                                Command="{CompiledBinding ClearReferenceImage}"
+                                Command="{CompiledBinding ClearReferenceImages}"
                                 Content="{x:Static lang:Strings.AiClearReferenceImage}"
-                                IsVisible="{CompiledBinding HasReferenceImage.Value}" />
+                                IsVisible="{CompiledBinding HasReferenceImages.Value}" />
                     </WrapPanel>
                 </StackPanel>
             </Expander>

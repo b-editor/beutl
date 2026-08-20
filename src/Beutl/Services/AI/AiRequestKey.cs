@@ -1,0 +1,116 @@
+﻿using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace Beutl.Services.AI;
+
+/// <summary>
+/// Names the requests of one metered AI attempt, so that repeating a request
+/// whose answer never arrived recovers what it may already have paid for
+/// instead of buying it again.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The server charges an operation when it accepts it, and answers a repeat of
+/// a key it has already seen with the job that key created — the finished
+/// result, or a refusal while it is still running. Neither charges twice, so a
+/// request whose outcome the client never learned has to go back out under the
+/// key it first used. A request made of anything else is a different request
+/// and takes a different key: the server refuses a key that comes back with a
+/// different fingerprint behind it, which is why every part that identifies the
+/// request is passed to <see cref="For(ReadOnlySpan{string})"/>.
+/// </para>
+/// <para>
+/// Once the server has settled a job — a result, or a failure it owns and has
+/// refunded — the key that named it is spent. It would keep answering with that
+/// settled job, so asking for anything more has to be a new request:
+/// <see cref="Retire"/> says the settlement happened and starts the next one
+/// under fresh keys.
+/// </para>
+/// </remarks>
+internal sealed class AiRequestKey
+{
+    private readonly Lock _gate = new();
+    private string _seed;
+
+    public AiRequestKey(string? seed = null)
+        => _seed = string.IsNullOrEmpty(seed) ? NewSeed() : seed;
+
+    /// <summary>
+    /// What the current keys are derived from. Held with the rest of a resumable
+    /// run's state so a request resumed in another session is sent under the key
+    /// it was first sent under.
+    /// </summary>
+    public string Seed
+    {
+        get
+        {
+            lock (_gate)
+                return _seed;
+        }
+    }
+
+    public static string NewSeed() => Guid.NewGuid().ToString("N");
+
+    /// <summary>
+    /// The key for a request identified by <paramref name="parts"/>. The server
+    /// holds a key to printable ASCII and to 255 characters, which this is.
+    /// </summary>
+    public string For(params ReadOnlySpan<string?> parts)
+        => $"{Seed}-{Fingerprint(parts)}";
+
+    /// <summary>
+    /// The key for the <paramref name="pieceIndex"/>th piece of a request sent
+    /// in pieces, each of which is charged and recovered on its own.
+    /// </summary>
+    public string For(int pieceIndex, params ReadOnlySpan<string?> parts)
+        => $"{For(parts)}-{pieceIndex.ToString(CultureInfo.InvariantCulture)}";
+
+    /// <summary>
+    /// Identifies a file as it stands now. The server fingerprints an upload by
+    /// its bytes, so a request naming a file that has since been edited is a
+    /// different request and has to be named differently too.
+    /// </summary>
+    public static string FileStamp(string? filePath)
+    {
+        if (string.IsNullOrEmpty(filePath))
+            return string.Empty;
+
+        try
+        {
+            var file = new FileInfo(filePath);
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"{filePath}:{file.Length}:{file.LastWriteTimeUtc.Ticks}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Unreadable here means the upload is about to fail anyway; the path
+            // alone still tells two different files apart.
+            return filePath;
+        }
+    }
+
+    public void Retire()
+    {
+        lock (_gate)
+            _seed = NewSeed();
+    }
+
+    // Length-prefixed so that no arrangement of parts can read as another one.
+    private static string Fingerprint(ReadOnlySpan<string?> parts)
+    {
+        var builder = new StringBuilder();
+        foreach (string? part in parts)
+        {
+            builder.Append(part?.Length ?? -1)
+                .Append(':')
+                .Append(part)
+                .Append('\u001f');
+        }
+
+        return Convert
+            .ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString())).AsSpan(0, 8))
+            .ToLowerInvariant();
+    }
+}

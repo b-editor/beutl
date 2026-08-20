@@ -1,4 +1,5 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Globalization;
+using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -33,6 +34,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiImageEditingService _images;
     private readonly IAuthenticatedContentService _content;
+    private readonly AiRequestKey _requestKey = new();
     private readonly EditViewModel? _editViewModel;
     private string? _sourceElementId;
     private Task? _disposeTask;
@@ -444,12 +446,18 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
                 ? SelectedOutpaintExpansion.Value.Percent
                 : null;
             string uploadPath = filePath;
+            // The server fingerprints an upload by the name it arrives under, so
+            // the expanded canvas is sent under a name derived from the picture
+            // it was made from — never the temporary file's own, which is named
+            // for uniqueness on disk and would differ on every attempt.
+            string uploadName = Path.GetFileName(filePath);
             if (task == "outpaint")
             {
                 preparedFilePath = PrepareOutpaintSource(
                     filePath,
                     outpaintExpansionPercent!.Value);
                 uploadPath = preparedFilePath;
+                uploadName = $"{Path.GetFileNameWithoutExtension(filePath)}-outpaint.png";
                 prompt = $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt}";
             }
 
@@ -469,10 +477,16 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
             AiImageResult response = await _images.EditAsync(
                 new AiImageEditRequest(
-                    AiUploadSource.FromFile(uploadPath),
+                    AiUploadSource.FromFile(uploadPath, uploadName),
                     new AiImageEditTaskId(task),
                     prompt,
-                    model),
+                    model,
+                    _requestKey.For(
+                        task,
+                        prompt,
+                        model?.Value,
+                        outpaintExpansionPercent?.ToString(CultureInfo.InvariantCulture),
+                        AiRequestKey.FileStamp(filePath))),
                 operation.CancellationToken);
 
             using var stream = new MemoryStream();
@@ -480,6 +494,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             operation.CancellationToken.ThrowIfCancellationRequested();
             stream.Position = 0;
             var resultImage = Ref<Bitmap>.Create(Bitmap.FromStream(stream));
+            _requestKey.Retire();
             if (!operation.TryPublish(() =>
                 {
                     ResultImage.Value?.Dispose();
@@ -517,8 +532,11 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             _logger.LogError(ex, "Failed to download the AI result.");
             operation.TryPublish(() => Error.Value = Strings.AiResultDownloadFailed);
         }
+        // Settled and refunded server-side: the key that named it would keep
+        // answering with that failure, so the next attempt asks under a new one.
         catch (AiProviderErrorException)
         {
+            _requestKey.Retire();
             operation.TryPublish(() => Error.Value = Strings.AiProviderError);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)

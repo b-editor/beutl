@@ -205,14 +205,16 @@ internal sealed class AiImageGenerationService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        string idempotencyKey = CreateIdempotencyKey();
+        // The caller's key when it has one: that is what lets a retry recover a
+        // picture already paid for instead of buying it again.
+        string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         // The endpoint reads "auto" and an absent background the same way, so
         // leaving it to the model is sent as nothing at all.
         string backgroundValue = request.Background.Value;
         string? background =
             backgroundValue.Length > 0 && backgroundValue != "auto" ? backgroundValue : null;
 
-        if (request.Reference is null)
+        if (request.References.Count == 0)
         {
             var body = new CreateAiImageRequest
             {
@@ -250,26 +252,46 @@ internal sealed class AiImageGenerationService(
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        await using Stream stream = await request.Reference.OpenReadAsync(cancellationToken);
-        var referencePart = new StreamPart(
-            stream,
-            request.Reference.FileName,
-            request.Reference.MediaType);
-        return await ExecuteAsync(
-            "AiImageGenerationService.GenerateFromReference",
-            (authorization, token) => Application.Ai.CreateImageFromReference(
-                authorization,
-                idempotencyKey,
-                referencePart,
-                request.Prompt,
-                request.AspectRatio.Value,
-                background,
-                request.Seed?.ToString(CultureInfo.InvariantCulture),
-                request.Model?.Value,
-                token),
-            AiModelMapper.ToModel,
-            cancellationToken,
-            activity => SetImageTags(activity, request));
+        // Every reference is held open for the whole upload, so they are opened
+        // together and closed together — one that failed to open must not leave
+        // the ones before it behind.
+        var streams = new List<Stream>(request.References.Count);
+        try
+        {
+            var referenceParts = new List<StreamPart>(request.References.Count);
+            foreach (AiUploadSource reference in request.References)
+            {
+                Stream stream = await reference.OpenReadAsync(cancellationToken);
+                streams.Add(stream);
+                referenceParts.Add(new StreamPart(
+                    stream,
+                    reference.FileName,
+                    reference.MediaType));
+            }
+
+            return await ExecuteAsync(
+                "AiImageGenerationService.GenerateFromReferences",
+                (authorization, token) => Application.Ai.CreateImageFromReferences(
+                    authorization,
+                    idempotencyKey,
+                    referenceParts,
+                    request.Prompt,
+                    request.AspectRatio.Value,
+                    background,
+                    request.Seed?.ToString(CultureInfo.InvariantCulture),
+                    request.Model?.Value,
+                    token),
+                AiModelMapper.ToModel,
+                cancellationToken,
+                activity => SetImageTags(activity, request));
+        }
+        finally
+        {
+            foreach (Stream stream in streams)
+            {
+                await stream.DisposeAsync();
+            }
+        }
     }
 
     // A picture midway through being worked out. Anything that cannot be read as
@@ -314,7 +336,7 @@ internal sealed class AiImageGenerationService(
     {
         activity?.SetTag("aspectRatio", request.AspectRatio.Value);
         activity?.SetTag("background", request.Background.Value);
-        activity?.SetTag("hasReference", request.Reference is not null);
+        activity?.SetTag("referenceCount", request.References.Count);
     }
 }
 
@@ -329,7 +351,9 @@ internal sealed class AiImageEditingService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        string idempotencyKey = CreateIdempotencyKey();
+        // The caller's key when it has one: that is what lets a retry recover an
+        // edit already paid for instead of buying it again.
+        string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         cancellationToken.ThrowIfCancellationRequested();
         await using Stream stream = await request.Image.OpenReadAsync(cancellationToken);
         var filePart = new StreamPart(
@@ -404,7 +428,9 @@ internal sealed class AiCaptionTranslationService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        string idempotencyKey = CreateIdempotencyKey();
+        // The caller's key when it has one: that is what lets a retry recover a
+        // translation already paid for instead of buying it again.
+        string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         var dto = new AiCaptionTranslationRequestDto
         {
             SourceLanguage = request.SourceLanguage,
@@ -494,7 +520,9 @@ internal sealed class AiVideoService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        string idempotencyKey = CreateIdempotencyKey();
+        // The caller's key when it has one: that is what lets a retry recover a
+        // clip already paid for instead of buying it again.
+        string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         if (request.FirstFrame is null)
         {
             return await ExecuteAsync(

@@ -3,7 +3,6 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.Reactive.Disposables;
-using System.Security.Cryptography;
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
@@ -492,17 +491,32 @@ public sealed partial class AiSubtitleDialogViewModel
                     new AiOperationAvailabilityRequest.Transcription(
                         chunk.Duration.TotalSeconds,
                         TranscriptionModelPicker.SelectedModel));
-                AiTranscriptionResponse response = await _aiService.TranscribeAsync(
-                    new AiTranscriptionRequest(
-                        AiUploadSource.FromFile(
-                            path,
-                            FormatChunkFileName("source", chunkIndex)),
-                        language,
-                        TranscriptionModelPicker.SelectedModel,
-                        operation.RequestKeyFor(
-                            chunkIndex,
-                            TranscriptionModelPicker.SelectedModel)),
-                    RequestToken);
+                AiTranscriptionResponse response;
+                try
+                {
+                    response = await _aiService.TranscribeAsync(
+                        new AiTranscriptionRequest(
+                            AiUploadSource.FromFile(
+                                path,
+                                FormatChunkFileName("source", chunkIndex)),
+                            language,
+                            TranscriptionModelPicker.SelectedModel,
+                            operation.RequestKeyFor(
+                                chunkIndex,
+                                TranscriptionModelPicker.SelectedModel)),
+                        RequestToken);
+                }
+                catch (AiProviderErrorException)
+                {
+                    // The server settled this chunk as failed and refunded it.
+                    // Its key would keep answering with that failure, so the
+                    // rest of the run takes new ones — and the resume state is
+                    // rewritten with them, or a resumed run would ask under the
+                    // spent key again.
+                    operation.RequestKey.Retire();
+                    PublishSourceTranscriptionPartial(operation);
+                    throw;
+                }
                 operation.DetectedLanguage ??= response.Language;
                 double offsetSeconds = chunkOffset / (double)operation.SampleRate;
                 foreach (AiTranscriptionSegment segment in response.Segments)
@@ -610,17 +624,26 @@ public sealed partial class AiSubtitleDialogViewModel
                         chunkDuration,
                         RequestToken);
                 }
-                AiTranscriptionResponse response = await _aiService.TranscribeAsync(
-                    new AiTranscriptionRequest(
-                        AiUploadSource.FromFile(
-                            path,
-                            FormatChunkFileName("scene-mix", index)),
-                        language,
-                        TranscriptionModelPicker.SelectedModel,
-                        operation.RequestKeyFor(
-                            index,
-                            TranscriptionModelPicker.SelectedModel)),
-                    RequestToken);
+                AiTranscriptionResponse response;
+                try
+                {
+                    response = await _aiService.TranscribeAsync(
+                        new AiTranscriptionRequest(
+                            AiUploadSource.FromFile(
+                                path,
+                                FormatChunkFileName("scene-mix", index)),
+                            language,
+                            TranscriptionModelPicker.SelectedModel,
+                            operation.RequestKeyFor(
+                                index,
+                                TranscriptionModelPicker.SelectedModel)),
+                        RequestToken);
+                }
+                catch (AiProviderErrorException)
+                {
+                    operation.RequestKey.Retire();
+                    throw;
+                }
                 operation.DetectedLanguage ??= response.Language;
                 foreach (AiTranscriptionSegment segment in response.Segments)
                 {
@@ -733,23 +756,38 @@ public sealed partial class AiSubtitleDialogViewModel
             {
                 TranslationBatch batch = operation.Batches[index];
                 await EnsureAvailableAsync(CreateTranslationAvailabilityRequest(batch));
-                AiCaptionTranslationResponse response = await _aiService.TranslateAsync(
-                    new AiCaptionTranslationRequest(
-                        batch.Pieces.Select(piece => new AiCaptionTranslationSegment
-                        {
-                            Id = piece.Id,
-                            Text = piece.Text,
-                            Context = new AiCaptionTranslationSegmentContext(
-                                piece.GroupId,
-                                piece.PartIndex,
-                                piece.Start,
-                                piece.End),
-                        }).ToArray(),
-                        operation.TargetLanguage,
-                        operation.SourceLanguage,
-                        model: TranslationModelPicker.SelectedModel),
-                    new Progress<AiCaptionTranslationSegment>(ShowTranslatedLine),
-                    RequestToken);
+                AiCaptionTranslationResponse response;
+                try
+                {
+                    response = await _aiService.TranslateAsync(
+                        new AiCaptionTranslationRequest(
+                            batch.Pieces.Select(piece => new AiCaptionTranslationSegment
+                            {
+                                Id = piece.Id,
+                                Text = piece.Text,
+                                Context = new AiCaptionTranslationSegmentContext(
+                                    piece.GroupId,
+                                    piece.PartIndex,
+                                    piece.Start,
+                                    piece.End),
+                            }).ToArray(),
+                            operation.TargetLanguage,
+                            operation.SourceLanguage,
+                            model: TranslationModelPicker.SelectedModel,
+                            idempotencyKey: operation.RequestKeyFor(
+                                index,
+                                TranslationModelPicker.SelectedModel)),
+                        new Progress<AiCaptionTranslationSegment>(ShowTranslatedLine),
+                        RequestToken);
+                }
+                catch (AiProviderErrorException)
+                {
+                    // The server settled this batch as failed and refunded it.
+                    // Its key would keep answering with that failure, so what is
+                    // left of the run goes out under new ones.
+                    operation.RequestKey.Retire();
+                    throw;
+                }
                 AddTranslatedBatch(operation, batch, response);
                 RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
                 operation.CompletedBatchCount++;
@@ -2022,26 +2060,6 @@ public sealed partial class AiSubtitleDialogViewModel
         TranslatedLineCount.Value++;
     }
 
-    private static string NewRequestKeySeed() => Guid.NewGuid().ToString("N");
-
-    // One key per chunk, derived from the run's seed so that resuming — even in
-    // another session — reproduces the key the chunk was first sent under. The
-    // server holds a key to printable ASCII, which this is.
-    //
-    // The model belongs in it because the server refuses a key that comes back
-    // with a different request behind it, and it fingerprints the model. A
-    // chunk sent to another model is another request and takes another key,
-    // which is also what it costs.
-    private static string FormatChunkRequestKey(
-        string seed,
-        int chunkIndex,
-        AiModelId? model)
-        => $"{seed}-{ShortHash(model?.Value ?? string.Empty)}-{chunkIndex}";
-
-    private static string ShortHash(string value)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)).AsSpan(0, 8))
-            .ToLowerInvariant();
-
     // The name the chunk is uploaded under. Part of what the server fingerprints
     // the request by, so it has to be the same on every attempt at one chunk;
     // the file it is read from is named for uniqueness on disk instead.
@@ -2470,6 +2488,16 @@ public sealed partial class AiSubtitleDialogViewModel
 
         public IReadOnlyList<TranslationBatch> Batches { get; } = batches;
 
+        /// <summary>
+        /// Names this run's requests, one key per batch, so a batch retried
+        /// after a lost answer asks for the translation it already paid for
+        /// instead of buying a second one.
+        /// </summary>
+        public AiRequestKey RequestKey { get; } = new();
+
+        public string RequestKeyFor(int batchIndex, AiModelId? model) =>
+            RequestKey.For(batchIndex, model?.Value, TargetLanguage, SourceLanguage);
+
         public Dictionary<string, string> TranslatedPieces { get; } = new(StringComparer.Ordinal);
 
         public int CompletedBatchCount { get; set; }
@@ -2495,10 +2523,16 @@ public sealed partial class AiSubtitleDialogViewModel
         /// the resume state so a retried chunk asks for the transcription it
         /// already paid for instead of buying a second one.
         /// </summary>
-        public string RequestKeySeed { get; } = requestKeySeed ?? NewRequestKeySeed();
+        public AiRequestKey RequestKey { get; } = new(requestKeySeed);
 
+        public string RequestKeySeed => RequestKey.Seed;
+
+        // The model belongs in the key because the server refuses a key that
+        // comes back with a different request behind it, and it fingerprints
+        // the model. A chunk sent to another model is another request and takes
+        // another key, which is also what it costs.
         public string RequestKeyFor(int chunkIndex, AiModelId? model) =>
-            FormatChunkRequestKey(RequestKeySeed, chunkIndex, model);
+            RequestKey.For(chunkIndex, model?.Value);
 
         public string? Language { get; } = language;
 
@@ -2547,10 +2581,12 @@ public sealed partial class AiSubtitleDialogViewModel
         /// of the resume state so a chunk resumed after a restart asks for the
         /// transcription it already paid for instead of buying a second one.
         /// </summary>
-        public string RequestKeySeed { get; } = requestKeySeed ?? NewRequestKeySeed();
+        public AiRequestKey RequestKey { get; } = new(requestKeySeed);
+
+        public string RequestKeySeed => RequestKey.Seed;
 
         public string RequestKeyFor(int chunkIndex, AiModelId? model) =>
-            FormatChunkRequestKey(RequestKeySeed, chunkIndex, model);
+            RequestKey.For(chunkIndex, model?.Value);
 
         public string FilePath { get; } = filePath;
 

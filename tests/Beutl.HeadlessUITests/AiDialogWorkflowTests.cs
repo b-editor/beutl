@@ -265,18 +265,18 @@ public sealed class AiDialogWorkflowTests
 
             await viewModel.Generate.ExecuteAsync();
 
-            viewModel.ReferenceImagePath.Value = referencePath;
+            viewModel.AddReferenceImages([referencePath]);
             await viewModel.Generate.ExecuteAsync();
 
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(jsonBody, Does.Contain("\"seed\":4242"),
                     "A seed is what makes a result reproducible, so it has to reach the server.");
-                Assert.That(viewModel.ReferenceImagePreview.Value, Is.Not.Null,
+                Assert.That(viewModel.ReferenceImages, Has.Count.EqualTo(1),
                     "The chosen picture is shown back before it is paid for.");
                 Assert.That(uploadBody, Is.Not.Null,
                     "A reference turns the request into an upload.");
-                Assert.That(uploadBody, Does.Contain("name=reference"));
+                Assert.That(uploadBody, Does.Contain("reference[]"));
                 Assert.That(uploadBody, Does.Contain(Path.GetFileName(referencePath)));
                 Assert.That(uploadBody, Does.Contain("4242"));
                 Assert.That(viewModel.Error.Value, Is.Null);
@@ -320,16 +320,16 @@ public sealed class AiDialogWorkflowTests
             using var viewModel = CreateImageGenerationDialog(clients);
             await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
             viewModel.Prompt.Value = "A calm blue sky";
-            viewModel.ReferenceImagePath.Value = referencePath;
-            Assert.That(viewModel.HasReferenceImage.Value, Is.True);
+            viewModel.AddReferenceImages([referencePath]);
+            Assert.That(viewModel.HasReferenceImages.Value, Is.True);
 
-            viewModel.ClearReferenceImage.Execute();
+            viewModel.ClearReferenceImages.Execute();
             await viewModel.Generate.ExecuteAsync();
 
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(viewModel.HasReferenceImage.Value, Is.False);
-                Assert.That(viewModel.ReferenceImagePreview.Value, Is.Null,
+                Assert.That(viewModel.HasReferenceImages.Value, Is.False);
+                Assert.That(viewModel.ReferenceImages, Is.Empty,
                     "The preview is released with the reference it belonged to.");
                 Assert.That(lastRequestWasUpload, Is.False,
                     "With no reference the cheaper JSON request is used again.");
@@ -835,6 +835,208 @@ public sealed class AiDialogWorkflowTests
         await viewModel.Generate.ExecuteAsync();
 
         Assert.That(viewModel.Error.Value, Is.EqualTo(Beutl.Language.Strings.AiProviderError));
+    }
+
+    // The three ways one run can end, and what each one means for the key that
+    // named it: unknown keeps it, a settled failure spends it, a result spends it.
+    [AvaloniaTest]
+    public async Task ImageGeneration_RetryingAnInterruptedRunAsksForTheJobItMayHavePaidFor()
+    {
+        await TestReset.ResetShellAsync();
+        var keys = new List<string?>();
+        bool cutFirstAttempt = true;
+        using var handler = new StubHandler(request =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/images":
+                    keys.Add(IdempotencyKeyOf(request));
+                    if (cutFirstAttempt)
+                    {
+                        cutFirstAttempt = false;
+                        // The answer never arrives, so this client cannot know
+                        // whether the picture was made and charged for.
+                        throw new HttpRequestException("The connection was reset.");
+                    }
+
+                    return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.Prompt.Value = "A calm blue sky";
+
+        await viewModel.Generate.ExecuteAsync();
+        await viewModel.Generate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(keys, Has.Count.EqualTo(2));
+            Assert.That(keys[1], Is.EqualTo(keys[0]),
+                "The second ask is for the job the first may already have paid for.");
+            Assert.That(viewModel.ResultImage.Value, Is.Not.Null);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_AskingAgainAfterAPictureArrivesIsANewRequest()
+    {
+        await TestReset.ResetShellAsync();
+        var keys = new List<string?>();
+        using var handler = new StubHandler(request =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/images":
+                    keys.Add(IdempotencyKeyOf(request));
+                    return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.Prompt.Value = "A calm blue sky";
+
+        await viewModel.Generate.ExecuteAsync();
+        await viewModel.Generate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(keys, Has.Count.EqualTo(2));
+            // Repeating the key would hand back the first picture; asking for
+            // the same prompt again is asking for another picture.
+            Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_DoesNotRetryUnderAKeyTheServerHasSettledAsFailed()
+    {
+        await TestReset.ResetShellAsync();
+        var keys = new List<string?>();
+        bool failFirstAttempt = true;
+        using var handler = new StubHandler(request =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/images":
+                    keys.Add(IdempotencyKeyOf(request));
+                    if (failFirstAttempt)
+                    {
+                        failFirstAttempt = false;
+                        // Failed and refunded server-side. The job is settled,
+                        // so its key can only ever answer with that failure.
+                        return JsonResponse(HttpStatusCode.InternalServerError, """
+                            { "error_code": "aiProviderError", "message": "Provider failed." }
+                            """);
+                    }
+
+                    return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.Prompt.Value = "A calm blue sky";
+
+        await viewModel.Generate.ExecuteAsync();
+        Assert.That(viewModel.Error.Value, Is.EqualTo(Beutl.Language.Strings.AiProviderError));
+
+        await viewModel.Generate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(keys, Has.Count.EqualTo(2));
+            Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
+            Assert.That(viewModel.ResultImage.Value, Is.Not.Null);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_SendsEveryReferenceAndStopsAtWhatTheModelTakes()
+    {
+        await TestReset.ResetShellAsync();
+        string[] referencePaths = Enumerable.Range(0, 3)
+            .Select(index => Path.Combine(
+                Path.GetTempPath(),
+                $"beutl-ai-reference-{index}-{Guid.NewGuid():N}.png"))
+            .ToArray();
+        foreach (string path in referencePaths)
+            await File.WriteAllBytesAsync(path, s_png);
+
+        string? uploadBody = null;
+        using var handler = new StubHandler(async (request, cancellationToken) =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/images":
+                    uploadBody = request.Content is null
+                        ? null
+                        : await request.Content.ReadAsStringAsync(cancellationToken);
+                    return JsonResponse(HttpStatusCode.OK, ImageResponseJson("image-job", "image-file"));
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        try
+        {
+            using var viewModel = CreateImageGenerationDialog(clients);
+            await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+            viewModel.Prompt.Value = "A calm blue sky";
+            viewModel.MaxReferenceImages.Value = 2;
+
+            viewModel.AddReferenceImages(referencePaths);
+            await viewModel.Generate.ExecuteAsync();
+
+            using (Assert.EnterMultipleScope())
+            {
+                // A model that takes two is offered two, not refused after the
+                // usage has been reserved for three.
+                Assert.That(viewModel.ReferenceImages, Has.Count.EqualTo(2));
+                Assert.That(viewModel.CanAddReferenceImage.Value, Is.False);
+                Assert.That(uploadBody, Does.Contain(Path.GetFileName(referencePaths[0])));
+                Assert.That(uploadBody, Does.Contain(Path.GetFileName(referencePaths[1])));
+                Assert.That(uploadBody, Does.Not.Contain(Path.GetFileName(referencePaths[2])));
+                Assert.That(viewModel.Error.Value, Is.Null);
+            }
+        }
+        finally
+        {
+            foreach (string path in referencePaths)
+                File.Delete(path);
+        }
     }
 
     [AvaloniaTest]
@@ -1656,12 +1858,12 @@ public sealed class AiDialogWorkflowTests
         {
             Assert.That(transcriptionRequests, Is.EqualTo(3),
                 "The completed first chunk must not be submitted and billed again.");
-            // The failed chunk is asked for again under its own name, so a
-            // failure the server had already charged for comes back as the
-            // result it produced rather than as a second purchase.
+            // The server settled this chunk as failed and refunded it. Its key
+            // can only ever answer with that failure now, so the retry asks
+            // under a new one rather than replaying a spent request.
             Assert.That(sentKeys, Has.Count.EqualTo(3));
-            Assert.That(sentKeys[2], Is.EqualTo(sentKeys[1]),
-                "A retried chunk must repeat the key its first attempt used.");
+            Assert.That(sentKeys[2], Is.Not.EqualTo(sentKeys[1]),
+                "A key the server has settled as failed cannot be asked again.");
             Assert.That(sentKeys[0], Is.Not.EqualTo(sentKeys[1]),
                 "Separate chunks are separate requests and must not share a key.");
             // The name is part of what the server fingerprints, so repeating the
@@ -1974,6 +2176,11 @@ public sealed class AiDialogWorkflowTests
         Assert.That(start, Is.GreaterThanOrEqualTo(0), "The upload carries a wave.");
         return BitConverter.ToInt32(payload, start + 40);
     }
+
+    private static string? IdempotencyKeyOf(HttpRequestMessage request)
+        => request.Headers.TryGetValues("Idempotency-Key", out IEnumerable<string>? values)
+            ? values.SingleOrDefault()
+            : null;
 
     private static AiImageGenerationDialogViewModel CreateImageGenerationDialog(
         BeutlApiApplication clients,

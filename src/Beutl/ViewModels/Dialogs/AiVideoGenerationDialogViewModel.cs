@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
@@ -38,6 +39,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     private readonly IAiJobKindRegistry _jobKinds;
     private readonly IAiJobMonitor _jobMonitor;
     private readonly AiOperationAvailabilityTracker _availabilityTracker;
+    private readonly AiRequestKey _requestKey = new();
     private readonly CancellationTokenSource _availabilityLifetimeCts = new();
     private readonly EditViewModel? _editViewModel;
     private readonly HashSet<string> _temporaryFiles = new(StringComparer.Ordinal);
@@ -764,7 +766,17 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                     lastFrame: lastFramePath is null
                         ? null
                         : AiUploadSource.FromFile(lastFramePath),
-                    model: model),
+                    model: model,
+                    idempotencyKey: _requestKey.For(
+                        prompt,
+                        durationSeconds.ToString(CultureInfo.InvariantCulture),
+                        resolution,
+                        aspectRatio,
+                        generateAudio ? "audio" : "silent",
+                        Seed.Value?.ToString(CultureInfo.InvariantCulture),
+                        model?.Value,
+                        AiRequestKey.FileStamp(firstFramePath),
+                        AiRequestKey.FileStamp(lastFramePath))),
                 operation.CancellationToken);
             persistedServerJob = true;
 
@@ -777,7 +789,13 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                 return;
             }
 
-            await PollJobAsync(response.JobId, operation, pendingSnapshot);
+            // Retired only once the server has settled the job. A clip whose
+            // result never reached the client is still recoverable under the key
+            // that created it, and asking again under a new one would pay twice.
+            if (await PollJobAsync(response.JobId, operation, pendingSnapshot))
+            {
+                _requestKey.Retire();
+            }
         }
         catch (AuthenticationRequiredException)
         {
@@ -793,6 +811,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
         catch (AiProviderErrorException)
         {
+            _requestKey.Retire();
             operation.TryPublish(() => Error.Value = Strings.AiProviderError);
         }
         catch (AiJobLimitReachedException)
@@ -820,7 +839,13 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
     }
 
-    private async Task PollJobAsync(
+    /// <summary>Waits for the job to finish, showing what it is doing.</summary>
+    /// <returns>
+    /// True once the server has settled the job — the clip is in hand, or the
+    /// job failed and was refunded. False while its outcome is still unknown to
+    /// this client, which is what makes the request worth repeating as itself.
+    /// </returns>
+    private async Task<bool> PollJobAsync(
         AiJobId jobId,
         AsyncOperationLifetime.Operation operation,
         AiVideoResultSnapshot pendingSnapshot)
@@ -867,7 +892,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                         job.ContentMetadata,
                         operation);
                     if (localPath is null)
-                        return;
+                        return false;
 
                     operation.TryPublish(() =>
                     {
@@ -880,7 +905,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                             RequestTemporaryFileDeletion(previousPath);
                         }
                     });
-                    return;
+                    return true;
                 }
                 if (status.IsTerminal || !status.ShouldPoll)
                 {
@@ -889,7 +914,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                         StatusText.Value = Strings.AiVideoFailed;
                         Error.Value = job.Error ?? Strings.AiProviderError;
                     });
-                    return;
+                    return true;
                 }
 
                 operation.TryPublish(() => StatusText.Value = Strings.AiVideoProcessing);
@@ -914,6 +939,10 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
 
             pollingCts.Dispose();
         }
+
+        // Stopped waiting rather than heard an answer: the job is still the
+        // server's, and the key that created it is still the way back to it.
+        return false;
     }
 
     private async Task<string?> DownloadVideoAsync(

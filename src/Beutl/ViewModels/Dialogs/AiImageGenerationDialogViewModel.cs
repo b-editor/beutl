@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
@@ -35,6 +36,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiImageGenerationService _images;
     private readonly IAuthenticatedContentService _content;
+    private readonly AiRequestKey _requestKey = new();
     private readonly EditViewModel? _editViewModel;
     private Task? _disposeTask;
 
@@ -88,6 +90,14 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             .DisposeWith(_disposables);
         SupportsReferenceImage = new ReactivePropertySlim<bool>(true)
             .DisposeWith(_disposables);
+        MaxReferenceImages = new ReactivePropertySlim<int>(AiRequestLimits.MaxImageReferences)
+            .DisposeWith(_disposables);
+        HasReferenceImages = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
+        CanAddReferenceImage = new ReactivePropertySlim<bool>(true)
+            .DisposeWith(_disposables);
+        ReferenceImageCountText = new ReactivePropertySlim<string>(string.Empty)
+            .DisposeWith(_disposables);
         Seed = new ReactivePropertySlim<int?>()
             .DisposeWith(_disposables);
         // A model that takes no picture cannot generate from one; offering it
@@ -99,13 +109,9 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
 
         SelectReferenceImage = new AsyncReactiveCommand()
             .WithSubscribe(SelectReferenceImageAsync);
-        ClearReferenceImage = new ReactiveCommand();
-        ClearReferenceImage.Subscribe(() => ReferenceImagePath.Value = null).DisposeWith(_disposables);
-        ReferenceImagePath.Subscribe(LoadReferencePreview).DisposeWith(_disposables);
-        HasReferenceImage = ReferenceImagePath
-            .Select(path => !string.IsNullOrEmpty(path))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
+        ClearReferenceImages = new ReactiveCommand();
+        ClearReferenceImages.Subscribe(ClearReferenceImagesCore).DisposeWith(_disposables);
+        UpdateReferenceImageState();
 
         IsGenerating = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
@@ -209,16 +215,27 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
 
     public decimal SeedMaximum => AiRequestLimits.MaxSeed;
 
-    /// <summary>An existing picture the generation is guided by. One at most.</summary>
-    public ReactivePropertySlim<string?> ReferenceImagePath { get; } = new();
+    /// <summary>
+    /// The pictures the generation is guided by, in the order the model reads
+    /// them. Empty for a generation made from the prompt alone.
+    /// </summary>
+    public ObservableCollection<AiReferenceImageViewModel> ReferenceImages { get; } = [];
 
-    public ReactivePropertySlim<Ref<Bitmap>?> ReferenceImagePreview { get; } = new();
+    /// <summary>
+    /// How many pictures the chosen model takes, never more than what the
+    /// operation's price covers.
+    /// </summary>
+    public ReactivePropertySlim<int> MaxReferenceImages { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> HasReferenceImage { get; }
+    public ReactivePropertySlim<bool> HasReferenceImages { get; }
+
+    public ReactivePropertySlim<bool> CanAddReferenceImage { get; }
+
+    public ReactivePropertySlim<string> ReferenceImageCountText { get; }
 
     public AsyncReactiveCommand SelectReferenceImage { get; }
 
-    public ReactiveCommand ClearReferenceImage { get; }
+    public ReactiveCommand ClearReferenceImages { get; }
 
     public ReactivePropertySlim<string> Prompt { get; } = new();
 
@@ -329,9 +346,51 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         SupportsSeed.Value = image.SupportsSeed;
         if (!image.SupportsSeed)
             Seed.Value = null;
-        SupportsReferenceImage.Value = image.MaxReferenceImages > 0;
-        if (image.MaxReferenceImages < 1)
-            ReferenceImagePath.Value = null;
+        // The model publishes its own count and the price covers a fixed one;
+        // whichever is smaller is what may actually be sent, and anything the
+        // new model will not take is dropped rather than refused after the usage
+        // has been reserved.
+        int maxReferences = Math.Clamp(
+            image.MaxReferenceImages,
+            0,
+            AiRequestLimits.MaxImageReferences);
+        SupportsReferenceImage.Value = maxReferences > 0;
+        MaxReferenceImages.Value = maxReferences;
+        while (ReferenceImages.Count > maxReferences)
+        {
+            AiReferenceImageViewModel dropped = ReferenceImages[^1];
+            ReferenceImages.RemoveAt(ReferenceImages.Count - 1);
+            dropped.Dispose();
+        }
+
+        UpdateReferenceImageState();
+    }
+
+    private void UpdateReferenceImageState()
+    {
+        HasReferenceImages.Value = ReferenceImages.Count > 0;
+        CanAddReferenceImage.Value = ReferenceImages.Count < MaxReferenceImages.Value;
+        ReferenceImageCountText.Value = string.Format(
+            CultureInfo.CurrentCulture,
+            Strings.AiReferenceImageCount,
+            ReferenceImages.Count,
+            MaxReferenceImages.Value);
+    }
+
+    private void ClearReferenceImagesCore()
+    {
+        foreach (AiReferenceImageViewModel reference in ReferenceImages)
+            reference.Dispose();
+        ReferenceImages.Clear();
+        UpdateReferenceImageState();
+    }
+
+    private void RemoveReferenceImage(AiReferenceImageViewModel reference)
+    {
+        if (!ReferenceImages.Remove(reference))
+            return;
+        reference.Dispose();
+        UpdateReferenceImageState();
     }
 
     private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> values)
@@ -379,9 +438,9 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         ResultImage.Dispose();
         PreviewImage.Value?.Dispose();
         PreviewImage.Dispose();
-        ReferenceImagePreview.Value?.Dispose();
-        ReferenceImagePreview.Dispose();
-        ReferenceImagePath.Dispose();
+        foreach (AiReferenceImageViewModel reference in ReferenceImages)
+            reference.Dispose();
+        ReferenceImages.Clear();
         Prompt.Dispose();
         Style.Dispose();
         Composition.Dispose();
@@ -432,23 +491,35 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             string prompt = ComposePrompt();
             string aspectRatio = SelectedAspectRatio.Value.Value;
             AiModelId? model = ModelPicker.SelectedModel;
-            string? referencePath = ReferenceImagePath.Value;
+            string[] referencePaths = ReferenceImages.Select(reference => reference.Path).ToArray();
             if (!await _availability.CheckAsync(
                     new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, model),
                     operation.CancellationToken))
             {
                 throw new AiUsageLimitExceededException();
             }
+            string background = SelectedBackground.Value.Value;
+            // Every picture is part of what makes this request the request it
+            // is, so each one is named in the key: the same prompt guided by
+            // different pictures is a different run and costs its own.
+            string?[] requestParts =
+            [
+                prompt,
+                aspectRatio,
+                background,
+                Seed.Value?.ToString(CultureInfo.InvariantCulture),
+                model?.Value,
+                .. referencePaths.Select(AiRequestKey.FileStamp),
+            ];
             AiImageResult response = await _images.GenerateAsync(
                 new AiImageGenerationRequest(
                     prompt,
                     new AiImageAspectRatioId(aspectRatio),
-                    new AiImageBackgroundId(SelectedBackground.Value.Value),
+                    new AiImageBackgroundId(background),
                     seed: Seed.Value,
-                    reference: string.IsNullOrEmpty(referencePath)
-                        ? null
-                        : AiUploadSource.FromFile(referencePath),
-                    model: model),
+                    references: Array.ConvertAll(referencePaths, AiUploadSource.FromFile),
+                    model: model,
+                    idempotencyKey: _requestKey.For(requestParts)),
                 new Progress<AiImagePreview>(preview => ShowPreview(preview, operation)),
                 operation.CancellationToken);
 
@@ -457,6 +528,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             operation.CancellationToken.ThrowIfCancellationRequested();
             stream.Position = 0;
             var resultImage = Ref<Bitmap>.Create(Bitmap.FromStream(stream));
+            _requestKey.Retire();
             if (!operation.TryPublish(() =>
                 {
                     ResultImage.Value?.Dispose();
@@ -481,6 +553,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
         catch (AiProviderErrorException)
         {
+            _requestKey.Retire();
             operation.TryPublish(() => Error.Value = Strings.AiProviderError);
         }
         catch (AiFileTooLargeException)
@@ -652,38 +725,58 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             return;
         }
 
-        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(
-            SharedFilePickerOptions.OpenImage());
-        if (files.Count > 0)
-        {
-            operation.TryPublish(() => ReferenceImagePath.Value = files[0].Path.LocalPath);
-        }
+        FilePickerOpenOptions options = SharedFilePickerOptions.OpenImage();
+        options.AllowMultiple = true;
+        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(options);
+        if (files.Count == 0)
+            return;
+
+        operation.TryPublish(() => AddReferenceImages(files.Select(file => file.Path.LocalPath)));
     }
 
-    private void LoadReferencePreview(string? path)
+    /// <summary>
+    /// Adds pictures in the order given, stopping at what the chosen model
+    /// takes. One that cannot be read is reported and skipped rather than
+    /// stopping the rest.
+    /// </summary>
+    internal void AddReferenceImages(IEnumerable<string> paths)
     {
-        ReferenceImagePreview.Value?.Dispose();
-        ReferenceImagePreview.Value = null;
+        foreach (string path in paths)
+        {
+            if (ReferenceImages.Count >= MaxReferenceImages.Value)
+                break;
+            if (LoadReference(path) is { } reference)
+                ReferenceImages.Add(reference);
+        }
+
+        UpdateReferenceImageState();
+    }
+
+    private AiReferenceImageViewModel? LoadReference(string path)
+    {
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return;
+            return null;
 
         // The upload is refused server-side once it is too big, so the file is
         // measured here instead of after the account has waited for a round trip.
         if (new FileInfo(path).Length > AiRequestLimits.MaxImageUploadBytes)
         {
             Error.Value = Strings.AiFileTooLarge;
-            ReferenceImagePath.Value = null;
-            return;
+            return null;
         }
 
         try
         {
-            ReferenceImagePreview.Value = Ref<Bitmap>.Create(Bitmap.FromFile(path));
+            return new AiReferenceImageViewModel(
+                path,
+                Ref<Bitmap>.Create(Bitmap.FromFile(path)),
+                RemoveReferenceImage);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to load an AI reference image preview from {Path}", path);
             Error.Value = Strings.AiEditSourcePreviewFailed;
+            return null;
         }
     }
 
@@ -702,6 +795,46 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             result.Failure?.Exception);
     }
 
+}
+
+/// <summary>
+/// One picture guiding a generation, shown with the preview the user picked it
+/// by. Removing it is the item's own business so a list of them binds without
+/// each row having to reach back through its parent.
+/// </summary>
+public sealed class AiReferenceImageViewModel : IDisposable
+{
+    private readonly Action<AiReferenceImageViewModel> _remove;
+    private bool _disposed;
+
+    internal AiReferenceImageViewModel(
+        string path,
+        Ref<Bitmap> preview,
+        Action<AiReferenceImageViewModel> remove)
+    {
+        Path = path;
+        Preview = preview;
+        _remove = remove;
+        Remove = new ReactiveCommand();
+        Remove.Subscribe(() => _remove(this));
+    }
+
+    public string Path { get; }
+
+    public Ref<Bitmap> Preview { get; }
+
+    public string FileName => System.IO.Path.GetFileName(Path);
+
+    public ReactiveCommand Remove { get; }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+        _disposed = true;
+        Remove.Dispose();
+        Preview.Dispose();
+    }
 }
 
 public sealed record AiImageAspectRatioOption(string Value)

@@ -2078,13 +2078,19 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Random every time</value>
   </data>
   <data name="AiReferenceImage" xml:space="preserve">
-    <value>Reference image</value>
+    <value>Reference images</value>
   </data>
   <data name="AiReferenceImageDescription" xml:space="preserve">
-    <value>Guide the generation with an existing picture. It is uploaded only when you generate.</value>
+    <value>Guide the generation with existing pictures. They are uploaded only when you generate.</value>
   </data>
   <data name="AiClearReferenceImage" xml:space="preserve">
-    <value>Clear reference</value>
+    <value>Clear references</value>
+  </data>
+  <data name="AiReferenceImageCount" xml:space="preserve">
+    <value>{0} of {1} used</value>
+  </data>
+  <data name="AiRemoveReferenceImage" xml:space="preserve">
+    <value>Remove</value>
   </data>
   <data name="AiPromptApply" xml:space="preserve">
     <value>Apply</value>
@@ -2165,7 +2171,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Not selected</value>
   </data>
   <data name="AiReferenceImageHeader" xml:space="preserve">
-    <value>Reference image (optional)</value>
+    <value>Reference images (optional)</value>
   </data>
   <data name="AiVideoFrameGuidanceHeader" xml:space="preserve">
     <value>Frame guidance (optional)</value>

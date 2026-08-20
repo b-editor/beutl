@@ -259,8 +259,8 @@ public static class AiRequestLimits
     public const long MaxTranscriptionUploadBytes = 25L * 1024 * 1024;
 
     // What the server is priced for. Each model publishes its own count and the
-    // smaller of the two is what may be sent; this client sends one picture
-    // today, and the number is what a server that publishes nothing is read as.
+    // smaller of the two is what may be sent; this is also what a server that
+    // publishes nothing is read as.
     public const int MaxImageReferences = 4;
 
     // The provider accepts a signed 32-bit seed. Bounding it here keeps the
@@ -460,20 +460,35 @@ public sealed record AiImageGenerationRequest
         AiImageAspectRatioId aspectRatio,
         AiImageBackgroundId background = default,
         int? seed = null,
-        AiUploadSource? reference = null,
-        AiModelId? model = null)
+        IReadOnlyList<AiUploadSource>? references = null,
+        AiModelId? model = null,
+        string? idempotencyKey = null)
     {
         if (aspectRatio.Value.Length == 0)
             throw new ArgumentException("An image aspect ratio is required.", nameof(aspectRatio));
-        if (reference?.Length > AiRequestLimits.MaxImageUploadBytes)
+        if (references is { Count: > AiRequestLimits.MaxImageReferences })
+        {
+            throw new ArgumentException(
+                $"At most {AiRequestLimits.MaxImageReferences} reference pictures may guide one generation.",
+                nameof(references));
+        }
+
+        if (references?.Any(reference => reference is null) == true)
+            throw new ArgumentException("Reference pictures cannot contain null.", nameof(references));
+        if (references?.Any(reference => reference.Length > AiRequestLimits.MaxImageUploadBytes) == true)
             throw new AiFileTooLargeException();
 
         Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
         AspectRatio = aspectRatio;
         Background = background;
         Seed = AiRequestLimits.ValidateOptionalSeed(seed, nameof(seed));
-        Reference = reference;
+        References = references is null || references.Count == 0
+            ? []
+            : Array.AsReadOnly(references.ToArray());
         Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
+            idempotencyKey,
+            nameof(idempotencyKey));
     }
 
     public string Prompt { get; }
@@ -495,16 +510,33 @@ public sealed record AiImageGenerationRequest
     public int? Seed { get; }
 
     /// <summary>
-    /// An existing picture the generation is guided by. One at most: that is
-    /// what the operation's price covers.
+    /// Existing pictures the generation is guided by, in the order the model
+    /// should read them. Up to <see cref="AiRequestLimits.MaxImageReferences"/>,
+    /// which is what the operation's price covers; a model that takes fewer
+    /// says so through <see cref="AiImageModelCapabilities.MaxReferenceImages"/>.
     /// </summary>
-    public AiUploadSource? Reference { get; }
+    public IReadOnlyList<AiUploadSource> References { get; }
 
     /// <summary>
     /// Which model to run on. Null asks for the operation's default; naming one
     /// the server does not offer is refused rather than substituted.
     /// </summary>
     public AiModelId? Model { get; }
+
+    /// <summary>
+    /// Names this request, so that sending it again asks the server for the
+    /// same one rather than for another.
+    /// </summary>
+    /// <remarks>
+    /// The operation is charged when it is accepted, and the server answers a
+    /// repeat of a key it has already seen with the result that key produced —
+    /// free, and with a refusal while the first attempt is still running. A
+    /// caller retrying after a lost response must send the key it used the
+    /// first time or it pays twice for one piece of work; a caller asking for
+    /// something new must not, or it is handed the earlier result. Left unset,
+    /// each attempt is a new request.
+    /// </remarks>
+    public string? IdempotencyKey { get; }
 }
 
 public sealed record AiImageEditRequest
@@ -513,7 +545,8 @@ public sealed record AiImageEditRequest
         AiUploadSource image,
         AiImageEditTaskId task,
         string? prompt = null,
-        AiModelId? model = null)
+        AiModelId? model = null,
+        string? idempotencyKey = null)
     {
         ArgumentNullException.ThrowIfNull(image);
         if (task.Value.Length == 0)
@@ -522,6 +555,9 @@ public sealed record AiImageEditRequest
         Task = task;
         Prompt = AiRequestLimits.ValidateOptionalPrompt(prompt, nameof(prompt));
         Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
+            idempotencyKey,
+            nameof(idempotencyKey));
     }
 
     public AiUploadSource Image { get; }
@@ -531,6 +567,21 @@ public sealed record AiImageEditRequest
     public string? Prompt { get; }
 
     public AiModelId? Model { get; }
+
+    /// <summary>
+    /// Names this request, so that sending it again asks the server for the
+    /// same one rather than for another.
+    /// </summary>
+    /// <remarks>
+    /// The operation is charged when it is accepted, and the server answers a
+    /// repeat of a key it has already seen with the result that key produced —
+    /// free, and with a refusal while the first attempt is still running. A
+    /// caller retrying after a lost response must send the key it used the
+    /// first time or it pays twice for one piece of work; a caller asking for
+    /// something new must not, or it is handed the earlier result. Left unset,
+    /// each attempt is a new request.
+    /// </remarks>
+    public string? IdempotencyKey { get; }
 }
 
 public sealed record AiTranscriptionRequest
@@ -631,7 +682,8 @@ public sealed record AiCaptionTranslationRequest
         string targetLanguage,
         string? sourceLanguage = null,
         AiCaptionTranslationStyle? style = null,
-        AiModelId? model = null)
+        AiModelId? model = null,
+        string? idempotencyKey = null)
     {
         ArgumentNullException.ThrowIfNull(segments);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetLanguage);
@@ -647,6 +699,9 @@ public sealed record AiCaptionTranslationRequest
             : sourceLanguage.Trim().ToLowerInvariant();
         Style = style is null || style.IsEmpty ? null : style;
         Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
+            idempotencyKey,
+            nameof(idempotencyKey));
     }
 
     public IReadOnlyList<AiCaptionTranslationSegment> Segments { get; }
@@ -658,6 +713,21 @@ public sealed record AiCaptionTranslationRequest
     public AiCaptionTranslationStyle? Style { get; }
 
     public AiModelId? Model { get; }
+
+    /// <summary>
+    /// Names this request, so that sending it again asks the server for the
+    /// same one rather than for another.
+    /// </summary>
+    /// <remarks>
+    /// The operation is charged when it is accepted, and the server answers a
+    /// repeat of a key it has already seen with the result that key produced —
+    /// free, and with a refusal while the first attempt is still running. A
+    /// caller retrying after a lost response must send the key it used the
+    /// first time or it pays twice for one piece of work; a caller asking for
+    /// something new must not, or it is handed the earlier result. Left unset,
+    /// each attempt is a new request.
+    /// </remarks>
+    public string? IdempotencyKey { get; }
 }
 
 public sealed record AiVideoGenerationRequest
@@ -671,7 +741,8 @@ public sealed record AiVideoGenerationRequest
         int? seed = null,
         AiUploadSource? firstFrame = null,
         AiUploadSource? lastFrame = null,
-        AiModelId? model = null)
+        AiModelId? model = null,
+        string? idempotencyKey = null)
     {
         AiRequestLimits.ValidateVideoDurationSeconds(durationSeconds, nameof(durationSeconds));
         if (resolution.Value.Length == 0)
@@ -694,6 +765,9 @@ public sealed record AiVideoGenerationRequest
         FirstFrame = firstFrame;
         LastFrame = lastFrame;
         Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
+            idempotencyKey,
+            nameof(idempotencyKey));
     }
 
     public string Prompt { get; }
@@ -718,6 +792,21 @@ public sealed record AiVideoGenerationRequest
     public AiUploadSource? LastFrame { get; }
 
     public AiModelId? Model { get; }
+
+    /// <summary>
+    /// Names this request, so that sending it again asks the server for the
+    /// same one rather than for another.
+    /// </summary>
+    /// <remarks>
+    /// The operation is charged when it is accepted, and the server answers a
+    /// repeat of a key it has already seen with the result that key produced —
+    /// free, and with a refusal while the first attempt is still running. A
+    /// caller retrying after a lost response must send the key it used the
+    /// first time or it pays twice for one piece of work; a caller asking for
+    /// something new must not, or it is handed the earlier result. Left unset,
+    /// each attempt is a new request.
+    /// </remarks>
+    public string? IdempotencyKey { get; }
 }
 
 public sealed record AiJobPageRequest

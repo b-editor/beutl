@@ -2081,7 +2081,13 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>既存の画像をもとに生成します。画像は生成を実行したときだけアップロードされます。</value>
   </data>
   <data name="AiClearReferenceImage" xml:space="preserve">
-    <value>参照画像を解除</value>
+    <value>参照画像をすべて解除</value>
+  </data>
+  <data name="AiReferenceImageCount" xml:space="preserve">
+    <value>{0} / {1} 枚</value>
+  </data>
+  <data name="AiRemoveReferenceImage" xml:space="preserve">
+    <value>外す</value>
   </data>
   <data name="AiPromptApply" xml:space="preserve">
     <value>適用</value>

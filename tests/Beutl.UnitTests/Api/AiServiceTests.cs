@@ -2,6 +2,7 @@
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
@@ -431,7 +432,7 @@ public sealed class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
-        var reported = new List<string>();
+        var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
         AiCaptionTranslationResponse result = await app
             .GetResource<IAiCaptionTranslationService>()
@@ -439,16 +440,15 @@ public sealed class AiCapabilityServiceTests
                 new AiCaptionTranslationRequest(
                     [new AiCaptionTranslationSegment { Id = "line-1", Text = "Hello" }],
                     "ja"),
-                new Progress<AiCaptionTranslationSegment>(segment =>
-                {
-                    lock (reported) reported.Add(segment.Text);
-                }),
+                reported,
                 CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
             // Reported as it arrived, and the answer is still the whole set.
-            Assert.That(reported, Is.EqualTo(new[] { "こんにちは", "世界" }));
+            Assert.That(
+                reported.Reports.Select(segment => segment.Text),
+                Is.EqualTo(new[] { "こんにちは", "世界" }));
             Assert.That(result.Segments.Select(segment => segment.Text),
                 Is.EqualTo(new[] { "こんにちは", "世界" }));
             Assert.That(result.JobId, Is.EqualTo(new AiJobId("job-1")));
@@ -467,7 +467,7 @@ public sealed class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
-        var reported = new List<string>();
+        var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
         AiCaptionTranslationResponse result = await app
             .GetResource<IAiCaptionTranslationService>()
@@ -475,16 +475,13 @@ public sealed class AiCapabilityServiceTests
                 new AiCaptionTranslationRequest(
                     [new AiCaptionTranslationSegment { Id = "line-1", Text = "Hello" }],
                     "ja"),
-                new Progress<AiCaptionTranslationSegment>(segment =>
-                {
-                    lock (reported) reported.Add(segment.Text);
-                }),
+                reported,
                 CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Segments.Single().Text, Is.EqualTo("こんにちは"));
-            Assert.That(reported, Is.Empty);
+            Assert.That(reported.Reports, Is.Empty);
         }
     }
 
@@ -539,24 +536,21 @@ public sealed class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
-        var previews = new List<AiImagePreview>();
+        var previews = new RecordingProgress<AiImagePreview>();
 
         AiImageResult result = await app.GetResource<IAiImageGenerationService>()
             .GenerateAsync(
                 new AiImageGenerationRequest("a lighthouse", new AiImageAspectRatioId("16:9")),
-                new Progress<AiImagePreview>(preview =>
-                {
-                    lock (previews) previews.Add(preview);
-                }),
+                previews,
                 CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
             // A rough version that cannot be decoded is passed over rather than
             // failing a run that is still going to produce a picture.
-            Assert.That(previews, Has.Count.EqualTo(1));
-            Assert.That(previews[0].Index, Is.Zero);
-            Assert.That(previews[0].Bytes.ToArray(), Is.EqualTo(new byte[] { 0, 1, 2, 3 }));
+            Assert.That(previews.Reports, Has.Count.EqualTo(1));
+            Assert.That(previews.Reports[0].Index, Is.Zero);
+            Assert.That(previews.Reports[0].Bytes.ToArray(), Is.EqualTo(new byte[] { 0, 1, 2, 3 }));
             Assert.That(result.FileId, Is.EqualTo(new AiContentId("file-2")));
         }
     }
@@ -612,6 +606,139 @@ public sealed class AiCapabilityServiceTests
                 handler.Requests[2].IdempotencyKey,
                 Is.Not.EqualTo("run-7-chunk-3"));
         }
+    }
+
+    [Test]
+    public async Task MeteredRequests_SendTheCallersKeyWhenItHasOne()
+    {
+        using var handler = new RecordingHandler(request => request.Path switch
+        {
+            "/api/v3/ai/images" or "/api/v3/ai/images/edit" => JsonResponse(HttpStatusCode.OK, """
+                {
+                  "jobId": "image-job",
+                  "fileId": "image-file",
+                  "url": "https://beutl.beditor.net/api/contents/image-file"
+                }
+                """),
+            "/api/v3/ai/translations" => JsonResponse(HttpStatusCode.OK, """
+                { "jobId": "translation-job", "segments": [] }
+                """),
+            "/api/v3/ai/videos" => JsonResponse(HttpStatusCode.OK, """
+                { "jobId": "video-job", "status": "queued" }
+                """),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        AiUploadSource Upload(string name, string mediaType) => new(
+            name,
+            mediaType,
+            _ => ValueTask.FromResult<Stream>(new MemoryStream([1, 2, 3])),
+            3);
+
+        // Every metered operation, asked for twice under one key: the second
+        // ask is for the job the first was charged for, not for another one.
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            await app.GetResource<IAiImageGenerationService>().GenerateAsync(
+                new AiImageGenerationRequest(
+                    "a calm sky",
+                    new AiImageAspectRatioId("1:1"),
+                    idempotencyKey: "run-1-image"),
+                CancellationToken.None);
+            await app.GetResource<IAiImageEditingService>().EditAsync(
+                new AiImageEditRequest(
+                    Upload("image.png", "image/png"),
+                    new AiImageEditTaskId("upscale"),
+                    idempotencyKey: "run-1-edit"),
+                CancellationToken.None);
+            await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
+                new AiCaptionTranslationRequest(
+                    [new AiCaptionTranslationSegment { Id = "1", Text = "Hello" }],
+                    "ja",
+                    idempotencyKey: "run-1-translation"),
+                CancellationToken.None);
+            await app.GetResource<IAiVideoService>().CreateAsync(
+                new AiVideoGenerationRequest(
+                    "a calm sky",
+                    4,
+                    new AiVideoResolutionId("720p"),
+                    new AiVideoAspectRatioId("16:9"),
+                    idempotencyKey: "run-1-video"),
+                CancellationToken.None);
+        }
+
+        string[] expected =
+        [
+            "run-1-image", "run-1-edit", "run-1-translation", "run-1-video",
+            "run-1-image", "run-1-edit", "run-1-translation", "run-1-video",
+        ];
+        Assert.That(
+            handler.Requests.Select(request => request.IdempotencyKey),
+            Is.EqualTo(expected));
+    }
+
+    [Test]
+    public async Task ImageGeneration_SendsEveryReferenceUnderTheSameFieldName()
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+            {
+              "jobId": "image-job",
+              "fileId": "image-file",
+              "url": "https://beutl.beditor.net/api/contents/image-file"
+            }
+            """));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        AiUploadSource Upload(string name) => new(
+            name,
+            "image/png",
+            _ => ValueTask.FromResult<Stream>(new MemoryStream([1, 2, 3])),
+            3);
+
+        await app.GetResource<IAiImageGenerationService>().GenerateAsync(
+            new AiImageGenerationRequest(
+                "a calm sky",
+                new AiImageAspectRatioId("1:1"),
+                references: [Upload("first.png"), Upload("second.png"), Upload("third.png")]),
+            CancellationToken.None);
+
+        RecordedRequest request = handler.Requests.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(request.ContentType, Does.StartWith("multipart/form-data"));
+            // The server reads a repeated "reference[]" as the list of pictures
+            // guiding one generation, in the order they arrive.
+            Assert.That(Regex.Matches(request.Body, @"reference\[\]"), Has.Count.EqualTo(3));
+            Assert.That(request.Body.IndexOf("first.png", StringComparison.Ordinal),
+                Is.LessThan(request.Body.IndexOf("second.png", StringComparison.Ordinal)));
+            Assert.That(request.Body, Does.Contain("third.png"));
+        }
+    }
+
+    [Test]
+    public void ImageGeneration_RefusesMoreReferencesThanThePriceCovers()
+    {
+        AiUploadSource Upload(string name) => new(
+            name,
+            "image/png",
+            _ => ValueTask.FromResult<Stream>(new MemoryStream()),
+            0);
+        AiUploadSource[] references = Enumerable
+            .Range(0, AiRequestLimits.MaxImageReferences + 1)
+            .Select(index => Upload($"{index}.png"))
+            .ToArray();
+
+        Assert.Throws<ArgumentException>(() => _ = new AiImageGenerationRequest(
+            "a calm sky",
+            new AiImageAspectRatioId("1:1"),
+            references: references));
+        Assert.DoesNotThrow(() => _ = new AiImageGenerationRequest(
+            "a calm sky",
+            new AiImageAspectRatioId("1:1"),
+            references: references[..AiRequestLimits.MaxImageReferences]));
     }
 
     [Test]
@@ -1000,6 +1127,30 @@ public sealed class AiCapabilityServiceTests
             HttpResponseMessage response = responder(recorded);
             response.RequestMessage = request;
             return response;
+        }
+    }
+
+    // System.Progress posts each report to the thread pool when there is no
+    // synchronization context, so two reports can be observed out of the order
+    // the service made them in. What is under test is the order the service
+    // reports in, so the reports are taken where they are made.
+    private sealed class RecordingProgress<T> : IProgress<T>
+    {
+        private readonly List<T> _reports = [];
+
+        public IReadOnlyList<T> Reports
+        {
+            get
+            {
+                lock (_reports)
+                    return _reports.ToArray();
+            }
+        }
+
+        public void Report(T value)
+        {
+            lock (_reports)
+                _reports.Add(value);
         }
     }
 
