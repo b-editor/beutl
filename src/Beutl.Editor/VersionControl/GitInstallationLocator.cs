@@ -243,21 +243,64 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
         _timeout = timeout;
     }
 
-    public async Task<IReadOnlyList<string>> FindOnPathAsync(
+    public Task<IReadOnlyList<string>> FindOnPathAsync(
         string executableName,
         CancellationToken cancellationToken)
     {
-        string locator = OperatingSystem.IsWindows() ? "where.exe" : "which";
-        GitProbeResult result = await RunAsync(locator, [executableName], cancellationToken).ConfigureAwait(false);
-        if (result.ExitCode != 0)
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(FindOnPath(
+            executableName,
+            Environment.GetEnvironmentVariable("PATH"),
+            Environment.GetEnvironmentVariable("PATHEXT")));
+    }
+
+    // Searched in-process rather than through which/where: a minimal Linux image can carry git
+    // without those utilities, and reporting no candidates there disables version control for a
+    // Git that works.
+    internal static IReadOnlyList<string> FindOnPath(
+        string executableName,
+        string? pathValue,
+        string? pathExtensionsValue)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executableName);
+        if (string.IsNullOrEmpty(pathValue))
         {
             return [];
         }
 
-        return result.Stdout
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(File.Exists)
-            .ToArray();
+        string[] extensions = OperatingSystem.IsWindows()
+            ? [
+                string.Empty,
+                .. (pathExtensionsValue ?? string.Empty)
+                    .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ]
+            : [string.Empty];
+        var candidates = new List<string>();
+        foreach (string directory in pathValue.Split(
+                     Path.PathSeparator,
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            foreach (string extension in extensions)
+            {
+                string candidate;
+                try
+                {
+                    candidate = Path.Combine(directory, executableName + extension);
+                }
+                catch (ArgumentException)
+                {
+                    // A PATH entry with invalid path characters is not a directory to search.
+                    break;
+                }
+
+                if (File.Exists(candidate) && !candidates.Contains(candidate, StringComparer.Ordinal))
+                {
+                    candidates.Add(candidate);
+                }
+            }
+        }
+
+        return candidates;
     }
 
     public async Task<bool> HasMacCommandLineToolsAsync(CancellationToken cancellationToken)

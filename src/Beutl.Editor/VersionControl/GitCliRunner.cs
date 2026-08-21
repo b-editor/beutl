@@ -613,6 +613,8 @@ internal sealed class GitCliRunner : IGitCliRunner
 
     internal const int MaxRetainedStandardErrorLength = 64 * 1024;
 
+    internal const int MaxProgressRecordLength = 4 * 1024;
+
     internal static async Task<string> ReadStandardErrorAsync(
         TextReader reader,
         IProgress<string> progress)
@@ -646,6 +648,15 @@ internal sealed class GitCliRunner : IGitCliRunner
                 else
                 {
                     progressLine.Append(value);
+                    // A record that never reaches a delimiter would otherwise be buffered whole and
+                    // handed to the caller as one huge string; report what has accumulated so far
+                    // and keep draining.
+                    if (progressLine.Length >= MaxProgressRecordLength)
+                    {
+                        progress.Report(GitDiagnosticSanitizer.RedactCredentials(
+                            progressLine.ToString()));
+                        progressLine.Clear();
+                    }
                 }
             }
         }

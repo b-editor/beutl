@@ -491,6 +491,62 @@ public class GitCliRunnerTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Progress_reader_splits_a_record_that_never_reaches_a_delimiter()
+    {
+        // A transport helper can write megabytes without a CR/LF; buffering that whole record would
+        // hand the caller one huge string.
+        string record = new('x', GitCliRunner.MaxProgressRecordLength * 3);
+        var progress = new RecordingProgress();
+
+        string captured = await GitCliRunner.ReadStandardErrorAsync(
+            new StringReader(record),
+            progress);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(progress.Messages, Is.Not.Empty);
+            Assert.That(
+                progress.Messages.Select(static message => message.Length),
+                Has.All.LessThanOrEqualTo(GitCliRunner.MaxProgressRecordLength));
+            Assert.That(string.Concat(progress.Messages), Is.EqualTo(record));
+            Assert.That(captured, Is.EqualTo(record));
+        });
+    }
+
+    [Test]
+    public void Path_probe_finds_an_executable_without_the_which_utility()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-path-probe-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string executable = Path.Combine(
+                directory,
+                OperatingSystem.IsWindows() ? "git.exe" : "git");
+            File.WriteAllText(executable, string.Empty);
+
+            IReadOnlyList<string> found = ProcessGitInstallationProbe.FindOnPath(
+                "git",
+                string.Join(Path.PathSeparator, [Path.GetTempPath(), directory]),
+                ".COM;.EXE;.BAT");
+            IReadOnlyList<string> missing = ProcessGitInstallationProbe.FindOnPath(
+                "definitely-not-installed",
+                directory,
+                ".COM;.EXE;.BAT");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(found, Is.EqualTo(new[] { executable }));
+                Assert.That(missing, Is.Empty);
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [TestCase(
         "https://user:super-secret-token@example.invalid/repo.git/",
         "https://***@example.invalid/repo.git/")]
