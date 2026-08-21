@@ -58,7 +58,6 @@ public sealed class RenderScaleContractTests
     [Test]
     public void MapInputSupplyPreservingDemand_HasStableKindSpecificStructuralIdentity()
     {
-        const string sharedKey = "shared-scale-key";
         RenderScaleContract first = RenderScaleContract.MapInputSupplyPreservingDemand(DoubleSupply);
         RenderScaleContract second = RenderScaleContract.MapInputSupplyPreservingDemand(DoubleSupply);
         RenderScaleContract custom = RenderScaleContract.Custom(

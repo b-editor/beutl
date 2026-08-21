@@ -48,21 +48,49 @@ public sealed class BrushIntermediateAllocationIntentTests
         Assert.That(shader, Is.Null);
     }
 
+    /// <remarks>
+    /// A DrawableBrush without a materializer degrades before it ever sizes an intermediate, so the fixture
+    /// has to supply one: otherwise the null shader proves nothing about the allocation this test is named for.
+    /// </remarks>
     [Test]
     public void DrawableBrush_PreviewDegradesEvenWithoutAWorkingScaleCeiling()
     {
         using DrawableBrush.Resource brush = CreateDrawableBrush();
+        bool materialized = false;
         var constructor = new BrushConstructor(
             s_bounds,
             brush,
             BlendMode.SrcOver,
             UnallocatableScale,
             maxWorkingScale: float.PositiveInfinity,
-            intent: RenderIntent.Preview);
+            intent: RenderIntent.Preview,
+            drawableBrushMaterializer: (_, contentBounds, _) =>
+            {
+                materialized = true;
+                return new MaterializedDrawableBrush(CreateOpaqueImage(8, 8), contentBounds);
+            });
 
         SKShader? shader = null;
         Assert.That(() => shader = constructor.CreateShader(), Throws.Nothing);
-        Assert.That(shader, Is.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(materialized, Is.True,
+                "The fixture must reach the tile-intermediate allocation to test how it degrades.");
+            Assert.That(shader, Is.Null);
+        });
+    }
+
+    private static SKImage CreateOpaqueImage(int width, int height)
+    {
+        using SKSurface surface = SKSurface.Create(new SKImageInfo(
+                width,
+                height,
+                SKColorType.RgbaF16,
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear()))
+            ?? throw new InvalidOperationException("The materializer fixture needs a CPU surface.");
+        surface.Canvas.Clear(SKColors.White);
+        return surface.Snapshot();
     }
 
     [Test]

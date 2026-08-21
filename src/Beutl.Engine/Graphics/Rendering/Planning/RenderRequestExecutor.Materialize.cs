@@ -217,6 +217,7 @@ internal sealed partial class RenderRequestExecutor
                 }
 
                 var captures = new List<MaterializedRenderValue>(values.Count);
+                bool dropped = false;
                 try
                 {
                     foreach (MaterializedRenderValue value in values)
@@ -229,9 +230,28 @@ internal sealed partial class RenderRequestExecutor
                                 "A render-cache capture does not match its planned materialization density.");
                         }
 
-                        MaterializedRenderValue capture = CopyForCacheCapture(value);
+                        MaterializedRenderValue? capture = CopyForCacheCapture(value);
+                        if (capture is null)
+                        {
+                            dropped = true;
+                            break;
+                        }
+
                         _cacheCaptureValues.Add(capture);
                         captures.Add(capture);
+                    }
+
+                    if (dropped)
+                    {
+                        // The frame keeps its pixels; only this candidate goes uncached.
+                        foreach (MaterializedRenderValue partial in captures)
+                        {
+                            _cacheCaptureValues.Remove(partial);
+                            ReleaseUnpublished(partial);
+                        }
+
+                        _suppressedCacheCaptures.Add(miss.CandidateId);
+                        continue;
                     }
 
                     _pendingCacheCaptures.Add(new PendingRenderCacheCapture(miss, captures));
@@ -248,15 +268,34 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private MaterializedRenderValue CopyForCacheCapture(MaterializedRenderValue source)
+        /// <summary>
+        /// Copies a value so it can be handed to the render cache, or <see langword="null"/> when a preview
+        /// cannot spare the buffer.
+        /// </summary>
+        /// <remarks>
+        /// This copy exists only to warm a cache: the frame is already correct without it. Allocating it the
+        /// one way that cannot degrade made it the only thing in a preview that could fail a frame whose
+        /// pixels were fine. A delivery session still fails here, because TryAcquire never degrades for one.
+        /// </remarks>
+        private MaterializedRenderValue? CopyForCacheCapture(MaterializedRenderValue source)
         {
-            MaterializedRenderValue capture = CreateOwnedValue(
-                source.Bounds,
-                source.EffectiveScale,
-                source.CompleteBounds,
-                source.DeviceBounds,
-                source.DeviceGridOffset,
-                physicalDeviceBoundsAreAligned: true);
+            MaterializedRenderValue capture;
+            try
+            {
+                capture = CreateOwnedValue(
+                    source.Bounds,
+                    source.EffectiveScale,
+                    source.CompleteBounds,
+                    source.DeviceBounds,
+                    source.DeviceGridOffset,
+                    physicalDeviceBoundsAreAligned: true,
+                    allowPreviewDrop: true);
+            }
+            catch (PreviewAllocationDropException)
+            {
+                return null;
+            }
+
             bool succeeded = false;
             try
             {

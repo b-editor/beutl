@@ -412,6 +412,12 @@ internal sealed partial class RenderRequestExecutor
         /// </summary>
         public void MarkPreviewAllocationDropped() => _previewAllocationDropObserved = true;
 
+        /// <summary>
+        /// Whether anything this request rendered was dropped for want of a target, which makes its output
+        /// incomplete and therefore unfit for anything that outlives the frame.
+        /// </summary>
+        public bool PreviewAllocationDropObserved => _previewAllocationDropObserved;
+
         public void Replay(RenderFragmentReference fragment, ImmediateCanvas destination)
         {
             _replayDepth++;

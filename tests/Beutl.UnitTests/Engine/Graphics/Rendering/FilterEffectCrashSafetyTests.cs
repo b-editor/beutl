@@ -15,21 +15,14 @@ public sealed class FilterEffectCrashSafetyTests
 {
     private static readonly PixelSize Frame = new(320, 180);
 
-    [Test]
-    public void ColorShift_representative_offset_beyond_source_has_no_decal_fringe_at_quarter_scale()
-    {
-        AssertColorShiftHasNoDecalFringe(offsetX: 100, offsetY: 0);
-    }
-
-    // The other directions stay in the Explicit orchestrator gate named below; the default suite
-    // retains the positive-horizontal case that originally exposed the decal fringe.
+    // The positive-horizontal case is the one that originally exposed the decal fringe; the other three
+    // directions each sample a different edge of the source and cost about a third of a second between them,
+    // so they run with it rather than behind a gate nothing invokes.
+    [TestCase(100, 0)]
     [TestCase(-100, 0)]
     [TestCase(0, 100)]
     [TestCase(0, -100)]
-    [Explicit(
-        "Orchestrator gate: dotnet test tests/Beutl.UnitTests -f net10.0 "
-        + "--filter \"FullyQualifiedName~FilterEffectCrashSafetyTests.ColorShift_dense_offsets_beyond_source_have_no_decal_fringe_at_quarter_scale\"")]
-    public void ColorShift_dense_offsets_beyond_source_have_no_decal_fringe_at_quarter_scale(
+    public void ColorShift_offsets_beyond_source_have_no_decal_fringe_at_quarter_scale(
         int offsetX,
         int offsetY)
     {

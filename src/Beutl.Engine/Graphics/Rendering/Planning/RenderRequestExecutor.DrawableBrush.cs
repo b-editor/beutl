@@ -122,9 +122,15 @@ internal sealed partial class RenderRequestExecutor
                 PixelRect contentDevice = PixelRect
                     .FromRect(relativeContentBounds, scale)
                     .Intersect(deviceBounds);
-                lease = contentDevice.Width == 0 || contentDevice.Height == 0
-                    ? null
-                    : _targets.TryAcquire(deviceBounds.Size);
+                bool hasContent = contentDevice.Width != 0 && contentDevice.Height != 0;
+                lease = hasContent ? _targets.TryAcquire(deviceBounds.Size) : null;
+                if (hasContent && lease is null)
+                {
+                    // TryAcquire throws for a delivery session, so a null lease here is a preview drop. The
+                    // brush degrades to transparent, and a frame carrying that must not reach a cache.
+                    MarkPreviewAllocationDropped();
+                }
+
                 if (lease is not null)
                 {
                     Rect rasterBounds = executionBounds.WithX(0).WithY(0);

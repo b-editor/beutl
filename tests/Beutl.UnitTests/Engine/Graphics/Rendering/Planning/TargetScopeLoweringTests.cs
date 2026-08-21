@@ -842,6 +842,8 @@ public sealed class TargetScopeLoweringTests
     {
         public int ExecuteCount { get; private set; }
 
+        public override string ToString() => $"{nameof(SourceNode)}({key})";
+
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(

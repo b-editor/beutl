@@ -43,7 +43,7 @@ internal sealed partial class RenderRequestExecutor
             spirvProgramCache,
             frames,
             cleanupFailures,
-            nestedPreviewDropObserved);
+            ref nestedPreviewDropObserved);
     }
 
     private void ExecuteNested(
@@ -189,7 +189,7 @@ internal sealed partial class RenderRequestExecutor
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
         ICollection<FamilyExecutionFrame> frames,
         ICollection<Exception> cleanupFailures,
-        bool nestedPreviewDropObserved)
+        ref bool nestedPreviewDropObserved)
     {
         request.Request.TransitionTo(RenderRequestState.Executing);
         var state = new RenderRequestExecutionState(
@@ -263,6 +263,11 @@ internal sealed partial class RenderRequestExecutor
                     ? aggregate.Flatten().InnerExceptions[0]
                     : ex);
         }
+
+        // A drop the body observed - a materialization that could not allocate, a replay that abandoned -
+        // makes this request's output incomplete, and its parent composites that output. Reporting it only
+        // for a failed root acquisition would let the parent publish degraded pixels into a cache.
+        nestedPreviewDropObserved |= state.PreviewAllocationDropObserved;
 
         if (bodyFailure is not null)
             throw new FamilyExecutionException(bodyFailure);
