@@ -48,6 +48,27 @@ public sealed class RenderCacheResolutionTests
     }
 
     [Test]
+    public void Recorder_KeepsSiblingsCacheableAfterOneOfThemOptsOut()
+    {
+        var disabledNode = new CacheableNode(disableCache: true);
+        var laterNode = new CacheableNode(disableCache: false);
+        disabledNode.Cache.RecordStableRequests();
+        laterNode.Cache.RecordStableRequests();
+        using var container = new ContainerRenderNode();
+        container.AddChild(disabledNode);
+        container.AddChild(laterNode);
+
+        using var request = NewRequest();
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(container);
+
+        Assert.That(
+            graph.CacheCandidates.Select(static candidate => candidate.Cache),
+            Is.EqualTo(new[] { laterNode.Cache }),
+            "A container hierarchy is recorded onto one parent checkpoint, so a node opting out of the "
+            + "cache must not decide for the siblings recorded after it.");
+    }
+
+    [Test]
     public void FrameCache_ColdMissPublishesAndWarmHitSkipsProducerWithPixelParity()
     {
         using var node = new SolidCacheNode();

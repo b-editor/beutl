@@ -20,7 +20,10 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
 
     public RenderRequest Request { get; }
 
-    public bool IsRenderCacheEnabled { get; private set; }
+    // The request-wide cache policy, not a running tally. RecordSubtreeCore hands every node of a container
+    // hierarchy the same parent, so a node that latched this on commit would decide for every node recorded
+    // after it in the request - including unrelated siblings.
+    public bool IsRenderCacheEnabled { get; }
 
     public RecordedRenderGraph Record(RenderNode root)
     {
@@ -79,9 +82,6 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         }
 
         Request.Options.Owner.CommitBuiltInBackdropBindings(commit.BuiltInBackdropBindings);
-
-        if (commit.CacheDisabled)
-            IsRenderCacheEnabled = false;
     }
 
     public RecordedNestedRenderRequest RecordNestedRequest(

@@ -52,6 +52,8 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         }
     }
 
+    // Disablement reaches the nodes recorded inside this checkpoint and nobody else. A committed child does
+    // not mark its parent, so which sibling ran first cannot change whether the others may be cached.
     public bool IsRenderCacheEnabled
         => State == NodeRecordingTransactionState.Active
            && !_cacheDisabled
@@ -329,8 +331,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
             [.. _resources],
             [.. _nestedRequests],
             [.. _builtInBackdropBindings],
-            _dropped is null ? [] : [.. _dropped],
-            _cacheDisabled);
+            _dropped is null ? [] : [.. _dropped]);
 
         try
         {
@@ -444,7 +445,6 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
             _builtInBackdropBindings.RemoveAll(item => ReferenceEquals(item.Identity, binding.Identity));
             _builtInBackdropBindings.Add(binding);
         }
-        _cacheDisabled |= child.CacheDisabled;
     }
 
     private HashSet<RenderFragmentReference> SelectReachableFragments()
@@ -590,8 +590,7 @@ internal sealed record NodeRecordingCommit(
     ImmutableArray<RenderResource> Resources,
     ImmutableArray<RecordedNestedRenderRequest> NestedRequests,
     ImmutableArray<BuiltInBackdropBinding> BuiltInBackdropBindings,
-    ImmutableArray<RenderFragmentReference> Dropped,
-    bool CacheDisabled);
+    ImmutableArray<RenderFragmentReference> Dropped);
 
 internal sealed record RecordedRenderFragmentEntry(
     RenderFragmentReference Reference,

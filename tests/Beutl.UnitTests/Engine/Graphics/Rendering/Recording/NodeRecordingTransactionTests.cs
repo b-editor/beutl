@@ -38,7 +38,8 @@ public sealed class NodeRecordingTransactionTests
             Assert.That(host.Commits[0].Fragments, Has.Length.EqualTo(2));
             Assert.That(host.Commits[0].Publications, Has.Length.EqualTo(2));
             Assert.That(publications, Is.EqualTo(host.Commits[0].Publications));
-            Assert.That(host.IsRenderCacheEnabled, Is.False);
+            Assert.That(host.IsRenderCacheEnabled, Is.True,
+                "A node opting out of the cache must not move the request-wide policy.");
             Assert.That(token.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Committed));
             Assert.That(resource.DisposeCount, Is.Zero, "A committed owned resource belongs to the request.");
         });
@@ -154,7 +155,7 @@ public sealed class NodeRecordingTransactionTests
     }
 
     [Test]
-    public void DisableRenderCache_IsMonotonicAcrossCommittedChildAndParentCheckpoints()
+    public void DisableRenderCache_DoesNotEscapeTheCheckpointThatRequestedIt()
     {
         using var owner = new RenderRequestOwner();
         using var request = CreateRequest(owner);
@@ -166,15 +167,35 @@ public sealed class NodeRecordingTransactionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(parent.IsRenderCacheEnabled, Is.False,
-                "A committed child disablement must affect its parent result.");
-            Assert.That(host.IsRenderCacheEnabled, Is.True,
-                "The request-wide state changes only when the parent checkpoint commits.");
+            Assert.That(parent.IsRenderCacheEnabled, Is.True,
+                "A committed child must not decide the cache policy for the checkpoint that recorded it.");
+            Assert.That(host.IsRenderCacheEnabled, Is.True);
         });
 
         parent.Commit();
 
-        Assert.That(host.IsRenderCacheEnabled, Is.False);
+        Assert.That(host.IsRenderCacheEnabled, Is.True,
+            "Committing a checkpoint must leave the request-wide policy where it started.");
+    }
+
+    [Test]
+    public void DisableRenderCache_ReachesTheNodesRecordedInsideIt()
+    {
+        using var owner = new RenderRequestOwner();
+        using var request = CreateRequest(owner);
+        bool? childSawCacheEnabled = null;
+        var host = new RecordingHost(request)
+        {
+            ChildAction = context => childSawCacheEnabled = context.IsRenderCacheEnabled,
+        };
+        var parent = new NodeRecordingTransaction(host, new object(), []);
+        using var childNode = new MemoryNode<int>(0);
+
+        parent.DisableRenderCache();
+        _ = parent.RecordNode(childNode, [], subtree: false);
+
+        Assert.That(childSawCacheEnabled, Is.False,
+            "A node recorded inside a disabled checkpoint is part of the output that must not be cached.");
     }
 
     [Test]
@@ -542,7 +563,7 @@ public sealed class NodeRecordingTransactionTests
     {
         public RenderRequest Request { get; } = request;
 
-        public bool IsRenderCacheEnabled { get; private set; } = true;
+        public bool IsRenderCacheEnabled { get; init; } = true;
 
         public Action<RenderNodeContext>? ChildAction { get; init; }
 
@@ -579,8 +600,6 @@ public sealed class NodeRecordingTransactionTests
                 Request.Options.Owner.ResourceRegistry.Commit(resource);
             }
 
-            if (commit.CacheDisabled)
-                IsRenderCacheEnabled = false;
         }
     }
 
