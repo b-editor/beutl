@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ViewModels;
@@ -13,6 +14,12 @@ public sealed class OutputProfileItem : IDisposable
 {
     private readonly ILogger<OutputProfileItem> _logger = Log.CreateLogger<OutputProfileItem>();
     private readonly EditorService _editorService;
+    private readonly object _outputOperationSync = new();
+    private IDisposable? _outputOperation;
+    private int _eventHandlersInProgress;
+    private bool _disposeRequested;
+    private bool _contextDisposed;
+    private bool _outputReportedFinished;
 
     public OutputProfileItem(IOutputContext context, IEditorContext editorContext, EditorService editorService)
     {
@@ -32,40 +39,189 @@ public sealed class OutputProfileItem : IDisposable
 
     private void OnStarted(object? sender, EventArgs e)
     {
-        _logger.LogDebug("Output started for file: {File}", Context.Object.Uri);
+        bool reservationLost = false;
+        lock (_outputOperationSync)
+        {
+            if (_contextDisposed)
+            {
+                return;
+            }
 
-        if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
-        {
-            tabItem.Context.Value.IsEnabled.Value = false;
-            _logger.LogDebug("Tab item disabled for file: {File}", Context.Object.Uri);
+            _outputReportedFinished = false;
+            _eventHandlersInProgress++;
+
+            // Every output context reserves the workspace here, not just the ones that remember to
+            // do it themselves, so a version-control worktree mutation cannot run under an encode
+            // started by a third-party output extension.
+            if (_outputOperation is null)
+            {
+                _outputOperation = _editorService.TryBeginOutputOperation();
+                reservationLost = _outputOperation is null;
+            }
         }
-        else
+
+        if (reservationLost)
         {
-            _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
+            _logger.LogWarning(
+                "Could not reserve the workspace for the output of {File}; the worktree is being changed.",
+                Context.Object.Uri);
+            // A third-party context that starts before raising Started cannot be stopped from here,
+            // so the user is told the output is running while the worktree changes underneath it
+            // rather than only the log knowing.
+            NotificationService.ShowWarning(
+                Strings.Output,
+                Strings.VersionControl_WorktreeOperationInProgress);
+        }
+
+        try
+        {
+            _logger.LogDebug("Output started for file: {File}", Context.Object.Uri);
+
+            if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
+            {
+                tabItem.Context.Value.IsEnabled.Value = false;
+                _logger.LogDebug("Tab item disabled for file: {File}", Context.Object.Uri);
+            }
+            else
+            {
+                _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
+            }
+        }
+        finally
+        {
+            CompleteEventHandler();
         }
     }
 
     private void OnFinished(object? sender, EventArgs e)
     {
-        _logger.LogDebug("Output finished for file: {File}", Context.Object.Uri);
+        IDisposable? completedOperation;
+        lock (_outputOperationSync)
+        {
+            if (_contextDisposed)
+            {
+                return;
+            }
 
-        if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
-        {
-            tabItem.Context.Value.IsEnabled.Value = true;
-            _logger.LogDebug("Tab item enabled for file: {File}", Context.Object.Uri);
+            _eventHandlersInProgress++;
+            _outputReportedFinished = true;
+            completedOperation = _outputOperation;
+            _outputOperation = null;
         }
-        else
+
+        completedOperation?.Dispose();
+
+        try
         {
-            _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
+            _logger.LogDebug("Output finished for file: {File}", Context.Object.Uri);
+
+            if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
+            {
+                tabItem.Context.Value.IsEnabled.Value = true;
+                _logger.LogDebug("Tab item enabled for file: {File}", Context.Object.Uri);
+            }
+            else
+            {
+                _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
+            }
+        }
+        finally
+        {
+            CompleteEventHandler();
         }
     }
 
     public void Dispose()
     {
+        bool disposeContext;
+        lock (_outputOperationSync)
+        {
+            if (_disposeRequested)
+            {
+                return;
+            }
+
+            _disposeRequested = true;
+            disposeContext = TryMarkContextDisposed();
+        }
+
+        if (disposeContext)
+        {
+            DisposeContext();
+        }
+    }
+
+    internal bool TryDisposeIfIdle()
+    {
+        bool disposeContext;
+        lock (_outputOperationSync)
+        {
+            if (_disposeRequested)
+            {
+                return _contextDisposed;
+            }
+
+            if (_eventHandlersInProgress > 0
+                || Context.IsEncoding.Value)
+            {
+                return false;
+            }
+
+            _disposeRequested = true;
+            disposeContext = TryMarkContextDisposed();
+        }
+
+        if (disposeContext)
+        {
+            DisposeContext();
+        }
+
+        return true;
+    }
+
+    private void CompleteEventHandler()
+    {
+        bool disposeContext;
+        lock (_outputOperationSync)
+        {
+            _eventHandlersInProgress--;
+            disposeContext = TryMarkContextDisposed();
+        }
+
+        if (disposeContext)
+        {
+            DisposeContext();
+        }
+    }
+
+    private bool TryMarkContextDisposed()
+    {
+        if (!_disposeRequested
+            || _contextDisposed
+            || _eventHandlersInProgress > 0
+            || (!_outputReportedFinished && Context.IsEncoding.Value))
+        {
+            return false;
+        }
+
+        _contextDisposed = true;
+        return true;
+    }
+
+    private void DisposeContext()
+    {
+        IDisposable? outputOperation;
+        lock (_outputOperationSync)
+        {
+            outputOperation = _outputOperation;
+            _outputOperation = null;
+        }
+
         _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.Object.Uri);
         Context.Started -= OnStarted;
         Context.Finished -= OnFinished;
         Context.Dispose();
+        outputOperation?.Dispose();
     }
 
     public static JsonNode ToJson(OutputProfileItem item)
@@ -98,7 +254,10 @@ public sealed class OutputProfileItem : IDisposable
             if (contextJson != null
                 && extension != null
                 && File.Exists(file)
-                && extension.TryCreateContext(editorContext, out IOutputContext? context))
+                && extension.TryCreateContext(
+                    editorContext,
+                    editorService,
+                    out IOutputContext? context))
             {
                 context.ReadFromJson(contextJson.AsObject());
                 logger.LogInformation("OutputProfileItem created from JSON. File: {File}, Context: {Context}", file,
@@ -140,7 +299,10 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
 
     public void AddItem(string file, OutputExtension extension)
     {
-        if (!extension.TryCreateContext(editViewModel, out IOutputContext? context))
+        if (!extension.TryCreateContext(
+                editViewModel,
+                _editorService,
+                out IOutputContext? context))
         {
             _logger.LogError("Failed to create context for file: {File}", file);
             throw new Exception("Failed to create context");

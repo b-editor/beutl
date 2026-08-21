@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Beutl.Collections;
 using Beutl.Serialization;
+using NuGet.Versioning;
 
 namespace Beutl;
 
@@ -65,9 +66,23 @@ public sealed class Project : Hierarchical
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");
         base.Deserialize(context);
 
+        if (context.GetValue<string>("appVersion") is { } appVersion)
+        {
+            AppVersion = appVersion;
+        }
+
+        if (context.GetValue<string>("minAppVersion") is { } minAppVersion)
+        {
+            MinAppVersion = minAppVersion;
+        }
+
         if (context.GetValue<ProjectItem[]>("items") is { } items)
         {
             Items.Replace(items);
+            if (items.Any(static item => item.HasMigratedPersistedContent))
+            {
+                MarkAsMigrated();
+            }
         }
 
         if (context.GetValue<Dictionary<string, string>>("variables") is { } vars)
@@ -79,22 +94,41 @@ public sealed class Project : Hierarchical
             }
         }
 
-        activity?.SetTag("appVersion", BeutlApplication.Version);
-        activity?.SetTag("minAppVersion", DefaultMinAppVersion);
+        activity?.SetTag("appVersion", AppVersion);
+        activity?.SetTag("minAppVersion", MinAppVersion);
         activity?.SetTag("itemsCount", Items.Count);
+    }
+
+    // Call only after a migration has rewritten persisted content. Project-item migrations,
+    // including extension-provided item types, are aggregated during deserialization; a plain
+    // load/save keeps the version from disk.
+    internal void MarkAsMigrated()
+    {
+        AppVersion = BeutlApplication.Version;
+        MinAppVersion = GetMaximumVersion(MinAppVersion, DefaultMinAppVersion);
+    }
+
+    private static string GetMaximumVersion(string persistedVersion, string requiredVersion)
+    {
+        // An unknown persisted constraint is retained so migration cannot weaken it.
+        return NuGetVersion.TryParse(persistedVersion, out NuGetVersion? persisted)
+               && NuGetVersion.TryParse(requiredVersion, out NuGetVersion? required)
+               && VersionComparer.VersionRelease.Compare(persisted, required) < 0
+            ? requiredVersion
+            : persistedVersion;
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
-        activity?.SetTag("appVersion", BeutlApplication.Version);
-        activity?.SetTag("minAppVersion", DefaultMinAppVersion);
+        activity?.SetTag("appVersion", AppVersion);
+        activity?.SetTag("minAppVersion", MinAppVersion);
         activity?.SetTag("itemsCount", Items.Count);
 
         base.Serialize(context);
 
-        context.SetValue("appVersion", BeutlApplication.Version);
-        context.SetValue("minAppVersion", DefaultMinAppVersion);
+        context.SetValue("appVersion", AppVersion);
+        context.SetValue("minAppVersion", MinAppVersion);
 
         context.SetValue("items", Items);
 

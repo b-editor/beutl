@@ -20,6 +20,22 @@ public sealed class ProxyMediaServicesReinitTests
         config.MaxTotalBytes = prior.Cap;
     }
 
+    [Test]
+    public void Output_operation_gate_distinguishes_unbound_from_refused()
+    {
+        var gate = new ProxyMediaServices.ProxyOutputOperationGate();
+
+        using IDisposable? unboundLease = gate.TryBeginOutputOperation();
+        gate.Bind(static () => null);
+        using IDisposable? refusedLease = gate.TryBeginOutputOperation();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(unboundLease, Is.Not.Null);
+            Assert.That(refusedLease, Is.Null);
+        });
+    }
+
     [AvaloniaTest]
     public void StoreRootPath_change_rebuilds_store_behind_the_stable_facade()
     {

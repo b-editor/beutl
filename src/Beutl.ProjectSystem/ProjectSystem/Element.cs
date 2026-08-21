@@ -69,6 +69,8 @@ public class Element : Hierarchical, INotifyEdited
 
     public event EventHandler? Edited;
 
+    internal bool WasMigratedFromOperation { get; private set; }
+
     // 0以上
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
     public TimeSpan Start
@@ -189,10 +191,10 @@ public class Element : Hierarchical, INotifyEdited
         }
         else if (context is IJsonSerializationContext jsonContext)
         {
-            EngineObject[] migrated = ElementMigration.MigrateFromOperation(jsonContext);
-            if (migrated.Length > 0)
+            if (ElementMigration.TryMigrateFromOperation(jsonContext, out EngineObject[] migrated))
             {
                 Objects.Replace(migrated);
+                WasMigratedFromOperation = true;
             }
         }
     }

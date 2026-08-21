@@ -59,6 +59,12 @@ public class Scene : ProjectItem, INotifyEdited
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private PixelSize _frameSize;
 
+    protected internal override bool HasMigratedPersistedContent
+        => WasTypeDiscriminatorAddedDuringRestore
+           || Children.Any(static element =>
+               element.WasTypeDiscriminatorAddedDuringRestore
+               || element.WasMigratedFromOperation);
+
     public Scene()
         : this(1920, 1080, string.Empty)
     {
@@ -517,14 +523,14 @@ public class Scene : ProjectItem, INotifyEdited
         {
             if (list.Count == 1)
             {
-                jobject[jsonName] = JsonValue.Create(list[0]);
+                jobject[jsonName] = JsonValue.Create(NormalizeElementPattern(list[0]));
             }
             else if (list.Count >= 2)
             {
                 var jarray = new JsonArray();
                 foreach (string item in list)
                 {
-                    jarray.Add(JsonValue.Create(item));
+                    jarray.Add(JsonValue.Create(NormalizeElementPattern(item)));
                 }
 
                 jobject[jsonName] = jarray;
@@ -575,6 +581,7 @@ public class Scene : ProjectItem, INotifyEdited
             if (node is JsonValue jvalue &&
                 jvalue.TryGetValue(out string? pattern))
             {
+                pattern = NormalizeElementPattern(pattern);
                 list.Add(pattern);
                 add(pattern);
             }
@@ -584,6 +591,7 @@ public class Scene : ProjectItem, INotifyEdited
                 {
                     if (item.TryGetValue(out pattern))
                     {
+                        pattern = NormalizeElementPattern(pattern);
                         list.Add(pattern);
                         add(pattern);
                     }
@@ -689,7 +697,7 @@ public class Scene : ProjectItem, INotifyEdited
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
         foreach (Element item in Children)
         {
-            string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
+            string rel = NormalizeElementPattern(Path.GetRelativePath(dirPath, item.Uri!.LocalPath));
 
             // 含まれていない場合追加
             if (!files.Contains(rel))
@@ -715,7 +723,7 @@ public class Scene : ProjectItem, INotifyEdited
             foreach (Element item in e.OldItems.OfType<Element>())
             {
                 string itemPath = item.Uri!.LocalPath;
-                string rel = Path.GetRelativePath(dirPath, itemPath);
+                string rel = NormalizeElementPattern(Path.GetRelativePath(dirPath, itemPath));
 
                 if (!_excludeElements.Contains(rel) && File.Exists(itemPath))
                 {
@@ -731,7 +739,7 @@ public class Scene : ProjectItem, INotifyEdited
             foreach (Element item in e.NewItems.OfType<Element>())
             {
                 string itemPath = item.Uri!.LocalPath;
-                string rel = Path.GetRelativePath(dirPath, itemPath);
+                string rel = NormalizeElementPattern(Path.GetRelativePath(dirPath, itemPath));
 
                 if (_excludeElements.Contains(rel) && File.Exists(itemPath))
                 {
@@ -743,6 +751,15 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         Edited?.Invoke(this, new ElementEditedEventArgs { AffectedRange = affectedRange.DrainToImmutable() });
+    }
+
+    private static string NormalizeElementPattern(string pattern)
+    {
+        // On Windows a backslash is a directory separator; on Unix it is a
+        // literal filename character and must survive serialization unchanged.
+        return OperatingSystem.IsWindows()
+            ? pattern.Replace('\\', '/')
+            : pattern;
     }
 
     private void Layers_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

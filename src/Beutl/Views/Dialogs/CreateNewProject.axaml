@@ -65,6 +65,11 @@
                                    Text="Hz" />
                     </TextBox.InnerRightContent>
                 </TextBox>
+
+                <CheckBox Margin="0,8,0,0"
+                          Content="{x:Static lang:Strings.VersionControl_TrackHistory}"
+                          IsChecked="{CompiledBinding TrackHistory.Value, Mode=TwoWay}"
+                          IsVisible="{CompiledBinding IsGitAvailable.Value}" />
             </StackPanel>
         </Carousel.Items>
     </Carousel>

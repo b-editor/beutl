@@ -29,6 +29,76 @@ public class ProxyJobQueueTests
         });
     }
 
+    [Test]
+    public async Task GenerateAsync_holds_output_operation_lease_for_entire_job()
+    {
+        var generator = new BlockingGenerator();
+        var leaseAcquired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int activeLeases = 0;
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            TimeSpan.FromMilliseconds(10),
+            TimeSpan.FromMilliseconds(20),
+            () =>
+            {
+                Interlocked.Increment(ref activeLeases);
+                leaseAcquired.TrySetResult();
+                return new CallbackDisposable(() => Interlocked.Decrement(ref activeLeases));
+            });
+
+        ProxyJob job = await queue.EnqueueAsync(CreateFingerprint("leased.mov"), ProxyPreset.Quarter);
+        await leaseAcquired.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(Volatile.Read(ref activeLeases), Is.EqualTo(1));
+
+        generator.Release();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(Volatile.Read(ref activeLeases), Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task Workspace_mutation_delays_generation_until_output_lease_is_available()
+    {
+        var generator = new RecordingGenerator();
+        var firstAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int workspaceMutationActive = 1;
+        int leaseAttempts = 0;
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            TimeSpan.FromMilliseconds(10),
+            TimeSpan.FromMilliseconds(20),
+            () =>
+            {
+                Interlocked.Increment(ref leaseAttempts);
+                firstAttempt.TrySetResult();
+                return Volatile.Read(ref workspaceMutationActive) == 0
+                    ? new CallbackDisposable(static () => { })
+                    : null;
+            });
+
+        ProxyJob job = await queue.EnqueueAsync(CreateFingerprint("blocked.mov"), ProxyPreset.Quarter);
+        await firstAttempt.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(generator.Sources, Is.Empty);
+
+        Volatile.Write(ref workspaceMutationActive, 0);
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(generator.Sources, Has.Count.EqualTo(1));
+            Assert.That(Volatile.Read(ref leaseAttempts), Is.GreaterThanOrEqualTo(2));
+        });
+    }
+
     // greptile P1: DisposeAsync must unsubscribe from the resolved generator's AvailabilityChanged, or the
     // generator keeps a live reference to the queue (leak) and can fire into a disposed object. The
     // unsubscribe now runs after the drain loop ends so a generator resolved during disposal cannot leave
@@ -988,6 +1058,16 @@ public class ProxyJobQueueTests
             return count == 2
                 ? _two.Task.WaitAsync(TimeSpan.FromSeconds(5))
                 : throw new ArgumentOutOfRangeException(nameof(count), "This fixture only supports waiting for exactly 2 generations.");
+        }
+    }
+
+    private sealed class CallbackDisposable(Action callback) : IDisposable
+    {
+        private Action? _callback = callback;
+
+        public void Dispose()
+        {
+            Interlocked.Exchange(ref _callback, null)?.Invoke();
         }
     }
 

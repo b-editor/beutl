@@ -9,6 +9,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -31,6 +32,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
+    private readonly CancellationTokenSource _autoSaveCancellation = new();
     private readonly HistoryMutationPlaybackGuard _historyMutationPlaybackGuard = new();
 
     private readonly CompositeDisposable _disposables = [];
@@ -393,18 +395,28 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private void AutoSave(IList<ChangeOperation> list)
     {
-        Dispatcher.UIThread.InvokeAsync(() =>
+        Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            _autoSaveService.AutoSave(list);
-
-            // ビューステートを保存
             try
             {
+                using IDisposable fileWrite =
+                    await EditorService.BeginProjectFileWriteAsync(
+                        _autoSaveCancellation.Token);
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _autoSaveService.AutoSave(list);
                 SaveState();
+            }
+            catch (OperationCanceledException)
+                when (_autoSaveCancellation.IsCancellationRequested)
+            {
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An exception occurred while saving the view state.");
+                _logger.LogError(ex, "An exception occurred while auto-saving the editor state.");
             }
         });
     }
@@ -594,8 +606,20 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         // Block any proxy-invalidation flush already posted to the UI thread from running after this
         // nulls Scene / disposes FrameCacheManager below.
         _disposed = true;
+        _autoSaveCancellation.Cancel();
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
-        SaveState();
+        if (!EditorService.IsWorktreeMutationActive)
+        {
+            using IDisposable fileWrite = await EditorService.BeginProjectFileWriteAsync(
+                CancellationToken.None);
+            SaveState();
+        }
+        else
+        {
+            _logger.LogDebug(
+                "Skipping the final view-state save during a worktree mutation ({SceneId}).",
+                SceneId);
+        }
         _editorSelection.SelectedObject.Value = null;
         // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
         DisposeCommandStateNotifier();
@@ -910,6 +934,15 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (serviceType == typeof(HistoryManager))
             return HistoryManager;
 
+        if (serviceType == typeof(IProjectVersionControlService))
+            return EditorService.ProjectVersionControlService.Value;
+
+        if (serviceType == typeof(IReadOnlyReactiveProperty<IProjectVersionControlService?>))
+            return EditorService.ProjectVersionControlService;
+
+        if (serviceType == typeof(IProjectVersionControlCoordinator))
+            return EditorService.ProjectVersionControlCoordinator;
+
         if (serviceType.IsAssignableTo(typeof(ITimelineOptionsProvider)))
             return _timelineOptionsProvider;
 
@@ -1113,7 +1146,6 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         {
             viewModel._logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
             CoreSerializer.StoreToUri(scene, scene.Uri!);
-            Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
             viewModel.SaveState(isExplicitUserSave: true);
             viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
 

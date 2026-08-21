@@ -3,6 +3,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -65,7 +66,12 @@ public sealed class EditorProjectSessionGateway(
         });
 
         Project project = ProjectOperations.CreateProject(options);
-        ProjectOperations.Save(project);
+        using (IProjectFileWriteLease fileWrite = await editorService.BeginProjectFileWriteAsync(
+                   cancellationToken).ConfigureAwait(false))
+        {
+            ProjectOperations.Save(project);
+        }
+
         return await OpenProjectAsync(fullPath, cancellationToken).ConfigureAwait(false);
     }
 
@@ -92,6 +98,18 @@ public sealed class EditorProjectSessionGateway(
             // configured root. Enforce the boundary before mutating the live project so a rejected
             // write leaves no unsaved scene behind in the UI.
             workspace.ResolveForWrite(project.Uri!.LocalPath);
+            // This runs on the UI thread and cannot park waiting for the workspace, so a reserved
+            // one is reported rather than written into.
+            using IProjectFileWriteLease? fileWrite = editorService.TryBeginProjectFileWrite();
+            if (fileWrite is null)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.WorkspaceBusy,
+                    "The Beutl editor has the project workspace reserved for a save, an export, or a version control operation; the project cannot be written right now.",
+                    project.Uri!.LocalPath,
+                    "Retry once that operation finishes."));
+            }
+
             ProjectUriState uriState = ProjectOperations.CaptureUriState(project);
             Scene scene = ProjectOperations.AddScene(project, options);
             try

@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
@@ -86,12 +87,12 @@ public sealed class SessionSecurityTests
     }
 
     [Test]
-    public void Read_operation_status_reports_a_running_background_job()
+    public async Task Read_operation_status_reports_a_running_background_job()
     {
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        using var renderJobs = new RenderJobManager();
+        await using var renderJobs = new RenderJobManager();
         var sessionTools = new SessionTools(
             new FileProjectSessionGateway(source, manager, new WorkspaceGuard(root)),
             manager,
@@ -104,7 +105,7 @@ public sealed class SessionSecurityTests
         {
             await gate.Task;
             return (JsonNode)JsonValue.Create(true);
-        });
+        }, StandaloneOutputOperationLeaseProvider.Instance.TryBeginOutputOperation()!);
 
         try
         {

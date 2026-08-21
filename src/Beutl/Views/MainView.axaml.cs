@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
 using Beutl.Language;
@@ -56,6 +57,13 @@ public sealed partial class MainView : UserControl
 
             Titlebar.PointerPressed += (s, e) =>
             {
+                if (e.Source is Visual source
+                    && source.FindAncestorOfType<TitleBarBranchView>(
+                        includeSelf: true) is not null)
+                {
+                    return;
+                }
+
                 if (TopLevel.GetTopLevel(this) is Window window && window.WindowState != WindowState.FullScreen)
                 {
                     if (e.ClickCount == 2)
@@ -110,6 +118,7 @@ public sealed partial class MainView : UserControl
 
                 Titlebar.Margin = new Thickness(0, 0, titleBar.LeftInset, 0);
                 AppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
+                AppWindow.SetAllowInteractionInTitleBar(TitleBarBranchWidget, true);
                 AppWindow.SetAllowInteractionInTitleBar(OpenNotificationsButton, true);
                 NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
             }
@@ -245,33 +254,23 @@ public sealed partial class MainView : UserControl
 
             menuItem.Click += async (s, e) =>
             {
-                EditorTabItem? selectedTab = viewModel.EditorService.SelectedTabItem.Value;
-                if (s is MenuItem { DataContext: EditorExtension editorExtension } menuItem
-                    && selectedTab != null)
+                if (s is not MenuItem { DataContext: EditorExtension editorExtension })
                 {
-                    IKnownEditorCommands? commands = selectedTab.Commands.Value;
-                    if (commands != null)
-                    {
-                        await commands.OnSave();
-                    }
+                    return;
+                }
 
-                    if (editorExtension.TryCreateContext(
-                            selectedTab.Context.Value.Object,
-                            new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
-                            out IEditorContext? context))
-                    {
-                        selectedTab.Context.Value.Dispose();
-                        selectedTab.Context.Value = context;
-                    }
-                    else
-                    {
-                        NotificationService.ShowInformation(
-                            title: MessageStrings.ContextNotCreated,
-                            message: string.Format(
-                                format: MessageStrings.FailedToOpenFileWithExtension,
-                                arg0: editorExtension.DisplayName,
-                                arg1: selectedTab.FileName.Value));
-                    }
+                // An unhandled exception in an async void handler terminates the process.
+                try
+                {
+                    await viewModel.EditorService.SwitchEditorExtensionAsync(editorExtension);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to switch to the {Extension} editor.",
+                        editorExtension.DisplayName);
+                    NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
                 }
             };
 

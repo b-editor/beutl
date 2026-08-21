@@ -29,6 +29,11 @@ public class ContextCommandExecution
     public string CommandName { get; }
 
     public KeyEventArgs? KeyEventArgs { get; set; }
+
+    // A handler that starts asynchronous work publishes it here; the caller that raised the command
+    // awaits it to know when the operation actually finished. It stays a completed task otherwise,
+    // so a synchronous handler needs no ceremony.
+    public Task Completion { get; set; } = Task.CompletedTask;
 }
 
 [AttributeUsage(AttributeTargets.Method)]

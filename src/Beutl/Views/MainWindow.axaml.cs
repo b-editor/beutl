@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Runtime.ExceptionServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 
@@ -11,9 +12,12 @@ namespace Beutl.Views;
 
 public sealed partial class MainWindow : AppWindow
 {
+    private readonly WindowShutdownCoordinator _shutdown;
+
     public MainWindow()
     {
         InitializeComponent();
+        _shutdown = new WindowShutdownCoordinator(ShutdownAsync, Close);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         (int X, int Y)? pos = viewConfig.WindowPosition;
         (int Width, int Height)? size = viewConfig.WindowSize;
@@ -62,27 +66,13 @@ public sealed partial class MainWindow : AppWindow
         mainView.Focus();
     }
 
-    private bool _captureStopped;
-    private Task? _captureStopTask;
-
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (!_captureStopped)
+        if (!_shutdown.CanClose)
         {
-            if (_captureStopTask is not null)
-            {
-                // A shutdown task is already draining ffmpeg from a prior close
-                // attempt; keep cancelling until that task finalizes and calls Close().
-                e.Cancel = true;
-                return;
-            }
-
-            if (mainView is { HasActiveCapture: true } mv)
-            {
-                e.Cancel = true;
-                _captureStopTask = StopCaptureAndCloseAsync(mv);
-                return;
-            }
+            e.Cancel = true;
+            _ = _shutdown.BeginShutdownAsync();
+            return;
         }
 
         base.OnClosing(e);
@@ -90,17 +80,28 @@ public sealed partial class MainWindow : AppWindow
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
         viewConfig.WindowPosition = (Position.X, Position.Y);
         viewConfig.IsWindowMaximized = WindowState == WindowState.Maximized;
+    }
+
+    private async Task ShutdownAsync(CancellationToken cancellationToken)
+    {
+        // The rest of shutdown drains the agent host, closes the project (which takes its
+        // version-control snapshot) and disposes the composition root. A capture that refuses to
+        // stop must not cost all of that, so its failure is carried past the remaining cleanup.
+        ExceptionDispatchInfo? captureFailure = null;
+        try
+        {
+            await mainView.EnsureCaptureStoppedAsync();
+        }
+        catch (Exception ex)
+        {
+            captureFailure = ExceptionDispatchInfo.Capture(ex);
+        }
 
         if (DataContext is MainViewModel viewModel)
         {
-            viewModel.Dispose();
+            await viewModel.ShutdownAsync(cancellationToken);
         }
-    }
 
-    private async Task StopCaptureAndCloseAsync(MainView mv)
-    {
-        await mv.EnsureCaptureStoppedAsync();
-        _captureStopped = true;
-        Close();
+        captureFailure?.Throw();
     }
 }

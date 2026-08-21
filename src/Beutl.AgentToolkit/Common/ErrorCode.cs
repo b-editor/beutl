@@ -14,4 +14,5 @@ public static class ErrorCode
     public const string NoActiveEditorSession = "no_active_editor_session";
     public const string DestructiveIntent = "destructive_intent";
     public const string ProjectConflict = "project_conflict";
+    public const string WorkspaceBusy = "workspace_busy";
 }
