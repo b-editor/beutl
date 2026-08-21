@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Text;
+using Beutl.Editor;
 
 namespace Beutl.Editor.VersionControl;
 
@@ -21,11 +22,28 @@ internal static class ProjectConflictMarkerScanner
         ],
         StringComparer.OrdinalIgnoreCase);
 
-    public static async Task<string?> FindFirstAsync(
+    public static Task<string?> FindFirstAsync(
         string projectFile,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
+        string? projectRoot = Path.GetDirectoryName(Path.GetFullPath(projectFile));
+        // An extension can persist a sidecar under an extension this walk does not know, so the
+        // files the project itself references are scanned as well: restoration follows those URIs
+        // and would otherwise fail JSON parsing with no conflict guidance shown.
+        IReadOnlySet<string> referenced = projectRoot is null
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : SerializedProjectGraph.TryGetRelativePaths(projectFile, projectRoot);
+        return FindFirstAsync(projectFile, referenced, cancellationToken);
+    }
+
+    internal static async Task<string?> FindFirstAsync(
+        string projectFile,
+        IReadOnlySet<string> referencedRelativePaths,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
+        ArgumentNullException.ThrowIfNull(referencedRelativePaths);
         string projectRoot = Path.GetDirectoryName(Path.GetFullPath(projectFile))
                              ?? throw new ArgumentException(
                                  "The project file must have a parent directory.",
@@ -33,6 +51,20 @@ internal static class ProjectConflictMarkerScanner
         if (!Directory.Exists(projectRoot))
         {
             return null;
+        }
+
+        HashSet<string> referencedFiles = referencedRelativePaths
+            .Select(relativePath => Path.GetFullPath(
+                Path.Combine(projectRoot, relativePath.Replace('/', Path.DirectorySeparatorChar))))
+            .ToHashSet(FileSystemPathComparison.ComparerForCurrentPlatform);
+        foreach (string referenced in referencedFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (await ContainsConflictMarkerAsync(projectRoot, referenced, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return referenced;
+            }
         }
 
         var pendingDirectories = new Stack<string>();
@@ -68,43 +100,53 @@ internal static class ProjectConflictMarkerScanner
             foreach (string file in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!s_projectExtensions.Contains(Path.GetExtension(file)))
+                if (!s_projectExtensions.Contains(Path.GetExtension(file))
+                    || referencedFiles.Contains(Path.GetFullPath(file)))
                 {
                     continue;
                 }
 
-                if (!TryGetScannableLength(projectRoot, file, out long scanLength))
+                if (await ContainsConflictMarkerAsync(projectRoot, file, cancellationToken)
+                        .ConfigureAwait(false))
                 {
-                    continue;
-                }
-
-                try
-                {
-                    await using FileStream stream = new(
-                        file,
-                        FileMode.Open,
-                        FileAccess.Read,
-                        FileShare.ReadWrite | FileShare.Delete,
-                        ScanChunkSize,
-                        FileOptions.Asynchronous | FileOptions.SequentialScan);
-                    if (await ContainsConflictMarkerAsync(
-                            stream,
-                            scanLength,
-                            cancellationToken).ConfigureAwait(false))
-                    {
-                        return file;
-                    }
-                }
-                catch (IOException)
-                {
-                }
-                catch (UnauthorizedAccessException)
-                {
+                    return file;
                 }
             }
         }
 
         return null;
+    }
+
+    private static async Task<bool> ContainsConflictMarkerAsync(
+        string projectRoot,
+        string file,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetScannableLength(projectRoot, file, out long scanLength))
+        {
+            return false;
+        }
+
+        try
+        {
+            await using FileStream stream = new(
+                file,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                ScanChunkSize,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            return await ContainsConflictMarkerAsync(stream, scanLength, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static bool TryGetScannableLength(

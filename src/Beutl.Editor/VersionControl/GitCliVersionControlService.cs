@@ -271,21 +271,45 @@ internal sealed class GitCliVersionControlService :
         ".gitattributes",
     ];
 
+    private const string TemporaryFilePathspecSuffix = "**/*.[tT][mM][pP]";
+
     private static readonly string[] s_ignoredOptionalProjectPathspecSuffixes =
     [
         "**/.[bB][eE][uU][tT][lL]/**",
-        "**/*.[tT][mM][pP]",
+        TemporaryFilePathspecSuffix,
     ];
 
-    private static IReadOnlyList<string> CreateSnapshotExcludePathspecs(
-        RepositoryInfo repository)
+    private IReadOnlyList<string> CreateSnapshotExcludePathspecs(RepositoryInfo repository)
+    {
+        return CreateSnapshotExcludePathspecs(
+            repository,
+            excludeTemporaryFiles: !_snapshotsRequireTemporaryFiles);
+    }
+
+    // `.tmp` is Beutl's own scratch convention, but an extension may persist a sidecar the project
+    // references under such a name. Excluding it would leave every snapshot without a file the
+    // project needs to reopen, so the blanket exclusion is dropped for that project.
+    internal static IReadOnlyList<string> CreateSnapshotExcludePathspecs(
+        RepositoryInfo repository,
+        bool excludeTemporaryFiles)
     {
         string prefix = repository.Pathspec == "."
             ? string.Empty
             : EscapeGitGlobPath(repository.Pathspec) + "/";
-        return s_ignoredOptionalProjectPathspecSuffixes
+        IEnumerable<string> suffixes = excludeTemporaryFiles
+            ? s_ignoredOptionalProjectPathspecSuffixes
+            : s_ignoredOptionalProjectPathspecSuffixes.Where(
+                static suffix => suffix != TemporaryFilePathspecSuffix);
+        return suffixes
             .Select(suffix => $":(top,exclude,glob){prefix}{suffix}")
             .ToArray();
+    }
+
+    internal static bool RequiresTemporaryFileSnapshots(IReadOnlySet<string> serializedPaths)
+    {
+        ArgumentNullException.ThrowIfNull(serializedPaths);
+        return serializedPaths.Any(
+            static path => path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string CreateSnapshotBasePathspec(RepositoryInfo repository)
@@ -338,6 +362,7 @@ internal sealed class GitCliVersionControlService :
     private readonly Func<string, IGitCliRunner> _runnerFactory;
     private readonly Func<bool> _isWorktreeMutationAllowed;
     private readonly string? _projectFile;
+    private volatile bool _snapshotsRequireTemporaryFiles;
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
     private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileReplace;
     private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileCommit;
@@ -6518,10 +6543,64 @@ internal sealed class GitCliVersionControlService :
             throw;
         }
 
+        // An external client can move HEAD between capturing the branch and running the commit, in
+        // which case Git records the snapshot on whichever branch is current. Confirm the captured
+        // branch still owns HEAD and grew from the tip it was captured at before reporting success.
+        await EnsureSnapshotLandedOnCapturedBranchAsync(
+                repository,
+                runner,
+                branchRef,
+                originalBranchTip)
+            .ConfigureAwait(false);
+
         CommitResult result = await ResolveCommittedResultAsync(repository, runner)
             .ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
         return result;
+    }
+
+    private static async Task EnsureSnapshotLandedOnCapturedBranchAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string branchRef,
+        string? originalBranchTip)
+    {
+        GitCommandResult head = await runner.RunAsync(
+            repository,
+            ["symbolic-ref", "--quiet", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None).ConfigureAwait(false);
+        string checkedOutRef = head.Stdout.Trim();
+        if (!string.Equals(checkedOutRef, branchRef, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"The snapshot was committed while '{checkedOutRef}' was checked out instead of the captured branch '{branchRef}'.");
+        }
+
+        if (originalBranchTip is null)
+        {
+            return;
+        }
+
+        GitCommandResult parents = await runner.RunAsync(
+            repository,
+            ["rev-list", "--parents", "-1", branchRef],
+            GitCommandOptions.Local,
+            CancellationToken.None).ConfigureAwait(false);
+        string[] revisions = parents.Stdout.Split(
+            ' ',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (revisions.Length < 2
+            || !revisions
+                .Skip(1)
+                .Any(parent => string.Equals(
+                    parent,
+                    originalBranchTip,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                $"The captured branch '{branchRef}' no longer grows from the tip '{originalBranchTip}' the snapshot was built on.");
+        }
     }
 
     private static async Task<string?> TryFindCommitByReflogActionAsync(
@@ -8360,36 +8439,12 @@ internal sealed class GitCliVersionControlService :
 
     private IReadOnlySet<string> GetSerializedProjectRelativePaths(string projectRoot)
     {
-        var paths = new HashSet<string>(StringComparer.Ordinal);
         if (_projectFile is null || !File.Exists(_projectFile))
         {
-            return paths;
+            return new HashSet<string>(StringComparer.Ordinal);
         }
 
-        Project project = CoreSerializer.RestoreFromUri<Project>(new Uri(_projectFile));
-        ExternalResourceCollector.SerializationGraph graph =
-            ExternalResourceCollector.DiscoverSerializationGraph(project);
-        foreach (Uri uri in graph.Objects
-                     .Select(static obj => obj.Uri)
-                     .Concat(graph.UnaddressableFileSources)
-                     .OfType<Uri>())
-        {
-            if (!uri.IsFile)
-            {
-                continue;
-            }
-
-            string relativePath = Path.GetRelativePath(projectRoot, uri.LocalPath);
-            if (!Path.IsPathFullyQualified(relativePath)
-                && relativePath != ".."
-                && !relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                && !relativePath.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal))
-            {
-                paths.Add(NormalizeGitPath(relativePath));
-            }
-        }
-
-        return paths;
+        return SerializedProjectGraph.GetRelativePaths(_projectFile, projectRoot);
     }
 
     private static IReadOnlyList<string> CreatePullFetchArguments(
@@ -8412,9 +8467,11 @@ internal sealed class GitCliVersionControlService :
 
     private void ValidateRequiredProjectFileLayout(string projectRoot)
     {
-        foreach (string _ in EnumerateRequiredProjectFiles(
-                     projectRoot,
-                     GetSerializedProjectRelativePaths(projectRoot)))
+        IReadOnlySet<string> serializedPaths = GetSerializedProjectRelativePaths(projectRoot);
+        // Recorded here because every snapshot path validates the layout first, so the exclusion
+        // decision stays as fresh as the graph without deserializing the project again.
+        _snapshotsRequireTemporaryFiles = RequiresTemporaryFileSnapshots(serializedPaths);
+        foreach (string _ in EnumerateRequiredProjectFiles(projectRoot, serializedPaths))
         {
         }
     }

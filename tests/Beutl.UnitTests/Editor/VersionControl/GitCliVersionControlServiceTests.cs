@@ -4572,6 +4572,43 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         }
     }
 
+    [Test]
+    public void Snapshot_excludes_keep_a_tmp_path_the_project_graph_requires()
+    {
+        var repository = new RepositoryInfo(Root, Root);
+
+        IReadOnlyList<string> withoutRequirement =
+            GitCliVersionControlService.CreateSnapshotExcludePathspecs(
+                repository,
+                excludeTemporaryFiles: true);
+        IReadOnlyList<string> withRequirement =
+            GitCliVersionControlService.CreateSnapshotExcludePathspecs(
+                repository,
+                excludeTemporaryFiles: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                withoutRequirement.Any(static pathspec => pathspec.Contains("[tT][mM][pP]", StringComparison.Ordinal)),
+                Is.True);
+            // Excluding it would leave every snapshot without a sidecar the project needs to reopen.
+            Assert.That(
+                withRequirement.Any(static pathspec => pathspec.Contains("[tT][mM][pP]", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(
+                withRequirement.Any(static pathspec => pathspec.Contains("[bB][eE][uU][tT][lL]", StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(
+                GitCliVersionControlService.RequiresTemporaryFileSnapshots(
+                    new HashSet<string>(["state/layout.TMP"], StringComparer.Ordinal)),
+                Is.True);
+            Assert.That(
+                GitCliVersionControlService.RequiresTemporaryFileSnapshots(
+                    new HashSet<string>(["project.bep"], StringComparer.Ordinal)),
+                Is.False);
+        });
+    }
+
     private GitCliVersionControlService CreateService(RepositoryWatcher? watcher = null)
     {
         return new GitCliVersionControlService(

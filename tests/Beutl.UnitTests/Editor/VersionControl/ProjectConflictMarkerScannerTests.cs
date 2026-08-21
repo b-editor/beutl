@@ -55,6 +55,39 @@ public class ProjectConflictMarkerScannerTests
     }
 
     [Test]
+    public async Task FindFirstAsync_scans_sidecars_the_project_references_by_any_extension()
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string sidecar = Path.Combine(_root, "extension-state", "layout.customstate");
+        Directory.CreateDirectory(Path.GetDirectoryName(sidecar)!);
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await File.WriteAllTextAsync(sidecar, LfConflict);
+
+        // Restoration follows the URIs the project records, whatever they are named, so a conflict
+        // there has to reach the guidance instead of failing JSON parsing later.
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            new HashSet<string>(["extension-state/layout.customstate"], StringComparer.Ordinal),
+            CancellationToken.None);
+
+        Assert.That(result, Is.EqualTo(sidecar));
+    }
+
+    [Test]
+    public async Task FindFirstAsync_ignores_referenced_paths_that_are_missing()
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            new HashSet<string>(["extension-state/absent.customstate"], StringComparer.Ordinal),
+            CancellationToken.None);
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
     public async Task FindFirstAsync_returns_null_for_project_files_without_a_marker()
     {
         string projectFile = Path.Combine(_root, "project.bep");
