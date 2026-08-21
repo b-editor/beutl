@@ -83,6 +83,88 @@ public sealed class ParticleRenderNodeAllocationTests
         });
     }
 
+    /// <remarks>
+    /// A particle is drawn through its own scale and rotation, so the blit resamples the source. Point
+    /// sampling replicates whichever texels the sample points land on, so the edge steps through a handful of
+    /// repeated alphas instead of a gradient - the count of distinct edge alphas separates the two.
+    /// </remarks>
+    [Test]
+    public void ScaledParticles_AreResampledRatherThanPointSampled()
+    {
+        using Bitmap rendered = RenderParticles(initialRotation: 30f, particleSize: 37f);
+
+        var distinct = new HashSet<ushort>();
+        int fractional = 0;
+        ReadOnlySpan<ushort> pixels = rendered.GetPixelSpan<ushort>();
+        for (int index = 3; index < pixels.Length; index += 4)
+        {
+            float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[index]);
+            if (alpha > 0.02f && alpha < 0.98f)
+            {
+                fractional++;
+                distinct.Add(pixels[index]);
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fractional, Is.GreaterThan(0), "The fixture must draw a partially covered edge.");
+            // Point sampling replicates whichever source texels the sample points land on, so a magnified
+            // particle's edge repeats a handful of alphas; measured here it was 81 against 314 resampled.
+            Assert.That(distinct, Has.Count.GreaterThan(150),
+                "A magnified particle's edge must be resampled, not stepped through repeated source texels.");
+        });
+    }
+
+    private static Bitmap RenderParticles(float initialRotation, float particleSize)
+    {
+        var emitter = new ParticleEmitter
+        {
+            Seed = { CurrentValue = 11 },
+            EmissionRate = { CurrentValue = 4 },
+            Lifetime = { CurrentValue = 1.2f },
+            MaxParticles = { CurrentValue = 8 },
+            Speed = { CurrentValue = 0 },
+            SpeedRandom = { CurrentValue = 0 },
+            Gravity = { CurrentValue = 0 },
+            Spread = { CurrentValue = 0 },
+            ParticleSize = { CurrentValue = particleSize },
+            ParticleColor = { CurrentValue = Colors.White },
+            InitialRotation = { CurrentValue = initialRotation },
+            InitialRotationRandom = { CurrentValue = 0 },
+        };
+        using ParticleEmitter.Resource resource = emitter.ToResource(
+            new CompositionContext(TimeSpan.FromSeconds(1)));
+        using var root = new DrawableRenderNode(resource);
+        using (var context = new GraphicsContext2D(root, s_frame, outputScale: 1))
+            emitter.Render(context, resource);
+
+        var factory = new BoundedTargetFactory(maximumDimension: 4096);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = new Rect(default, s_frame),
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                    Purpose = RenderRequestPurpose.Frame,
+                },
+                TargetFactory = factory,
+            });
+        using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
+        using (var canvas = new ImmediateCanvas(target, logicalSize: s_frame, intent: RenderIntent.Delivery))
+        {
+            canvas.Clear();
+            renderer.Render(canvas);
+        }
+
+        return target.Snapshot();
+    }
+
     private static PixelSize LargestParticleLayer(float initialRotation)
     {
         var emitter = new ParticleEmitter

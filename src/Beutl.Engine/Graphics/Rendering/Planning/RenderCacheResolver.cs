@@ -1596,6 +1596,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
     private readonly bool _contributes;
     private readonly object[] _runtimeComponents;
     private readonly RenderFragmentOutputIdentity[] _inputs;
+    private readonly int _hash;
 
     private RenderFragmentOutputIdentity(
         RenderFragmentReference reference,
@@ -1615,6 +1616,29 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         _contributes = reference.ContributesValuesToTarget;
         _runtimeComponents = runtimeComponents;
         _inputs = inputs;
+        _hash = ComputeHash();
+    }
+
+    /// <remarks>
+    /// Identities form a DAG - Create memoizes, so a shared input is one instance reached by several parents -
+    /// and hashing an input by recursion would walk every path through it rather than every edge. Each input's
+    /// hash is already final by the time this runs, because an identity is built after its inputs, so folding
+    /// it in once here makes the whole graph linear in its edges instead of exponential in its fan-out.
+    /// </remarks>
+    private int ComputeHash()
+    {
+        var hash = new HashCode();
+        hash.Add(_kind);
+        hash.Add(_bounds);
+        hash.Add(_scaleBits);
+        hash.Add(_materializationScaleBits);
+        hash.Add(_cardinality);
+        hash.Add(_contributes);
+        foreach (object component in _runtimeComponents)
+            hash.Add(component);
+        foreach (RenderFragmentOutputIdentity input in _inputs)
+            hash.Add(input._hash);
+        return hash.ToHashCode();
     }
 
     public static RenderFragmentOutputIdentity Create(
@@ -1659,8 +1683,24 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
     }
 
     public bool Equals(RenderFragmentOutputIdentity? other)
+        => other is not null && EqualsCore(other, null);
+
+    /// <remarks>
+    /// The two graphs are separate objects, so nothing is shared between them and a plain recursion compares
+    /// one pair of nodes once per path that reaches it - exponential in the fan-out. Recording the pairs
+    /// already being proven equal makes it one comparison per pair instead. Re-reaching a pair can only mean
+    /// the same subgraph arrived by another route, because these graphs are acyclic and a failure returns
+    /// immediately rather than leaving a half-proven pair behind.
+    /// </remarks>
+    private bool EqualsCore(
+        RenderFragmentOutputIdentity other,
+        HashSet<(RenderFragmentOutputIdentity Left, RenderFragmentOutputIdentity Right)>? proven)
     {
-        if (other is null
+        // Create memoizes, so the same input reached from two parents inside one graph is one instance.
+        if (ReferenceEquals(this, other))
+            return true;
+
+        if (_hash != other._hash
             || _kind != other._kind
             || !_bounds.Equals(other._bounds)
             || _scaleBits != other._scaleBits
@@ -1678,27 +1718,27 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             if (!Equals(_runtimeComponents[index], other._runtimeComponents[index]))
                 return false;
         }
-        return _inputs.AsSpan().SequenceEqual(other._inputs);
+
+        if (_inputs.Length == 0)
+            return true;
+
+        proven ??= new HashSet<(RenderFragmentOutputIdentity, RenderFragmentOutputIdentity)>();
+        if (!proven.Add((this, other)))
+            return true;
+
+        for (int index = 0; index < _inputs.Length; index++)
+        {
+            if (!_inputs[index].EqualsCore(other._inputs[index], proven))
+                return false;
+        }
+
+        return true;
     }
 
     public override bool Equals(object? obj)
         => obj is RenderFragmentOutputIdentity other && Equals(other);
 
-    public override int GetHashCode()
-    {
-        var hash = new HashCode();
-        hash.Add(_kind);
-        hash.Add(_bounds);
-        hash.Add(_scaleBits);
-        hash.Add(_materializationScaleBits);
-        hash.Add(_cardinality);
-        hash.Add(_contributes);
-        foreach (object component in _runtimeComponents)
-            hash.Add(component);
-        foreach (RenderFragmentOutputIdentity input in _inputs)
-            hash.Add(input);
-        return hash.ToHashCode();
-    }
+    public override int GetHashCode() => _hash;
 
     private static RenderFragmentOutputIdentity CreateCore(
         RenderFragmentReference reference,

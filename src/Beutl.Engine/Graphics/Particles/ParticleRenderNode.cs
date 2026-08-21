@@ -129,9 +129,15 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         session.Publish(output);
     }
 
-    /// <summary>The particle's own transform does the scaling, so the blit adds no filtering.</summary>
-    private static readonly SKSamplingOptions s_particleSampling =
-        new(SKFilterMode.Nearest, SKMipmapMode.None);
+    /// <summary>
+    /// The particle's own transform scales and rotates the source, so the blit has to resample it.
+    /// </summary>
+    /// <remarks>
+    /// Point sampling here reduces a particle to whichever texels its sample points land on, which is visible
+    /// as stair-stepped edges on every particle whose size is not exactly the source's. Mitchell is the same
+    /// resampler the canvas applies to any other scaled bitmap.
+    /// </remarks>
+    private static readonly SKSamplingOptions s_particleSampling = new(SKCubicResampler.Mitchell);
 
     private static void DrawParticles(TargetCommandSession session, Particle[] particles)
     {

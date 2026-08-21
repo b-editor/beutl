@@ -393,6 +393,10 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
             case FilterEffectSegmentRenderFragmentPayload legacy:
                 AddWorkingScalePolicy(legacy.WorkingScalePolicy, components);
                 components.Add(legacy.StreamInputCount);
+                // Whether the segment holds an imperative callback decides why its island ends, and the
+                // boundary reason is part of the plan being cached. Two segments that agree on everything
+                // else would otherwise share a plan whose classification contradicts one of their graphs.
+                components.Add(legacy.HasImperativeItem);
                 return;
             case MaterializedInputRenderFragmentPayload input:
                 components.Add(input.Description.HitTest.StructuralIdentity);
