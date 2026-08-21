@@ -151,6 +151,39 @@ public sealed class EditorService : IOutputOperationLeaseProvider
         return TryBeginOutputOperation();
     }
 
+    /// <summary>
+    /// Reserves the workspace for an operation that reads the whole project directory, such as a
+    /// package export.
+    /// </summary>
+    /// <remarks>
+    /// An output lease alone only keeps version-control transitions out; a save writing the project
+    /// file and its sidecars would still run underneath, and the copy could take those files from
+    /// different save points. The project-file write reservation is therefore held for the same
+    /// interval, which serializes the read against every writer through the existing gate. Taking
+    /// the output lease first is what makes the wait bounded: no worktree mutation can start while
+    /// it is held, so this can only wait for a save that is already running.
+    /// </remarks>
+    internal async Task<IDisposable?> TryBeginProjectDirectoryReadAsync(
+        CancellationToken cancellationToken)
+    {
+        IDisposable? outputOperation = TryBeginOutputOperation();
+        if (outputOperation is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            IProjectFileWriteLease fileWrite = await BeginProjectFileWriteAsync(cancellationToken);
+            return new ProjectDirectoryReadLease(fileWrite, outputOperation);
+        }
+        catch
+        {
+            outputOperation.Dispose();
+            throw;
+        }
+    }
+
     internal async ValueTask<IProjectFileWriteLease> BeginProjectFileWriteAsync(
         CancellationToken cancellationToken)
     {
@@ -465,6 +498,26 @@ public sealed class EditorService : IOutputOperationLeaseProvider
                     context.IsEnabled.Value = _enabledStates[i];
                 }
             }
+        }
+    }
+
+    private sealed class ProjectDirectoryReadLease(
+        IProjectFileWriteLease fileWrite,
+        IDisposable outputOperation) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            // The write reservation goes first: releasing the output lease before it would let a
+            // worktree mutation observe the workspace as free while this still holds the gate.
+            fileWrite.Dispose();
+            outputOperation.Dispose();
         }
     }
 

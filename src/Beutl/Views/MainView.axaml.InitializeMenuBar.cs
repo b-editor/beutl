@@ -417,9 +417,12 @@ public partial class MainView
         IStorageFile? file = await window.StorageProvider.SaveFilePickerAsync(options);
         if (file?.TryGetLocalPath() is string outputPath)
         {
-            // The lease is taken only once a destination is chosen: holding it across the picker
-            // makes a project close skip its Git snapshot for as long as the dialog is open.
-            using IDisposable? outputOperation = exportVm.EditorService.TryBeginOutputOperation();
+            // The reservation is taken only once a destination is chosen: holding it across the
+            // picker makes a project close skip its Git snapshot for as long as the dialog is open.
+            // It covers project-file writes too, so the copy never reads a half-written save.
+            using IDisposable? outputOperation =
+                await exportVm.EditorService.TryBeginProjectDirectoryReadAsync(
+                    CancellationToken.None);
             if (outputOperation is null)
             {
                 NotificationService.ShowWarning(

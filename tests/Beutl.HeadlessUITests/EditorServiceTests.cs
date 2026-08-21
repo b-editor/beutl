@@ -210,6 +210,55 @@ public sealed class EditorServiceTests
     }
 
     [Test]
+    public async Task Project_directory_reads_exclude_project_file_writes_and_worktree_mutations()
+    {
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+
+        using (IDisposable read = (await editorService.TryBeginProjectDirectoryReadAsync(
+                   CancellationToken.None))!)
+        {
+            Assert.Multiple(() =>
+            {
+                // A package export copies the whole project directory, so nothing may write into it
+                // or move the worktree underneath while the copy runs.
+                Assert.That(editorService.TryBeginProjectFileWrite(), Is.Null);
+                Assert.That(editorService.TryBeginWorktreeMutation(), Is.Null);
+            });
+        }
+
+        using IProjectFileWriteLease writeAfterRead = editorService.TryBeginProjectFileWrite()!;
+        Assert.That(writeAfterRead, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Project_directory_read_waits_for_an_in_flight_project_file_write()
+    {
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+        IProjectFileWriteLease save = editorService.TryBeginProjectFileWrite()!;
+
+        Task<IDisposable?> read = editorService.TryBeginProjectDirectoryReadAsync(
+            CancellationToken.None);
+        Assert.That(read.IsCompleted, Is.False);
+
+        save.Dispose();
+        using IDisposable? granted = await read.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(granted, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Project_directory_read_is_refused_during_a_worktree_mutation()
+    {
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+
+        using IDisposable mutation = editorService.TryBeginWorktreeMutation()!;
+
+        Assert.That(
+            await editorService.TryBeginProjectDirectoryReadAsync(CancellationToken.None),
+            Is.Null);
+    }
+
+    [Test]
     public void SuspendEditors_keeps_editors_disabled_until_the_outermost_handle_is_disposed()
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
