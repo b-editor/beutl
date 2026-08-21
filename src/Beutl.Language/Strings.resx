@@ -1903,6 +1903,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiSubtitle_DetectedLanguage" xml:space="preserve">
     <value>Detected language: {0}</value>
   </data>
+  <data name="AiSubtitle_RunCannotBeRecorded" xml:space="preserve">
+    <value>This run cannot be written down, so it cannot be started: a request charged for and then lost with the session could not be asked for again. Close the other subtitle tab for this scene and try again.</value>
+  </data>
   <data name="AiSubtitle_NoAudioInRange" xml:space="preserve">
     <value>No audio was found in the selected scene range.</value>
   </data>

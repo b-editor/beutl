@@ -44,6 +44,9 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     // that model would otherwise rebuild the name around whatever the picker
     // fell back to, and the job the first attempt paid for would be left behind.
     private AiModelId? _outstandingModel;
+    // その名前を作った依頼の、モデル以外の中身。今組み立てている依頼がこれと
+    // 同じときだけ、名前もモデルも引き継ぐ。
+    private string?[]? _outstandingRequest;
     private readonly CancellationTokenSource _availabilityLifetimeCts = new();
     private readonly EditViewModel? _editViewModel;
     private readonly HashSet<string> _temporaryFiles = new(StringComparer.Ordinal);
@@ -155,6 +158,10 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             model.Video is not { } video || video.CanServeAnything();
         ModelPicker.Selected.Subscribe(option => ApplyModelCapabilities(option?.Model))
             .DisposeWith(_disposables);
+        // The shape, and whether frames may guide the clip at all, follow the
+        // chosen model; replacing the list under an outstanding name would
+        // rewrite the request waiting to be collected.
+        ModelPicker.CanReload = () => !_requestKey.HasOutstandingName.Value;
 
         IsGenerating = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
@@ -314,6 +321,11 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     private static readonly int[] DefaultDurations = [4, 6, 8];
 
     private static readonly string[] DefaultResolutions = ["720p", "1080p"];
+
+    // Where the model sits in the request's parts. It is filled in last: which
+    // model a request carries depends on whether a name is already outstanding
+    // for the rest of it.
+    private const int ModelPartIndex = 6;
 
     private static readonly string[] DefaultAspectRatios = ["16:9", "9:16"];
 
@@ -614,10 +626,13 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
 
     // The model a request should carry: the one the outstanding name was built
     // from while there is one, and the picker's otherwise.
-    private void RetireRequestName()
+    // Only this one request is settled. Retiring the whole run instead would
+    // throw away the name of anything else still waiting to be collected.
+    private void RetireRequestName(AiRequestName name)
     {
-        _requestKey.Retire();
-        _outstandingModel = null;
+        _requestKey.Retire(name);
+        if (!_requestKey.HasOutstandingName.Value)
+            ForgetOutstandingRequest();
         // Reloads were held back while that name was outstanding, so this is
         // where an operator's change to the model list finally lands.
         _ = RefreshModelsAsync();
@@ -626,8 +641,14 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     // Whatever the outstanding name was built from, including no model at all:
     // a request that named none was fingerprinted without one, and letting a
     // catalog that has since loaded name one would make it a different request.
-    private AiModelId? PinnedOrSelectedModel(AiModelId? selected)
-        => _requestKey.HasOutstandingName.Value ? _outstandingModel : selected;
+    // Only for the same request, though — a clip the user has since changed is
+    // a new request, and it is priced and run on the model on screen.
+    private AiModelId? PinnedOrSelectedModel(string?[] request, AiModelId? selected)
+        => _requestKey.HasOutstandingName.Value
+            && _outstandingRequest is { } outstanding
+            && outstanding.AsSpan().SequenceEqual(request)
+                ? _outstandingModel
+                : selected;
 
     // A name the server never made a job under. Withdrawing it lets the picker
     // move again and puts the balance check back in front of the next attempt.
@@ -635,7 +656,13 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     {
         _requestKey.Withdraw(name);
         if (!_requestKey.HasOutstandingName.Value)
-            _outstandingModel = null;
+            ForgetOutstandingRequest();
+    }
+
+    private void ForgetOutstandingRequest()
+    {
+        _outstandingModel = null;
+        _outstandingRequest = null;
     }
 
     private async Task LoadEntitlementsAsync()
@@ -860,46 +887,78 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             string? lastFrameElementId = _lastFrameElementId;
             using IDisposable firstFrameLease = AcquireTemporaryFileLease(firstFramePath);
             using IDisposable lastFrameLease = AcquireTemporaryFileLease(lastFramePath);
-            AiModelId? model = PinnedOrSelectedModel(ModelPicker.SelectedModel);
-            AiRequestName name = _requestKey.NameFor(
+            // The model's place is left empty until it is known, because which
+            // model this request carries depends on whether a name is already
+            // outstanding for the rest of it.
+            string?[] requestParts =
+            [
                 prompt,
                 durationSeconds.ToString(CultureInfo.InvariantCulture),
                 resolution,
                 aspectRatio,
                 generateAudio ? "audio" : "silent",
                 Seed.Value?.ToString(CultureInfo.InvariantCulture),
-                model?.Value,
+                null,
                 AiRequestKey.FileStamp(firstFramePath),
-                AiRequestKey.FileStamp(lastFramePath));
+                AiRequestKey.FileStamp(lastFramePath),
+            ];
+            var request = (string?[])requestParts.Clone();
+            AiModelId? model = PinnedOrSelectedModel(request, ModelPicker.SelectedModel);
+            requestParts[ModelPartIndex] = model?.Value;
+            AiRequestName name = _requestKey.NameFor(requestParts);
             issued = name;
             _outstandingModel = model;
-            // Not for a repeat: the server looks up the job this name already
-            // made before it looks at the balance, so refusing here would refuse
-            // to collect something already paid for.
-            if (!name.IsRepeat
-                && !await _availabilityTracker.CheckNowAsync(
-                    new AiOperationAvailabilityRequest.Video(durationSeconds, model),
-                    operation.CancellationToken))
+            _outstandingRequest = request;
+
+            // Before it goes out. A name that ends here reached nothing.
+            try
             {
-                throw new AiUsageLimitExceededException();
+                // Not for a repeat: the server looks up the job this name
+                // already made before it looks at the balance, so refusing here
+                // would refuse to collect something already paid for.
+                if (!name.IsRepeat
+                    && !await _availabilityTracker.CheckNowAsync(
+                        new AiOperationAvailabilityRequest.Video(durationSeconds, model),
+                        operation.CancellationToken))
+                {
+                    throw new AiUsageLimitExceededException();
+                }
             }
-            AiVideoGenerationResult response = await _videos.CreateAsync(
-                new AiVideoGenerationRequest(
-                    prompt,
-                    durationSeconds,
-                    new AiVideoResolutionId(resolution),
-                    new AiVideoAspectRatioId(aspectRatio),
-                    generateAudio,
-                    seed: Seed.Value,
-                    firstFrame: firstFramePath is null
-                        ? null
-                        : AiUploadSource.FromFile(firstFramePath),
-                    lastFrame: lastFramePath is null
-                        ? null
-                        : AiUploadSource.FromFile(lastFramePath),
-                    model: model,
-                    idempotencyKey: name.Key),
-                operation.CancellationToken);
+            catch
+            {
+                WithdrawRequestName(name);
+                throw;
+            }
+
+            AiVideoGenerationResult response;
+            try
+            {
+                response = await _videos.CreateAsync(
+                    new AiVideoGenerationRequest(
+                        prompt,
+                        durationSeconds,
+                        new AiVideoResolutionId(resolution),
+                        new AiVideoAspectRatioId(aspectRatio),
+                        generateAudio,
+                        seed: Seed.Value,
+                        firstFrame: firstFramePath is null
+                            ? null
+                            : AiUploadSource.FromFile(firstFramePath),
+                        lastFrame: lastFramePath is null
+                            ? null
+                            : AiUploadSource.FromFile(lastFramePath),
+                        model: model,
+                        idempotencyKey: name.Key),
+                    operation.CancellationToken);
+            }
+            catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
+            {
+                WithdrawRequestName(name);
+                throw;
+            }
+
+            // Past here the clip has been reserved and paid for. Whatever goes
+            // wrong while it is waited on, the name stays: it is the way back.
             persistedServerJob = true;
 
             var pendingSnapshot = new AiVideoResultSnapshot(durationSeconds);
@@ -916,25 +975,22 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             // that created it, and asking again under a new one would pay twice.
             if (await PollJobAsync(response.JobId, operation, pendingSnapshot))
             {
-                RetireRequestName();
+                RetireRequestName(name);
             }
         }
-        // Refused before anything was reserved — the server looks the name up
-        // first and found nothing under it, so no job was made and the name is
-        // not the way back to one.
+        // Every refusal that reserves nothing withdrew its name where it was
+        // raised, next to the request that never left. These only say what
+        // happened.
         catch (AuthenticationRequiredException)
         {
-            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiAuthenticationRequired);
         }
         catch (AiPlanRequiredException)
         {
-            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiProRequired);
         }
         catch (AiUsageLimitExceededException)
         {
-            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
         }
         // Charged for and still the server's; asking again under the same name
@@ -945,19 +1001,19 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
         catch (AiModelUnavailableException)
         {
-            RetireRequestName();
             operation.TryPublish(() => Error.Value = Strings.AiModelUnavailable);
         }
         // Refused before the operation was reserved, so nothing was charged;
         // what has to change is the model or the shape of the request.
         catch (AiModelDoesNotSupportRequestException)
         {
-            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiModelDoesNotSupportRequest);
         }
+        // The server settled this job as failed and refunded it. Its name would
+        // keep answering with that failure, so the next attempt takes a new one.
         catch (AiProviderErrorException)
         {
-            RetireRequestName();
+            RetireRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiProviderError);
         }
         // Reachable because a request keeps its name across attempts: asking
@@ -972,17 +1028,15 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         // with that. The next attempt has to be a new request.
         catch (AiRequestWasDeletedException)
         {
-            RetireRequestName();
+            RetireRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiRequestWasDeleted);
         }
         catch (AiJobLimitReachedException)
         {
-            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiVideoJobLimitReached);
         }
         catch (AiFileTooLargeException)
         {
-            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)

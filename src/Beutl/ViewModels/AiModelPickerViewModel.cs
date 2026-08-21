@@ -1,9 +1,12 @@
 ﻿using System.Collections.Immutable;
 using System.Collections.ObjectModel;
+using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using Beutl.Api.Services;
 using Beutl.Language;
 using Reactive.Bindings;
+using ReactiveUI.Avalonia;
 
 namespace Beutl.ViewModels;
 
@@ -50,6 +53,12 @@ internal sealed class AiModelPickerViewModel : IDisposable
     // the list and move the user's choice for nothing.
     private AiModelCatalog? _loadedCatalog;
     private AiEntitlements? _loadedEntitlements;
+    // How often a page that stays where it is asks again. The catalog itself is
+    // cached with a freshness window, so most of these cost nothing; without
+    // them, a page left in the foreground goes on offering a model an operator
+    // has since withdrawn for as long as it is left there. Reopening the page,
+    // or coming back to the window, is the other way this happens.
+    private static readonly TimeSpan s_reloadInterval = TimeSpan.FromMinutes(1);
 
     public AiModelPickerViewModel(
         IAiModelCatalogService catalog,
@@ -65,6 +74,37 @@ internal sealed class AiModelPickerViewModel : IDisposable
         IsLoaded = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
         Label = Strings.AiModel;
+        Observable
+            .Interval(s_reloadInterval, AvaloniaScheduler.Instance)
+            .Subscribe(_ => ReloadOnSchedule())
+            .DisposeWith(_disposables);
+    }
+
+    /// <summary>
+    /// Whether the list may be replaced right now. A page holding a name the
+    /// server has not settled says no: what that request carries follows the
+    /// model on offer, and replacing it would rename a request already paid for.
+    /// </summary>
+    public Func<bool>? CanReload { get; set; }
+
+    private void ReloadOnSchedule()
+    {
+        if (!IsLoaded.Value || CanReload?.Invoke() == false)
+            return;
+        _ = ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            await LoadAsync(Operation, CancellationToken.None);
+        }
+        catch (Exception)
+        {
+            // Offering yesterday's list is better than emptying it. Whoever
+            // asked for the load in the first place reports what went wrong.
+        }
     }
 
     /// <summary>
@@ -144,6 +184,15 @@ internal sealed class AiModelPickerViewModel : IDisposable
         AiModelId? preferred,
         CancellationToken cancellationToken)
     {
+        // Nothing is known about an operation this picker has not been asked
+        // for yet — least of all whether it has a model that can serve it. The
+        // image editor's five tasks are five operations, and a request sent
+        // while the list for the new one is still on its way would name no
+        // model and run on the server's default, which may cost more than the
+        // model the screen was about to offer.
+        if (Operation != operation)
+            IsLoaded.Value = false;
+
         try
         {
             await LoadCoreAsync(operation, preferred, cancellationToken);

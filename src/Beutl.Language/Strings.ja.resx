@@ -1900,6 +1900,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitle_DetectedLanguage" xml:space="preserve">
     <value>検出された言語: {0}</value>
   </data>
+  <data name="AiSubtitle_RunCannotBeRecorded" xml:space="preserve">
+    <value>この実行を書き留められないため、開始できません。課金された直後にセッションが終わると、その依頼をもう一度取りに行けなくなります。このシーンをもう一方の字幕タブで開いている場合は閉じてから、もう一度お試しください。</value>
+  </data>
   <data name="AiSubtitle_NoAudioInRange" xml:space="preserve">
     <value>選択したシーン範囲に音声がありません。</value>
   </data>

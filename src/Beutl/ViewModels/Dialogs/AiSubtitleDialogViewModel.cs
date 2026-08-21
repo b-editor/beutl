@@ -77,6 +77,13 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
             .DisposeWith(_disposables);
         TranslationModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
             .DisposeWith(_disposables);
+        // A run holds the model it started on, so replacing the list under it
+        // could not rename its pieces — but it would say the wrong thing about
+        // what the next one will cost.
+        TranscriptionModelPicker.CanReload =
+            () => !HasOutstandingTranscriptionRequest.Value;
+        TranslationModelPicker.CanReload =
+            () => !HasOutstandingTranslationRequest.Value;
 
         AudioSources = new ReactivePropertySlim<IReadOnlyList<AudioSourceItem>>([])
             .DisposeWith(_disposables);

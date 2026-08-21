@@ -36,7 +36,12 @@ internal sealed record CaptionTranslationResume(
     // The model those names were built from. A run resumed on another model
     // would name its unfinished batches differently and buy them again, so the
     // picker is put back on this one.
-    string RequestKeyModel = "");
+    string RequestKeyModel = "",
+    // 送ったきり決着していない名前を抱えたまま終わったか。seed があることでは
+    // 分からない——予約されなかった依頼や、返金されて捨てられた依頼の seed も
+    // 残る。これを取り違えると、誰も払っていない依頼が「支払い済みの回収」と
+    // して復活する。
+    bool RequestKeyNamePending = false);
 
 internal sealed record CaptionSceneTranscriptionResume(
     Guid SceneId,
@@ -70,7 +75,11 @@ internal sealed record CaptionSourceTranscriptionResume(
     // The model those names were built from. A run resumed on another model
     // would name its unfinished chunks differently and buy them again, so the
     // picker is put back on this one.
-    string RequestKeyModel = "");
+    string RequestKeyModel = "",
+    // 送ったきり決着していない名前を抱えたまま終わったか。seed があることでは
+    // 分からない——予約されなかった依頼や、返金されて捨てられた依頼の seed も
+    // 残る。
+    bool RequestKeyNamePending = false);
 
 internal sealed record CaptionDraft(
     int Version,
@@ -152,11 +161,11 @@ internal interface ICaptionDraftStore
 internal sealed class FileCaptionDraftStore : ICaptionDraftStore
 {
     // Version 2 records what a run's requests were named before its first piece
-    // comes back. A version 1 draft could hold a seed with no model beside it,
-    // which reads the same as a run that named no model — and asking under the
-    // wrong name buys the piece again — so those are discarded rather than
-    // guessed at.
+    // comes back.
     internal const int CurrentVersion = 2;
+    // 版 1 の控えも読む。中身のうち曖昧なのは名前だけなので、それを落として
+    // 読み込む——支払い済みの結果まで捨てる理由は無い。
+    internal const int OldestSupportedVersion = 1;
     internal const int MaximumStorageBytes = 8 * 1024 * 1024;
     private const int MaximumCueCount = 10_000;
     private const int MaximumCueTextLength = 100_000;
@@ -228,14 +237,20 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                     bytes,
                     s_jsonOptions);
                 if (envelope is null
-                    || envelope.Version != CurrentVersion
-                    || envelope.Scope != scope
-                    || !IsValid(envelope.Draft))
+                    || envelope.Version is < OldestSupportedVersion or > CurrentVersion
+                    || envelope.Scope != scope)
                 {
                     DeleteInvalidFile(storagePath);
                     return null;
                 }
-                return new CaptionDraftEntry(envelope.JobId, envelope.Draft);
+
+                CaptionDraft draft = Migrate(envelope.Draft, envelope.Version);
+                if (!IsValid(draft))
+                {
+                    DeleteInvalidFile(storagePath);
+                    return null;
+                }
+                return new CaptionDraftEntry(envelope.JobId, draft);
             }
             catch (Exception ex) when (ex is IOException
                 or UnauthorizedAccessException
@@ -329,6 +344,39 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         };
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false));
         return options;
+    }
+
+    // 版 1 の控えには、seed を書いたあとモデルを書く前の時期のものが混じって
+    // いる。seed だけがある状態は「モデルを指定しなかった実行」と見分けがつかず、
+    // 取り違えると、支払い済みの切れ端に別の名前を付けて買い直すことになる。
+    //
+    // 曖昧なのは名前だけなので、名前だけを落とす。支払い済みの結果はそのまま
+    // 残り、まだ送っていない残りの切れ端が新しい実行として値付けされる。
+    private static CaptionDraft Migrate(CaptionDraft draft, int version)
+    {
+        if (version >= CurrentVersion)
+            return draft;
+
+        return draft with
+        {
+            Version = CurrentVersion,
+            TranslationResume = draft.TranslationResume is { } translation
+                ? translation with
+                {
+                    RequestKeySeed = string.Empty,
+                    RequestKeyModel = string.Empty,
+                    RequestKeyNamePending = false,
+                }
+                : null,
+            SourceTranscriptionResume = draft.SourceTranscriptionResume is { } source
+                ? source with
+                {
+                    RequestKeySeed = string.Empty,
+                    RequestKeyModel = string.Empty,
+                    RequestKeyNamePending = false,
+                }
+                : null,
+        };
     }
 
     private static bool IsValid(CaptionDraft draft)

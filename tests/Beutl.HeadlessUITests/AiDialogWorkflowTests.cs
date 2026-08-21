@@ -148,6 +148,124 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageGeneration_AFailureAfterTheChargeKeepsTheName()
+    {
+        // 課金されたあとに失敗するのは、結果を取りに行くところ。そこでの認証
+        // 切れを「予約されなかった」と読んで名前を捨てると、支払い済みの絵へ
+        // 戻る道が閉じる。
+        await TestReset.ResetShellAsync();
+        var sentKeys = new List<string?>();
+        bool contentIsReachable = false;
+        using var handler = new StubHandler(request =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/images":
+                    sentKeys.Add(IdempotencyKeyOf(request));
+                    return JsonResponse(
+                        HttpStatusCode.OK,
+                        ImageResponseJson("image-job", "image-file"));
+                case "/api/contents/image-file":
+                    return contentIsReachable
+                        ? ByteResponse(s_png, "image/png")
+                        : JsonResponse(HttpStatusCode.Unauthorized, """
+                            {
+                              "error_code": "authenticationIsRequired",
+                              "message": "Sign in again.",
+                              "documentation_url": null
+                            }
+                            """);
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.Prompt.Value = "A calm blue sky";
+
+        await viewModel.Generate.ExecuteAsync();
+        contentIsReachable = true;
+        await viewModel.Generate.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sentKeys, Has.Count.EqualTo(2));
+            Assert.That(
+                sentKeys[1],
+                Is.EqualTo(sentKeys[0]),
+                "The second attempt collects what the first one paid for.");
+            Assert.That(viewModel.ResultImage.Value, Is.Not.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_FinishingAnotherRequestLeavesTheFirstNameAlone()
+    {
+        // A が課金されたまま応答を落とし、入力を変えた B が成功する。B の決着で
+        // 実行ごと名前を捨てると、A に戻ったとき新しい名前になり、支払い済みの
+        // ものをもう一度買うことになる。
+        await TestReset.ResetShellAsync();
+        var sentKeys = new List<(string prompt, string? key)>();
+        using var handler = new StubHandler(async (request, token) =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/images":
+                    string body = await request.Content!.ReadAsStringAsync(token);
+                    using (JsonDocument sent = JsonDocument.Parse(body))
+                    {
+                        string prompt = sent.RootElement.GetProperty("prompt").GetString()!;
+                        sentKeys.Add((prompt, IdempotencyKeyOf(request)));
+                        return prompt.Contains("second", StringComparison.Ordinal)
+                            ? JsonResponse(
+                                HttpStatusCode.OK,
+                                ImageResponseJson("image-job", "image-file"))
+                            : JsonResponse(HttpStatusCode.Conflict, """
+                                {
+                                  "error_code": "aiRequestInProgress",
+                                  "message": "The first attempt is still running.",
+                                  "documentation_url": null
+                                }
+                                """);
+                    }
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+
+        viewModel.Prompt.Value = "the first picture";
+        await viewModel.Generate.ExecuteAsync();
+        viewModel.Prompt.Value = "the second picture";
+        await viewModel.Generate.ExecuteAsync();
+        viewModel.Prompt.Value = "the first picture";
+        await viewModel.Generate.ExecuteAsync();
+
+        Assert.That(sentKeys, Has.Count.EqualTo(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                sentKeys[2].key,
+                Is.EqualTo(sentKeys[0].key),
+                "Coming back to the unfinished request asks for it under its own name.");
+            Assert.That(sentKeys[1].key, Is.Not.EqualTo(sentKeys[0].key));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task ImageGeneration_ShowsTheRoughPictureWhileTheModelWorks()
     {
         await TestReset.ResetShellAsync();

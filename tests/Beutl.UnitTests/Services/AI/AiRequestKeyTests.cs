@@ -46,19 +46,38 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
-    public void Withdraw_KeepsARepeatThatMayNameSomethingAlreadyPaidFor()
+    public void Withdraw_LetsTheSameRequestGoOutUnderTheSameNameAgain()
     {
+        // 予約されなかったのだから、その名前はまだ何も指していない。同じ依頼は
+        // 同じ名前で出してよい——別の名前にすると、次に届いたときに新しい依頼
+        // として課金される。
         var key = new AiRequestKey();
-        key.NameFor("a prompt");
-        AiRequestName repeat = key.NameFor("a prompt");
-        Assert.That(repeat.IsRepeat, Is.True);
+        AiRequestName issued = key.NameFor("a prompt");
 
-        key.Withdraw(repeat);
+        key.Withdraw(issued);
+
+        Assert.That(key.NameFor("a prompt").Key, Is.EqualTo(issued.Key));
+    }
+
+    [Test]
+    public void Retire_SettlesOneRequestAndLeavesTheOthersOutstanding()
+    {
+        // A が課金されたまま応答を落とし、入力を変えた B が成功する。B の決着で
+        // A の名前まで捨てると、A に戻ったとき新しい名前になり、支払い済みの
+        // ものをもう一度買うことになる。
+        var key = new AiRequestKey();
+        AiRequestName a = key.NameFor("prompt a");
+        AiRequestName b = key.NameFor("prompt b");
+
+        key.Retire(b);
 
         Assert.Multiple(() =>
         {
             Assert.That(key.HasOutstandingName.Value, Is.True);
-            Assert.That(key.NameFor("a prompt").Key, Is.EqualTo(repeat.Key));
+            Assert.That(key.NameFor("prompt a").Key, Is.EqualTo(a.Key));
+            Assert.That(key.NameFor("prompt a").IsRepeat, Is.True);
+            // 決着した依頼をもう一度出すなら、それは新しい依頼。
+            Assert.That(key.NameFor("prompt b").Key, Is.Not.EqualTo(b.Key));
         });
     }
 
@@ -100,13 +119,29 @@ public sealed class AiRequestKeyTests
         // 控えから拾い直した実行は、名前は持っていても「どれを送ったか」は
         // 持っていない。最初に配り直す名前は、前のセッションで支払われた job を
         // 指しているかもしれないので、一度だけ再送として扱う。
-        var resumed = new AiRequestKey("seed-of-the-run");
+        var resumed = new AiRequestKey("seed-of-the-run", namePending: true);
 
         Assert.Multiple(() =>
         {
             Assert.That(resumed.HasOutstandingName.Value, Is.True);
             Assert.That(resumed.NameFor(0, "a chunk").IsRepeat, Is.True);
             Assert.That(resumed.NameFor(1, "a chunk").IsRepeat, Is.False);
+        });
+    }
+
+    [Test]
+    public void ResumedRun_WithNothingInFlight_StartsAsANewRequest()
+    {
+        // seed が残っているだけでは、支払われたということにはならない——予約
+        // されなかった依頼や、返金されて捨てられた依頼の seed も控えに残る。
+        // それを再送として扱うと、誰も払っていない依頼が「支払い済みの回収」に
+        // 化けて、残高の確認をすり抜ける。
+        var resumed = new AiRequestKey("seed-of-the-run", namePending: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resumed.HasOutstandingName.Value, Is.False);
+            Assert.That(resumed.NameFor(0, "a chunk").IsRepeat, Is.False);
         });
     }
 

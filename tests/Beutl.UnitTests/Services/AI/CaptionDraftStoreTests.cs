@@ -188,28 +188,86 @@ public sealed class CaptionDraftStoreTests
     }
 
     [Test]
-    public void Load_DiscardsADraftWrittenByAnEarlierVersion()
+    public void Load_KeepsWhatAnEarlierVersionPaidForAndDropsOnlyItsNames()
     {
-        // 版 1 の控えは、seed を持ちながらモデルを持たないことがある——それは
-        // 「モデルを指定しなかった実行」と見分けがつかない。取り違えると、支払い
-        // 済みの切れ端に別の名前を付けて買い直すので、当て推量ではなく捨てる。
+        // 版 1 の控えには、seed を書いたあとモデルを書く前の時期のものが混じって
+        // いる。seed だけがある状態は「モデルを指定しなかった実行」と見分けが
+        // つかず、取り違えると支払い済みの切れ端に別の名前を付けて買い直す。
+        // 曖昧なのは名前だけなので、支払い済みの結果まで捨てる理由は無い。
         var store = new FileCaptionDraftStore(_storageDirectory);
         CaptionDraftScope scope = CreateScope();
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
         using (session)
         {
-            session!.Save(new CaptionDraftEntry("job-1", CreateDraft()));
+            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
         }
 
         string path = store.GetStoragePath(scope);
         string stored = File.ReadAllText(path);
-        File.WriteAllText(path, stored.Replace("\"version\":2", "\"version\":1"));
+        File.WriteAllText(
+            path,
+            stored.Replace("\"version\":2", "\"version\":1"));
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
         using (reopened)
         {
-            Assert.That(reopened!.Load(), Is.Null);
+            CaptionDraftEntry? restored = reopened!.Load();
+
+            Assert.That(restored, Is.Not.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored!.Draft.Cues.Single().Text, Is.EqualTo("paid result"));
+                Assert.That(restored.Draft.CompletedSteps, Is.EqualTo(1));
+                Assert.That(
+                    restored.Draft.SourceTranscriptionResume?.RequestKeySeed,
+                    Is.Empty,
+                    "The names of a version 1 draft cannot be told apart, so they go.");
+                Assert.That(
+                    restored.Draft.SourceTranscriptionResume?.RequestKeyModel,
+                    Is.Empty);
+                Assert.That(
+                    restored.Draft.SourceTranscriptionResume?.RequestKeyNamePending,
+                    Is.False);
+            });
         }
+    }
+
+    private static CaptionDraft CreateResumableSourceDraft()
+    {
+        var cue = new StoredCaptionCue(
+            TimeSpan.Zero.Ticks,
+            TimeSpan.FromSeconds(1).Ticks,
+            "paid result",
+            null,
+            "en",
+            new Dictionary<string, string>(StringComparer.Ordinal));
+        var segment = new AiTranscriptionSegment { Start = 0, End = 1, Text = "paid result" };
+        return new CaptionDraft(
+            FileCaptionDraftStore.CurrentVersion,
+            [cue],
+            "en",
+            [segment],
+            CaptionDraftKind.Transcription,
+            1,
+            3,
+            null,
+            null,
+            new CaptionSourceTranscriptionResume(
+                Path.Combine(Path.GetTempPath(), "clip.wav"),
+                Guid.NewGuid(),
+                1024,
+                DateTime.UnixEpoch.Ticks,
+                "en",
+                16_000,
+                48_000,
+                16_000,
+                3,
+                [segment],
+                "en",
+                1,
+                "seed-of-the-run",
+                "openai/whisper-1",
+                true));
     }
 
     private static CaptionDraft CreateUnstartedDraft()
