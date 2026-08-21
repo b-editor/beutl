@@ -21,6 +21,25 @@ public readonly struct BrushConstructor(
 {
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer = drawableBrushMaterializer;
+    private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
+
+    /// <summary>
+    /// Binds the constructor to the render pass's lease session so a tile-brush intermediate is allocated
+    /// through the caller's <see cref="IRenderTargetFactory"/> rather than the global allocator.
+    /// </summary>
+    internal BrushConstructor(
+        Rect bounds,
+        Brush.Resource? brush,
+        BlendMode blendMode,
+        float scale,
+        float maxWorkingScale,
+        RenderIntent intent,
+        DrawableBrushMaterializer? drawableBrushMaterializer,
+        RenderTargetLeaseSession? renderTargetLeaseSession)
+        : this(bounds, brush, blendMode, scale, maxWorkingScale, intent, drawableBrushMaterializer)
+    {
+        _renderTargetLeaseSession = renderTargetLeaseSession;
+    }
 
     public Rect Bounds { get; } = bounds;
 
@@ -290,6 +309,7 @@ public readonly struct BrushConstructor(
         }
 
         RenderTarget? intermediate = null;
+        RenderTargetLease? intermediateLease = null;
         try
         {
             if (skImage == null) return null;
@@ -299,7 +319,16 @@ public readonly struct BrushConstructor(
             int iw = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Width * s));
             int ih = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Height * s));
 
-            intermediate = RenderTarget.Create(iw, ih);
+            if (_renderTargetLeaseSession is { HasTargetFactory: true } leaseSession)
+            {
+                intermediateLease = leaseSession.TryAcquire(new PixelSize(iw, ih));
+                intermediate = intermediateLease?.Target;
+            }
+            else
+            {
+                intermediate = RenderTarget.Create(iw, ih);
+            }
+
             if (intermediate == null)
             {
                 s_logger.LogWarning(
@@ -369,7 +398,11 @@ public readonly struct BrushConstructor(
         finally
         {
             skImage?.Dispose();
-            intermediate?.Dispose();
+            // A leased target belongs to the pool: release the lease, never the target behind it.
+            if (intermediateLease is not null)
+                intermediateLease.Dispose();
+            else
+                intermediate?.Dispose();
         }
     }
 

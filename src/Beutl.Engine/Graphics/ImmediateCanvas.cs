@@ -30,6 +30,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private static readonly AsyncLocal<FlushObserverScope?> s_flushObserver = new();
     private static readonly AsyncLocal<PixelOperationObserverScope?> s_pixelOperationObserver = new();
     private static readonly AsyncLocal<DrawableBrushMaterializer?> s_drawableBrushMaterializer = new();
+    private static readonly AsyncLocal<RenderTargetLeaseSession?> s_renderTargetLeaseSession = new();
     private static readonly Lazy<SKRuntimeEffect> s_rectCoverageEffect = new(CreateRectCoverageEffect);
     private static readonly Lazy<SKRuntimeEffect> s_opacityScaleEffect = new(CreateOpacityScaleEffect);
     private static readonly SKSamplingOptions s_bitmapSampling = new(SKCubicResampler.Mitchell);
@@ -105,6 +106,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
         Intent = intent;
         DrawableBrushMaterializer = s_drawableBrushMaterializer.Value;
+        RenderTargetLeaseSession = s_renderTargetLeaseSession.Value;
         if (density == 1f)
         {
             _baseTransform = Matrix.Identity;
@@ -142,6 +144,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         MaxWorkingScale = parent.MaxWorkingScale;
         Intent = parent.Intent;
         DrawableBrushMaterializer = parent.DrawableBrushMaterializer;
+        RenderTargetLeaseSession = parent.RenderTargetLeaseSession;
         _baseTransform = parent._currentBaseTransform;
         _currentBaseTransform = parent._currentBaseTransform;
         _baseSaveCount = Canvas.Save();
@@ -208,6 +211,22 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// </summary>
     internal DrawableBrushMaterializer? DrawableBrushMaterializer { get; set; }
 
+    /// <summary>
+    /// The render pass's target lease session, or <see langword="null"/> outside one. Brush-owned intermediates
+    /// allocate through it so a caller-supplied <see cref="IRenderTargetFactory"/> is honoured.
+    /// </summary>
+    internal RenderTargetLeaseSession? RenderTargetLeaseSession { get; set; }
+
+    internal IDisposable PushRenderTargetLeaseSession(RenderTargetLeaseSession? leaseSession)
+    {
+        VerifyAccess();
+        RenderTargetLeaseSession? previous = RenderTargetLeaseSession;
+        RenderTargetLeaseSession? previousAmbient = s_renderTargetLeaseSession.Value;
+        RenderTargetLeaseSession = leaseSession;
+        s_renderTargetLeaseSession.Value = leaseSession;
+        return new RenderTargetLeaseSessionScope(this, previous, previousAmbient);
+    }
+
     internal IDisposable PushDrawableBrushMaterializer(DrawableBrushMaterializer? materializer)
     {
         VerifyAccess();
@@ -226,7 +245,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// <param name="brush">The brush to paint with, or <see langword="null"/> for no paint.</param>
     /// <param name="blendMode">The blend mode to configure.</param>
     public BrushConstructor CreateBrushConstructor(Rect bounds, Brush.Resource? brush, BlendMode blendMode)
-        => new(bounds, brush, blendMode, _currentDensity, MaxWorkingScale, Intent, DrawableBrushMaterializer);
+        => new(bounds, brush, blendMode, _currentDensity, MaxWorkingScale, Intent, DrawableBrushMaterializer, RenderTargetLeaseSession);
 
     public Matrix Transform
     {
@@ -1232,7 +1251,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             _currentDensity,
             MaxWorkingScale,
             Intent,
-            DrawableBrushMaterializer).ConfigurePaint(paint);
+            DrawableBrushMaterializer,
+            RenderTargetLeaseSession).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -1587,6 +1607,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         finally
         {
             DrawableBrushMaterializer = null;
+            RenderTargetLeaseSession = null;
             _sharedFillPaint.Dispose();
             _sharedStrokePaint.Dispose();
         }
@@ -1663,6 +1684,25 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             if (!ReferenceEquals(s_pixelOperationObserver.Value, this))
                 throw new InvalidOperationException("Immediate-canvas pixel-operation observers must be closed in LIFO order.");
             s_pixelOperationObserver.Value = Parent;
+        }
+    }
+
+    private sealed class RenderTargetLeaseSessionScope(
+        ImmediateCanvas canvas,
+        RenderTargetLeaseSession? previous,
+        RenderTargetLeaseSession? previousAmbient) : IDisposable
+    {
+        private ImmediateCanvas? _canvas = canvas;
+
+        public void Dispose()
+        {
+            ImmediateCanvas? owner = Interlocked.Exchange(ref _canvas, null);
+            if (owner is not null)
+            {
+                s_renderTargetLeaseSession.Value = previousAmbient;
+                if (!owner.IsDisposed)
+                    owner.RenderTargetLeaseSession = previous;
+            }
         }
     }
 
@@ -1757,7 +1797,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 scale ?? _currentDensity,
                 MaxWorkingScale,
                 Intent,
-                DrawableBrushMaterializer).ConfigurePaint(_sharedStrokePaint);
+                DrawableBrushMaterializer,
+            RenderTargetLeaseSession).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
@@ -1771,7 +1812,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             scale ?? _currentDensity,
             MaxWorkingScale,
             Intent,
-            DrawableBrushMaterializer).ConfigurePaint(_sharedFillPaint);
+            DrawableBrushMaterializer,
+            RenderTargetLeaseSession).ConfigurePaint(_sharedFillPaint);
     }
 
     private BlendMode ResolvePaintBlendMode(BlendMode fallback)

@@ -23,10 +23,18 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
 
     public RenderTargetLeaseRegistry(IRenderTargetFactory? factory)
     {
+        HasTargetFactory = factory is not null;
         _pool = new RenderTargetPool(factory);
     }
 
     public RenderTargetPoolStatistics Statistics => _pool.Statistics;
+
+    /// <summary>
+    /// Whether the caller supplied an <see cref="IRenderTargetFactory"/>. Paths that allocate their own
+    /// surfaces consult this: with a factory they must route through the session so its allocation policy and
+    /// graphics context are honoured, and without one they keep their own allocation and failure reporting.
+    /// </summary>
+    public bool HasTargetFactory { get; }
 
     public RenderTargetLeaseSession BeginSession(
         RenderIntent intent,
@@ -213,6 +221,9 @@ internal sealed class RenderTargetLeaseSession : IDisposable
     }
 
     public RenderIntent Intent { get; }
+
+    /// <inheritdoc cref="RenderTargetLeaseRegistry.HasTargetFactory"/>
+    public bool HasTargetFactory => _registry.HasTargetFactory;
 
     public bool IsDisposed { get; private set; }
 

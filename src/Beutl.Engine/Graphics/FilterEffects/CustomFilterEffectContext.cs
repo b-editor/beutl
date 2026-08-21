@@ -90,7 +90,8 @@ public class CustomFilterEffectContext
             scale,
             MaxWorkingScale,
             Intent,
-            _drawableBrushMaterializer);
+            _drawableBrushMaterializer,
+            _renderTargetLeaseSession);
 
     public void ForEach(Action<int, EffectTarget> action)
     {
@@ -222,10 +223,10 @@ public class CustomFilterEffectContext
         if (source.RenderTarget is null || source.Scale.IsUnbounded)
             return new EffectTarget();
 
-        using var renderTarget = RenderTarget.Create(source.DeviceBounds.Width, source.DeviceBounds.Height);
-        if (renderTarget != null)
+        EffectTarget? replacement = AllocateReplacement(source, FactoryBackedSession);
+        if (replacement != null)
         {
-            return source.CreateReplacement(renderTarget);
+            return replacement;
         }
 
         if (Intent == RenderIntent.Delivery)
@@ -253,27 +254,51 @@ public class CustomFilterEffectContext
         if (source.RenderTarget is null || source.Scale.IsUnbounded)
             return new EffectTarget();
 
-        RenderTargetLease? lease = _renderTargetLeaseSession.TryAcquire(source.DeviceBounds.Size);
-        if (lease is null)
+        EffectTarget? replacement = AllocateReplacement(source, _renderTargetLeaseSession);
+        if (replacement != null)
+            return replacement;
+
+        s_logger.LogWarning(
+            "Native custom-effect replacement target allocation failed ({Width}x{Height} px, target density {TargetDensity}, bounds {Bounds}); returning an empty target so the preview can keep the source pixels.",
+            source.DeviceBounds.Width,
+            source.DeviceBounds.Height,
+            source.Scale.Value,
+            source.Bounds);
+        return new EffectTarget();
+    }
+
+    /// <summary>
+    /// Allocates a same-footprint replacement for <paramref name="source"/>, through the caller's lease session
+    /// when there is one, and reports a declined allocation as <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// A configured <see cref="IRenderTargetFactory"/> is reachable only through the session, and its targets may
+    /// come from a context the global allocator knows nothing about. Going around it here would both ignore the
+    /// caller's allocation policy and let a custom effect sample a factory-backed input into a foreign surface.
+    /// </remarks>
+    private EffectTarget? AllocateReplacement(EffectTarget source, RenderTargetLeaseSession? leaseSession)
+    {
+        if (leaseSession is not null)
         {
-            s_logger.LogWarning(
-                "Native custom-effect replacement target allocation failed ({Width}x{Height} px, target density {TargetDensity}, bounds {Bounds}); returning an empty target so the preview can keep the source pixels.",
-                source.DeviceBounds.Width,
-                source.DeviceBounds.Height,
-                source.Scale.Value,
-                source.Bounds);
-            return new EffectTarget();
+            RenderTargetLease? lease = leaseSession.TryAcquire(source.DeviceBounds.Size);
+            if (lease is null)
+                return null;
+
+            try
+            {
+                return source.CreateReplacement(lease);
+            }
+            catch
+            {
+                lease.Dispose();
+                throw;
+            }
         }
 
-        try
-        {
-            return source.CreateReplacement(lease);
-        }
-        catch
-        {
-            lease.Dispose();
-            throw;
-        }
+        using RenderTarget? renderTarget = RenderTarget.Create(
+            source.DeviceBounds.Width,
+            source.DeviceBounds.Height);
+        return renderTarget is null ? null : source.CreateReplacement(renderTarget);
     }
 
     internal NativeFilterTextureLease AcquireNativeScratchTexture(
@@ -467,19 +492,13 @@ public class CustomFilterEffectContext
         float density,
         PixelRect deviceBounds)
     {
-        using var renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
-        if (renderTarget != null)
+        Vector legacyGridOffset = deviceBounds
+            .ToRect(density)
+            .Position - bounds.Position;
+        EffectTarget? allocated = Allocate(bounds, density, deviceBounds, legacyGridOffset);
+        if (allocated != null)
         {
-            Vector legacyGridOffset = deviceBounds
-                .ToRect(density)
-                .Position - bounds.Position;
-            return new EffectTarget(
-                renderTarget,
-                bounds,
-                EffectiveScale.At(density),
-                deviceBounds,
-                legacyGridOffset,
-                preserveLegacyRasterPlacement: true);
+            return allocated;
         }
         else
         {
@@ -496,6 +515,58 @@ public class CustomFilterEffectContext
 
             return new EffectTarget();
         }
+    }
+
+    /// <summary>
+    /// Allocates one custom-effect target, through the caller's lease session when there is one.
+    /// </summary>
+    /// <summary>
+    /// The lease session only when the caller supplied a factory. A path that already allocated its own
+    /// surfaces keeps doing so without one, so routing it through the pool does not change which targets a
+    /// render reuses; with a factory it must route through the session or the factory is bypassed.
+    /// </summary>
+    private RenderTargetLeaseSession? FactoryBackedSession
+        => _renderTargetLeaseSession is { HasTargetFactory: true } session ? session : null;
+
+    private EffectTarget? Allocate(
+        Rect bounds,
+        float density,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset)
+    {
+        if (FactoryBackedSession is { } leaseSession)
+        {
+            RenderTargetLease? lease = leaseSession.TryAcquire(deviceBounds.Size);
+            if (lease is null)
+                return null;
+
+            try
+            {
+                return EffectTarget.FromLease(
+                    lease,
+                    bounds,
+                    EffectiveScale.At(density),
+                    deviceBounds,
+                    deviceGridOffset,
+                    preserveLegacyRasterPlacement: true);
+            }
+            catch
+            {
+                lease.Dispose();
+                throw;
+            }
+        }
+
+        using RenderTarget? renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
+        return renderTarget is null
+            ? null
+            : new EffectTarget(
+                renderTarget,
+                bounds,
+                EffectiveScale.At(density),
+                deviceBounds,
+                deviceGridOffset,
+                preserveLegacyRasterPlacement: true);
     }
 
     /// <summary>

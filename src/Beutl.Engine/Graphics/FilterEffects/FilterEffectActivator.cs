@@ -334,21 +334,25 @@ public sealed class FilterEffectActivator : IDisposable
             Rect rasterBounds = deviceBounds
                 .ToRect(w)
                 .Translate(-outputDeviceGridOffset);
-            using RenderTarget? surface = RenderTarget.Create(
-                deviceBounds.Width,
-                deviceBounds.Height);
+            EffectTarget? newTarget = AllocateFlushTarget(
+                target.Bounds,
+                w,
+                deviceBounds,
+                outputDeviceGridOffset,
+                preserveLegacyRasterPlacement);
 
-            if (surface != null)
+            if (newTarget != null)
             {
-                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                    deviceBounds,
-                    outputDeviceGridOffset,
-                    w);
-                using (ImmediateCanvas canvas = CreateExecutionCanvas(
-                           surface,
-                           w,
-                           rasterBounds.Size))
+                try
                 {
+                    Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                        deviceBounds,
+                        outputDeviceGridOffset,
+                        w);
+                    using ImmediateCanvas canvas = CreateExecutionCanvas(
+                        newTarget.RenderTarget!,
+                        w,
+                        rasterBounds.Size);
                     canvas.Clear();
                     using (canvas.PushTransform(
                                Matrix.CreateTranslation(
@@ -365,17 +369,13 @@ public sealed class FilterEffectActivator : IDisposable
                         target.Draw(canvas);
                     }
                 }
-
-                var newTarget = new EffectTarget(
-                    surface,
-                    target.Bounds,
-                    EffectiveScale.At(w),
-                    deviceBounds,
-                    outputDeviceGridOffset,
-                    preserveLegacyRasterPlacement)
+                catch
                 {
-                    OriginalBounds = target.OriginalBounds
-                };
+                    newTarget.Dispose();
+                    throw;
+                }
+
+                newTarget.OriginalBounds = target.OriginalBounds;
                 CurrentTargets[i] = newTarget;
                 target.Dispose();
             }
@@ -397,6 +397,56 @@ public sealed class FilterEffectActivator : IDisposable
 
         _pendingSkiaTargets = null;
         Builder.Clear();
+    }
+
+    /// <summary>
+    /// Allocates one flush buffer, through the caller's lease session when there is one.
+    /// </summary>
+    /// <remarks>
+    /// A configured <see cref="IRenderTargetFactory"/> is reachable only through the session, and its targets
+    /// may come from a context the global allocator knows nothing about, so going around it here would both
+    /// ignore the caller's allocation policy and mix surfaces from two contexts inside one flush.
+    /// </remarks>
+    private EffectTarget? AllocateFlushTarget(
+        Rect bounds,
+        float w,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset,
+        bool preserveLegacyRasterPlacement)
+    {
+        if (_renderTargetLeaseSession is { HasTargetFactory: true } leaseSession)
+        {
+            RenderTargetLease? lease = leaseSession.TryAcquire(deviceBounds.Size);
+            if (lease is null)
+                return null;
+
+            try
+            {
+                return EffectTarget.FromLease(
+                    lease,
+                    bounds,
+                    EffectiveScale.At(w),
+                    deviceBounds,
+                    deviceGridOffset,
+                    preserveLegacyRasterPlacement);
+            }
+            catch
+            {
+                lease.Dispose();
+                throw;
+            }
+        }
+
+        using RenderTarget? surface = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
+        return surface is null
+            ? null
+            : new EffectTarget(
+                surface,
+                bounds,
+                EffectiveScale.At(w),
+                deviceBounds,
+                deviceGridOffset,
+                preserveLegacyRasterPlacement);
     }
 
     internal void CompletePolicyBoundary(bool materializationRequired)
@@ -619,7 +669,8 @@ public sealed class FilterEffectActivator : IDisposable
                             MaxWorkingScale,
                             Intent,
                             Purpose,
-                            GetProgramAcquirer());
+                            GetProgramAcquirer(),
+                            _renderTargetLeaseSession);
                         break;
                     }
                 case FEItem_Geometry geometry:
@@ -633,7 +684,8 @@ public sealed class FilterEffectActivator : IDisposable
                             WorkingScale,
                             MaxWorkingScale,
                             Intent,
-                            Purpose);
+                            Purpose,
+                            _renderTargetLeaseSession);
                         break;
                     }
             }

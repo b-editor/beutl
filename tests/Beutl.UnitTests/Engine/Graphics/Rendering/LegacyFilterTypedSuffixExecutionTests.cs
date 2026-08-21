@@ -219,7 +219,8 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                     cache,
                     target.RenderTarget!,
                     source);
-            });
+            },
+            leaseSession: null);
 
         Assert.Multiple(() =>
         {
@@ -250,7 +251,8 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
             workingScale: 1,
             maxWorkingScale: 1,
             intent,
-            RenderRequestPurpose.Auxiliary);
+            RenderRequestPurpose.Auxiliary,
+            leaseSession: null);
 
         Assert.That(observedIntent, Is.EqualTo(intent));
     }

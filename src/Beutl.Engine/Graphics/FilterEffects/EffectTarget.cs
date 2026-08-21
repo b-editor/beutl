@@ -151,6 +151,28 @@ public sealed class EffectTarget : IDisposable
         }
     }
 
+    /// <summary>
+    /// Wraps a freshly acquired pooled lease as a target, so a path that allocates its own surfaces can honour
+    /// the caller's <see cref="IRenderTargetFactory"/> without also taking over the lease's lifetime.
+    /// </summary>
+    internal static EffectTarget FromLease(
+        RenderTargetLease renderTargetLease,
+        Rect originalBounds,
+        EffectiveScale scale,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset = default,
+        bool preserveLegacyRasterPlacement = false)
+    {
+        ArgumentNullException.ThrowIfNull(renderTargetLease);
+        return new EffectTarget(
+            new EffectTargetRenderTargetLease(renderTargetLease),
+            originalBounds,
+            scale,
+            deviceBounds,
+            deviceGridOffset,
+            preserveLegacyRasterPlacement);
+    }
+
     internal EffectTarget CreateReplacement(RenderTarget renderTarget)
     {
         return new EffectTarget(

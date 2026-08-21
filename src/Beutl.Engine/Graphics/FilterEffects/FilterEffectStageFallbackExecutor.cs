@@ -18,7 +18,8 @@ internal static class FilterEffectStageFallbackExecutor
         float maxWorkingScale,
         RenderIntent intent,
         RenderRequestPurpose purpose,
-        SkRuntimeEffectProgramAcquirer acquireProgram)
+        SkRuntimeEffectProgramAcquirer acquireProgram,
+        RenderTargetLeaseSession? leaseSession)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(description);
@@ -33,7 +34,8 @@ internal static class FilterEffectStageFallbackExecutor
                 maxWorkingScale,
                 intent,
                 purpose,
-                acquireProgram));
+                acquireProgram,
+                leaseSession));
     }
 
     public static void ApplyGeometry(
@@ -43,7 +45,8 @@ internal static class FilterEffectStageFallbackExecutor
         float workingScale,
         float maxWorkingScale,
         RenderIntent intent,
-        RenderRequestPurpose purpose)
+        RenderRequestPurpose purpose,
+        RenderTargetLeaseSession? leaseSession)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(description);
@@ -56,7 +59,8 @@ internal static class FilterEffectStageFallbackExecutor
                 workingScale,
                 maxWorkingScale,
                 intent,
-                purpose));
+                purpose,
+                leaseSession));
     }
 
     private static EffectTarget? ExecuteShader(
@@ -67,13 +71,15 @@ internal static class FilterEffectStageFallbackExecutor
         float maxWorkingScale,
         RenderIntent intent,
         RenderRequestPurpose purpose,
-        SkRuntimeEffectProgramAcquirer acquireProgram)
+        SkRuntimeEffectProgramAcquirer acquireProgram,
+        RenderTargetLeaseSession? leaseSession)
     {
         using EffectTarget? input = NormalizeInput(
             source,
             workingScale,
             maxWorkingScale,
-            intent);
+            intent,
+            leaseSession);
         if (input?.RenderTarget is not { } inputTarget)
             return null;
 
@@ -95,6 +101,7 @@ internal static class FilterEffectStageFallbackExecutor
             density,
             maxWorkingScale,
             intent,
+            leaseSession,
             deviceGridOffset: input.DeviceGridOffset);
         if (output?.RenderTarget is not { } outputTarget)
         {
@@ -218,13 +225,15 @@ internal static class FilterEffectStageFallbackExecutor
         float workingScale,
         float maxWorkingScale,
         RenderIntent intent,
-        RenderRequestPurpose purpose)
+        RenderRequestPurpose purpose,
+        RenderTargetLeaseSession? leaseSession)
     {
         using EffectTarget? input = NormalizeInput(
             source,
             workingScale,
             maxWorkingScale,
-            intent);
+            intent,
+            leaseSession);
         if (input?.RenderTarget is not { } inputTarget)
             return null;
 
@@ -244,6 +253,7 @@ internal static class FilterEffectStageFallbackExecutor
             density,
             maxWorkingScale,
             intent,
+            leaseSession,
             deviceGridOffset: input.DeviceGridOffset);
         if (output?.RenderTarget is not { } outputTarget)
         {
@@ -313,7 +323,7 @@ internal static class FilterEffectStageFallbackExecutor
                 return result;
             }
 
-            return CropTarget(output, selected, maxWorkingScale, intent);
+            return CropTarget(output, selected, maxWorkingScale, intent, leaseSession);
         }
         finally
         {
@@ -325,7 +335,8 @@ internal static class FilterEffectStageFallbackExecutor
         EffectTarget source,
         float workingScale,
         float maxWorkingScale,
-        RenderIntent intent)
+        RenderIntent intent,
+        RenderTargetLeaseSession? leaseSession)
     {
         if (source.RenderTarget is not { } sourceTarget)
             return null;
@@ -353,6 +364,7 @@ internal static class FilterEffectStageFallbackExecutor
             density,
             maxWorkingScale,
             intent,
+            leaseSession,
             physicalDeviceBounds,
             source.DeviceGridOffset);
         if (normalized?.RenderTarget is not { } normalizedTarget)
@@ -394,7 +406,8 @@ internal static class FilterEffectStageFallbackExecutor
         EffectTarget source,
         Rect selectedBounds,
         float maxWorkingScale,
-        RenderIntent intent)
+        RenderIntent intent,
+        RenderTargetLeaseSession? leaseSession)
     {
         if (source.RenderTarget is not { } sourceTarget)
             return null;
@@ -404,6 +417,7 @@ internal static class FilterEffectStageFallbackExecutor
             source.Scale.Value,
             maxWorkingScale,
             intent,
+            leaseSession,
             deviceGridOffset: source.DeviceGridOffset);
         if (cropped?.RenderTarget is not { } croppedTarget)
         {
@@ -445,6 +459,7 @@ internal static class FilterEffectStageFallbackExecutor
         float density,
         float maxWorkingScale,
         RenderIntent intent,
+        RenderTargetLeaseSession? leaseSession,
         PixelRect? physicalDeviceBounds = null,
         Vector deviceGridOffset = default)
     {
@@ -482,8 +497,13 @@ internal static class FilterEffectStageFallbackExecutor
                 semanticDeviceBounds.Width + leftApron + rightApron,
                 semanticDeviceBounds.Height + topApron + bottomApron);
         }
-        using RenderTarget? renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
-        if (renderTarget is null)
+        EffectTarget? result = Allocate(
+            leaseSession,
+            bounds,
+            density,
+            deviceBounds,
+            deviceGridOffset);
+        if (result is null)
         {
             string message =
                 $"Legacy typed-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
@@ -496,12 +516,6 @@ internal static class FilterEffectStageFallbackExecutor
             return null;
         }
 
-        var result = new EffectTarget(
-            renderTarget,
-            bounds,
-            EffectiveScale.At(density),
-            deviceBounds,
-            deviceGridOffset);
         try
         {
             using var canvas = ImmediateCanvas.CreateExecutorManaged(
@@ -519,6 +533,54 @@ internal static class FilterEffectStageFallbackExecutor
             result.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Allocates one legacy stage target, through the caller's lease session when there is one.
+    /// </summary>
+    /// <remarks>
+    /// A configured <see cref="IRenderTargetFactory"/> is reachable only through the session, and its targets
+    /// may come from a context the global allocator knows nothing about. Going around it here would both ignore
+    /// the caller's allocation policy and mix surfaces from two contexts inside one stage.
+    /// </remarks>
+    private static EffectTarget? Allocate(
+        RenderTargetLeaseSession? leaseSession,
+        Rect bounds,
+        float density,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset)
+    {
+        if (leaseSession is { HasTargetFactory: true })
+        {
+            RenderTargetLease? lease = leaseSession.TryAcquire(deviceBounds.Size);
+            if (lease is null)
+                return null;
+
+            try
+            {
+                return EffectTarget.FromLease(
+                    lease,
+                    bounds,
+                    EffectiveScale.At(density),
+                    deviceBounds,
+                    deviceGridOffset);
+            }
+            catch
+            {
+                lease.Dispose();
+                throw;
+            }
+        }
+
+        using RenderTarget? renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
+        return renderTarget is null
+            ? null
+            : new EffectTarget(
+                renderTarget,
+                bounds,
+                EffectiveScale.At(density),
+                deviceBounds,
+                deviceGridOffset);
     }
 
     private static void ReplaceTargets(

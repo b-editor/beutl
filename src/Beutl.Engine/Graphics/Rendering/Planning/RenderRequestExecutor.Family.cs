@@ -214,6 +214,9 @@ internal sealed partial class RenderRequestExecutor
         frames.Add(frame);
         using IDisposable materializerScope = destination.PushDrawableBrushMaterializer(
             state.DrawableBrushMaterializer);
+        // Brush-owned intermediates allocate themselves, so they need the pass's session to reach the
+        // caller's factory; without it a tile brush would mix a global-allocator surface into the pass.
+        using IDisposable leaseSessionScope = destination.PushRenderTargetLeaseSession(_targets);
         ExceptionDispatchInfo? bodyFailure = null;
         try
         {
