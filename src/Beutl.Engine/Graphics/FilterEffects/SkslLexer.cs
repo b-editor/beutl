@@ -26,17 +26,7 @@ internal static class SkslLexer
 
             if (c == '/' && i + 1 < source.Length && source[i + 1] == '*')
             {
-                int commentStart = i;
-                i += 2;
-                while (i + 1 < source.Length && !(source[i] == '*' && source[i + 1] == '/'))
-                    i++;
-                if (i + 1 >= source.Length)
-                {
-                    throw new ArgumentException(
-                        $"The SkSL source has an unterminated block comment at offset {commentStart}.",
-                        nameof(source));
-                }
-                i++;
+                i = SkipBlockComment(source, i);
                 continue;
             }
 
@@ -136,17 +126,7 @@ internal static class SkslLexer
 
             if (c == '/' && i + 1 < source.Length && source[i + 1] == '*')
             {
-                int commentStart = i;
-                i += 2;
-                while (i + 1 < source.Length && !(source[i] == '*' && source[i + 1] == '/'))
-                    i++;
-                if (i + 1 >= source.Length)
-                {
-                    throw new ArgumentException(
-                        $"The SkSL source has an unterminated block comment at offset {commentStart}.",
-                        nameof(source));
-                }
-                i++;
+                i = SkipBlockComment(source, i);
                 result.Append(' ');
                 continue;
             }
@@ -155,6 +135,24 @@ internal static class SkslLexer
         }
 
         return result.ToString();
+    }
+
+    /// <summary>
+    /// Returns the index of the comment's closing slash, or the end of the source when it is never closed.
+    /// </summary>
+    /// <remarks>
+    /// An unterminated block comment is a syntax error, and reporting it belongs to the shading-language
+    /// compiler, which sees the source with its comments intact and can name a line. This scanner also runs
+    /// on the render path while an effect resource compiles its script, where throwing would fail the frame
+    /// rather than surface a message on the effect, so it consumes the rest of the source instead.
+    /// </remarks>
+    private static int SkipBlockComment(string source, int start)
+    {
+        int i = start + 2;
+        while (i + 1 < source.Length && !(source[i] == '*' && source[i + 1] == '/'))
+            i++;
+
+        return i + 1 >= source.Length ? source.Length : i + 1;
     }
 }
 
