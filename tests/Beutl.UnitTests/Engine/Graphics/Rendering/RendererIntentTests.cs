@@ -23,9 +23,8 @@ public sealed class RendererIntentTests
 
             renderer.Render(CreateEmptyFrame());
 
-            Assert.Multiple(() =>
-            {
-            });
+            Assert.That(renderer.FrameRequestIntent, Is.EqualTo(intent),
+                "The frame renderer issues every request, so it must carry the renderer's intent.");
         });
     }
 
@@ -40,6 +39,8 @@ public sealed class RendererIntentTests
             renderer.ClearAllCaches();
             renderer.Render(CreateEmptyFrame());
 
+            Assert.That(renderer.FrameRequestIntent, Is.EqualTo(RenderIntent.Delivery),
+                "Rebuilding the frame renderer for new cache options must not reset its intent to the default.");
         });
     }
 

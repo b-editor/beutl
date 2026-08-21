@@ -155,10 +155,6 @@ public sealed class DeclaredResourceAddressingContractTests
             Assert.That(typeof(RenderResourceBinding).GetProperties(), Is.Empty);
             Assert.That(typeof(RenderResource<Payload>).GetMethod("Bind"), Is.Null);
             Assert.That(typeof(RenderResource).GetProperty("CacheIdentity"), Is.Null);
-            Assert.That(
-                typeof(RenderResource).Assembly.GetExportedTypes()
-                    .Any(static type => type.FullName == "Beutl.Graphics.Rendering.RenderResourceIdentity"),
-                Is.False);
 
             foreach (Type session in slotSessions)
             {

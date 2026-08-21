@@ -268,6 +268,9 @@ public class Renderer : IRenderer
     /// </summary>
     public PixelSize DeviceSize { get; }
 
+    internal RenderIntent FrameRequestIntent
+        => _frameRenderer.Options.DefaultRequest.Intent;
+
     internal StructuralPlanCacheStatistics FrameStructuralPlanCacheStatistics
         => _frameRenderer.StructuralPlanCacheStatistics;
 

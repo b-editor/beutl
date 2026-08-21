@@ -225,10 +225,6 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(child.Cache.IsCached, Is.False);
             Assert.That(parent.Cache.IsCached, Is.False);
         });
-
-        Assert.Multiple(() =>
-        {
-        });
     }
 
     [Test]
@@ -401,10 +397,6 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(parent.NestedRequest!.Target.IsDisposed, Is.True,
                 "Family failure must reject and discharge the staged child target.");
         });
-
-        Assert.Multiple(() =>
-        {
-        });
     }
 
     // FR-039 keeps main's allocation-failure outcome: a declined nested target left the 3D scene untextured
@@ -563,10 +555,6 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(owner.IsCleanedUp, Is.True);
             Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
         });
-
-        Assert.Multiple(() =>
-        {
-        });
     }
 
     [Test]
@@ -624,10 +612,6 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(owner.PrimaryFailure, Is.Null);
             Assert.That(owner.IsCleanedUp, Is.True);
             Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
-        });
-
-        Assert.Multiple(() =>
-        {
         });
     }
 

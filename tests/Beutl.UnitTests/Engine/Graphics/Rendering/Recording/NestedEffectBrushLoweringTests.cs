@@ -1,32 +1,51 @@
 ﻿using Beutl.Composition;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
+/// <summary>
+/// Pins that a brush owned by a nested filter effect is lowered into the effect's own segment.
+/// </summary>
+/// <remarks>
+/// A <see cref="DrawableBrush"/> draws a whole drawable, so it is the case most likely to be hoisted out into a
+/// second stream input or a nested request. Either would split one effect across two recorded units and change
+/// what the planner may fuse, so the recorded shape has to stay the same as a brush-free effect's.
+/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class NestedEffectBrushLoweringTests
 {
-
-
-
-
-
-    private static DelayAnimationEffect MakeDelayed(FilterEffect child)
+    private static IEnumerable<TestCaseData> NestedEffects()
     {
-        var delay = new DelayAnimationEffect();
-        delay.Delay.CurrentValue = 0f;
-        delay.Effect.CurrentValue = child;
-        return delay;
+        yield return new TestCaseData(new Func<FilterEffect>(static () => new Blur()))
+            .SetArgDisplayNames("no brush");
+        yield return new TestCaseData(new Func<FilterEffect>(MakeDrawableBrushShadow))
+            .SetArgDisplayNames("drawable brush");
     }
 
-    private static void Record(FilterEffect effect, Action<FilterEffectSegmentRenderFragmentPayload[]> assert)
+    [TestCaseSource(nameof(NestedEffects))]
+    public void NestedEffect_RecordsOneSegmentOverOneStreamWithoutANestedRequest(Func<FilterEffect> factory)
+    {
+        RecordGraph(MakeDelayed(factory()), graph =>
+        {
+            FilterEffectSegmentRenderFragmentPayload[] segments = SegmentsOf(graph);
+            Assert.Multiple(() =>
+            {
+                Assert.That(segments, Has.Length.EqualTo(1),
+                    "A nested effect must record as one segment however its brush draws.");
+                Assert.That(segments[0].StreamInputCount, Is.EqualTo(1),
+                    "A brush must not become a second stream input.");
+                Assert.That(graph.NestedRequests, Is.Empty,
+                    "A brush must not be hoisted into its own request.");
+            });
+        });
+    }
+
+    private static void RecordGraph(FilterEffect effect, Action<RecordedRenderGraph> assert)
     {
         using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
         root.AddChild(new RectangleRenderNode(new Rect(0, 0, 40, 30), Brushes.Resource.White, null));
@@ -38,18 +57,24 @@ public sealed class NestedEffectBrushLoweringTests
             maxWorkingScale: 1,
             owner: owner));
 
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
-        assert(graph.Fragments
-            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
-            .Where(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment)
-            .Select(static reference => (FilterEffectSegmentRenderFragmentPayload)reference.Payload!)
-            .ToArray());
+        assert(new RenderRequestRecorder(request).Record(root));
     }
 
-    private static Brush.Resource MakeDrawableBrush()
-        => MakeDrawableBrushSource().ToResource(CompositionContext.Default);
+    private static FilterEffectSegmentRenderFragmentPayload[] SegmentsOf(RecordedRenderGraph graph)
+        => [.. graph.Fragments
+            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
+            .Where(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment)
+            .Select(static reference => (FilterEffectSegmentRenderFragmentPayload)reference.Payload!)];
 
-    private static DrawableBrush MakeDrawableBrushSource()
+    private static DelayAnimationEffect MakeDelayed(FilterEffect child)
+    {
+        var delay = new DelayAnimationEffect();
+        delay.Delay.CurrentValue = 0f;
+        delay.Effect.CurrentValue = child;
+        return delay;
+    }
+
+    private static FilterEffect MakeDrawableBrushShadow()
     {
         var content = new RectShape();
         content.Width.CurrentValue = 10;
@@ -57,37 +82,10 @@ public sealed class NestedEffectBrushLoweringTests
         content.Fill.CurrentValue = Brushes.White;
         var brush = new DrawableBrush(content);
         brush.Stretch.CurrentValue = Stretch.Fill;
-        return brush;
-    }
 
-    private static FlatShadow MakeDrawableBrushShadow()
-    {
         var shadow = new FlatShadow();
         shadow.Length.CurrentValue = 4;
-        shadow.Brush.CurrentValue = MakeDrawableBrushSource();
+        shadow.Brush.CurrentValue = brush;
         return shadow;
-    }
-
-    private static EffectTargets CreateSolidTargets(Rect bounds)
-    {
-        using RenderTarget renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)
-            ?? throw new InvalidOperationException("A CPU render target is required for this test.");
-        using (var canvas = new ImmediateCanvas(
-                   renderTarget,
-                   density: 1,
-                   maxWorkingScale: 1,
-                   logicalSize: bounds.Size))
-        {
-            canvas.Clear(Colors.White);
-        }
-
-        return new EffectTargets { new EffectTarget(renderTarget, bounds, EffectiveScale.At(1)) };
-    }
-
-    private sealed class CountingDisposable : IDisposable
-    {
-        public int DisposeCount { get; private set; }
-
-        public void Dispose() => DisposeCount++;
     }
 }

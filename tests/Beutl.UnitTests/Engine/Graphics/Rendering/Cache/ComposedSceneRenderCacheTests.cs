@@ -227,6 +227,10 @@ public sealed class ComposedSceneRenderCacheTests
 
             Assert.Multiple(() =>
             {
+                Assert.That(cacheable.Cache.IsCached, Is.False,
+                    "RenderCacheOptions.Default must not admit a plain group into the persistent cache.");
+                Assert.That(GetPixels(second), Is.EqualTo(GetPixels(first)),
+                    "Two frames of an unchanged group must agree whether or not a cache served them.");
             });
         });
     }

@@ -50,7 +50,7 @@ public sealed class RenderNodeRendererLifetimeTests
 
     [TestCase(3, 4, 0, 2)]
     [TestCase(20, 20, 2, 2)]
-    public void Render_EmptySelection_PublishesSuccessfulSkippedDiagnostics(
+    public void Render_EmptySelection_DrawsNothingAndLeavesNoLease(
         int x,
         int y,
         int width,
@@ -59,6 +59,7 @@ public sealed class RenderNodeRendererLifetimeTests
         var bounds = new Rect(0, 0, 8, 8);
         using var source = new TrackingRenderTarget(new PixelSize(8, 8));
         using var node = new ShaderNode(source, bounds);
+        using var factory = new TrackingTargetFactory();
         using var renderer = new RenderNodeRenderer(
             node,
             new RenderNodeRendererOptions
@@ -70,6 +71,7 @@ public sealed class RenderNodeRendererLifetimeTests
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     Purpose = RenderRequestPurpose.Frame,
                 },
+                TargetFactory = factory,
             });
         using RenderTarget target = RenderTarget.CreateNull(8, 8);
         using var canvas = new ImmediateCanvas(target);
@@ -78,6 +80,10 @@ public sealed class RenderNodeRendererLifetimeTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(factory.Targets, Is.Empty,
+                "A region that selects no pixels must not allocate an intermediate.");
+            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
+            Assert.That(source.IsDisposed, Is.False, "The borrowed input stays caller-owned.");
         });
     }
 

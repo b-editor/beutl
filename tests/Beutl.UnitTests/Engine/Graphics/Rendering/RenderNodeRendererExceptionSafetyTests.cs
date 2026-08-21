@@ -312,6 +312,16 @@ public class RenderNodeRendererExceptionSafetyTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(owner.CleanupFailures.Length, Is.EqualTo(1),
+                "A resource that throws while being released is a cleanup fault, not an execution failure.");
+            Assert.That(owner.SecondaryFailures, Is.Empty,
+                "With no earlier outcome to preserve, the cleanup fault becomes the primary rather than a secondary.");
+            Assert.That(owner.PrimaryFailure!.SourceException, Is.TypeOf<AggregateException>());
+            Assert.That(
+                ((AggregateException)owner.PrimaryFailure.SourceException).InnerExceptions
+                    .Select(static inner => inner.Message),
+                Is.EqualTo(new[] { "fault" }));
+            Assert.That(discharged, Is.EqualTo(new[] { "fault", "remaining" }));
         });
     }
 
@@ -360,20 +370,51 @@ public class RenderNodeRendererExceptionSafetyTests
     [Test]
     public void Diagnostics_ReconcileCleanupFaultAndIntermediateDischarge()
     {
+        var discharged = new List<string>();
+        using var owner = new RenderRequestOwner();
+        RenderResource<RecordedOperation> kept = Register(
+            owner,
+            new RecordedOperation(new RecordedOperationSpec("kept"), discharged, true));
+        RenderResource<RecordedOperation> faulting = Register(
+            owner,
+            new RecordedOperation(new RecordedOperationSpec("fault", ThrowOnDispose: true), discharged, true));
 
+        owner.Cleanup();
+        owner.Cleanup();
 
         Assert.Multiple(() =>
         {
+            Assert.That(discharged, Is.EqualTo(new[] { "fault", "kept" }),
+                "A fault must not strand the intermediates registered before it.");
+            Assert.That(
+                faulting.RegistrationState,
+                Is.EqualTo(RenderResourceRegistrationState.Released),
+                "An intermediate that threw on release is still released; retrying it would double-dispose.");
+            Assert.That(kept.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Released));
+            Assert.That(owner.CleanupFailures.Length, Is.EqualTo(1));
+            Assert.That(discharged, Has.Count.EqualTo(2), "A second cleanup pass must discharge nothing again.");
         });
     }
 
     [Test]
     public void Diagnostics_AttributeRequestLevelOutputFailureWithoutReplacingExecutedOutcome()
     {
+        using var owner = new RenderRequestOwner();
+        var executed = new InvalidOperationException("execution-outcome");
+        var requestLevel = new InvalidOperationException("request-level-output");
 
+        owner.RecordPrimaryFailure(executed);
+        owner.RecordPrimaryFailure(executed);
+        owner.RecordPrimaryFailure(requestLevel);
 
         Assert.Multiple(() =>
         {
+            Assert.That(owner.PrimaryFailure!.SourceException, Is.SameAs(executed),
+                "The executed outcome is what the caller sees; a later request-level failure must not replace it.");
+            Assert.That(owner.SecondaryFailures, Is.EqualTo(new[] { requestLevel }),
+                "Re-observing the same exception across a request boundary is not an independent failure.");
+            Assert.That(owner.CleanupFailures, Is.Empty,
+                "A failure attributed at the request level is not a cleanup fault.");
         });
     }
 
@@ -449,10 +490,13 @@ public class RenderNodeRendererExceptionSafetyTests
             throw executionFailure;
     }
 
-    private static void Register(RenderRequestOwner owner, RecordedOperation operation)
+    private static RenderResource<RecordedOperation> Register(
+        RenderRequestOwner owner,
+        RecordedOperation operation)
     {
         RenderResource<RecordedOperation> resource = owner.ResourceRegistry.RegisterOwned(operation);
         owner.ResourceRegistry.Commit(resource);
+        return resource;
     }
 
     private static RenderTarget CreateCpuTarget(int width, int height)

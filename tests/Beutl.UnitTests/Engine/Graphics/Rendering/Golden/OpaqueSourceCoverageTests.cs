@@ -17,10 +17,47 @@ public sealed class OpaqueSourceCoverageTests
 {
     private static readonly PixelSize s_frame = new(200, 200);
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void MaterializingAnOpaqueSource_KeepsItsAntialiasedCoverage(bool shifted)
+    {
+        using Drawable.Resource direct = CreateAliasingProneSource(shifted, legacyIdentityEffect: false);
+        using Drawable.Resource materialized = CreateAliasingProneSource(shifted, legacyIdentityEffect: true);
 
+        using Bitmap expected = RenderProductionSource(direct, density: 1f, useRenderCache: false);
+        using Bitmap actual = RenderProductionSource(materialized, density: 1f, useRenderCache: false);
 
+        AssertCoverageParity(expected, actual, $"aliasing-prone shifted={shifted}");
+    }
 
+    [Test]
+    public void ADrawableBrushRastersItsContentAtTheRequestedDensity()
+    {
+        using Drawable.Resource source = CreateDrawableBrushSource();
+        using RenderNodeRasterization rasterization = RasterizeDrawableBrushContent(
+            source,
+            new Size(146, 82),
+            density: 2f);
 
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(GetNonBlackExtent(rasterization.Bitmap!), Is.Not.EqualTo(default(PixelRect)));
+        });
+    }
+
+    [Test]
+    public void AFallbackBrushDrawsNothingWithoutFailingTheFrame()
+    {
+        using Drawable.Resource source = CreateFallbackBrushSource();
+
+        using Bitmap rendered = RenderProductionSource(source, density: 1f, useRenderCache: false);
+
+        Assert.That(
+            GetNonBlackExtent(rendered),
+            Is.EqualTo(default(PixelRect)),
+            "A brush that could not be resolved must leave the frame untouched rather than paint a placeholder.");
+    }
 
 
     private static RenderNodeRasterization RasterizeDrawableBrushContent(

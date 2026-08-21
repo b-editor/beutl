@@ -7,13 +7,14 @@ using SkiaSharp;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
 /// <summary>
-/// Characterizes which pixel-affecting channels are rejected as mutable callback state and which channels
-/// remain explicit author-owned resource identities whose versions must be maintained correctly.
+/// Characterizes what the state-passing rule rejects and which pixel-affecting channels it lets through as
+/// author-owned identities whose cache keys and versions must then be maintained by hand.
 /// </summary>
 /// <remarks>
-/// State passing rejects a mutable reference or delegate anywhere in its complete field graph. Static reads
-/// and resources registered behind an explicitly pinned key and version remain author-declared identity
-/// channels, so the stale-output tests and verification backstop still characterize those cases.
+/// Recording rejects a callback that captures, and nothing else: the state object itself is not walked, so a
+/// mutable reference, a delegate behind a holder, a static field, and a resource pinned to a fixed key and
+/// version all reach the callback intact. Each of those is an identity channel the cache cannot see, so a
+/// change made through one is served from the previous frame's stored pixels.
 /// </remarks>
 [TestFixture]
 public sealed class RenderCacheIdentityChannelTests
@@ -26,6 +27,32 @@ public sealed class RenderCacheIdentityChannelTests
     }
 
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
+
+    [Test]
+    public void CallbackCapturingAPerRecordingValue_IsRejectedWhileRecording()
+    {
+        var captured = new ColorBox { Color = Colors.Red };
+
+        ArgumentException? rejection = Assert.Throws<ArgumentException>(
+            () => Describe(typeof(RenderCacheIdentityChannelTests), (_, _) => _ = captured.Color));
+
+        Assert.That(rejection!.Message, Does.Contain("must not capture per-recording values"),
+            "The capture check is the whole of the state-passing rule, so it must stay the reason given.");
+    }
+
+    [Test]
+    public void MutableReferenceHeldByTheCallbackState_IsServedStale()
+    {
+        using var node = new MutableStateHolderNode();
+        AssertServedStale(node, () => node.Box.Color = Colors.Blue);
+    }
+
+    [Test]
+    public void CapturingDelegateOneLevelDownFromTheState_IsServedStale()
+    {
+        using var node = new DelegateInHolderNode();
+        AssertServedStale(node, () => node.Color = Colors.Blue);
+    }
 
     [Test]
     public void StaticFieldReadByTheStaticCallback_IsServedStale()
@@ -47,19 +74,6 @@ public sealed class RenderCacheIdentityChannelTests
     {
         using var node = new BorrowedDelegateNode();
         AssertServedStale(node, () => node.Color = Colors.Blue);
-    }
-
-    private static void AssertMutableStateRejected(ProbedRenderNode node)
-    {
-        using RenderNodeRenderer renderer = CreateRenderer(node);
-
-        ArgumentException? rejection = Assert.Throws<ArgumentException>(() => renderer.Rasterize());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rejection!.ParamName, Is.EqualTo("state"));
-            Assert.That(rejection.Message, Does.Contain("deeply immutable"));
-        });
     }
 
     /// <summary>
@@ -198,8 +212,8 @@ public sealed class RenderCacheIdentityChannelTests
     }
 
     /// <summary>
-    /// Channel 3: a capturing delegate one level down. The state walk descends through tuple elements, so the
-    /// same delegate placed directly in the state tuple is now rejected; a holder object is where it survives.
+    /// Channel 3: a capturing delegate reached through a holder object. Only the callback is inspected for
+    /// captures, so the delegate travels as ordinary state and what it reads never reaches the cache key.
     /// </summary>
     private sealed class DelegateInHolderNode : ProbedRenderNode
     {

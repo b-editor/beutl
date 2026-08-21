@@ -46,8 +46,12 @@ public sealed class RendererWideRecordingTests
     }
 
 
+    /// <remarks>
+    /// The GPU-gated test above self-skips without a Vulkan device, so this CPU-surface case is what keeps the
+    /// plan cache covered on every machine.
+    /// </remarks>
     [Test]
-    public void ProductionFrameRenderer_UsesExplicitDiagnostics()
+    public void ProductionFrameRenderer_CompilesItsPlanOnceOnTheFirstFrame()
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
@@ -67,6 +71,9 @@ public sealed class RendererWideRecordingTests
 
             Assert.Multiple(() =>
             {
+                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Compilations, Is.EqualTo(1));
+                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Misses, Is.EqualTo(1));
+                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Hits, Is.Zero);
             });
         });
     }
