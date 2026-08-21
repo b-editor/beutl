@@ -10,6 +10,79 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class TextRenderNodeTests
 {
+    /// <remarks>
+    /// The bounds a fragment publishes are what place it, so anything density-dependent in them moves the
+    /// composition between a 50% preview, a 100% preview and a 2x export. Hinting needs a couple of logical
+    /// units of extra room, and a different amount at each density, so that room is declared for the buffer
+    /// only rather than published.
+    /// </remarks>
+    [TestCase(0.5f)]
+    [TestCase(1f)]
+    [TestCase(2f)]
+    public void PublishedBounds_AreTheTextsOwnBoundsAtEveryOutputScale(float outputScale)
+    {
+        using FormattedText text = CreateText();
+        using var node = new TextRenderNode(text, Brushes.Resource.White, null);
+        using var owner = new RenderRequestOwner();
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: outputScale,
+            maxWorkingScale: outputScale,
+            owner: owner));
+
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(RootOf(graph).RecordedBounds, Is.EqualTo(text.ActualBounds));
+            Assert.That(text.GetRasterBounds(outputScale), Is.Not.EqualTo(text.ActualBounds),
+                "The fixture must exercise a density whose mask reaches outside the text's own bounds.");
+        });
+    }
+
+    [TestCase(0.5f)]
+    [TestCase(1f)]
+    [TestCase(2f)]
+    public void DeclaredRasterOutset_CoversTheMaskAtTheRecordedScale(float outputScale)
+    {
+        using FormattedText text = CreateText();
+        using var node = new TextRenderNode(text, Brushes.Resource.White, null);
+        using var owner = new RenderRequestOwner();
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: outputScale,
+            maxWorkingScale: outputScale,
+            owner: owner));
+
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+        RenderFragmentReference root = RootOf(graph);
+        var payload = (OpaqueRenderFragmentPayload)root.Payload!;
+        Rect footprint = root.RecordedBounds.Inflate(payload.Description.Bounds.RasterOutset);
+
+        Assert.That(
+            footprint.Contains(text.GetRasterBounds(outputScale)),
+            Is.True,
+            $"The buffer must still clear the glyph masks measured at {outputScale}.");
+    }
+
+    private static FormattedText CreateText()
+        => new()
+        {
+            Font = TypefaceProvider.Typeface().FontFamily,
+            Size = 48f,
+            Text = "Raster footprint",
+        };
+
+    private static RenderFragmentReference RootOf(RecordedRenderGraph graph)
+    {
+        RenderFragmentId rootId = graph.PublicationRoots.Single();
+        return (RenderFragmentReference)graph.Fragments
+            .Single(fragment => fragment.Id == rootId)
+            .Payload!;
+    }
+
     [Test]
     public void Measure_UsesRasterBoundsForTheEmptinessGate()
     {

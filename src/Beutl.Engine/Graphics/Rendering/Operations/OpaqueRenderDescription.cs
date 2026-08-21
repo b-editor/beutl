@@ -436,10 +436,11 @@ public sealed class OpaqueRenderBoundsContract
     private readonly Func<IReadOnlyList<Rect>, Rect>? _transformBounds;
     private readonly Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? _getRequiredInputBounds;
 
-    private OpaqueRenderBoundsContract(Rect sourceBounds)
+    private OpaqueRenderBoundsContract(Rect sourceBounds, Thickness rasterOutset)
     {
         Kind = OpaqueRenderBoundsKind.Source;
         _sourceBounds = sourceBounds;
+        RasterOutset = rasterOutset;
         StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(Kind, null, null, null);
     }
 
@@ -469,11 +470,44 @@ public sealed class OpaqueRenderBoundsContract
             null);
     }
 
-    public static OpaqueRenderBoundsContract Source(Rect outputBounds)
+    /// <summary>
+    /// The logical room this source's rasterization needs beyond the bounds it publishes, on each side.
+    /// </summary>
+    /// <remarks>
+    /// Publishing the wider rectangle instead would move it: the bounds a fragment publishes are what places
+    /// it, so anything scale-dependent in them changes a project's composition between preview and export.
+    /// The outset therefore only widens the buffer the source draws into; nothing downstream sees it.
+    /// </remarks>
+    public Thickness RasterOutset { get; }
+
+    /// <param name="outputBounds">The bounds this source publishes, which place it.</param>
+    /// <param name="rasterOutset">
+    /// Extra logical room per side for the buffer only, for a source whose rasterization reaches outside the
+    /// bounds it publishes. Must be non-negative and finite.
+    /// </param>
+    public static OpaqueRenderBoundsContract Source(Rect outputBounds, Thickness rasterOutset = default)
     {
         RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(outputBounds));
-        return new OpaqueRenderBoundsContract(outputBounds);
+        if (!IsUsableOutset(rasterOutset))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(rasterOutset),
+                rasterOutset,
+                "A raster outset must be finite and non-negative on every side.");
+        }
+
+        return new OpaqueRenderBoundsContract(outputBounds, rasterOutset);
     }
+
+    private static bool IsUsableOutset(Thickness outset)
+        => float.IsFinite(outset.Left)
+           && float.IsFinite(outset.Top)
+           && float.IsFinite(outset.Right)
+           && float.IsFinite(outset.Bottom)
+           && outset.Left >= 0
+           && outset.Top >= 0
+           && outset.Right >= 0
+           && outset.Bottom >= 0;
 
     public static OpaqueRenderBoundsContract Map(RenderBoundsContract bounds)
     {

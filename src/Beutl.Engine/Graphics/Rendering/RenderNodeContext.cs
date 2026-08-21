@@ -518,7 +518,8 @@ public sealed class RenderNodeContext
         bool directReplayAtExactIntegerReduction = false,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         bool supportsDirectDstOut = true,
-        IEnumerable<RenderResource>? resources = null)
+        IEnumerable<RenderResource>? resources = null,
+        Thickness rasterOutset = default)
     {
         ArgumentNullException.ThrowIfNull(draw);
         hitTest.ThrowIfUninitialized(nameof(hitTest));
@@ -554,7 +555,7 @@ public sealed class RenderNodeContext
             directReplay: !ContainsDrawableBrush(fill, pen)
                 ? source.ExecuteDirect
                 : null,
-            bounds: OpaqueRenderBoundsContract.Source(outputBounds),
+            bounds: OpaqueRenderBoundsContract.Source(outputBounds, rasterOutset),
             hitTest: hitTest,
             scale: scale,
             directReplayAtExactIntegerReduction: directReplayAtExactIntegerReduction,

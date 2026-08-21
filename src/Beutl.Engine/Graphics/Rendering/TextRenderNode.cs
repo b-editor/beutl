@@ -27,9 +27,23 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
     public override void Process(RenderNodeContext context)
     {
         FormattedText text = Text;
-        Rect rasterBounds = text.GetRasterBounds(context.OutputScale);
+        Rect actualBounds = text.ActualBounds;
+        // The mask decides emptiness: a glyph can have a degenerate outline and still rasterize something.
+        Rect rasterBounds = text.GetRasterBounds(context.OutputScale).Union(actualBounds);
         if (rasterBounds.Width == 0 || rasterBounds.Height == 0)
             return;
+
+        // The bounds a fragment publishes are what place it, so they have to be the text's own. Hinting moves
+        // the glyph masks off that rectangle by a couple of logical units, and by a different amount at every
+        // density, so the room the masks need is declared as buffer-only room instead: publishing it would
+        // shift the composition whenever the preview scale or the export scale changed. A degenerate outline
+        // leaves no scale-independent rectangle to place by, so the mask's own footprint is all there is.
+        Rect bounds = actualBounds.Width > 0 && actualBounds.Height > 0 ? actualBounds : rasterBounds;
+        var rasterOutset = new Thickness(
+            (float)(bounds.Left - rasterBounds.Left),
+            (float)(bounds.Top - rasterBounds.Top),
+            (float)(rasterBounds.Right - bounds.Right),
+            (float)(rasterBounds.Bottom - bounds.Bottom));
 
         (Brush.Resource Resource, int Version)? fillSnapshot = Fill;
         (Pen.Resource Resource, int Version)? penSnapshot = Pen;
@@ -52,7 +66,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
                 canvas.DrawText(state, fill, pen),
             fill: fill,
             pen: pen,
-            outputBounds: rasterBounds,
+            outputBounds: bounds,
             hitTest: RenderHitTestContract.FromResource(
                 textResource,
                 (currentText, point) => HitTest(currentText, hasFill, point)),
@@ -61,7 +75,8 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             resources: DeferredOpaqueSource.Resources(
                 textResource,
                 textBrushResource,
-                textPenResource)));
+                textPenResource),
+            rasterOutset: rasterOutset));
     }
 
     private static bool HitTest(FormattedText text, bool hasFill, Point point)

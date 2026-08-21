@@ -273,8 +273,13 @@ internal sealed partial class RenderRequestExecutor
                                 _options.OutputScale,
                                 _options.MaxWorkingScale)
                             : declaredScale.Value;
+                        // A source whose rasterization reaches outside the bounds it publishes declares the
+                        // extra room here rather than publishing the wider rectangle, which would move it.
+                        Thickness rasterOutset = fragment.Kind == RenderFragmentKind.OpaqueSource
+                            ? description.Bounds.RasterOutset
+                            : default;
                         density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
-                            outputBounds.Translate(_activeDeviceGridOffset),
+                            outputBounds.Inflate(rasterOutset).Translate(_activeDeviceGridOffset),
                             density);
                         bool preserveRasterApron = description.HasDirectReplayMaterializationContract
                                                    && fragment.Kind == RenderFragmentKind.OpaqueSource;
@@ -284,7 +289,7 @@ internal sealed partial class RenderRequestExecutor
                         if (preserveRasterApron)
                         {
                             density = RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
-                                outputBounds.Translate(_activeDeviceGridOffset),
+                                outputBounds.Inflate(rasterOutset).Translate(_activeDeviceGridOffset),
                                 density);
                         }
 
@@ -311,7 +316,9 @@ internal sealed partial class RenderRequestExecutor
                                     : density;
                                 if (requestedOutputDensity.HasValue)
                                 {
-                                    Rect densityBounds = logicalBounds.Translate(_activeDeviceGridOffset);
+                                    Rect densityBounds = logicalBounds
+                                        .Inflate(rasterOutset)
+                                        .Translate(_activeDeviceGridOffset);
                                     outputDensity = preserveRasterApron
                                         ? RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
                                             densityBounds,
@@ -322,10 +329,13 @@ internal sealed partial class RenderRequestExecutor
                                 }
 
                                 EffectiveScale outputScale = EffectiveScale.At(outputDensity);
+                                Rect rasterFootprint = logicalBounds.Inflate(rasterOutset);
                                 PixelRect? physicalDeviceBounds = preserveRasterApron
                                     ? RenderScaleUtilities.AddRasterApron(
-                                        PixelRect.FromRect(logicalBounds, outputDensity))
-                                    : null;
+                                        PixelRect.FromRect(rasterFootprint, outputDensity))
+                                    : rasterOutset == default
+                                        ? null
+                                        : PixelRect.FromRect(rasterFootprint, outputDensity);
                                 MaterializedRenderValue value = CreateOwnedValue(
                                     logicalBounds,
                                     outputScale,
