@@ -28,8 +28,10 @@ public partial class ChromaKey : FilterEffect
         const float kLinearQuantum = 0.5 / 255.0;
         const float kHalfStorageUlp = 1.0 / 2048.0;
 
-        // Hue divides by the chroma, and that same quantization can manufacture one linear code of chroma,
-        // so hue carries no signal below one code and full signal only above two.
+        // Hue divides by the chroma, and that same quantization can manufacture one linear code of chroma, so
+        // a key colour below one code has no dependable hue and full confidence only above two. Only the key
+        // is measured: withholding the hue term is a vote to remove, because the shader removes what no term
+        // claims, and a pixel whose own chroma is low is thereby known not to be a chromatic key.
         const half kHueChromaFloor = 1.0 / 255.0;
 
         // Slack for content that arrives near, but not on, the key colour, and the narrowest smoothstep
@@ -96,7 +98,7 @@ public partial class ChromaKey : FilterEffect
             half hueSignal = smoothstep(
                 kHueChromaFloor,
                 2.0 * kHueChromaFloor,
-                min(chroma(rgb), chroma(half3(keyColorLinear))));
+                chroma(half3(keyColorLinear)));
             half maskHue = smoothstep(hueEdge0, hueEdge0 + width, hueDiff) * hueSignal;
             half maskSat = smoothstep(satEdge0, satEdge0 + width, satDiff);
             half mask = max(maskHue, maskSat) * (1.0 - onKeyColor);

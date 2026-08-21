@@ -111,6 +111,40 @@ public sealed class KeyingDegenerateBoundaryTests
         });
     }
 
+    /// <summary>
+    /// Pins that a dark, fully saturated colour survives a key it only differs from in hue.
+    /// </summary>
+    /// <remarks>
+    /// A pure primary shares its saturation with a pure key, so the saturation term cannot separate them and
+    /// hue is the only discriminator left. Quantization makes a dark pixel's hue unreliable, but withholding
+    /// the hue term there removes the pixel instead of keeping it: the shader keeps what no term claims. Every
+    /// shadow in a keyed plate lands in this range, so the levels below span the whole band a chroma floor of
+    /// one linear code covers.
+    /// </remarks>
+    [TestCase(4)]
+    [TestCase(8)]
+    [TestCase(12)]
+    [TestCase(16)]
+    [TestCase(20)]
+    [Category("GpuPassFusionGpu")]
+    public void ChromaKey_LeavesADarkFullySaturatedColourOpaque(int level)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var effect = new ChromaKey();
+            effect.Color.CurrentValue = Colors.Lime;
+            effect.HueRange.CurrentValue = 0f;
+            effect.SaturationRange.CurrentValue = 0f;
+            effect.Boundary.CurrentValue = 2f;
+
+            Assert.That(
+                RenderMaximumAlpha(effect, Color.FromRgb(0, 0, (byte)level), ellipse: false),
+                Is.GreaterThan(0.99f),
+                $"ChromaKey Lime over a pure blue at sRGB {level}: blue is not green at any brightness.");
+        });
+    }
+
     private static IEnumerable<object[]> ChromaKeySelfKeyCases()
     {
         foreach (Color key in s_chromaKeys)
