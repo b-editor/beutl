@@ -4483,6 +4483,62 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task Failed_lfs_prefetch_only_continues_when_the_target_objects_are_cached(
+        bool cacheTheObject)
+    {
+        const string Oid = "1111111111111111111111111111111111111111111111111111111111111111";
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n");
+        Directory.CreateDirectory(Path.Combine(Root, "media"));
+        await File.WriteAllTextAsync(Path.Combine(Root, "media", "clip.mp4"), "media\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "media");
+        await RunGitAsync("remote", "add", "origin", CreateTemporaryDirectory());
+        if (cacheTheObject)
+        {
+            string objectDirectory = Path.Combine(
+                Root,
+                ".git",
+                "lfs",
+                "objects",
+                Oid[..2],
+                Oid[2..4]);
+            Directory.CreateDirectory(objectDirectory);
+            await File.WriteAllTextAsync(Path.Combine(objectDirectory, Oid), "cached\n");
+        }
+
+        var runner = new UnreachableLfsEndpointRunner(CreateRunner(), $"{Oid} * media/clip.mp4\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        Task prefetch = ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            async transaction =>
+            {
+                await transaction.PrefetchBranchLfsObjectsAsync("main", CancellationToken.None);
+                return true;
+            },
+            CancellationToken.None);
+
+        if (cacheTheObject)
+        {
+            // Everything the target needs is already local, so an unreachable endpoint must not
+            // block the transition.
+            Assert.DoesNotThrowAsync(() => prefetch);
+        }
+        else
+        {
+            // The checkout would otherwise download it after the project has closed, on a path that
+            // cannot be cancelled.
+            Assert.ThrowsAsync<GitOperationException>(() => prefetch);
+        }
+    }
+
     private GitCliVersionControlService CreateService(RepositoryWatcher? watcher = null)
     {
         return new GitCliVersionControlService(
@@ -4574,6 +4630,47 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         }
 
         return index;
+    }
+
+    private sealed class UnreachableLfsEndpointRunner(
+        IGitCliRunner inner,
+        string lsFilesOutput) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            string? subcommand = GetGitSubcommand(arguments);
+            if (subcommand == "lfs" && arguments.Contains("fetch"))
+            {
+                throw new GitOperationException(2, "Fatal error: Server error: endpoint unreachable");
+            }
+
+            if (subcommand == "lfs" && arguments.Contains("ls-files"))
+            {
+                return Task.FromResult(new GitCommandResult(0, lsFilesOutput, ""));
+            }
+
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     private sealed class ArgumentRecordingRunner(IGitCliRunner inner) : IGitCliRunner

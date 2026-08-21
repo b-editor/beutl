@@ -4725,13 +4725,93 @@ internal sealed class GitCliVersionControlService :
         }
         catch (GitOperationException ex)
         {
-            // Best effort: the objects may already be cached, and a prefetch failure must not turn
-            // an otherwise working transition into an error.
+            // The objects may already be cached, so an unreachable endpoint must not turn an
+            // otherwise working transition into an error. What it must not do is let the caller
+            // close the project and leave the checkout's own smudge filter to download the missing
+            // content uncancellably, so the failure is only absorbed when the target needs nothing
+            // that is not already in the local object store.
+            if (await HasUncachedLfsObjectsAsync(repository, runner, reference, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                throw;
+            }
+
             _logger.LogWarning(
                 ex,
-                "Could not prefetch Git LFS objects for '{Reference}'.",
+                "Could not prefetch Git LFS objects for '{Reference}', but every object it needs is already cached.",
                 reference);
         }
+    }
+
+    // Fails safe: anything that stops this from proving the objects are present - an unreadable
+    // listing, an unknown storage layout, an unparsable line - counts as uncached, so the caller
+    // aborts while it still can instead of closing the project first.
+    private async Task<bool> HasUncachedLfsObjectsAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string reference,
+        CancellationToken cancellationToken)
+    {
+        string storage;
+        GitCommandResult listed;
+        try
+        {
+            storage = await GetLfsObjectStorageAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false);
+            listed = await runner.RunAsync(
+                repository,
+                [.. s_lfsPathFilterOverrides, "lfs", "ls-files", "--long", reference],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex)
+        {
+            LogWarningBestEffort(
+                ex,
+                "Could not list the Git LFS objects required by a transition target.");
+            return true;
+        }
+
+        foreach (string line in listed.Stdout.Split(
+                     '\n',
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            int separator = line.IndexOf(' ');
+            string oid = separator < 0 ? line : line[..separator];
+            if (oid.Length < 4 || !oid.All(static character => Uri.IsHexDigit(character)))
+            {
+                return true;
+            }
+
+            if (!File.Exists(Path.Combine(storage, oid[..2], oid[2..4], oid)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static async Task<string> GetLfsObjectStorageAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult gitDirectory = await runner.RunAsync(
+            repository,
+            ["rev-parse", "--absolute-git-dir"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        string root = gitDirectory.Stdout.Trim();
+        GitCommandResult configured = await runner.RunAsync(
+            repository,
+            ["config", "--get", "--default", "", "lfs.storage"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        string storage = configured.Stdout.Trim();
+        return storage.Length == 0
+            ? Path.Combine(root, "lfs", "objects")
+            : Path.Combine(root, storage, "objects");
     }
 
     private async Task SwitchBranchCoreAsync(
