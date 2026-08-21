@@ -1778,6 +1778,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_SwitchBranchConfirmation" xml:space="preserve">
     <value>The project will close and reopen on branch "{0}", and the current undo history will be cleared. Unsaved changes are saved first and recorded in a safety snapshot. Continue?</value>
   </data>
+  <data name="VersionControl_SwitchBranchEnclosingRepositoryNotice" xml:space="preserve">
+    <value>This project shares a repository with other files. Switching branches checks the whole repository out, so files outside the project change too.</value>
+  </data>
   <data name="VersionControl_PullConfirmation" xml:space="preserve">
     <value>The project will close and reopen after pulling fast-forward updates, and the current undo history will be cleared. Unsaved changes are saved first and recorded in a safety snapshot. Continue?</value>
   </data>

@@ -1772,6 +1772,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_SwitchBranchConfirmation" xml:space="preserve">
     <value>プロジェクトを閉じてブランチ「{0}」で開き直すため、現在の取り消し履歴は消去されます。未保存の変更は先に保存され、安全スナップショットへ記録されます。続行しますか？</value>
   </data>
+  <data name="VersionControl_SwitchBranchEnclosingRepositoryNotice" xml:space="preserve">
+    <value>このプロジェクトは他のファイルとリポジトリを共有しています。ブランチを切り替えるとリポジトリ全体がチェックアウトされ、プロジェクト外のファイルも変更されます。</value>
+  </data>
   <data name="VersionControl_PullConfirmation" xml:space="preserve">
     <value>fast-forward 更新のプル後にプロジェクトを閉じて開き直すため、現在の取り消し履歴は消去されます。未保存の変更は先に保存され、安全スナップショットへ記録されます。続行しますか？</value>
   </data>

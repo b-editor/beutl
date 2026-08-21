@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Globalization;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
@@ -3467,10 +3468,25 @@ public sealed class VersionControlCoordinator :
     {
         return ShowConfirmationAsync(
             Strings.VersionControl_SwitchBranch,
-            string.Format(
-                Strings.VersionControl_SwitchBranchConfirmation,
-                branchName),
+            CreateSwitchBranchConfirmation(
+                branchName,
+                CurrentService?.Repository?.IsNestedInForeignRepo == true),
             cancellationToken);
+    }
+
+    // A branch switch is repository-wide by design, so a project sharing someone else's repository
+    // has to be told that the decision reaches past its own directory before it is taken.
+    internal static string CreateSwitchBranchConfirmation(
+        string branchName,
+        bool isNestedInForeignRepo)
+    {
+        string confirmation = string.Format(
+            CultureInfo.CurrentCulture,
+            Strings.VersionControl_SwitchBranchConfirmation,
+            branchName);
+        return isNestedInForeignRepo
+            ? $"{confirmation}\n\n{Strings.VersionControl_SwitchBranchEnclosingRepositoryNotice}"
+            : confirmation;
     }
 
     private Task<bool> ShowPullConfirmationAsync(

@@ -4485,7 +4485,7 @@ internal sealed class GitCliVersionControlService :
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         await runner.RunAsync(
             repository,
-            [.. s_lfsPathFilterOverrides, "switch", "-c", name, startPoint],
+            [.. s_lfsPathFilterOverrides, "switch", "--no-overwrite-ignore", "-c", name, startPoint],
             new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
             cancellationToken).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
@@ -4834,7 +4834,7 @@ internal sealed class GitCliVersionControlService :
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         await runner.RunAsync(
             repository,
-            [.. s_lfsPathFilterOverrides, "switch", name],
+            [.. s_lfsPathFilterOverrides, "switch", "--no-overwrite-ignore", name],
             new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
             cancellationToken).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);

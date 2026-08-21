@@ -89,6 +89,30 @@ public class VersionControlRestoreTests
         }
     }
 
+    [Test]
+    public void Switch_branch_confirmation_discloses_a_shared_repository()
+    {
+        string standalone = VersionControlCoordinator.CreateSwitchBranchConfirmation(
+            "feature",
+            isNestedInForeignRepo: false);
+        string shared = VersionControlCoordinator.CreateSwitchBranchConfirmation(
+            "feature",
+            isNestedInForeignRepo: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(standalone, Does.Contain("feature"));
+            Assert.That(
+                standalone,
+                Does.Not.Contain(Strings.VersionControl_SwitchBranchEnclosingRepositoryNotice));
+            // The switch checks the whole enclosing worktree out, which the user has to know
+            // before deciding rather than after files outside the project have changed.
+            Assert.That(
+                shared,
+                Does.Contain(Strings.VersionControl_SwitchBranchEnclosingRepositoryNotice));
+        });
+    }
+
     [AvaloniaTest]
     public async Task Restore_to_a_new_branch_branches_from_the_current_tip_and_applies_the_project_tree()
     {

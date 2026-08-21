@@ -54,6 +54,7 @@ public class VersionControlStringsTests
         "VersionControl_Switch",
         "VersionControl_SwitchBranch",
         "VersionControl_SwitchBranchConfirmation",
+        "VersionControl_SwitchBranchEnclosingRepositoryNotice",
         "VersionControl_PullConfirmation",
         "VersionControl_EnclosingRepositoryScopeFormat",
         "VersionControl_AdoptExistingRepository",

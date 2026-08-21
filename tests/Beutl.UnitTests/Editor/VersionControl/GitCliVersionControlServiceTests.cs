@@ -4440,8 +4440,41 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 // transition that inherited them would leave pointer text where the media belongs.
                 Assert.That(arguments, Does.Contain("lfs.fetchinclude="), string.Join(' ', arguments));
                 Assert.That(arguments, Does.Contain("lfs.fetchexclude="), string.Join(' ', arguments));
+                // Overwriting ignored files is Git's default; in an enclosing repository that would
+                // silently destroy files the project never tracked.
+                Assert.That(
+                    arguments,
+                    Does.Contain("--no-overwrite-ignore"),
+                    string.Join(' ', arguments));
             }
         });
+    }
+
+    [Test]
+    public async Task Branch_switches_refuse_to_overwrite_an_ignored_file()
+    {
+        await CommitFileAsync("project.bep", "base\n", "base");
+        string baseSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await CommitFileAsync("tracked-later.txt", "tracked\n", "add a file the other branch lacks");
+        using var service = CreateService();
+        await service.CreateBranchAsync("alternate", baseSha, CancellationToken.None);
+        await service.SwitchBranchAsync("main", CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "collides.txt\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore the collision path");
+        await RunGitAsync("switch", "alternate");
+        await File.WriteAllTextAsync(Path.Combine(Root, "collides.txt"), "tracked on main\n");
+        await RunGitAsync("add", "--", "collides.txt");
+        await RunGitAsync("commit", "-m", "track the collision path on the other branch");
+        await RunGitAsync("switch", "main");
+        await File.WriteAllTextAsync(Path.Combine(Root, "collides.txt"), "local ignored content\n");
+
+        Assert.ThrowsAsync<GitOperationException>(
+            async () => await service.SwitchBranchAsync("alternate", CancellationToken.None));
+
+        Assert.That(
+            await File.ReadAllTextAsync(Path.Combine(Root, "collides.txt")),
+            Is.EqualTo("local ignored content\n"));
     }
 
     [Test]
