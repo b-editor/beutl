@@ -1645,6 +1645,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiRequestInProgress" xml:space="preserve">
     <value>同じリクエストがまだサーバーで処理中です。少し待ってからもう一度実行すると、その結果を受け取れます (二重に課金されません)。</value>
   </data>
+  <data name="AiRequestChanged" xml:space="preserve">
+    <value>この依頼を送った名前は、別の依頼のものです。内容を元に戻すと支払い済みの結果を取り戻せます。いまの内容のまま送り直すと、新しい依頼になります。</value>
+  </data>
   <data name="AiRequestWasDeleted" xml:space="preserve">
     <value>このリクエストは削除済みのため、結果を取り出せません。途中結果を破棄してから実行し直してください。</value>
   </data>

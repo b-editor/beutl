@@ -50,6 +50,7 @@ internal static class AiErrorConverter
             ApiErrorCode.AiJobLimitReached => new AiJobLimitReachedException(innerException),
             ApiErrorCode.AiRequestInProgress => new AiRequestInProgressException(innerException),
             ApiErrorCode.AiRequestWasDeleted => new AiRequestWasDeletedException(innerException),
+            ApiErrorCode.AiRequestChanged => new AiRequestChangedException(innerException),
             ApiErrorCode.AiModelDoesNotSupportRequest =>
                 new AiModelDoesNotSupportRequestException(innerException),
             ApiErrorCode.AiModelUnavailable => new AiModelUnavailableException(innerException),

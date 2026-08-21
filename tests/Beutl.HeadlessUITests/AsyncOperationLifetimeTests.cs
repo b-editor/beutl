@@ -1,4 +1,4 @@
-using Beutl.Services;
+﻿using Beutl.Services;
 
 namespace Beutl.HeadlessUITests;
 

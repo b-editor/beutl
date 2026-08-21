@@ -206,7 +206,7 @@ public sealed class CaptionDraftStoreTests
         string stored = File.ReadAllText(path);
         File.WriteAllText(
             path,
-            stored.Replace("\"version\":2", "\"version\":1"));
+            stored.Replace("\"version\":3", "\"version\":1"));
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
         using (reopened)
@@ -230,6 +230,71 @@ public sealed class CaptionDraftStoreTests
                     Is.False);
             });
         }
+    }
+
+    [Test]
+    public void Load_ReadsAVersion2DraftAsStillHoldingItsName()
+    {
+        // 版 2 には「名前を抱えたまま終わったか」が無い。読み落として false に
+        // すると、まだ返ってきていない最初の切れ端を持つ実行が拾い直せず、
+        // 買い直しになる。版 2 は切れ端が返るたびに名前を決着させていなかった
+        // ので、seed があるなら抱えていたということ。
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
+        }
+
+        string path = store.GetStoragePath(scope);
+        string stored = File.ReadAllText(path);
+        // 版 2 が書いた控えそのもの——版が 2 で、その項目がまだ無い。
+        string asVersion2 = stored
+            .Replace("\"version\":3", "\"version\":2")
+            .Replace(",\"requestKeyNamePending\":true", string.Empty);
+        Assert.That(asVersion2, Does.Not.Contain("requestKeyNamePending"));
+        File.WriteAllText(path, asVersion2);
+
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
+        using (reopened)
+        {
+            CaptionDraftEntry? restored = reopened!.Load();
+
+            Assert.That(restored, Is.Not.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    restored!.Draft.SourceTranscriptionResume?.RequestKeySeed,
+                    Is.EqualTo("seed-of-the-run"),
+                    "What it paid for is still named.");
+                Assert.That(
+                    restored.Draft.SourceTranscriptionResume?.RequestKeyNamePending,
+                    Is.True);
+            });
+        }
+    }
+
+    [Test]
+    public void TryOpen_RefusesAScopeAnotherProcessIsHolding()
+    {
+        // 同じ人の同じ場面を、もう 1 つの Beutl が開いていることがある。どちらも
+        // 書けてしまうと、片方が書いた支払い済みの名前をもう片方が上書きし、次の
+        // 起動でそれを買い直す。別の store インスタンスは別のプロセスの代わり。
+        var first = new FileCaptionDraftStore(_storageDirectory);
+        var second = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+
+        Assert.That(first.TryOpen(scope, out ICaptionDraftSession? held), Is.True);
+        using (held)
+        {
+            Assert.That(second.TryOpen(scope, out ICaptionDraftSession? blocked), Is.False);
+            Assert.That(blocked, Is.Null);
+        }
+
+        // 手放せば次の人が取れる。
+        Assert.That(second.TryOpen(scope, out ICaptionDraftSession? afterRelease), Is.True);
+        afterRelease!.Dispose();
     }
 
     private static CaptionDraft CreateResumableSourceDraft()

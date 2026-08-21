@@ -408,13 +408,21 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestInProgress);
         }
+        // この実行の名前は、別の依頼のものになっている。シーン合成の音声は
+        // 作り直すたびに変わり得るので、拾い直した実行がここに来る。支払い済みの
+        // 切れ端はそのまま残し、残りは新しい名前で買い直す。
+        catch (AiRequestChangedException)
+        {
+            RetireTranscriptionRunNames();
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestChanged);
+        }
         catch (AiRequestWasDeletedException)
         {
             // The job those names made is gone, so the rest of the run needs new
             // ones — written to the draft as well, or a run resumed after a
             // restart would ask under the same deleted name and stop there for
             // good. The pieces already paid for stay paid.
-            RetireDeletedTranscriptionNames();
+            RetireTranscriptionRunNames();
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted);
         }
         catch (SubtitleInputException ex)

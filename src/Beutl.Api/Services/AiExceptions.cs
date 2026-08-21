@@ -122,6 +122,24 @@ public sealed class AiRequestWasDeletedException : AiException
 }
 
 /// <summary>
+/// The name this request was sent under belongs to a different request
+/// (409 aiRequestChanged).
+/// </summary>
+/// <remarks>
+/// The server fingerprints what a name was used for and refuses to answer it
+/// with anything else. Asking again for exactly what that name was sent with
+/// collects what it may already have paid for; anything else is a new request
+/// and needs a new name.
+/// </remarks>
+public sealed class AiRequestChangedException : AiException
+{
+    public AiRequestChangedException(Exception? innerException = null)
+        : base("The idempotency key belongs to a different request.", innerException)
+    {
+    }
+}
+
+/// <summary>
 /// A paid result the server holds could not be read just now
 /// (503 aiResultUnavailable).
 /// </summary>

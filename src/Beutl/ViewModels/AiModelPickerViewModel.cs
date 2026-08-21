@@ -5,6 +5,8 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Beutl.Api.Services;
 using Beutl.Language;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using ReactiveUI.Avalonia;
 
@@ -44,6 +46,7 @@ internal sealed record AiModelPickerOption(AiModelOption Model, bool IsAvailable
 /// </summary>
 internal sealed class AiModelPickerViewModel : IDisposable
 {
+    private readonly ILogger _logger = Log.CreateLogger<AiModelPickerViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly IAiModelCatalogService _catalog;
     private readonly IAiEntitlementService _entitlements;
@@ -53,6 +56,11 @@ internal sealed class AiModelPickerViewModel : IDisposable
     // the list and move the user's choice for nothing.
     private AiModelCatalog? _loadedCatalog;
     private AiEntitlements? _loadedEntitlements;
+    // Which load is the one whose answer still matters. Two can be in the air
+    // at once — switching task while a scheduled reload is fetching — and only
+    // the newest may say the list has arrived, or a request could go out while
+    // the list for the task on screen is still on its way.
+    private int _loadGeneration;
     // How often a page that stays where it is asks again. The catalog itself is
     // cached with a freshness window, so most of these cost nothing; without
     // them, a page left in the foreground goes on offering a model an operator
@@ -100,10 +108,12 @@ internal sealed class AiModelPickerViewModel : IDisposable
         {
             await LoadAsync(Operation, CancellationToken.None);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Offering yesterday's list is better than emptying it. Whoever
-            // asked for the load in the first place reports what went wrong.
+            // Offering yesterday's list is better than emptying it, so nothing
+            // is shown for a reload nobody asked for — but a list that has
+            // stopped refreshing is worth knowing about.
+            _logger.LogWarning(ex, "Failed to reload the AI model list.");
         }
     }
 
@@ -193,13 +203,15 @@ internal sealed class AiModelPickerViewModel : IDisposable
         if (Operation != operation)
             IsLoaded.Value = false;
 
+        int generation = ++_loadGeneration;
         try
         {
             await LoadCoreAsync(operation, preferred, cancellationToken);
         }
         finally
         {
-            IsLoaded.Value = true;
+            if (generation == _loadGeneration)
+                IsLoaded.Value = true;
         }
     }
 
@@ -209,6 +221,12 @@ internal sealed class AiModelPickerViewModel : IDisposable
         CancellationToken cancellationToken)
     {
         AiModelCatalog catalog = await _catalog.GetAsync(cancellationToken);
+        // Asked again on the way back. A request may have gone out while this
+        // was being fetched, and what it carries — the model, and the shape and
+        // background that follow it — is what this list would replace.
+        if (CanReload?.Invoke() == false)
+            return;
+
         AiEntitlements? entitlements = _entitlements.Entitlements.Value;
         if (preferred is null
             && Operation == operation

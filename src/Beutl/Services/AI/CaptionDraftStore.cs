@@ -52,7 +52,16 @@ internal sealed record CaptionSceneTranscriptionResume(
     int ChunkCount,
     AiTranscriptionSegment[] Segments,
     string? DetectedLanguage,
-    int CompletedChunkCount);
+    int CompletedChunkCount,
+    // What the chunks of this run were named to the server. Scene audio is
+    // composed rather than read from a file, so nothing written down proves it
+    // is still the same audio — the server's own fingerprint does. A chunk
+    // asked for again under this seed is answered from the job it made when the
+    // audio matches, and refused as a different request when it does not, which
+    // is where the run starts over.
+    string RequestKeySeed = "",
+    string RequestKeyModel = "",
+    bool RequestKeyNamePending = false);
 
 internal sealed record CaptionSourceTranscriptionResume(
     string FilePath,
@@ -161,10 +170,11 @@ internal interface ICaptionDraftStore
 internal sealed class FileCaptionDraftStore : ICaptionDraftStore
 {
     // Version 2 records what a run's requests were named before its first piece
-    // comes back.
-    internal const int CurrentVersion = 2;
-    // 版 1 の控えも読む。中身のうち曖昧なのは名前だけなので、それを落として
-    // 読み込む——支払い済みの結果まで捨てる理由は無い。
+    // comes back; version 3 also records whether one of those names was still
+    // outstanding when the draft was written.
+    internal const int CurrentVersion = 3;
+    // 古い控えも読む。曖昧なのはそのときどきの名前まわりだけなので、そこだけを
+    // 直して読み込む——支払い済みの結果まで捨てる理由は無い。
     internal const int OldestSupportedVersion = 1;
     internal const int MaximumStorageBytes = 8 * 1024 * 1024;
     private const int MaximumCueCount = 10_000;
@@ -199,10 +209,45 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 return false;
             }
 
+            // 同じ人の同じ場面を、もう 1 つの Beutl が開いていることがある。
+            // どちらも書けてしまうと、片方が書いた「支払い済みの名前」をもう
+            // 片方が上書きし、次の起動でそれを買い直すことになる。ファイルを
+            // 共有無しで開いたまま持ち、開けたほうだけが書く。
+            FileStream? lockFile = TryTakeLockFile(scope);
+            if (lockFile is null)
+            {
+                session = null;
+                return false;
+            }
+
             Guid leaseId = Guid.NewGuid();
             _leases.Add(scope, leaseId);
-            session = new Session(this, scope, leaseId);
+            session = new Session(this, scope, leaseId, lockFile);
             return true;
+        }
+    }
+
+    private FileStream? TryTakeLockFile(CaptionDraftScope scope)
+    {
+        try
+        {
+            Directory.CreateDirectory(StorageDirectory);
+            return new FileStream(
+                GetStoragePath(scope) + ".lock",
+                FileMode.OpenOrCreate,
+                FileAccess.ReadWrite,
+                FileShare.None,
+                bufferSize: 1,
+                FileOptions.DeleteOnClose);
+        }
+        catch (IOException)
+        {
+            // 他のプロセスが握っている。
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 
@@ -357,6 +402,43 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         if (version >= CurrentVersion)
             return draft;
 
+        // 版 2 には「名前を抱えたまま終わったか」が無い。読み落とすと false に
+        // なり、まだ返ってきていない最初の切れ端を持つ実行が拾い直せなくなって
+        // 買い直しになる。版 2 は切れ端が返るたびに名前を決着させていなかった
+        // ので、seed があるなら抱えていたということ——そう読む。取り違えて
+        // true にしても、サーバーがその名前で何も見つけなければ普通に課金される
+        // だけで、失うものは無い。
+        if (version == 2)
+        {
+            return draft with
+            {
+                Version = CurrentVersion,
+                TranslationResume = draft.TranslationResume is { } pendingTranslation
+                    ? pendingTranslation with
+                    {
+                        RequestKeyNamePending =
+                            !string.IsNullOrEmpty(pendingTranslation.RequestKeySeed),
+                    }
+                    : null,
+                SourceTranscriptionResume =
+                    draft.SourceTranscriptionResume is { } pendingSource
+                        ? pendingSource with
+                        {
+                            RequestKeyNamePending =
+                                !string.IsNullOrEmpty(pendingSource.RequestKeySeed),
+                        }
+                        : null,
+                SceneTranscriptionResume =
+                    draft.SceneTranscriptionResume is { } pendingScene
+                        ? pendingScene with
+                        {
+                            RequestKeyNamePending =
+                                !string.IsNullOrEmpty(pendingScene.RequestKeySeed),
+                        }
+                        : null,
+            };
+        }
+
         return draft with
         {
             Version = CurrentVersion,
@@ -370,6 +452,14 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 : null,
             SourceTranscriptionResume = draft.SourceTranscriptionResume is { } source
                 ? source with
+                {
+                    RequestKeySeed = string.Empty,
+                    RequestKeyModel = string.Empty,
+                    RequestKeyNamePending = false,
+                }
+                : null,
+            SceneTranscriptionResume = draft.SceneTranscriptionResume is { } scene
+                ? scene with
                 {
                     RequestKeySeed = string.Empty,
                     RequestKeyModel = string.Empty,
@@ -566,7 +656,8 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
     private sealed class Session(
         FileCaptionDraftStore owner,
         CaptionDraftScope scope,
-        Guid leaseId) : ICaptionDraftSession
+        Guid leaseId,
+        FileStream lockFile) : ICaptionDraftSession
     {
         private FileCaptionDraftStore? _owner = owner;
 
@@ -582,7 +673,22 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             => GetOwner().Delete(Scope, leaseId);
 
         public void Dispose()
-            => Interlocked.Exchange(ref _owner, null)?.Release(Scope, leaseId);
+        {
+            if (Interlocked.Exchange(ref _owner, null) is not { } owner)
+                return;
+
+            owner.Release(Scope, leaseId);
+            try
+            {
+                lockFile.Dispose();
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
 
         private FileCaptionDraftStore GetOwner()
             => Volatile.Read(ref _owner)

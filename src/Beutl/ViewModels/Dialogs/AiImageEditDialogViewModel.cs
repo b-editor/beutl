@@ -38,14 +38,12 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     // The model the outstanding name was built from. A refresh that withdraws
     // that model would otherwise rebuild the name around whatever the picker
     // fell back to, and the job the first attempt paid for would be left behind.
-    private AiModelId? _outstandingModel;
-    // Which of the five tasks that name was built for. Each is its own
-    // operation with its own models and its own price, so a name outstanding on
-    // one says nothing about a request built on another.
-    private readonly ReactivePropertySlim<string?> _outstandingTask = new();
-    // その名前を作った依頼の、モデル以外の中身。今組み立てている依頼がこれと
-    // 同じときだけ、名前もモデルも引き継ぐ。
-    private string?[]? _outstandingRequest;
+    // 決着していない名前ごとに、その依頼が何を名乗ったか。1 件だけ覚えていると、
+    // 別の依頼を出した時点で前の依頼のモデルを忘れ、戻ってきたときに買い直す。
+    private readonly AiOutstandingRequests _outstanding = new();
+    // 抱えている名前が変わったことを画面へ伝えるためだけの数。どの task に
+    // 名前が残っているかは _outstanding が知っている。
+    private readonly ReactivePropertySlim<int> _outstandingRevision = new();
     private readonly EditViewModel? _editViewModel;
     private string? _sourceElementId;
     private bool _modelsRequireResolution;
@@ -176,12 +174,8 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         // A name is only outstanding for the task it was built on. Switching
         // tasks is starting a different request, which has to be paid for and
         // has to be offered a model of its own.
-        HoldsRequestName = _requestKey.HasOutstandingName
-            .CombineLatest(_outstandingTask, (outstanding, task) => (outstanding, task))
-            .CombineLatest(
-                SelectedTask,
-                (held, selected) => held.outstanding
-                    && string.Equals(held.task, selected.Value, StringComparison.Ordinal))
+        HoldsRequestName = _outstandingRevision
+            .CombineLatest(SelectedTask, (_, selected) => HoldsNameFor(selected.Value))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -372,7 +366,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         SourceFilePath.Dispose();
         Prompt.Dispose();
         Error.Dispose();
-        _outstandingTask.Dispose();
+        _outstandingRevision.Dispose();
         _disposables.Dispose();
     }
 
@@ -396,8 +390,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     private void RetireRequestName(AiRequestName name)
     {
         _requestKey.Retire(name);
-        if (!_requestKey.HasOutstandingName.Value)
-            ForgetOutstandingRequest();
+        Forget(name);
         // Reloads were held back while that name was outstanding, so this is
         // where an operator's change to the model list finally lands.
         _ = ReloadModelsAsync(SelectedTask.Value);
@@ -408,15 +401,13 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     private void WithdrawRequestName(AiRequestName name)
     {
         _requestKey.Withdraw(name);
-        if (!_requestKey.HasOutstandingName.Value)
-            ForgetOutstandingRequest();
+        Forget(name);
     }
 
-    private void ForgetOutstandingRequest()
+    private void Forget(AiRequestName name)
     {
-        _outstandingModel = null;
-        _outstandingRequest = null;
-        _outstandingTask.Value = null;
+        _outstanding.Forget(name);
+        _outstandingRevision.Value++;
     }
 
     // Whatever the outstanding name was built from, including no model at all:
@@ -424,19 +415,15 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     // catalog that has since loaded name one would make it a different request.
     // Only for the same request: an edit of another picture, or with another
     // prompt, is a new request and is priced and run on the model on screen.
-    private AiModelId? PinnedOrSelectedModel(
-        string task,
-        string?[] request,
-        AiModelId? selected)
-        => HoldsNameFor(task)
-            && _outstandingRequest is { } outstanding
-            && outstanding.AsSpan().SequenceEqual(request)
-                ? _outstandingModel
-                : selected;
+    private AiModelId? PinnedOrSelectedModel(string?[] request, AiModelId? selected)
+        => _outstanding.TryGetModel(request, out AiModelId? sentWith) ? sentWith : selected;
 
+    // Whether any request still waiting to be collected belongs to this task.
+    // Each of the five is its own operation with its own models and its own
+    // price, so a name outstanding on one says nothing about another.
     private bool HoldsNameFor(string task)
-        => _requestKey.HasOutstandingName.Value
-            && string.Equals(_outstandingTask.Value, task, StringComparison.Ordinal);
+        => _outstanding.Any(request =>
+            string.Equals(request[TaskPartIndex], task, StringComparison.Ordinal));
 
     private async Task LoadEntitlementsAsync()
     {
@@ -473,6 +460,8 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     // Where the model sits in the request's parts. It is filled in last: which
     // model a request carries depends on whether a name is already outstanding
     // for the rest of it.
+    // Where the task and the model sit in the request's parts.
+    private const int TaskPartIndex = 0;
     private const int ModelPartIndex = 2;
 
     private static string? RequiredBackground(string? task)
@@ -627,15 +616,13 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             ];
             var request = (string?[])requestParts.Clone();
             AiModelId? model = PinnedOrSelectedModel(
-                task,
                 request,
                 ModelPicker.Operation == editOperation ? ModelPicker.SelectedModel : null);
             requestParts[ModelPartIndex] = model?.Value;
             AiRequestName name = _requestKey.NameFor(requestParts);
             issued = name;
-            _outstandingModel = model;
-            _outstandingRequest = request;
-            _outstandingTask.Value = task;
+            _outstanding.Remember(name, request, model);
+            _outstandingRevision.Value++;
 
             // Before it goes out. A name that ends here reached nothing.
             try
@@ -758,6 +745,13 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         }
         // The job that key created is gone, so the key can only ever answer
         // with that. The next attempt has to be a new request.
+        // 送った名前が、別の依頼のものだった。画面の中身を戻せばその依頼として
+        // 送り直せるので、名前は残す——ここで捨てると、支払い済みかもしれない
+        // job へ戻る道が閉じる。
+        catch (AiRequestChangedException)
+        {
+            operation.TryPublish(() => Error.Value = Strings.AiRequestChanged);
+        }
         catch (AiRequestWasDeletedException)
         {
             RetireRequestName(issued);

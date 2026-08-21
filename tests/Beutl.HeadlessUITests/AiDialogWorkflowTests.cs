@@ -266,6 +266,83 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageGeneration_KeepsEachOutstandingRequestOnItsOwnModel()
+    {
+        // A をモデル X で出したまま応答を落とし、モデルを Y に替えた B が成功
+        // する。覚えているのが 1 件だけだと、A に戻ったときに picker の Y で
+        // 名前を作り直し、支払い済みの A を買い直すことになる。
+        await TestReset.ResetShellAsync();
+        var sent = new List<(string Prompt, string? Model, string? Key)>();
+        using var handler = new StubHandler(async (request, token) =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/capabilities":
+                    return JsonResponse(HttpStatusCode.OK, ImageCapabilitiesJson());
+                case "/api/v3/ai/images":
+                    string body = await request.Content!.ReadAsStringAsync(token);
+                    using (JsonDocument document = JsonDocument.Parse(body))
+                    {
+                        string prompt = document.RootElement.GetProperty("prompt").GetString()!;
+                        sent.Add((
+                            prompt,
+                            document.RootElement.TryGetProperty("model", out JsonElement model)
+                                ? model.GetString()
+                                : null,
+                            IdempotencyKeyOf(request)));
+                        return prompt.Contains("second", StringComparison.Ordinal)
+                            ? JsonResponse(
+                                HttpStatusCode.OK,
+                                ImageResponseJson("image-job", "image-file"))
+                            : JsonResponse(HttpStatusCode.Conflict, """
+                                {
+                                  "error_code": "aiRequestInProgress",
+                                  "message": "The first attempt is still running.",
+                                  "documentation_url": null
+                                }
+                                """);
+                    }
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
+
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-1");
+        viewModel.Prompt.Value = "the first picture";
+        await viewModel.Generate.ExecuteAsync();
+
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-2");
+        viewModel.Prompt.Value = "the second picture";
+        await viewModel.Generate.ExecuteAsync();
+
+        viewModel.Prompt.Value = "the first picture";
+        await viewModel.Generate.ExecuteAsync();
+
+        Assert.That(sent, Has.Count.EqualTo(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(sent[0].Model, Is.EqualTo("openai/gpt-image-1"));
+            Assert.That(sent[1].Model, Is.EqualTo("openai/gpt-image-2"));
+            Assert.That(
+                sent[2].Model,
+                Is.EqualTo("openai/gpt-image-1"),
+                "Coming back to the unfinished request asks for it on the model it was sent with.");
+            Assert.That(sent[2].Key, Is.EqualTo(sent[0].Key));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task ImageGeneration_ShowsTheRoughPictureWhileTheModelWorks()
     {
         await TestReset.ResetShellAsync();

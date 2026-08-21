@@ -719,7 +719,9 @@ public sealed partial class AiSubtitleDialogViewModel
             AiRequestName name = operation.RequestNameFor(index, runModel);
             UpdateOutstandingCaptionRequest();
             // Before the scene is composed: mixing a chunk of audio the account
-            // cannot pay for is work thrown away.
+            // cannot pay for is work thrown away. Anything that ends here ends
+            // before the request went out, so the name reached nothing — a
+            // refusal, a run stopped while the check was in the air, any of it.
             try
             {
                 // Not for a repeat: the server looks up the job this name
@@ -732,8 +734,22 @@ public sealed partial class AiSubtitleDialogViewModel
                             chunkDuration.TotalSeconds,
                             runModel));
                 }
+
+                // Written before the chunk goes out. Scene audio is composed
+                // rather than read from a file, so nothing written down proves
+                // it is still the same audio — the server's own fingerprint
+                // does, and answers a chunk asked for again only when it
+                // matches.
+                switch (PublishSceneTranscriptionPartial(operation))
+                {
+                    case CaptionDraftOutcome.Superseded:
+                        return;
+                    case CaptionDraftOutcome.NotRecorded:
+                        throw new SubtitleInputException(
+                            Strings.AiSubtitle_RunCannotBeRecorded);
+                }
             }
-            catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
+            catch
             {
                 operation.RequestKey.Withdraw(name);
                 UpdateOutstandingCaptionRequest();
@@ -1027,6 +1043,15 @@ public sealed partial class AiSubtitleDialogViewModel
         catch (AiRequestInProgressException)
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestInProgress);
+        }
+        // この実行の名前が、別の依頼のものになっている。残りは新しい名前で。
+        catch (AiRequestChangedException)
+        {
+            _pendingTranslation?.RequestKey.Retire();
+            UpdateOutstandingCaptionRequest();
+            if (_pendingTranslation is { } changed)
+                PublishTranslationPartial(changed);
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestChanged);
         }
         catch (AiRequestWasDeletedException)
         {
@@ -1432,6 +1457,21 @@ public sealed partial class AiSubtitleDialogViewModel
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to persist a recoverable paid caption result.");
+            // 書けなかったということは、ディスクに残っているのは 1 つ前の姿。
+            // 決着した名前を「まだ抱えている」と言い続ける控えは、次の起動で
+            // 支払い済みの回収のふりをして残高の確認をすり抜ける。古い姿のまま
+            // 残すより、控えごと消したほうが安全——支払い済みの結果はこの
+            // セッションのあいだは手元に残っている。
+            try
+            {
+                _captionDraftSession.Delete();
+            }
+            catch (Exception deleteFailure)
+            {
+                _logger.LogWarning(
+                    deleteFailure,
+                    "Failed to clear a caption draft that could not be updated.");
+            }
             return CaptionDraftOutcome.NotRecorded;
         }
         return CaptionDraftOutcome.Recorded;
@@ -1472,7 +1512,10 @@ public sealed partial class AiSubtitleDialogViewModel
                 scene.ChunkCount,
                 CloneSegments(scene.Segments),
                 scene.DetectedLanguage,
-                scene.CompletedChunkCount);
+                scene.CompletedChunkCount,
+                scene.RequestKeySeed,
+                scene.RequestKeyModel,
+                scene.RequestKey.HasOutstandingName.Value);
         }
 
         CaptionSourceTranscriptionResume? sourceResume = null;
@@ -1635,10 +1678,42 @@ public sealed partial class AiSubtitleDialogViewModel
                 }
             }
 
-            if (draft.SceneTranscriptionResume is { } scene)
+            if (draft.SceneTranscriptionResume is { } scene
+                && scene.SceneId == _editViewModel?.Scene.Id)
             {
-                // The paid partial remains applicable, but scene audio has no durable
-                // content fingerprint. Never append newly composed chunks after a restart.
+                // Scene audio is composed rather than read from a file, so
+                // nothing written down proves the scene still sounds the same.
+                // The server's own fingerprint does: a chunk asked for again is
+                // answered from the job it made when the audio matches, and
+                // refused as a different request when it does not — which is
+                // where the run starts over. Without this, the chunk that was
+                // charged for just before the session ended is bought again.
+                _pendingSceneTranscription = new SceneTranscriptionOperation(
+                    null,
+                    scene.Language,
+                    scene.RangeStart,
+                    scene.Duration,
+                    scene.ChunkDuration,
+                    scene.ChunkCount,
+                    Interlocked.Read(ref _captionDocumentRevision),
+                    draftScopeRevision,
+                    Interlocked.Read(ref _sceneAudioRevision),
+                    scene.SceneId,
+                    string.IsNullOrEmpty(scene.RequestKeySeed) ? null : scene.RequestKeySeed,
+                    scene.RequestKeyNamePending)
+                {
+                    CompletedChunkCount = scene.CompletedChunkCount,
+                    DetectedLanguage = scene.DetectedLanguage,
+                    RequestKeyModel = scene.RequestKeyModel,
+                };
+                _pendingSceneTranscription.Segments.AddRange(CloneSegments(scene.Segments));
+                _restoredTranscriptionModel =
+                    string.IsNullOrEmpty(scene.RequestKeyModel)
+                        ? null
+                        : new AiModelId(scene.RequestKeyModel);
+                PreferRestoredModel(
+                    TranscriptionModelPicker,
+                    _restoredTranscriptionModel);
                 CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
                     string.Equals(option.Code, scene.Language, StringComparison.Ordinal));
                 if (sourceOption is not null)
@@ -1964,7 +2039,11 @@ public sealed partial class AiSubtitleDialogViewModel
         RestoreCaptionDraft();
     }
 
-    private void RetireDeletedTranscriptionNames()
+    // この実行の名前ではもう何も頼めなくなったとき——指していた job が消えたか、
+    // 別の依頼のものになったか。支払い済みの切れ端はそのままに、残りを新しい
+    // 名前で買い直す。控えにも書き戻す。そうしないと、拾い直した実行がまた
+    // 使えない名前で尋ねに行く。
+    private void RetireTranscriptionRunNames()
     {
         if (_pendingSourceTranscription is { } source)
         {

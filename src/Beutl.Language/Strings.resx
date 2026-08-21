@@ -1651,6 +1651,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiRequestInProgress" xml:space="preserve">
     <value>The same request is still running on the server. Wait a moment and run it again — the result it produces will be used rather than paid for twice.</value>
   </data>
+  <data name="AiRequestChanged" xml:space="preserve">
+    <value>The name this request was sent under belongs to a different request. Put the request back as it was to collect what it already paid for, or send it again as it is to start a new one.</value>
+  </data>
   <data name="AiRequestWasDeleted" xml:space="preserve">
     <value>This request was deleted, so its result can no longer be recovered. Discard the partial result and run it again.</value>
   </data>
