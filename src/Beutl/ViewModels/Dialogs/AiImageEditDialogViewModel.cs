@@ -39,6 +39,10 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     // that model would otherwise rebuild the name around whatever the picker
     // fell back to, and the job the first attempt paid for would be left behind.
     private AiModelId? _outstandingModel;
+    // Which of the five tasks that name was built for. Each is its own
+    // operation with its own models and its own price, so a name outstanding on
+    // one says nothing about a request built on another.
+    private readonly ReactivePropertySlim<string?> _outstandingTask = new();
     private readonly EditViewModel? _editViewModel;
     private string? _sourceElementId;
     private bool _modelsRequireResolution;
@@ -165,13 +169,25 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
 
         SourceFilePath.Subscribe(LoadOriginalPreview).DisposeWith(_disposables);
 
+        // A name is only outstanding for the task it was built on. Switching
+        // tasks is starting a different request, which has to be paid for and
+        // has to be offered a model of its own.
+        HoldsRequestName = _requestKey.HasOutstandingName
+            .CombineLatest(_outstandingTask, (outstanding, task) => (outstanding, task))
+            .CombineLatest(
+                SelectedTask,
+                (held, selected) => held.outstanding
+                    && string.Equals(held.task, selected.Value, StringComparison.Ordinal))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         CanEdit = SourceFilePath
             .Select(x => !string.IsNullOrEmpty(x))
             .CombineLatest(IsEditing, (hasSource, editing) => hasSource && !editing)
             .CombineLatest(PromptValidationError, (canEdit, error) => canEdit && error is null)
             .CombineLatest(
                 EstimatedUsage.CanAfford,
-                _requestKey.HasOutstandingName,
+                HoldsRequestName,
                 // Or a name already handed out: the server answers a repeat with the
                 // job that name made before it looks at the balance, so the request
                 // that spent the last of it is exactly the one that must stay
@@ -179,13 +195,17 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 (canEdit, canAfford, outstanding) => canEdit && (canAfford || outstanding))
             .CombineLatest(
                 ModelPicker.OffersNothingUsable,
-                _requestKey.HasOutstandingName,
+                HoldsRequestName,
                 // Every model the operation registered was ruled out, so a new
                 // request would be refused however it is shaped — but a name
                 // already handed out is answered from the job it made, whatever
                 // the catalog says now.
                 (can, nothingUsable, outstanding) =>
                     can && (!nothingUsable || outstanding))
+            // Until the list has been asked for, a request would name no model
+            // and run on the server's default, which may cost more than what
+            // this task was about to offer.
+            .CombineLatest(ModelPicker.IsLoaded, (can, loaded) => can && loaded)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -276,6 +296,12 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
 
     public ReactivePropertySlim<bool> IsEditing { get; }
 
+    /// <summary>
+    /// Whether the task on screen holds a name the server may answer from a job
+    /// it has already been paid for.
+    /// </summary>
+    public ReadOnlyReactivePropertySlim<bool> HoldsRequestName { get; }
+
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
     public AsyncReactiveCommand Edit { get; }
@@ -342,6 +368,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         SourceFilePath.Dispose();
         Prompt.Dispose();
         Error.Dispose();
+        _outstandingTask.Dispose();
         _disposables.Dispose();
     }
 
@@ -364,12 +391,33 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     {
         _requestKey.Retire();
         _outstandingModel = null;
+        _outstandingTask.Value = null;
+        // Reloads were held back while that name was outstanding, so this is
+        // where an operator's change to the model list finally lands.
+        _ = ReloadModelsAsync(SelectedTask.Value);
     }
 
-    private AiModelId? PinnedOrSelectedModel(AiModelId? selected)
-        => _requestKey.HasOutstandingName.Value && _outstandingModel is { } pinned
-            ? pinned
-            : selected;
+    // A name the server never made a job under. Withdrawing it lets the picker
+    // move again and puts the balance check back in front of the next attempt.
+    private void WithdrawRequestName(AiRequestName name)
+    {
+        _requestKey.Withdraw(name);
+        if (!_requestKey.HasOutstandingName.Value)
+        {
+            _outstandingModel = null;
+            _outstandingTask.Value = null;
+        }
+    }
+
+    // Whatever the outstanding name was built from, including no model at all:
+    // a request that named none was fingerprinted without one, and letting a
+    // catalog that has since loaded name one would make it a different request.
+    private AiModelId? PinnedOrSelectedModel(string task, AiModelId? selected)
+        => HoldsNameFor(task) ? _outstandingModel : selected;
+
+    private bool HoldsNameFor(string task)
+        => _requestKey.HasOutstandingName.Value
+            && string.Equals(_outstandingTask.Value, task, StringComparison.Ordinal);
 
     private async Task LoadEntitlementsAsync()
     {
@@ -379,9 +427,14 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         try
         {
             await _entitlements.RefreshAsync(operation.CancellationToken);
-            await ModelPicker.LoadAsync(
-                AiOperations.ImageEdit(new AiImageEditTaskId(SelectedTask.Value.Value)),
-                operation.CancellationToken);
+            // Never under an outstanding name: the model the picker lands on is
+            // part of what names the request waiting to be collected.
+            if (!HoldsNameFor(SelectedTask.Value.Value))
+            {
+                await ModelPicker.LoadAsync(
+                    AiOperations.ImageEdit(new AiImageEditTaskId(SelectedTask.Value.Value)),
+                    operation.CancellationToken);
+            }
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -409,7 +462,15 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     /// added, removed or reordered once it is not — which a workspace tab left
     /// open would otherwise never see.
     /// </summary>
-    public void RefreshModels() => _ = ReloadModelsAsync(SelectedTask.Value);
+    public void RefreshModels()
+    {
+        // A request waiting to be collected is named partly by the model it was
+        // sent with, so an operator's change waits until that name is settled.
+        // Switching tasks still reloads: that is a different request.
+        if (HoldsNameFor(SelectedTask.Value.Value))
+            return;
+        _ = ReloadModelsAsync(SelectedTask.Value);
+    }
 
     private async Task ReloadModelsAsync(AiImageEditTaskOption task)
     {
@@ -501,6 +562,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
 
         _runningRequest = operation;
         string? preparedFilePath = null;
+        AiRequestName issued = default;
         try
         {
             string task = SelectedTask.Value.Value;
@@ -529,6 +591,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             // selection left over from another task belongs to another
             // operation and would be refused.
             AiModelId? model = PinnedOrSelectedModel(
+                task,
                 ModelPicker.Operation == editOperation ? ModelPicker.SelectedModel : null);
             AiRequestName name = _requestKey.NameFor(
                 task,
@@ -536,7 +599,9 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 model?.Value,
                 outpaintExpansionPercent?.ToString(CultureInfo.InvariantCulture),
                 AiRequestKey.FileStamp(filePath));
+            issued = name;
             _outstandingModel = model;
+            _outstandingTask.Value = task;
             // Not for a repeat: the server looks up the job this name already
             // made before it looks at the balance, so refusing here would refuse
             // to collect something already paid for.
@@ -577,20 +642,27 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 resultImage.Dispose();
             }
         }
+        // Refused before anything was reserved — the server looks the name up
+        // first and found nothing under it, so no job was made and the name is
+        // not the way back to one.
         catch (AuthenticationRequiredException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiAuthenticationRequired);
         }
         catch (AiPlanRequiredException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiProRequired);
         }
         catch (AiUsageLimitExceededException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
         }
         catch (AiFileTooLargeException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
         }
         // The job ran and was charged for; only fetching what it produced
@@ -617,6 +689,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         // what has to change is the model or the shape of the request.
         catch (AiModelDoesNotSupportRequestException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiModelDoesNotSupportRequest);
         }
         catch (AiProviderErrorException)

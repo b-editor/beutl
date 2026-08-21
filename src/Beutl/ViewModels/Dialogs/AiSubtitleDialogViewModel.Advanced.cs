@@ -192,7 +192,23 @@ public sealed partial class AiSubtitleDialogViewModel
     /// settle. Not the same as having a partial result: the very first piece of
     /// a run may have been charged and lost before anything came back.
     /// </summary>
-    public ReactivePropertySlim<bool> HasOutstandingCaptionRequest { get; } = new();
+    /// <summary>
+    /// Whether a transcription run holds a name the server may answer from a
+    /// job it has already been paid for.
+    /// </summary>
+    /// <remarks>
+    /// Transcribing and translating are separate operations, charged
+    /// separately. A name held by one says nothing about the other, so they are
+    /// reported apart: shared, a transcription waiting to be collected would
+    /// open the translation button past a balance that cannot pay for it.
+    /// </remarks>
+    public ReactivePropertySlim<bool> HasOutstandingTranscriptionRequest { get; } = new();
+
+    /// <summary>
+    /// Whether a translation run holds a name the server may answer from a job
+    /// it has already been paid for.
+    /// </summary>
+    public ReactivePropertySlim<bool> HasOutstandingTranslationRequest { get; } = new();
 
     public ReactivePropertySlim<bool> HasPendingHistoryResult { get; } = new();
 
@@ -294,7 +310,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 IsTranslating,
                 IsTranscribing,
                 TranslationEstimate.CanAfford,
-                HasOutstandingCaptionRequest,
+                HasOutstandingTranslationRequest,
                 // Or a run that has already named pieces: the server answers a
                 // repeat with the job that name made before it looks at the
                 // balance, so a run whose last piece spent the balance has to
@@ -304,12 +320,18 @@ public sealed partial class AiSubtitleDialogViewModel
                     && (canAfford || outstanding))
             .CombineLatest(
                 TranslationModelPicker.OffersNothingUsable,
-                HasOutstandingCaptionRequest,
+                HasOutstandingTranslationRequest,
                 // Every model the operation registered was ruled out, so a new
                 // request would be refused however it is shaped — but a run
                 // already holding a name is answered from the job it made.
                 (can, nothingUsable, outstanding) =>
                     can && (!nothingUsable || outstanding))
+            // Until the list has been asked for, a request would name no model
+            // and run on the server's default, which may cost more than what
+            // this screen was about to offer.
+            .CombineLatest(
+                TranslationModelPicker.IsLoaded,
+                (can, loaded) => can && loaded)
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_captionDisposables);
         Translate = new AsyncReactiveCommand(CanTranslate)
@@ -525,20 +547,28 @@ public sealed partial class AiSubtitleDialogViewModel
 
                 AiRequestName name = operation.RequestNameFor(chunkIndex, runModel);
                 UpdateOutstandingCaptionRequest();
-                // Not for a repeat: the server looks up the job this name
-                // already made before it looks at the balance, so refusing here
-                // would refuse to collect a piece already paid for.
-                if (!name.IsRepeat)
-                {
-                    await EnsureAvailableAsync(
-                        new AiOperationAvailabilityRequest.Transcription(
-                            chunk.Duration.TotalSeconds,
-                            runModel));
-                }
-
                 AiTranscriptionResponse response;
                 try
                 {
+                    // Not for a repeat: the server looks up the job this name
+                    // already made before it looks at the balance, so refusing
+                    // here would refuse to collect a piece already paid for.
+                    if (!name.IsRepeat)
+                    {
+                        await EnsureAvailableAsync(
+                            new AiOperationAvailabilityRequest.Transcription(
+                                chunk.Duration.TotalSeconds,
+                                runModel));
+                    }
+
+                    // Written before the chunk goes out, not after it comes
+                    // back. The first chunk is the one most likely to be charged
+                    // and lost, and without this the name that charged it would
+                    // die with the session: the next run would name the same
+                    // chunk differently and buy it again.
+                    if (!PublishSourceTranscriptionPartial(operation))
+                        return;
+
                     response = await _aiService.TranscribeAsync(
                         new AiTranscriptionRequest(
                             AiUploadSource.FromFile(
@@ -557,7 +587,14 @@ public sealed partial class AiSubtitleDialogViewModel
                     // rewritten with them, or a resumed run would ask under the
                     // spent key again.
                     operation.RequestKey.Retire();
+                    UpdateOutstandingCaptionRequest();
                     PublishSourceTranscriptionPartial(operation);
+                    throw;
+                }
+                catch (Exception ex) when (ReservedNothing(ex))
+                {
+                    operation.RequestKey.Withdraw(name);
+                    UpdateOutstandingCaptionRequest();
                     throw;
                 }
                 operation.DetectedLanguage ??= response.Language;
@@ -661,12 +698,26 @@ public sealed partial class AiSubtitleDialogViewModel
                 Math.Min(operation.ChunkDuration.Ticks, duration.Ticks - chunkOffset.Ticks));
             AiRequestName name = operation.RequestNameFor(index, runModel);
             UpdateOutstandingCaptionRequest();
-            if (!name.IsRepeat)
+            // Before the scene is composed: mixing a chunk of audio the account
+            // cannot pay for is work thrown away.
+            try
             {
-                await EnsureAvailableAsync(
-                    new AiOperationAvailabilityRequest.Transcription(
-                        chunkDuration.TotalSeconds,
-                        runModel));
+                // Not for a repeat: the server looks up the job this name
+                // already made before it looks at the balance, so refusing here
+                // would refuse to collect a piece already paid for.
+                if (!name.IsRepeat)
+                {
+                    await EnsureAvailableAsync(
+                        new AiOperationAvailabilityRequest.Transcription(
+                            chunkDuration.TotalSeconds,
+                            runModel));
+                }
+            }
+            catch (Exception ex) when (ReservedNothing(ex))
+            {
+                operation.RequestKey.Withdraw(name);
+                UpdateOutstandingCaptionRequest();
+                throw;
             }
 
             (string path, FileStream stream) = AiTemporaryFileStore.Create(
@@ -699,6 +750,13 @@ public sealed partial class AiSubtitleDialogViewModel
                 catch (AiProviderErrorException)
                 {
                     operation.RequestKey.Retire();
+                    UpdateOutstandingCaptionRequest();
+                    throw;
+                }
+                catch (Exception ex) when (ReservedNothing(ex))
+                {
+                    operation.RequestKey.Withdraw(name);
+                    UpdateOutstandingCaptionRequest();
                     throw;
                 }
                 operation.DetectedLanguage ??= response.Language;
@@ -821,15 +879,23 @@ public sealed partial class AiSubtitleDialogViewModel
                 TranslationBatch batch = operation.Batches[index];
                 AiRequestName name = operation.RequestNameFor(index, runModel);
                 UpdateOutstandingCaptionRequest();
-                if (!name.IsRepeat)
-                {
-                    await EnsureAvailableAsync(
-                        CreateTranslationAvailabilityRequest(batch, runModel));
-                }
-
                 AiCaptionTranslationResponse response;
                 try
                 {
+                    if (!name.IsRepeat)
+                    {
+                        await EnsureAvailableAsync(
+                            CreateTranslationAvailabilityRequest(batch, runModel));
+                    }
+
+                    // Written before the batch goes out, not after it comes
+                    // back. The first batch is the one most likely to be charged
+                    // and lost, and without this the name that charged it would
+                    // die with the session: the next run would name the same
+                    // batch differently and buy it again.
+                    if (!PublishTranslationPartial(operation))
+                        return;
+
                     response = await _aiService.TranslateAsync(
                         new AiCaptionTranslationRequest(
                             batch.Pieces.Select(piece => new AiCaptionTranslationSegment
@@ -857,7 +923,14 @@ public sealed partial class AiSubtitleDialogViewModel
                     // state is rewritten with them, or a run resumed after a
                     // restart would ask under the spent key again.
                     operation.RequestKey.Retire();
+                    UpdateOutstandingCaptionRequest();
                     PublishTranslationPartial(operation);
+                    throw;
+                }
+                catch (Exception ex) when (ReservedNothing(ex))
+                {
+                    operation.RequestKey.Withdraw(name);
+                    UpdateOutstandingCaptionRequest();
                     throw;
                 }
                 AddTranslatedBatch(operation, batch, response);
@@ -920,6 +993,7 @@ public sealed partial class AiSubtitleDialogViewModel
             // The job those names made is gone, so the rest of the run needs
             // new ones; the partial that has been paid for is still good.
             _pendingTranslation?.RequestKey.Retire();
+            UpdateOutstandingCaptionRequest();
             if (_pendingTranslation is { } deleted)
                 PublishTranslationPartial(deleted);
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted);
@@ -1082,12 +1156,14 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             return false;
         }
-        PartialResultMessage.Value = string.Format(
-            operation.CompletedBatchCount == operation.Batches.Count
-                ? Strings.AiSubtitle_CompletedResultAvailable
-                : Strings.AiSubtitle_PartialTranslationAvailable,
-            operation.CompletedBatchCount,
-            operation.Batches.Count);
+        PartialResultMessage.Value = operation.CompletedBatchCount <= 0
+            ? null
+            : string.Format(
+                operation.CompletedBatchCount == operation.Batches.Count
+                    ? Strings.AiSubtitle_CompletedResultAvailable
+                    : Strings.AiSubtitle_PartialTranslationAvailable,
+                operation.CompletedBatchCount,
+                operation.Batches.Count);
         RefreshTranslationEstimate();
         return true;
     }
@@ -1136,12 +1212,14 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             return false;
         }
-        PartialResultMessage.Value = string.Format(
-            operation.CompletedChunkCount == operation.ChunkCount
-                ? Strings.AiSubtitle_CompletedResultAvailable
-                : Strings.AiSubtitle_PartialTranscriptionAvailable,
-            operation.CompletedChunkCount,
-            operation.ChunkCount);
+        PartialResultMessage.Value = operation.CompletedChunkCount <= 0
+            ? null
+            : string.Format(
+                operation.CompletedChunkCount == operation.ChunkCount
+                    ? Strings.AiSubtitle_CompletedResultAvailable
+                    : Strings.AiSubtitle_PartialTranscriptionAvailable,
+                operation.CompletedChunkCount,
+                operation.ChunkCount);
         _transcriptionEstimateRevision.Value++;
         return true;
     }
@@ -1196,12 +1274,14 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             return false;
         }
-        PartialResultMessage.Value = string.Format(
-            operation.CompletedChunkCount == operation.ChunkCount
-                ? Strings.AiSubtitle_CompletedResultAvailable
-                : Strings.AiSubtitle_PartialTranscriptionAvailable,
-            operation.CompletedChunkCount,
-            operation.ChunkCount);
+        PartialResultMessage.Value = operation.CompletedChunkCount <= 0
+            ? null
+            : string.Format(
+                operation.CompletedChunkCount == operation.ChunkCount
+                    ? Strings.AiSubtitle_CompletedResultAvailable
+                    : Strings.AiSubtitle_PartialTranscriptionAvailable,
+                operation.CompletedChunkCount,
+                operation.ChunkCount);
         _transcriptionEstimateRevision.Value++;
         return true;
     }
@@ -1269,7 +1349,10 @@ public sealed partial class AiSubtitleDialogViewModel
             return false;
 
         _partialResult = result;
-        HasPartialResult.Value = true;
+        // A run that has only named its first piece has nothing to apply yet.
+        // It is still written down — the name is what makes that piece
+        // collectable — but the button that imports a partial stays closed.
+        HasPartialResult.Value = result.CompletedSteps > 0;
         if (_captionDraftSession is null)
             return true;
 
@@ -1412,7 +1495,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     var sourceDocument = new CaptionDocument(
                         RestoreCues(translation.SourceCues));
                     List<TranslationBatch> batches = CreateTranslationBatches(sourceDocument);
-                    if (translation.CompletedBatchCount <= 0
+                    if (translation.CompletedBatchCount < 0
                         || translation.CompletedBatchCount > batches.Count)
                     {
                         throw new InvalidDataException("The stored translation progress is invalid.");
@@ -1526,15 +1609,19 @@ public sealed partial class AiSubtitleDialogViewModel
                     SelectedSourceLanguage.Value = sourceOption;
             }
 
-            HasPartialResult.Value = true;
-            PartialResultMessage.Value = draft.CompletedSteps == draft.TotalSteps
-                ? Strings.AiSubtitle_CompletedResultAvailable
-                : string.Format(
-                    kind == PartialResultKind.Translation
-                        ? Strings.AiSubtitle_PartialTranslationAvailable
-                        : Strings.AiSubtitle_PartialTranscriptionAvailable,
-                    draft.CompletedSteps,
-                    draft.TotalSteps);
+            // A draft written the moment its first piece was named holds the
+            // way back to that piece and nothing to apply yet.
+            HasPartialResult.Value = draft.CompletedSteps > 0;
+            PartialResultMessage.Value = draft.CompletedSteps <= 0
+                ? null
+                : draft.CompletedSteps == draft.TotalSteps
+                    ? Strings.AiSubtitle_CompletedResultAvailable
+                    : string.Format(
+                        kind == PartialResultKind.Translation
+                            ? Strings.AiSubtitle_PartialTranslationAvailable
+                            : Strings.AiSubtitle_PartialTranscriptionAvailable,
+                        draft.CompletedSteps,
+                        draft.TotalSteps);
             _transcriptionEstimateRevision.Value++;
             RefreshTranslationEstimate();
         }
@@ -1818,16 +1905,33 @@ public sealed partial class AiSubtitleDialogViewModel
             scene.RequestKey.Retire();
             PublishSceneTranscriptionPartial(scene);
         }
+
+        UpdateOutstandingCaptionRequest();
     }
 
     // Whether a caption run has named a piece the server has not been seen to
     // settle. While it has, asking again may be answered by a job already paid
     // for, so the button stays live however little is left to spend.
     private void UpdateOutstandingCaptionRequest()
-        => HasOutstandingCaptionRequest.Value =
+    {
+        HasOutstandingTranscriptionRequest.Value =
             _pendingSourceTranscription?.RequestKey.HasOutstandingName.Value == true
-            || _pendingSceneTranscription?.RequestKey.HasOutstandingName.Value == true
-            || _pendingTranslation?.RequestKey.HasOutstandingName.Value == true;
+            || _pendingSceneTranscription?.RequestKey.HasOutstandingName.Value == true;
+        HasOutstandingTranslationRequest.Value =
+            _pendingTranslation?.RequestKey.HasOutstandingName.Value == true;
+    }
+
+    // Refusals the server decides after looking the name up and finding nothing
+    // under it — the sign-in, the plan, the balance, the size of the upload, and
+    // whether the model can serve the request at all. No job was made, so the
+    // name is not the way back to one, and leaving it outstanding would pin the
+    // rest of the run to the model that named it.
+    private static bool ReservedNothing(Exception exception)
+        => exception is AuthenticationRequiredException
+            or AiPlanRequiredException
+            or AiUsageLimitExceededException
+            or AiModelDoesNotSupportRequestException
+            or AiFileTooLargeException;
 
     private void ClearRestoredModelPreference()
     {

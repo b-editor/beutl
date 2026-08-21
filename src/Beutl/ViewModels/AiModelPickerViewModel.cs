@@ -62,6 +62,8 @@ internal sealed class AiModelPickerViewModel : IDisposable
         HasChoice = new ReactivePropertySlim<bool>(false).DisposeWith(_disposables);
         OffersNothingUsable = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
+        IsLoaded = new ReactivePropertySlim<bool>(false)
+            .DisposeWith(_disposables);
         Label = Strings.AiModel;
     }
 
@@ -108,6 +110,19 @@ internal sealed class AiModelPickerViewModel : IDisposable
     /// </remarks>
     public ReactivePropertySlim<bool> OffersNothingUsable { get; }
 
+    /// <summary>
+    /// Whether the list has been asked for at least once.
+    /// </summary>
+    /// <remarks>
+    /// Until then nothing is known: the operation may have no model that can
+    /// serve it, and a request sent meanwhile names none and runs on whatever
+    /// the server has as its default — which may cost more than the model the
+    /// screen would have offered. A failed attempt still counts as asked: a
+    /// catalog that cannot be read must not leave the screen unable to send at
+    /// all, which is how it behaved before models could be chosen.
+    /// </remarks>
+    public ReactivePropertySlim<bool> IsLoaded { get; }
+
     /// <summary>What the request should carry. Null asks the server for its default.</summary>
     public AiModelId? SelectedModel => Selected.Value?.Id;
 
@@ -125,6 +140,21 @@ internal sealed class AiModelPickerViewModel : IDisposable
     /// differently and buy them again.
     /// </remarks>
     public async Task LoadAsync(
+        AiOperationId operation,
+        AiModelId? preferred,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await LoadCoreAsync(operation, preferred, cancellationToken);
+        }
+        finally
+        {
+            IsLoaded.Value = true;
+        }
+    }
+
+    private async Task LoadCoreAsync(
         AiOperationId operation,
         AiModelId? preferred,
         CancellationToken cancellationToken)

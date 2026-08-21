@@ -79,6 +79,75 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageGeneration_ARefusalBeforeAnythingIsReservedFreesTheModelAgain()
+    {
+        // 名前はリクエストを出す前に配られる。残高が足りずに送る前で止まった実行が
+        // その名前を抱えたままだと、モデルを選び直しても最初に名乗ったモデルで
+        // 送られる——画面の表示と、課金される中身が食い違う。
+        await TestReset.ResetShellAsync();
+        bool affordable = false;
+        var sentModels = new List<string?>();
+        using var handler = new StubHandler(async (request, token) =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/ai-availability":
+                    return JsonResponse(
+                        HttpStatusCode.OK,
+                        affordable ? "{ \"available\": true }" : "{ \"available\": false }");
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/capabilities":
+                    return JsonResponse(HttpStatusCode.OK, ImageCapabilitiesJson());
+                case "/api/v3/ai/images":
+                    string body = await request.Content!.ReadAsStringAsync(token);
+                    using (JsonDocument sent = JsonDocument.Parse(body))
+                    {
+                        sentModels.Add(
+                            sent.RootElement.TryGetProperty("model", out JsonElement model)
+                                ? model.GetString()
+                                : null);
+                    }
+                    return JsonResponse(
+                        HttpStatusCode.OK,
+                        ImageResponseJson("image-job", "image-file"));
+                case "/api/contents/image-file":
+                    return ByteResponse(s_png, "image/png");
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        }, handleAvailability: false);
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
+        viewModel.Prompt.Value = "A calm blue sky";
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-1");
+
+        await viewModel.Generate.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                viewModel.Error.Value,
+                Is.EqualTo(Beutl.Language.Strings.AiUsageLimitExceeded));
+            Assert.That(sentModels, Is.Empty, "Nothing was sent, so nothing was reserved.");
+        });
+
+        affordable = true;
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-2");
+        await viewModel.Generate.ExecuteAsync();
+
+        Assert.That(
+            sentModels,
+            Is.EqualTo(new[] { "openai/gpt-image-2" }),
+            "The model on screen is the model that is charged for.");
+    }
+
+    [AvaloniaTest]
     public async Task ImageGeneration_ShowsTheRoughPictureWhileTheModelWorks()
     {
         await TestReset.ResetShellAsync();
@@ -1909,6 +1978,66 @@ public sealed class AiDialogWorkflowTests
         {
             writer.Write((short)0);
         }
+    }
+
+    [AvaloniaTest]
+    public async Task Transcription_HoldingAName_DoesNotOpenTheTranslationButton()
+    {
+        // 文字起こしと翻訳は別々に課金される。名前を 1 つにまとめていると、
+        // 回収待ちの文字起こしが翻訳側の残高・モデルの判定まで開けてしまい、
+        // 支払えない依頼が新規に出ていく。
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-subtitle-outstanding-scope");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            // 走り切っている最中。決着ではないので、その名前は残る。
+            "/api/v3/ai/transcriptions" => JsonResponse(HttpStatusCode.Conflict, """
+                {
+                  "error_code": "aiRequestInProgress",
+                  "message": "The first attempt is still running.",
+                  "documentation_url": null
+                }
+                """),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(clients, editor);
+        viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
+        viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
+            return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
+                new float[sampleCount],
+                16_000,
+                1,
+                start));
+        };
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
+        editor.Scene.Start = TimeSpan.Zero;
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
+
+        await viewModel.Transcribe.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                viewModel.Error.Value,
+                Is.EqualTo(Beutl.Language.Strings.AiRequestInProgress));
+            Assert.That(
+                viewModel.HasOutstandingTranscriptionRequest.Value,
+                Is.True,
+                "The chunk that was charged for stays collectable.");
+            Assert.That(
+                viewModel.HasOutstandingTranslationRequest.Value,
+                Is.False,
+                "Nothing was named on the translation's account.");
+        });
     }
 
     [AvaloniaTest]

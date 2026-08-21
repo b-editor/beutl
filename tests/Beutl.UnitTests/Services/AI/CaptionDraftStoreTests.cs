@@ -159,6 +159,88 @@ public sealed class CaptionDraftStoreTests
     private static CaptionDraftScope CreateScope()
         => new("user-1", Guid.NewGuid(), Guid.NewGuid());
 
+    [Test]
+    public void Save_KeepsARunThatHasOnlyNamedItsFirstPiece()
+    {
+        // 最初のひと切れは、課金されたまま失われる可能性がいちばん高い。それが
+        // 返ってくるまで何も書き残さないと、その名前はセッションと一緒に消え、
+        // 次の実行は同じ切れ端を別の名前で買い直すことになる。
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(new CaptionDraftEntry(null, CreateUnstartedDraft()));
+            CaptionDraftEntry? restored = session.Load();
+
+            Assert.That(restored, Is.Not.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored!.Draft.CompletedSteps, Is.Zero);
+                Assert.That(
+                    restored.Draft.SourceTranscriptionResume?.RequestKeySeed,
+                    Is.EqualTo("seed-of-the-run"));
+                Assert.That(
+                    restored.Draft.SourceTranscriptionResume?.RequestKeyModel,
+                    Is.EqualTo("openai/whisper-1"));
+            });
+        }
+    }
+
+    [Test]
+    public void Load_DiscardsADraftWrittenByAnEarlierVersion()
+    {
+        // 版 1 の控えは、seed を持ちながらモデルを持たないことがある——それは
+        // 「モデルを指定しなかった実行」と見分けがつかない。取り違えると、支払い
+        // 済みの切れ端に別の名前を付けて買い直すので、当て推量ではなく捨てる。
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(new CaptionDraftEntry("job-1", CreateDraft()));
+        }
+
+        string path = store.GetStoragePath(scope);
+        string stored = File.ReadAllText(path);
+        File.WriteAllText(path, stored.Replace("\"version\":2", "\"version\":1"));
+
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
+        using (reopened)
+        {
+            Assert.That(reopened!.Load(), Is.Null);
+        }
+    }
+
+    private static CaptionDraft CreateUnstartedDraft()
+    {
+        return new CaptionDraft(
+            FileCaptionDraftStore.CurrentVersion,
+            [],
+            "en",
+            [],
+            CaptionDraftKind.Transcription,
+            0,
+            3,
+            null,
+            null,
+            new CaptionSourceTranscriptionResume(
+                Path.Combine(Path.GetTempPath(), "clip.wav"),
+                Guid.NewGuid(),
+                1024,
+                DateTime.UnixEpoch.Ticks,
+                "en",
+                16_000,
+                48_000,
+                16_000,
+                3,
+                [],
+                null,
+                0,
+                "seed-of-the-run",
+                "openai/whisper-1"));
+    }
+
     private static CaptionDraft CreateDraft()
     {
         var cue = new StoredCaptionCue(

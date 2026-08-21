@@ -106,7 +106,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
                 (hasInput, transcribing, translating) => hasInput && !transcribing && !translating)
             .CombineLatest(
                 TranscriptionEstimate.CanAfford,
-                HasOutstandingCaptionRequest,
+                HasOutstandingTranscriptionRequest,
                 // Or a run that has already named pieces: the server answers a
                 // repeat with the job that name made before it looks at the
                 // balance, so a run whose last piece spent the balance has to
@@ -115,12 +115,18 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
                     canTranscribe && (canAfford || outstanding))
             .CombineLatest(
                 TranscriptionModelPicker.OffersNothingUsable,
-                HasOutstandingCaptionRequest,
+                HasOutstandingTranscriptionRequest,
                 // Every model the operation registered was ruled out, so a new
                 // request would be refused however it is shaped — but a run
                 // already holding a name is answered from the job it made.
                 (can, nothingUsable, outstanding) =>
                     can && (!nothingUsable || outstanding))
+            // Until the list has been asked for, a request would name no model
+            // and run on the server's default, which may cost more than what
+            // this screen was about to offer.
+            .CombineLatest(
+                TranscriptionModelPicker.IsLoaded,
+                (can, loaded) => can && loaded)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -229,6 +235,16 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
 
     private async Task RefreshModelsAsync()
     {
+        // A run waiting to be collected names its unfinished pieces partly by
+        // the model it started on. The run itself holds that model, so a reload
+        // could not rename them — but moving the picker under a run that is
+        // still going says the wrong thing about what the next piece will cost.
+        if (HasOutstandingTranscriptionRequest.Value
+            || HasOutstandingTranslationRequest.Value)
+        {
+            return;
+        }
+
         try
         {
             await TranscriptionModelPicker.LoadAsync(

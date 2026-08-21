@@ -140,6 +140,42 @@ internal sealed class AiRequestKey
         }
     }
 
+    /// <summary>
+    /// Forgets a name the server never made a job under, so it stops counting
+    /// as outstanding and the next attempt is a fresh request again.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A name is handed out before the request goes out, and some refusals
+    /// happen before anything is reserved: the client's own balance check, and
+    /// the server's answers about the plan, the sign-in, the size of an upload
+    /// and whether the model can serve the request at all — every one of which
+    /// it decides after looking the name up and finding nothing. Leaving such a
+    /// name outstanding pins the run to the model it named and keeps the way
+    /// back to a job open that was never made.
+    /// </para>
+    /// <para>
+    /// A repeat is never withdrawn. It may name a job that has already been
+    /// charged for, and forgetting it would send the next attempt out under a
+    /// new name and buy that job again.
+    /// </para>
+    /// </remarks>
+    public void Withdraw(AiRequestName name)
+    {
+        if (name.IsRepeat || string.IsNullOrEmpty(name.Key))
+            return;
+
+        bool anyLeft;
+        lock (_gate)
+        {
+            _issued.Remove(name.Key);
+            anyLeft = _issued.Count > 0;
+        }
+
+        if (!anyLeft)
+            _hasOutstandingName.Value = false;
+    }
+
     public void Retire()
     {
         lock (_gate)

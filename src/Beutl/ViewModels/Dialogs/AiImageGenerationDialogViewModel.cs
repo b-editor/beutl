@@ -164,6 +164,10 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                 // the catalog says now.
                 (can, nothingUsable, outstanding) =>
                     can && (!nothingUsable || outstanding))
+            // Until the list has been asked for, a request would name no model
+            // and run on the server's default, which may cost more than what
+            // this screen was about to offer.
+            .CombineLatest(ModelPicker.IsLoaded, (can, loaded) => can && loaded)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -480,9 +484,18 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
 
     private async Task RefreshModelsAsync()
     {
+        // A request waiting to be collected is named partly by the model it was
+        // sent with, and the rest of what names it — the shape, the background —
+        // follows whichever model the picker lands on. Moving the picker under an
+        // outstanding name would rename the request and buy it again, so an
+        // operator's change waits until the name is settled.
+        if (_requestKey.HasOutstandingName.Value)
+            return;
+
         try
         {
             await ModelPicker.LoadAsync(AiOperations.ImageGeneration, CancellationToken.None);
+            TrimReferenceImagesToLimit();
         }
         catch (Exception ex)
         {
@@ -496,12 +509,48 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     {
         _requestKey.Retire();
         _outstandingModel = null;
+        // Reloads were held back while that name was outstanding, so this is
+        // where an operator's change to the model list finally lands.
+        _ = RefreshModelsAsync();
     }
 
+    // What the pictures of one request may come to together is published by the
+    // server and can be lowered. Anything over the new total is dropped here
+    // rather than refused once the request has been built — which is only ever
+    // reached while no name is outstanding, so this cannot rewrite a request
+    // waiting to be collected.
+    private void TrimReferenceImagesToLimit()
+    {
+        long limit = ModelPicker.MaxImageReferencesTotalBytes;
+        long total = ReferenceImages.Sum(reference => SizeOf(reference.Path));
+        bool dropped = false;
+        while (ReferenceImages.Count > 0 && total > limit)
+        {
+            AiReferenceImageViewModel last = ReferenceImages[^1];
+            total -= SizeOf(last.Path);
+            ReferenceImages.RemoveAt(ReferenceImages.Count - 1);
+            last.Dispose();
+            dropped = true;
+        }
+
+        if (dropped)
+            UpdateReferenceImageState();
+    }
+
+    // Whatever the outstanding name was built from, including no model at all:
+    // a request that named none was fingerprinted without one, and letting a
+    // catalog that has since loaded name one would make it a different request.
     private AiModelId? PinnedOrSelectedModel(AiModelId? selected)
-        => _requestKey.HasOutstandingName.Value && _outstandingModel is { } pinned
-            ? pinned
-            : selected;
+        => _requestKey.HasOutstandingName.Value ? _outstandingModel : selected;
+
+    // A name the server never made a job under. Withdrawing it lets the picker
+    // move again and puts the balance check back in front of the next attempt.
+    private void WithdrawRequestName(AiRequestName name)
+    {
+        _requestKey.Withdraw(name);
+        if (!_requestKey.HasOutstandingName.Value)
+            _outstandingModel = null;
+    }
 
     private async Task LoadEntitlementsAsync()
     {
@@ -512,10 +561,15 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         {
             await _entitlements.RefreshAsync(operation.CancellationToken);
             // After the entitlements, so the picker knows which models this
-            // account can pay for rather than offering them all.
-            await ModelPicker.LoadAsync(
-                AiOperations.ImageGeneration,
-                operation.CancellationToken);
+            // account can pay for rather than offering them all — but never
+            // under an outstanding name, whose request the picker names.
+            if (!_requestKey.HasOutstandingName.Value)
+            {
+                await ModelPicker.LoadAsync(
+                    AiOperations.ImageGeneration,
+                    operation.CancellationToken);
+                TrimReferenceImagesToLimit();
+            }
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -540,6 +594,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
 
         _runningRequest = operation;
+        AiRequestName issued = default;
         try
         {
             string prompt = ComposePrompt();
@@ -560,6 +615,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                 .. referencePaths.Select(AiRequestKey.FileStamp),
             ];
             AiRequestName name = _requestKey.NameFor(requestParts);
+            issued = name;
             _outstandingModel = model;
             // Not for a repeat: the server looks up the job this name already
             // made before it looks at the balance, so refusing here would refuse
@@ -602,16 +658,22 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                 resultImage.Dispose();
             }
         }
+        // Refused before anything was reserved — the server looks the name up
+        // first and found nothing under it, so no job was made and the name is
+        // not the way back to one.
         catch (AuthenticationRequiredException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiAuthenticationRequired);
         }
         catch (AiPlanRequiredException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiProRequired);
         }
         catch (AiUsageLimitExceededException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
         }
         // Charged for and still the server's; asking again under the same name
@@ -629,6 +691,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         // what has to change is the model or the shape of the request.
         catch (AiModelDoesNotSupportRequestException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiModelDoesNotSupportRequest);
         }
         catch (AiProviderErrorException)
@@ -653,6 +716,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
         catch (AiFileTooLargeException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
         }
         // The job ran and was charged for; only fetching what it produced

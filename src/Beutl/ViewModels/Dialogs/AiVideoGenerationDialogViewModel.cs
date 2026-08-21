@@ -218,6 +218,10 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                 // the catalog says now.
                 (can, nothingUsable, outstanding) =>
                     can && (!nothingUsable || outstanding))
+            // Until the list has been asked for, a request would name no model
+            // and run on the server's default, which may cost more than what
+            // this screen was about to offer.
+            .CombineLatest(ModelPicker.IsLoaded, (can, loaded) => can && loaded)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -590,6 +594,14 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
 
     private async Task RefreshModelsAsync()
     {
+        // A clip waiting to be collected is named partly by the model it was
+        // sent with, and what the picker allows — the shape, and whether frames
+        // may guide it at all — follows that model. Moving the picker under an
+        // outstanding name would rename the request and buy it again, so an
+        // operator's change waits until the name is settled.
+        if (_requestKey.HasOutstandingName.Value)
+            return;
+
         try
         {
             await ModelPicker.LoadAsync(AiOperations.VideoGeneration, CancellationToken.None);
@@ -606,12 +618,25 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     {
         _requestKey.Retire();
         _outstandingModel = null;
+        // Reloads were held back while that name was outstanding, so this is
+        // where an operator's change to the model list finally lands.
+        _ = RefreshModelsAsync();
     }
 
+    // Whatever the outstanding name was built from, including no model at all:
+    // a request that named none was fingerprinted without one, and letting a
+    // catalog that has since loaded name one would make it a different request.
     private AiModelId? PinnedOrSelectedModel(AiModelId? selected)
-        => _requestKey.HasOutstandingName.Value && _outstandingModel is { } pinned
-            ? pinned
-            : selected;
+        => _requestKey.HasOutstandingName.Value ? _outstandingModel : selected;
+
+    // A name the server never made a job under. Withdrawing it lets the picker
+    // move again and puts the balance check back in front of the next attempt.
+    private void WithdrawRequestName(AiRequestName name)
+    {
+        _requestKey.Withdraw(name);
+        if (!_requestKey.HasOutstandingName.Value)
+            _outstandingModel = null;
+    }
 
     private async Task LoadEntitlementsAsync()
     {
@@ -621,9 +646,14 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         try
         {
             await _entitlements.RefreshAsync(operation.CancellationToken);
-            await ModelPicker.LoadAsync(
-                AiOperations.VideoGeneration,
-                operation.CancellationToken);
+            // Never under an outstanding name: the model the picker lands on is
+            // part of what names the clip waiting to be collected.
+            if (!_requestKey.HasOutstandingName.Value)
+            {
+                await ModelPicker.LoadAsync(
+                    AiOperations.VideoGeneration,
+                    operation.CancellationToken);
+            }
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -816,6 +846,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
 
         _runningRequest = operation;
         bool persistedServerJob = false;
+        AiRequestName issued = default;
         try
         {
             string prompt = ComposePrompt();
@@ -840,6 +871,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                 model?.Value,
                 AiRequestKey.FileStamp(firstFramePath),
                 AiRequestKey.FileStamp(lastFramePath));
+            issued = name;
             _outstandingModel = model;
             // Not for a repeat: the server looks up the job this name already
             // made before it looks at the balance, so refusing here would refuse
@@ -887,16 +919,22 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                 RetireRequestName();
             }
         }
+        // Refused before anything was reserved — the server looks the name up
+        // first and found nothing under it, so no job was made and the name is
+        // not the way back to one.
         catch (AuthenticationRequiredException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiAuthenticationRequired);
         }
         catch (AiPlanRequiredException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiProRequired);
         }
         catch (AiUsageLimitExceededException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiUsageLimitExceeded);
         }
         // Charged for and still the server's; asking again under the same name
@@ -914,6 +952,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         // what has to change is the model or the shape of the request.
         catch (AiModelDoesNotSupportRequestException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiModelDoesNotSupportRequest);
         }
         catch (AiProviderErrorException)
@@ -938,10 +977,12 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
         catch (AiJobLimitReachedException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiVideoJobLimitReached);
         }
         catch (AiFileTooLargeException)
         {
+            WithdrawRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiFileTooLarge);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)

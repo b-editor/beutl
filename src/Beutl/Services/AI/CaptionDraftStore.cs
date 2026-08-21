@@ -151,7 +151,12 @@ internal interface ICaptionDraftStore
 
 internal sealed class FileCaptionDraftStore : ICaptionDraftStore
 {
-    internal const int CurrentVersion = 1;
+    // Version 2 records what a run's requests were named before its first piece
+    // comes back. A version 1 draft could hold a seed with no model beside it,
+    // which reads the same as a run that named no model — and asking under the
+    // wrong name buys the piece again — so those are discarded rather than
+    // guessed at.
+    internal const int CurrentVersion = 2;
     internal const int MaximumStorageBytes = 8 * 1024 * 1024;
     private const int MaximumCueCount = 10_000;
     private const int MaximumCueTextLength = 100_000;
@@ -339,7 +344,10 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 || cue.Metadata is null
                 || cue.Metadata.Any(pair =>
                     string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null))
-            || draft.CompletedSteps <= 0
+            // Nothing finished yet is a run worth keeping: it holds the names
+            // its first pieces were sent under, which is what makes them
+            // collectable rather than something to buy a second time.
+            || draft.CompletedSteps < 0
             || draft.TotalSteps < draft.CompletedSteps)
         {
             return false;
@@ -371,7 +379,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         => resume is
         {
             SourceCues.Length: > 0 and <= MaximumCueCount,
-            CompletedBatchCount: > 0,
+            CompletedBatchCount: >= 0,
         }
             && !string.IsNullOrWhiteSpace(resume.TargetLanguage)
             && resume.SourceCues.All(cue => cue is not null
@@ -380,7 +388,8 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 && cue.StartTicks >= 0
                 && cue.EndTicks > cue.StartTicks
                 && cue.Metadata is not null)
-            && resume.TranslatedPieces is { Count: > 0 }
+            && resume.TranslatedPieces is not null
+            && (resume.CompletedBatchCount > 0) == (resume.TranslatedPieces.Count > 0)
             && resume.TranslatedPieces.All(pair =>
                 !string.IsNullOrWhiteSpace(pair.Key)
                 && !string.IsNullOrWhiteSpace(pair.Value)
@@ -390,7 +399,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         => resume is
         {
             ChunkCount: > 0,
-            CompletedChunkCount: > 0,
+            CompletedChunkCount: >= 0,
             Duration: { } duration,
             ChunkDuration: { } chunkDuration,
             Segments: not null,
@@ -413,7 +422,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             TotalSamples: > 0 and <= int.MaxValue,
             ChunkSamples: > 0,
             ChunkCount: > 0,
-            CompletedChunkCount: > 0,
+            CompletedChunkCount: >= 0,
             Segments: not null,
         }
             && resume.CompletedChunkCount < resume.ChunkCount
