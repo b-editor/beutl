@@ -193,11 +193,21 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         }
     }
 
+    /// <summary>
+    /// The union of the axis-aligned extents each live particle draws into.
+    /// </summary>
+    /// <remarks>
+    /// Every particle is scaled and then rotated about the source's own centre, so its extent is the rotated
+    /// source rectangle's bounding box, not a square of the source's longer side: a 20x20 source turned 45
+    /// degrees reaches about 4.14 further along each axis than that square. This is the rectangle the layer
+    /// buffer is allocated from, so anything it misses is clipped away rather than merely mismeasured.
+    /// </remarks>
     private static Rect CalculateParticleBounds(ReadOnlySpan<Particle> particles, Rect sourceBounds)
     {
         Rect totalBounds = Rect.Empty;
         bool hasBounds = false;
-        float sourceDiameter = MathF.Max((float)sourceBounds.Width, (float)sourceBounds.Height);
+        var sourceWidth = (float)sourceBounds.Width;
+        var sourceHeight = (float)sourceBounds.Height;
         for (int i = 0; i < particles.Length; i++)
         {
             ref readonly Particle particle = ref particles[i];
@@ -208,15 +218,22 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             if (!float.IsFinite(scale) || scale <= 0)
                 continue;
 
-            float diameter = sourceDiameter * scale;
-            if (!float.IsFinite(diameter) || diameter <= 0)
+            float radians = particle.Rotation * MathF.PI / 180f;
+            if (!float.IsFinite(radians))
+                continue;
+
+            float cos = MathF.Abs(MathF.Cos(radians));
+            float sin = MathF.Abs(MathF.Sin(radians));
+            float width = ((sourceWidth * cos) + (sourceHeight * sin)) * scale;
+            float height = ((sourceWidth * sin) + (sourceHeight * cos)) * scale;
+            if (!float.IsFinite(width) || !float.IsFinite(height) || width <= 0 || height <= 0)
                 continue;
 
             var particleBounds = new Rect(
-                particle.X - diameter / 2f,
-                particle.Y - diameter / 2f,
-                diameter,
-                diameter);
+                particle.X - (width / 2f),
+                particle.Y - (height / 2f),
+                width,
+                height);
             totalBounds = hasBounds ? totalBounds.Union(particleBounds) : particleBounds;
             hasBounds = true;
         }

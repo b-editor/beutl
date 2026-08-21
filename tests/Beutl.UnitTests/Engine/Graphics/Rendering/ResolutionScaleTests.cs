@@ -283,6 +283,29 @@ public class ResolutionScaleTests
         }
     }
 
+    /// <remarks>
+    /// Zero is not a density: the working-scale policy rejects it, so a clamp that returns it turns a bounds
+    /// value it merely could not fit into an exception several layers away from the rectangle that caused it.
+    /// </remarks>
+    [TestCase(-8f, 6f)]
+    [TestCase(8f, -6f)]
+    [TestCase(-8f, -6f)]
+    [TestCase(0f, 0f)]
+    public void ClampBudget_NeverReturnsAnUnusableDensityForADegenerateRectangle(float width, float height)
+    {
+        var bounds = new Rect(0, 0, width, height);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, 2f),
+                Is.GreaterThan(0f));
+            Assert.That(
+                RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 2f),
+                Is.GreaterThan(0f));
+        });
+    }
+
     [Test]
     public void ClampBudget_NeverIncreasesScale_AndGuardsNonFinite()
     {

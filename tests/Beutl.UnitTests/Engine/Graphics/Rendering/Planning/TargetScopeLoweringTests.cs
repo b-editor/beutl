@@ -496,22 +496,25 @@ public sealed class TargetScopeLoweringTests
         Assert.That(error!.Message, Does.Contain("finite").And.Contain("target domain").IgnoreCase);
     }
 
+    /// <remarks>
+    /// The scope a capture is used in decides its target domain, and an author has no way to read that when
+    /// building the description, so bounds sticking out of it cannot be a precondition they are able to meet.
+    /// The capture's value is cleared before the copy, so the part with no pixels behind it reads transparent,
+    /// which is the same answer as capturing an area nothing drew into.
+    /// </remarks>
     [Test]
-    public void FullTargetCaptureBoundsOutsideFiniteLayer_AreRejectedDuringLowering()
+    public void FullTargetCaptureBoundsOutsideFiniteLayer_LowerToTransparentInsteadOfFailing()
     {
         var layerDomain = new Rect(10, 20, 30, 20);
         var captureBounds = new Rect(5, 20, 10, 10);
         using var root = new OutOfDomainCaptureLayerNode(layerDomain, captureBounds);
 
-        InvalidOperationException? error = Assert.Throws<InvalidOperationException>(
+        Assert.That(
             () =>
             {
                 using CompiledRenderRequest _ = Compile(root, targetDomain: null);
-            });
-
-        Assert.That(
-            error!.Message,
-            Does.Contain("capture bounds").And.Contain("target domain").IgnoreCase);
+            },
+            Throws.Nothing);
     }
 
     [Test]

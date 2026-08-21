@@ -39,9 +39,13 @@ internal static class DeviceGridAlignment
     public static float ResolveLocalDensity(ImmediateCanvas canvas)
         => ResolveAffineDensity(canvas.Transform, canvas.Density);
 
+    /// <summary>Whether <paramref name="transform"/> has a perspective part, making its density positional.</summary>
+    public static bool IsPerspective(Matrix transform)
+        => transform.M13 != 0 || transform.M23 != 0 || transform.M33 != 1;
+
     public static float ResolveAffineDensity(Matrix transform, float fallbackDensity)
     {
-        if (transform.M13 != 0 || transform.M23 != 0 || transform.M33 != 1)
+        if (IsPerspective(transform))
         {
             throw new NotSupportedException(
                 "PreserveTargetSupply cannot represent the position-dependent density of a perspective transform.");

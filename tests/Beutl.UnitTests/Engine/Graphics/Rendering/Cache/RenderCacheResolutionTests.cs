@@ -47,6 +47,29 @@ public sealed class RenderCacheResolutionTests
         });
     }
 
+    /// <remarks>
+    /// A node reachable from two parents is recorded once per parent. Both recordings point at the same
+    /// RenderNodeCache, so offering both as candidates lets one family try to publish two independent outputs
+    /// to one cache, which the executor rejects by failing the frame.
+    /// </remarks>
+    [Test]
+    public void Recorder_OffersOneCandidatePerNodeEvenWhenTwoParentsShareIt()
+    {
+        var shared = new CacheableNode(disableCache: false);
+        shared.Cache.RecordStableRequests();
+        using var container = new ContainerRenderNode();
+        container.AddChild(new ReferencesChildRenderNode(shared));
+        container.AddChild(new ReferencesChildRenderNode(shared));
+
+        using var request = NewRequest();
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(container);
+
+        Assert.That(
+            graph.CacheCandidates.Count(candidate => ReferenceEquals(candidate.Cache, shared.Cache)),
+            Is.EqualTo(1),
+            "A shared node must offer its cache one candidate, not one per parent.");
+    }
+
     [Test]
     public void Recorder_KeepsSiblingsCacheableAfterOneOfThemOptsOut()
     {

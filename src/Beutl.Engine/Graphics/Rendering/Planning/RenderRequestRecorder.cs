@@ -9,6 +9,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
     private static readonly ConditionalWeakTable<RenderNode, RenderNodeCacheIdentity> s_cacheIdentities = new();
     private readonly RecordedRenderGraphBuilder _builder;
     private readonly List<PendingRenderCacheCandidate> _pendingCacheCandidates = [];
+    private readonly HashSet<RenderNode> _cacheCandidateNodes = new(ReferenceEqualityComparer.Instance);
     private bool _recorded;
 
     public RenderRequestRecorder(RenderRequest request)
@@ -172,6 +173,14 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         // RenderNodeCache owns one atomic output set. Multiple independently published fragments would
         // require a compound candidate identity and are conservatively left uncached for now.
         if (outputs.Count != 1)
+            return;
+
+        // A node reachable from more than one parent is recorded once per parent, and each recording would
+        // offer the same RenderNodeCache a candidate of its own. Those outputs are only interchangeable when
+        // both parents demanded the same thing, so the family would sooner or later try to publish two
+        // independent outputs to one cache and fail the frame. The first recording keeps the cache; a later
+        // one renders uncached, which costs work rather than correctness.
+        if (!_cacheCandidateNodes.Add(node))
             return;
 
         RenderNodeCacheIdentity identity = s_cacheIdentities.GetValue(

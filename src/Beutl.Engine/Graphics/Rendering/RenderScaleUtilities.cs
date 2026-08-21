@@ -134,7 +134,11 @@ public static class RenderScaleUtilities
                 return workingScale;
         }
 
-        return 0f;
+        // No candidate footprint fit, which a degenerate rectangle can produce at every scale. Zero is not a
+        // density any caller can use - the working-scale policy rejects it - so a clamp that cannot clamp
+        // hands back what it was given. An unallocatable buffer is then reported by the allocation itself,
+        // which already degrades a preview and fails a delivery render.
+        return workingScale;
     }
 
     private static float FitScaleToLogicalExtent(double maxAxis, float workingScale, int budget)

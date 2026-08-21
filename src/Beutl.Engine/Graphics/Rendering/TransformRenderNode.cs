@@ -136,7 +136,7 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
     /// </remarks>
     public static EffectiveScale RescaleDemand(EffectiveScale outputDemand, Matrix transform)
     {
-        if (transform.M13 != 0 || transform.M23 != 0 || transform.M33 != 1)
+        if (DeviceGridAlignment.IsPerspective(transform))
             return outputDemand;
 
         float factor = DeviceGridAlignment.ResolveAffineDensity(transform, 1f);

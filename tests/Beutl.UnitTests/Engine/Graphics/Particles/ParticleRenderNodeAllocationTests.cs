@@ -64,6 +64,74 @@ public sealed class ParticleRenderNodeAllocationTests
             size.Width <= factory.MaximumDimension && size.Height <= factory.MaximumDimension));
     }
 
+    /// <remarks>
+    /// A particle is scaled and then rotated about the source's own centre, so a turned square reaches further
+    /// along both axes than the square itself. This rectangle is what the layer buffer is allocated from, so a
+    /// bound that ignores rotation clips the corners off every particle instead of merely mismeasuring them.
+    /// </remarks>
+    [Test]
+    public void RotatedParticles_AllocateMoreThanTheUnrotatedFootprint()
+    {
+        PixelSize unrotated = LargestParticleLayer(initialRotation: 0f);
+        PixelSize rotated = LargestParticleLayer(initialRotation: 45f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rotated.Width, Is.GreaterThan(unrotated.Width),
+                "A 45 degree turn widens a particle's extent; the layer has to follow.");
+            Assert.That(rotated.Height, Is.GreaterThan(unrotated.Height));
+        });
+    }
+
+    private static PixelSize LargestParticleLayer(float initialRotation)
+    {
+        var emitter = new ParticleEmitter
+        {
+            Seed = { CurrentValue = 7 },
+            EmissionRate = { CurrentValue = 4 },
+            Lifetime = { CurrentValue = 1.2f },
+            MaxParticles = { CurrentValue = 8 },
+            Speed = { CurrentValue = 0 },
+            SpeedRandom = { CurrentValue = 0 },
+            Gravity = { CurrentValue = 0 },
+            Spread = { CurrentValue = 0 },
+            ParticleSize = { CurrentValue = 40 },
+            ParticleColor = { CurrentValue = Colors.OrangeRed },
+            InitialRotation = { CurrentValue = initialRotation },
+            InitialRotationRandom = { CurrentValue = 0 },
+        };
+        using ParticleEmitter.Resource resource = emitter.ToResource(
+            new CompositionContext(TimeSpan.FromSeconds(1)));
+        using var root = new DrawableRenderNode(resource);
+        using (var context = new GraphicsContext2D(root, s_frame, outputScale: 1))
+            emitter.Render(context, resource);
+
+        var factory = new BoundedTargetFactory(maximumDimension: 4096);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = new Rect(default, s_frame),
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                    Purpose = RenderRequestPurpose.Frame,
+                },
+                TargetFactory = factory,
+            });
+        using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
+        using var canvas = new ImmediateCanvas(target, logicalSize: s_frame, intent: RenderIntent.Delivery);
+        renderer.Render(canvas);
+
+        Assert.That(factory.Requests, Is.Not.Empty, "The fixture must reach the particle layer allocation.");
+        return factory.Requests
+            .OrderByDescending(static size => (long)size.Width * size.Height)
+            .First();
+    }
+
     private sealed class BoundedTargetFactory(int maximumDimension) : IRenderTargetFactory
     {
         public int MaximumDimension { get; } = maximumDimension;

@@ -54,15 +54,21 @@ public sealed class TargetCaptureDescription
         return new TargetCaptureDescription(sourceRegion, bounds, hitTest, scale);
     }
 
+    /// <summary>
+    /// Checks the region and domain a capture resolved against once the surrounding graph is known.
+    /// </summary>
+    /// <remarks>
+    /// Both are decided by the scope the capture ends up in, not by the author, who has neither at the point
+    /// they call <see cref="Create"/>. Requiring <see cref="Bounds"/> to sit inside them would therefore be a
+    /// precondition nobody can satisfy: the same description fails or succeeds depending on where it is used.
+    /// A capture reaching past the pixels available to it reads transparent there instead - the value is
+    /// cleared before the copy - which is the same answer as capturing an area nothing has drawn into.
+    /// The author-observable half of this rule is still enforced at <see cref="Create"/>: an explicit finite
+    /// source region must contain the bounds asked of it.
+    /// </remarks>
     internal void ValidateResolvedBounds(Rect resolvedSourceRegion, Rect targetDomain)
     {
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(resolvedSourceRegion, nameof(resolvedSourceRegion));
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(targetDomain, nameof(targetDomain));
-        if (!RenderDescriptionValidation.Contains(resolvedSourceRegion, Bounds)
-            || !RenderDescriptionValidation.Contains(targetDomain, Bounds))
-        {
-            throw new InvalidOperationException(
-                "Target capture bounds must be contained by both the resolved source region and current target domain.");
-        }
     }
 }

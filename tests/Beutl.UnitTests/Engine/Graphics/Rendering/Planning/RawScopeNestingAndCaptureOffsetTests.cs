@@ -408,6 +408,23 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         });
     }
 
+    /// <remarks>
+    /// The scope a capture ends up in decides its resolved region and target domain, and the author has
+    /// neither when they build the description. Bounds reaching past the pixels available must therefore read
+    /// transparent rather than fail the frame, or the same description would work or throw depending only on
+    /// where it was used.
+    /// </remarks>
+    [Test]
+    public void TargetCapture_ReachingPastTheTargetDomain_ReadsTransparentInsteadOfFailing()
+    {
+        using var root = new ContainerRenderNode();
+        root.AddChild(new MarkNode());
+        root.AddChild(new CaptureRoundTripNode(s_domain.Inflate(16)));
+        using var renderer = CreateRenderer(root);
+
+        Assert.That(() => renderer.Rasterize().Dispose(), Throws.Nothing);
+    }
+
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
         => new(
             node,

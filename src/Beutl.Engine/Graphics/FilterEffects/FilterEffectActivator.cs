@@ -544,14 +544,23 @@ public sealed class FilterEffectActivator : IDisposable
            && outer.Right >= inner.Right
            && outer.Bottom >= inner.Bottom;
 
+    /// <summary>
+    /// Makes sure every current target has chain bookkeeping, keeping what an in-progress chain accumulated.
+    /// </summary>
+    /// <remarks>
+    /// A Skia item runs author code that may re-enter <see cref="Activate"/> or <see cref="Flush"/>, both of
+    /// which drop this map and can replace the targets it was keyed by. Entries are therefore added rather
+    /// than the map rebuilt, so calling this again after author code has run restores a dropped map and covers
+    /// a target that appeared, without resetting a chain that survived.
+    /// </remarks>
     private void BeginSkiaChain()
     {
-        if (_pendingSkiaTargets is not null)
-            return;
-
-        _pendingSkiaTargets = new Dictionary<EffectTarget, PendingSkiaTarget>();
+        _pendingSkiaTargets ??= new Dictionary<EffectTarget, PendingSkiaTarget>();
         foreach (EffectTarget target in CurrentTargets)
         {
+            if (_pendingSkiaTargets.ContainsKey(target))
+                continue;
+
             Rect physicalBounds = target.RasterBounds.Translate(
                 target.OriginalBounds.Position - target.Bounds.Position);
             // OriginalBounds cannot serve as the anchor frame: a stage the fallback executor allocated
@@ -605,6 +614,9 @@ public sealed class FilterEffectActivator : IDisposable
                     {
                         BeginSkiaChain();
                         skia.Accepts(this, Builder);
+                        // Author code just ran and may have gone through Activate() or Flush(), either of
+                        // which drops the bookkeeping this loop is about to read.
+                        BeginSkiaChain();
                         // A deferred-bound Skia item resolves its matrix once from the combined
                         // execution-time target bounds (the first TransformBounds call fixes it),
                         // because its origin depends on input bounds a preceding custom effect may
