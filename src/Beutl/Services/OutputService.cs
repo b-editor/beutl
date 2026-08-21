@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ViewModels;
@@ -64,6 +65,12 @@ public sealed class OutputProfileItem : IDisposable
             _logger.LogWarning(
                 "Could not reserve the workspace for the output of {File}; the worktree is being changed.",
                 Context.Object.Uri);
+            // A third-party context that starts before raising Started cannot be stopped from here,
+            // so the user is told the output is running while the worktree changes underneath it
+            // rather than only the log knowing.
+            NotificationService.ShowWarning(
+                Strings.Output,
+                Strings.VersionControl_WorktreeOperationInProgress);
         }
 
         try

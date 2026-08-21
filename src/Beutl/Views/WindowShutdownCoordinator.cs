@@ -1,4 +1,5 @@
 ﻿using Beutl.Logging;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Views;
@@ -50,10 +51,20 @@ internal sealed class WindowShutdownCoordinator
         using var timeout = new CancellationTokenSource(_timeout);
         Task cleanupTask = Task.CompletedTask;
         bool deadlineExceeded = false;
+        bool abandoned = false;
         try
         {
             cleanupTask = _shutdownAsync(timeout.Token);
             await cleanupTask.WaitAsync(timeout.Token);
+        }
+        catch (ProjectCloseAbortedException ex)
+        {
+            // The project kept itself open to protect unsaved edits, so closing the window would
+            // discard them anyway. Stay open and let the user save and try again.
+            abandoned = true;
+            s_logger.LogWarning(
+                ex,
+                "Application shutdown was abandoned; the window stays open so the project can be saved.");
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
         {
@@ -73,14 +84,26 @@ internal sealed class WindowShutdownCoordinator
                 LateCompletionObservation = ObserveLateCompletionAsync(cleanupTask);
             }
 
-            Volatile.Write(ref _canClose, 1);
-            try
+            if (abandoned)
             {
-                _close();
+                // Dropped so a later close attempt runs the shutdown again instead of joining this
+                // abandoned one.
+                lock (_gate)
+                {
+                    _shutdownTask = null;
+                }
             }
-            catch (Exception ex)
+            else
             {
-                s_logger.LogError(ex, "Failed to close the window after shutdown cleanup.");
+                Volatile.Write(ref _canClose, 1);
+                try
+                {
+                    _close();
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogError(ex, "Failed to close the window after shutdown cleanup.");
+                }
             }
         }
     }

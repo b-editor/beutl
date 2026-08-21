@@ -492,7 +492,7 @@ public sealed class VersionControlCoordinator :
                 NotificationService.ShowWarning(
                     Strings.VersionControl,
                     MessageStrings.OperationFailed));
-            throw new InvalidOperationException(MessageStrings.OperationFailed);
+            throw new ProjectCloseAbortedException(MessageStrings.OperationFailed);
         }
     }
 

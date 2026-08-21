@@ -48,6 +48,42 @@ public class ShutdownPipelineTests
     }
 
     [AvaloniaTest]
+    public async Task Coordinator_keeps_the_window_open_when_the_close_was_abandoned()
+    {
+        int cleanupCalls = 0;
+        int closeCalls = 0;
+        var coordinator = new WindowShutdownCoordinator(
+            _ =>
+            {
+                cleanupCalls++;
+                return cleanupCalls == 1
+                    ? Task.FromException(
+                        new ProjectCloseAbortedException("the project could not be saved"))
+                    : Task.CompletedTask;
+            },
+            () => closeCalls++);
+
+        await coordinator.BeginShutdownAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            // Closing here would discard the very edits the abandoned close kept in their editors.
+            Assert.That(closeCalls, Is.Zero);
+            Assert.That(coordinator.CanClose, Is.False);
+        });
+
+        // The next attempt has to run the shutdown again instead of joining the abandoned one.
+        await coordinator.BeginShutdownAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cleanupCalls, Is.EqualTo(2));
+            Assert.That(closeCalls, Is.EqualTo(1));
+            Assert.That(coordinator.CanClose, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Coordinator_cancels_cleanup_and_closes_when_deadline_expires()
     {
         int closeCalls = 0;

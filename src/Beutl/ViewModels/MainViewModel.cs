@@ -284,6 +284,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
         _agentHostEndpoint.RequestStop();
         _projectService.RequestShutdown();
 
+        ProjectCloseAbortedException? closeAborted = null;
         try
         {
             try
@@ -306,12 +307,22 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
                 // its recovery and reopen before the final close runs.
                 await transition.CloseProjectAsync(cancellationToken);
             }
+            catch (ProjectCloseAbortedException ex)
+            {
+                // The close abandoned itself so the unsaved edits stay in their editors. Disposing
+                // the composition anyway would discard exactly what it protected, so the shutdown
+                // stops here and the application keeps running.
+                closeAborted = ex;
+                _logger.LogWarning(
+                    ex,
+                    "Application shutdown was abandoned because the open project could not be closed.");
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to close the project during application shutdown.");
             }
 
-            if (ProxyMediaServices.Current is { } proxyMediaServices)
+            if (closeAborted is null && ProxyMediaServices.Current is { } proxyMediaServices)
             {
                 Task disposalTask = proxyMediaServices.DisposeAsync().AsTask();
                 try
@@ -326,8 +337,24 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
         }
         finally
         {
-            BeginCompositionDisposal();
-            await _disposalCompletion.Task;
+            if (closeAborted is null)
+            {
+                BeginCompositionDisposal();
+                await _disposalCompletion.Task;
+            }
+        }
+
+        if (closeAborted is not null)
+        {
+            // Shutdown is otherwise terminal, so the request has to be cleared for the user to save
+            // and close again; the shutdown task is dropped for the same reason.
+            _projectService.ClearShutdownRequest();
+            lock (_shutdownGate)
+            {
+                _shutdownTask = null;
+            }
+
+            throw closeAborted;
         }
     }
 
