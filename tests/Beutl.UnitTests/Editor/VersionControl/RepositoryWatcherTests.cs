@@ -68,6 +68,9 @@ public class RepositoryWatcherTests
         });
     }
 
+    // Repository-local attributes have the highest gitattributes precedence, so an external tool
+    // editing them changes what Git reports as modified.
+    [TestCase("info/attributes", true)]
     [TestCase("index", true)]
     [TestCase("HEAD", true)]
     [TestCase("packed-refs", true)]

@@ -106,6 +106,9 @@ internal sealed class RepositoryWatcher : IDisposable
                    or "config"
                    or "config.worktree"
                    or "info/exclude"
+                   // Repository-local attributes outrank every .gitattributes file, so a change to
+                   // text, eol or filter here can make project paths modified on its own.
+                   or "info/attributes"
                    or "reftable"
                    or "refs"
                || relativePath.StartsWith("reftable/", StringComparison.Ordinal)
