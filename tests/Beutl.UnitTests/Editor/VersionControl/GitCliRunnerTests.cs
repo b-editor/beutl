@@ -467,6 +467,30 @@ public class GitCliRunnerTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Progress_reader_retains_only_a_bounded_stderr_tail()
+    {
+        // A push streams sideband progress for the whole operation; the failure it is classified by
+        // is what Git prints last, so the tail is what has to survive the cap.
+        string noise = string.Join(
+            '\n',
+            Enumerable.Range(0, 20_000).Select(static index => $"Receiving objects: {index}"));
+        const string Failure = "fatal: the remote end hung up unexpectedly";
+        var progress = new RecordingProgress();
+
+        string captured = await GitCliRunner.ReadStandardErrorAsync(
+            new StringReader($"{noise}\n{Failure}\n"),
+            progress);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(captured, Has.Length.LessThanOrEqualTo(GitCliRunner.MaxRetainedStandardErrorLength));
+            Assert.That(captured, Does.Contain(Failure));
+            Assert.That(progress.Messages, Has.Count.EqualTo(20_001));
+            Assert.That(progress.Messages[^1], Is.EqualTo(Failure));
+        });
+    }
+
     [TestCase(
         "https://user:super-secret-token@example.invalid/repo.git/",
         "https://***@example.invalid/repo.git/")]

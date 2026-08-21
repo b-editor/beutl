@@ -611,6 +611,8 @@ internal sealed class GitCliRunner : IGitCliRunner
         }
     }
 
+    internal const int MaxRetainedStandardErrorLength = 64 * 1024;
+
     internal static async Task<string> ReadStandardErrorAsync(
         TextReader reader,
         IProgress<string> progress)
@@ -622,6 +624,13 @@ internal sealed class GitCliRunner : IGitCliRunner
         while ((count = await reader.ReadAsync(buffer).ConfigureAwait(false)) > 0)
         {
             output.Append(buffer, 0, count);
+            // Sideband progress streams for the whole operation, so only the tail is retained:
+            // Git prints the failure it is classified by last, and a noisy remote must not be able
+            // to grow this buffer for as long as it keeps talking.
+            if (output.Length > MaxRetainedStandardErrorLength)
+            {
+                output.Remove(0, output.Length - MaxRetainedStandardErrorLength);
+            }
             for (int i = 0; i < count; i++)
             {
                 char value = buffer[i];
