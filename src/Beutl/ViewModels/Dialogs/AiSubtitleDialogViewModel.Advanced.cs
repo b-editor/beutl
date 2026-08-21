@@ -601,7 +601,8 @@ public sealed partial class AiSubtitleDialogViewModel
                     // spent key again.
                     operation.RequestKey.Retire();
                     UpdateOutstandingCaptionRequest();
-                    PublishSourceTranscriptionPartial(operation);
+                    DiscardDraftIfNotRewritten(
+                        PublishSourceTranscriptionPartial(operation));
                     throw;
                 }
                 catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
@@ -975,7 +976,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     // restart would ask under the spent key again.
                     operation.RequestKey.Retire();
                     UpdateOutstandingCaptionRequest();
-                    PublishTranslationPartial(operation);
+                    DiscardDraftIfNotRewritten(PublishTranslationPartial(operation));
                     throw;
                 }
                 catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
@@ -1050,7 +1051,7 @@ public sealed partial class AiSubtitleDialogViewModel
             _pendingTranslation?.RequestKey.Retire();
             UpdateOutstandingCaptionRequest();
             if (_pendingTranslation is { } changed)
-                PublishTranslationPartial(changed);
+                DiscardDraftIfNotRewritten(PublishTranslationPartial(changed));
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestChanged);
         }
         catch (AiRequestWasDeletedException)
@@ -1060,7 +1061,7 @@ public sealed partial class AiSubtitleDialogViewModel
             _pendingTranslation?.RequestKey.Retire();
             UpdateOutstandingCaptionRequest();
             if (_pendingTranslation is { } deleted)
-                PublishTranslationPartial(deleted);
+                DiscardDraftIfNotRewritten(PublishTranslationPartial(deleted));
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted);
         }
         catch (AiModelDoesNotSupportRequestException)
@@ -1457,21 +1458,10 @@ public sealed partial class AiSubtitleDialogViewModel
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to persist a recoverable paid caption result.");
-            // 書けなかったということは、ディスクに残っているのは 1 つ前の姿。
-            // 決着した名前を「まだ抱えている」と言い続ける控えは、次の起動で
-            // 支払い済みの回収のふりをして残高の確認をすり抜ける。古い姿のまま
-            // 残すより、控えごと消したほうが安全——支払い済みの結果はこの
-            // セッションのあいだは手元に残っている。
-            try
-            {
-                _captionDraftSession.Delete();
-            }
-            catch (Exception deleteFailure)
-            {
-                _logger.LogWarning(
-                    deleteFailure,
-                    "Failed to clear a caption draft that could not be updated.");
-            }
+            // 書けなかったので、ディスクに残るのは 1 つ前の姿。消してはいけない
+            // ——それは支払い済みの切れ端と、その名前を持っている唯一の控えかも
+            // しれない。古いままでも、そこに書かれた名前が指すのは支払い済みの
+            // job なので、次の起動はそれを取りに行ける。
             return CaptionDraftOutcome.NotRecorded;
         }
         return CaptionDraftOutcome.Recorded;
@@ -2048,16 +2038,35 @@ public sealed partial class AiSubtitleDialogViewModel
         if (_pendingSourceTranscription is { } source)
         {
             source.RequestKey.Retire();
-            PublishSourceTranscriptionPartial(source);
+            DiscardDraftIfNotRewritten(PublishSourceTranscriptionPartial(source));
         }
 
         if (_pendingSceneTranscription is { } scene)
         {
             scene.RequestKey.Retire();
-            PublishSceneTranscriptionPartial(scene);
+            DiscardDraftIfNotRewritten(PublishSceneTranscriptionPartial(scene));
         }
 
         UpdateOutstandingCaptionRequest();
+    }
+
+    // 使えなくなった名前を書き戻せなかったとき。ディスクに残っているのは、その
+    // 名前を「まだ抱えている」と言う 1 つ前の姿——次の起動はそれを支払い済みの
+    // 回収として扱い、決着済みの答えしか返ってこない名前で尋ねに行く。手元の
+    // 結果はこのセッションのあいだ残るので、そういう控えは消しておく。
+    private void DiscardDraftIfNotRewritten(CaptionDraftOutcome outcome)
+    {
+        if (outcome != CaptionDraftOutcome.NotRecorded || _captionDraftSession is null)
+            return;
+
+        try
+        {
+            _captionDraftSession.Delete();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to clear a caption draft that named a spent run.");
+        }
     }
 
     // Whether a caption run has named a piece the server has not been seen to

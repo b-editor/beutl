@@ -297,6 +297,39 @@ public sealed class CaptionDraftStoreTests
         afterRelease!.Dispose();
     }
 
+    [Test]
+    public void Load_TakesAVersion2DraftAtItsWordWhenItSaysSo()
+    {
+        // 版 2 のうち、その項目を書くようになったあとのもの。書いてある false は
+        // 「決着済み」という意味なので、抱えているものとして復活させてはいけない。
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
+        }
+
+        string path = store.GetStoragePath(scope);
+        File.WriteAllText(
+            path,
+            File.ReadAllText(path)
+                .Replace("\"version\":3", "\"version\":2")
+                .Replace("\"requestKeyNamePending\":true", "\"requestKeyNamePending\":false"));
+
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
+        using (reopened)
+        {
+            CaptionDraftEntry? restored = reopened!.Load();
+
+            Assert.That(restored, Is.Not.Null);
+            Assert.That(
+                restored!.Draft.SourceTranscriptionResume?.RequestKeyNamePending,
+                Is.False,
+                "A draft that says the run settled is not a paid recovery.");
+        }
+    }
+
     private static CaptionDraft CreateResumableSourceDraft()
     {
         var cue = new StoredCaptionCue(

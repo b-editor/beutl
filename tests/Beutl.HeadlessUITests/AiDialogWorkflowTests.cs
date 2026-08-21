@@ -266,11 +266,11 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task ImageGeneration_KeepsEachOutstandingRequestOnItsOwnModel()
+    public async Task ImageGeneration_NamesARequestByTheModelOnScreen()
     {
-        // A をモデル X で出したまま応答を落とし、モデルを Y に替えた B が成功
-        // する。覚えているのが 1 件だけだと、A に戻ったときに picker の Y で
-        // 名前を作り直し、支払い済みの A を買い直すことになる。
+        // モデルもその依頼の一部。X で出した A に戻るには、prompt だけでなく
+        // モデルも X に戻す——戻せば同じ名前になり、支払い済みの A を取りに
+        // 行ける。Y のまま出せば、それは Y への依頼として新しく課金される。
         await TestReset.ResetShellAsync();
         var sent = new List<(string Prompt, string? Model, string? Key)>();
         using var handler = new StubHandler(async (request, token) =>
@@ -326,19 +326,29 @@ public sealed class AiDialogWorkflowTests
         viewModel.Prompt.Value = "the second picture";
         await viewModel.Generate.ExecuteAsync();
 
+        // prompt だけ戻してモデルは Y のまま——これは Y への新しい依頼。
         viewModel.Prompt.Value = "the first picture";
         await viewModel.Generate.ExecuteAsync();
 
-        Assert.That(sent, Has.Count.EqualTo(3));
+        // モデルも X に戻す。ここで初めて A と同じ依頼になる。
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-1");
+        await viewModel.Generate.ExecuteAsync();
+
+        Assert.That(sent, Has.Count.EqualTo(4));
         Assert.Multiple(() =>
         {
             Assert.That(sent[0].Model, Is.EqualTo("openai/gpt-image-1"));
             Assert.That(sent[1].Model, Is.EqualTo("openai/gpt-image-2"));
             Assert.That(
                 sent[2].Model,
-                Is.EqualTo("openai/gpt-image-1"),
-                "Coming back to the unfinished request asks for it on the model it was sent with.");
-            Assert.That(sent[2].Key, Is.EqualTo(sent[0].Key));
+                Is.EqualTo("openai/gpt-image-2"),
+                "The screen said this model, so this is what is asked for and charged.");
+            Assert.That(sent[2].Key, Is.Not.EqualTo(sent[0].Key));
+            Assert.That(
+                sent[3].Key,
+                Is.EqualTo(sent[0].Key),
+                "Put back as it was, it asks for what that name already paid for.");
         });
     }
 

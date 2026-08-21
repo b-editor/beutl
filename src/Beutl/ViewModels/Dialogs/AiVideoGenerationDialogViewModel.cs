@@ -43,9 +43,6 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     // The model the outstanding name was built from. A refresh that withdraws
     // that model would otherwise rebuild the name around whatever the picker
     // fell back to, and the job the first attempt paid for would be left behind.
-    // 決着していない名前ごとに、その依頼が何を名乗ったか。1 件だけ覚えていると、
-    // 別の依頼を出した時点で前の依頼のモデルを忘れ、戻ってきたときに買い直す。
-    private readonly AiOutstandingRequests _outstanding = new();
     private readonly CancellationTokenSource _availabilityLifetimeCts = new();
     private readonly EditViewModel? _editViewModel;
     private readonly HashSet<string> _temporaryFiles = new(StringComparer.Ordinal);
@@ -630,26 +627,16 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     private void RetireRequestName(AiRequestName name)
     {
         _requestKey.Retire(name);
-        _outstanding.Forget(name);
         // Reloads were held back while that name was outstanding, so this is
         // where an operator's change to the model list finally lands.
         _ = RefreshModelsAsync();
     }
-
-    // Whatever the outstanding name was built from, including no model at all:
-    // a request that named none was fingerprinted without one, and letting a
-    // catalog that has since loaded name one would make it a different request.
-    // Only for the same request, though — a clip the user has since changed is
-    // a new request, and it is priced and run on the model on screen.
-    private AiModelId? PinnedOrSelectedModel(string?[] request, AiModelId? selected)
-        => _outstanding.TryGetModel(request, out AiModelId? sentWith) ? sentWith : selected;
 
     // A name the server never made a job under. Withdrawing it lets the picker
     // move again and puts the balance check back in front of the next attempt.
     private void WithdrawRequestName(AiRequestName name)
     {
         _requestKey.Withdraw(name);
-        _outstanding.Forget(name);
     }
 
 
@@ -891,12 +878,10 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                 AiRequestKey.FileStamp(firstFramePath),
                 AiRequestKey.FileStamp(lastFramePath),
             ];
-            var request = (string?[])requestParts.Clone();
-            AiModelId? model = PinnedOrSelectedModel(request, ModelPicker.SelectedModel);
+            AiModelId? model = ModelPicker.SelectedModel;
             requestParts[ModelPartIndex] = model?.Value;
             AiRequestName name = _requestKey.NameFor(requestParts);
             issued = name;
-            _outstanding.Remember(name, request, model);
 
             // Before it goes out. A name that ends here reached nothing.
             try

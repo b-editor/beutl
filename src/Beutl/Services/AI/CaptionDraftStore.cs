@@ -289,7 +289,10 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                     return null;
                 }
 
-                CaptionDraft draft = Migrate(envelope.Draft, envelope.Version);
+                CaptionDraft draft = Migrate(
+                    envelope.Draft,
+                    envelope.Version,
+                    RecordsNamePending(bytes, envelope.Version));
                 if (!IsValid(draft))
                 {
                     DeleteInvalidFile(storagePath);
@@ -397,10 +400,47 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
     //
     // 曖昧なのは名前だけなので、名前だけを落とす。支払い済みの結果はそのまま
     // 残り、まだ送っていない残りの切れ端が新しい実行として値付けされる。
-    private static CaptionDraft Migrate(CaptionDraft draft, int version)
+    // その控えが「名前を抱えたまま終わったか」を実際に書いているか。版 2 には
+    // それを書く前のものと書くようになったあとのものが混じっていて、書いてある
+    // false と、書かれていないための false は、読んだだけでは同じに見える。
+    private static bool RecordsNamePending(byte[] bytes, int version)
+    {
+        if (version != 2)
+            return false;
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(bytes);
+            if (!document.RootElement.TryGetProperty("draft", out JsonElement draft))
+                return false;
+
+            foreach (string resume in
+                (string[])["translationResume", "sourceTranscriptionResume", "sceneTranscriptionResume"])
+            {
+                if (draft.TryGetProperty(resume, out JsonElement element)
+                    && element.ValueKind == JsonValueKind.Object
+                    && element.TryGetProperty("requestKeyNamePending", out _))
+                {
+                    return true;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return false;
+    }
+
+    private static CaptionDraft Migrate(CaptionDraft draft, int version, bool recordsNamePending)
     {
         if (version >= CurrentVersion)
             return draft;
+
+        // 書いてあるなら、そのとおりに読む。書いていないのは、その項目より前の
+        // 版 2——seed があるなら抱えていたということ。
+        if (version == 2 && recordsNamePending)
+            return draft with { Version = CurrentVersion };
 
         // 版 2 には「名前を抱えたまま終わったか」が無い。読み落とすと false に
         // なり、まだ返ってきていない最初の切れ端を持つ実行が拾い直せなくなって

@@ -415,9 +415,6 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     // catalog that has since loaded name one would make it a different request.
     // Only for the same request: an edit of another picture, or with another
     // prompt, is a new request and is priced and run on the model on screen.
-    private AiModelId? PinnedOrSelectedModel(string?[] request, AiModelId? selected)
-        => _outstanding.TryGetModel(request, out AiModelId? sentWith) ? sentWith : selected;
-
     // Whether any request still waiting to be collected belongs to this task.
     // Each of the five is its own operation with its own models and its own
     // price, so a name outstanding on one says nothing about another.
@@ -614,14 +611,12 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 outpaintExpansionPercent?.ToString(CultureInfo.InvariantCulture),
                 AiRequestKey.FileStamp(filePath),
             ];
-            var request = (string?[])requestParts.Clone();
-            AiModelId? model = PinnedOrSelectedModel(
-                request,
-                ModelPicker.Operation == editOperation ? ModelPicker.SelectedModel : null);
+            AiModelId? model =
+                ModelPicker.Operation == editOperation ? ModelPicker.SelectedModel : null;
             requestParts[ModelPartIndex] = model?.Value;
             AiRequestName name = _requestKey.NameFor(requestParts);
             issued = name;
-            _outstanding.Remember(name, request, model);
+            _outstanding.Remember(name, requestParts);
             _outstandingRevision.Value++;
 
             // Before it goes out. A name that ends here reached nothing.

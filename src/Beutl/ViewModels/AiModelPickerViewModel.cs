@@ -210,8 +210,12 @@ internal sealed class AiModelPickerViewModel : IDisposable
         }
         finally
         {
+            // 頼んだ operation の一覧が実際に手元にあるときだけ「読み込んだ」と
+            // 言う。失敗しても言ってしまうと、その task のモデルを 1 つも持たない
+            // まま送れてしまい、画面にあるものとは別の——サーバーの既定の——
+            // モデルで課金される。
             if (generation == _loadGeneration)
-                IsLoaded.Value = true;
+                IsLoaded.Value = Operation == operation;
         }
     }
 
