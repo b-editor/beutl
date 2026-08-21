@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Beutl.Configuration;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -134,7 +135,16 @@ public sealed partial class MacWindow : Window
         }
     }
 
-    private void InitExtMenuItems(MainViewModel viewModel)
+    // Resolved by header rather than position: a menu edit used to shift these silently, and the
+    // catch below then dropped every extension entry instead of surfacing anything.
+    internal static NativeMenuItem? FindMenuItem(NativeMenu? menu, string header)
+    {
+        return menu?.Items
+            .OfType<NativeMenuItem>()
+            .FirstOrDefault(item => string.Equals(item.Header, header, StringComparison.Ordinal));
+    }
+
+    internal void InitExtMenuItems(MainViewModel viewModel)
     {
         NativeMenuItem? viewMenuItem = null;
         NativeMenu? editorTabMenu = null;
@@ -143,13 +153,12 @@ public sealed partial class MacWindow : Window
         NativeMenu? dockLayoutPresetMenu = null;
         try
         {
-            var rootMenu = NativeMenu.GetMenu(this)!;
-            viewMenuItem = (NativeMenuItem)rootMenu.Items[3];
-            editorTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[0]).Menu;
-            toolTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[1]).Menu;
-            toolWindowMenu = ((NativeMenuItem)rootMenu.Items[4]).Menu;
-            // View > ... > "Apply dock layout" (see MacWindow.axaml).
-            dockLayoutPresetMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[^2]).Menu;
+            NativeMenu rootMenu = NativeMenu.GetMenu(this)!;
+            viewMenuItem = FindMenuItem(rootMenu, Strings.View);
+            editorTabMenu = FindMenuItem(viewMenuItem?.Menu, Strings.Editors)?.Menu;
+            toolTabMenu = FindMenuItem(viewMenuItem?.Menu, Strings.Tools)?.Menu;
+            toolWindowMenu = FindMenuItem(rootMenu, Strings.Tools)?.Menu;
+            dockLayoutPresetMenu = FindMenuItem(viewMenuItem?.Menu, Strings.ApplyDockLayout)?.Menu;
         }
         catch
         {
