@@ -14,11 +14,11 @@
 /// </remarks>
 public readonly struct RenderInputDemandContract
 {
-    private readonly Func<EffectiveScale, EffectiveScale>? _map;
+    private readonly Func<int, EffectiveScale, EffectiveScale>? _map;
     private readonly object? _structuralIdentity;
 
     private RenderInputDemandContract(
-        Func<EffectiveScale, EffectiveScale> map,
+        Func<int, EffectiveScale, EffectiveScale> map,
         object structuralIdentity)
     {
         _map = map;
@@ -43,6 +43,29 @@ public readonly struct RenderInputDemandContract
     {
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
+        return new RenderInputDemandContract((_, demand) => map(demand), map.Method);
+    }
+
+    /// <summary>
+    /// Creates a contract that maps a resolved output demand to the demand on each input separately.
+    /// </summary>
+    /// <param name="map">
+    /// A pure metadata callback that maps an input's zero-based index and the concrete output demand to that
+    /// input's concrete demand. It must return a finite positive density for every index; the engine bounds
+    /// each result by the request ceiling. It may be evaluated again during graph-wide metadata resolution, so
+    /// it must remain deterministic and side-effect-free.
+    /// </param>
+    /// <returns>A declarative per-input backward-demand mapping contract.</returns>
+    /// <remarks>
+    /// This is what a many-input operation needs when it resamples its inputs asymmetrically — enlarging one
+    /// while passing another through. A single map cannot express that, and leaving demand unchanged lets the
+    /// enlarged input materialize below the density the enlargement consumes.
+    /// </remarks>
+    public static RenderInputDemandContract MapOutputDemandPerInput(
+        Func<int, EffectiveScale, EffectiveScale> map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
         return new RenderInputDemandContract(map, map.Method);
     }
 
@@ -50,14 +73,14 @@ public readonly struct RenderInputDemandContract
 
     internal object StructuralIdentity => _structuralIdentity ?? nameof(Unchanged);
 
-    internal EffectiveScale Resolve(EffectiveScale outputDemand)
+    internal EffectiveScale Resolve(int inputIndex, EffectiveScale outputDemand)
     {
         if (outputDemand.IsUnbounded)
             throw new ArgumentException("Output demand must be concrete.", nameof(outputDemand));
         if (_map is null)
             return outputDemand;
 
-        EffectiveScale mapped = _map(outputDemand);
+        EffectiveScale mapped = _map(inputIndex, outputDemand);
         if (mapped.IsUnbounded)
         {
             throw new InvalidOperationException(

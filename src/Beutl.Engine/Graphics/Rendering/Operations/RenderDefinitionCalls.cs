@@ -20,6 +20,7 @@ public sealed class OpaqueRenderDefinition<TState>
     private readonly RenderDeviceGridSensitivity _deviceGridSensitivity;
     private readonly IReadOnlyList<RenderInputReadback> _inputReadbacks;
     private readonly IReadOnlyList<RenderResourceSlot> _resourceSlots;
+    private readonly RenderInputDemandContract _inputDemand;
 
     private OpaqueRenderDefinition(
         Action<OpaqueRenderSession, TState> execute,
@@ -29,9 +30,11 @@ public sealed class OpaqueRenderDefinition<TState>
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
         IReadOnlyList<RenderInputReadback> inputReadbacks,
-        IReadOnlyList<RenderResourceSlot> resourceSlots)
+        IReadOnlyList<RenderResourceSlot> resourceSlots,
+        RenderInputDemandContract inputDemand)
     {
         _execute = execute;
+        _inputDemand = inputDemand;
         _bounds = bounds;
         _hitTest = hitTest;
         _valueCardinality = valueCardinality;
@@ -42,6 +45,13 @@ public sealed class OpaqueRenderDefinition<TState>
     }
 
     /// <summary>Creates an immutable opaque-operation definition.</summary>
+    /// <remarks>
+    /// <paramref name="inputDemand"/> declares what density each input has to reach for this operation's own
+    /// resolved output demand. Only a combine or an expand may declare one, and it is what an operation that
+    /// resamples its inputs asymmetrically needs: without it every input is asked for the unchanged output
+    /// demand, so an unbounded input feeding an enlargement materializes below the density that enlargement
+    /// consumes.
+    /// </remarks>
     public static OpaqueRenderDefinition<TState> Create(
         Action<OpaqueRenderSession, TState> execute,
         OpaqueRenderBoundsContract bounds,
@@ -50,7 +60,8 @@ public sealed class OpaqueRenderDefinition<TState>
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceSlot>? resources = null)
+        IEnumerable<RenderResourceSlot>? resources = null,
+        RenderInputDemandContract inputDemand = default)
     {
         ArgumentNullException.ThrowIfNull(execute);
         ArgumentNullException.ThrowIfNull(bounds);
@@ -68,7 +79,8 @@ public sealed class OpaqueRenderDefinition<TState>
             scale,
             deviceGridSensitivity,
             inputReadbacks?.ToArray() ?? [],
-            RenderDescriptionValidation.CopyResourceSlots(resources, nameof(resources)));
+            RenderDescriptionValidation.CopyResourceSlots(resources, nameof(resources)),
+            inputDemand);
     }
 
     /// <summary>Binds this operation shape to the state and resources for one recording.</summary>
@@ -96,7 +108,8 @@ public sealed class OpaqueRenderDefinition<TState>
             resources: RenderDescriptionValidation.ValidateResourceBindings(
                 _resourceSlots,
                 bindings,
-                nameof(bindings)));
+                nameof(bindings)),
+            inputDemand: _inputDemand);
 }
 
 /// <summary>Binds one opaque-operation definition to one recording's state and resource tokens.</summary>

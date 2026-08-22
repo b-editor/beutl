@@ -380,6 +380,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 components.Add(opaque.Description.Bounds.StructuralIdentity);
                 components.Add(opaque.Description.HitTest.StructuralIdentity);
                 components.Add(opaque.Description.Scale.StructuralIdentity);
+                components.Add(opaque.Description.InputDemand.StructuralIdentity);
                 components.Add(opaque.InputReadbacks.Count);
                 foreach (RenderInputReadback inputReadback in opaque.InputReadbacks)
                 {

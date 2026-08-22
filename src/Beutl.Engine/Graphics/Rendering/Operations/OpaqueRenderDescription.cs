@@ -44,6 +44,7 @@ internal sealed class OpaqueRenderDescription
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
+        RenderInputDemandContract inputDemand,
         RenderDeviceGridSensitivity deviceGridSensitivity,
         object definitionFingerprint,
         IReadOnlyList<RenderInputReadback> inputReadbacks,
@@ -59,6 +60,7 @@ internal sealed class OpaqueRenderDescription
         HitTest = hitTest;
         ValueCardinality = valueCardinality;
         Scale = scale;
+        InputDemand = inputDemand;
         DeviceGridSensitivity = deviceGridSensitivity;
         DefinitionFingerprint = definitionFingerprint;
         InputReadbacks = inputReadbacks;
@@ -77,6 +79,13 @@ internal sealed class OpaqueRenderDescription
     public RenderValueCardinality ValueCardinality { get; }
 
     public RenderScaleContract Scale { get; }
+
+    /// <summary>Gets the mapping from this operation's resolved output demand to the demand on each input.</summary>
+    /// <remarks>
+    /// Only a combine or an expand may declare one. A one-input map carries demand backwards through
+    /// <see cref="RenderScaleContract.MapInputSupply"/> instead, and a source has no input to demand from.
+    /// </remarks>
+    public RenderInputDemandContract InputDemand { get; }
 
     /// <summary>Gets the declared dependency of this description's pixels on the device pixel grid.</summary>
     public RenderDeviceGridSensitivity DeviceGridSensitivity { get; }
@@ -103,6 +112,15 @@ internal sealed class OpaqueRenderDescription
     {
         Bounds.ThrowIfIncompatible(topology, parameterName);
         Scale.ThrowIfIncompatible(topology, parameterName);
+
+        if (!InputDemand.IsUnchanged
+            && topology is not (OpaqueRenderTopology.Combine or OpaqueRenderTopology.Expand))
+        {
+            throw new ArgumentException(
+                "Only a combine or an expand declares a per-input demand mapping; a one-input map declares it "
+                + "through its scale contract and a source has no input.",
+                parameterName);
+        }
 
         if (DirectReplay is not null
             && topology is not (OpaqueRenderTopology.Source or OpaqueRenderTopology.Combine))
@@ -156,6 +174,7 @@ internal sealed class OpaqueRenderDescription
                 HitTest,
                 ValueCardinality,
                 Scale,
+                InputDemand,
                 DeviceGridSensitivity,
                 DefinitionFingerprint,
                 InputReadbacks,
@@ -241,7 +260,8 @@ internal sealed class OpaqueRenderDescription
         RenderDeviceGridSensitivity deviceGridSensitivity,
         object definitionFingerprint,
         IEnumerable<RenderInputReadback>? inputReadbacks,
-        IEnumerable<RenderResourceBinding>? resources)
+        IEnumerable<RenderResourceBinding>? resources,
+        RenderInputDemandContract inputDemand = default)
     {
         ArgumentNullException.ThrowIfNull(bounds);
         hitTest.ThrowIfUninitialized(nameof(hitTest));
@@ -257,6 +277,7 @@ internal sealed class OpaqueRenderDescription
             hitTest,
             valueCardinality,
             scale,
+            inputDemand,
             deviceGridSensitivity,
             definitionFingerprint,
             Array.AsReadOnly(CopyInputReadbacks(inputReadbacks)),
@@ -302,6 +323,7 @@ internal sealed class OpaqueRenderDescription
             hitTest,
             RenderValueCardinality.Single,
             scale,
+            RenderInputDemandContract.Unchanged,
             deviceGridSensitivity,
             definitionFingerprint,
             Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
@@ -345,6 +367,7 @@ internal sealed class OpaqueRenderDescription
             hitTest,
             valueCardinality,
             scale,
+            RenderInputDemandContract.Unchanged,
             deviceGridSensitivity,
             definitionFingerprint,
             Array.AsReadOnly(Array.Empty<RenderInputReadback>()),

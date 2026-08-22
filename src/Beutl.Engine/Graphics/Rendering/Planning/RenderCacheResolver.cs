@@ -619,12 +619,37 @@ internal static class RenderMaterializationDemandResolver
                     maxWorkingScale);
                 EnqueueInputs(fragment, inputDemand, DemandUse.MaterializeValue, pending);
                 return;
+            case RenderFragmentKind.OpaqueCombine:
+            case RenderFragmentKind.OpaqueExpand:
+                OpaqueRenderDescription many =
+                    ((OpaqueRenderFragmentPayload)fragment.Payload!).Description;
+                if (many.InputDemand.IsUnchanged)
+                {
+                    EnqueueInputs(
+                        fragment,
+                        valueDemand,
+                        DemandUse.MaterializeValue,
+                        pending,
+                        IsEffectClassConsumer(fragment));
+                    return;
+                }
+
+                for (int index = fragment.Inputs.Length - 1; index >= 0; index--)
+                {
+                    pending.Push(new PendingDemand(
+                        fragment.Inputs[index],
+                        ResolveMappedInputDemand(many.InputDemand, index, valueDemand, maxWorkingScale),
+                        DemandUse.MaterializeValue,
+                        UseSupplyFallback: false,
+                        IsEffectClassConsumer: IsEffectClassConsumer(fragment)));
+                }
+                return;
             case RenderFragmentKind.Shader:
                 ShaderDescription shader =
                     ((ShaderRenderFragmentPayload)fragment.Payload!).Description;
                 EnqueueInputs(
                     fragment,
-                    ResolveMappedInputDemand(shader.InputDemand, valueDemand, maxWorkingScale),
+                    ResolveMappedInputDemand(shader.InputDemand, 0, valueDemand, maxWorkingScale),
                     DemandUse.MaterializeValue,
                     pending,
                     IsEffectClassConsumer(fragment));
@@ -664,10 +689,11 @@ internal static class RenderMaterializationDemandResolver
 
     private static float ResolveMappedInputDemand(
         RenderInputDemandContract inputDemand,
+        int inputIndex,
         float outputDemand,
         float maxWorkingScale)
         => BoundMappedInputDemand(
-            inputDemand.Resolve(EffectiveScale.At(outputDemand)).Value,
+            inputDemand.Resolve(inputIndex, EffectiveScale.At(outputDemand)).Value,
             maxWorkingScale);
 
     private static float ResolveMappedInputDemand(

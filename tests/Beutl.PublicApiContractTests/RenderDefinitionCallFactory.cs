@@ -16,7 +16,8 @@ internal static class RenderDefinitionCallFactory
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IEnumerable<RenderResourceSlot>? resources = null,
-        IEnumerable<RenderResourceBinding>? bindings = null)
+        IEnumerable<RenderResourceBinding>? bindings = null,
+        RenderInputDemandContract inputDemand = default)
         where TState : notnull
     {
         return OpaqueRenderDefinition<TState>.Create(
@@ -27,7 +28,8 @@ internal static class RenderDefinitionCallFactory
             scale,
             deviceGridSensitivity,
             inputReadbacks,
-            resources)
+            resources,
+            inputDemand)
             .Call(state, bindings);
     }
 
@@ -40,7 +42,8 @@ internal static class RenderDefinitionCallFactory
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IEnumerable<RenderResourceSlot>? resources = null,
-        IEnumerable<RenderResourceBinding>? bindings = null)
+        IEnumerable<RenderResourceBinding>? bindings = null,
+        RenderInputDemandContract inputDemand = default)
     {
         return Opaque(
             execute,
@@ -52,7 +55,8 @@ internal static class RenderDefinitionCallFactory
             deviceGridSensitivity,
             inputReadbacks,
             resources,
-            bindings);
+            bindings,
+            inputDemand);
     }
 
     public static GeometryCall<TState> Geometry<TState>(
