@@ -493,14 +493,26 @@ internal sealed partial class RenderRequestExecutor
             switch (fragment.Kind)
             {
                 case RenderFragmentKind.ContributeValues:
-                    DrawValues(
-                        MaterializeSingleInput(
-                            fragment,
-                            destination,
-                            fragment.EffectiveScale.IsUnbounded
-                                ? EffectiveScale.At(destination.Density)
-                                : null),
-                        destination);
+                    // The values belong to the input, and this is the one replay branch that materializes
+                    // without delegating to a method whose own finally completes the use. Leaving it open
+                    // holds the input's pooled target for the rest of the request, so a chain of these keeps
+                    // one live intermediate per link instead of handing each back as it is drawn.
+                    try
+                    {
+                        DrawValues(
+                            MaterializeSingleInput(
+                                fragment,
+                                destination,
+                                fragment.EffectiveScale.IsUnbounded
+                                    ? EffectiveScale.At(destination.Density)
+                                    : null),
+                            destination);
+                    }
+                    finally
+                    {
+                        CompleteFragmentUse(fragment.Inputs[0]);
+                    }
+
                     return;
                 case RenderFragmentKind.Opacity:
                     ExecuteReplayIsland(

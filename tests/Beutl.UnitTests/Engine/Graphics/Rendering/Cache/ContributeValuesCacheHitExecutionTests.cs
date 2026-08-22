@@ -11,6 +11,8 @@ public sealed class ContributeValuesCacheHitExecutionTests
 {
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
+    private const int Contributors = 8;
+
     [Test]
     public void ContributeValuesCacheHit_DoesNotCompleteThePrunedProducerInput()
     {
@@ -116,6 +118,53 @@ public sealed class ContributeValuesCacheHitExecutionTests
             Assert.That(node.Cache.IsCached, Is.False);
             Assert.That(node.ExecuteCount, Is.EqualTo(2));
         });
+    }
+
+    /// <remarks>
+    /// A replay branch that materializes has to report the use complete, or the input's values stay on the
+    /// ledger and their pooled target stays leased for the rest of the request. ContributeValues is the one
+    /// branch that materializes inline instead of delegating to a method whose finally does it, so a chain of
+    /// them held one live intermediate per link where the whole chain needs one.
+    /// </remarks>
+    [Test]
+    public void ChainedContributeValues_HandBackEachIntermediateAsItIsDrawn()
+    {
+        using var root = new ContainerRenderNode();
+        for (int index = 0; index < Contributors; index++)
+            root.AddChild(new EmptyCombineContributionNode());
+
+        var factory = new CountingTargetFactory();
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                    Purpose = RenderRequestPurpose.Frame,
+                    FusionMode = FusionMode.Disabled,
+                },
+                TargetFactory = factory,
+            });
+
+        renderer.Rasterize().Dispose();
+
+        // Two: the frame's own target and the one intermediate the contributors take turns with. Holding
+        // each contributor's target open instead cost one per link, measured at nine for the eight here.
+        Assert.That(factory.Creates, Is.EqualTo(2),
+            $"{Contributors} contributors of one size must share the pool, not hold one target each.");
+    }
+
+    private sealed class CountingTargetFactory : IRenderTargetFactory
+    {
+        public int Creates { get; private set; }
+
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+        {
+            Creates++;
+            return new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+        }
     }
 
     private sealed class ValueConsumerNode(RenderNode producer) : RenderNode
