@@ -37,7 +37,7 @@ public sealed class SaveFrameDialogViewModel : IDisposable
                 (long width, long height) = SaveFrameScale.GetRenderSize(baseSize, scale);
                 return string.Format(
                     MessageStrings.SaveImageExceedsMaxRenderSize,
-                    scale, width, height, RenderNodeContext.MaxBufferDimension);
+                    scale, width, height, RenderScaleUtilities.MaxBufferDimension);
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);

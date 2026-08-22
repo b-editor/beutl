@@ -41,7 +41,9 @@ internal sealed class CompositeContext : IGraphicsContext
     {
         if (Metal != null && !format.IsDepthFormat())
         {
-            return new MetalVulkanTexture2D(Metal, Vulkan, width, height, format);
+            var texture = new MetalVulkanTexture2D(Metal, Vulkan, width, height, format);
+            VulkanContext.RecordTextureAllocation(format);
+            return texture;
         }
 
         return Vulkan.CreateTexture2D(width, height, format);
@@ -74,14 +76,17 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public IRenderPass3D CreateRenderPass3D(
         IReadOnlyList<TextureFormat> colorFormats,
-        TextureFormat depthFormat = TextureFormat.Depth32Float,
+        TextureFormat? depthFormat,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
         AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
     {
         return Vulkan.CreateRenderPass3D(colorFormats, depthFormat, colorLoadOp, depthLoadOp);
     }
 
-    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture)
+    public IFramebuffer3D CreateFramebuffer3D(
+        IRenderPass3D renderPass,
+        IReadOnlyList<ITexture2D> colorTextures,
+        ITexture2D? depthTexture)
     {
         return Vulkan.CreateFramebuffer3D(renderPass, colorTextures, depthTexture);
     }

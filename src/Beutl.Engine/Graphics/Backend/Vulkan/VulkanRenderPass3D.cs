@@ -8,28 +8,32 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="IRenderPass3D"/> with MRT support.
 /// </summary>
-internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
+internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly RenderPass _renderPass;
+    private readonly Format[] _colorFormats;
+    private readonly Format? _depthFormat;
     private readonly int _colorAttachmentCount;
     private CommandBuffer _currentCommandBuffer;
     private VulkanPipeline3D? _currentPipeline;
     private bool _inRenderPass;
     private bool _disposed;
 
+    public VulkanContext OwnerContext => _context;
+
     /// <summary>
-    /// Creates a render pass with the specified color and depth formats.
+    /// Creates a render pass with the specified color formats and optional depth format.
     /// </summary>
     /// <param name="context">The Vulkan context.</param>
     /// <param name="colorFormats">Formats for each color attachment.</param>
-    /// <param name="depthFormat">Format for the depth attachment.</param>
+    /// <param name="depthFormat">Format for the depth attachment, or null for a color-only pass.</param>
     /// <param name="colorLoadOp">The load operation for color attachments.</param>
     /// <param name="depthLoadOp">The load operation for the depth attachment.</param>
     public VulkanRenderPass3D(
         VulkanContext context,
         IReadOnlyList<Format> colorFormats,
-        Format depthFormat = Format.D32Sfloat,
+        Format? depthFormat,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
         AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
     {
@@ -39,20 +43,20 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         }
 
         _context = context;
+        _colorFormats = [.. colorFormats];
+        _depthFormat = depthFormat;
         _colorAttachmentCount = colorFormats.Count;
 
         var vk = context.Vk;
         var device = context.Device;
 
-        int totalAttachments = colorFormats.Count + 1; // colors + depth
+        int totalAttachments = colorFormats.Count + (depthFormat.HasValue ? 1 : 0);
 
         // Create attachment descriptions
         var attachments = stackalloc AttachmentDescription[totalAttachments];
         var colorAttachmentRefs = stackalloc AttachmentReference[colorFormats.Count];
 
         var vulkanColorLoadOp = ToVulkanLoadOp(colorLoadOp);
-        var vulkanDepthLoadOp = ToVulkanLoadOp(depthLoadOp);
-
         for (int i = 0; i < colorFormats.Count; i++)
         {
             attachments[i] = new AttachmentDescription
@@ -74,41 +78,52 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             };
         }
 
-        // Depth attachment (last)
-        attachments[colorFormats.Count] = new AttachmentDescription
+        var depthAttachmentRef = default(AttachmentReference);
+        if (depthFormat is Format actualDepthFormat)
         {
-            Format = depthFormat,
-            Samples = SampleCountFlags.Count1Bit,
-            LoadOp = vulkanDepthLoadOp,
-            StoreOp = AttachmentStoreOp.Store, // Store depth for shadow mapping
-            StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
-            StencilStoreOp = AttachmentStoreOp.DontCare,
-            InitialLayout = ImageLayout.DepthStencilAttachmentOptimal,
-            FinalLayout = ImageLayout.DepthStencilAttachmentOptimal
-        };
+            attachments[colorFormats.Count] = new AttachmentDescription
+            {
+                Format = actualDepthFormat,
+                Samples = SampleCountFlags.Count1Bit,
+                LoadOp = ToVulkanLoadOp(depthLoadOp),
+                StoreOp = AttachmentStoreOp.Store,
+                StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
+                StencilStoreOp = AttachmentStoreOp.DontCare,
+                InitialLayout = ImageLayout.DepthStencilAttachmentOptimal,
+                FinalLayout = ImageLayout.DepthStencilAttachmentOptimal
+            };
 
-        var depthAttachmentRef = new AttachmentReference
-        {
-            Attachment = (uint)colorFormats.Count,
-            Layout = ImageLayout.DepthStencilAttachmentOptimal
-        };
+            depthAttachmentRef = new AttachmentReference
+            {
+                Attachment = (uint)colorFormats.Count,
+                Layout = ImageLayout.DepthStencilAttachmentOptimal
+            };
+        }
 
         var subpass = new SubpassDescription
         {
             PipelineBindPoint = PipelineBindPoint.Graphics,
             ColorAttachmentCount = (uint)colorFormats.Count,
             PColorAttachments = colorAttachmentRefs,
-            PDepthStencilAttachment = &depthAttachmentRef
+            PDepthStencilAttachment = depthFormat.HasValue ? &depthAttachmentRef : null
         };
+
+        PipelineStageFlags attachmentStages = PipelineStageFlags.ColorAttachmentOutputBit;
+        AccessFlags attachmentWrites = AccessFlags.ColorAttachmentWriteBit;
+        if (depthFormat.HasValue)
+        {
+            attachmentStages |= PipelineStageFlags.EarlyFragmentTestsBit;
+            attachmentWrites |= AccessFlags.DepthStencilAttachmentWriteBit;
+        }
 
         var dependency = new SubpassDependency
         {
             SrcSubpass = Vk.SubpassExternal,
             DstSubpass = 0,
-            SrcStageMask = PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.EarlyFragmentTestsBit,
+            SrcStageMask = attachmentStages,
             SrcAccessMask = 0,
-            DstStageMask = PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.EarlyFragmentTestsBit,
-            DstAccessMask = AccessFlags.ColorAttachmentWriteBit | AccessFlags.DepthStencilAttachmentWriteBit
+            DstStageMask = attachmentStages,
+            DstAccessMask = attachmentWrites
         };
 
         var renderPassInfo = new RenderPassCreateInfo
@@ -135,6 +150,12 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
 
     public int ColorAttachmentCount => _colorAttachmentCount;
 
+    public IReadOnlyList<Format> ColorFormats => _colorFormats;
+
+    public Format? DepthFormat => _depthFormat;
+
+    public bool HasDepthAttachment => _depthFormat.HasValue;
+
     public void Begin(IFramebuffer3D framebuffer, ReadOnlySpan<Color> clearColors, float clearDepth = 1.0f)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -144,24 +165,40 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass already begun");
         }
 
-        var vulkanFramebuffer = (VulkanFramebuffer3D)framebuffer;
-
-        // Allocate command buffer
-        _currentCommandBuffer = _context.AllocateCommandBuffer();
-
-        var beginInfo = new CommandBufferBeginInfo
+        var vulkanFramebuffer = _context.RequireOwned<VulkanFramebuffer3D>(framebuffer, nameof(framebuffer));
+        if (!vulkanFramebuffer.IsCompatibleWith(this))
         {
-            SType = StructureType.CommandBufferBeginInfo,
-            Flags = CommandBufferUsageFlags.OneTimeSubmitBit
-        };
+            throw new ArgumentException("The framebuffer was created for a different render pass.", nameof(framebuffer));
+        }
 
-        _context.Vk.BeginCommandBuffer(_currentCommandBuffer, &beginInfo);
+        // Claimed before the first barrier: every pass on this context records into one command buffer, so a
+        // second concurrent pass has to be rejected before it prepares anything, not after.
+        _context.BeginRenderPassScope(this);
+        try
+        {
+            BeginCore(vulkanFramebuffer, clearColors, clearDepth);
+        }
+        catch
+        {
+            _context.EndRenderPassScope(this);
+            throw;
+        }
+    }
 
+    private void BeginCore(
+        VulkanFramebuffer3D vulkanFramebuffer,
+        ReadOnlySpan<Color> clearColors,
+        float clearDepth)
+    {
         // Prepare textures for rendering
         vulkanFramebuffer.PrepareForRendering();
 
+        // Barriers, copies, and consecutive render passes share one command buffer until an
+        // external consumer requires submission.
+        _currentCommandBuffer = _context.GetRecordingCommandBuffer();
+
         // Create clear values for all attachments
-        int totalClearValues = _colorAttachmentCount + 1;
+        int totalClearValues = _colorAttachmentCount + (HasDepthAttachment ? 1 : 0);
         var clearValues = stackalloc ClearValue[totalClearValues];
 
         for (int i = 0; i < _colorAttachmentCount; i++)
@@ -176,7 +213,10 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
                 clearValues[i].Color = new ClearColorValue(0, 0, 0, 0);
             }
         }
-        clearValues[_colorAttachmentCount].DepthStencil = new ClearDepthStencilValue(clearDepth, 0);
+        if (HasDepthAttachment)
+        {
+            clearValues[_colorAttachmentCount].DepthStencil = new ClearDepthStencilValue(clearDepth, 0);
+        }
 
         var renderPassBeginInfo = new RenderPassBeginInfo
         {
@@ -186,7 +226,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             RenderArea = new Rect2D
             {
                 Offset = new Offset2D(0, 0),
-                Extent = new Extent2D((uint)framebuffer.Width, (uint)framebuffer.Height)
+                Extent = new Extent2D((uint)vulkanFramebuffer.Width, (uint)vulkanFramebuffer.Height)
             },
             ClearValueCount = (uint)totalClearValues,
             PClearValues = clearValues
@@ -199,8 +239,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         {
             X = 0,
             Y = 0,
-            Width = framebuffer.Width,
-            Height = framebuffer.Height,
+            Width = vulkanFramebuffer.Width,
+            Height = vulkanFramebuffer.Height,
             MinDepth = 0,
             MaxDepth = 1
         };
@@ -209,7 +249,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         var scissor = new Rect2D
         {
             Offset = new Offset2D(0, 0),
-            Extent = new Extent2D((uint)framebuffer.Width, (uint)framebuffer.Height)
+            Extent = new Extent2D((uint)vulkanFramebuffer.Width, (uint)vulkanFramebuffer.Height)
         };
         _context.Vk.CmdSetScissor(_currentCommandBuffer, 0, 1, &scissor);
 
@@ -226,10 +266,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         }
 
         _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
-        _context.Vk.EndCommandBuffer(_currentCommandBuffer);
-
-        // Submit command buffer
-        _context.SubmitCommandBuffer(_currentCommandBuffer);
+        _context.EndRenderPassScope(this);
 
         _inRenderPass = false;
         _currentPipeline = null;
@@ -251,7 +288,12 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanPipeline = (VulkanPipeline3D)pipeline;
+        var vulkanPipeline = _context.RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
+        if (!vulkanPipeline.IsCompatibleWith(this))
+        {
+            throw new ArgumentException("The pipeline was created for a different render pass.", nameof(pipeline));
+        }
+
         _currentPipeline = vulkanPipeline;
         _context.Vk.CmdBindPipeline(_currentCommandBuffer, PipelineBindPoint.Graphics, vulkanPipeline.Handle);
     }
@@ -263,7 +305,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanBuffer = (VulkanBuffer)buffer;
+        var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
         var bufferHandle = vulkanBuffer.Handle;
         ulong offset = 0;
         _context.Vk.CmdBindVertexBuffers(_currentCommandBuffer, 0, 1, &bufferHandle, &offset);
@@ -276,7 +318,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanBuffer = (VulkanBuffer)buffer;
+        var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
         _context.Vk.CmdBindIndexBuffer(_currentCommandBuffer, vulkanBuffer.Handle, 0, IndexType.Uint32);
     }
 
@@ -287,8 +329,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanPipeline = (VulkanPipeline3D)pipeline;
-        var vulkanDescriptorSet = (VulkanDescriptorSet)descriptorSet;
+        var vulkanPipeline = _context.RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
+        var vulkanDescriptorSet = _context.RequireOwned<VulkanDescriptorSet>(descriptorSet, nameof(descriptorSet));
         var set = vulkanDescriptorSet.Handle;
         _context.Vk.CmdBindDescriptorSets(
             _currentCommandBuffer,
@@ -359,7 +401,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         if (_disposed) return;
         _disposed = true;
 
-        _context.Vk.DestroyRenderPass(_context.Device, _renderPass, null);
+        RenderPass renderPass = _renderPass;
+        _context.DeferRelease(() => _context.Vk.DestroyRenderPass(_context.Device, renderPass, null));
     }
 
     private static Silk.NET.Vulkan.AttachmentLoadOp ToVulkanLoadOp(AttachmentLoadOp loadOp)

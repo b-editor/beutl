@@ -47,7 +47,7 @@ public class GeometryRenderNodeTest
     }
 
     [Test]
-    public void Process_ShouldReturnCorrectRenderNodeOperation()
+    public void Measure_ShouldReportRecordedFragment()
     {
         var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
         Brush fill = new SolidColorBrush(Colors.Red);
@@ -55,13 +55,105 @@ public class GeometryRenderNodeTest
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        using var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
+        using var renderer = CreateRenderer(node);
+        RenderNodeMeasurement measurement = renderer.Measure();
 
-        var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
-        var operations = node.Process(context);
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.HasFragments, Is.True);
+            Assert.That(measurement.HasContributingValues, Is.True);
+            Assert.That(measurement.ValueCardinality, Is.EqualTo(RenderValueCardinality.Single));
+        });
+    }
 
-        Assert.That(operations, Is.Not.Null);
-        Assert.That(operations.Length, Is.EqualTo(1));
+    [Test]
+    public void Measure_ShouldCoverTheFill_WhenANegativeOffsetErodesTheStroke()
+    {
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 140 }, Height = { CurrentValue = 95 } };
+        Brush fill = new SolidColorBrush(Colors.Gold);
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Blue },
+            Thickness = { CurrentValue = 5 },
+            Offset = { CurrentValue = -12 },
+        };
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var fillResource = fill.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
+        Rect fillBounds = geometryResource.Bounds;
+        Rect strokeBounds = geometryResource.GetRenderBounds(penResource);
+        using var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
+        using var renderer = CreateRenderer(node);
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(strokeBounds.Contains(fillBounds), Is.False,
+                "the negative offset must pull the stroke off the fill's extremes for this case to be meaningful");
+            Assert.That(measurement.OutputBounds.Contains(fillBounds), Is.True,
+                "the declared output must cover the fill the draw callback paints, not just the eroded stroke");
+        }
+    }
+
+    [Test]
+    public void Measure_ShouldCoverTheFill_WhenATrimmedPenStrokesOnlyAnArc()
+    {
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 140 }, Height = { CurrentValue = 95 } };
+        Brush fill = new SolidColorBrush(Colors.Gold);
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Blue },
+            Thickness = { CurrentValue = 5 },
+            TrimStart = { CurrentValue = 40 },
+            TrimEnd = { CurrentValue = 60 },
+        };
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var fillResource = fill.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
+        Rect fillBounds = geometryResource.Bounds;
+        Rect strokeBounds = geometryResource.GetRenderBounds(penResource);
+        using var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
+        using var renderer = CreateRenderer(node);
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(strokeBounds.Contains(fillBounds), Is.False,
+                "the trim must pull the stroke off the fill's extremes for this case to be meaningful");
+            Assert.That(measurement.OutputBounds.Contains(fillBounds), Is.True,
+                "the declared output must cover the fill the draw callback paints, not just the trimmed arc");
+        }
+    }
+
+    [Test]
+    public void Measure_ShouldStayStrokeOnly_WhenThereIsNoFillToCover()
+    {
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 140 }, Height = { CurrentValue = 95 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Blue },
+            Thickness = { CurrentValue = 5 },
+            Offset = { CurrentValue = -12 },
+        };
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
+        Rect fillBounds = geometryResource.Bounds;
+        Rect strokeBounds = geometryResource.GetRenderBounds(penResource);
+        using var node = new GeometryRenderNode(geometryResource, null, penResource);
+        using var renderer = CreateRenderer(node);
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(measurement.OutputBounds, Is.EqualTo(strokeBounds),
+                "without a fill there is nothing outside the stroke to cover, so the bound must stay stroke-only");
+            Assert.That(measurement.OutputBounds.Contains(fillBounds), Is.False,
+                "growing a fill-less stroke to the fill would waste the intermediate it allocates");
+        }
     }
 
     [Test]
@@ -73,13 +165,11 @@ public class GeometryRenderNodeTest
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
-        var operations = node.Process(context);
+        using var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(50, 50);
 
-        Assert.That(operations[0].HitTest(point), Is.True);
+        Assert.That(renderer.HitTest(point), Is.True);
     }
 
     [Test]
@@ -91,13 +181,11 @@ public class GeometryRenderNodeTest
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
-        var operations = node.Process(context);
+        using var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(150, 150);
 
-        Assert.That(operations[0].HitTest(point), Is.False);
+        Assert.That(renderer.HitTest(point), Is.False);
     }
 
     [Test]
@@ -107,12 +195,19 @@ public class GeometryRenderNodeTest
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 50 } };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new GeometryRenderNode(geometryResource, null, penResource);
-        var operations = node.Process(context);
+        using var node = new GeometryRenderNode(geometryResource, null, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(0, 50);
 
-        Assert.That(operations[0].HitTest(point), Is.True);
+        Assert.That(renderer.HitTest(point), Is.True);
     }
+
+    private static RenderNodeRenderer CreateRenderer(RenderNode node)
+        => new(node, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            },
+        });
 }

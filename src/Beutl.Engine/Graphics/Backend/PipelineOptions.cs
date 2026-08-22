@@ -1,10 +1,22 @@
-﻿namespace Beutl.Graphics.Backend;
+﻿using System.Collections.Immutable;
+
+namespace Beutl.Graphics.Backend;
 
 /// <summary>
 /// Options for creating a graphics pipeline.
 /// </summary>
 public struct PipelineOptions
 {
+    /// <summary>
+    /// Gets or sets the immutable specialization constants applied when the pipeline is created.
+    /// A default or empty array applies no specialization.
+    /// </summary>
+    /// <remarks>
+    /// Specialization constants are part of pipeline identity. Pipeline caches must compare their stage,
+    /// constant ID, scalar size, and value rather than the array instance or insertion order.
+    /// </remarks>
+    public ImmutableArray<SpecializationConstant> SpecializationConstants { get; set; }
+
     /// <summary>
     /// Gets or sets whether depth testing is enabled. Default is true.
     /// </summary>
@@ -65,6 +77,7 @@ public struct PipelineOptions
     /// </summary>
     public static PipelineOptions Default => new()
     {
+        SpecializationConstants = [],
         DepthTestEnabled = true,
         DepthWriteEnabled = true,
         CullMode = CullMode.Back,
@@ -83,6 +96,7 @@ public struct PipelineOptions
     /// </summary>
     public static PipelineOptions Fullscreen => new()
     {
+        SpecializationConstants = [],
         DepthTestEnabled = false,
         DepthWriteEnabled = false,
         CullMode = CullMode.None,
@@ -102,6 +116,7 @@ public struct PipelineOptions
     /// </summary>
     public static PipelineOptions Transparent => new()
     {
+        SpecializationConstants = [],
         DepthTestEnabled = true,
         DepthWriteEnabled = false,
         CullMode = CullMode.Back,

@@ -3,6 +3,7 @@ using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -225,6 +226,55 @@ public class AudioVisualizerDrawableTests
         Assert.That(visResource.CachedSampleLength, Is.GreaterThan(0),
             "synthetic audio composed no samples — the fill path would be skipped, making the test vacuous");
         return GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), scale);
+    }
+
+    [TestCase(500f, 0.25f)]
+    [TestCase(250f, 0.5f)]
+    [TestCase(125f, 1f)]
+    [TestCase(50f, 2.5f)]
+    public void Waveform_TransformAndOutputScaleSplits_ArePixelIdentical(
+        float transformPercent,
+        float outputScale)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = new AudioWaveformDrawable
+            {
+                Width = { CurrentValue = 240f },
+                Height = { CurrentValue = 120f },
+                Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
+                Shape = { CurrentValue = new MinMaxBarWaveformShape() },
+                BarCount = { CurrentValue = 64 },
+                WindowSeconds = { CurrentValue = 0.1f },
+            };
+            AttachSyntheticSource(drawable);
+
+            drawable.Transform.CurrentValue = new ScaleTransform(transformPercent, transformPercent);
+            var transformedFrame = new PixelSize(
+                (int)(400 / outputScale),
+                (int)(225 / outputScale));
+            using Bitmap transformed = RenderWaveformRoute(drawable, transformedFrame, outputScale);
+
+            drawable.Transform.CurrentValue = new ScaleTransform(100f, 100f);
+            using Bitmap reference = RenderWaveformRoute(drawable, new PixelSize(320, 180), 1.25f);
+
+            GoldenImageHarness.AssertByteIdentical(reference, transformed);
+        });
+    }
+
+    private static Bitmap RenderWaveformRoute(
+        AudioWaveformDrawable drawable,
+        PixelSize logicalFrame,
+        float outputScale)
+    {
+        var context = new CompositionContext(TimeSpan.FromSeconds(0.5));
+        using Drawable.Resource resource = drawable.ToResource(context);
+        Assert.That(
+            ((AudioWaveformDrawable.Resource)resource).CachedSampleLength,
+            Is.GreaterThan(0),
+            "synthetic audio composed no samples — the comparison would be vacuous");
+        return GoldenImageHarness.RenderAtScale(resource, logicalFrame, outputScale);
     }
 
     // Two fresh instances fed identical samples must rasterize byte-identically at density > 1,

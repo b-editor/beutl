@@ -376,10 +376,17 @@ public readonly struct Matrix(
     /// <summary>
     ///  Determines if the current matrix contains perspective (non-affine) transforms (true) or only (affine) transforms that could be mapped into an 2x3 matrix (false).
     /// </summary>
-    private bool ContainsPerspective()
+    public bool ContainsPerspective()
     {
         return M13 != 0 || M23 != 0 || M33 != 1;
     }
+
+    /// <summary>
+    ///  Returns the homogeneous divisor <paramref name="p"/> is divided by when it is transformed by this
+    ///  matrix. It is affine in <paramref name="p"/>, so its extrema over a rectangle are at the corners.
+    ///  A point whose divisor is zero lies on the camera plane and has no finite image.
+    /// </summary>
+    public float GetTransformDivisor(Point p) => (p.X * M13) + (p.Y * M23) + M33;
 
     /// <summary>
     /// Returns a String representing this matrix instance.

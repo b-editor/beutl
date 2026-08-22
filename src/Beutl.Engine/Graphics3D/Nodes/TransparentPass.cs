@@ -128,15 +128,14 @@ public sealed class TransparentPass : GraphicsNode3D
 
         // Begin transparent pass with load (preserves copied content and depth buffer)
         Span<Color> clearColors = [Colors.Transparent];
-        BeginPass(clearColors);
-
-        // Render transparent objects (already sorted far to near)
-        foreach (var entry in transparentObjects)
+        using (UsePass(clearColors))
         {
-            RenderTransparentObject(context3D, entry.Object, entry.WorldMatrix);
+            // Render transparent objects (already sorted far to near)
+            foreach (var entry in transparentObjects)
+            {
+                RenderTransparentObject(context3D, entry.Object, entry.WorldMatrix);
+            }
         }
-
-        EndPass();
     }
 
     private void RenderTransparentObject(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
@@ -147,7 +146,7 @@ public sealed class TransparentPass : GraphicsNode3D
             return;
 
         // Ensure GPU buffers are created/updated
-        EnsureMeshBuffers(meshResource);
+        MeshBufferUploadHelper.Ensure(Context, meshResource);
 
         if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
             return;
@@ -168,61 +167,10 @@ public sealed class TransparentPass : GraphicsNode3D
         RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
 
         // Draw the mesh
-        RenderPass.DrawIndexed((uint)meshResource.IndexCount);
+        RenderPass.DrawIndexed((uint)meshResource.UploadedIndexCount);
     }
 
-    private void EnsureMeshBuffers(Mesh.Resource meshResource)
-    {
-        if (!meshResource.BuffersDirty)
-            return;
 
-        var vertices = meshResource.GetVertices();
-        var indices = meshResource.GetIndices();
-
-        if (vertices.Length == 0 || indices.Length == 0)
-            return;
-
-        ulong vertexSize = (ulong)(vertices.Length * System.Runtime.InteropServices.Marshal.SizeOf<Vertex3D>());
-        ulong indexSize = (ulong)(indices.Length * sizeof(uint));
-
-        // Dispose old buffers if they exist
-        meshResource.VertexBuffer?.Dispose();
-        meshResource.IndexBuffer?.Dispose();
-
-        // Create new device-local buffers
-        var vertexBuffer = Context.CreateBuffer(
-            vertexSize,
-            BufferUsage.VertexBuffer | BufferUsage.TransferDestination,
-            MemoryProperty.DeviceLocal);
-
-        var indexBuffer = Context.CreateBuffer(
-            indexSize,
-            BufferUsage.IndexBuffer | BufferUsage.TransferDestination,
-            MemoryProperty.DeviceLocal);
-
-        // Create staging buffers and upload
-        using var vertexStaging = Context.CreateBuffer(
-            vertexSize,
-            BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        using var indexStaging = Context.CreateBuffer(
-            indexSize,
-            BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        vertexStaging.Upload(vertices);
-        indexStaging.Upload(indices);
-
-        // Copy from staging to device local
-        Context.CopyBuffer(vertexStaging, vertexBuffer, vertexSize);
-        Context.CopyBuffer(indexStaging, indexBuffer, indexSize);
-
-        // Store in mesh resource
-        meshResource.VertexBuffer = vertexBuffer;
-        meshResource.IndexBuffer = indexBuffer;
-        meshResource.BuffersDirty = false;
-    }
 
     protected override void OnDispose()
     {

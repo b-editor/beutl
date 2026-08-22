@@ -192,13 +192,21 @@ public static class ObjectTemplatePreviewRenderer
                 using var root = new DrawableRenderNode(resource);
                 using (var context = new GraphicsContext2D(root, availableSize, scale))
                 {
-                    resource.GetOriginal().Render(context, resource);
+                    resource.GetOriginal()!.Render(context, resource);
                 }
 
-                root.PrepareForProcess(canvas);
-                new RenderNodeProcessor(
-                        root, useRenderCache: false, outputScale: scale, maxWorkingScale: scale * 2f)
-                    .Render(canvas);
+                using var renderer = new RenderNodeRenderer(
+                    root,
+                    new RenderNodeRendererOptions
+                    {
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            OutputScale = scale,
+                            MaxWorkingScale = scale * 2f,
+                            CacheOptions = RenderCacheOptions.Disabled,
+                        },
+                    });
+                renderer.Render(canvas);
             }
         }
 
@@ -214,28 +222,37 @@ public static class ObjectTemplatePreviewRenderer
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, availableSize))
             {
-                resource.GetOriginal().Render(context, resource);
+                resource.GetOriginal()!.Render(context, resource);
             }
 
-            var processor = new RenderNodeProcessor(root, useRenderCache: false);
-            RenderNodeOperation[] operations = processor.PullToRoot();
             try
             {
-                foreach (RenderNodeOperation op in operations)
-                {
-                    bounds = bounds.Union(op.Bounds);
-                }
+                bounds = bounds.Union(MeasureOutputBounds(root, targetDomain: null));
             }
-            finally
+            catch (RenderTargetDomainRequiredException)
             {
-                foreach (RenderNodeOperation op in operations)
-                {
-                    op.Dispose();
-                }
+                // A TargetDomain also clips the measured extent, so it serves only as a fallback owner
+                // for graphs whose Full target access cannot resolve without one.
+                bounds = bounds.Union(MeasureOutputBounds(root, new Rect(default, availableSize)));
             }
         }
 
         return bounds;
+    }
+
+    private static Rect MeasureOutputBounds(DrawableRenderNode root, Rect? targetDomain)
+    {
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = targetDomain,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                },
+            });
+        return renderer.Measure().OutputBounds;
     }
 
     private static Size AvailableSize => new(PreviewWidth, PreviewHeight);

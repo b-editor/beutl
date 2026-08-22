@@ -29,24 +29,40 @@ public partial class MeasureNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
+            Rect rect = Rect.Empty;
             if (Input is RenderNode renderNode)
             {
-                // Scale 1 intentional: GraphCompositionContext carries no output scale; bounds are logical-res.
-                var processor = new RenderNodeProcessor(renderNode, true);
-                RenderNodeOperation[] list = processor.PullToRoot();
-                Rect rect = Rect.Empty;
-
-                foreach (RenderNodeOperation item in list)
+                if (FilterEffectInputBinding.TryGetCurrent(out FilterEffectInputBinding binding))
                 {
-                    rect = rect.Union(item.Bounds);
-                    item.Dispose();
+                    rect = binding.MeasureSubtree(renderNode);
                 }
-
-                X = rect.X;
-                Y = rect.Y;
-                Width = rect.Width;
-                Height = rect.Height;
+                else
+                {
+                    // A TargetDomain also widens the measured extent, so it serves only as a
+                    // fallback owner for graphs whose Full target access cannot resolve without one.
+                    try
+                    {
+                        using var renderer = new RenderNodeRenderer(renderNode);
+                        rect = renderer.Measure().QueryBounds;
+                    }
+                    catch (RenderTargetDomainRequiredException) when (context.TargetDomain is { } domain)
+                    {
+                        using var renderer = new RenderNodeRenderer(renderNode, new RenderNodeRendererOptions
+                        {
+                            DefaultRequest = new RenderNodeRenderRequest
+                            {
+                                TargetDomain = domain,
+                            },
+                        });
+                        rect = renderer.Measure().QueryBounds;
+                    }
+                }
             }
+
+            X = rect.X;
+            Y = rect.Y;
+            Width = rect.Width;
+            Height = rect.Height;
         }
     }
 }

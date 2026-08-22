@@ -330,20 +330,24 @@ void main() {
         // Begin pass with this face's framebuffer
         Span<Color> clearColors = [new Color(255, 255, 255, 255)];
         RenderPass!.Begin(framebuffer, clearColors);
-
-        // Bind shadow pipeline
-        RenderPass.BindPipeline(_shadowPipeline!);
-
-        // Bind descriptor set with light data
-        RenderPass.BindDescriptorSet(_shadowPipeline!, _descriptorSet!);
-
-        // Render each object
-        foreach (var obj in objects)
+        try
         {
-            RenderObject(obj, lightVP, Matrix4x4.Identity);
-        }
+            // Bind shadow pipeline
+            RenderPass.BindPipeline(_shadowPipeline!);
 
-        RenderPass.End();
+            // Bind descriptor set with light data
+            RenderPass.BindDescriptorSet(_shadowPipeline!, _descriptorSet!);
+
+            // Render each object
+            foreach (var obj in objects)
+            {
+                RenderObject(obj, lightVP, Matrix4x4.Identity);
+            }
+        }
+        finally
+        {
+            RenderPass.End();
+        }
 
         // Copy the rendered depth to the cube map face
         Context.CopyTextureToCubeFace(depthTexture, ShadowCubeTexture, faceIndex);
@@ -392,7 +396,7 @@ void main() {
         RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
 
         // Draw the mesh
-        RenderPass.DrawIndexed((uint)meshResource.IndexCount);
+        RenderPass.DrawIndexed((uint)meshResource.UploadedIndexCount);
     }
 
     protected override void OnDispose()

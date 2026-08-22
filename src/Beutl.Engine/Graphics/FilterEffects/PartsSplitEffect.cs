@@ -12,7 +12,8 @@ public partial class PartsSplitEffect : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect(Unit.Default, ApplyCore);
+        // Every traced contour comes from the source's own alpha, so no part leaves the incoming extent.
+        context.CustomEffect(Unit.Default, ApplyCore, static (_, bounds) => bounds);
     }
 
     private void ApplyCore(Unit unit, CustomFilterEffectContext context)
@@ -21,7 +22,7 @@ public partial class PartsSplitEffect : FilterEffect
         {
             EffectTarget target = context.Targets[i];
             RenderTarget srcRenderTarget = target.RenderTarget!;
-            using var src = srcRenderTarget.Snapshot();
+            using Bitmap src = srcRenderTarget.SnapshotAlpha();
 
             // 輪郭検出（階層付き）
             ContourTracer.FindContoursWithHierarchy(src, out var points, out var parentIndices);
@@ -78,6 +79,8 @@ public partial class PartsSplitEffect : FilterEffect
 
                     // Contours are device px; convert path bounds to logical (/ w).
                     float w = context.WorkingScale;
+                    int completedPathCount = 0;
+                    bool allocationFailed = false;
                     foreach ((SKPath skpath, _, _) in pathes)
                     {
                         SKRect pathBounds = skpath.TightBounds;
@@ -87,6 +90,13 @@ public partial class PartsSplitEffect : FilterEffect
                             pathBounds.Width / w,
                             pathBounds.Height / w);
                         EffectTarget newTarget = context.CreateTarget(bounds);
+                        if (newTarget.IsEmpty)
+                        {
+                            newTarget.Dispose();
+                            allocationFailed = true;
+                            break;
+                        }
+
                         // Clip path and source blit are device px; enter device space.
                         using (ImmediateCanvas newCanvas = context.Open(newTarget))
                         using (newCanvas.PushDeviceSpace())
@@ -101,6 +111,18 @@ public partial class PartsSplitEffect : FilterEffect
                         newTargets.Add(newTarget);
 
                         skpath.Dispose();
+                        completedPathCount++;
+                    }
+
+                    if (allocationFailed)
+                    {
+                        for (int j = completedPathCount; j < pathes.Count; j++)
+                        {
+                            pathes[j].Path.Dispose();
+                        }
+
+                        newTargets.Dispose();
+                        continue;
                     }
 
                     srcRenderTarget.Dispose();

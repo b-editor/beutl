@@ -65,9 +65,23 @@ internal sealed unsafe class VulkanInstance : IDisposable
         _enabledExtensions = GetRequiredInstanceExtensions();
         _instance = CreateInstance(_enabledExtensions);
 
-        if (_enableValidation && _vk.TryGetInstanceExtension(_instance, out _debugUtils))
+        if (_enableValidation)
         {
-            _debugMessenger = CreateDebugMessenger();
+            try
+            {
+                if (!_vk.TryGetInstanceExtension(_instance, out _debugUtils))
+                {
+                    throw new InvalidOperationException(
+                        $"Vulkan validation was requested, but {ExtDebugUtils.ExtensionName} could not be loaded.");
+                }
+
+                _debugMessenger = CreateDebugMessenger();
+            }
+            catch
+            {
+                _vk.DestroyInstance(_instance, null);
+                throw;
+            }
         }
     }
 
@@ -221,12 +235,17 @@ internal sealed unsafe class VulkanInstance : IDisposable
             validationLayers = new[] { "VK_LAYER_KHRONOS_validation" };
             if (!CheckValidationLayerSupport(validationLayers))
             {
-                s_logger.LogWarning("Validation layers requested but not available, continuing without them.");
-                validationLayers = Array.Empty<string>();
+                throw new InvalidOperationException(
+                    "Vulkan validation was requested, but VK_LAYER_KHRONOS_validation is not available.");
             }
         }
 
         var availableExtensions = EnumerateInstanceExtensions();
+        if (_enableValidation && !availableExtensions.Contains(ExtDebugUtils.ExtensionName))
+        {
+            throw new InvalidOperationException(
+                $"Vulkan validation was requested, but {ExtDebugUtils.ExtensionName} is not available.");
+        }
         var filteredExtensions = extensions.Where(e => availableExtensions.Contains(e)).ToArray();
 
         var appNamePtr = Marshal.StringToHGlobalAnsi("Beutl");
@@ -379,7 +398,7 @@ internal sealed unsafe class VulkanInstance : IDisposable
         var result = _debugUtils!.CreateDebugUtilsMessenger(_instance, &createInfo, null, &messenger);
         if (result != Result.Success)
         {
-            s_logger.LogError("Failed to create debug messenger: {Result}", result);
+            throw new InvalidOperationException($"Failed to create Vulkan debug messenger: {result}");
         }
 
         return messenger;

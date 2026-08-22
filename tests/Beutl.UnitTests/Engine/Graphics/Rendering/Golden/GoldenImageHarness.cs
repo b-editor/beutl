@@ -12,8 +12,15 @@ internal static class GoldenImageHarness
     /// <summary>
     /// Renders <paramref name="resource"/> into a <c>ceil(logicalSize × scale)</c> device surface with one
     /// root <c>CreateScale(scale)</c> CTM, exactly as <see cref="Renderer.Render"/>. <c>scale == 1</c> is byte-identical.
+    /// When <paramref name="requestedRegion"/> is provided, only that logical region is requested and committed.
+    /// The surface is black by default; <paramref name="clearColor"/> can select another control background.
     /// </summary>
-    public static Bitmap RenderAtScale(Drawable.Resource resource, PixelSize logicalSize, float scale)
+    public static Bitmap RenderAtScale(
+        Drawable.Resource resource,
+        PixelSize logicalSize,
+        float scale,
+        Rect? requestedRegion = null,
+        Color? clearColor = null)
     {
         int dw = (int)MathF.Ceiling(logicalSize.Width * scale);
         int dh = (int)MathF.Ceiling(logicalSize.Height * scale);
@@ -21,23 +28,29 @@ internal static class GoldenImageHarness
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
         // The canvas bakes CreateScale(scale) at construction.
         using var canvas = new ImmediateCanvas(target, scale, logicalSize: logicalSize.ToSize(1));
-        canvas.Clear(Colors.Black);
+        canvas.Clear(clearColor ?? Colors.Black);
 
         // Layout uses logical frame size; canvas base CTM maps to device surface.
         using var node = new DrawableRenderNode(resource);
         using (var ctx = new GraphicsContext2D(node, logicalSize.ToSize(1), scale))
         {
-            resource.GetOriginal().Render(ctx, resource);
+            resource.GetOriginal()!.Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: scale);
-        RenderNodeOperation[] ops = processor.PullToRoot();
-
-        foreach (RenderNodeOperation op in ops)
-        {
-            op.Render(canvas);
-            op.Dispose();
-        }
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = new Rect(default, logicalSize.ToSize(1)),
+                    RequestedRegion = requestedRegion,
+                    OutputScale = scale,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+            });
+        renderer.Render(canvas);
 
         return target.Snapshot();
     }

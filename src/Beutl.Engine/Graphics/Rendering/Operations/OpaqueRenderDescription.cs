@@ -1,0 +1,1826 @@
+﻿using System.Collections.ObjectModel;
+using System.Reflection;
+using Beutl.Graphics.Effects;
+using Beutl.Media;
+
+namespace Beutl.Graphics.Rendering;
+
+/// <summary>
+/// Declares whether an opaque description's pixels depend on where the composition-device pixel grid falls.
+/// </summary>
+/// <remarks>
+/// The renderer reuses a cached output only when every value that shaped its pixels is part of the cache
+/// identity. Device-grid phase — the sub-pixel offset between the description's own coordinate space and the
+/// pixel centres it writes to — is one such value, and no bounds, density, or author-supplied field carries it.
+/// </remarks>
+public enum RenderDeviceGridSensitivity : byte
+{
+    /// <summary>
+    /// The output is unchanged by a sub-pixel shift of the device grid, so it may be cached and reused across
+    /// device-grid phase changes and across a remapping replay.
+    /// </summary>
+    Insensitive,
+
+    /// <summary>
+    /// The output is a function of the device-grid phase, so a sub-pixel phase change or a remapping replay
+    /// ancestor produces different pixels than the cached output.
+    /// </summary>
+    /// <remarks>
+    /// Declare this for anything computed from where the pixel centres fall rather than resampled from a
+    /// stored raster. Analytic anti-aliased coverage — glyph rasterization, signed-distance-field text — is
+    /// one such source, and so are screen-space dithering, ordered noise, and pixel-grid overlays, which
+    /// compute no coverage at all yet still change with the phase.
+    /// </remarks>
+    PhaseDependent,
+}
+
+internal sealed class OpaqueRenderDescription
+{
+    private readonly RenderExecutionChannel<OpaqueRenderSession> _execution;
+
+    private OpaqueRenderDescription(
+        RenderExecutionChannel<OpaqueRenderSession> execution,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderValueCardinality valueCardinality,
+        RenderScaleContract scale,
+        RenderInputDemandContract inputDemand,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
+        object definitionFingerprint,
+        IReadOnlyList<RenderInputReadback> inputReadbacks,
+        IReadOnlyList<RenderResourceBinding> resources,
+        RenderBackendBoundary backendBoundary,
+        Action<EngineDirectRenderSession>? directReplay,
+        bool supportsDirectDstOut,
+        bool hasDirectReplayMaterializationContract = false,
+        bool directReplayAtExactIntegerReduction = false)
+    {
+        _execution = execution;
+        Bounds = bounds;
+        HitTest = hitTest;
+        ValueCardinality = valueCardinality;
+        Scale = scale;
+        InputDemand = inputDemand;
+        DeviceGridSensitivity = deviceGridSensitivity;
+        DefinitionFingerprint = definitionFingerprint;
+        InputReadbacks = inputReadbacks;
+        Resources = resources;
+        BackendBoundary = backendBoundary;
+        DirectReplay = directReplay;
+        SupportsDirectDstOut = supportsDirectDstOut;
+        HasDirectReplayMaterializationContract = hasDirectReplayMaterializationContract;
+        DirectReplayAtExactIntegerReduction = directReplayAtExactIntegerReduction;
+    }
+
+    public OpaqueRenderBoundsContract Bounds { get; }
+
+    public RenderHitTestContract HitTest { get; }
+
+    public RenderValueCardinality ValueCardinality { get; }
+
+    public RenderScaleContract Scale { get; }
+
+    /// <summary>Gets the mapping from this operation's resolved output demand to the demand on each input.</summary>
+    /// <remarks>
+    /// Only a combine or an expand may declare one. A one-input map carries demand backwards through
+    /// <see cref="RenderScaleContract.MapInputSupply"/> instead, and a source has no input to demand from.
+    /// </remarks>
+    public RenderInputDemandContract InputDemand { get; }
+
+    /// <summary>Gets the declared dependency of this description's pixels on the device pixel grid.</summary>
+    public RenderDeviceGridSensitivity DeviceGridSensitivity { get; }
+
+    public IReadOnlyList<RenderInputReadback> InputReadbacks { get; }
+
+    internal object DefinitionFingerprint { get; }
+
+    public IReadOnlyList<RenderResourceBinding> Resources { get; }
+
+    internal void Execute(OpaqueRenderSession session) => _execution.Invoke(session);
+
+    internal RenderBackendBoundary BackendBoundary { get; }
+
+    internal Action<EngineDirectRenderSession>? DirectReplay { get; }
+
+    internal bool SupportsDirectDstOut { get; }
+
+    internal bool HasDirectReplayMaterializationContract { get; }
+
+    internal bool DirectReplayAtExactIntegerReduction { get; }
+
+    internal void ThrowIfIncompatible(OpaqueRenderTopology topology, string parameterName)
+    {
+        Bounds.ThrowIfIncompatible(topology, parameterName);
+        Scale.ThrowIfIncompatible(topology, parameterName);
+
+        if (!InputDemand.IsUnchanged
+            && topology is not (OpaqueRenderTopology.Combine or OpaqueRenderTopology.Expand))
+        {
+            throw new ArgumentException(
+                "Only a combine or an expand declares a per-input demand mapping; a one-input map declares it "
+                + "through its scale contract and a source has no input.",
+                parameterName);
+        }
+
+        if (DirectReplay is not null
+            && topology is not (OpaqueRenderTopology.Source or OpaqueRenderTopology.Combine))
+        {
+            throw new ArgumentException(
+                "An engine direct-replay description can only be recorded as an opaque source or combine.",
+                parameterName);
+        }
+
+        bool cardinalityValid = topology switch
+        {
+            OpaqueRenderTopology.Map =>
+                ValueCardinality.Equals(RenderValueCardinality.Single)
+                || ValueCardinality.Equals(RenderValueCardinality.ZeroOrOne),
+            OpaqueRenderTopology.Combine => ValueCardinality.Maximum is <= 1,
+            OpaqueRenderTopology.Source => ValueCardinality.Maximum is <= 1,
+            OpaqueRenderTopology.Expand => true,
+            _ => false,
+        };
+        if (!cardinalityValid)
+        {
+            throw new ArgumentException(
+                $"The declared value cardinality is incompatible with {topology} topology.",
+                parameterName);
+        }
+
+        if (topology == OpaqueRenderTopology.Source && HitTest.Kind == RenderHitTestContractKind.AnyInput)
+        {
+            throw new ArgumentException(
+                "An opaque source has no logical inputs and cannot use AnyInput hit testing.",
+                parameterName);
+        }
+    }
+
+    internal object GetStructuralIdentity(OpaqueRenderTopology topology)
+        => new OpaqueRenderStructuralIdentity(
+            topology,
+            DefinitionFingerprint,
+            DeviceGridSensitivity,
+            BackendBoundary,
+            HasDirectReplayMaterializationContract,
+            DirectReplayAtExactIntegerReduction,
+            SupportsDirectDstOut);
+
+    internal OpaqueRenderDescription WithoutDirectReplay()
+        => DirectReplay is null
+            ? this
+            : new OpaqueRenderDescription(
+                _execution,
+                Bounds,
+                HitTest,
+                ValueCardinality,
+                Scale,
+                InputDemand,
+                DeviceGridSensitivity,
+                DefinitionFingerprint,
+                InputReadbacks,
+                Resources,
+                BackendBoundary,
+                directReplay: null,
+                supportsDirectDstOut: false,
+                hasDirectReplayMaterializationContract: false,
+                directReplayAtExactIntegerReduction: false);
+
+    /// <param name="state">
+    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
+    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
+    /// </param>
+    /// <param name="execute">
+    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
+    /// shape the output without reaching <paramref name="state"/>, and is rejected.
+    /// </param>
+    /// <param name="deviceGridSensitivity">
+    /// The declared dependency of the produced pixels on the device-grid phase. The default states that the
+    /// output is unchanged by a sub-pixel shift of the grid, which lets the renderer cache and resample it.
+    /// </param>
+    internal static OpaqueRenderDescription Create<TState>(
+        TState state,
+        Action<OpaqueRenderSession, TState> execute,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderValueCardinality valueCardinality,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
+        IEnumerable<RenderInputReadback>? inputReadbacks = null,
+        IEnumerable<RenderResourceBinding>? resources = null)
+        where TState : notnull
+        => CreateCore(
+            RenderDescriptionValidation.CreateStateChannel(
+                state,
+                execute,
+                nameof(state),
+                nameof(execute)),
+            bounds,
+            hitTest,
+            valueCardinality,
+            scale,
+            deviceGridSensitivity,
+            execute.Method,
+            inputReadbacks,
+            resources);
+
+    /// <summary>
+    /// Creates an opaque description whose output can never satisfy a later request's cache lookup.
+    /// </summary>
+    /// <remarks>
+    /// The opt-out for a callback whose pixel-affecting state cannot be expressed as copied, deeply immutable
+    /// CPU state. The callback may capture, and the recorded output takes a fresh request-local identity every
+    /// time.
+    /// </remarks>
+    internal static OpaqueRenderDescription CreateRequestLocal(
+        Action<OpaqueRenderSession> execute,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderValueCardinality valueCardinality,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
+        IEnumerable<RenderInputReadback>? inputReadbacks = null,
+        IEnumerable<RenderResourceBinding>? resources = null)
+        => CreateCore(
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
+            bounds,
+            hitTest,
+            valueCardinality,
+            scale,
+            deviceGridSensitivity,
+            execute.Method,
+            inputReadbacks,
+            resources);
+
+    internal static OpaqueRenderDescription CreateCore(
+        RenderExecutionChannel<OpaqueRenderSession> execution,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderValueCardinality valueCardinality,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
+        object definitionFingerprint,
+        IEnumerable<RenderInputReadback>? inputReadbacks,
+        IEnumerable<RenderResourceBinding>? resources,
+        RenderInputDemandContract inputDemand = default)
+    {
+        ArgumentNullException.ThrowIfNull(bounds);
+        hitTest.ThrowIfUninitialized(nameof(hitTest));
+        valueCardinality.ThrowIfUninitialized(nameof(valueCardinality));
+        scale.ThrowIfUninitialized(nameof(scale));
+        ThrowIfUndefined(deviceGridSensitivity);
+
+        ArgumentNullException.ThrowIfNull(definitionFingerprint);
+
+        return new OpaqueRenderDescription(
+            execution,
+            bounds,
+            hitTest,
+            valueCardinality,
+            scale,
+            inputDemand,
+            deviceGridSensitivity,
+            definitionFingerprint,
+            Array.AsReadOnly(CopyInputReadbacks(inputReadbacks)),
+            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
+            RenderBackendBoundary.None,
+            directReplay: null,
+            supportsDirectDstOut: false);
+    }
+
+    /// <summary>
+    /// Creates an engine-owned drawable source whose identity is declared rather than derived from state.
+    /// </summary>
+    /// <remarks>
+    /// The callback is assembled by a shared recorder helper and reaches request-scoped resources and a
+    /// recorded paint plan, neither of which can be part of a persistent identity, so the declared identity is
+    /// hand-verified against what the helper draws with. Nothing outside the engine can reach this shape.
+    /// </remarks>
+    internal static OpaqueRenderDescription CreateEngineSource(
+        Action<OpaqueRenderSession> execute,
+        Action<EngineDirectRenderSession>? directReplay,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
+        bool directReplayAtExactIntegerReduction = false,
+        bool supportsDirectDstOut = true,
+        IEnumerable<RenderResource>? resources = null)
+    {
+        ArgumentNullException.ThrowIfNull(execute);
+        ArgumentNullException.ThrowIfNull(bounds);
+        hitTest.ThrowIfUninitialized(nameof(hitTest));
+        scale.ThrowIfUninitialized(nameof(scale));
+        ThrowIfUndefined(deviceGridSensitivity);
+        object definitionFingerprint = new EngineOpaqueDefinition(
+            RenderBackendBoundary.None,
+            execute.Method,
+            directReplay?.Method,
+            directReplayAtExactIntegerReduction);
+
+        return new OpaqueRenderDescription(
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
+            bounds,
+            hitTest,
+            RenderValueCardinality.Single,
+            scale,
+            RenderInputDemandContract.Unchanged,
+            deviceGridSensitivity,
+            definitionFingerprint,
+            Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
+            BindInternalResources(resources),
+            RenderBackendBoundary.None,
+            directReplay,
+            supportsDirectDstOut && directReplay is not null,
+            hasDirectReplayMaterializationContract:
+                directReplay is not null && scale.DeclaresNoSupplyDensity,
+            directReplayAtExactIntegerReduction:
+                directReplay is not null && directReplayAtExactIntegerReduction);
+    }
+
+    internal static OpaqueRenderDescription CreateBackendBoundary(
+        RenderBackendBoundary backendBoundary,
+        Action<OpaqueRenderSession> execute,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderValueCardinality valueCardinality,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
+        IEnumerable<RenderResource>? resources = null)
+    {
+        if (backendBoundary == RenderBackendBoundary.None || !Enum.IsDefined(backendBoundary))
+            throw new ArgumentOutOfRangeException(nameof(backendBoundary));
+        ArgumentNullException.ThrowIfNull(execute);
+        ArgumentNullException.ThrowIfNull(bounds);
+        hitTest.ThrowIfUninitialized(nameof(hitTest));
+        valueCardinality.ThrowIfUninitialized(nameof(valueCardinality));
+        scale.ThrowIfUninitialized(nameof(scale));
+        ThrowIfUndefined(deviceGridSensitivity);
+        object definitionFingerprint = new EngineOpaqueDefinition(
+            backendBoundary,
+            execute.Method,
+            DirectReplayMethod: null,
+            DirectReplayAtExactIntegerReduction: false);
+
+        return new OpaqueRenderDescription(
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
+            bounds,
+            hitTest,
+            valueCardinality,
+            scale,
+            RenderInputDemandContract.Unchanged,
+            deviceGridSensitivity,
+            definitionFingerprint,
+            Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
+            BindInternalResources(resources),
+            backendBoundary,
+            directReplay: null,
+            supportsDirectDstOut: false);
+    }
+
+    private static void ThrowIfUndefined(RenderDeviceGridSensitivity deviceGridSensitivity)
+    {
+        if (!Enum.IsDefined(deviceGridSensitivity))
+            throw new ArgumentOutOfRangeException(nameof(deviceGridSensitivity));
+    }
+
+    private static IReadOnlyList<RenderResourceBinding> BindInternalResources(
+        IEnumerable<RenderResource>? resources)
+    {
+        IReadOnlyList<RenderResource> copy =
+            RenderDescriptionValidation.CopyResources(resources, nameof(resources));
+        return copy
+            .Select(static resource => RenderResourceBinding.CreateEngineBinding(resource))
+            .ToArray();
+    }
+
+    internal IReadOnlyList<RenderInputReadback> ResolveInputReadbacks(
+        int inputCount,
+        string parameterName)
+    {
+        if (InputReadbacks.Count == 0)
+            return Enumerable.Repeat(RenderInputReadback.None, inputCount).ToArray();
+        if (InputReadbacks.Count != inputCount)
+        {
+            throw new ArgumentException(
+                "The opaque-render input readback count must match the authored input count.",
+                parameterName);
+        }
+        return InputReadbacks;
+    }
+
+    private static RenderInputReadback[] CopyInputReadbacks(
+        IEnumerable<RenderInputReadback>? inputReadbacks)
+    {
+        if (inputReadbacks is null)
+            return [];
+
+        RenderInputReadback[] result = inputReadbacks.ToArray();
+        foreach (RenderInputReadback inputReadback in result)
+            inputReadback.ThrowIfUninitialized(nameof(inputReadbacks));
+        return result;
+    }
+}
+
+internal sealed class EngineDirectRenderSession
+{
+    private readonly RenderExecutionSessionToken _token;
+    private readonly IReadOnlyList<RenderExecutionInput> _inputs;
+
+    internal EngineDirectRenderSession(
+        RenderExecutionSessionToken token,
+        ImmediateCanvas canvas,
+        IReadOnlyList<RenderExecutionInput> inputs)
+    {
+        _token = token;
+        Canvas = canvas;
+        _inputs = inputs;
+    }
+
+    internal ImmediateCanvas Canvas { get; }
+
+    internal RenderExecutionSessionToken Token => _token;
+
+    internal IReadOnlyList<RenderExecutionInput> Inputs
+    {
+        get { _token.ThrowIfInactive(); return _inputs; }
+    }
+}
+
+internal enum RenderBackendBoundary : byte
+{
+    None,
+    Graphics3D,
+}
+
+public sealed class OpaqueRenderBoundsContract
+{
+    private readonly Rect _sourceBounds;
+    private readonly RenderBoundsContract _mapBounds;
+    private readonly Func<IReadOnlyList<Rect>, Rect>? _transformBounds;
+    private readonly Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? _getRequiredInputBounds;
+
+    private OpaqueRenderBoundsContract(Rect sourceBounds, Thickness rasterOutset)
+    {
+        Kind = OpaqueRenderBoundsKind.Source;
+        _sourceBounds = sourceBounds;
+        RasterOutset = rasterOutset;
+        StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(Kind, null, null, null);
+    }
+
+    private OpaqueRenderBoundsContract(RenderBoundsContract mapBounds)
+    {
+        Kind = OpaqueRenderBoundsKind.Map;
+        _mapBounds = mapBounds;
+        StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(
+            Kind,
+            mapBounds.StructuralIdentity,
+            null,
+            null);
+    }
+
+    private OpaqueRenderBoundsContract(
+        OpaqueRenderBoundsKind kind,
+        Func<IReadOnlyList<Rect>, Rect> transformBounds,
+        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? getRequiredInputBounds)
+    {
+        Kind = kind;
+        _transformBounds = transformBounds;
+        _getRequiredInputBounds = getRequiredInputBounds;
+        StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(
+            kind,
+            transformBounds.Method,
+            getRequiredInputBounds?.Method,
+            null);
+    }
+
+    /// <summary>
+    /// The logical room this source's rasterization needs beyond the bounds it publishes, on each side.
+    /// </summary>
+    /// <remarks>
+    /// Publishing the wider rectangle instead would move it: the bounds a fragment publishes are what places
+    /// it, so anything scale-dependent in them changes a project's composition between preview and export.
+    /// The outset therefore only widens the buffer the source draws into; nothing downstream sees it.
+    /// </remarks>
+    public Thickness RasterOutset { get; }
+
+    /// <param name="outputBounds">The bounds this source publishes, which place it.</param>
+    /// <param name="rasterOutset">
+    /// Extra logical room per side for the buffer only, for a source whose rasterization reaches outside the
+    /// bounds it publishes. Must be non-negative and finite.
+    /// </param>
+    public static OpaqueRenderBoundsContract Source(Rect outputBounds, Thickness rasterOutset = default)
+    {
+        RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(outputBounds));
+        if (!IsUsableOutset(rasterOutset))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(rasterOutset),
+                rasterOutset,
+                "A raster outset must be finite and non-negative on every side.");
+        }
+
+        return new OpaqueRenderBoundsContract(outputBounds, rasterOutset);
+    }
+
+    private static bool IsUsableOutset(Thickness outset)
+        => float.IsFinite(outset.Left)
+           && float.IsFinite(outset.Top)
+           && float.IsFinite(outset.Right)
+           && float.IsFinite(outset.Bottom)
+           && outset.Left >= 0
+           && outset.Top >= 0
+           && outset.Right >= 0
+           && outset.Bottom >= 0;
+
+    public static OpaqueRenderBoundsContract Map(RenderBoundsContract bounds)
+    {
+        bounds.ThrowIfUninitialized(nameof(bounds));
+        return new OpaqueRenderBoundsContract(bounds);
+    }
+
+    public static OpaqueRenderBoundsContract Combine(
+        Func<IReadOnlyList<Rect>, Rect> transformBounds,
+        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>> getRequiredInputBounds)
+    {
+        ArgumentNullException.ThrowIfNull(transformBounds);
+        ArgumentNullException.ThrowIfNull(getRequiredInputBounds);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(transformBounds, nameof(transformBounds));
+        RenderDescriptionValidation.ValidatePureMetadataCallback(
+            getRequiredInputBounds,
+            nameof(getRequiredInputBounds));
+        return new OpaqueRenderBoundsContract(
+            OpaqueRenderBoundsKind.Combine,
+            transformBounds,
+            getRequiredInputBounds);
+    }
+
+    public static OpaqueRenderBoundsContract FullInputs(
+        Func<IReadOnlyList<Rect>, Rect> transformBounds)
+    {
+        ArgumentNullException.ThrowIfNull(transformBounds);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(transformBounds, nameof(transformBounds));
+        return new OpaqueRenderBoundsContract(
+            OpaqueRenderBoundsKind.FullInputs,
+            transformBounds,
+            null);
+    }
+
+    internal OpaqueRenderBoundsKind Kind { get; }
+
+    internal object StructuralIdentity { get; }
+
+    internal Rect TransformBounds(IReadOnlyList<Rect> inputBounds)
+    {
+        ArgumentNullException.ThrowIfNull(inputBounds);
+        ValidateRectangles(inputBounds, nameof(inputBounds));
+
+        Rect result = Kind switch
+        {
+            OpaqueRenderBoundsKind.Source when inputBounds.Count == 0 => _sourceBounds,
+            OpaqueRenderBoundsKind.Source => throw new InvalidOperationException(
+                "A source bounds contract cannot receive input bounds."),
+            OpaqueRenderBoundsKind.Map when inputBounds.Count == 1 => _mapBounds.TransformBounds(inputBounds[0]),
+            OpaqueRenderBoundsKind.Map => throw new InvalidOperationException(
+                "A map bounds contract requires exactly one input bound."),
+            OpaqueRenderBoundsKind.Combine or OpaqueRenderBoundsKind.FullInputs => _transformBounds!(inputBounds),
+            _ => throw new InvalidOperationException("The opaque render bounds contract is invalid."),
+        };
+
+        RenderRectValidation.ThrowIfInvalidResult(
+            result,
+            "The opaque render bounds forward mapping returned an invalid rectangle.");
+        return result;
+    }
+
+    internal IReadOnlyList<Rect> GetRequiredInputBounds(
+        Rect requestedOutputBounds,
+        IReadOnlyList<Rect> inputBounds)
+    {
+        RenderRectValidation.ThrowIfInvalidInput(requestedOutputBounds, nameof(requestedOutputBounds));
+        ArgumentNullException.ThrowIfNull(inputBounds);
+        ValidateRectangles(inputBounds, nameof(inputBounds));
+
+        if (Kind == OpaqueRenderBoundsKind.Source)
+        {
+            if (inputBounds.Count != 0)
+                throw new InvalidOperationException("A source bounds contract cannot receive input bounds.");
+
+            return Array.Empty<Rect>();
+        }
+
+        bool emptyRequirement = requestedOutputBounds.Width == 0 || requestedOutputBounds.Height == 0;
+        IReadOnlyList<Rect> result;
+        if (Kind == OpaqueRenderBoundsKind.Map)
+        {
+            if (inputBounds.Count != 1)
+                throw new InvalidOperationException("A map bounds contract requires exactly one input bound.");
+
+            Rect required = emptyRequirement
+                ? Rect.Empty
+                : _mapBounds.RequiresFullInput
+                    ? inputBounds[0]
+                    : _mapBounds.GetRequiredInputBounds(requestedOutputBounds);
+            result = [required];
+        }
+        else if (Kind == OpaqueRenderBoundsKind.FullInputs)
+        {
+            result = emptyRequirement
+                ? Enumerable.Repeat(Rect.Empty, inputBounds.Count).ToArray()
+                : inputBounds.ToArray();
+        }
+        else
+        {
+            result = _getRequiredInputBounds!(requestedOutputBounds, inputBounds)
+                ?? throw new InvalidOperationException("The opaque render bounds backward mapping returned null.");
+        }
+
+        if (result.Count != inputBounds.Count)
+        {
+            throw new InvalidOperationException(
+                "The opaque render bounds backward mapping must return exactly one rectangle per input.");
+        }
+
+        ValidateResultRectangles(result);
+        return result is ReadOnlyCollection<Rect> ? result : Array.AsReadOnly(result.ToArray());
+    }
+
+    internal void ThrowIfIncompatible(OpaqueRenderTopology topology, string parameterName)
+    {
+        bool compatible = topology switch
+        {
+            OpaqueRenderTopology.Source => Kind == OpaqueRenderBoundsKind.Source,
+            OpaqueRenderTopology.Map => Kind == OpaqueRenderBoundsKind.Map,
+            OpaqueRenderTopology.Combine or OpaqueRenderTopology.Expand =>
+                Kind is OpaqueRenderBoundsKind.Combine or OpaqueRenderBoundsKind.FullInputs,
+            _ => false,
+        };
+
+        if (!compatible)
+        {
+            throw new ArgumentException(
+                $"The {Kind} bounds contract is incompatible with {topology} topology.",
+                parameterName);
+        }
+    }
+
+    private static void ValidateRectangles(IReadOnlyList<Rect> values, string parameterName)
+    {
+        for (int index = 0; index < values.Count; index++)
+        {
+            if (!RenderRectValidation.IsFiniteNonNegative(values[index]))
+            {
+                throw new ArgumentException(
+                    $"Input bound {index} must be finite and have non-negative dimensions.",
+                    parameterName);
+            }
+        }
+    }
+
+    private static void ValidateResultRectangles(IReadOnlyList<Rect> values)
+    {
+        for (int index = 0; index < values.Count; index++)
+        {
+            if (!RenderRectValidation.IsFiniteNonNegative(values[index]))
+            {
+                throw new InvalidOperationException(
+                    $"The opaque render bounds backward mapping returned an invalid rectangle at index {index}.");
+            }
+        }
+    }
+}
+
+public readonly struct RenderHitTestContract
+{
+    private readonly RenderHitTestContractKind _kind;
+    private readonly Func<RenderHitTestContext, Point, bool>? _hitTest;
+    private readonly object? _structuralIdentity;
+
+    private RenderHitTestContract(RenderHitTestContractKind kind, object structuralIdentity)
+    {
+        _kind = kind;
+        _hitTest = null;
+        _structuralIdentity = structuralIdentity;
+    }
+
+    private RenderHitTestContract(
+        Func<RenderHitTestContext, Point, bool> hitTest,
+        object structuralIdentity)
+    {
+        _kind = RenderHitTestContractKind.Custom;
+        _hitTest = hitTest;
+        _structuralIdentity = structuralIdentity;
+    }
+
+    public static RenderHitTestContract None { get; } = new(
+        RenderHitTestContractKind.None,
+        RenderHitTestContractKind.None);
+
+    public static RenderHitTestContract OutputBounds { get; } = new(
+        RenderHitTestContractKind.OutputBounds,
+        RenderHitTestContractKind.OutputBounds);
+
+    public static RenderHitTestContract AnyInput { get; } = new(
+        RenderHitTestContractKind.AnyInput,
+        RenderHitTestContractKind.AnyInput);
+
+    public static RenderHitTestContract Custom(
+        Func<RenderHitTestContext, Point, bool> hitTest)
+    {
+        ArgumentNullException.ThrowIfNull(hitTest);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
+        return new RenderHitTestContract(hitTest, hitTest.Method);
+    }
+
+    /// <summary>
+    /// Creates a hit test that reads the resource a call bound to <paramref name="slot"/>.
+    /// </summary>
+    /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
+    /// <param name="slot">A slot the owning definition declares.</param>
+    /// <param name="hitTest">
+    /// The pure test, given the bound resource. It must not capture a resource of its own; the slot is
+    /// resolved against the bindings of the call being tested, so one definition can be reused across
+    /// recordings that bind different resources.
+    /// </param>
+    public static RenderHitTestContract FromSlot<T>(
+        RenderResourceSlot<T> slot,
+        Func<T, Point, bool> hitTest)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+        ArgumentNullException.ThrowIfNull(hitTest);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
+        return new RenderHitTestContract(
+            (context, point) => context.UseResource(slot, value => hitTest(value, point)),
+            hitTest.Method);
+    }
+
+    /// <summary>
+    /// Creates a hit test that reads the resource a call bound to <paramref name="slot"/> and also
+    /// consults the operation's output bounds and inputs.
+    /// </summary>
+    /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
+    /// <param name="slot">A slot the owning definition declares.</param>
+    /// <param name="hitTest">
+    /// The pure test, given the bound resource and the hit-test context. It must not capture a resource
+    /// of its own.
+    /// </param>
+    public static RenderHitTestContract FromSlot<T>(
+        RenderResourceSlot<T> slot,
+        Func<T, RenderHitTestContext, Point, bool> hitTest)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+        ArgumentNullException.ThrowIfNull(hitTest);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
+        return new RenderHitTestContract(
+            (context, point) => context.UseResource(slot, value => hitTest(value, context, point)),
+            hitTest.Method);
+    }
+
+    internal static RenderHitTestContract FromResource<T>(
+        RenderResource<T> resource,
+        Func<T, Point, bool> hitTest)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(hitTest);
+        return new RenderHitTestContract(
+            (_, point) => resource.Registry.Use(resource, value => hitTest(value, point)),
+            hitTest.Method);
+    }
+
+    internal static RenderHitTestContract FromResource<T>(
+        RenderResource<T> resource,
+        Func<T, RenderHitTestContext, Point, bool> hitTest)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(hitTest);
+        return new RenderHitTestContract(
+            (context, point) => resource.Registry.Use(
+                resource,
+                value => hitTest(value, context, point)),
+            hitTest.Method);
+    }
+
+    internal RenderHitTestContractKind Kind => _kind;
+
+    internal object StructuralIdentity
+    {
+        get
+        {
+            ThrowIfNotInitialized();
+            return _structuralIdentity!;
+        }
+    }
+
+    internal bool Evaluate(
+        Rect outputBounds,
+        IReadOnlyList<RenderHitTestInput> inputs,
+        IReadOnlyList<RenderResourceBinding> resources,
+        Point point)
+    {
+        ThrowIfNotInitialized();
+        RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(outputBounds));
+        ArgumentNullException.ThrowIfNull(inputs);
+        ArgumentNullException.ThrowIfNull(resources);
+
+        return _kind switch
+        {
+            RenderHitTestContractKind.None => false,
+            RenderHitTestContractKind.OutputBounds => outputBounds.Contains(point),
+            RenderHitTestContractKind.AnyInput => inputs.Any(input => input.HitTest(point)),
+            RenderHitTestContractKind.Custom =>
+                _hitTest!(new RenderHitTestContext(outputBounds, inputs, resources), point),
+            _ => throw new InvalidOperationException("The hit-test contract is invalid."),
+        };
+    }
+
+    internal void ThrowIfUninitialized(string parameterName)
+    {
+        if (_kind == RenderHitTestContractKind.Uninitialized || _structuralIdentity is null)
+        {
+            throw new ArgumentException(
+                "default(RenderHitTestContract) is uninitialized; use None, OutputBounds, AnyInput, or Custom.",
+                parameterName);
+        }
+    }
+
+    private void ThrowIfNotInitialized()
+    {
+        if (_kind == RenderHitTestContractKind.Uninitialized || _structuralIdentity is null)
+        {
+            throw new InvalidOperationException(
+                "default(RenderHitTestContract) is uninitialized; use None, OutputBounds, AnyInput, or Custom.");
+        }
+    }
+}
+
+public sealed class RenderHitTestContext
+{
+    private readonly IReadOnlyList<RenderResourceBinding> _resources;
+
+    internal RenderHitTestContext(
+        Rect outputBounds,
+        IReadOnlyList<RenderHitTestInput> inputs,
+        IReadOnlyList<RenderResourceBinding> resources)
+    {
+        OutputBounds = outputBounds;
+        Inputs = inputs is ReadOnlyCollection<RenderHitTestInput>
+            ? inputs
+            : Array.AsReadOnly(inputs.ToArray());
+        _resources = resources;
+    }
+
+    public Rect OutputBounds { get; }
+
+    public IReadOnlyList<RenderHitTestInput> Inputs { get; }
+
+    /// <summary>
+    /// Reads the resource that the call being hit-tested bound to <paramref name="slot"/>.
+    /// </summary>
+    /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
+    /// <typeparam name="TResult">The value the reader produces.</typeparam>
+    /// <param name="slot">A slot the owning definition declares.</param>
+    /// <param name="use">Reads the bound resource. The raw value must not outlive this call.</param>
+    /// <exception cref="KeyNotFoundException">The call bound no resource to that slot.</exception>
+    public TResult UseResource<T, TResult>(RenderResourceSlot<T> slot, Func<T, TResult> use)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+        ArgumentNullException.ThrowIfNull(use);
+
+        foreach (RenderResourceBinding binding in _resources)
+        {
+            if (ReferenceEquals(binding.Slot, slot))
+            {
+                var resource = (RenderResource<T>)binding.Resource;
+                return resource.Registry.Use(resource, use);
+            }
+        }
+
+        throw new KeyNotFoundException(
+            "No resource was bound to the requested slot for this hit test.");
+    }
+}
+
+public readonly struct RenderHitTestInput
+{
+    private readonly Func<Point, bool>? _hitTest;
+
+    internal RenderHitTestInput(Rect bounds, Func<Point, bool> hitTest)
+    {
+        RenderRectValidation.ThrowIfInvalidInput(bounds, nameof(bounds));
+        ArgumentNullException.ThrowIfNull(hitTest);
+        Bounds = bounds;
+        _hitTest = hitTest;
+    }
+
+    public Rect Bounds { get; }
+
+    public bool HitTest(Point point)
+    {
+        if (_hitTest is null)
+            throw new InvalidOperationException("The hit-test input is uninitialized.");
+
+        return _hitTest(point);
+    }
+}
+
+public readonly struct RenderScaleContract
+{
+    private readonly RenderScaleContractKind _kind;
+    private readonly Func<RenderScaleContext, float>? _resolve;
+    private readonly Func<EffectiveScale, EffectiveScale>? _mapInputSupply;
+    private readonly Func<EffectiveScale, EffectiveScale>? _mapOutputDemandToInput;
+    private readonly object? _structuralIdentity;
+
+    private RenderScaleContract(RenderScaleContractKind kind)
+    {
+        _kind = kind;
+        _resolve = null;
+        _mapInputSupply = null;
+        _mapOutputDemandToInput = null;
+        _structuralIdentity = kind;
+    }
+
+    private RenderScaleContract(Func<RenderScaleContext, float> resolve, object structuralIdentity)
+    {
+        _kind = RenderScaleContractKind.Custom;
+        _resolve = resolve;
+        _mapInputSupply = null;
+        _mapOutputDemandToInput = null;
+        _structuralIdentity = structuralIdentity;
+    }
+
+    private RenderScaleContract(
+        Func<EffectiveScale, EffectiveScale> mapInputSupply,
+        object structuralIdentity)
+    {
+        _kind = RenderScaleContractKind.MapInputSupply;
+        _resolve = null;
+        _mapInputSupply = mapInputSupply;
+        _mapOutputDemandToInput = null;
+        _structuralIdentity = new RenderScaleContractStructuralIdentity(_kind, structuralIdentity);
+    }
+
+    private RenderScaleContract(
+        Func<EffectiveScale, EffectiveScale> mapInputSupply,
+        Func<EffectiveScale, EffectiveScale> mapOutputDemandToInput,
+        object structuralIdentity)
+    {
+        _kind = RenderScaleContractKind.MapInputSupply;
+        _resolve = null;
+        _mapInputSupply = mapInputSupply;
+        _mapOutputDemandToInput = mapOutputDemandToInput;
+        _structuralIdentity = new RenderScaleContractStructuralIdentity(_kind, structuralIdentity);
+    }
+
+    public static RenderScaleContract Vector { get; } = new(RenderScaleContractKind.Vector);
+
+    public static RenderScaleContract PreserveInputSupply { get; } = new(RenderScaleContractKind.PreserveInputSupply);
+
+    public static RenderScaleContract MaterializeAtWorkingScale { get; } =
+        new(RenderScaleContractKind.MaterializeAtWorkingScale);
+
+    /// <summary>
+    /// Maps both directions of the density relationship of an element-wise one-input operation: the resolved
+    /// input supply forward to the output supply, and the resolved output demand backward to the input demand.
+    /// </summary>
+    /// <param name="map">
+    /// A pure metadata callback that maps the corresponding input supply to the output supply.
+    /// The callback may return <see cref="EffectiveScale.Unbounded"/>.
+    /// </param>
+    /// <param name="mapOutputDemandToInput">
+    /// A pure metadata callback that maps a concrete output demand to the concrete input demand that satisfies
+    /// it. It must return a finite positive density; the engine bounds the result by the request ceiling.
+    /// </param>
+    /// <returns>A declarative bidirectional one-input density mapping contract.</returns>
+    /// <remarks>
+    /// This is the complete form and the right default for a one-input density map. An operation that enlarges
+    /// its input lowers its output supply and raises its input demand, so a purely forward map would let an
+    /// unbounded input rasterize below the density the enlargement consumes.
+    /// Both callbacks may be evaluated again during graph-wide metadata resolution, so they must remain
+    /// deterministic and side-effect-free. The backward map is not derived from the forward one: the forward
+    /// map may collapse to <see cref="EffectiveScale.Unbounded"/> and need not be invertible.
+    /// </remarks>
+    public static RenderScaleContract MapInputSupply(
+        Func<EffectiveScale, EffectiveScale> map,
+        Func<EffectiveScale, EffectiveScale> mapOutputDemandToInput)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        ArgumentNullException.ThrowIfNull(mapOutputDemandToInput);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
+        RenderDescriptionValidation.ValidatePureMetadataCallback(
+            mapOutputDemandToInput,
+            nameof(mapOutputDemandToInput));
+        return new RenderScaleContract(
+            map,
+            mapOutputDemandToInput,
+            new RenderScaleBidirectionalMappingStructuralIdentity(
+                map.Method,
+                mapOutputDemandToInput.Method));
+    }
+
+    /// <summary>
+    /// Maps the resolved supply metadata of an element-wise one-input operation that consumes its input at the
+    /// density its own consumer demands, so backward demand passes through unchanged.
+    /// </summary>
+    /// <param name="map">
+    /// A pure metadata callback that maps the corresponding input supply to the output supply.
+    /// The callback may return <see cref="EffectiveScale.Unbounded"/>.
+    /// </param>
+    /// <returns>A declarative forward-only one-input supply mapping contract.</returns>
+    /// <remarks>
+    /// The unchanged demand is the precondition, not a degraded default: it is what a supply map that reports a
+    /// different density without resampling, or one that collapses to <see cref="EffectiveScale.Unbounded"/>,
+    /// actually needs. An operation that resamples — an enlargement, a reduction — must use
+    /// <see cref="MapInputSupply"/> instead, because leaving demand unchanged lets an unbounded input
+    /// materialize below the density the operation consumes and blurs the result by the resampling factor.
+    /// The callback may be evaluated again during graph-wide metadata resolution when an upstream fragment has
+    /// symbolic recording metadata, so it must remain deterministic and side-effect-free.
+    /// </remarks>
+    public static RenderScaleContract MapInputSupplyPreservingDemand(
+        Func<EffectiveScale, EffectiveScale> map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
+        return new RenderScaleContract(map, map.Method);
+    }
+
+    /// <summary>
+    /// Resolves this operation's own concrete supply density from its inputs, output bounds, and the request's
+    /// output scale and ceiling.
+    /// </summary>
+    /// <param name="resolve">
+    /// A pure metadata callback returning a finite positive density. A throw or an invalid result fails the
+    /// recording rather than being sanitized to a fallback.
+    /// </param>
+    /// <returns>A custom supply-resolving contract.</returns>
+    /// <remarks>
+    /// A custom resolver declares no backward map, and none can be attached to one: an output demand reaches
+    /// this operation's inputs unchanged. That is correct only when this operation consumes its inputs at the
+    /// density its own consumer demands. A one-input operation that resamples must instead use
+    /// <see cref="MapInputSupply"/>, whose second callback carries the demand back; declaring the density here
+    /// rather than there lets an unbounded input materialize below the density this operation consumes.
+    /// </remarks>
+    public static RenderScaleContract Custom(
+        Func<RenderScaleContext, float> resolve)
+    {
+        ArgumentNullException.ThrowIfNull(resolve);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(resolve, nameof(resolve));
+        return new RenderScaleContract(resolve, resolve.Method);
+    }
+
+    internal RenderScaleContractKind Kind => _kind;
+
+    /// <summary>
+    /// Gets whether this contract declares no supply density of its own, so its output resolves to
+    /// <see cref="EffectiveScale.Unbounded"/> and adopts whatever density its consumer renders at.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PreserveInputSupply"/> and the supply-mapping factories can also resolve to
+    /// <see cref="EffectiveScale.Unbounded"/>, but only for a one-input map, whose supply is its input's rather
+    /// than the consumer's. Every other kind resolves to a concrete positive density.
+    /// </remarks>
+    internal bool DeclaresNoSupplyDensity => _kind == RenderScaleContractKind.Vector;
+
+    internal object StructuralIdentity
+    {
+        get
+        {
+            ThrowIfNotInitialized();
+            return _structuralIdentity!;
+        }
+    }
+
+    internal EffectiveScale Resolve(
+        IReadOnlyList<EffectiveScale> inputSupplies,
+        Rect outputBounds,
+        float outputScale,
+        float maxWorkingScale)
+    {
+        ThrowIfNotInitialized();
+        ArgumentNullException.ThrowIfNull(inputSupplies);
+        RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(outputBounds));
+        if (!float.IsFinite(outputScale) || outputScale <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(outputScale), outputScale, "Output scale must be positive and finite.");
+        }
+
+        float ceiling = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
+        if (_kind == RenderScaleContractKind.Vector)
+            return EffectiveScale.Unbounded;
+
+        if (_kind == RenderScaleContractKind.PreserveInputSupply)
+        {
+            if (inputSupplies.Count != 1)
+            {
+                throw new InvalidOperationException(
+                    "PreserveInputSupply requires exactly one corresponding input supply.");
+            }
+
+            return inputSupplies[0];
+        }
+
+        float resolved;
+        if (_kind == RenderScaleContractKind.MapInputSupply)
+        {
+            if (inputSupplies.Count != 1)
+            {
+                throw new InvalidOperationException(
+                    "MapInputSupply and MapInputSupplyPreservingDemand require exactly one corresponding input supply.");
+            }
+
+            EffectiveScale mapped = _mapInputSupply!(inputSupplies[0]);
+            if (mapped.IsUnbounded)
+                return EffectiveScale.Unbounded;
+
+            resolved = EffectiveScale.At(mapped.Value).Value;
+            resolved = MathF.Min(resolved, ceiling);
+        }
+        else if (_kind == RenderScaleContractKind.MaterializeAtWorkingScale)
+        {
+            resolved = RenderScaleUtilities.ResolveWorkingScale(inputSupplies.ToArray(), outputScale, ceiling);
+        }
+        else
+        {
+            resolved = _resolve!(new RenderScaleContext(
+                inputSupplies is ReadOnlyCollection<EffectiveScale>
+                    ? inputSupplies
+                    : Array.AsReadOnly(inputSupplies.ToArray()),
+                outputBounds,
+                outputScale,
+                ceiling));
+            if (!float.IsFinite(resolved) || resolved <= 0)
+            {
+                throw new InvalidOperationException(
+                    "A custom render scale resolver must return a positive finite value.");
+            }
+
+            resolved = MathF.Min(resolved, ceiling);
+        }
+
+        resolved = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(outputBounds, resolved);
+        if (!float.IsFinite(resolved) || resolved <= 0)
+        {
+            throw new InvalidOperationException(
+                "The resolved render scale cannot produce a positive finite backing density.");
+        }
+
+        return EffectiveScale.At(resolved);
+    }
+
+    internal EffectiveScale MapOutputDemandToInput(EffectiveScale outputDemand)
+    {
+        ThrowIfNotInitialized();
+        if (outputDemand.IsUnbounded)
+            throw new ArgumentException("Output demand must be concrete.", nameof(outputDemand));
+
+        EffectiveScale mapped = _kind == RenderScaleContractKind.MapInputSupply
+                                && _mapOutputDemandToInput is not null
+            ? _mapOutputDemandToInput(outputDemand)
+            : outputDemand;
+        if (mapped.IsUnbounded)
+        {
+            throw new InvalidOperationException(
+                "An output-demand mapping must return a concrete positive density.");
+        }
+
+        return EffectiveScale.At(mapped.Value);
+    }
+
+    internal void ThrowIfUninitialized(string parameterName)
+    {
+        if (_kind == RenderScaleContractKind.Uninitialized || _structuralIdentity is null)
+        {
+            throw new ArgumentException(
+                "default(RenderScaleContract) is uninitialized; use a named or custom contract.",
+                parameterName);
+        }
+    }
+
+    internal void ThrowIfIncompatible(OpaqueRenderTopology topology, string parameterName)
+    {
+        ThrowIfUninitialized(parameterName);
+        if ((_kind is RenderScaleContractKind.PreserveInputSupply or RenderScaleContractKind.MapInputSupply)
+            && topology != OpaqueRenderTopology.Map)
+        {
+            throw new ArgumentException(
+                "A supply-preserving or supply-mapping contract is valid only for an element-wise one-input opaque map.",
+                parameterName);
+        }
+    }
+
+    private void ThrowIfNotInitialized()
+    {
+        if (_kind == RenderScaleContractKind.Uninitialized || _structuralIdentity is null)
+        {
+            throw new InvalidOperationException(
+                "default(RenderScaleContract) is uninitialized; use a named or custom contract.");
+        }
+    }
+}
+
+public readonly record struct RenderScaleContext(
+    IReadOnlyList<EffectiveScale> InputSupplies,
+    Rect OutputBounds,
+    float OutputScale,
+    float MaxWorkingScale);
+
+public sealed class OpaqueRenderSession
+{
+    private readonly RenderExecutionSessionToken _token;
+    private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
+    private readonly IReadOnlyList<RenderResource> _resources;
+    private readonly Func<OpaqueRenderSession, Rect, float?, OpaqueRenderOutput> _createOutput;
+    private readonly Action<OpaqueRenderOutput> _publish;
+    private readonly IReadOnlyList<RenderExecutionInput> _inputs;
+    private readonly IReadOnlyList<RenderExecutionInputRange> _inputRanges;
+    private readonly Rect _outputBounds;
+    private readonly Rect _requiredRegion;
+    private readonly PixelRect _deviceBounds;
+    private readonly float _outputScale;
+    private readonly float _workingScale;
+    private readonly float _maxWorkingScale;
+    private readonly RenderIntent _intent;
+    private readonly RenderRequestPurpose _purpose;
+
+    internal OpaqueRenderSession(
+        RenderExecutionSessionToken token,
+        IReadOnlyList<RenderExecutionInput> inputs,
+        IReadOnlyList<RenderExecutionInputRange> inputRanges,
+        Rect outputBounds,
+        Rect requiredRegion,
+        PixelRect deviceBounds,
+        float outputScale,
+        float workingScale,
+        float maxWorkingScale,
+        RenderIntent intent,
+        RenderRequestPurpose purpose,
+        IReadOnlyList<RenderResourceBinding> resources,
+        Func<OpaqueRenderSession, Rect, float?, OpaqueRenderOutput> createOutput,
+        Action<OpaqueRenderOutput> publish)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        ArgumentNullException.ThrowIfNull(inputs);
+        ArgumentNullException.ThrowIfNull(inputRanges);
+        ArgumentNullException.ThrowIfNull(resources);
+        ArgumentNullException.ThrowIfNull(createOutput);
+        ArgumentNullException.ThrowIfNull(publish);
+        _token = token;
+        _inputs = Array.AsReadOnly(inputs.ToArray());
+        _inputRanges = RenderExecutionInputRange.CopyAndValidate(
+            _inputs,
+            inputRanges,
+            nameof(inputRanges));
+        _outputBounds = outputBounds;
+        _requiredRegion = requiredRegion;
+        _deviceBounds = deviceBounds;
+        _outputScale = outputScale;
+        _workingScale = workingScale;
+        _maxWorkingScale = maxWorkingScale;
+        _intent = intent;
+        _purpose = purpose;
+        _resourceBindings = resources;
+        _resources = resources.Select(static binding => binding.Resource).ToArray();
+        _createOutput = createOutput;
+        _publish = publish;
+    }
+
+    internal RenderExecutionSessionToken Token => _token;
+
+    public IReadOnlyList<RenderExecutionInput> Inputs
+    {
+        get { _token.ThrowIfInactive(); return _inputs; }
+    }
+
+    /// <summary>
+    /// Gets one stable flattened-input range per authored input handle, including zero-length ranges for handles
+    /// that produced no runtime values.
+    /// </summary>
+    public IReadOnlyList<RenderExecutionInputRange> InputRanges
+    {
+        get { _token.ThrowIfInactive(); return _inputRanges; }
+    }
+
+    public Rect OutputBounds
+    {
+        get { _token.ThrowIfInactive(); return _outputBounds; }
+    }
+
+    public Rect RequiredRegion
+    {
+        get { _token.ThrowIfInactive(); return _requiredRegion; }
+    }
+
+    public PixelRect DeviceBounds
+    {
+        get { _token.ThrowIfInactive(); return _deviceBounds; }
+    }
+
+    public PixelSize DeviceSize
+    {
+        get { _token.ThrowIfInactive(); return _deviceBounds.Size; }
+    }
+
+    public float OutputScale
+    {
+        get { _token.ThrowIfInactive(); return _outputScale; }
+    }
+
+    public float WorkingScale
+    {
+        get { _token.ThrowIfInactive(); return _workingScale; }
+    }
+
+    public float MaxWorkingScale
+    {
+        get { _token.ThrowIfInactive(); return _maxWorkingScale; }
+    }
+
+    public RenderIntent Intent
+    {
+        get { _token.ThrowIfInactive(); return _intent; }
+    }
+
+    public RenderRequestPurpose Purpose
+    {
+        get { _token.ThrowIfInactive(); return _purpose; }
+    }
+
+    /// <summary>Creates an unpublished output within the declared bounds.</summary>
+    /// <param name="logicalBounds">The finite non-empty logical output bounds.</param>
+    /// <param name="density">
+    /// The optional finite positive density for this output. <see langword="null"/> uses
+    /// <see cref="WorkingScale"/>. The executor clamps either value to engine allocation limits.
+    /// </param>
+    public OpaqueRenderOutput CreateOutput(Rect logicalBounds, float? density = null)
+    {
+        _token.ThrowIfInactive();
+        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(logicalBounds, nameof(logicalBounds));
+        if (density is { } value && (!float.IsFinite(value) || value <= 0))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(density),
+                density,
+                "An opaque output density must be finite and positive.");
+        }
+        if (!RenderDescriptionValidation.Contains(_outputBounds, logicalBounds))
+        {
+            throw new ArgumentException("An opaque output must be contained by the declared output bounds.", nameof(logicalBounds));
+        }
+
+        return _createOutput(this, logicalBounds, density);
+    }
+
+    public void Publish(OpaqueRenderOutput output)
+    {
+        _token.ThrowIfInactive();
+        ArgumentNullException.ThrowIfNull(output);
+        output.Publish(this, _publish);
+    }
+
+    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
+    public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
+        where T : class
+    {
+        _token.UseResource(slot, _resourceBindings, use);
+    }
+
+    internal void UseResource<T>(RenderResource<T> resource, Action<T> use)
+        where T : class
+    {
+        _token.UseResource(resource, _resources, use);
+    }
+
+    internal void UseNestedTarget(
+        RenderResource<NestedRenderTargetBinding> resource,
+        Action<NestedRenderTargetImage> use)
+    {
+        ArgumentNullException.ThrowIfNull(use);
+        _token.UseResource(
+            resource,
+            _resources,
+            binding => binding.UseImage(_token, use));
+    }
+}
+
+public sealed class OpaqueRenderOutput : IDisposable
+{
+    private readonly RenderExecutionSessionToken _token;
+    private readonly OpaqueRenderSession _owner;
+    private readonly Rect _allocationBounds;
+    private readonly EffectiveScale _effectiveScale;
+    private readonly RenderCallbackCanvas _canvas;
+    private readonly Action<OpaqueRenderOutput>? _release;
+    private Rect _bounds;
+    private OpaqueRenderOutputState _state;
+
+    internal OpaqueRenderOutput(
+        RenderExecutionSessionToken token,
+        OpaqueRenderSession owner,
+        Rect bounds,
+        EffectiveScale effectiveScale,
+        RenderCallbackCanvas canvas,
+        Action<OpaqueRenderOutput>? release = null)
+    {
+        _token = token;
+        _owner = owner;
+        _allocationBounds = bounds;
+        _bounds = bounds;
+        _effectiveScale = effectiveScale;
+        _canvas = canvas;
+        _release = release;
+    }
+
+    public Rect Bounds
+    {
+        get { ThrowIfUnavailable(); return _bounds; }
+    }
+
+    public EffectiveScale EffectiveScale
+    {
+        get { ThrowIfUnavailable(); return _effectiveScale; }
+    }
+
+    public RenderCallbackCanvas Canvas
+    {
+        get { ThrowIfUnavailable(); return _canvas; }
+    }
+
+    public void SetOutputBounds(Rect logicalBounds)
+    {
+        ThrowIfUnavailable();
+        RenderRectValidation.ThrowIfInvalidInput(logicalBounds, nameof(logicalBounds));
+        if (!RenderDescriptionValidation.Contains(_allocationBounds, logicalBounds))
+        {
+            throw new ArgumentException(
+                "Output bounds may only shrink within the allocated output bounds.",
+                nameof(logicalBounds));
+        }
+
+        _bounds = logicalBounds;
+    }
+
+    public void Discard()
+    {
+        ThrowIfUnavailable();
+        _state = OpaqueRenderOutputState.Discarded;
+        _release?.Invoke(this);
+    }
+
+    public void Dispose()
+    {
+        _token.ThrowIfInactive();
+        if (_state != OpaqueRenderOutputState.Active)
+            return;
+
+        _state = OpaqueRenderOutputState.Disposed;
+        _release?.Invoke(this);
+    }
+
+    internal void Publish(OpaqueRenderSession owner, Action<OpaqueRenderOutput> publish)
+    {
+        ThrowIfUnavailable();
+        if (!ReferenceEquals(owner, _owner))
+            throw new InvalidOperationException("An opaque output belongs to a different execution session.");
+
+        publish(this);
+        _state = OpaqueRenderOutputState.Published;
+    }
+
+    private void ThrowIfUnavailable()
+    {
+        _token.ThrowIfInactive();
+        if (_state != OpaqueRenderOutputState.Active)
+            throw new InvalidOperationException("The opaque output lease is no longer active.");
+    }
+}
+
+internal enum OpaqueRenderTopology : byte
+{
+    Source,
+    Map,
+    Combine,
+    Expand,
+}
+
+internal enum OpaqueRenderBoundsKind : byte
+{
+    Source,
+    Map,
+    Combine,
+    FullInputs,
+}
+
+internal enum RenderHitTestContractKind : byte
+{
+    Uninitialized,
+    None,
+    OutputBounds,
+    AnyInput,
+    Custom,
+}
+
+internal enum RenderScaleContractKind : byte
+{
+    Uninitialized,
+    Vector,
+    PreserveInputSupply,
+    MapInputSupply,
+    MaterializeAtWorkingScale,
+    Custom,
+}
+
+internal enum OpaqueRenderOutputState : byte
+{
+    Active,
+    Published,
+    Discarded,
+    Disposed,
+}
+
+internal readonly record struct OpaqueRenderBoundsStructuralIdentity(
+    OpaqueRenderBoundsKind Kind,
+    object? ForwardIdentity,
+    object? BackwardIdentity,
+    object? ExplicitKey);
+
+internal readonly record struct RenderScaleContractStructuralIdentity(
+    RenderScaleContractKind Kind,
+    object CallbackIdentity);
+
+internal readonly record struct RenderScaleBidirectionalMappingStructuralIdentity(
+    MethodInfo SupplyMethod,
+    MethodInfo DemandMethod);
+
+internal readonly record struct OpaqueRenderStructuralIdentity(
+    OpaqueRenderTopology Topology,
+    object DescriptionKey,
+    RenderDeviceGridSensitivity DeviceGridSensitivity,
+    RenderBackendBoundary BackendBoundary,
+    bool HasDirectReplayMaterializationContract,
+    bool DirectReplayAtExactIntegerReduction,
+    bool SupportsDirectDstOut);
+
+internal sealed record EngineOpaqueDefinition(
+    RenderBackendBoundary BackendBoundary,
+    MethodInfo ExecuteMethod,
+    MethodInfo? DirectReplayMethod,
+    bool DirectReplayAtExactIntegerReduction);
+
+internal static class RenderDescriptionValidation
+{
+    /// <summary>
+    /// Binds a definition callback to the values supplied by one operation call.
+    /// </summary>
+    public static RenderExecutionChannel<TSession> CreateStateChannel<TSession, TState>(
+        TState state,
+        Action<TSession, TState> execute,
+        string stateParameterName,
+        string executeParameterName)
+        where TState : notnull
+    {
+        ValidateStatePassingCallback(state, execute, stateParameterName, executeParameterName);
+        return RenderExecutionChannel<TSession>.FromState(state, execute);
+    }
+
+    /// <summary>
+    /// Enforces the state-passing rule: every per-recording value reaches the callback through its call state.
+    /// </summary>
+    public static void ValidateStatePassingCallback<TState>(
+        TState state,
+        Delegate execute,
+        string stateParameterName,
+        string executeParameterName)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(execute, executeParameterName);
+
+        // typeof(TState).IsValueType is a JIT-time constant, so a value-typed state never reaches the
+        // object-taking checks below and is never boxed on the recording path.
+        if (!typeof(TState).IsValueType)
+        {
+            if (state is null)
+                throw new ArgumentNullException(stateParameterName);
+
+            ThrowIfExecutionFacadeIdentity(state, stateParameterName);
+        }
+
+        if (RenderIdentityKeyValidator.CapturesState(execute))
+        {
+            throw new ArgumentException(
+                $"A definition callback must not capture per-recording values. Move them into '{stateParameterName}' "
+                + "and pass the callback as static.",
+                executeParameterName);
+        }
+    }
+
+    public static RenderExecutionChannel<TSession> CreateRequestLocalChannel<TSession>(
+        Action<TSession> execute,
+        string executeParameterName)
+    {
+        ArgumentNullException.ThrowIfNull(execute, executeParameterName);
+        return RenderExecutionChannel<TSession>.RequestLocal(execute);
+    }
+
+    /// <summary>
+    /// A recorded query region is the whole region the operation reports to Measure and ROI, so a hit outside it
+    /// is a hit no consumer sized itself for. A zero-area region reports nothing, yet every hit-testing kind can
+    /// still answer true somewhere: <see cref="RenderHitTestContractKind.OutputBounds"/> because
+    /// <see cref="Rect.Contains"/> is edge-inclusive and an empty rectangle still holds its own origin,
+    /// <see cref="RenderHitTestContractKind.AnyInput"/> because it delegates to input regions the operation never
+    /// declared, and <see cref="RenderHitTestContractKind.Custom"/> because the callback answers for any point at
+    /// all. Only <see cref="RenderHitTestContractKind.None"/> is confined to an empty region.
+    /// </summary>
+    public static void ThrowIfQueryContributionIncoherent(
+        Rect queryBounds,
+        RenderHitTestContract hitTest,
+        string parameterName)
+    {
+        if ((queryBounds.Width > 0 && queryBounds.Height > 0)
+            || hitTest.Kind == RenderHitTestContractKind.None)
+        {
+            return;
+        }
+
+        throw new ArgumentException(
+            "A zero-area queryBounds contributes no query region, so the hit-test contract must be "
+            + "RenderHitTestContract.None.",
+            parameterName);
+    }
+
+    public static void ValidatePureMetadataCallback(Delegate callback, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+        object? target = callback.Target;
+        if (target is null)
+            return;
+
+        ThrowIfExecutionFacadeIdentity(target, parameterName);
+        RenderIdentityKeyValidator.ThrowIfInvalid(target, parameterName);
+
+        foreach (FieldInfo field in target.GetType().GetFields(
+                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            object? captured = field.GetValue(target);
+            if (captured is null)
+                continue;
+
+            ThrowIfExecutionFacadeIdentity(captured, parameterName);
+            try
+            {
+                RenderIdentityKeyValidator.ThrowIfInvalid(captured, parameterName);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new ArgumentException(
+                    "A pure metadata callback cannot capture a mutable value, resource, execution facade, or disposable object.",
+                    parameterName,
+                    ex);
+            }
+        }
+    }
+
+    public static IReadOnlyList<RenderResource> CopyResources(
+        IEnumerable<RenderResource>? resources,
+        string parameterName)
+    {
+        if (resources is null)
+            return Array.Empty<RenderResource>();
+
+        var result = new List<RenderResource>();
+        foreach (RenderResource? resource in resources)
+        {
+            if (resource is null)
+                throw new ArgumentException("A declared render resource cannot be null.", parameterName);
+            if (resource.RegistrationState == RenderResourceRegistrationState.Released)
+                throw new ArgumentException("A released render resource cannot be declared.", parameterName);
+
+            result.Add(resource);
+        }
+
+        return result.Count == 0 ? Array.Empty<RenderResource>() : result.AsReadOnly();
+    }
+
+    public static IReadOnlyList<RenderResourceBinding> CopyResourceBindings(
+        IEnumerable<RenderResourceBinding>? resources,
+        string parameterName)
+    {
+        if (resources is null)
+            return Array.Empty<RenderResourceBinding>();
+
+        var slots = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
+        var result = new List<RenderResourceBinding>();
+        foreach (RenderResourceBinding? binding in resources)
+        {
+            if (binding is null)
+                throw new ArgumentException("A declared render resource binding cannot be null.", parameterName);
+            if (!slots.Add(binding.Slot))
+                throw new ArgumentException("A render resource slot cannot be bound more than once.", parameterName);
+            ThrowIfUndeclarable(binding.Resource, parameterName);
+            result.Add(binding);
+        }
+
+        return result.Count == 0 ? Array.Empty<RenderResourceBinding>() : result.AsReadOnly();
+    }
+
+    public static IReadOnlyList<RenderResourceSlot> CopyResourceSlots(
+        IEnumerable<RenderResourceSlot>? slots,
+        string parameterName)
+    {
+        if (slots is null)
+            return Array.Empty<RenderResourceSlot>();
+
+        var seen = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
+        var result = new List<RenderResourceSlot>();
+        foreach (RenderResourceSlot? slot in slots)
+        {
+            if (slot is null)
+                throw new ArgumentException("A render resource slot cannot be null.", parameterName);
+            if (!seen.Add(slot))
+                throw new ArgumentException("A render resource slot cannot be declared more than once.", parameterName);
+            result.Add(slot);
+        }
+
+        return result.Count == 0 ? Array.Empty<RenderResourceSlot>() : result.AsReadOnly();
+    }
+
+    public static IReadOnlyList<RenderResourceBinding> ValidateResourceBindings(
+        IReadOnlyList<RenderResourceSlot> declaredSlots,
+        IEnumerable<RenderResourceBinding>? bindings,
+        string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(declaredSlots);
+        IReadOnlyList<RenderResourceBinding> copy = CopyResourceBindings(bindings, parameterName);
+        if (declaredSlots.Count != copy.Count)
+        {
+            throw new ArgumentException(
+                "A render call must bind every resource slot declared by its definition exactly once.",
+                parameterName);
+        }
+
+        var bySlot = new Dictionary<RenderResourceSlot, RenderResourceBinding>(ReferenceEqualityComparer.Instance);
+        foreach (RenderResourceBinding binding in copy)
+            bySlot.Add(binding.Slot, binding);
+
+        var ordered = new RenderResourceBinding[declaredSlots.Count];
+        for (int index = 0; index < declaredSlots.Count; index++)
+        {
+            RenderResourceSlot slot = declaredSlots[index];
+            if (!bySlot.TryGetValue(slot, out RenderResourceBinding? binding))
+            {
+                throw new ArgumentException(
+                    "A render call contains a resource slot that its definition did not declare.",
+                    parameterName);
+            }
+
+            ordered[index] = binding;
+        }
+
+        return ordered.Length == 0 ? Array.Empty<RenderResourceBinding>() : Array.AsReadOnly(ordered);
+    }
+
+    public static void ThrowIfUndeclarable(RenderResource resource, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(resource, parameterName);
+        if (resource.RegistrationState == RenderResourceRegistrationState.Released)
+            throw new ArgumentException("A released render resource cannot be declared.", parameterName);
+    }
+
+    public static void ThrowIfFiniteNonEmpty(Rect bounds, string parameterName)
+    {
+        RenderRectValidation.ThrowIfInvalidInput(bounds, parameterName);
+        if (bounds.Width == 0 || bounds.Height == 0)
+            throw new ArgumentException("Bounds must be non-empty.", parameterName);
+    }
+
+    public static bool Contains(Rect outer, Rect inner)
+        => inner.Left >= outer.Left
+           && inner.Top >= outer.Top
+           && inner.Right <= outer.Right
+           && inner.Bottom <= outer.Bottom;
+
+    private static void ThrowIfExecutionFacadeIdentity(object value, string parameterName)
+    {
+        if (value is RenderExecutionInput
+            or RenderCallbackCanvas
+            or OpaqueRenderSession
+            or OpaqueRenderOutput
+            or GeometrySession
+            or ShaderExecutionContext
+            or ShaderUniformWriter
+            or ShaderResourceWriter
+            or TargetScopeSession
+            or TargetCommandSession
+            or RawTargetScopeSession
+            or RawTargetCommandSession)
+        {
+            throw new ArgumentException(
+                "A persistent identity or pure metadata callback cannot retain an execution session or facade.",
+                parameterName);
+        }
+    }
+}

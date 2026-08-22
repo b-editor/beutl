@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend;
+﻿using Beutl.Composition;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
@@ -56,5 +57,50 @@ public sealed class ScriptCompilableEffectTests
         ScriptCompilationResult result = effect.ValidateScript("void main() { this does not compile }");
 
         Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Unavailable));
+    }
+
+    [TestCase("half4 apply(half4 color) { return color; } /* forgot to close")]
+    [TestCase("half4 /* forgot to close apply(half4 color) { return color; }")]
+    public void Sksl_unterminated_block_comment_is_reported_as_a_failure(string script)
+    {
+        var effect = new SKSLScriptEffect();
+
+        ScriptCompilationResult result = effect.ValidateScript(script);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Failed));
+            Assert.That(result.Error, Is.Not.Null.And.Not.Empty);
+        });
+    }
+
+    [Test]
+    public void Sksl_unterminated_block_comment_does_not_throw_while_building_a_resource()
+    {
+        var effect = new SKSLScriptEffect();
+        effect.Script.CurrentValue = "half4 apply(half4 color) { return color; } /* forgot to close";
+
+        Assert.DoesNotThrow(() => effect.ToResource(CompositionContext.Default).Dispose(),
+            "The resource update runs on the render path, where a lexer throw tears down the frame "
+            + "instead of surfacing the mistake on the effect.");
+    }
+
+    [Test]
+    public void Sksl_current_pixel_apply_script_compiles()
+    {
+        var effect = new SKSLScriptEffect();
+
+        ScriptCompilationResult result = effect.ValidateScript(
+            """
+            half4 apply(half4 color) {
+                return half4(color.rgb * 0.5, color.a);
+            }
+            """);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Compiled));
+            Assert.That(result.Error, Is.Null);
+        });
     }
 }

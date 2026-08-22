@@ -7,17 +7,19 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// Vulkan implementation of <see cref="ITextureCubeArray"/>.
 /// Used for multiple point light shadow maps.
 /// </summary>
-internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray
+internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly Silk.NET.Vulkan.Image _image;
     private readonly DeviceMemory _memory;
+
+    public VulkanContext OwnerContext => _context;
     private readonly ImageView _imageView;           // Cube array view for sampling
     private readonly ImageView[,] _faceViews;        // Individual face views [arrayIndex, faceIndex] for framebuffer attachment
+    private readonly ImageLayout[,] _faceLayouts;
     private readonly int _size;
     private readonly uint _arraySize;
     private readonly TextureFormat _format;
-    private ImageLayout _currentLayout = ImageLayout.Undefined;
     private bool _disposed;
 
     public VulkanTextureCubeArray(
@@ -35,6 +37,7 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray
         _arraySize = arraySize;
         _format = format;
         _faceViews = new ImageView[arraySize, 6];
+        _faceLayouts = new ImageLayout[arraySize, 6];
 
         var vk = context.Vk;
         var device = context.Device;
@@ -195,18 +198,13 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_currentLayout == ImageLayout.ShaderReadOnlyOptimal)
-            return;
-
-        // Transition all layers at once
-        _context.TransitionImageLayout(
-            _image,
-            _currentLayout,
-            ImageLayout.ShaderReadOnlyOptimal,
-            _format.GetAspectMask(),
-            baseArrayLayer: 0,
-            layerCount: _arraySize * 6);
-        _currentLayout = ImageLayout.ShaderReadOnlyOptimal;
+        for (uint arrayIndex = 0; arrayIndex < _arraySize; arrayIndex++)
+        {
+            for (int faceIndex = 0; faceIndex < 6; faceIndex++)
+            {
+                TransitionFace(arrayIndex, faceIndex, ImageLayout.ShaderReadOnlyOptimal);
+            }
+        }
     }
 
     /// <summary>
@@ -224,15 +222,10 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray
             ? ImageLayout.DepthStencilAttachmentOptimal
             : ImageLayout.ColorAttachmentOptimal;
 
-        // Transition all 6 faces of this cube map
-        uint baseLayer = arrayIndex * 6;
-        _context.TransitionImageLayout(
-            _image,
-            _currentLayout,
-            targetLayout,
-            _format.GetAspectMask(),
-            baseArrayLayer: baseLayer,
-            layerCount: 6);
+        for (int faceIndex = 0; faceIndex < 6; faceIndex++)
+        {
+            TransitionFace(arrayIndex, faceIndex, targetLayout);
+        }
     }
 
     /// <summary>
@@ -251,14 +244,46 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray
             ? ImageLayout.DepthStencilAttachmentOptimal
             : ImageLayout.ColorAttachmentOptimal;
 
+        TransitionFace(arrayIndex, faceIndex, targetLayout);
+    }
+
+    internal void TransitionFaceToTransferDestination(uint arrayIndex, int faceIndex)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ValidateFace(arrayIndex, faceIndex);
+        TransitionFace(arrayIndex, faceIndex, ImageLayout.TransferDstOptimal);
+    }
+
+    internal void TransitionFaceToSampled(uint arrayIndex, int faceIndex)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ValidateFace(arrayIndex, faceIndex);
+        TransitionFace(arrayIndex, faceIndex, ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    private void TransitionFace(uint arrayIndex, int faceIndex, ImageLayout newLayout)
+    {
+        ImageLayout oldLayout = _faceLayouts[arrayIndex, faceIndex];
+        if (oldLayout == newLayout)
+            return;
+
         uint layerIndex = arrayIndex * 6 + (uint)faceIndex;
         _context.TransitionImageLayout(
             _image,
-            ImageLayout.Undefined,  // We don't track per-face layout
-            targetLayout,
+            oldLayout,
+            newLayout,
             _format.GetAspectMask(),
             baseArrayLayer: layerIndex,
             layerCount: 1);
+        _faceLayouts[arrayIndex, faceIndex] = newLayout;
+    }
+
+    private void ValidateFace(uint arrayIndex, int faceIndex)
+    {
+        if (arrayIndex >= _arraySize)
+            throw new ArgumentOutOfRangeException(nameof(arrayIndex));
+        if (faceIndex < 0 || faceIndex >= 6)
+            throw new ArgumentOutOfRangeException(nameof(faceIndex));
     }
 
     public IntPtr GetFaceView(uint arrayIndex, int faceIndex)
@@ -290,35 +315,37 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray
         if (_disposed) return;
         _disposed = true;
 
-        var vk = _context.Vk;
-        var device = _context.Device;
-
-        // Destroy face views
-        for (uint arrIdx = 0; arrIdx < _arraySize; arrIdx++)
+        ImageView[,] faceViews = _faceViews;
+        ImageView imageView = _imageView;
+        Silk.NET.Vulkan.Image image = _image;
+        DeviceMemory memory = _memory;
+        _context.DeferRelease(() =>
         {
-            for (int faceIdx = 0; faceIdx < 6; faceIdx++)
+            var vk = _context.Vk;
+            var device = _context.Device;
+
+            foreach (ImageView faceView in faceViews)
             {
-                if (_faceViews[arrIdx, faceIdx].Handle != 0)
+                if (faceView.Handle != 0)
                 {
-                    vk.DestroyImageView(device, _faceViews[arrIdx, faceIdx], null);
+                    vk.DestroyImageView(device, faceView, null);
                 }
             }
-        }
 
-        // Destroy cube array view
-        if (_imageView.Handle != 0)
-        {
-            vk.DestroyImageView(device, _imageView, null);
-        }
+            if (imageView.Handle != 0)
+            {
+                vk.DestroyImageView(device, imageView, null);
+            }
 
-        if (_image.Handle != 0)
-        {
-            vk.DestroyImage(device, _image, null);
-        }
+            if (image.Handle != 0)
+            {
+                vk.DestroyImage(device, image, null);
+            }
 
-        if (_memory.Handle != 0)
-        {
-            vk.FreeMemory(device, _memory, null);
-        }
+            if (memory.Handle != 0)
+            {
+                vk.FreeMemory(device, memory, null);
+            }
+        });
     }
 }

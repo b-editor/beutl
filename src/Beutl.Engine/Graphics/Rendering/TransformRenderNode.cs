@@ -21,36 +21,86 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             changed = true;
         }
 
-        HasChanges = changed;
+        if (changed)
+        {
+            HasChanges = true;
+        }
+
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
-            RenderNodeOperation.CreateLambda(
-                r.Bounds.TransformToAABB(Transform),
-                canvas =>
-                {
-                    using (canvas.PushTransform(Transform, TransformOperator))
-                    {
-                        r.Render(canvas);
-                    }
-                },
-                hitTest: point =>
-                {
-                    if (Transform.HasInverse)
-                        point *= Transform.Invert();
-                    return r.HitTest(point);
-                },
-                onDispose: r.Dispose,
-                effectiveScale: RescaleDensity(r.EffectiveScale, Transform)))
-            .ToArray();
+        Matrix transform = Transform;
+        TransformOperator transformOperator = TransformOperator;
+        Matrix inverse = transform.HasInverse ? transform.Invert() : default;
+        var metadataState = new TransformMetadataState(transform, transform.HasInverse, inverse);
+        RenderBoundsContract bounds = transform.HasInverse
+            ? RenderBoundsContract.Create(
+                metadataState.TransformBounds,
+                metadataState.GetRequiredInputBounds)
+            : RenderBoundsContract.CreateFullInput(
+                metadataState.TransformBounds);
+        RenderHitTestContract hitTest = RenderHitTestContract.Custom(metadataState.HitTest);
+        var scaleMapper = new TransformScaleMapper(transform);
+        RenderScaleContract scale = RenderScaleContract.MapInputSupply(
+            scaleMapper.MapSupply,
+            scaleMapper.MapDemand);
+        // Set discards the ambient transform for the canvas base transform, so it moves the input even when
+        // the matrix is identity.
+        RenderDeviceGridMapping gridMapping =
+            transform.IsIdentity && transformOperator != TransformOperator.Set
+                ? RenderDeviceGridMapping.Preserved
+                : RenderDeviceGridMapping.Remapped;
+
+        // Only Prepend places its matrix in the input's own logical space. Append and Set are defined
+        // against the ambient target transform, which the value graph has no representation of.
+        if (transformOperator == TransformOperator.Prepend)
+        {
+            TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
+                session => ExecuteTransform(session, (transform, transformOperator)),
+                bounds,
+                hitTest,
+                scale,
+                RenderDeviceGridSensitivity.Insensitive,
+                gridMapping,
+                builtInBackdropCapturesBackingTarget: false);
+            context.PublishMappedInputs(
+                description,
+                static (context, input, value) => context.TargetScope(input, value));
+            return;
+        }
+
+        TargetScopeDefinition<(Matrix Transform, TransformOperator Operator)> definition =
+            TargetScopeDefinition<(Matrix Transform, TransformOperator Operator)>.Create(
+                ExecuteTransform,
+                bounds,
+                hitTest,
+                scale,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
+                deviceGridMapping: gridMapping);
+        context.PublishMappedInputs(
+            definition.Call((transform, transformOperator)),
+            static (context, input, value) => context.TargetScope(input, value));
+    }
+
+    private static void ExecuteTransform(
+        TargetScopeSession session,
+        (Matrix Transform, TransformOperator Operator) state)
+    {
+        session.Canvas.Use(canvas =>
+        {
+            using (canvas.PushTransform(state.Transform, state.Operator))
+            {
+                session.ReplayInput();
+            }
+        });
     }
 
     /// <summary>
     /// Re-scales a bitmap supply density across <paramref name="transform"/>. Enlarging lowers density;
-    /// shrinking raises it. Vector (Unbounded) inputs pass through unchanged.
+    /// shrinking raises it. Vector (Unbounded) inputs pass through unchanged. An anisotropic transform is
+    /// reported through its least-scaled axis, so the result is the density of the best-preserved direction.
     /// </summary>
     public static EffectiveScale RescaleDensity(EffectiveScale input, Matrix transform)
     {
@@ -71,5 +121,54 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             d = input.Value;
 
         return EffectiveScale.At(d);
+    }
+
+    /// <summary>
+    /// Re-scales an output demand back across <paramref name="transform"/> into the input demand that satisfies
+    /// it. Enlarging raises the demand; shrinking lowers it. An anisotropic transform is answered through its
+    /// operator norm, so the demand covers the most-stretched direction. A perspective transform has no single
+    /// scalar density, so its demand passes through unchanged.
+    /// </summary>
+    /// <remarks>
+    /// This is the backward half of the density relationship <see cref="RescaleDensity"/> maps forward, not its
+    /// inverse: each half errs toward more detail through a different axis, so under an anisotropic or sheared
+    /// transform a forward-then-backward round trip does not return its input.
+    /// </remarks>
+    public static EffectiveScale RescaleDemand(EffectiveScale outputDemand, Matrix transform)
+    {
+        if (DeviceGridAlignment.IsPerspective(transform))
+            return outputDemand;
+
+        float factor = DeviceGridAlignment.ResolveAffineDensity(transform, 1f);
+        float density = outputDemand.Value * factor;
+        return float.IsFinite(density) && density > 0f
+            ? EffectiveScale.At(density)
+            : outputDemand;
+    }
+
+    private readonly record struct TransformMetadataState(
+        Matrix Transform,
+        bool HasInverse,
+        Matrix Inverse)
+    {
+        public Rect TransformBounds(Rect value) => value.TransformToAABB(Transform);
+
+        public Rect GetRequiredInputBounds(Rect value) => value.TransformToAABB(Inverse);
+
+        public bool HitTest(RenderHitTestContext metadata, Point point)
+        {
+            if (HasInverse)
+                point *= Inverse;
+            return metadata.Inputs[0].HitTest(point);
+        }
+    }
+
+    private readonly record struct TransformScaleMapper(Matrix Transform)
+    {
+        public EffectiveScale MapSupply(EffectiveScale inputSupply)
+            => RescaleDensity(inputSupply, Transform);
+
+        public EffectiveScale MapDemand(EffectiveScale outputDemand)
+            => RescaleDemand(outputDemand, Transform);
     }
 }

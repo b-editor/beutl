@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend;
+﻿using System.Collections.Immutable;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics.Effects;
@@ -21,7 +22,10 @@ public sealed class GLSLShader : IDisposable
             throw new InvalidOperationException("Vulkan 3D rendering is not supported on this platform.");
         }
 
-        GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(context, fragmentShaderSource);
+        GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
+            context,
+            fragmentShaderSource,
+            ShaderOutputCoverage.MayLeavePixelsUnwritten);
         if (pipeline == null)
         {
             throw new InvalidOperationException("Failed to compile GLSL shader.");
@@ -39,7 +43,11 @@ public sealed class GLSLShader : IDisposable
             throw new InvalidOperationException("Vulkan 3D rendering is not supported on this platform.");
         }
 
-        GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(context, fragmentShaderSource, hasMaskTexture: true);
+        GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
+            context,
+            fragmentShaderSource,
+            ShaderOutputCoverage.MayLeavePixelsUnwritten,
+            hasMaskTexture: true);
         if (pipeline == null)
         {
             throw new InvalidOperationException("Failed to compile GLSL dual-texture shader.");
@@ -68,7 +76,10 @@ public sealed class GLSLShader : IDisposable
 
         try
         {
-            GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(context, fragmentShaderSource);
+            GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
+                context,
+                fragmentShaderSource,
+                ShaderOutputCoverage.MayLeavePixelsUnwritten);
             if (pipeline == null)
             {
                 errorText = "Failed to compile GLSL shader.";
@@ -83,6 +94,41 @@ public sealed class GLSLShader : IDisposable
             errorText = ex.Message;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Creates an engine-owned shader whose output is allowed to skip pooled-target initialization.
+    /// </summary>
+    /// <param name="fragmentShaderSource">
+    /// An audited built-in fragment shader. Every control-flow path must write the fragment output and the shader
+    /// must contain no <c>discard</c>. If this proof is false, unwritten pixels can expose stale data from a
+    /// previous unrelated frame when a pooled target is warm.
+    /// </param>
+    /// <param name="specializationConstants">Immutable values fixed for the lifetime of the created pipeline.</param>
+    /// <param name="hasMaskTexture">Whether the shader reads a second texture at binding 1.</param>
+    internal static GLSLShader CreateBuiltIn(
+        string fragmentShaderSource,
+        ImmutableArray<SpecializationConstant> specializationConstants = default,
+        bool hasMaskTexture = false)
+    {
+        IGraphicsContext? context = GraphicsContextFactory.SharedContext;
+        if (context == null || !context.Supports3DRendering)
+        {
+            throw new InvalidOperationException("Vulkan 3D rendering is not supported on this platform.");
+        }
+
+        GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
+            context,
+            fragmentShaderSource,
+            ShaderOutputCoverage.ProvablyFull,
+            specializationConstants,
+            hasMaskTexture);
+        if (pipeline == null)
+        {
+            throw new InvalidOperationException("Failed to compile built-in GLSL shader.");
+        }
+
+        return new GLSLShader(pipeline);
     }
 
     internal GLSLFilterPipeline Pipeline
@@ -117,9 +163,9 @@ public sealed class GLSLShader : IDisposable
             if (sourceTexture == null)
                 continue;
 
-            renderTarget.PrepareForSampling();
+            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
 
-            EffectTarget newTarget = context.CreateTarget(target.Bounds);
+            EffectTarget newTarget = context.CreateNativeTargetLike(target);
             RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
             if (newRenderTarget?.Texture == null)
@@ -131,12 +177,8 @@ public sealed class GLSLShader : IDisposable
             ITexture2D destinationTexture = newRenderTarget.Texture;
             try
             {
-                using ITexture2D depthTexture = graphicsContext.CreateTexture2D(
-                    destinationTexture.Width,
-                    destinationTexture.Height,
-                    TextureFormat.Depth32Float);
-
-                _pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
+                _pipeline.Execute(sourceTexture, destinationTexture, pushConstants);
+                _pipeline.SubmitPendingCommands();
 
                 target.Dispose();
                 context.Targets[i] = newTarget;
@@ -153,11 +195,10 @@ public sealed class GLSLShader : IDisposable
     internal void ExecuteSingleTarget<T>(
         ITexture2D source,
         ITexture2D destination,
-        ITexture2D depth,
         T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _pipeline.Execute(source, destination, depth, pushConstants);
+        _pipeline.Execute(source, destination, pushConstants);
     }
 
     // Execute a single pass with mask texture (for use by multi-pass effects)
@@ -165,11 +206,16 @@ public sealed class GLSLShader : IDisposable
         ITexture2D source,
         ITexture2D mask,
         ITexture2D destination,
-        ITexture2D depth,
         T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _pipeline.Execute(source, mask, destination, depth, pushConstants);
+        _pipeline.Execute(source, mask, destination, pushConstants);
+    }
+
+    internal void SubmitPendingCommands()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _pipeline.SubmitPendingCommands();
     }
 
     // Multi-pass apply with ping-pong intermediate textures
@@ -196,13 +242,10 @@ public sealed class GLSLShader : IDisposable
             if (sourceTexture == null)
                 continue;
 
+            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+
             int width = sourceTexture.Width;
             int height = sourceTexture.Height;
-
-            // Create ping-pong textures
-            using ITexture2D pingTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-            using ITexture2D pongTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-            using ITexture2D depthTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
             // Run first shader pass (pass 0) from source into ping buffer as the initial state
             sourceTexture.PrepareForSampling();
@@ -210,7 +253,7 @@ public sealed class GLSLShader : IDisposable
             if (passCount == 1)
             {
                 // Single pass: write directly to the new EffectTarget
-                EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                EffectTarget newTarget = context.CreateNativeTargetLike(target);
                 RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
                 if (newRenderTarget?.Texture == null)
@@ -221,7 +264,8 @@ public sealed class GLSLShader : IDisposable
 
                 try
                 {
-                    _pipeline.Execute(sourceTexture, newRenderTarget.Texture, depthTexture, createPushConstants(0, target));
+                    _pipeline.Execute(sourceTexture, newRenderTarget.Texture, createPushConstants(0, target));
+                    _pipeline.SubmitPendingCommands();
 
                     target.Dispose();
                     context.Targets[i] = newTarget;
@@ -235,7 +279,18 @@ public sealed class GLSLShader : IDisposable
                 continue;
             }
 
-            _pipeline.Execute(sourceTexture, pingTexture, depthTexture, createPushConstants(0, target));
+            using NativeFilterTextureLease pingLease = context.AcquireNativeScratchTexture(
+                graphicsContext,
+                width,
+                height);
+            using NativeFilterTextureLease pongLease = context.AcquireNativeScratchTexture(
+                graphicsContext,
+                width,
+                height);
+            ITexture2D pingTexture = pingLease.Texture;
+            ITexture2D pongTexture = pongLease.Texture;
+
+            _pipeline.Execute(sourceTexture, pingTexture, createPushConstants(0, target));
 
             ITexture2D current = pingTexture;
             ITexture2D next = pongTexture;
@@ -243,13 +298,13 @@ public sealed class GLSLShader : IDisposable
             // Run intermediate passes with ping-pong (passes 1 to passCount-2)
             for (int pass = 1; pass < passCount - 1; pass++)
             {
-                _pipeline.Execute(current, next, depthTexture, createPushConstants(pass, target));
+                _pipeline.Execute(current, next, createPushConstants(pass, target));
                 (current, next) = (next, current);
             }
 
             // Final pass: write directly to the new EffectTarget
             {
-                EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                EffectTarget newTarget = context.CreateNativeTargetLike(target);
                 RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
                 if (newRenderTarget?.Texture == null)
@@ -260,7 +315,8 @@ public sealed class GLSLShader : IDisposable
 
                 try
                 {
-                    _pipeline.Execute(current, newRenderTarget.Texture, depthTexture, createPushConstants(passCount - 1, target));
+                    _pipeline.Execute(current, newRenderTarget.Texture, createPushConstants(passCount - 1, target));
+                    _pipeline.SubmitPendingCommands();
 
                     target.Dispose();
                     context.Targets[i] = newTarget;
@@ -296,9 +352,9 @@ public sealed class GLSLShader : IDisposable
             if (sourceTexture == null)
                 continue;
 
-            renderTarget.PrepareForSampling();
+            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
 
-            EffectTarget newTarget = context.CreateTarget(target.Bounds);
+            EffectTarget newTarget = context.CreateNativeTargetLike(target);
             RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
             if (newRenderTarget?.Texture == null)
@@ -311,13 +367,9 @@ public sealed class GLSLShader : IDisposable
 
             try
             {
-                using ITexture2D depthTexture = graphicsContext.CreateTexture2D(
-                    destinationTexture.Width,
-                    destinationTexture.Height,
-                    TextureFormat.Depth32Float);
-
                 T pushConstants = createPushConstants(target);
-                _pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
+                _pipeline.Execute(sourceTexture, destinationTexture, pushConstants);
+                _pipeline.SubmitPendingCommands();
 
                 target.Dispose();
                 context.Targets[i] = newTarget;

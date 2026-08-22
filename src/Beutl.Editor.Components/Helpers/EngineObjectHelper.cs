@@ -1,12 +1,19 @@
 ﻿using System.Reactive;
+using System.Reactive.Disposables;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
+using Beutl.Graphics.Rendering;
+using Beutl.Logging;
+using Beutl.Threading;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.Helpers;
 
 public static class EngineObjectHelper
 {
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(EngineObjectHelper));
+
     public static IObservable<IExpression<T>?> SubscribeExpressionChange<T>(this IProperty<T> property)
     {
         return Observable.FromEvent<IExpression<T>?>(
@@ -69,33 +76,119 @@ public static class EngineObjectHelper
             .Select(t => t.resource);
     }
 
+    /// <summary>
+    /// Observes <paramref name="obj"/> as a versioned resource whose creation, update, and disposal all run on
+    /// the render dispatcher, so a subscriber never races the renderer for the same resource.
+    /// </summary>
+    /// <remarks>
+    /// Disposing the subscription cancels work that has not started yet, so a resource is never created for a
+    /// subscription that was already gone.
+    /// </remarks>
     public static IObservable<(TResource Resource, int Version)> SubscribeEngineVersionedResource<T, TResource>(
         this T obj, IObservable<TimeSpan> time, Func<T, CompositionContext, TResource> createResource)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
-        var renderContext = new CompositionContext(TimeSpan.Zero);
-        TResource? resource = null;
-        return Observable.FromEventPattern(
-                h => obj.Edited += h,
-                h => obj.Edited -= h)
-            .Select(_ => Unit.Default)
-            .Publish(Unit.Default).RefCount()
-            .CombineLatest(time)
-            .Select(t =>
+        return Observable.Create<(TResource Resource, int Version)>(observer =>
             {
-                renderContext.Time = t.Second;
-                if (resource == null)
-                {
-                    resource = createResource(obj, renderContext);
-                }
-                else
-                {
-                    bool updateOnly = false;
-                    resource.Update(obj, renderContext, ref updateOnly);
-                }
+                var renderContext = new CompositionContext(TimeSpan.Zero);
+                var cts = new CancellationTokenSource();
+                CancellationToken token = cts.Token;
+                TResource? resource = null;
 
-                return (resource, resource.Version);
+                IDisposable trigger = Observable.FromEventPattern(
+                        h => obj.Edited += h,
+                        h => obj.Edited -= h)
+                    .Select(_ => Unit.Default)
+                    .Publish(Unit.Default).RefCount()
+                    .CombineLatest(time)
+                    .Subscribe(onNext: t =>
+                    {
+                        if (token.IsCancellationRequested)
+                            return;
+
+                        RenderThread.Dispatcher.Dispatch(
+                            () =>
+                            {
+                                if (token.IsCancellationRequested)
+                                    return;
+
+                                try
+                                {
+                                    renderContext.Time = t.Second;
+                                    if (resource is null)
+                                    {
+                                        resource = createResource(obj, renderContext);
+                                    }
+                                    else
+                                    {
+                                        bool updateOnly = false;
+                                        resource.Update(obj, renderContext, ref updateOnly);
+                                    }
+
+                                    observer.OnNext((resource, resource.Version));
+                                }
+                                catch (Exception ex)
+                                {
+                                    // An escaping exception unwinds the shared render-thread loop, which
+                                    // installs no unhandled-exception handler.
+                                    cts.Cancel();
+                                    try
+                                    {
+                                        resource?.Dispose();
+                                    }
+                                    catch (Exception disposeFailure)
+                                    {
+                                        ex.Data["EngineVersionedResourceDisposeFailure"] = disposeFailure;
+                                    }
+
+                                    resource = null;
+                                    observer.OnError(ex);
+                                }
+                            },
+                            DispatchPriority.Low);
+                    },
+                    // Without an explicit handler Rx throws the trigger's failure on the source thread,
+                    // leaving this subscription uninformed and still holding its resource.
+                    onError: ex =>
+                    {
+                        cts.Cancel();
+                        ReleaseOnRenderThread(disposeTokenSource: false);
+                        observer.OnError(ex);
+                    });
+
+                return Disposable.Create(() =>
+                {
+                    cts.Cancel();
+                    trigger.Dispose();
+                    ReleaseOnRenderThread(disposeTokenSource: true);
+                });
+
+                void ReleaseOnRenderThread(bool disposeTokenSource)
+                {
+                    RenderThread.Dispatcher.Dispatch(
+                        () =>
+                        {
+                            // The render loop installs no unhandled-exception handler, so a throwing
+                            // Dispose here would take the render thread down with it.
+                            try
+                            {
+                                resource?.Dispose();
+                            }
+                            catch (Exception disposeFailure)
+                            {
+                                s_logger.LogWarning(
+                                    disposeFailure,
+                                    "Releasing the versioned resource for '{Object}' failed.",
+                                    obj);
+                            }
+
+                            resource = null;
+                            if (disposeTokenSource)
+                                cts.Dispose();
+                        },
+                        DispatchPriority.Low);
+                }
             })
             .DistinctUntilChanged(t => t.Version);
     }

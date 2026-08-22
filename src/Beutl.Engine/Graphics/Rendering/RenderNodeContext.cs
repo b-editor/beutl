@@ -1,84 +1,1743 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿using System.Collections.Immutable;
+using Beutl.Engine;
+using Beutl.Graphics.Effects;
+using Beutl.Media;
 
-public class RenderNodeContext(
-    RenderNodeOperation[] input,
-    float outputScale = 1f,
-    float maxWorkingScale = float.PositiveInfinity)
+namespace Beutl.Graphics.Rendering;
+
+internal delegate void PaintedSourceDraw<TState>(
+    ImmediateCanvas canvas,
+    Brush.Resource? fill,
+    Pen.Resource? pen,
+    TState state);
+
+/// <summary>
+/// Records declarative render fragments for one active <see cref="RenderNode.Process(RenderNodeContext)"/> call.
+/// </summary>
+/// <remarks>
+/// The engine creates and seals each transaction. Methods record metadata only; deferred callbacks run later.
+/// The context, its borrowed <see cref="Inputs"/>, and all handles obtained from it become invalid when the
+/// process call returns. They do not own rendering resources and cannot be retained for a later request.
+/// </remarks>
+public sealed class RenderNodeContext
 {
-    public RenderNodeOperation[] Input { get; } = input;
+    private readonly NodeRecordingTransaction _transaction;
+    private readonly IReadOnlyList<RenderFragmentHandle> _inputs;
+    private readonly RenderIntent _intent;
+    private readonly RenderRequestPurpose _purpose;
+    private readonly Rect? _targetDomain;
+    private readonly float _outputScale;
+    private readonly float _maxWorkingScale;
 
-    public bool IsRenderCacheEnabled { get; set; } = true;
-
-    /// <summary>
-    /// The final render-target scale <c>s_out</c> (device px per logical unit at the root).
-    /// Sanitized to positive-finite at construction.
-    /// Informational only for intermediates — never clamps working scale.
-    /// </summary>
-    public float OutputScale { get; } =
-        float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
-
-    /// <summary>
-    /// Global working-scale ceiling. Preview caps at <c>2 * s_out</c>; export passes <c>+Inf</c>.
-    /// A degenerate value (NaN / non-positive) is treated as <c>+Inf</c>.
-    /// </summary>
-    public float MaxWorkingScale { get; } = SanitizeMaxWorkingScale(maxWorkingScale);
-
-    /// <summary>Canonical ceiling rule: a degenerate value (NaN or non-positive) means "no ceiling" (+Inf); other values pass through.</summary>
-    public static float SanitizeMaxWorkingScale(float maxWorkingScale) =>
-        float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f ? float.PositiveInfinity : maxWorkingScale;
-
-    public Rect CalculateBounds()
+    internal RenderNodeContext(NodeRecordingTransaction transaction)
     {
-        return Input.Aggregate<RenderNodeOperation, Rect>(default, (current, operation) => current.Union(operation.Bounds));
+        _transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));
+        _inputs = transaction.Inputs;
+        _intent = transaction.Request.Options.Intent;
+        _purpose = transaction.Request.Options.Purpose;
+        _targetDomain = transaction.Request.Options.TargetDomain;
+        _outputScale = transaction.Request.Options.OutputScale;
+        _maxWorkingScale = transaction.Request.Options.MaxWorkingScale;
+    }
+
+    /// <summary>Gets the non-null ordered fragment inputs borrowed by the current node transaction.</summary>
+    public IReadOnlyList<RenderFragmentHandle> Inputs
+    {
+        get { VerifyActive(); return _inputs; }
+    }
+
+    /// <summary>Gets the render intent of the current request.</summary>
+    public RenderIntent Intent
+    {
+        get { VerifyActive(); return _intent; }
+    }
+
+    /// <summary>Gets the purpose of the current request.</summary>
+    public RenderRequestPurpose Purpose
+    {
+        get { VerifyActive(); return _purpose; }
+    }
+
+    /// <summary>Gets the optional finite logical domain available to root target accesses.</summary>
+    public Rect? TargetDomain
+    {
+        get { VerifyActive(); return _targetDomain; }
+    }
+
+    /// <summary>Gets whether the current transaction remains eligible for persistent render caching.</summary>
+    public bool IsRenderCacheEnabled
+    {
+        get { VerifyActive(); return _transaction.IsRenderCacheEnabled; }
     }
 
     /// <summary>
-    /// Computes the working scale <c>w</c> for a buffer-allocating boundary:
-    /// <c>w = min( max(s_out, densest concrete supply), maxWorkingScale )</c>.
-    /// Vector inputs are excluded from the supply max; the output scale is a floor, not a ceiling.
+    /// Gets the positive finite final output density in device pixels per root logical unit.
     /// </summary>
-    public static float ResolveWorkingScale(
-        ReadOnlySpan<EffectiveScale> inputs,
-        float outputScale,
-        float maxWorkingScale = float.PositiveInfinity)
+    /// <remarks>This is informational for intermediate values and does not clamp their working density.</remarks>
+    public float OutputScale
     {
-        if (!float.IsFinite(outputScale) || outputScale <= 0f)
-            outputScale = 1f;
+        get { VerifyActive(); return _outputScale; }
+    }
 
-        float supply = outputScale;
-        foreach (EffectiveScale e in inputs)
+    /// <summary>
+    /// Gets the sanitized request-wide ceiling for intermediate working densities.
+    /// </summary>
+    /// <remarks>The value is positive finite or positive infinity.</remarks>
+    public float MaxWorkingScale
+    {
+        get { VerifyActive(); return _maxWorkingScale; }
+    }
+
+    /// <summary>Tries to calculate the union of all current input bounds from concrete recording metadata.</summary>
+    /// <param name="bounds">
+    /// Receives the logical input-bounds union, or <see langword="default"/> when any input still depends on an
+    /// unresolved owning target domain. An empty input list succeeds with an empty rectangle.
+    /// </param>
+    /// <returns><see langword="true"/> when every input has concrete recording metadata.</returns>
+    /// <remarks>This method does not execute deferred work or resolve graph-wide regions of interest.</remarks>
+    public bool TryCalculateInputBounds(out Rect bounds)
+    {
+        VerifyActive();
+        Rect result = default;
+        foreach (RenderFragmentHandle input in _inputs)
         {
-            if (e.IsUnbounded) continue;
-            if (e.Value > supply) supply = e.Value;
+            RenderFragmentReference reference = _transaction.GetReference(input);
+            if (!reference.HasConcreteRecordingMetadata)
+            {
+                bounds = default;
+                return false;
+            }
+
+            result = result.Union(reference.RecordedBounds);
         }
 
-        return MathF.Min(supply, SanitizeMaxWorkingScale(maxWorkingScale));
+        bounds = result;
+        return true;
     }
 
-    /// <summary>Max device-buffer axis (px). GPU textures larger than this typically fail to allocate.</summary>
-    public const int MaxBufferDimension = 16384;
+    internal bool TryCalculateFiniteIsolationDomain(out Rect domain)
+    {
+        VerifyActive();
+        Rect result = default;
+        foreach (RenderFragmentHandle input in _inputs)
+        {
+            RenderFragmentReference reference = _transaction.GetReference(input);
+            if (reference.ContributesValuesToTarget)
+            {
+                if (!reference.HasConcreteRecordingMetadata)
+                {
+                    domain = default;
+                    return false;
+                }
+
+                result = result.Union(reference.RecordedBounds);
+            }
+
+            if (!TargetWriteMetadataResolver.TryResolveFinite(reference, out Rect? affectedBounds))
+            {
+                domain = default;
+                return false;
+            }
+
+            if (affectedBounds is { } affected)
+                result = result.Union(affected);
+        }
+
+        domain = result;
+        return true;
+    }
+
+    /// <summary>Monotonically disables persistent render caching for the current node transaction.</summary>
+    /// <remarks>
+    /// A node that records a child it does not list in <see cref="RenderNode.ChildNodes"/> must call this,
+    /// because the cache cannot observe a change reported only by that unlisted child.
+    /// </remarks>
+    public void DisableRenderCache()
+    {
+        GetTransaction().DisableRenderCache();
+    }
+
+    /// <summary>Publishes every current input unchanged and in order.</summary>
+    public void PassThrough() => GetTransaction().PassThrough();
+
+    /// <summary>Publishes one recorded fragment stream as a node output.</summary>
+    /// <param name="fragment">A non-null handle borrowed from the active transaction.</param>
+    public void Publish(RenderFragmentHandle fragment)
+        => GetTransaction().Publish(fragment);
+
+    /// <summary>Abandons a recorded fragment so it is neither published nor executed.</summary>
+    /// <remarks>Required for a target-effect fragment recorded only to inspect its metadata.</remarks>
+    /// <param name="fragment">A non-null unpublished handle borrowed from the active transaction.</param>
+    public void Drop(RenderFragmentHandle fragment)
+        => GetTransaction().Drop(fragment);
+
+    /// <summary>Publishes recorded fragment streams in enumeration order.</summary>
+    /// <param name="fragments">A non-null sequence of non-null handles borrowed from the active transaction.</param>
+    public void PublishRange(IEnumerable<RenderFragmentHandle> fragments)
+    {
+        ArgumentNullException.ThrowIfNull(fragments);
+        NodeRecordingTransaction transaction = GetTransaction();
+        foreach (RenderFragmentHandle fragment in fragments)
+        {
+            transaction.Publish(fragment);
+        }
+    }
+
+    /// <summary>Maps every current input to one output and publishes the mapped outputs in input order.</summary>
+    /// <param name="mapper">
+    /// A synchronous callback that returns one active, unpublished handle for each borrowed input without
+    /// publishing fragments itself.
+    /// </param>
+    /// <remarks>
+    /// This is explicit publication for a one-to-one input transform. An empty input list invokes no callbacks and
+    /// publishes no output. Use <see cref="Publish"/>, <see cref="PublishRange"/>, or <see cref="PassThrough"/>
+    /// directly for other topologies or publication orders.
+    /// </remarks>
+    public void PublishMappedInputs(Func<RenderFragmentHandle, RenderFragmentHandle> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        PublishMappedInputs(mapper, static (_, input, callback) => callback(input));
+    }
+
+    /// <summary>Maps every current input to one output and publishes the mapped outputs in input order.</summary>
+    /// <typeparam name="TState">The callback state supplied for every input.</typeparam>
+    /// <param name="state">The callback state supplied for every input.</param>
+    /// <param name="mapper">
+    /// A synchronous callback that returns one active, unpublished handle for each borrowed input without
+    /// publishing fragments itself.
+    /// </param>
+    /// <remarks>
+    /// Pass explicit state with a <see langword="static"/> callback when the recording path must avoid a
+    /// per-call capture. The context and every input handle remain transaction-scoped and must not be retained.
+    /// </remarks>
+    public void PublishMappedInputs<TState>(
+        TState state,
+        Func<RenderNodeContext, RenderFragmentHandle, TState, RenderFragmentHandle> mapper)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        NodeRecordingTransaction transaction = GetTransaction();
+        foreach (RenderFragmentHandle input in _inputs)
+        {
+            int publicationCount = transaction.PublicationCount;
+            RenderFragmentHandle mapped = mapper(this, input, state);
+            if (transaction.PublicationCount != publicationCount)
+            {
+                throw new InvalidOperationException(
+                    "A PublishMappedInputs mapper must return its output without publishing fragments.");
+            }
+
+            transaction.Publish(mapped);
+        }
+    }
+
+    /// <summary>Wraps a value-eligible fragment so its values contribute to target composition when published.</summary>
+    /// <param name="input">
+    /// A non-null transaction-scoped fragment whose <see cref="RenderFragmentHandle.CanBeUsedAsValueInput"/> is
+    /// <see langword="true"/>.
+    /// </param>
+    /// <returns>
+    /// The borrowed original handle when it already contributes; otherwise a new transaction-scoped contributing
+    /// handle. The result is not published automatically.
+    /// </returns>
+    public RenderFragmentHandle ContributeValues(RenderFragmentHandle input)
+    {
+        NodeRecordingTransaction transaction = GetTransaction();
+        RenderFragmentReference reference = transaction.GetReference(input);
+        EnsureValueInput(reference, nameof(input));
+        if (reference.ContributesValuesToTarget)
+            return input;
+
+        return transaction.CreateFragment(
+            RenderFragmentKind.ContributeValues,
+            reference.Bounds,
+            reference.EffectiveScale,
+            reference.ValueCardinality,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            reference.HasTargetEffects,
+            reference.HasOpaqueExternalWork,
+            [reference],
+            payload: null,
+            reference.HitTest);
+    }
+
+    /// <summary>Records a deferred premultiplied-opacity scope around one fragment stream.</summary>
+    /// <param name="input">A non-null fragment borrowed from the active transaction.</param>
+    /// <param name="opacity">A finite opacity value. Values outside [0, 1] are clamped.</param>
+    /// <returns>A new transaction-scoped fragment handle. The result is not published automatically.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="opacity"/> is not finite.</exception>
+    public RenderFragmentHandle Opacity(RenderFragmentHandle input, float opacity)
+    {
+        opacity = OpacityRenderNode.Normalize(opacity);
+
+        NodeRecordingTransaction transaction = GetTransaction();
+        RenderFragmentReference reference = transaction.GetReference(input);
+        return transaction.CreateFragment(
+            RenderFragmentKind.Opacity,
+            reference.Bounds,
+            reference.EffectiveScale,
+            reference.ValueCardinality,
+            reference.ContributesValuesToTarget,
+            reference.CanBeUsedAsValueInput,
+            reference.HasTargetEffects,
+            reference.HasOpaqueExternalWork,
+            [reference],
+            new OpacityRenderFragmentPayload(
+                opacity,
+                OpacityRenderNode.CreateFusionDescription(opacity)),
+            reference.HitTest);
+    }
+
+    /// <summary>Records a blend-mode boundary around one input.</summary>
+    /// <param name="input">A non-null fragment borrowed from the active transaction.</param>
+    /// <param name="blendMode">The blend mode applied during target composition.</param>
+    /// <returns>A new transaction-scoped blend fragment. The result is not published automatically.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="blendMode"/> is not a defined <see cref="BlendMode"/> value.
+    /// </exception>
+    public RenderFragmentHandle Blend(RenderFragmentHandle input, BlendMode blendMode)
+    {
+        if (!Enum.IsDefined(blendMode))
+            throw new ArgumentOutOfRangeException(nameof(blendMode), blendMode, "The blend mode is not defined.");
+
+        NodeRecordingTransaction transaction = GetTransaction();
+        RenderFragmentReference reference = transaction.GetReference(input);
+        return transaction.CreateFragment(
+            RenderFragmentKind.Blend,
+            reference.Bounds,
+            reference.EffectiveScale,
+            reference.ValueCardinality,
+            reference.ContributesValuesToTarget,
+            canBeUsedAsValueInput: false,
+            hasTargetEffects: true,
+            reference.HasOpaqueExternalWork,
+            [reference],
+            new BlendRenderFragmentPayload(blendMode),
+            reference.HitTest);
+    }
+
+    /// <summary>Records an opacity-mask fragment and its declarative brush dependencies.</summary>
+    /// <param name="input">A non-null fragment borrowed from the active transaction.</param>
+    /// <param name="mask">
+    /// The non-null mask resource whose scalar state and declared dependencies are captured during recording.
+    /// </param>
+    /// <param name="brushBounds">The finite logical coordinate frame used to map the mask brush.</param>
+    /// <param name="invert">Whether to invert the sampled mask alpha.</param>
+    /// <returns>A new transaction-scoped mask fragment. The result is not published automatically.</returns>
+    public RenderFragmentHandle OpacityMask(
+        RenderFragmentHandle input,
+        RenderResource<Brush.Resource> mask,
+        Rect brushBounds,
+        bool invert = false)
+    {
+        ArgumentNullException.ThrowIfNull(mask);
+        RenderRectValidation.ThrowIfInvalidInput(brushBounds, nameof(brushBounds));
+        NodeRecordingTransaction transaction = GetTransaction();
+        RenderFragmentReference reference = transaction.GetReference(input);
+        RenderDescriptionValidation.ThrowIfUndeclarable(mask, nameof(mask));
+        return transaction.CreateFragment(
+            RenderFragmentKind.OpacityMask,
+            reference.Bounds,
+            reference.EffectiveScale,
+            reference.ValueCardinality,
+            reference.ContributesValuesToTarget,
+            reference.CanBeUsedAsValueInput,
+            reference.HasTargetEffects,
+            reference.HasOpaqueExternalWork,
+            [reference],
+            new OpacityMaskRenderFragmentPayload(
+                mask,
+                brushBounds,
+                invert),
+            reference.HitTest);
+    }
+
+    /// <summary>Records a deferred shader transformation over one value-eligible fragment.</summary>
+    /// <param name="input">
+    /// A non-null transaction-scoped fragment whose <see cref="RenderFragmentHandle.CanBeUsedAsValueInput"/> is
+    /// <see langword="true"/>.
+    /// </param>
+    /// <param name="description">
+    /// The non-null caller-owned immutable shader contract. Every declared resource must belong to this request
+    /// family.
+    /// </param>
+    /// <returns>A new transaction-scoped shader fragment. The result is not published automatically.</returns>
+    internal RenderFragmentHandle Shader(
+        RenderFragmentHandle input,
+        ShaderDescription description)
+        => Shader(input, description, workingScalePolicy: null);
+
+    /// <summary>Records one shader definition call over a value-eligible input.</summary>
+    public RenderFragmentHandle Shader<TState>(
+        RenderFragmentHandle input,
+        ShaderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return Shader(input, call.Description, workingScalePolicy: null);
+    }
+
+    internal RenderFragmentHandle Shader(
+        RenderFragmentHandle input,
+        ShaderDescription description,
+        FilterEffectWorkingScalePolicy? workingScalePolicy)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        NodeRecordingTransaction transaction = GetTransaction();
+        RenderFragmentReference reference = transaction.GetReference(input);
+        EnsureValueInput(reference, nameof(input));
+        ValidateDescriptionResources(
+            description.Resources.Select(static binding => binding.Resource).ToArray(),
+            nameof(description));
+
+        Rect bounds = description.Bounds.TransformBounds(reference.Bounds);
+        bool materializes = description.Kind == ShaderDescriptionKind.WholeSource;
+        EffectiveScale scale;
+        if (workingScalePolicy is { } policy)
+        {
+            scale = policy.Resolve(
+                [reference],
+                bounds,
+                OutputScale,
+                MaxWorkingScale);
+        }
+        else if (materializes)
+        {
+            float workingScale = RenderScaleUtilities.ResolveWorkingScale(
+                [reference.EffectiveScale],
+                OutputScale,
+                MaxWorkingScale);
+            workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, workingScale);
+            scale = EffectiveScale.At(workingScale);
+        }
+        else
+        {
+            scale = reference.EffectiveScale;
+        }
+
+        return transaction.CreateFragment(
+            RenderFragmentKind.Shader,
+            bounds,
+            scale,
+            reference.ValueCardinality,
+            reference.ContributesValuesToTarget,
+            canBeUsedAsValueInput: true,
+            reference.HasTargetEffects,
+            reference.HasOpaqueExternalWork,
+            [reference],
+            new ShaderRenderFragmentPayload(
+                description,
+                workingScalePolicy),
+            reference.HitTest);
+    }
+
+    /// <summary>Records a deferred geometry callback over one value-eligible fragment.</summary>
+    /// <param name="input">
+    /// A non-null transaction-scoped fragment whose <see cref="RenderFragmentHandle.CanBeUsedAsValueInput"/> is
+    /// <see langword="true"/>.
+    /// </param>
+    /// <param name="description">
+    /// The non-null caller-owned immutable geometry contract. Every declared resource must belong to this request
+    /// family.
+    /// </param>
+    /// <returns>A new transaction-scoped geometry fragment. The result is not published automatically.</returns>
+    internal RenderFragmentHandle Geometry(
+        RenderFragmentHandle input,
+        GeometryDescription description)
+        => Geometry(input, description, workingScalePolicy: null);
+
+    /// <summary>Records a deferred geometry call over one value-eligible fragment.</summary>
+    public RenderFragmentHandle Geometry<TState>(
+        RenderFragmentHandle input,
+        GeometryCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return Geometry(input, call.Description, workingScalePolicy: null);
+    }
+
+    internal RenderFragmentHandle Geometry(
+        RenderFragmentHandle input,
+        GeometryDescription description,
+        FilterEffectWorkingScalePolicy? workingScalePolicy)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        NodeRecordingTransaction transaction = GetTransaction();
+        RenderFragmentReference reference = transaction.GetReference(input);
+        EnsureValueInput(reference, nameof(input));
+        ValidateDescriptionResources(description.Resources, nameof(description));
+
+        Rect bounds = description.Bounds.TransformBounds(reference.Bounds);
+        EffectiveScale scale;
+        if (workingScalePolicy is { } policy)
+        {
+            scale = policy.Resolve(
+                [reference],
+                bounds,
+                OutputScale,
+                MaxWorkingScale);
+        }
+        else
+        {
+            float workingScale = RenderScaleUtilities.ResolveWorkingScale(
+                [reference.EffectiveScale],
+                OutputScale,
+                MaxWorkingScale);
+            workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, workingScale);
+            scale = EffectiveScale.At(workingScale);
+        }
+
+        Func<Point, bool> hitTest = CreateHitTest(
+            description.HitTest,
+            bounds,
+            [reference],
+            description.Resources);
+        RenderValueCardinality cardinality = RenderValueCardinality.Range(
+            minimum: 0,
+            maximum: reference.ValueCardinality.Maximum);
+        return transaction.CreateFragment(
+            RenderFragmentKind.Geometry,
+            bounds,
+            scale,
+            cardinality,
+            reference.ContributesValuesToTarget,
+            canBeUsedAsValueInput: true,
+            reference.HasTargetEffects,
+            reference.HasOpaqueExternalWork,
+            [reference],
+            new GeometryRenderFragmentPayload(
+                description,
+                workingScalePolicy),
+            hitTest);
+    }
+
+    internal RenderFragmentHandle PaintedSource<TState>(
+        TState state,
+        PaintedSourceDraw<TState> draw,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
+        Rect outputBounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        bool directReplayAtExactIntegerReduction = false,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
+        bool supportsDirectDstOut = true,
+        IEnumerable<RenderResource>? resources = null,
+        Thickness rasterOutset = default)
+    {
+        ArgumentNullException.ThrowIfNull(draw);
+        hitTest.ThrowIfUninitialized(nameof(hitTest));
+        scale.ThrowIfUninitialized(nameof(scale));
+        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
+        GetTransaction();
+
+        var declaredResources = new List<RenderResource>(
+            RenderDescriptionValidation.CopyResources(resources, nameof(resources)));
+        RenderResource<Brush.Resource>? fillResource = null;
+        RenderResource<Pen.Resource>? penResource = null;
+        if (fill is not null)
+        {
+            fillResource = Borrow(fill);
+            declaredResources.Add(fillResource);
+        }
+        if (pen is not null)
+        {
+            penResource = Borrow(pen);
+            declaredResources.Add(penResource);
+        }
+
+        var source = new PlainPaintedSource<TState>(
+            state,
+            draw,
+            fill,
+            pen,
+            declaredResources
+                .DistinctBy(static resource => resource.SlotIdentity)
+                .ToArray());
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
+            execute: source.Execute,
+            directReplay: !ContainsDrawableBrush(fill, pen)
+                ? source.ExecuteDirect
+                : null,
+            bounds: OpaqueRenderBoundsContract.Source(outputBounds, rasterOutset),
+            hitTest: hitTest,
+            scale: scale,
+            directReplayAtExactIntegerReduction: directReplayAtExactIntegerReduction,
+            deviceGridSensitivity: deviceGridSensitivity,
+            supportsDirectDstOut: supportsDirectDstOut,
+            resources: declaredResources);
+        return OpaqueSource(description);
+    }
+
+    private static bool ContainsDrawableBrush(Brush.Resource? fill, Pen.Resource? pen)
+        => ContainsDrawableBrush(fill) || ContainsDrawableBrush(pen?.Brush);
+
+    private static bool ContainsDrawableBrush(Brush.Resource? brush)
+    {
+        var visited = new HashSet<Brush.Resource>(ReferenceEqualityComparer.Instance);
+        while (brush is BrushPresenter.Resource presenter)
+        {
+            if (!visited.Add(brush))
+                return true;
+
+            brush = presenter.Target;
+        }
+
+        return brush is DrawableBrush.Resource;
+    }
+
+    /// <summary>Records an opaque value source whose callback runs only during execution.</summary>
+    /// <param name="description">
+    /// A non-null caller-owned source-topology description whose declared resources belong to this request family.
+    /// </param>
+    /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
+    internal RenderFragmentHandle OpaqueSource(OpaqueRenderDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        description.ThrowIfIncompatible(OpaqueRenderTopology.Source, nameof(description));
+        IReadOnlyList<RenderInputReadback> inputReadbacks = description.ResolveInputReadbacks(
+            inputCount: 0,
+            parameterName: nameof(description));
+        ValidateDescriptionResources(description.Resources, nameof(description));
+
+        Rect bounds = description.Bounds.TransformBounds([]);
+        EffectiveScale scale = description.Scale.Resolve([], bounds, OutputScale, MaxWorkingScale);
+        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, bounds, [], description.Resources);
+        return GetTransaction().CreateFragment(
+            RenderFragmentKind.OpaqueSource,
+            bounds,
+            scale,
+            description.ValueCardinality,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: !description.HasDirectReplayMaterializationContract,
+            inputs: null,
+            new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Source, description, inputReadbacks),
+            hitTest);
+    }
+
+    /// <summary>Records an opaque value-source call.</summary>
+    public RenderFragmentHandle OpaqueSource<TState>(OpaqueRenderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return OpaqueSource(call.Description);
+    }
+
+    /// <summary>Records an opaque one-input value transformation.</summary>
+    /// <param name="input">A non-null value-eligible fragment borrowed from the active transaction.</param>
+    /// <param name="description">
+    /// A non-null caller-owned map-topology description whose declared resources belong to this request family.
+    /// </param>
+    /// <returns>A new transaction-scoped opaque fragment. The result is not published automatically.</returns>
+    internal RenderFragmentHandle OpaqueMap(
+        RenderFragmentHandle input,
+        OpaqueRenderDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        NodeRecordingTransaction transaction = GetTransaction();
+        RenderFragmentReference reference = transaction.GetReference(input);
+        EnsureValueInput(reference, nameof(input));
+        description.ThrowIfIncompatible(OpaqueRenderTopology.Map, nameof(description));
+        IReadOnlyList<RenderInputReadback> inputReadbacks = description.ResolveInputReadbacks(
+            inputCount: 1,
+            parameterName: nameof(description));
+        ValidateDescriptionResources(description.Resources, nameof(description));
+
+        Rect bounds = description.Bounds.TransformBounds([reference.Bounds]);
+        EffectiveScale scale = description.Scale.Resolve(
+            [reference.EffectiveScale],
+            bounds,
+            OutputScale,
+            MaxWorkingScale);
+        RenderValueCardinality cardinality = description.ValueCardinality.Equals(RenderValueCardinality.Single)
+            ? reference.ValueCardinality
+            : RenderValueCardinality.Range(0, reference.ValueCardinality.Maximum);
+        Func<Point, bool> hitTest = CreateHitTest(
+            description.HitTest,
+            bounds,
+            [reference],
+            description.Resources);
+        return transaction.CreateFragment(
+            RenderFragmentKind.OpaqueMap,
+            bounds,
+            scale,
+            cardinality,
+            reference.ContributesValuesToTarget,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: reference.HasTargetEffects,
+            hasOpaqueExternalWork: true,
+            [reference],
+            new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Map, description, inputReadbacks),
+            hitTest);
+    }
+
+    /// <summary>Records an opaque one-input value-transformation call.</summary>
+    public RenderFragmentHandle OpaqueMap<TState>(
+        RenderFragmentHandle input,
+        OpaqueRenderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return OpaqueMap(input, call.Description);
+    }
+
+    /// <summary>Records an opaque many-input combination.</summary>
+    /// <param name="inputs">
+    /// A non-null ordered list of non-null value-eligible fragments borrowed from the active transaction.
+    /// </param>
+    /// <param name="description">
+    /// A non-null caller-owned combine-topology description whose declared resources belong to this request family.
+    /// </param>
+    /// <returns>A new transaction-scoped opaque fragment. The result is not published automatically.</returns>
+    internal RenderFragmentHandle OpaqueCombine(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        OpaqueRenderDescription description)
+        => RecordOpaqueMany(inputs, description, OpaqueRenderTopology.Combine);
+
+    /// <summary>Records an opaque many-input combination call.</summary>
+    public RenderFragmentHandle OpaqueCombine<TState>(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        OpaqueRenderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return RecordOpaqueMany(inputs, call.Description, OpaqueRenderTopology.Combine);
+    }
+
+    /// <summary>Records an opaque many-input fragment that may expand value cardinality.</summary>
+    /// <param name="inputs">
+    /// A non-null ordered list of non-null value-eligible fragments borrowed from the active transaction.
+    /// </param>
+    /// <param name="description">
+    /// A non-null caller-owned expand-topology description whose declared resources belong to this request family.
+    /// </param>
+    /// <returns>A new transaction-scoped opaque fragment. The result is not published automatically.</returns>
+    internal RenderFragmentHandle OpaqueExpand(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        OpaqueRenderDescription description)
+        => RecordOpaqueMany(inputs, description, OpaqueRenderTopology.Expand);
+
+    /// <summary>Records an opaque many-input expansion call.</summary>
+    public RenderFragmentHandle OpaqueExpand<TState>(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        OpaqueRenderCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return RecordOpaqueMany(inputs, call.Description, OpaqueRenderTopology.Expand);
+    }
+
+    internal RenderFragmentHandle FilterEffectSegment(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        RenderResource<FilterEffectContext> effectContext,
+        Rect outputBounds,
+        bool requiresOwningTargetDomain = false,
+        IReadOnlyList<IFEItem>? boundsItems = null,
+        FilterEffectWorkingScalePolicy? workingScalePolicy = null)
+    {
+        ArgumentNullException.ThrowIfNull(effectContext);
+        NodeRecordingTransaction transaction = GetTransaction();
+        ImmutableArray<RenderFragmentReference> references =
+            transaction.GetReferences(inputs, nameof(inputs));
+        foreach (RenderFragmentReference reference in references)
+            EnsureValueInput(reference, nameof(inputs));
+        ValidateDescriptionResources([effectContext], nameof(effectContext));
+
+        RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(effectContext));
+        IReadOnlyList<IFEItem> recordedBoundsItems = boundsItems ?? [];
+        Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+            references.Select(static item => item.Bounds).ToArray(),
+            recordedBoundsItems,
+            outputBounds);
+        EffectiveScale scale;
+        if (workingScalePolicy is { } policy)
+        {
+            scale = policy.Resolve(
+                references.Select(static item => item.EffectiveScale).ToArray(),
+                references.Select(static item => item.Bounds).ToArray(),
+                bufferBounds,
+                OutputScale,
+                MaxWorkingScale);
+        }
+        else
+        {
+            scale = FilterEffectWorkingScalePolicy.ResolveMaterialized(
+                references.Select(static item => item.EffectiveScale).ToArray(),
+                bufferBounds,
+                OutputScale,
+                MaxWorkingScale);
+        }
+
+        RenderValueCardinality cardinality = ResolveFilterEffectSegmentCardinality(
+            references,
+            recordedBoundsItems,
+            outputBounds,
+            requiresOwningTargetDomain);
+
+        return transaction.CreateFragment(
+            RenderFragmentKind.FilterEffectSegment,
+            outputBounds,
+            scale,
+            cardinality,
+            references.Any(static item => item.ContributesValuesToTarget),
+            canBeUsedAsValueInput: true,
+            references.Any(static item => item.HasTargetEffects),
+            hasOpaqueExternalWork: true,
+            references,
+            new FilterEffectSegmentRenderFragmentPayload(
+                effectContext,
+                [.. recordedBoundsItems],
+                workingScalePolicy,
+                references.Length),
+            outputBounds.Contains,
+            requiresOwningTargetDomain
+                ? RenderFragmentBoundsRequirement.OwningTargetDomain
+                : RenderFragmentBoundsRequirement.Finite);
+    }
+
+    /// <summary>Records a declared render target as an existing materialized value without copying it.</summary>
+    /// <param name="description">
+    /// The non-null immutable target, bounds, concrete density, and hit-test contract. The target resource must
+    /// belong to this request family; its resource registration determines disposal ownership.
+    /// </param>
+    /// <returns>A new transaction-scoped materialized input. The result is not published automatically.</returns>
+    public RenderFragmentHandle MaterializedInput(MaterializedInputDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        ValidateDescriptionResources([description.Target], nameof(description));
+        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, description.Bounds, [], []);
+        return GetTransaction().CreateFragment(
+            RenderFragmentKind.MaterializedInput,
+            description.Bounds,
+            description.EffectiveScale,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            inputs: null,
+            new MaterializedInputRenderFragmentPayload(description),
+            hitTest);
+    }
+
+    /// <summary>Records a declared capture of the active target.</summary>
+    /// <param name="description">The non-null immutable capture region, bounds, scale, and access contract.</param>
+    /// <returns>
+    /// A new transaction-scoped, non-contributing value fragment that contains the captured pixels when executed.
+    /// The result is not published automatically.
+    /// </returns>
+    /// <remarks>The captured value is request-owned until it is released or transferred to an accepted cache.</remarks>
+    public RenderFragmentHandle TargetCapture(TargetCaptureDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        EffectiveScale scale = description.Scale.PreservesTargetSupply
+            ? EffectiveScale.Unbounded
+            : description.Scale.ResolveDeclared(
+                description.Bounds,
+                OutputScale,
+                MaxWorkingScale);
+        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, description.Bounds, [], []);
+        return GetTransaction().CreateFragment(
+            RenderFragmentKind.TargetCapture,
+            description.Bounds,
+            scale,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: false,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            inputs: null,
+            new TargetCaptureRenderFragmentPayload(description),
+            hitTest);
+    }
+
+    internal RenderFragmentHandle BuiltInBackdropCapture(object identity)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        if (identity is not IBuiltInBackdropCaptureSink)
+        {
+            throw new ArgumentException(
+                "A built-in backdrop capture identity must accept successful fallback publication.",
+                nameof(identity));
+        }
+        NodeRecordingTransaction transaction = GetTransaction();
+        var placeholder = new Rect(0, 0, 1, 1);
+        var description = TargetCaptureDescription.Create(
+            TargetRegion.Full,
+            placeholder,
+            RenderHitTestContract.None,
+            TargetCaptureScaleContract.PreserveTargetSupply);
+        RenderFragmentHandle handle = transaction.CreateFragment(
+            RenderFragmentKind.BuiltInBackdropCapture,
+            placeholder,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: false,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            inputs: null,
+            new BuiltInBackdropCaptureRenderFragmentPayload(description, identity),
+            hitTest: null,
+            boundsRequirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
+        transaction.BindBuiltInBackdrop(identity, handle);
+        return handle;
+    }
+
+    internal bool TryBuiltInBackdrop(
+        object identity,
+        out RenderFragmentHandle? capture)
+        => GetTransaction().TryGetBuiltInBackdrop(identity, out capture);
+
+    /// <summary>Records a finite off-screen layer and returns its composited value.</summary>
+    /// <param name="inputs">A non-null ordered list of non-null fragments replayed inside the layer.</param>
+    /// <param name="domain">The finite logical layer domain.</param>
+    /// <param name="domainIsQueryFootprint">
+    /// <see langword="true"/> when the layer occupies its whole <paramref name="domain"/> for bounds queries even
+    /// where it draws nothing — a fixed-size viewport such as a nested scene, whose layout footprint is the frame
+    /// it references rather than its content. Output bounds, rasterization regions, and hit testing stay
+    /// content-derived either way; only the queried footprint changes.
+    /// </param>
+    /// <returns>
+    /// A new transaction-scoped single-value fragment. The result is not published automatically and owns no
+    /// execution resource itself.
+    /// </returns>
+    /// <remarks>
+    /// A finite Layer is a concrete-metadata barrier. If any input has symbolic recording metadata, the result uses
+    /// the complete <paramref name="domain"/> for conservative bounds and hit testing.
+    /// </remarks>
+    public RenderFragmentHandle Layer(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        Rect domain,
+        bool domainIsQueryFootprint = false)
+    {
+        if (!RenderRectValidation.IsFiniteNonNegative(domain)
+            || domain.Width == 0
+            || domain.Height == 0)
+        {
+            throw new ArgumentException("A finite Layer domain must be finite and non-empty.", nameof(domain));
+        }
+
+        NodeRecordingTransaction transaction = GetTransaction();
+        ImmutableArray<RenderFragmentReference> references =
+            transaction.GetReferences(inputs, nameof(inputs));
+        bool hasConcreteInputMetadata = references.All(
+            static reference => reference.HasConcreteRecordingMetadata);
+        bool contributes = false;
+        Rect bounds = default;
+        foreach (RenderFragmentReference reference in references)
+        {
+            if (reference.ContributesValuesToTarget)
+            {
+                contributes = true;
+                bounds = bounds.Union(reference.Bounds);
+            }
+
+            if (TargetWriteMetadataResolver.Resolve(reference, domain) is { } affected)
+            {
+                contributes = true;
+                bounds = bounds.Union(affected);
+            }
+        }
+        bounds = hasConcreteInputMetadata
+            ? bounds.Intersect(domain)
+            : domain;
+        // The layer's own bounds are clipped to the domain above, so a point the domain excludes names
+        // content the layer cannot render however far an input's geometry reaches.
+        Func<Point, bool> hitTest = hasConcreteInputMetadata
+            ? point => domain.Contains(point) && references.Any(item => item.HitTest(point))
+            : domain.Contains;
+        return transaction.CreateFragment(
+            RenderFragmentKind.Layer,
+            bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributes,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
+            references,
+            new LayerRenderFragmentPayload(domain, domainIsQueryFootprint),
+            hitTest);
+    }
 
     /// <summary>
-    /// Clamps a working scale so the device buffer for <paramref name="logicalBounds"/> stays within
-    /// <paramref name="maxDimension"/> on each axis. Returns <c>w</c> unchanged when the buffer already fits.
-    /// Distinct from <see cref="MaxWorkingScale"/> (quality ceiling); this is a per-buffer size guard.
+    /// Records an off-screen layer whose finite domain is resolved from its owning target after surrounding
+    /// target scopes are known.
     /// </summary>
-    public static float ClampWorkingScaleToBufferBudget(
-        Rect logicalBounds, float w, int maxDimension = MaxBufferDimension)
+    /// <param name="inputs">A non-null ordered list of non-null fragments replayed inside the layer.</param>
+    /// <returns>
+    /// A new transaction-scoped single-value fragment. The result is not published automatically and remains
+    /// symbolic until graph-wide target-domain resolution.
+    /// </returns>
+    /// <remarks>
+    /// Use this form when a mixed painter sequence must become value-eligible but no finite domain is available
+    /// during recording. Graph finalization rejects the fragment unless an enclosing scope or request supplies a
+    /// finite owning target domain.
+    /// </remarks>
+    public RenderFragmentHandle OwningTargetLayer(
+        IReadOnlyList<RenderFragmentHandle> inputs)
     {
-        if (!float.IsFinite(w) || w <= 0f) return w;
-
-        double maxAxis = Math.Max(Math.Abs((double)logicalBounds.Width), Math.Abs((double)logicalBounds.Height));
-        // Degenerate bounds (NaN/Inf) must not introduce a non-finite density.
-        if (!double.IsFinite(maxAxis) || maxAxis <= 0) return w;
-
-        double largestAxisPx = Math.Ceiling(maxAxis * w);
-        if (largestAxisPx <= maxDimension || largestAxisPx <= 0) return w;
-
-        // Step the float factor down until ceil(axis * fit) <= maxDimension (at most one ULP).
-        float fit = (float)(w * (maxDimension / largestAxisPx));
-        while (fit > 0f && Math.Ceiling(maxAxis * fit) > maxDimension)
-            fit = MathF.BitDecrement(fit);
-        return MathF.Max(MathF.Min(w, fit), 0f);
+        NodeRecordingTransaction transaction = GetTransaction();
+        ImmutableArray<RenderFragmentReference> references =
+            transaction.GetReferences(inputs, nameof(inputs));
+        Rect recordedBounds = CalculateReferenceBounds(references);
+        return transaction.CreateFragment(
+            RenderFragmentKind.Layer,
+            recordedBounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            references.Any(static reference =>
+                reference.ContributesValuesToTarget || reference.PotentiallyWritesTarget),
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
+            references,
+            new LayerRenderFragmentPayload(Domain: null),
+            point => references.Any(item => item.HitTest(point)),
+            boundsRequirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
     }
+
+    /// <summary>Records ordered target work scoped to a symbolic target region.</summary>
+    /// <param name="inputs">A non-null ordered list of non-null fragments replayed inside the scope.</param>
+    /// <param name="region">The target region resolved after surrounding domains are known.</param>
+    /// <returns>
+    /// A new transaction-scoped, non-value-eligible target-effect fragment. The result is not published
+    /// automatically.
+    /// </returns>
+    public RenderFragmentHandle TargetLayerScope(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        TargetRegion region)
+    {
+        region.ThrowIfUninitialized(nameof(region));
+        NodeRecordingTransaction transaction = GetTransaction();
+        ImmutableArray<RenderFragmentReference> references =
+            transaction.GetReferences(inputs, nameof(inputs));
+        return transaction.CreateFragment(
+            RenderFragmentKind.TargetLayerScope,
+            CalculateReferenceBounds(references),
+            EffectiveScale.Unbounded,
+            AggregateCardinality(references),
+            contributesValuesToTarget: false,
+            canBeUsedAsValueInput: false,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
+            references,
+            new TargetLayerScopeRenderFragmentPayload(region),
+            CreateTargetLayerScopeHitTest(region, references),
+            hasDirectSymbolicBoundsDependency: region.Kind == TargetRegionKind.Full);
+    }
+
+    // A finite region bounds what the scope can put on its target the same way it bounds rasterization, so a
+    // point outside it names content this scope cannot render however far an input's geometry reaches. A Full
+    // region has no recording-time extent to test against and defers to its inputs, and an Empty one renders
+    // nothing at all.
+    private static Func<Point, bool> CreateTargetLayerScopeHitTest(
+        TargetRegion region,
+        ImmutableArray<RenderFragmentReference> references)
+    {
+        if (region.Kind == TargetRegionKind.Empty)
+            return static _ => false;
+
+        if (region.Kind != TargetRegionKind.Region)
+            return point => references.Any(item => item.HitTest(point));
+
+        Rect bounds = region.Value;
+        return point => bounds.Contains(point) && references.Any(item => item.HitTest(point));
+    }
+
+    /// <summary>Records a guarded target scope around one input.</summary>
+    /// <param name="input">A non-null fragment borrowed from the active transaction and replayed inside the scope.</param>
+    /// <param name="description">
+    /// The non-null caller-owned guarded scope contract. Every declared resource must belong to this request family.
+    /// </param>
+    /// <returns>A new transaction-scoped target scope. The result is not published automatically.</returns>
+    internal RenderFragmentHandle TargetScope(
+        RenderFragmentHandle input,
+        TargetScopeDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        return RecordTargetScope(input, description, raw: false);
+    }
+
+    /// <summary>Records a guarded target-scope call around one input.</summary>
+    public RenderFragmentHandle TargetScope<TState>(
+        RenderFragmentHandle input,
+        TargetScopeCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return RecordTargetScope(input, call.Description, raw: false);
+    }
+
+    /// <summary>Records an opaque external target scope around one input.</summary>
+    /// <param name="input">A non-null fragment borrowed from the active transaction and replayed inside the scope.</param>
+    /// <param name="description">
+    /// The non-null caller-owned raw scope contract. Every declared resource must belong to this request family.
+    /// </param>
+    /// <returns>A new transaction-scoped external-work boundary. The result is not published automatically.</returns>
+    internal RenderFragmentHandle RawTargetScope(
+        RenderFragmentHandle input,
+        RawTargetScopeDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        return RecordTargetScope(input, description, raw: true);
+    }
+
+    /// <summary>Records an opaque external target-scope call around one input.</summary>
+    public RenderFragmentHandle RawTargetScope<TState>(
+        RenderFragmentHandle input,
+        RawTargetScopeCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return RecordTargetScope(input, call.Description, raw: true);
+    }
+
+    /// <summary>Records an opaque external command against the active target.</summary>
+    /// <param name="description">
+    /// The non-null caller-owned raw command contract. Every declared resource must belong to this request family.
+    /// </param>
+    /// <returns>A new transaction-scoped external-work boundary. The result is not published automatically.</returns>
+    internal RenderFragmentHandle RawTargetCommand(RawTargetCommandDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        ValidateDescriptionResources(description.Resources, nameof(description));
+        Func<Point, bool> hitTest = CreateHitTest(
+            description.HitTest,
+            description.QueryBounds,
+            [],
+            description.Resources);
+        return GetTransaction().CreateFragment(
+            RenderFragmentKind.RawTargetCommand,
+            description.QueryBounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.None,
+            contributesValuesToTarget: false,
+            canBeUsedAsValueInput: false,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: true,
+            inputs: null,
+            new RawTargetCommandRenderFragmentPayload(description),
+            hitTest);
+    }
+
+    /// <summary>Records an opaque external target-command call.</summary>
+    public RenderFragmentHandle RawTargetCommand<TState>(RawTargetCommandCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return RawTargetCommand(call.Description);
+    }
+
+    /// <summary>Records a guarded command that consumes declared values and accesses the active target.</summary>
+    /// <param name="inputs">
+    /// A non-null ordered list of non-null value-eligible fragments borrowed from the active transaction and made
+    /// available to the command.
+    /// </param>
+    /// <param name="description">
+    /// The non-null caller-owned guarded command contract. Every declared resource must belong to this request
+    /// family.
+    /// </param>
+    /// <returns>A new transaction-scoped target command. The result is not published automatically.</returns>
+    internal RenderFragmentHandle TargetCommand(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        TargetCommandDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        NodeRecordingTransaction transaction = GetTransaction();
+        ImmutableArray<RenderFragmentReference> references =
+            transaction.GetReferences(inputs, nameof(inputs));
+        foreach (RenderFragmentReference reference in references)
+            EnsureValueInput(reference, nameof(inputs));
+        IReadOnlyList<RenderInputReadback> inputReadbacks = description.ResolveInputReadbacks(
+            references.Length,
+            nameof(description));
+        ValidateDescriptionResources(description.Resources, nameof(description));
+
+        Func<Point, bool> hitTest = CreateHitTest(
+            description.HitTest,
+            description.QueryBounds,
+            references,
+            description.Resources);
+        return transaction.CreateFragment(
+            RenderFragmentKind.TargetCommand,
+            description.QueryBounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.None,
+            contributesValuesToTarget: false,
+            canBeUsedAsValueInput: false,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            references,
+            new TargetCommandRenderFragmentPayload(description, inputReadbacks),
+            hitTest);
+    }
+
+    /// <summary>Records a guarded target-command call.</summary>
+    public RenderFragmentHandle TargetCommand<TState>(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        TargetCommandCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        return TargetCommand(inputs, call.Description);
+    }
+
+    /// <summary>Records a root and its descendants into the current request without executing them.</summary>
+    /// <param name="root">The non-null caller-owned subtree root.</param>
+    /// <returns>A non-null borrowed list of the subtree's transaction-scoped outputs.</returns>
+    public IReadOnlyList<RenderFragmentHandle> RecordSubtree(RenderNode root)
+        => GetTransaction().RecordNode(root, [], subtree: true);
+
+    /// <summary>Records another node with explicit inputs into the current request.</summary>
+    /// <param name="node">The non-null caller-owned node to record.</param>
+    /// <param name="inputs">A non-null ordered list of non-null inputs remapped into the child transaction.</param>
+    /// <returns>A non-null borrowed list of the child node's outputs remapped into this transaction.</returns>
+    public IReadOnlyList<RenderFragmentHandle> RecordNode(
+        RenderNode node,
+        IReadOnlyList<RenderFragmentHandle> inputs)
+        => GetTransaction().RecordNode(node, inputs, subtree: false);
+
+    internal RecordedNestedRenderTarget RecordNestedTarget(
+        RenderNode root,
+        Rect targetDomain,
+        Rect? requestedRegion = null)
+        => RecordNestedTargetCore(
+            root,
+            targetDomain,
+            requestedRegion,
+            workingScale: null);
+
+    internal RecordedNestedRenderTarget RecordNestedTargetAtScale(
+        RenderNode root,
+        Rect targetDomain,
+        float workingScale,
+        Rect? requestedRegion = null)
+        => RecordNestedTargetCore(
+            root,
+            targetDomain,
+            requestedRegion,
+            workingScale);
+
+    private RecordedNestedRenderTarget RecordNestedTargetCore(
+        RenderNode root,
+        Rect targetDomain,
+        Rect? requestedRegion,
+        float? workingScale)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        var binding = new NestedRenderTargetBinding();
+        RenderResource<NestedRenderTargetBinding>? bindingResource = null;
+        NodeRecordingTransaction transaction = GetTransaction();
+        try
+        {
+            bindingResource = transaction.Own(binding);
+            RenderRequestOptions nestedOptions = workingScale is { } scale
+                ? transaction.Request.Options.CreateNestedAtScale(
+                    binding,
+                    scale,
+                    targetDomain,
+                    requestedRegion ?? targetDomain)
+                : transaction.Request.Options.CreateNested(
+                    binding,
+                    targetDomain,
+                    requestedRegion ?? targetDomain);
+            RecordedNestedRenderRequest recording = transaction.RecordNestedRequest(
+                root,
+                nestedOptions);
+            return new RecordedNestedRenderTarget(recording, bindingResource, binding);
+        }
+        catch (Exception ex)
+        {
+            if (bindingResource is not null)
+            {
+                _ = transaction.RollbackResourcesAndCapture([bindingResource], ex);
+            }
+            else
+            {
+                transaction.Request.Options.Owner.RecordPrimaryFailure(ex);
+                try
+                {
+                    binding.Dispose();
+                }
+                catch (Exception cleanupFailure)
+                {
+                    transaction.Request.Options.Owner.RecordCleanupFailure(cleanupFailure);
+                }
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>Transfers a disposable resource to the current request family.</summary>
+    /// <typeparam name="T">The disposable resource type.</typeparam>
+    /// <param name="resource">The non-null resource whose ownership is transferred.</param>
+    /// <returns>A non-null declared resource handle owned by the request family.</returns>
+    /// <remarks>
+    /// Ownership transfers when this method succeeds. The family disposes the resource exactly once on rollback,
+    /// failure, or normal completion.
+    /// </remarks>
+    public RenderResource<T> Own<T>(T resource)
+        where T : class, IDisposable
+        => GetTransaction().Own(resource);
+
+    /// <summary>Registers a caller-owned resource that the current request may borrow.</summary>
+    /// <typeparam name="T">The resource type.</typeparam>
+    /// <param name="resource">The non-null caller-owned resource.</param>
+    /// <returns>A non-null declared resource handle that never transfers disposal ownership.</returns>
+    /// <remarks>
+    /// The request borrows the resource only for its active family and never disposes it. Resource registrations
+    /// do not provide persistent render-cache identity; cache eligibility follows the node's change reporting.
+    /// </remarks>
+    public RenderResource<T> Borrow<T>(T resource)
+        where T : class
+        => GetTransaction().Borrow(resource);
+
+    internal void RollbackResources(IReadOnlyList<RenderResource> resources)
+        => GetTransaction().RollbackResources(resources);
+
+    internal Exception? RollbackResourcesAndCapture(
+        IReadOnlyList<RenderResource> resources,
+        Exception primaryFailure)
+        => GetTransaction().RollbackResourcesAndCapture(resources, primaryFailure);
+
+    internal RenderFragmentMetadata GetRecordedMetadataHint(RenderFragmentHandle fragment)
+    {
+        RenderFragmentReference reference = GetTransaction().GetReference(fragment);
+        return new RenderFragmentMetadata(reference.RecordedBounds, reference.RecordedEffectiveScale);
+    }
+
+    internal bool TryCalculateRecordedOutputExtent(
+        IReadOnlyList<RenderFragmentHandle> fragments,
+        out Rect extent)
+    {
+        ArgumentNullException.ThrowIfNull(fragments);
+        NodeRecordingTransaction transaction = GetTransaction();
+        Rect result = default;
+        foreach (RenderFragmentHandle fragment in fragments)
+        {
+            RenderFragmentReference reference = transaction.GetReference(fragment);
+            if (reference.ValueCardinality.Maximum != 0)
+            {
+                if (!reference.HasConcreteRecordingMetadata)
+                {
+                    extent = default;
+                    return false;
+                }
+
+                result = result.Union(reference.RecordedBounds);
+            }
+
+            if (!TargetWriteMetadataResolver.TryResolveFinite(reference, out Rect? affectedBounds))
+            {
+                extent = default;
+                return false;
+            }
+
+            if (affectedBounds is { } affected)
+                result = result.Union(affected);
+        }
+
+        extent = result;
+        return true;
+    }
+
+    internal Func<Point, bool> GetRecordedHitTest(RenderFragmentHandle fragment)
+        => GetTransaction().GetReference(fragment).HitTest;
+
+    internal Rect CalculateRecordedInputBoundsHint()
+    {
+        NodeRecordingTransaction transaction = GetTransaction();
+        Rect result = default;
+        foreach (RenderFragmentHandle input in _inputs)
+        {
+            result = result.Union(transaction.GetReference(input).RecordedBounds);
+        }
+
+        return result;
+    }
+
+    private NodeRecordingTransaction GetTransaction()
+    {
+        VerifyActive();
+        return _transaction;
+    }
+
+    private void VerifyActive() => _transaction.VerifyActive();
+
+    private static void EnsureValueInput(RenderFragmentReference reference, string parameterName)
+    {
+        if (!reference.CanBeUsedAsValueInput)
+        {
+            throw new ArgumentException(
+                "The fragment cannot be consumed as a materialized value input. Use a finite Layer explicitly.",
+                parameterName);
+        }
+    }
+
+    private RenderFragmentHandle RecordOpaqueMany(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        OpaqueRenderDescription description,
+        OpaqueRenderTopology topology)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        NodeRecordingTransaction transaction = GetTransaction();
+        ImmutableArray<RenderFragmentReference> references =
+            transaction.GetReferences(inputs, nameof(inputs));
+        foreach (RenderFragmentReference reference in references)
+            EnsureValueInput(reference, nameof(inputs));
+
+        description.ThrowIfIncompatible(topology, nameof(description));
+        IReadOnlyList<RenderInputReadback> inputReadbacks = description.ResolveInputReadbacks(
+            references.Length,
+            nameof(description));
+        ValidateDescriptionResources(description.Resources, nameof(description));
+        Rect bounds = description.Bounds.TransformBounds(
+            references.Select(static item => item.Bounds).ToArray());
+        EffectiveScale scale = description.Scale.Resolve(
+            references.Select(static item => item.EffectiveScale).ToArray(),
+            bounds,
+            OutputScale,
+            MaxWorkingScale);
+        Func<Point, bool> hitTest = CreateHitTest(
+            description.HitTest,
+            bounds,
+            references,
+            description.Resources);
+        return transaction.CreateFragment(
+            topology == OpaqueRenderTopology.Combine
+                ? RenderFragmentKind.OpaqueCombine
+                : RenderFragmentKind.OpaqueExpand,
+            bounds,
+            scale,
+            description.ValueCardinality,
+            references.Any(static item => item.ContributesValuesToTarget),
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: references.Any(static item => item.HasTargetEffects),
+            hasOpaqueExternalWork: true,
+            references,
+            new OpaqueRenderFragmentPayload(topology, description, inputReadbacks),
+            hitTest);
+    }
+
+    private RenderFragmentHandle RecordTargetScope(
+        RenderFragmentHandle input,
+        object description,
+        bool raw)
+    {
+        NodeRecordingTransaction transaction = GetTransaction();
+        RenderFragmentReference reference = transaction.GetReference(input);
+        RenderBoundsContract boundsContract;
+        RenderHitTestContract hitTestContract;
+        RenderScaleContract scaleContract;
+        IReadOnlyList<RenderResourceBinding> resourceBindings;
+        if (description is TargetScopeDescription typed)
+        {
+            boundsContract = typed.Bounds;
+            hitTestContract = typed.HitTest;
+            scaleContract = typed.Scale;
+            resourceBindings = typed.Resources;
+        }
+        else if (description is RawTargetScopeDescription rawDescription)
+        {
+            boundsContract = rawDescription.Bounds;
+            hitTestContract = rawDescription.HitTest;
+            scaleContract = rawDescription.Scale;
+            resourceBindings = rawDescription.Resources;
+        }
+        else
+        {
+            throw new ArgumentException("The target scope description type is invalid.", nameof(description));
+        }
+
+        ValidateDescriptionResources(resourceBindings, nameof(description));
+        Rect bounds = boundsContract.TransformBounds(reference.Bounds);
+        EffectiveScale scale = scaleContract.Resolve(
+            [reference.EffectiveScale],
+            bounds,
+            OutputScale,
+            MaxWorkingScale);
+        Func<Point, bool> hitTest = CreateHitTest(hitTestContract, bounds, [reference], resourceBindings);
+        bool isValueReplayMap = !raw
+            && ((TargetScopeDescription)description).IsValueReplayMap;
+        return transaction.CreateFragment(
+            raw ? RenderFragmentKind.RawTargetScope : RenderFragmentKind.TargetScope,
+            bounds,
+            scale,
+            reference.ValueCardinality,
+            reference.ContributesValuesToTarget,
+            canBeUsedAsValueInput: isValueReplayMap
+                && reference.CanBeUsedAsValueInput
+                && reference.ValueCardinality.Equals(RenderValueCardinality.Single)
+                && reference.ContributesValuesToTarget
+                && !RenderFragmentTargetDependency.HasExternalTargetDependency(reference),
+            hasTargetEffects: isValueReplayMap ? reference.HasTargetEffects : true,
+            hasOpaqueExternalWork: raw || reference.HasOpaqueExternalWork,
+            [reference],
+            raw
+                ? new RawTargetScopeRenderFragmentPayload((RawTargetScopeDescription)description)
+                : new TargetScopeRenderFragmentPayload((TargetScopeDescription)description),
+            hitTest);
+    }
+
+    private void ValidateDescriptionResources(
+        IReadOnlyList<RenderResource> resources,
+        string parameterName)
+    {
+        NodeRecordingTransaction transaction = GetTransaction();
+        foreach (RenderResource resource in resources)
+        {
+            if (!ReferenceEquals(resource.Registry, transaction.Request.Options.Owner.ResourceRegistry)
+                || resource.RegistrationState == RenderResourceRegistrationState.Released)
+            {
+                throw new ArgumentException(
+                    "Every declared render resource must belong to the active request family.",
+                    parameterName);
+            }
+        }
+    }
+
+    private void ValidateDescriptionResources(
+        IReadOnlyList<RenderResourceBinding> resources,
+        string parameterName)
+        => ValidateDescriptionResources(
+            resources.Select(static binding => binding.Resource).ToArray(),
+            parameterName);
+
+    private static Func<Point, bool> CreateHitTest(
+        RenderHitTestContract contract,
+        Rect outputBounds,
+        IReadOnlyList<RenderFragmentReference> inputs,
+        IReadOnlyList<RenderResourceBinding> resources)
+    {
+        RenderHitTestInput[] views = inputs
+            .Select(static item => new RenderHitTestInput(item.Bounds, item.HitTest))
+            .ToArray();
+        return point => contract.Evaluate(outputBounds, views, resources, point);
+    }
+
+    private static Rect CalculateReferenceBounds(
+        IEnumerable<RenderFragmentReference> references)
+    {
+        Rect result = default;
+        foreach (RenderFragmentReference reference in references)
+        {
+            result = result.Union(reference.Bounds);
+        }
+
+        return result;
+    }
+
+    private static RenderValueCardinality AggregateCardinality(
+        IEnumerable<RenderFragmentReference> references)
+    {
+        int minimum = 0;
+        int? maximum = 0;
+        foreach (RenderFragmentReference reference in references)
+        {
+            minimum = checked(minimum + reference.ValueCardinality.Minimum);
+            maximum = maximum is null || reference.ValueCardinality.Maximum is null
+                ? null
+                : checked(maximum.Value + reference.ValueCardinality.Maximum.Value);
+        }
+
+        return RenderValueCardinality.Range(minimum, maximum);
+    }
+
+    private static RenderValueCardinality ResolveFilterEffectSegmentCardinality(
+        IReadOnlyList<RenderFragmentReference> inputs,
+        IReadOnlyList<IFEItem> items,
+        Rect outputBounds,
+        bool requiresOwningTargetDomain)
+    {
+        if (items.Count == 0 || items.Any(static item => item is not IFEItem_Skia))
+            return RenderValueCardinality.Dynamic;
+
+        RenderValueCardinality inputCardinality = AggregateCardinality(inputs);
+        if (inputCardinality.Equals(RenderValueCardinality.Single))
+        {
+            bool outputMayBeEmpty = requiresOwningTargetDomain
+                                    || outputBounds.Width == 0
+                                    || outputBounds.Height == 0
+                                    || items.Any(static item =>
+                                        item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true });
+            return outputMayBeEmpty
+                ? RenderValueCardinality.ZeroOrOne
+                : RenderValueCardinality.Single;
+        }
+
+        return inputCardinality.Equals(RenderValueCardinality.ZeroOrOne)
+            ? RenderValueCardinality.ZeroOrOne
+            : RenderValueCardinality.Dynamic;
+    }
+
+    private sealed class PlainPaintedSource<TState>(
+        TState state,
+        PaintedSourceDraw<TState> draw,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
+        IReadOnlyList<RenderResource> declaredResources)
+    {
+        public void Execute(OpaqueRenderSession session)
+        {
+            using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+            output.Canvas.Use(canvas => Draw(session.Token, canvas));
+            session.Publish(output);
+        }
+
+        public void ExecuteDirect(EngineDirectRenderSession session)
+            => Draw(session.Token, session.Canvas);
+
+        private void Draw(RenderExecutionSessionToken token, ImmediateCanvas canvas)
+            => token.UseResources(
+                declaredResources,
+                () => draw(canvas, fill, pen, state));
+    }
+
+}
+
+
+internal sealed record OpacityRenderFragmentPayload(
+    float Opacity,
+    ShaderDescription FusionDescription);
+
+internal sealed record BlendRenderFragmentPayload(BlendMode BlendMode);
+
+internal sealed record OpacityMaskRenderFragmentPayload(
+    RenderResource<Brush.Resource> Mask,
+    Rect BrushBounds,
+    bool Invert);
+
+internal sealed record ShaderRenderFragmentPayload(
+    ShaderDescription Description,
+    FilterEffectWorkingScalePolicy? WorkingScalePolicy = null);
+
+internal sealed record GeometryRenderFragmentPayload(
+    GeometryDescription Description,
+    FilterEffectWorkingScalePolicy? WorkingScalePolicy = null);
+
+internal sealed record LayerRenderFragmentPayload(Rect? Domain, bool DomainIsQueryFootprint = false);
+
+internal sealed record TargetLayerScopeRenderFragmentPayload(TargetRegion Region);
+
+internal sealed record OpaqueRenderFragmentPayload(
+    OpaqueRenderTopology Topology,
+    OpaqueRenderDescription Description,
+    IReadOnlyList<RenderInputReadback> InputReadbacks);
+
+internal sealed record FilterEffectSegmentRenderFragmentPayload(
+    RenderResource<FilterEffectContext> Context,
+    ImmutableArray<IFEItem> BoundsItems,
+    FilterEffectWorkingScalePolicy? WorkingScalePolicy,
+    int StreamInputCount)
+{
+    /// <summary>
+    /// Whether the segment runs an imperative effect callback. Such a callback crops and re-lays-out its
+    /// targets in whole device pixels, so the executor strips the sub-pixel phase from the ambient device
+    /// grid for this segment and for every nested frame that materializes its inputs. Only the ambient
+    /// phase is stripped: a callback whose own target bounds carry a fractional device phase still
+    /// allocates off the grid, and an input produced by a separate render request keeps that request's
+    /// own grid.
+    /// </summary>
+    public bool HasImperativeItem
+    {
+        get
+        {
+            if (BoundsItems.IsDefaultOrEmpty)
+                return false;
+
+            // ImmutableArray's own enumerator is a struct; Enumerable.Any would box it on a path the
+            // executor walks for every legacy-filter fragment it runs.
+            foreach (IFEItem item in BoundsItems)
+            {
+                if (item is IFEItem_Custom)
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    public bool SupportsDirectReplay
+        => StreamInputCount == 1
+           && !BoundsItems.IsDefaultOrEmpty
+           && BoundsItems.All(static item =>
+               item is IFEItem_Skia
+               {
+                   SupportsDirectReplay: true,
+                   ResolveBoundsAtExecutionTime: false,
+               });
+}
+
+internal static class FilterEffectSegmentDirectReplaySupport
+{
+    public static bool CanMaterialize(RenderFragmentReference fragment)
+    {
+        if (!fragment.ContributesValuesToTarget || !TryGetPayload(fragment, out _))
+            return false;
+
+        RenderFragmentReference input = fragment.Inputs[0];
+        while (TryGetPayload(input, out _))
+            input = input.Inputs[0];
+
+        return input.ContributesValuesToTarget
+               && input.ValueCardinality.Equals(RenderValueCardinality.Single);
+    }
+
+    private static bool TryGetPayload(
+        RenderFragmentReference fragment,
+        out FilterEffectSegmentRenderFragmentPayload payload)
+    {
+        if (fragment.Kind == RenderFragmentKind.FilterEffectSegment
+            && fragment.Inputs.Length == 1
+            && fragment.Payload is FilterEffectSegmentRenderFragmentPayload
+            {
+                SupportsDirectReplay: true,
+            } directPayload)
+        {
+            payload = directPayload;
+            return true;
+        }
+
+        payload = null!;
+        return false;
+    }
+}
+
+internal sealed record MaterializedInputRenderFragmentPayload(
+    MaterializedInputDescription Description);
+
+internal sealed record TargetCaptureRenderFragmentPayload(
+    TargetCaptureDescription Description);
+
+internal sealed record BuiltInBackdropCaptureRenderFragmentPayload(
+    TargetCaptureDescription Description,
+    object Identity);
+
+internal sealed record TargetScopeRenderFragmentPayload(
+    TargetScopeDescription Description);
+
+internal sealed record RawTargetScopeRenderFragmentPayload(
+    RawTargetScopeDescription Description);
+
+internal sealed record RawTargetCommandRenderFragmentPayload(
+    RawTargetCommandDescription Description);
+
+internal sealed record TargetCommandRenderFragmentPayload(
+    TargetCommandDescription Description,
+    IReadOnlyList<RenderInputReadback> InputReadbacks);
+
+internal interface IBuiltInBackdropCaptureSink
+{
+    bool TryCommitBackdropCapture(Bitmap bitmap, float density)
+    {
+        CommitBackdropCapture(bitmap, density);
+        return true;
+    }
+
+    void CommitBackdropCapture(Bitmap bitmap, float density);
 }

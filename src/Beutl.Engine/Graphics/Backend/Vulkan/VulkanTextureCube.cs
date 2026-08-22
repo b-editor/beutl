@@ -7,16 +7,18 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// Vulkan implementation of <see cref="ITextureCube"/>.
 /// Used for point light shadow maps.
 /// </summary>
-internal sealed unsafe class VulkanTextureCube : ITextureCube
+internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly Silk.NET.Vulkan.Image _image;
     private readonly DeviceMemory _memory;
+
+    public VulkanContext OwnerContext => _context;
     private readonly ImageView _imageView;           // Cube map view for sampling
     private readonly ImageView[] _faceViews;         // Individual face views for framebuffer attachment
+    private readonly ImageLayout[] _faceLayouts = new ImageLayout[6];
     private readonly int _size;
     private readonly TextureFormat _format;
-    private ImageLayout _currentLayout = ImageLayout.Undefined;
     private bool _disposed;
 
     public VulkanTextureCube(
@@ -170,9 +172,6 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
             ? ImageLayout.DepthStencilAttachmentOptimal
             : ImageLayout.ColorAttachmentOptimal;
 
-        if (_currentLayout == targetLayout)
-            return;
-
         TransitionAllFaces(targetLayout);
     }
 
@@ -180,23 +179,49 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_currentLayout == ImageLayout.ShaderReadOnlyOptimal)
-            return;
-
         TransitionAllFaces(ImageLayout.ShaderReadOnlyOptimal);
     }
 
     private void TransitionAllFaces(ImageLayout newLayout)
     {
-        // Transition all 6 faces at once
+        for (int i = 0; i < _faceLayouts.Length; i++)
+        {
+            TransitionFace(i, newLayout);
+        }
+    }
+
+    internal void TransitionFaceToTransferDestination(int faceIndex)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (faceIndex < 0 || faceIndex >= 6)
+            throw new ArgumentOutOfRangeException(nameof(faceIndex));
+
+        TransitionFace(faceIndex, ImageLayout.TransferDstOptimal);
+    }
+
+    internal void TransitionFaceToSampled(int faceIndex)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (faceIndex < 0 || faceIndex >= 6)
+            throw new ArgumentOutOfRangeException(nameof(faceIndex));
+
+        TransitionFace(faceIndex, ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    private void TransitionFace(int faceIndex, ImageLayout newLayout)
+    {
+        ImageLayout oldLayout = _faceLayouts[faceIndex];
+        if (oldLayout == newLayout)
+            return;
+
         _context.TransitionImageLayout(
             _image,
-            _currentLayout,
+            oldLayout,
             newLayout,
             _format.GetAspectMask(),
-            baseArrayLayer: 0,
-            layerCount: 6);
-        _currentLayout = newLayout;
+            baseArrayLayer: (uint)faceIndex,
+            layerCount: 1);
+        _faceLayouts[faceIndex] = newLayout;
     }
 
     public void UploadFace(int faceIndex, ReadOnlySpan<byte> data)
@@ -217,16 +242,10 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
         stagingBuffer.Upload(data);
 
         // Transition face to transfer destination
-        _context.TransitionImageLayout(
-            _image,
-            _currentLayout,
-            ImageLayout.TransferDstOptimal,
-            _format.GetAspectMask(),
-            baseArrayLayer: (uint)faceIndex,
-            layerCount: 1);
+        TransitionFace(faceIndex, ImageLayout.TransferDstOptimal);
 
         // Copy buffer to image
-        _context.SubmitImmediateCommands(cmd =>
+        _context.RecordCommands(cmd =>
         {
             var region = new BufferImageCopy
             {
@@ -249,13 +268,7 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
         });
 
         // Transition back to shader read
-        _context.TransitionImageLayout(
-            _image,
-            ImageLayout.TransferDstOptimal,
-            ImageLayout.ShaderReadOnlyOptimal,
-            _format.GetAspectMask(),
-            baseArrayLayer: (uint)faceIndex,
-            layerCount: 1);
+        TransitionFace(faceIndex, ImageLayout.ShaderReadOnlyOptimal);
     }
 
     public IntPtr GetFaceView(int faceIndex)
@@ -283,32 +296,37 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
         if (_disposed) return;
         _disposed = true;
 
-        var vk = _context.Vk;
-        var device = _context.Device;
-
-        // Destroy face views
-        for (int i = 0; i < 6; i++)
+        ImageView[] faceViews = _faceViews;
+        ImageView imageView = _imageView;
+        Silk.NET.Vulkan.Image image = _image;
+        DeviceMemory memory = _memory;
+        _context.DeferRelease(() =>
         {
-            if (_faceViews[i].Handle != 0)
+            var vk = _context.Vk;
+            var device = _context.Device;
+
+            foreach (ImageView faceView in faceViews)
             {
-                vk.DestroyImageView(device, _faceViews[i], null);
+                if (faceView.Handle != 0)
+                {
+                    vk.DestroyImageView(device, faceView, null);
+                }
             }
-        }
 
-        // Destroy cube map view
-        if (_imageView.Handle != 0)
-        {
-            vk.DestroyImageView(device, _imageView, null);
-        }
+            if (imageView.Handle != 0)
+            {
+                vk.DestroyImageView(device, imageView, null);
+            }
 
-        if (_image.Handle != 0)
-        {
-            vk.DestroyImage(device, _image, null);
-        }
+            if (image.Handle != 0)
+            {
+                vk.DestroyImage(device, image, null);
+            }
 
-        if (_memory.Handle != 0)
-        {
-            vk.FreeMemory(device, _memory, null);
-        }
+            if (memory.Handle != 0)
+            {
+                vk.FreeMemory(device, memory, null);
+            }
+        });
     }
 }

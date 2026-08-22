@@ -7,22 +7,15 @@ public sealed class SceneRenderer : Renderer
 {
     private readonly SceneCompositor _compositor;
 
+    /// <inheritdoc cref="Renderer(int, int, RenderIntent, float, float)" path="/param[@name='intent']"/>
     public SceneRenderer(
         Scene scene,
+        RenderIntent intent,
         float renderScale = 1f,
         bool disableResourceShare = false,
-        float maxWorkingScale = float.PositiveInfinity)
-        : this(scene, renderScale, disableResourceShare, maxWorkingScale, forceOriginalSource: false)
-    {
-    }
-
-    public SceneRenderer(
-        Scene scene,
-        float renderScale,
-        bool disableResourceShare,
-        float maxWorkingScale,
-        bool forceOriginalSource)
-        : base(scene.FrameSize.Width, scene.FrameSize.Height, renderScale, maxWorkingScale)
+        float maxWorkingScale = float.PositiveInfinity,
+        bool forceOriginalSource = false)
+        : base(scene.FrameSize.Width, scene.FrameSize.Height, intent, renderScale, maxWorkingScale)
     {
         _compositor = new SceneCompositor(scene)
         {

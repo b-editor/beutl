@@ -61,6 +61,17 @@ public class PixelPointTests
     }
 
     [Test]
+    public void FromPoint_TruncatesNegativeCoordinatesTowardZero()
+    {
+        Assert.That(PixelPoint.FromPoint(new Point(-1.7f, -2.9f)),
+            Is.EqualTo(new PixelPoint(-1, -2)));
+        Assert.That(PixelPoint.FromPoint(new Point(-1.5f, -2.5f), 2f),
+            Is.EqualTo(new PixelPoint(-3, -5)));
+        Assert.That(PixelPoint.FromPoint(new Point(-0.25f, -0.25f), new Vector(2, 4)),
+            Is.EqualTo(new PixelPoint(0, -1)));
+    }
+
+    [Test]
     public void Parse_ReadsTwoInts()
     {
         Assert.That(PixelPoint.Parse("3,4"), Is.EqualTo(new PixelPoint(3, 4)));

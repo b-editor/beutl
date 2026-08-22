@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
@@ -8,11 +9,40 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
+/// <remarks>
+/// <paramref name="intent"/> and <paramref name="drawableBrushMaterializer"/> are stated rather than
+/// defaulted because either one left implicit turns a failure into missing pixels: a delivery render that
+/// defaulted to <see cref="RenderIntent.Preview"/> would ship a frame whose fill could not be allocated, and
+/// a <see cref="DrawableBrush"/> without a materializer degrades to transparent.
+/// <see cref="ImmediateCanvas.CreateBrushConstructor"/> passes the canvas's own intent and materializer; a
+/// directly constructed instance names both, passing <see langword="null"/> when it paints no drawable brush.
+/// </remarks>
 public readonly struct BrushConstructor(
-    Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f,
+    Rect bounds, Brush.Resource? brush, BlendMode blendMode, RenderIntent intent,
+    DrawableBrushMaterializer? drawableBrushMaterializer, float scale = 1f,
     float maxWorkingScale = float.PositiveInfinity)
 {
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
+    private readonly DrawableBrushMaterializer? _drawableBrushMaterializer = drawableBrushMaterializer;
+    private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
+
+    /// <summary>
+    /// Binds the constructor to the render pass's lease session so a tile-brush intermediate is allocated
+    /// through the caller's <see cref="IRenderTargetFactory"/> rather than the global allocator.
+    /// </summary>
+    internal BrushConstructor(
+        Rect bounds,
+        Brush.Resource? brush,
+        BlendMode blendMode,
+        float scale,
+        float maxWorkingScale,
+        RenderIntent intent,
+        DrawableBrushMaterializer? drawableBrushMaterializer,
+        RenderTargetLeaseSession? renderTargetLeaseSession)
+        : this(bounds, brush, blendMode, intent, drawableBrushMaterializer, scale, maxWorkingScale)
+    {
+        _renderTargetLeaseSession = renderTargetLeaseSession;
+    }
 
     public Rect Bounds { get; } = bounds;
 
@@ -26,37 +56,40 @@ public readonly struct BrushConstructor(
     /// </summary>
     public float Scale { get; } = scale;
 
-    /// <summary>Working-scale ceiling forwarded into nested pulls (e.g. <see cref="DrawableBrush"/>).</summary>
-    public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+    /// <summary>Working-scale ceiling applied to brush-owned intermediates and scoped legacy nested pulls.</summary>
+    public float MaxWorkingScale { get; } = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
+
+    /// <summary>
+    /// Preview or delivery classification of the render this brush paints into.
+    /// <see cref="RenderIntent.Preview"/> degrades when a brush-owned intermediate cannot be allocated;
+    /// <see cref="RenderIntent.Delivery"/> fails the render instead of shipping the brush without content.
+    /// </summary>
+    public RenderIntent Intent { get; } = Enum.IsDefined(intent)
+        ? intent
+        : throw new ArgumentOutOfRangeException(nameof(intent), intent, "Unknown render intent.");
 
     public void ConfigurePaint(SKPaint paint)
     {
-        // Handle BrushPresenter by delegating to the target brush
-        if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
-        {
-            new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale).ConfigurePaint(paint);
-            return;
-        }
-
-        float opacity = (Brush?.Opacity ?? 0) / 100f;
+        Brush.Resource? brush = ResolvePresentedBrush();
+        float opacity = (brush?.Opacity ?? 0) / 100f;
         paint.IsAntialias = true;
         paint.BlendMode = (SKBlendMode)BlendMode;
 
         paint.Color = new SKColor(255, 255, 255, (byte)(255 * opacity));
 
-        if (Brush is SolidColorBrush.Resource solid)
+        if (brush is SolidColorBrush.Resource solid)
         {
             paint.Color = new SKColor(solid.Color.R, solid.Color.G, solid.Color.B, (byte)(solid.Color.A * opacity));
         }
-        else if (Brush is GradientBrush.Resource gradient)
+        else if (brush is GradientBrush.Resource gradient)
         {
             ConfigureGradientBrush(paint, gradient);
         }
-        else if (Brush is TileBrush.Resource tileBrush)
+        else if (brush is TileBrush.Resource tileBrush)
         {
             ConfigureTileBrush(paint, tileBrush);
         }
-        else if (Brush is PerlinNoiseBrush.Resource perlinNoiseBrush)
+        else if (brush is PerlinNoiseBrush.Resource perlinNoiseBrush)
         {
             ConfigurePerlinNoiseBrush(paint, perlinNoiseBrush);
         }
@@ -68,32 +101,42 @@ public readonly struct BrushConstructor(
 
     public SKShader? CreateShader()
     {
-        // Handle BrushPresenter by delegating to the target brush
-        if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
-        {
-            return new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale).CreateShader();
-        }
-
-        float opacity = (Brush?.Opacity ?? 0) / 100f;
-        if (Brush is SolidColorBrush.Resource solid)
+        Brush.Resource? brush = ResolvePresentedBrush();
+        float opacity = (brush?.Opacity ?? 0) / 100f;
+        if (brush is SolidColorBrush.Resource solid)
         {
             return SKShader.CreateColor(new SKColor(solid.Color.R, solid.Color.G, solid.Color.B,
                 (byte)(solid.Color.A * opacity)));
         }
-        else if (Brush is GradientBrush.Resource gradient)
+        else if (brush is GradientBrush.Resource gradient)
         {
             return CreateGradientShader(gradient);
         }
-        else if (Brush is TileBrush.Resource tileBrush)
+        else if (brush is TileBrush.Resource tileBrush)
         {
             return CreateTileShader(tileBrush);
         }
-        else if (Brush is PerlinNoiseBrush.Resource perlinNoiseBrush)
+        else if (brush is PerlinNoiseBrush.Resource perlinNoiseBrush)
         {
             return CreatePerlinNoiseShader(perlinNoiseBrush);
         }
 
         return null;
+    }
+
+    private Brush.Resource? ResolvePresentedBrush()
+    {
+        Brush.Resource? brush = Brush;
+        HashSet<Brush.Resource>? visited = null;
+        while (brush is BrushPresenter.Resource { Target: { } target } presenter)
+        {
+            visited ??= new HashSet<Brush.Resource>(ReferenceEqualityComparer.Instance);
+            if (!visited.Add(presenter))
+                throw new InvalidOperationException("A BrushPresenter target cycle was detected.");
+            brush = target;
+        }
+
+        return brush;
     }
 
     private SKShader? CreateGradientShader(GradientBrush.Resource gradientBrush)
@@ -230,63 +273,38 @@ public readonly struct BrushConstructor(
     private SKShader? CreateTileShader(TileBrush.Resource tileBrush)
     {
         float s = Scale;
-        RenderTarget? renderTarget = null;
         SKImage? skImage;
-        PixelSize pixelSize;     // logical content size (drives TileBrushCalculator)
-        float contentDensity;    // skImage device px per logical content unit
+        Size contentSize;      // logical content size (drives TileBrushCalculator)
+        float contentDensity;  // skImage device px per logical content unit
 
-        if (tileBrush is ImageBrush.Resource imageBrush
-            && imageBrush.Source?.Bitmap is { } bitmap)
+        if (tileBrush is DrawableBrush.Resource drawableBrush)
         {
-            skImage = SKImage.FromBitmap(bitmap.SKBitmap);
-            pixelSize = new(bitmap.Width, bitmap.Height);
-            contentDensity = 1f; // the bitmap's native pixels ARE the logical content (1:1)
-        }
-        else if (tileBrush is DrawableBrush.Resource drawableBrush)
-        {
-            if (drawableBrush.Drawable is null) return null;
-
-            var drawable = drawableBrush.Drawable;
-            using var node = new DrawableRenderNode(drawable);
-            using var context = new GraphicsContext2D(node, new Size((int)Bounds.Width, (int)Bounds.Height), s);
-            drawable.GetOriginal().Render(context, drawable);
-            var processor = new RenderNodeProcessor(node, true, s, MaxWorkingScale);
-            var ops = processor.RasterizeToRenderTargets();
-            var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
-
-            int dw = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Width * s));
-            int dh = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Height * s));
-            renderTarget = RenderTarget.Create(dw, dh);
-            if (renderTarget == null)
+            if (_drawableBrushMaterializer is not { } materializer)
             {
-                // Dispose ops that the blit loop below would have consumed.
-                foreach (var op in ops)
-                    op.RenderTarget.Dispose();
-
                 s_logger.LogWarning(
-                    "DrawableBrush content buffer allocation failed ({Width}x{Height} px, density {Scale}); preview fill degrades to solid white, delivery render fails fast.",
-                    dw, dh, s);
-                ThrowIfDeliveryAllocationFailure(
-                    $"DrawableBrush content buffer allocation failed ({dw}x{dh} px, density {s}).");
+                    "DrawableBrush '{Brush}' cannot be materialized because no runtime materializer is available; the fill degrades to transparent.",
+                    drawableBrush);
                 return null;
             }
 
-            // Density 1: raw device-px blits with hand-computed offsets (no base CTM re-scale).
-            using (var icanvas = new ImmediateCanvas(renderTarget, 1f, MaxWorkingScale))
+            if (materializer(drawableBrush, Bounds, s) is not { } materialized)
             {
-                icanvas.Clear();
-
-                foreach (var op in ops)
-                {
-                    Point offset = (op.Bounds.Position - totalBounds.Position) * s;
-                    icanvas.DrawRenderTarget(op.RenderTarget, offset);
-                    op.RenderTarget.Dispose();
-                }
+                s_logger.LogWarning(
+                    "The drawable-brush materializer returned no image for '{Brush}'; the fill degrades to transparent.",
+                    drawableBrush);
+                return null;
             }
 
-            pixelSize = new PixelSize((int)totalBounds.Width, (int)totalBounds.Height);
+            skImage = materialized.Image;
+            contentSize = materialized.ContentBounds.Size;
             contentDensity = s;
-            skImage = renderTarget.Value.Snapshot();
+        }
+        else if (tileBrush is ImageBrush.Resource imageBrush
+            && imageBrush.Source?.Bitmap is { } bitmap)
+        {
+            skImage = SKImage.FromBitmap(bitmap.SKBitmap);
+            contentSize = new Size(bitmap.Width, bitmap.Height);
+            contentDensity = 1f; // the bitmap's native pixels ARE the logical content (1:1)
         }
         else
         {
@@ -294,30 +312,42 @@ public readonly struct BrushConstructor(
         }
 
         RenderTarget? intermediate = null;
+        RenderTargetLease? intermediateLease = null;
         try
         {
             if (skImage == null) return null;
 
-            var calc = new TileBrushCalculator(tileBrush, pixelSize.ToSize(1), Bounds.Size);
+            var calc = new TileBrushCalculator(tileBrush, contentSize, Bounds.Size);
 
             int iw = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Width * s));
             int ih = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Height * s));
 
-            intermediate = RenderTarget.Create(iw, ih);
+            if (_renderTargetLeaseSession is { HasTargetFactory: true } leaseSession)
+            {
+                intermediateLease = leaseSession.TryAcquire(new PixelSize(iw, ih));
+                intermediate = intermediateLease?.Target;
+            }
+            else
+            {
+                intermediate = RenderTarget.Create(iw, ih);
+            }
+
             if (intermediate == null)
             {
                 s_logger.LogWarning(
-                    "Tile-brush intermediate allocation failed ({Width}x{Height} px, density {Scale}); preview fill degrades to solid white, delivery render fails fast.",
+                    "Tile-brush intermediate allocation failed ({Width}x{Height} px, density {Scale}); preview fill degrades to transparent, delivery render fails fast.",
                     iw, ih, s);
                 ThrowIfDeliveryAllocationFailure(
                     $"Tile-brush intermediate allocation failed ({iw}x{ih} px, density {s}).");
+                _renderTargetLeaseSession?.MarkContentDropped();
                 return null;
             }
 
             // Density 1: the SetMatrix below builds an absolute device matrix with Scale(s) folded in.
-            using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale))
+            using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale, intent: Intent))
             using (var paintTmp = new SKPaint())
             {
+                canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
                 canvas.Canvas.Clear();
                 canvas.Canvas.Save();
                 Rect clip = calc.IntermediateClip;
@@ -372,14 +402,17 @@ public readonly struct BrushConstructor(
         finally
         {
             skImage?.Dispose();
-            intermediate?.Dispose();
-            renderTarget?.Dispose();
+            // A leased target belongs to the pool: release the lease, never the target behind it.
+            if (intermediateLease is not null)
+                intermediateLease.Dispose();
+            else
+                intermediate?.Dispose();
         }
     }
 
     private void ThrowIfDeliveryAllocationFailure(string message)
     {
-        if (float.IsPositiveInfinity(MaxWorkingScale))
+        if (Intent == RenderIntent.Delivery)
         {
             throw new InvalidOperationException(message);
         }
@@ -391,6 +424,10 @@ public readonly struct BrushConstructor(
         if (shader != null)
         {
             paint.Shader = shader;
+        }
+        else
+        {
+            paint.Color = SKColors.Transparent;
         }
     }
 
@@ -437,4 +474,5 @@ public readonly struct BrushConstructor(
             paint.Shader = shader;
         }
     }
+
 }

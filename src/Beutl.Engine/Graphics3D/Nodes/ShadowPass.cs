@@ -231,20 +231,19 @@ void main() {
 
         // Begin shadow pass with clear (clear to max depth)
         Span<Color> clearColors = [new Color(255, 255, 255, 255)]; // Dummy color
-        BeginPass(clearColors);
-
-        // Bind shadow pipeline
-        RenderPass.BindPipeline(_shadowPipeline);
-
-        var lightVP = LightViewProjection;
-
-        // Render each object
-        foreach (var obj in objects)
+        using (UsePass(clearColors))
         {
-            RenderObject(obj, lightVP, Matrix4x4.Identity);
-        }
+            // Bind shadow pipeline
+            RenderPass.BindPipeline(_shadowPipeline);
 
-        EndPass();
+            var lightVP = LightViewProjection;
+
+            // Render each object
+            foreach (var obj in objects)
+            {
+                RenderObject(obj, lightVP, Matrix4x4.Identity);
+            }
+        }
     }
 
     private void RenderObject(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 parentMatrix)
@@ -290,7 +289,7 @@ void main() {
         RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
 
         // Draw the mesh
-        RenderPass.DrawIndexed((uint)meshResource.IndexCount);
+        RenderPass.DrawIndexed((uint)meshResource.UploadedIndexCount);
     }
 
     protected override void OnDispose()

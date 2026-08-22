@@ -9,6 +9,8 @@ namespace Beutl.Graphics.Backend;
 
 public class GraphicsContextFactory
 {
+    internal const string VulkanValidationEnvironmentVariable = "BEUTL_VULKAN_VALIDATION";
+    internal const string VulkanValidationAppContextSwitch = "Beutl.Graphics.Vulkan.EnableValidation";
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(GraphicsContextFactory));
     private static bool s_failedToInitialize;
     private static VulkanInstance? s_vulkanInstance;
@@ -75,8 +77,21 @@ public class GraphicsContextFactory
         {
             VulkanSetup.Setup();
             var vk = Vk.GetApi();
-            s_vulkanInstance = new VulkanInstance(vk, enableValidation: false);
+            s_vulkanInstance = new VulkanInstance(vk, IsVulkanValidationEnabled());
         }
+    }
+
+    internal static bool IsVulkanValidationEnabled()
+    {
+        if (AppContext.TryGetSwitch(VulkanValidationAppContextSwitch, out bool enabled) && enabled)
+            return true;
+
+        string? value = Environment.GetEnvironmentVariable(VulkanValidationEnvironmentVariable);
+        return value is not null
+            && (value.Equals("1", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("true", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("on", StringComparison.OrdinalIgnoreCase));
     }
 
     public static IGraphicsContext CreateContext()
@@ -163,6 +178,7 @@ public class GraphicsContextFactory
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
+            GpuResourceReclaimQueue.FlushAndDrain();
             SharedContext?.Dispose();
             SharedContext = null;
 

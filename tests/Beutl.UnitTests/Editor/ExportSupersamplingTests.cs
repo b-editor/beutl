@@ -54,8 +54,8 @@ public class ExportSupersamplingTests
     [Test]
     public void FitsBufferLimit_DefaultLimit_IsTheEngineConstant()
     {
-        var atLimit = new PixelSize(RenderNodeContext.MaxBufferDimension, 1080);
-        var overLimit = new PixelSize(RenderNodeContext.MaxBufferDimension + 1, 1080);
+        var atLimit = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 1080);
+        var overLimit = new PixelSize(RenderScaleUtilities.MaxBufferDimension + 1, 1080);
 
         Assert.That(ExportSupersampling.FitsBufferLimit(atLimit, 1), Is.True);
         Assert.That(ExportSupersampling.FitsBufferLimit(overLimit, 1), Is.False);
