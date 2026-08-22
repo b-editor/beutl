@@ -32,6 +32,16 @@ public abstract partial class Mesh : EngineObject
         internal bool BuffersDirty { get; set; } = true;
 
         /// <summary>
+        /// The index count the buffers currently on the device were built from.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="IndexCount"/> answers for the mesh as it is now, which is not what the device holds
+        /// until an upload has run for it. Drawing the live count against last upload's buffers reads past
+        /// their end whenever the topology grew.
+        /// </remarks>
+        internal int UploadedIndexCount { get; set; }
+
+        /// <summary>
         /// Generates this mesh's geometry.
         /// </summary>
         /// <param name="vertices">Output array of vertices.</param>
@@ -126,6 +136,7 @@ public abstract partial class Mesh : EngineObject
             VertexBuffer = null;
             IndexBuffer?.Dispose();
             IndexBuffer = null;
+            UploadedIndexCount = 0;
             _cachedVertices = null;
             _cachedIndices = null;
         }

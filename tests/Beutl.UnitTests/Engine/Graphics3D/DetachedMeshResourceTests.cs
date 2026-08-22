@@ -1,7 +1,10 @@
 ﻿using Beutl.Composition;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Graphics3D.Models;
+using Beutl.Graphics3D.Nodes;
+using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
@@ -29,6 +32,72 @@ public sealed class DetachedMeshResourceTests
             Assert.That(detached.GetIndices().ToArray(), Is.EqualTo(attached.GetIndices().ToArray()).AsCollection);
             Assert.That(detached.GetBoundingBox().Min, Is.EqualTo(attached.GetBoundingBox().Min));
             Assert.That(detached.GetBoundingBox().Max, Is.EqualTo(attached.GetBoundingBox().Max));
+        }
+    }
+
+    /// <remarks>
+    /// A draw binds whatever buffers the resource holds and asks for a count. Taking that count from the mesh
+    /// as it is now rather than from what an upload actually put on the device reads past the end of the
+    /// buffers whenever the topology grew, and leaving the previous topology's buffers behind lets a mesh with
+    /// nothing left in it still bind them.
+    /// </remarks>
+    [Test]
+    public void AnUploadRecordsWhatItPutOnTheDevice_AndAnEmptyMeshKeepsNothing()
+    {
+        using var cube = new CubeMesh.Resource { Width = 1, Height = 1, Depth = 1 };
+        IGraphicsContext context = CreateBufferingContext();
+
+        using var populated = new ModelMesh.Resource
+        {
+            Vertices = [.. cube.GetVertices()],
+            Indices = [.. cube.GetIndices()],
+        };
+        MeshBufferUploadHelper.Ensure(context, populated);
+
+        // The state a resource is left in when its topology drops to nothing after an upload.
+        using var emptied = new ModelMesh.Resource { Vertices = [], Indices = [] };
+        emptied.VertexBuffer = new FakeBuffer(1);
+        emptied.IndexBuffer = new FakeBuffer(1);
+        emptied.UploadedIndexCount = cube.IndexCount;
+        emptied.BuffersDirty = true;
+
+        MeshBufferUploadHelper.Ensure(context, emptied);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(populated.UploadedIndexCount, Is.EqualTo(cube.IndexCount));
+            Assert.That(emptied.UploadedIndexCount, Is.Zero);
+            Assert.That(emptied.VertexBuffer, Is.Null);
+            Assert.That(emptied.IndexBuffer, Is.Null);
+            Assert.That(emptied.BuffersDirty, Is.False, "An emptied mesh has nothing left to upload.");
+        }
+    }
+
+    private static IGraphicsContext CreateBufferingContext()
+    {
+        var context = new Mock<IGraphicsContext>();
+        context
+            .Setup(x => x.CreateBuffer(It.IsAny<ulong>(), It.IsAny<BufferUsage>(), It.IsAny<MemoryProperty>()))
+            .Returns((ulong size, BufferUsage _, MemoryProperty _) => new FakeBuffer(size));
+        return context.Object;
+    }
+
+    private sealed class FakeBuffer(ulong size) : IBuffer
+    {
+        public ulong Size { get; } = size;
+
+        public void Upload<T>(ReadOnlySpan<T> data) where T : unmanaged
+        {
+        }
+
+        public IntPtr Map() => IntPtr.Zero;
+
+        public void Unmap()
+        {
+        }
+
+        public void Dispose()
+        {
         }
     }
 

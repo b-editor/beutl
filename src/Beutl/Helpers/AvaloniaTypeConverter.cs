@@ -419,7 +419,9 @@ public static class AvaloniaTypeConverter
 
             if (_drawableBrush.Drawable == null) return;
             {
-                var node = new DrawableRenderNode(_drawableBrush.Drawable);
+                // The node owns the recorded graph, and a thumbnail is re-rendered on every property change,
+                // so leaving it to the finalizer strands one graph per keystroke in the editor.
+                using var node = new DrawableRenderNode(_drawableBrush.Drawable);
                 // TODO: UI側の物理的なサイズをもとに描画するように変更する
                 using (var context = new GraphicsContext2D(node, new Graphics.Size(1920, 1080)))
                 {

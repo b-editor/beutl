@@ -248,7 +248,8 @@ internal sealed class RenderTargetPool : IDisposable
 
         bool accepted = false;
         bool targetIsBorrowedOrAlreadyOwned = ReferenceEquals(target, request.ExternalTarget)
-            || _knownTargets.Contains(target);
+            || _knownTargets.Contains(target)
+            || SharesLiveSurface(target, request);
         try
         {
             SKSurface surface = ValidateFactoryTarget(target, deviceSize, request);
@@ -582,6 +583,28 @@ internal sealed class RenderTargetPool : IDisposable
         _knownTargets.Remove(slot.Target);
         _knownSurfaces.Remove(slot.Surface);
         _ownedBytes -= slot.ByteSize;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="target"/>'s backing surface is one this pool or the request already holds.
+    /// </summary>
+    /// <remarks>
+    /// A factory can hand back a fresh target instance wrapping a surface something else is still drawing to.
+    /// Rejecting it is right, but disposing it would take that surface down with it and leave a live pool slot
+    /// or the caller's destination pointing at freed memory, so a rejection here only drops the reference.
+    /// </remarks>
+    private bool SharesLiveSurface(RenderTarget target, RenderTargetPoolRequest request)
+    {
+        try
+        {
+            SKSurface surface = target.RawValue;
+            return ReferenceEquals(surface, request.ExternalSurface) || _knownSurfaces.Contains(surface);
+        }
+        catch
+        {
+            // A target that cannot even show its surface shares nothing, so the caller owns its disposal.
+            return false;
+        }
     }
 
     private SKSurface ValidateFactoryTarget(

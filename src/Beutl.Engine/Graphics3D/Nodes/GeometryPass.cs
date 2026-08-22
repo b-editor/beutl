@@ -190,7 +190,7 @@ public sealed class GeometryPass : GraphicsNode3D
         RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
 
         // Draw the mesh
-        RenderPass.DrawIndexed((uint)meshResource.IndexCount);
+        RenderPass.DrawIndexed((uint)meshResource.UploadedIndexCount);
     }
 
     protected override void OnDispose()

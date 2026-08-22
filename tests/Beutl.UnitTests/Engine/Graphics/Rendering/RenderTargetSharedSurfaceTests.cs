@@ -50,12 +50,44 @@ public sealed class RenderTargetSharedSurfaceTests
         var context = new Mock<IGraphicsContext>();
         context.Setup(x => x.CreateTexture2D(4, 4, TextureFormat.RGBA16Float)).Returns(texture);
 
-        using SKSurface surface = RenderTarget.CreateSharedSurface(context.Object, 4, 4, out ITexture2D created);
+        using SKSurface? surface = RenderTarget.CreateSharedSurface(context.Object, 4, 4, out ITexture2D? created);
 
         Assert.That(created, Is.SameAs(texture));
         Assert.That(texture.ClearCount, Is.EqualTo(1));
         Assert.That(texture.DisposeCount, Is.Zero);
-        Assert.That(surface.Handle, Is.Not.EqualTo(IntPtr.Zero));
+        Assert.That(surface!.Handle, Is.Not.EqualTo(IntPtr.Zero));
+    }
+
+    /// <remarks>
+    /// A backend that declines to wrap the texture reports it by returning null rather than by throwing, and
+    /// the throwing path was the only one that released. The texture has no finalizer, so a caller treating
+    /// the resulting null as a per-frame degrade would strand one image, view and allocation per frame.
+    /// </remarks>
+    [Test]
+    public void CreateSharedSurface_ReleasesTheTexture_WhenTheBackendDeclinesToWrapIt()
+    {
+        var texture = new DecliningTexture(4, 4);
+        var context = new Mock<IGraphicsContext>();
+        context.Setup(x => x.CreateTexture2D(4, 4, TextureFormat.RGBA16Float)).Returns(texture);
+
+        SKSurface? surface = RenderTarget.CreateSharedSurface(context.Object, 4, 4, out ITexture2D? created);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(surface, Is.Null);
+            Assert.That(created, Is.Null, "A texture that was released must not be handed back.");
+            Assert.That(texture.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    private sealed class DecliningTexture(int width, int height) : RasterBackedTexture(width, height)
+    {
+        public override bool HasTransparentContents => false;
+
+        public override SKSurface CreateSkiaSurface() => null!;
+
+        public override void ClearToTransparent()
+            => throw new InvalidOperationException("A declined wrap must not reach the clear.");
     }
 
     private abstract class RasterBackedTexture(int width, int height)

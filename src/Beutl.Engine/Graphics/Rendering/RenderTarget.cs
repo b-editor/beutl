@@ -131,6 +131,9 @@ public class RenderTarget : IDisposable
                 }
             }
 
+            if (surface == null)
+                return null;
+
             // Skia refcounts the surface itself and only borrows the image behind it, so the
             // backend texture is the one resource that can outlive its last managed reference.
             var textureRef = sharedTexture != null
@@ -139,8 +142,6 @@ public class RenderTarget : IDisposable
                     deferRelease: true,
                     approximateBytes: (long)width * height * 8)
                 : null;
-            if (surface == null)
-                return null;
 
             var result = new RenderTarget(
                 new SKSurfaceCounter<SKSurface>(surface),
@@ -164,18 +165,31 @@ public class RenderTarget : IDisposable
     /// The backend texture has no finalizer, so escaping this method before the texture reaches a
     /// <see cref="RenderTarget"/> strands its image, view and device memory for the life of the process.
     /// </remarks>
-    internal static SKSurface CreateSharedSurface(
+    /// <returns>
+    /// The surface wrapping a new backend texture, or <see langword="null"/> when the backend declined to
+    /// wrap it, in which case the texture has already been released.
+    /// </returns>
+    internal static SKSurface? CreateSharedSurface(
         IGraphicsContext context,
         int width,
         int height,
-        out ITexture2D texture)
+        out ITexture2D? texture)
     {
-        texture = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-        ITexture2D createdTexture = texture;
+        ITexture2D createdTexture = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+        texture = createdTexture;
         SKSurface? surface = null;
         try
         {
             surface = createdTexture.CreateSkiaSurface();
+            if (surface is null)
+            {
+                // The backend texture is the one resource here that outlives its last managed reference, so
+                // a wrap the driver declined has to release it rather than leave it to a finalizer.
+                createdTexture.Dispose();
+                texture = null;
+                return null;
+            }
+
             // Surface wrapping marks Skia access. Record initialization afterwards so an
             // untouched snapshot still observes and submits the backend clear.
             if (createdTexture is ITransparentClearableTexture clearableTexture)
