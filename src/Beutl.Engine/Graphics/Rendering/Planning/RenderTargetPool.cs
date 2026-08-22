@@ -764,7 +764,7 @@ internal sealed class RenderTargetPool : IDisposable
 
     private RenderTarget? CreateTarget(PixelSize deviceSize, RenderTargetPoolRequest request)
         => _factory is null
-            ? CreateDefaultTarget(deviceSize, request)
+            ? CreateDefaultTarget(deviceSize, ResolveAllocationContextHandle(request))
             : _factory.Create(GetAllocationDescriptor(deviceSize, request));
 
     internal RenderTargetAllocationDescriptor GetAllocationDescriptor(
@@ -775,14 +775,20 @@ internal sealed class RenderTargetPool : IDisposable
         return new RenderTargetAllocationDescriptor(
             deviceSize,
             _graphicsContext,
-            request.ExpectedContextHandle ?? (_hasContext ? _contextHandle : null));
+            ResolveAllocationContextHandle(request));
     }
+
+    // Only a request rendering into a caller-owned destination carries a handle of its own. A
+    // target-less request on a pool that already bound a context still has to allocate on that
+    // context, because every surface the pool hands out is checked against it.
+    private nint? ResolveAllocationContextHandle(RenderTargetPoolRequest request)
+        => request.ExpectedContextHandle ?? (_hasContext ? _contextHandle : null);
 
     private static RenderTarget? CreateDefaultTarget(
         PixelSize deviceSize,
-        RenderTargetPoolRequest request)
+        nint? contextHandle)
     {
-        if (request.ExpectedContextHandle == 0)
+        if (contextHandle == 0)
         {
             SKSurface? surface = SKSurface.Create(new SKImageInfo(
                 deviceSize.Width,
