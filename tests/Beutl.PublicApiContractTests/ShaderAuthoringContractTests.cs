@@ -35,6 +35,62 @@ public sealed class ShaderAuthoringContractTests
                 }));
 
     /// <remarks>
+    /// A plugin author with many effects over one shader has the same reason the engine does to parse it
+    /// once. SkslSource, its Kind, and the definition factories that take one were public in name only:
+    /// nothing reachable from outside the assembly could produce or consume an instance.
+    /// </remarks>
+    [Test]
+    public void AParsedSourceCanBeSharedAcrossDefinitions()
+    {
+        SkslSource parsed = SkslSource.CurrentPixel(CurrentPixelSource);
+        ShaderDefinition<float> first = ShaderDefinition<float>.CurrentPixel(
+            parsed,
+            static bindings => bindings.Uniform("amount", static state => state));
+        ShaderDefinition<float> second = ShaderDefinition<float>.CurrentPixel(
+            parsed,
+            static bindings => bindings.Uniform("amount", static state => 1f - state));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(parsed.Kind, Is.EqualTo(ShaderDescriptionKind.CurrentPixel));
+            Assert.That(parsed.Text.TrimEnd(), Is.EqualTo(CurrentPixelSource), "the text is normalized, not rewritten");
+            Assert.That(parsed.IdentityHash, Is.Not.Empty);
+            Assert.That(first, Is.Not.SameAs(second));
+        }
+    }
+
+    [Test]
+    public void AParsedWholeSourceCanHeadADefinition()
+    {
+        SkslSource parsed = SkslSource.WholeSource(WholeSource);
+
+        ShaderDefinition<byte> definition = ShaderDefinition<byte>.WholeSource(
+            parsed,
+            RenderBoundsContract.Identity,
+            static bindings => bindings.Resource(
+                "tint",
+                s_colorSlot,
+                ShaderResourceCoordinateSpace.OutputDevice,
+                static (writer, color, _) => writer.Set(SKShader.CreateColor(color.Color))));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(parsed.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
+            Assert.That(definition, Is.Not.Null);
+        }
+    }
+
+    [Test]
+    public void AParsedSourceOfTheWrongKind_IsRejectedWhereItIsDeclared()
+    {
+        SkslSource currentPixel = SkslSource.CurrentPixel(CurrentPixelSource);
+
+        Assert.That(
+            () => ShaderDefinition<byte>.WholeSource(currentPixel, RenderBoundsContract.Identity),
+            Throws.ArgumentException);
+    }
+
+    /// <remarks>
     /// A WholeSource shader's input arrives as the implicit 'src' child, so binding it explicitly is not
     /// something the pipeline can honour. Accepting the definition and throwing on every call of it hands the
     /// author a shape that builds and is then unusable, with nothing pointing at the declaration that did it.

@@ -57,7 +57,10 @@ public sealed class ShaderDefinition<TState>
             SKShaderTileMode.Decal,
             bindings);
 
-    internal static ShaderDefinition<TState> CurrentPixel(
+    /// <summary>Creates a current-pixel shader definition from an already parsed source.</summary>
+    /// <param name="source">A non-null <see cref="ShaderDescriptionKind.CurrentPixel"/> source.</param>
+    /// <param name="bindings">The fixed uniform and resource binding shape, or <see langword="null"/> for none.</param>
+    public static ShaderDefinition<TState> CurrentPixel(
         SkslSource source,
         Action<ShaderDefinitionBuilder<TState>>? bindings = null)
     {
@@ -107,7 +110,10 @@ public sealed class ShaderDefinition<TState>
             bindings);
     }
 
-    internal static ShaderDefinition<TState> WholeSource(
+    /// <summary>Creates a whole-source shader definition from an already parsed source.</summary>
+    /// <param name="source">A non-null <see cref="ShaderDescriptionKind.WholeSource"/> source.</param>
+    /// <inheritdoc cref="WholeSource(string, RenderBoundsContract, Action{ShaderDefinitionBuilder{TState}}, SKShaderTileMode, RenderInputDemandContract)" path="/param[@name='bounds']|/param[@name='bindings']|/param[@name='sourceTileMode']|/param[@name='inputDemand']"/>
+    public static ShaderDefinition<TState> WholeSource(
         SkslSource source,
         RenderBoundsContract bounds,
         Action<ShaderDefinitionBuilder<TState>>? bindings = null,

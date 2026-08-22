@@ -60,6 +60,32 @@ public sealed partial class SkslSource
     private readonly IReadOnlyDictionary<string, SkslUniformDeclaration> _uniforms;
     private readonly IReadOnlySet<string>? _topLevelSymbols;
 
+    /// <summary>Parses and validates SkSL for a current-pixel stage.</summary>
+    /// <param name="source">
+    /// Non-null SkSL defining exactly one <c>half4 apply(half4 color)</c> entry point.
+    /// </param>
+    /// <returns>An immutable parsed source that any number of definitions can share.</returns>
+    /// <remarks>
+    /// Parsing once and reusing the result keeps a definition's recording free of re-tokenization, which is
+    /// what the engine's own effects do with their compile-time constant sources.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// The source grammar, entry point, or declarations are invalid.
+    /// </exception>
+    public static SkslSource CurrentPixel(string source)
+        => new(source, ShaderDescriptionKind.CurrentPixel);
+
+    /// <summary>Parses and validates SkSL for a whole-source stage.</summary>
+    /// <param name="source">
+    /// Non-null SkSL defining exactly one <c>half4 main(float2 coord)</c> entry point and declaring the
+    /// implicit upstream input as <c>uniform shader src;</c>.
+    /// </param>
+    /// <returns>An immutable parsed source that any number of definitions can share.</returns>
+    /// <inheritdoc cref="CurrentPixel(string)" path="/remarks|/exception"/>
+    public static SkslSource WholeSource(string source)
+        => new(source, ShaderDescriptionKind.WholeSource);
+
     internal SkslSource(string text, ShaderDescriptionKind kind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
