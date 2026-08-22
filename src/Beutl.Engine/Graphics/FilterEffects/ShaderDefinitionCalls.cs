@@ -148,6 +148,15 @@ public sealed class ShaderDefinition<TState>
         var supplied = new HashSet<string>(StringComparer.Ordinal);
         foreach (ShaderBindingShape shape in shapes)
         {
+            // The description rejects this too, but only once a call is made, which leaves an author with a
+            // definition that builds and then throws on every use of it.
+            if (kind == ShaderDescriptionKind.WholeSource && shape.IsResource && shape.Name == "src")
+            {
+                throw new ArgumentException(
+                    "The implicit WholeSource input 'src' cannot be supplied as an explicit resource binding.",
+                    nameof(shapes));
+            }
+
             if (!source.Uniforms.TryGetValue(shape.Name, out SkslUniformDeclaration declaration))
                 throw new ArgumentException($"The shader does not declare binding '{shape.Name}'.", nameof(shapes));
 

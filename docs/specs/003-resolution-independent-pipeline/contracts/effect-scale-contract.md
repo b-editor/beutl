@@ -79,8 +79,7 @@ private sealed class OversampleRenderNode(FilterEffect.Resource fe) : FilterEffe
                     metadata.OutputScale,
                     metadata.MaxWorkingScale),
                 2f * metadata.OutputScale),
-            metadata.MaxWorkingScale),
-        typeof(OversampleRenderNode));
+            metadata.MaxWorkingScale));
 
     protected override RenderScaleContract? GetWorkingScaleContract() => s_scale;
 }

@@ -712,3 +712,35 @@ The sibling `RenderBoundsContract` had already settled this: `Create` takes both
 The new name is a precondition, not a warning label. Leaving demand unchanged is exactly right for a supply map that reports a different density without resampling, or one that collapses to `Unbounded`, which is the common case; `MapInputSupplyPreservingDemand` says which operations it fits rather than implying the contract is a degraded variant. It also pairs with the well-known `PreserveInputSupply`, whose demand pass-through is correct by construction.
 
 `RenderScaleContract.Custom` has the same unchanged-demand fallback and no way to attach a backward map. It is deliberately left alone here — adding a demand callback to a custom resolver is a design change, not a rename — but its documentation now states the fallback and points at `MapInputSupply`.
+
+## The graphics backend contract gained members and lost a default
+
+BREAKING CHANGE: `Beutl.Graphics.Backend` changed shape for anyone implementing or calling it directly. Every
+item below is source-breaking; none has a default implementation or an overload that preserves the old call.
+
+| Surface | Before | After |
+|---|---|---|
+| `ITexture2D` | — | adds `bool RequiresSkiaFlushForBackendInterop { get; }` |
+| `ITexture2D` | — | adds `void PrepareForSkiaRendering()` |
+| `ITexture2D` | — | adds `void PrepareForSkiaSampling(bool requireCompletion)` |
+| `IGraphicsContext.CreateRenderPass3D` | `TextureFormat depthFormat = TextureFormat.Depth32Float` | `TextureFormat? depthFormat` — required, `null` for a colour-only pass |
+| `IGraphicsContext.CreateFramebuffer3D` | `ITexture2D depthTexture` | `ITexture2D? depthTexture` |
+| `IFramebuffer3D.DepthTexture` | `ITexture2D` | `ITexture2D?` |
+| `PipelineOptions` | — | adds `ImmutableArray<SpecializationConstant> SpecializationConstants { get; set; }` |
+
+The three `ITexture2D` members exist because the fused pipeline hands one texture back and forth between Skia
+and the backend within a frame. Skia records into a surface it owns while the backend records into the same
+image, and neither can see the other's pending work, so the hand-off needs an explicit point at which the
+preceding side submits and establishes visibility. `RequiresSkiaFlushForBackendInterop` lets a caller skip that
+cost on a backend where the two never share, and `PrepareForSkiaSampling`'s `requireCompletion` distinguishes a
+hand-off that can be expressed with GPU synchronization from one that has to wait on the host. An
+implementation that has no Skia interop answers `false` and leaves the two methods empty.
+
+The nullable depth attachment is what lets a pass declare that it writes colour only. The old default silently
+gave every render pass a `Depth32Float` attachment, including the several passes in this pipeline that never
+read or write depth, and a default cannot be removed while keeping the parameter optional without changing
+what existing call sites mean. Making it required is the change that makes those call sites state their
+intent; `null` is the colour-only pass, and `depthLoadOp` is ignored for one.
+
+`SpecializationConstant` is additive: an implementation that ignores `SpecializationConstants` compiles and
+behaves as before, and only a backend that wants compile-time specialization needs to read it.

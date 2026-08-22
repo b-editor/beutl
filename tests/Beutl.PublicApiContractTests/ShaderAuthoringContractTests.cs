@@ -34,6 +34,26 @@ public sealed class ShaderAuthoringContractTests
                     writer.Set(SKShader.CreateColor(color.Color));
                 }));
 
+    /// <remarks>
+    /// A WholeSource shader's input arrives as the implicit 'src' child, so binding it explicitly is not
+    /// something the pipeline can honour. Accepting the definition and throwing on every call of it hands the
+    /// author a shape that builds and is then unusable, with nothing pointing at the declaration that did it.
+    /// </remarks>
+    [Test]
+    public void AWholeSourceDefinitionBindingSrcExplicitly_IsRejectedWhereItIsDeclared()
+    {
+        Assert.That(
+            () => ShaderDefinition<byte>.WholeSource(
+                WholeSource,
+                RenderBoundsContract.Identity,
+                static bindings => bindings.Resource(
+                    "src",
+                    s_colorSlot,
+                    ShaderResourceCoordinateSpace.OutputDevice,
+                    static (writer, color, _) => writer.Set(SKShader.CreateColor(color.Color)))),
+            Throws.ArgumentException.With.Message.Contains("implicit WholeSource input"));
+    }
+
     [Test]
     public void CurrentPixelDefinitionCall_MapsAValueEligibleInput()
     {
