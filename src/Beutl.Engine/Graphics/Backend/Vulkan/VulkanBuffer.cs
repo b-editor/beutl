@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="IBuffer"/>.
 /// </summary>
-internal sealed unsafe class VulkanBuffer : IBuffer
+internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly Buffer _buffer;
@@ -17,6 +17,8 @@ internal sealed unsafe class VulkanBuffer : IBuffer
     private readonly BufferUsage _usage;
     private readonly MemoryProperty _memoryProperties;
     private bool _disposed;
+
+    public VulkanContext OwnerContext => _context;
 
     public VulkanBuffer(
         VulkanContext context,

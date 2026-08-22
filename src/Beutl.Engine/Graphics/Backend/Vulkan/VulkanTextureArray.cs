@@ -7,11 +7,13 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// Vulkan implementation of <see cref="ITextureArray"/>.
 /// Used for efficiently storing multiple shadow maps.
 /// </summary>
-internal sealed unsafe class VulkanTextureArray : ITextureArray
+internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly Silk.NET.Vulkan.Image _image;
     private readonly DeviceMemory _memory;
+
+    public VulkanContext OwnerContext => _context;
     private readonly ImageView _imageView;           // Array view for sampling all layers
     private readonly ImageView[] _layerViews;        // Individual layer views for framebuffer attachment
     private readonly int _width;

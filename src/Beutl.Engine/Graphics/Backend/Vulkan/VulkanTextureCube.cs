@@ -7,11 +7,13 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// Vulkan implementation of <see cref="ITextureCube"/>.
 /// Used for point light shadow maps.
 /// </summary>
-internal sealed unsafe class VulkanTextureCube : ITextureCube
+internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly Silk.NET.Vulkan.Image _image;
     private readonly DeviceMemory _memory;
+
+    public VulkanContext OwnerContext => _context;
     private readonly ImageView _imageView;           // Cube map view for sampling
     private readonly ImageView[] _faceViews;         // Individual face views for framebuffer attachment
     private readonly ImageLayout[] _faceLayouts = new ImageLayout[6];

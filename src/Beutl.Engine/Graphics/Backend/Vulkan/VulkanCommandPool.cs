@@ -19,6 +19,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     private Semaphore _submissionSemaphore;
     private bool _isRecording;
     private int _renderPassScopeDepth;
+    private object? _activeRenderPassOwner;
     private bool _hasPendingSemaphoreSignal;
     private bool _isCompletingSubmissions;
     private bool _disposed;
@@ -103,17 +104,45 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     }
 
     /// <summary>
-    /// Marks the recording batch as being inside a render pass instance, during which transfers and
-    /// barriers cannot join it.
+    /// Claims the recording batch for one render pass instance, during which transfers and barriers cannot
+    /// join it.
     /// </summary>
-    public void BeginRenderPassScope()
+    /// <param name="owner">The render pass claiming the batch.</param>
+    /// <remarks>
+    /// Every pass on this context records into one shared command buffer, and Vulkan forbids a render pass
+    /// instance inside another on the same buffer. Ownership is exclusive rather than counted so a second
+    /// pass is rejected here instead of reaching <c>vkCmdBeginRenderPass</c>, where it would invalidate the
+    /// buffer the first pass is still recording into.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Another render pass already owns the batch.</exception>
+    public void BeginRenderPassScope(object owner)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(owner);
+        if (_activeRenderPassOwner is not null)
+        {
+            throw new InvalidOperationException(
+                "A render pass instance is already recording on this context's command buffer. Vulkan does "
+                + "not allow one render pass inside another, so the active pass must end before the next "
+                + "begins.");
+        }
+
+        _activeRenderPassOwner = owner;
         _renderPassScopeDepth++;
     }
 
-    public void EndRenderPassScope()
+    /// <summary>Releases the recording batch claimed by <paramref name="owner"/>.</summary>
+    /// <exception cref="InvalidOperationException"><paramref name="owner"/> does not own the batch.</exception>
+    public void EndRenderPassScope(object owner)
     {
+        ArgumentNullException.ThrowIfNull(owner);
+        if (!ReferenceEquals(_activeRenderPassOwner, owner))
+        {
+            throw new InvalidOperationException(
+                "Only the render pass that claimed this context's command buffer can release it.");
+        }
+
+        _activeRenderPassOwner = null;
         if (_renderPassScopeDepth > 0)
             _renderPassScopeDepth--;
     }
@@ -719,6 +748,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         _recordingReleases.Clear();
         _isRecording = false;
         _renderPassScopeDepth = 0;
+        _activeRenderPassOwner = null;
 
         _vk.FreeCommandBuffers(_device, _commandPool, 1, &commandBuffer);
         InvokeReleases(releases);

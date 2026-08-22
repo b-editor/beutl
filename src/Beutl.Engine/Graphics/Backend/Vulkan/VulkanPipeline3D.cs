@@ -9,7 +9,7 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="IPipeline3D"/>.
 /// </summary>
-internal sealed unsafe class VulkanPipeline3D : IPipeline3D
+internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly RenderPass _compatibleRenderPass;
@@ -19,6 +19,8 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
     private readonly ShaderModule _vertexShader;
     private readonly ShaderModule _fragmentShader;
     private bool _disposed;
+
+    public VulkanContext OwnerContext => _context;
 
     public VulkanPipeline3D(
         VulkanContext context,
@@ -115,7 +117,17 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
 
     public DescriptorSetLayout DescriptorSetLayoutHandle => _descriptorSetLayout;
 
-    public bool IsCompatibleWith(RenderPass renderPass) => _compatibleRenderPass.Handle == renderPass.Handle;
+    /// <summary>Whether this pipeline was created for <paramref name="renderPass"/>.</summary>
+    /// <remarks>
+    /// The owning context is compared before the handle: two contexts allocate handles independently, so an
+    /// equal handle value from a foreign device says nothing about compatibility.
+    /// </remarks>
+    public bool IsCompatibleWith(VulkanRenderPass3D renderPass)
+    {
+        ArgumentNullException.ThrowIfNull(renderPass);
+        return ReferenceEquals(_context, renderPass.OwnerContext)
+               && _compatibleRenderPass.Handle == renderPass.Handle.Handle;
+    }
 
     private Pipeline CreateGraphicsPipeline(
         Vk vk, Device device, RenderPass renderPass, VulkanVertexInputDescription vertexInput,

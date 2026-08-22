@@ -23,12 +23,18 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     private readonly VkCreateImageDelegate _createImage;
     private readonly VkDestroyImageDelegate _destroyImage;
     private readonly VkBindImageMemoryDelegate _bindImageMemory;
+    private readonly VkBindImageMemory2Delegate? _bindImageMemory2;
+    private readonly VkBindImageMemory2Delegate? _bindImageMemory2Khr;
     private readonly VkCreateImageDelegate _createImageProxyDelegate;
     private readonly VkDestroyImageDelegate _destroyImageProxyDelegate;
     private readonly VkBindImageMemoryDelegate _bindImageMemoryProxyDelegate;
+    private readonly VkBindImageMemory2Delegate? _bindImageMemory2ProxyDelegate;
+    private readonly VkBindImageMemory2Delegate? _bindImageMemory2KhrProxyDelegate;
     private readonly IntPtr _createImageProxy;
     private readonly IntPtr _destroyImageProxy;
     private readonly IntPtr _bindImageMemoryProxy;
+    private readonly IntPtr _bindImageMemory2Proxy;
+    private readonly IntPtr _bindImageMemory2KhrProxy;
     private GRContext? _skiaContext;
     private GRVkBackendContext? _skiaBackendContext;
     private bool _disposed;
@@ -45,6 +51,10 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         _createImage = GetDeviceDelegate<VkCreateImageDelegate>("vkCreateImage");
         _destroyImage = GetDeviceDelegate<VkDestroyImageDelegate>("vkDestroyImage");
         _bindImageMemory = GetDeviceDelegate<VkBindImageMemoryDelegate>("vkBindImageMemory");
+        // Skia's allocator picks whichever bind entry point the device exposes, so the core 1.1 and KHR
+        // forms have to carry the same initialization contract as the 1.0 one. Either may be absent.
+        _bindImageMemory2 = TryGetDeviceDelegate<VkBindImageMemory2Delegate>("vkBindImageMemory2");
+        _bindImageMemory2Khr = TryGetDeviceDelegate<VkBindImageMemory2Delegate>("vkBindImageMemory2KHR");
         // Ganesh creates its filter layers and scratch images through these callbacks. Vulkan
         // leaves a newly bound image undefined, and SwiftShader can expose bytes from a previously
         // freed allocation, so make initialization part of image binding instead of relying on
@@ -52,6 +62,17 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         _createImageProxy = Marshal.GetFunctionPointerForDelegate(_createImageProxyDelegate = CreateSkiaImage);
         _destroyImageProxy = Marshal.GetFunctionPointerForDelegate(_destroyImageProxyDelegate = DestroySkiaImage);
         _bindImageMemoryProxy = Marshal.GetFunctionPointerForDelegate(_bindImageMemoryProxyDelegate = BindSkiaImageMemory);
+        if (_bindImageMemory2 is not null)
+        {
+            _bindImageMemory2Proxy = Marshal.GetFunctionPointerForDelegate(
+                _bindImageMemory2ProxyDelegate = BindSkiaImageMemory2);
+        }
+
+        if (_bindImageMemory2Khr is not null)
+        {
+            _bindImageMemory2KhrProxy = Marshal.GetFunctionPointerForDelegate(
+                _bindImageMemory2KhrProxyDelegate = BindSkiaImageMemory2Khr);
+        }
 
         if (!physicalDevice.IsMoltenVK)
         {
@@ -88,7 +109,11 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         }
     }
 
-    private IntPtr GetVulkanProcAddress(string name, IntPtr instance, IntPtr device)
+    /// <summary>
+    /// Resolves a Vulkan entry point for Skia, substituting this context's proxies for the image
+    /// create/destroy/bind calls it intercepts.
+    /// </summary>
+    internal IntPtr GetVulkanProcAddress(string name, IntPtr instance, IntPtr device)
     {
         if (name == "vkCreateImage")
             return _createImageProxy;
@@ -96,6 +121,10 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
             return _destroyImageProxy;
         if (name == "vkBindImageMemory")
             return _bindImageMemoryProxy;
+        if (name == "vkBindImageMemory2" && _bindImageMemory2Proxy != IntPtr.Zero)
+            return _bindImageMemory2Proxy;
+        if (name == "vkBindImageMemory2KHR" && _bindImageMemory2KhrProxy != IntPtr.Zero)
+            return _bindImageMemory2KhrProxy;
 
         var vk = _vulkanInstance.Vk;
 
@@ -120,11 +149,14 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     private T GetDeviceDelegate<T>(string name)
         where T : Delegate
+        => TryGetDeviceDelegate<T>(name)
+           ?? throw new InvalidOperationException($"Vulkan device function '{name}' is unavailable.");
+
+    private T? TryGetDeviceDelegate<T>(string name)
+        where T : Delegate
     {
         IntPtr address = _vulkanInstance.Vk.GetDeviceProcAddr(_vulkanDevice.Device, name);
-        if (address == IntPtr.Zero)
-            throw new InvalidOperationException($"Vulkan device function '{name}' is unavailable.");
-        return Marshal.GetDelegateForFunctionPointer<T>(address);
+        return address == IntPtr.Zero ? null : Marshal.GetDelegateForFunctionPointer<T>(address);
     }
 
     private unsafe Result CreateSkiaImage(
@@ -179,6 +211,56 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
                 return Result.ErrorInitializationFailed;
             }
         }
+        return result;
+    }
+
+    private unsafe Result BindSkiaImageMemory2(
+        Device device,
+        uint bindInfoCount,
+        BindImageMemoryInfo* bindInfos)
+        => BindSkiaImageMemoryBatch(_bindImageMemory2!, device, bindInfoCount, bindInfos);
+
+    private unsafe Result BindSkiaImageMemory2Khr(
+        Device device,
+        uint bindInfoCount,
+        BindImageMemoryInfo* bindInfos)
+        => BindSkiaImageMemoryBatch(_bindImageMemory2Khr!, device, bindInfoCount, bindInfos);
+
+    // vkBindImageMemory2 binds the whole batch or none of it, so initialization follows a successful call
+    // and covers every image in the batch that the single-bind path would have cleared.
+    private unsafe Result BindSkiaImageMemoryBatch(
+        VkBindImageMemory2Delegate bind,
+        Device device,
+        uint bindInfoCount,
+        BindImageMemoryInfo* bindInfos)
+    {
+        Result result = bind(device, bindInfoCount, bindInfos);
+        if (result != Result.Success || bindInfos is null)
+            return result;
+
+        for (uint index = 0; index < bindInfoCount; index++)
+        {
+            Image image = bindInfos[index].Image;
+            ImageCreateInfo createInfo;
+            lock (_skiaImagesLock)
+                _skiaImages.TryGetValue(image.Handle, out createInfo);
+            if (!RequiresTransparentInitialization(createInfo))
+                continue;
+
+            try
+            {
+                ClearSkiaImage(image, createInfo);
+            }
+            catch (Exception ex)
+            {
+                // Never let a managed exception cross the unmanaged Vulkan callback boundary. The bind
+                // already succeeded here, so the batch cannot be undone; reporting the failure makes Skia
+                // discard the allocation rather than draw from memory whose contents were never defined.
+                s_logger.LogError(ex, "Failed to initialize a Skia Vulkan image.");
+                return Result.ErrorInitializationFailed;
+            }
+        }
+
         return result;
     }
 
@@ -260,6 +342,12 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         DeviceMemory memory,
         ulong memoryOffset);
 
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private unsafe delegate Result VkBindImageMemory2Delegate(
+        Device device,
+        uint bindInfoCount,
+        BindImageMemoryInfo* bindInfos);
+
     public GraphicsBackend Backend => GraphicsBackend.Vulkan;
 
     public GRContext SkiaContext => _skiaContext ?? throw new InvalidOperationException(
@@ -272,6 +360,12 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     public PhysicalDevice PhysicalDevice => _vulkanDevice.PhysicalDevice;
 
     public Device Device => _vulkanDevice.Device;
+
+    /// <inheritdoc cref="VulkanDevice.SupportsShaderInt64"/>
+    public bool SupportsShaderInt64 => _vulkanDevice.SupportsShaderInt64;
+
+    /// <inheritdoc cref="VulkanDevice.SupportsShaderFloat64"/>
+    public bool SupportsShaderFloat64 => _vulkanDevice.SupportsShaderFloat64;
 
     public Queue GraphicsQueue => _vulkanDevice.GraphicsQueue;
 
@@ -359,6 +453,41 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         return new VulkanShaderCompiler();
     }
 
+    /// <summary>
+    /// Resolves a caller-supplied backend resource to its concrete type after confirming this context created
+    /// it.
+    /// </summary>
+    /// <remarks>
+    /// A Vulkan handle names nothing outside the device that produced it, and mixing two contexts' framebuffers,
+    /// pipelines, descriptors, or copy operands is undefined behaviour the driver need not report. Rejecting the
+    /// resource here turns that into an argument error before any handle reaches a native call.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="resource"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="resource"/> is not a <typeparamref name="TResource"/>, or belongs to another context.
+    /// </exception>
+    internal TResource RequireOwned<TResource>(object? resource, string parameterName)
+        where TResource : class, IVulkanContextResource
+    {
+        ArgumentNullException.ThrowIfNull(resource, parameterName);
+        if (resource is not TResource owned)
+        {
+            throw new ArgumentException(
+                $"'{resource.GetType().Name}' is not a {typeof(TResource).Name} created by the Vulkan backend.",
+                parameterName);
+        }
+
+        if (!ReferenceEquals(owned.OwnerContext, this))
+        {
+            throw new ArgumentException(
+                $"The {typeof(TResource).Name} was created by a different Vulkan context; its handles are only "
+                + "valid on the device that created it.",
+                parameterName);
+        }
+
+        return owned;
+    }
+
     public IRenderPass3D CreateRenderPass3D(
         IReadOnlyList<TextureFormat> colorFormats,
         TextureFormat? depthFormat,
@@ -385,9 +514,13 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         IReadOnlyList<ITexture2D> colorTextures,
         ITexture2D? depthTexture)
     {
-        var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
-        var vulkanColorTextures = colorTextures.Cast<VulkanTexture2D>().ToList();
-        var vulkanDepthTexture = (VulkanTexture2D?)depthTexture;
+        var vulkanRenderPass = RequireOwned<VulkanRenderPass3D>(renderPass, nameof(renderPass));
+        List<VulkanTexture2D> vulkanColorTextures = colorTextures
+            .Select(texture => RequireOwned<VulkanTexture2D>(texture, nameof(colorTextures)))
+            .ToList();
+        VulkanTexture2D? vulkanDepthTexture = depthTexture is null
+            ? null
+            : RequireOwned<VulkanTexture2D>(depthTexture, nameof(depthTexture));
         return new VulkanFramebuffer3D(this, vulkanRenderPass, vulkanColorTextures, vulkanDepthTexture);
     }
 
@@ -399,7 +532,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         VertexInputDescription vertexInput,
         PipelineOptions? options = null)
     {
-        var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
+        var vulkanRenderPass = RequireOwned<VulkanRenderPass3D>(renderPass, nameof(renderPass));
         var vulkanBindings = descriptorBindings
             .Select(VulkanFlagConverter.ToVulkan)
             .ToArray();
@@ -407,6 +540,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         var pipelineOptions = options ?? PipelineOptions.Default;
         ImmutableArray<SpecializationConstant> specializationConstants =
             ValidateSpecializationConstants(pipelineOptions.SpecializationConstants, nameof(options));
+        ValidateSpecializationConstantPrecision(specializationConstants, nameof(options));
 
         if (!vulkanRenderPass.HasDepthAttachment
             && (pipelineOptions.DepthTestEnabled || pipelineOptions.DepthWriteEnabled))
@@ -483,6 +617,37 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         return constants;
     }
 
+    /// <summary>
+    /// Rejects a 64-bit specialization constant this device cannot specialize with.
+    /// </summary>
+    /// <remarks>
+    /// Reported here rather than left to <c>vkCreateGraphicsPipelines</c>, whose failure names neither the
+    /// constant nor the missing feature.
+    /// </remarks>
+    private void ValidateSpecializationConstantPrecision(
+        ImmutableArray<SpecializationConstant> constants,
+        string parameterName)
+    {
+        foreach (SpecializationConstant constant in constants)
+        {
+            if (constant.RequiresShaderInt64 && !SupportsShaderInt64)
+            {
+                throw new ArgumentException(
+                    $"Specialization constant {constant.ConstantId} is a 64-bit integer, which this Vulkan "
+                    + "device does not support (shaderInt64).",
+                    parameterName);
+            }
+
+            if (constant.RequiresShaderFloat64 && !SupportsShaderFloat64)
+            {
+                throw new ArgumentException(
+                    $"Specialization constant {constant.ConstantId} is a 64-bit float, which this Vulkan "
+                    + "device does not support (shaderFloat64).",
+                    parameterName);
+            }
+        }
+    }
+
     private sealed class TextureAllocationObservationScope(
         Action<TextureFormat> observer,
         TextureAllocationObservationScope? parent) : IDisposable
@@ -508,7 +673,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes)
     {
-        var vulkanPipeline = (VulkanPipeline3D)pipeline;
+        var vulkanPipeline = RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
         var vulkanPoolSizes = poolSizes
             .Select(VulkanFlagConverter.ToVulkan)
             .ToArray();
@@ -526,8 +691,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public unsafe void CopyBuffer(IBuffer source, IBuffer destination, ulong size)
     {
-        var vulkanSource = (VulkanBuffer)source;
-        var vulkanDest = (VulkanBuffer)destination;
+        var vulkanSource = RequireOwned<VulkanBuffer>(source, nameof(source));
+        var vulkanDest = RequireOwned<VulkanBuffer>(destination, nameof(destination));
 
         RecordCommands(cmd =>
         {
@@ -539,8 +704,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public unsafe void CopyTexture(ITexture2D source, ITexture2D destination)
     {
-        var vulkanSource = (VulkanTexture2D)source;
-        var vulkanDest = (VulkanTexture2D)destination;
+        var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
+        var vulkanDest = RequireOwned<VulkanTexture2D>(destination, nameof(destination));
 
         // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
@@ -598,8 +763,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         if (faceIndex < 0 || faceIndex >= 6)
             throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
 
-        var vulkanSource = (VulkanTexture2D)source;
-        var vulkanDest = (VulkanTextureCube)destination;
+        var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
+        var vulkanDest = RequireOwned<VulkanTextureCube>(destination, nameof(destination));
 
         // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
@@ -650,8 +815,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         if (layerIndex < 0 || layerIndex >= (int)destination.ArraySize)
             throw new ArgumentOutOfRangeException(nameof(layerIndex), $"Layer index must be 0-{destination.ArraySize - 1}");
 
-        var vulkanSource = (VulkanTexture2D)source;
-        var vulkanDest = (VulkanTextureArray)destination;
+        var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
+        var vulkanDest = RequireOwned<VulkanTextureArray>(destination, nameof(destination));
 
         // Determine aspect mask based on format
         var aspectMask = source.Format.IsDepthFormat()
@@ -709,8 +874,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         if (faceIndex < 0 || faceIndex >= 6)
             throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
 
-        var vulkanSource = (VulkanTexture2D)source;
-        var vulkanDest = (VulkanTextureCubeArray)destination;
+        var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
+        var vulkanDest = RequireOwned<VulkanTextureCubeArray>(destination, nameof(destination));
 
         // Determine aspect mask based on format
         var aspectMask = source.Format.IsDepthFormat()
@@ -811,14 +976,16 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         _vulkanCommandPool.Flush(waitForCompletion);
     }
 
-    public void BeginRenderPassScope()
+    /// <inheritdoc cref="VulkanCommandPool.BeginRenderPassScope(object)"/>
+    public void BeginRenderPassScope(object owner)
     {
-        _vulkanCommandPool.BeginRenderPassScope();
+        _vulkanCommandPool.BeginRenderPassScope(owner);
     }
 
-    public void EndRenderPassScope()
+    /// <inheritdoc cref="VulkanCommandPool.EndRenderPassScope(object)"/>
+    public void EndRenderPassScope(object owner)
     {
-        _vulkanCommandPool.EndRenderPassScope();
+        _vulkanCommandPool.EndRenderPassScope(owner);
     }
 
     public void DeferRelease(Action release)

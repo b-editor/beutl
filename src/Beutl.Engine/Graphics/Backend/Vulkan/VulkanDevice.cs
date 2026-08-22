@@ -15,6 +15,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
     private readonly Queue _graphicsQueue;
     private readonly uint _graphicsQueueFamilyIndex;
     private readonly string[] _enabledExtensions;
+    private readonly PhysicalDeviceFeatures _enabledFeatures;
     private bool _disposed;
 
     public VulkanDevice(Vk vk, Instance instance, PhysicalDevice physicalDevice)
@@ -25,7 +26,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
         _graphicsQueueFamilyIndex = FindGraphicsQueueFamily();
         _enabledExtensions = GetRequiredDeviceExtensions();
-        _device = CreateDevice(_enabledExtensions);
+        _device = CreateDevice(_enabledExtensions, out _enabledFeatures);
 
         _vk.GetDeviceQueue(_device, _graphicsQueueFamilyIndex, 0, out _graphicsQueue);
 
@@ -48,6 +49,12 @@ internal sealed unsafe class VulkanDevice : IDisposable
     public uint GraphicsQueueFamilyIndex => _graphicsQueueFamilyIndex;
 
     public string[] EnabledExtensions => _enabledExtensions;
+
+    /// <summary>Whether the logical device enabled 64-bit integer arithmetic in shaders.</summary>
+    public bool SupportsShaderInt64 => _enabledFeatures.ShaderInt64;
+
+    /// <summary>Whether the logical device enabled 64-bit floating-point arithmetic in shaders.</summary>
+    public bool SupportsShaderFloat64 => _enabledFeatures.ShaderFloat64;
 
 
     private uint FindGraphicsQueueFamily()
@@ -108,7 +115,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
         return extensions.ToArray();
     }
 
-    private Device CreateDevice(string[] extensions)
+    private Device CreateDevice(string[] extensions, out PhysicalDeviceFeatures enabledFeatures)
     {
         float queuePriority = 1.0f;
         var queueCreateInfo = new DeviceQueueCreateInfo
@@ -119,7 +126,17 @@ internal sealed unsafe class VulkanDevice : IDisposable
             PQueuePriorities = &queuePriority
         };
 
-        var features = new PhysicalDeviceFeatures();
+        // A 64-bit specialization constant, or any shader that declares a 64-bit scalar, needs the matching
+        // feature enabled on the logical device: advertising it on the physical device is not enough, and
+        // pipeline creation fails without it. Requesting only what this device already reports costs nothing.
+        PhysicalDeviceFeatures available;
+        _vk.GetPhysicalDeviceFeatures(_physicalDevice, &available);
+        var features = new PhysicalDeviceFeatures
+        {
+            ShaderInt64 = available.ShaderInt64,
+            ShaderFloat64 = available.ShaderFloat64,
+        };
+        enabledFeatures = features;
 
         var createInfo = new DeviceCreateInfo
         {

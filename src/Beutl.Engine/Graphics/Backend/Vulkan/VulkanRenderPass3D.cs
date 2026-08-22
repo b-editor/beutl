@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="IRenderPass3D"/> with MRT support.
 /// </summary>
-internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
+internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly RenderPass _renderPass;
@@ -19,6 +19,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
     private VulkanPipeline3D? _currentPipeline;
     private bool _inRenderPass;
     private bool _disposed;
+
+    public VulkanContext OwnerContext => _context;
 
     /// <summary>
     /// Creates a render pass with the specified color formats and optional depth format.
@@ -163,12 +165,31 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass already begun");
         }
 
-        var vulkanFramebuffer = (VulkanFramebuffer3D)framebuffer;
+        var vulkanFramebuffer = _context.RequireOwned<VulkanFramebuffer3D>(framebuffer, nameof(framebuffer));
         if (!vulkanFramebuffer.IsCompatibleWith(this))
         {
             throw new ArgumentException("The framebuffer was created for a different render pass.", nameof(framebuffer));
         }
 
+        // Claimed before the first barrier: every pass on this context records into one command buffer, so a
+        // second concurrent pass has to be rejected before it prepares anything, not after.
+        _context.BeginRenderPassScope(this);
+        try
+        {
+            BeginCore(vulkanFramebuffer, clearColors, clearDepth);
+        }
+        catch
+        {
+            _context.EndRenderPassScope(this);
+            throw;
+        }
+    }
+
+    private void BeginCore(
+        VulkanFramebuffer3D vulkanFramebuffer,
+        ReadOnlySpan<Color> clearColors,
+        float clearDepth)
+    {
         // Prepare textures for rendering
         vulkanFramebuffer.PrepareForRendering();
 
@@ -205,13 +226,12 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             RenderArea = new Rect2D
             {
                 Offset = new Offset2D(0, 0),
-                Extent = new Extent2D((uint)framebuffer.Width, (uint)framebuffer.Height)
+                Extent = new Extent2D((uint)vulkanFramebuffer.Width, (uint)vulkanFramebuffer.Height)
             },
             ClearValueCount = (uint)totalClearValues,
             PClearValues = clearValues
         };
 
-        _context.BeginRenderPassScope();
         _context.Vk.CmdBeginRenderPass(_currentCommandBuffer, &renderPassBeginInfo, SubpassContents.Inline);
 
         // Set viewport and scissor
@@ -219,8 +239,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         {
             X = 0,
             Y = 0,
-            Width = framebuffer.Width,
-            Height = framebuffer.Height,
+            Width = vulkanFramebuffer.Width,
+            Height = vulkanFramebuffer.Height,
             MinDepth = 0,
             MaxDepth = 1
         };
@@ -229,7 +249,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         var scissor = new Rect2D
         {
             Offset = new Offset2D(0, 0),
-            Extent = new Extent2D((uint)framebuffer.Width, (uint)framebuffer.Height)
+            Extent = new Extent2D((uint)vulkanFramebuffer.Width, (uint)vulkanFramebuffer.Height)
         };
         _context.Vk.CmdSetScissor(_currentCommandBuffer, 0, 1, &scissor);
 
@@ -246,7 +266,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         }
 
         _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
-        _context.EndRenderPassScope();
+        _context.EndRenderPassScope(this);
 
         _inRenderPass = false;
         _currentPipeline = null;
@@ -268,8 +288,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanPipeline = (VulkanPipeline3D)pipeline;
-        if (!vulkanPipeline.IsCompatibleWith(_renderPass))
+        var vulkanPipeline = _context.RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
+        if (!vulkanPipeline.IsCompatibleWith(this))
         {
             throw new ArgumentException("The pipeline was created for a different render pass.", nameof(pipeline));
         }
@@ -285,7 +305,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanBuffer = (VulkanBuffer)buffer;
+        var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
         var bufferHandle = vulkanBuffer.Handle;
         ulong offset = 0;
         _context.Vk.CmdBindVertexBuffers(_currentCommandBuffer, 0, 1, &bufferHandle, &offset);
@@ -298,7 +318,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanBuffer = (VulkanBuffer)buffer;
+        var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
         _context.Vk.CmdBindIndexBuffer(_currentCommandBuffer, vulkanBuffer.Handle, 0, IndexType.Uint32);
     }
 
@@ -309,8 +329,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanPipeline = (VulkanPipeline3D)pipeline;
-        var vulkanDescriptorSet = (VulkanDescriptorSet)descriptorSet;
+        var vulkanPipeline = _context.RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
+        var vulkanDescriptorSet = _context.RequireOwned<VulkanDescriptorSet>(descriptorSet, nameof(descriptorSet));
         var set = vulkanDescriptorSet.Handle;
         _context.Vk.CmdBindDescriptorSets(
             _currentCommandBuffer,

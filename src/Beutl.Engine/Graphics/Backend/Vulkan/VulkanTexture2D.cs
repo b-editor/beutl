@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="ITexture2D"/>.
 /// </summary>
-internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
+internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture, IVulkanContextResource
 {
     protected readonly VulkanContext _context;
     protected readonly Silk.NET.Vulkan.Image _image;
@@ -18,6 +18,8 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     protected readonly int _height;
     protected readonly TextureFormat _format;
     protected readonly ulong _allocationSize;
+
+    public VulkanContext OwnerContext => _context;
     protected ImageLayout _currentLayout = ImageLayout.Undefined;
     private TextureAccessDomain _accessDomain;
     private bool _hasTransparentContents;

@@ -7,7 +7,7 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="IFramebuffer3D"/> with MRT support.
 /// </summary>
-internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
+internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly VulkanRenderPass3D _renderPass;
@@ -19,6 +19,8 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
     private readonly int _width;
     private readonly int _height;
     private bool _disposed;
+
+    public VulkanContext OwnerContext => _context;
 
     /// <summary>
     /// Creates a framebuffer with the specified color textures and optional depth texture.

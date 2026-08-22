@@ -11,17 +11,20 @@ public readonly record struct SpecializationConstant
 {
     private readonly ulong _valueBits;
     private readonly byte _sizeInBytes;
+    private readonly bool _isFloatingPoint;
 
     private SpecializationConstant(
         uint constantId,
         ShaderStage stages,
         ulong valueBits,
-        byte sizeInBytes)
+        byte sizeInBytes,
+        bool isFloatingPoint = false)
     {
         ConstantId = constantId;
         Stages = stages;
         _valueBits = valueBits;
         _sizeInBytes = sizeInBytes;
+        _isFloatingPoint = isFloatingPoint;
     }
 
     /// <summary>
@@ -61,7 +64,7 @@ public readonly record struct SpecializationConstant
     /// Creates a 32-bit floating-point specialization constant.
     /// </summary>
     public static SpecializationConstant Create(uint constantId, float value, ShaderStage stages)
-        => new(constantId, stages, BitConverter.SingleToUInt32Bits(value), sizeof(float));
+        => new(constantId, stages, BitConverter.SingleToUInt32Bits(value), sizeof(float), isFloatingPoint: true);
 
     /// <summary>
     /// Creates a signed 64-bit integer specialization constant.
@@ -79,7 +82,18 @@ public readonly record struct SpecializationConstant
     /// Creates a 64-bit floating-point specialization constant.
     /// </summary>
     public static SpecializationConstant Create(uint constantId, double value, ShaderStage stages)
-        => new(constantId, stages, unchecked((ulong)BitConverter.DoubleToInt64Bits(value)), sizeof(double));
+        => new(
+            constantId,
+            stages,
+            unchecked((ulong)BitConverter.DoubleToInt64Bits(value)),
+            sizeof(double),
+            isFloatingPoint: true);
+
+    /// <summary>Whether specializing with this value needs the device's 64-bit integer shader feature.</summary>
+    internal bool RequiresShaderInt64 => _sizeInBytes == sizeof(ulong) && !_isFloatingPoint;
+
+    /// <summary>Whether specializing with this value needs the device's 64-bit float shader feature.</summary>
+    internal bool RequiresShaderFloat64 => _sizeInBytes == sizeof(double) && _isFloatingPoint;
 
     /// <summary>
     /// Copies the immutable scalar value to the start of <paramref name="destination"/> in its native binary

@@ -6,13 +6,15 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="IDescriptorSet"/>.
 /// </summary>
-internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
+internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly DescriptorPool _descriptorPool;
     private readonly DescriptorSet _descriptorSet;
     private readonly DescriptorSetLayout _layout;
     private bool _disposed;
+
+    public VulkanContext OwnerContext => _context;
 
     public VulkanDescriptorSet(VulkanContext context, DescriptorSetLayout layout, Silk.NET.Vulkan.DescriptorPoolSize[] poolSizes)
     {
