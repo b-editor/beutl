@@ -26,7 +26,7 @@ public sealed class RendererWideRecordingTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var renderer = new Renderer(8, 8);
+            using var renderer = new Renderer(8, 8, RenderIntent.Preview);
             var frame = new CompositionFrame(
                 ImmutableArray<EngineObject.Resource>.Empty,
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
@@ -58,6 +58,7 @@ public sealed class RendererWideRecordingTests
             using var renderer = new Renderer(
                 width: 8,
                 height: 8,
+                RenderIntent.Preview,
                 renderScale: 1,
                 maxWorkingScale: float.PositiveInfinity,
                 surface: new CpuRenderTarget(8, 8));
@@ -86,6 +87,7 @@ public sealed class RendererWideRecordingTests
         var renderer = new Renderer(
             width: 8,
             height: 8,
+            RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: 1,
             surface: surface);
@@ -121,6 +123,7 @@ public sealed class RendererWideRecordingTests
             renderer = new Renderer(
                 width: 8,
                 height: 8,
+                RenderIntent.Preview,
                 renderScale: 1,
                 maxWorkingScale: 1,
                 surface: surface,
@@ -201,6 +204,7 @@ public sealed class RendererWideRecordingTests
             renderer = new Renderer(
                 width: 8,
                 height: 8,
+                RenderIntent.Preview,
                 renderScale: 1,
                 maxWorkingScale: 1,
                 surface: surface,
@@ -364,6 +368,7 @@ public sealed class RendererWideRecordingTests
         var renderer = new Renderer(
             width: 8,
             height: 8,
+            RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: 1,
             surface: new CpuRenderTarget(8, 8));
@@ -471,7 +476,7 @@ public sealed class RendererWideRecordingTests
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
                 new PixelSize(8, 8),
                 null);
-            using var renderer = new Renderer(8, 8)
+            using var renderer = new Renderer(8, 8, RenderIntent.Preview)
             {
                 CacheOptions = RenderCacheOptions.Disabled,
             };
@@ -527,7 +532,7 @@ public sealed class RendererWideRecordingTests
             null);
         Renderer renderer = VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var result = new Renderer(8, 8);
+            var result = new Renderer(8, 8, RenderIntent.Preview);
             result.Render(frame);
             return result;
         });
@@ -572,7 +577,7 @@ public sealed class RendererWideRecordingTests
             null);
         Renderer renderer = VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var result = new Renderer(8, 8);
+            var result = new Renderer(8, 8, RenderIntent.Preview);
             result.Render(frame);
             return result;
         });
@@ -697,6 +702,7 @@ public sealed class RendererWideRecordingTests
             using var renderer = new Renderer(
                 width: 8,
                 height: 8,
+                RenderIntent.Preview,
                 renderScale: 1,
                 maxWorkingScale: float.PositiveInfinity,
                 surface: new CpuRenderTarget(8, 8))
@@ -775,6 +781,7 @@ public sealed class RendererWideRecordingTests
             using var renderer = new Renderer(
                 width: 8,
                 height: 8,
+                RenderIntent.Preview,
                 renderScale: 1,
                 maxWorkingScale: float.PositiveInfinity,
                 surface: new CpuRenderTarget(8, 8))
@@ -798,6 +805,7 @@ public sealed class RendererWideRecordingTests
         Renderer renderer = RenderThread.Dispatcher.Invoke(() => new Renderer(
             width: 8,
             height: 8,
+            RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: float.PositiveInfinity,
             surface: new CpuRenderTarget(8, 8)));
@@ -821,6 +829,7 @@ public sealed class RendererWideRecordingTests
         var renderer = new Renderer(
             width: 8,
             height: 8,
+            RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: 1,
             surface: surface);
@@ -836,6 +845,7 @@ public sealed class RendererWideRecordingTests
         var renderer = new Renderer(
             width: 8,
             height: 8,
+            RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: 1,
             surface: surface,
@@ -861,6 +871,7 @@ public sealed class RendererWideRecordingTests
         var renderer = new Renderer(
             width: 8,
             height: 8,
+            RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: 1,
             surface: new CpuRenderTarget(8, 8),
@@ -891,6 +902,7 @@ public sealed class RendererWideRecordingTests
         var exception = Assert.Throws<AggregateException>(() => new Renderer(
             width: 8,
             height: 8,
+            RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: 1,
             surface: new CpuRenderTarget(7, 8)));
@@ -903,6 +915,7 @@ public sealed class RendererWideRecordingTests
         Assert.Throws<ArgumentException>(() => new Renderer(
             width: 0,
             height: 8,
+            RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: 1));
     }
@@ -1129,6 +1142,7 @@ public sealed class RendererWideRecordingTests
         : Renderer(
             width: 8,
             height: 8,
+            intent: RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: 1,
             surface: surface,
@@ -1194,6 +1208,7 @@ public sealed class RendererWideRecordingTests
         : Renderer(
             width: 8,
             height: 8,
+            intent: RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: 1,
             surface: new CpuRenderTarget(8, 8))

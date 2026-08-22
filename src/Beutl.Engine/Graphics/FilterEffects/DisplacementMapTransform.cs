@@ -238,9 +238,12 @@ public abstract partial class DisplacementMapTransform : EngineObject
                 new Rect(context.OutputBounds.Size),
                 displacementMap,
                 BlendMode.SrcOver,
+                context.Intent,
+                // A drawable map never reaches this binder: TryApplyLegacyDrawableMap routes it to the
+                // custom-effect path, whose canvas carries the request's materializer.
+                drawableBrushMaterializer: null,
                 context.WorkingScale,
-                context.MaxWorkingScale,
-                context.Intent)
+                context.MaxWorkingScale)
             .CreateShader();
         if (shader is null)
         {

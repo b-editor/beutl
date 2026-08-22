@@ -89,6 +89,7 @@ public sealed class RenderPipelineBenchmarkNodeTests
         prefix.AddChild(source);
         var boundary = new BenchmarkCacheBoundaryNode();
         boundary.AddChild(prefix);
+        boundary.SettleConstruction();
         boundary.Cache.RecordStableRequests();
         var tailEffect = new Blur();
         using FilterEffect.Resource tailResource = tailEffect.ToResource(CompositionContext.Default);

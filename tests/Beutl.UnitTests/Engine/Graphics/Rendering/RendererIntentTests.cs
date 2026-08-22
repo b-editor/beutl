@@ -70,6 +70,7 @@ public sealed class RendererIntentTests
             using var renderer = new Renderer(
                 width: 8,
                 height: 8,
+                RenderIntent.Preview,
                 renderScale: 1,
                 maxWorkingScale: float.PositiveInfinity,
                 surface: new CpuRenderTarget(8, 8));
@@ -87,7 +88,7 @@ public sealed class RendererIntentTests
     public void UndefinedIntent_IsRejectedBeforeAnySurfaceIsCreated()
     {
         ArgumentOutOfRangeException? failure = Assert.Throws<ArgumentOutOfRangeException>(
-            () => new Renderer(8, 8, intent: (RenderIntent)12345));
+            () => new Renderer(8, 8, (RenderIntent)12345));
 
         Assert.That(failure!.ParamName, Is.EqualTo("intent"));
     }
@@ -100,10 +101,10 @@ public sealed class RendererIntentTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new Renderer(
             width: 8,
             height: 8,
+            (RenderIntent)12345,
             renderScale: 1,
             maxWorkingScale: 1,
-            surface: surface,
-            intent: (RenderIntent)12345));
+            surface: surface));
 
         Assert.That(surface.IsDisposed, Is.True);
     }

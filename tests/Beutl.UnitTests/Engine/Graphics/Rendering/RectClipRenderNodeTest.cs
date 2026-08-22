@@ -82,6 +82,7 @@ public class RectClipRenderNodeTest
         using var parent = new ContainerRenderNode();
         var node = new RectClipRenderNode(rect, operation);
         parent.AddChild(node);
+        parent.SettleConstruction();
 
         for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {

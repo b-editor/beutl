@@ -133,6 +133,7 @@ public class RenderNodeCacheHelperTest
         using var containerNode = new ContainerRenderNode();
         var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         containerNode.AddChild(childNode);
+        containerNode.SettleConstruction();
         using var renderer = CreateFrameRenderer(containerNode);
 
         RenderRequests(renderer, RenderNodeCache.StableRequestCount);

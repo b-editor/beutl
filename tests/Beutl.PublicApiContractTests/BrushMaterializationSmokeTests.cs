@@ -133,7 +133,9 @@ public sealed class BrushMaterializationSmokeTests
             var constructor = new BrushConstructor(
                 new Rect(0, 0, 64, 36),
                 firstResource,
-                BlendMode.SrcOver);
+                BlendMode.SrcOver,
+                RenderIntent.Preview,
+                drawableBrushMaterializer: null);
 
             Assert.That(
                 () => constructor.ConfigurePaint(paint),
@@ -163,10 +165,10 @@ public sealed class BrushMaterializationSmokeTests
             (_, _, _) => new MaterializedDrawableBrush(CreateOpaqueImage(20, 12), new Rect(0, 0, 20, 12));
 
         using var withMaterializer = new SKPaint();
-        new BrushConstructor(bounds, brushResource, BlendMode.SrcOver, drawableBrushMaterializer: materializer)
+        new BrushConstructor(bounds, brushResource, BlendMode.SrcOver, RenderIntent.Preview, materializer)
             .ConfigurePaint(withMaterializer);
         using var withoutMaterializer = new SKPaint();
-        new BrushConstructor(bounds, brushResource, BlendMode.SrcOver)
+        new BrushConstructor(bounds, brushResource, BlendMode.SrcOver, RenderIntent.Preview, null)
             .ConfigurePaint(withoutMaterializer);
 
         Assert.Multiple(() =>
@@ -196,7 +198,8 @@ public sealed class BrushMaterializationSmokeTests
                 new Rect(0, 0, 64, 36),
                 brushResource,
                 BlendMode.SrcOver,
-                drawableBrushMaterializer: materializer)
+                RenderIntent.Preview,
+                materializer)
             .ConfigurePaint(paint);
 
         Assert.That(handedOff.Handle, Is.EqualTo(IntPtr.Zero),

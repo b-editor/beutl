@@ -150,7 +150,8 @@ public class MaxWorkingScaleSanitizationTests
     public void BrushConstructor_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
         var ctor = new BrushConstructor(
-            default, brush: null, BlendMode.SrcOver, scale: 1f, maxWorkingScale: maxWorkingScale);
+            default, brush: null, BlendMode.SrcOver, RenderIntent.Preview,
+            drawableBrushMaterializer: null, scale: 1f, maxWorkingScale: maxWorkingScale);
 
         Assert.That(ctor.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
@@ -158,7 +159,9 @@ public class MaxWorkingScaleSanitizationTests
     [Test]
     public void BrushConstructor_FinitePositiveCeiling_PassesThrough()
     {
-        var ctor = new BrushConstructor(default, brush: null, BlendMode.SrcOver, scale: 1f, maxWorkingScale: 3f);
+        var ctor = new BrushConstructor(
+            default, brush: null, BlendMode.SrcOver, RenderIntent.Preview,
+            drawableBrushMaterializer: null, scale: 1f, maxWorkingScale: 3f);
 
         Assert.That(ctor.MaxWorkingScale, Is.EqualTo(3f));
     }

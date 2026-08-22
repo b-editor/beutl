@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Particles;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -70,7 +71,7 @@ public class SubPixelParticlesStayVisibleTests
         element.AddObject(emitter);
         scene.Children.Add(element);
 
-        using var renderer = new SceneRenderer(scene, 1f, false, 2f)
+        using var renderer = new SceneRenderer(scene, RenderIntent.Preview, 1f, false, 2f)
         {
             CacheOptions = RenderCacheOptions.Disabled,
         };

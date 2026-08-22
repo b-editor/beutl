@@ -268,6 +268,7 @@ public sealed class DirectSkiaFilterReplayTests
         using var prefix = new FilterEffectRenderNode(
             CreateBlur(3).ToResource(CompositionContext.Default));
         prefix.AddChild(source);
+        prefix.SettleConstruction();
         prefix.Cache.RecordStableRequests();
 
         Blur tailEffect = CreateBlur(1);

@@ -533,7 +533,7 @@ public sealed class RecordingSideEffectTests
     {
         if (invokedName != "Render"
             || invocation.Expression is not MemberAccessExpressionSyntax member
-            || member.Expression is not InvocationExpressionSyntax getOriginal
+            || Unsuppress(member.Expression) is not InvocationExpressionSyntax getOriginal
             || GetInvokedName(getOriginal) is not "GetOriginal"
             || invocation.ArgumentList.Arguments.Count < 1)
         {
@@ -550,6 +550,16 @@ public sealed class RecordingSideEffectTests
                     .LastOrDefault(static token => token.IsKind(SyntaxKind.IdentifierToken))
                     .ValueText == "GraphicsContext2D") == true;
     }
+
+    // GetOriginal() is nullable, so a call site that knows its resource is attached writes GetOriginal()!,
+    // which wraps the invocation in a suppression before the member access reaches it.
+    private static ExpressionSyntax Unsuppress(ExpressionSyntax expression)
+        => expression is PostfixUnaryExpressionSyntax
+        {
+            RawKind: (int)SyntaxKind.SuppressNullableWarningExpression,
+        } suppression
+            ? Unsuppress(suppression.Operand)
+            : expression;
 
     private static string FindRepositoryRoot()
     {

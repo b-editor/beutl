@@ -35,6 +35,7 @@ public class FrameClearCoverageTests
             using var renderer = new Renderer(
                 width,
                 height,
+                RenderIntent.Preview,
                 outputScale,
                 float.PositiveInfinity,
                 target);

@@ -176,7 +176,7 @@ public class RenderTargetSnapshotTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var renderer = new Renderer(64, 48);
+            using var renderer = new Renderer(64, 48, RenderIntent.Preview);
 
             using Bitmap allocated = renderer.Snapshot();
             using Bitmap reused = NewScratch(allocated.Width, allocated.Height);

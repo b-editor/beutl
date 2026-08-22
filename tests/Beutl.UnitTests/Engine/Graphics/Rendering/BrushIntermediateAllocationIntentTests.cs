@@ -26,8 +26,8 @@ public sealed class BrushIntermediateAllocationIntentTests
     {
         using ImageBrush.Resource brush = CreateImageBrush();
         var constructor = new BrushConstructor(
-            s_bounds, brush, BlendMode.SrcOver, UnallocatableScale,
-            maxWorkingScale: 4f, intent: RenderIntent.Delivery);
+            s_bounds, brush, BlendMode.SrcOver, RenderIntent.Delivery,
+            drawableBrushMaterializer: null, scale: UnallocatableScale, maxWorkingScale: 4f);
 
         Assert.That(
             () => constructor.CreateShader(),
@@ -40,8 +40,9 @@ public sealed class BrushIntermediateAllocationIntentTests
     {
         using ImageBrush.Resource brush = CreateImageBrush();
         var constructor = new BrushConstructor(
-            s_bounds, brush, BlendMode.SrcOver, UnallocatableScale,
-            maxWorkingScale: float.PositiveInfinity, intent: RenderIntent.Preview);
+            s_bounds, brush, BlendMode.SrcOver, RenderIntent.Preview,
+            drawableBrushMaterializer: null, scale: UnallocatableScale,
+            maxWorkingScale: float.PositiveInfinity);
 
         SKShader? shader = null;
         Assert.That(() => shader = constructor.CreateShader(), Throws.Nothing);
@@ -61,9 +62,9 @@ public sealed class BrushIntermediateAllocationIntentTests
             s_bounds,
             brush,
             BlendMode.SrcOver,
-            UnallocatableScale,
+            RenderIntent.Preview,
+            scale: UnallocatableScale,
             maxWorkingScale: float.PositiveInfinity,
-            intent: RenderIntent.Preview,
             drawableBrushMaterializer: (_, contentBounds, _) =>
             {
                 materialized = true;
@@ -97,7 +98,8 @@ public sealed class BrushIntermediateAllocationIntentTests
     public void UndefinedIntent_IsRejected()
     {
         Assert.That(
-            () => new BrushConstructor(s_bounds, brush: null, BlendMode.SrcOver, intent: (RenderIntent)12345),
+            () => new BrushConstructor(
+                s_bounds, brush: null, BlendMode.SrcOver, (RenderIntent)12345, drawableBrushMaterializer: null),
             Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("intent"));
     }
 

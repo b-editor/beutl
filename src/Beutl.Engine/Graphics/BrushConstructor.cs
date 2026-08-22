@@ -10,14 +10,17 @@ using SkiaSharp;
 namespace Beutl.Graphics;
 
 /// <remarks>
-/// A <see cref="DrawableBrush"/> can only be painted when <paramref name="drawableBrushMaterializer"/> is
-/// supplied; <see cref="ImmediateCanvas.CreateBrushConstructor"/> passes the canvas's own materializer, while
-/// a directly constructed instance has to be given one or the drawable fill degrades to transparent.
+/// <paramref name="intent"/> and <paramref name="drawableBrushMaterializer"/> are stated rather than
+/// defaulted because either one left implicit turns a failure into missing pixels: a delivery render that
+/// defaulted to <see cref="RenderIntent.Preview"/> would ship a frame whose fill could not be allocated, and
+/// a <see cref="DrawableBrush"/> without a materializer degrades to transparent.
+/// <see cref="ImmediateCanvas.CreateBrushConstructor"/> passes the canvas's own intent and materializer; a
+/// directly constructed instance names both, passing <see langword="null"/> when it paints no drawable brush.
 /// </remarks>
 public readonly struct BrushConstructor(
-    Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f,
-    float maxWorkingScale = float.PositiveInfinity, RenderIntent intent = RenderIntent.Preview,
-    DrawableBrushMaterializer? drawableBrushMaterializer = null)
+    Rect bounds, Brush.Resource? brush, BlendMode blendMode, RenderIntent intent,
+    DrawableBrushMaterializer? drawableBrushMaterializer, float scale = 1f,
+    float maxWorkingScale = float.PositiveInfinity)
 {
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer = drawableBrushMaterializer;
@@ -36,7 +39,7 @@ public readonly struct BrushConstructor(
         RenderIntent intent,
         DrawableBrushMaterializer? drawableBrushMaterializer,
         RenderTargetLeaseSession? renderTargetLeaseSession)
-        : this(bounds, brush, blendMode, scale, maxWorkingScale, intent, drawableBrushMaterializer)
+        : this(bounds, brush, blendMode, intent, drawableBrushMaterializer, scale, maxWorkingScale)
     {
         _renderTargetLeaseSession = renderTargetLeaseSession;
     }

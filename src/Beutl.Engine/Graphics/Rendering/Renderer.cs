@@ -102,29 +102,39 @@ public class Renderer : IRenderer
         }
     }
 
+    /// <summary>Creates a renderer for one declared purpose.</summary>
+    /// <param name="width">The output width in logical units.</param>
+    /// <param name="height">The output height in logical units.</param>
+    /// <param name="intent">
+    /// What the output is for. This is not a hint: it decides whether an intermediate allocation failure
+    /// drops the contribution or fails the render, so it has no safe default - a delivery host that let it
+    /// default would export a frame missing whatever could not be allocated.
+    /// </param>
+    /// <param name="renderScale">The output scale applied to the logical size.</param>
+    /// <param name="maxWorkingScale">The global upper bound on any intermediate's working density.</param>
     public Renderer(
         int width,
         int height,
+        RenderIntent intent,
         float renderScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity,
-        RenderIntent intent = RenderIntent.Preview)
+        float maxWorkingScale = float.PositiveInfinity)
         : this(
             width,
             height,
+            intent,
             renderScale,
             maxWorkingScale,
-            surface: null,
-            intent: intent)
+            surface: null)
     {
     }
 
     internal Renderer(
         int width,
         int height,
+        RenderIntent intent,
         float renderScale,
         float maxWorkingScale,
         RenderTarget? surface,
-        RenderIntent intent = RenderIntent.Preview,
         Dispatcher? dispatcher = null)
     {
         static void DisposePreservingPrimaryFailure(IDisposable? value)

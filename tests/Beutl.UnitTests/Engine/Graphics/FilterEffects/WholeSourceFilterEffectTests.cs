@@ -287,6 +287,8 @@ public sealed class WholeSourceFilterEffectTests
                 new Rect(0, 0, 3, 2),
                 displacementMap,
                 BlendMode.SrcOver,
+                RenderIntent.Preview,
+                drawableBrushMaterializer: null,
                 scale: 1,
                 maxWorkingScale: 1)
             .CreateShader();

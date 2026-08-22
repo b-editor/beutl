@@ -1,6 +1,7 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -68,7 +69,7 @@ public class NativeBackendWriteSurvivesTargetClearTests
             element.AddObject(rectangle);
             scene.Children.Add(element);
 
-            using var renderer = new SceneRenderer(scene, outputScale, false, outputScale * 2f)
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview, outputScale, false, outputScale * 2f)
             {
                 CacheOptions = RenderCacheOptions.Disabled,
             };

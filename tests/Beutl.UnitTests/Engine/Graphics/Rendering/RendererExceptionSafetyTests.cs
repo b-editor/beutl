@@ -22,7 +22,7 @@ public class RendererExceptionSafetyTests
         var discharged = new List<string>();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var renderer = new Renderer(16, 16);
+            using var renderer = new Renderer(16, 16, RenderIntent.Preview);
             CompositionFrame frame = CreateFrame(
                 discharged,
                 new RecordedOperationSpec("first"),
@@ -43,7 +43,7 @@ public class RendererExceptionSafetyTests
         var discharged = new List<string>();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var renderer = new Renderer(16, 16);
+            using var renderer = new Renderer(16, 16, RenderIntent.Preview);
             CompositionFrame frame = CreateFrame(
                 discharged,
                 new RecordedOperationSpec("first", TrackMetadataDischarge: true),
@@ -68,6 +68,7 @@ public class RendererExceptionSafetyTests
             using var renderer = new Renderer(
                 width: 16,
                 height: 16,
+                RenderIntent.Preview,
                 renderScale: 1,
                 maxWorkingScale: float.PositiveInfinity,
                 surface: new CpuRenderTarget(16, 16));
@@ -109,6 +110,7 @@ public class RendererExceptionSafetyTests
             using var renderer = new Renderer(
                 width: 16,
                 height: 16,
+                RenderIntent.Preview,
                 renderScale: 1,
                 maxWorkingScale: float.PositiveInfinity,
                 surface: new CpuRenderTarget(16, 16));

@@ -261,7 +261,7 @@ public class ProxyVideoLogicalSizeTests
             };
             scene.Children.Add(element);
 
-            using var renderer = new SceneRenderer(scene);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
 
             using Bitmap snapshot = renderer.Snapshot();
@@ -309,7 +309,7 @@ public class ProxyVideoLogicalSizeTests
             };
             scene.Children.Add(element);
 
-            using var renderer = new SceneRenderer(scene);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
 
             using Bitmap snapshot = renderer.Snapshot();
@@ -359,7 +359,7 @@ public class ProxyVideoLogicalSizeTests
             };
             scene.Children.Add(element);
 
-            using var renderer = new SceneRenderer(scene);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
 
             using Bitmap snapshot = renderer.Snapshot();

@@ -72,6 +72,7 @@ public class ReferencedChildRevalidationTests
         => new(
             width: 16,
             height: 16,
+            intent: RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: float.PositiveInfinity,
             surface: new CpuRenderTarget(16, 16));

@@ -415,13 +415,14 @@ public sealed class ComposedSceneRenderCacheTests
         using var cachedRenderer = new Renderer(
             s_frameSize.Width,
             s_frameSize.Height,
+            RenderIntent.Preview,
             renderScale: 1,
             maxWorkingScale: float.PositiveInfinity,
             surface: null)
         {
             CacheOptions = cacheOptions,
         };
-        using var uncachedRenderer = new Renderer(s_frameSize.Width, s_frameSize.Height)
+        using var uncachedRenderer = new Renderer(s_frameSize.Width, s_frameSize.Height, RenderIntent.Preview)
         {
             CacheOptions = RenderCacheOptions.Disabled,
         };
@@ -469,7 +470,7 @@ public sealed class ComposedSceneRenderCacheTests
 
     private static Bitmap RenderComposedFrame(Drawable.Resource resource, bool useRenderCache)
     {
-        using var renderer = new Renderer(s_frameSize.Width, s_frameSize.Height)
+        using var renderer = new Renderer(s_frameSize.Width, s_frameSize.Height, RenderIntent.Preview)
         {
             CacheOptions = useRenderCache
                 ? RenderCacheOptions.Enabled

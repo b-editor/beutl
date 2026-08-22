@@ -31,7 +31,7 @@ public sealed class ExportRendererFactoryTests
     {
         var scene = new Scene(240, 120, "Preview");
 
-        using var renderer = new SceneRenderer(scene, maxWorkingScale: WorkingScaleCeiling.Preview(1f));
+        using var renderer = new SceneRenderer(scene, RenderIntent.Preview, maxWorkingScale: WorkingScaleCeiling.Preview(1f));
 
         Assert.That(renderer.Intent, Is.EqualTo(RenderIntent.Preview));
     }

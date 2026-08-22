@@ -25,11 +25,11 @@ public static class ExportRendererFactory
 
         var renderer = new SceneRenderer(
             scene,
+            RenderIntent.Delivery,
             renderScale,
             disableResourceShare: true,
             maxWorkingScale: WorkingScaleCeiling.Export(),
-            forceOriginalSource: true,
-            intent: RenderIntent.Delivery);
+            forceOriginalSource: true);
         try
         {
             renderer.CacheOptions = RenderCacheOptions.Disabled;
