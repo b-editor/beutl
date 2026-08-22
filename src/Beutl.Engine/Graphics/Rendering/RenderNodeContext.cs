@@ -1026,8 +1026,26 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
             references,
             new TargetLayerScopeRenderFragmentPayload(region),
-            point => references.Any(item => item.HitTest(point)),
+            CreateTargetLayerScopeHitTest(region, references),
             hasDirectSymbolicBoundsDependency: region.Kind == TargetRegionKind.Full);
+    }
+
+    // A finite region bounds what the scope can put on its target the same way it bounds rasterization, so a
+    // point outside it names content this scope cannot render however far an input's geometry reaches. A Full
+    // region has no recording-time extent to test against and defers to its inputs, and an Empty one renders
+    // nothing at all.
+    private static Func<Point, bool> CreateTargetLayerScopeHitTest(
+        TargetRegion region,
+        ImmutableArray<RenderFragmentReference> references)
+    {
+        if (region.Kind == TargetRegionKind.Empty)
+            return static _ => false;
+
+        if (region.Kind != TargetRegionKind.Region)
+            return point => references.Any(item => item.HitTest(point));
+
+        Rect bounds = region.Value;
+        return point => bounds.Contains(point) && references.Any(item => item.HitTest(point));
     }
 
     /// <summary>Records a guarded target scope around one input.</summary>

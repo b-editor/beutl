@@ -70,6 +70,32 @@ public sealed class HitTestDomainAgreementTests
         });
     }
 
+    [Test]
+    public void AFiniteTargetLayerScopeDoesNotHitWhatItsRegionClipsAway()
+    {
+        using var node = new ScopedCommandNode();
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 1f,
+                    TargetDomain = ScopedCommandNode.CommandBounds,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                },
+            });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderer.HitTest(new Point(30, 50)), Is.True, "inside both the command and the region");
+            Assert.That(
+                renderer.HitTest(new Point(150, 50)),
+                Is.False,
+                "inside the command, outside the region the scope can write");
+        });
+    }
+
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
         => new(
             node,
@@ -82,6 +108,24 @@ public sealed class HitTestDomainAgreementTests
                     CacheOptions = RenderCacheOptions.Disabled,
                 },
             });
+
+    private sealed class ScopedCommandNode : RenderNode
+    {
+        internal static readonly Rect CommandBounds = new(0, 0, 200, 100);
+        private static readonly Rect s_scopeRegion = new(0, 0, 60, 100);
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle command = context.TargetCommand(
+                [],
+                TargetCommandDescription.CreateRequestLocal(
+                    static _ => { },
+                    TargetRegion.Region(CommandBounds),
+                    CommandBounds,
+                    RenderHitTestContract.OutputBounds));
+            context.Publish(context.TargetLayerScope([command], TargetRegion.Region(s_scopeRegion)));
+        }
+    }
 
     private sealed class ClippedLayerNode : RenderNode
     {
