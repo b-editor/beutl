@@ -379,7 +379,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             Dispose(false);
         }
 
-        private EngineObject _original = null!;
+        private EngineObject? _original;
 
         public int Version { get; set; }
 
@@ -387,7 +387,13 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         public bool IsDisposed { get; private set; }
 
-        public EngineObject GetOriginal() => _original;
+        /// <summary>The object this resource was built from, or <see langword="null"/> when there is none.</summary>
+        /// <remarks>
+        /// A resource constructed directly instead of through <see cref="EngineObject.ToResource"/> - a
+        /// detached resource - never receives a backing object. Engine code that only needs an
+        /// equality-stable key uses <c>EngineResourceIdentity</c> instead, which handles that case.
+        /// </remarks>
+        public EngineObject? GetOriginal() => _original;
 
         public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {

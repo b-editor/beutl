@@ -177,7 +177,7 @@ public sealed class BitmapSamplingQualityTests
         using var node = new DrawableRenderNode(source);
         using (var context = new GraphicsContext2D(node, frame.ToSize(1), scale))
         {
-            source.GetOriginal().Render(context, source);
+            source.GetOriginal()!.Render(context, source);
         }
 
         using var renderer = new RenderNodeRenderer(

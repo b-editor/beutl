@@ -192,7 +192,7 @@ public static class ObjectTemplatePreviewRenderer
                 using var root = new DrawableRenderNode(resource);
                 using (var context = new GraphicsContext2D(root, availableSize, scale))
                 {
-                    resource.GetOriginal().Render(context, resource);
+                    resource.GetOriginal()!.Render(context, resource);
                 }
 
                 using var renderer = new RenderNodeRenderer(
@@ -222,7 +222,7 @@ public static class ObjectTemplatePreviewRenderer
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, availableSize))
             {
-                resource.GetOriginal().Render(context, resource);
+                resource.GetOriginal()!.Render(context, resource);
             }
 
             try

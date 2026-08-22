@@ -57,7 +57,7 @@ internal sealed partial class ContextCaptureNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            ContextCaptureNode node = GetOriginal();
+            ContextCaptureNode node = GetOriginal()!;
             node.CapturedContexts.Add(new CapturedGraphContext(
                 context.DisableResourceShare,
                 context.PreferProxy,

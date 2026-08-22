@@ -68,7 +68,7 @@ internal sealed partial class RenderRequestExecutor
                 root = new DrawableRenderNode(drawable);
                 using (var graphics = new GraphicsContext2D(root, domain.Size, scale))
                 {
-                    drawable.GetOriginal().Render(graphics, drawable);
+                    drawable.GetOriginal()!.Render(graphics, drawable);
                 }
 
                 var cacheContext = new RenderCacheResolutionContext(

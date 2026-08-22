@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Reflection;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -69,6 +70,42 @@ public sealed class DetachedResourceAuthoringContractTests
         {
             Assert.That(attached.GetOriginal(), Is.SameAs(geometry));
             Assert.That(attached.Bounds, Is.EqualTo(new Rect(0, 0, 10, 10)));
+        }
+    }
+
+    /// <remarks>
+    /// A detached resource is a supported authoring shape, so the accessor that answers "what was this built
+    /// from" has to admit it has no answer. It used to be declared non-null and return null anyway, which
+    /// turned every plugin that trusted the declaration into a NullReferenceException.
+    /// </remarks>
+    [Test]
+    public void ADetachedResource_ReportsNoBackingObject()
+    {
+        using var detached = new PluginGeometry.Resource { Side = 24 };
+
+        EngineObject? original = detached.GetOriginal();
+
+        Assert.That(original, Is.Null);
+    }
+
+    [Test]
+    public void TheBackingObjectAccessor_IsDeclaredNullable()
+    {
+        var context = new NullabilityInfoContext();
+        MethodInfo baseAccessor = typeof(EngineObject.Resource)
+            .GetMethod(nameof(EngineObject.Resource.GetOriginal), Type.EmptyTypes)!;
+        MethodInfo generatedAccessor = typeof(PluginGeometry.Resource)
+            .GetMethod(nameof(PluginGeometry.Resource.GetOriginal), Type.EmptyTypes)!;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                context.Create(baseAccessor.ReturnParameter).ReadState,
+                Is.EqualTo(NullabilityState.Nullable));
+            Assert.That(
+                context.Create(generatedAccessor.ReturnParameter).ReadState,
+                Is.EqualTo(NullabilityState.Nullable),
+                "The generated typed accessor must carry the same admission as the one it hides.");
         }
     }
 

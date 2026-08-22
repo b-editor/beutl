@@ -148,7 +148,7 @@ public sealed class SceneCompositor : ICompositor
             allResources.AddRange(flow.Span);
             foreach (EngineObject.Resource resource in flow.Span)
             {
-                eligibleObjects.Add(resource.GetOriginal());
+                eligibleObjects.Add(resource.GetOriginal()!);
             }
         }
 

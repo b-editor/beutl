@@ -22,7 +22,7 @@ public partial class PreviewNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = GetOriginal()!;
             if (!node._preview.IsEnabled)
                 return;
 

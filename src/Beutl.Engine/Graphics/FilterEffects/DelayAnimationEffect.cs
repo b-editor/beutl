@@ -27,7 +27,7 @@ public partial class DelayAnimationEffect : FilterEffect
         var r = (Resource)resource;
         if (r.Effect == null) return;
 
-        FilterEffect childEffect = r.Effect.GetOriginal();
+        FilterEffect childEffect = r.Effect.GetOriginal()!;
 
         context.CustomEffect(
             (delay: r.Delay, globalTime: r.GlobalTime, childEffect, cache: r.DelayedResources,

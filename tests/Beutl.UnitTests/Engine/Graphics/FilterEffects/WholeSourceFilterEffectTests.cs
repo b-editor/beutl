@@ -159,7 +159,7 @@ public sealed class WholeSourceFilterEffectTests
         var requestedRegion = new Rect(20, 10, 30, 20);
         using FilterEffect.Resource resource = new MosaicEffect().ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(outputBounds);
-        context.ApplyTransactional(resource.GetOriginal(), resource);
+        context.ApplyTransactional(resource.GetOriginal()!, resource);
         ShaderDescription description = ((FEItem_Shader)context.GetOrderedItems().Single()).Description;
         ShaderUniformBinding binding = description.Uniforms.Single(static item => item.Name == "origin");
         SkslUniformDeclaration declaration = description.Source.Uniforms["origin"];

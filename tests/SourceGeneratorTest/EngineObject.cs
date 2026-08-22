@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 using Beutl.Composition;
@@ -26,11 +26,11 @@ public class EngineObject
 
     public class Resource : IDisposable
     {
-        private EngineObject _original = null!;
+        private EngineObject? _original;
 
         public int Version { get; protected set; }
 
-        public EngineObject GetOriginal() => _original;
+        public EngineObject? GetOriginal() => _original;
 
         public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {

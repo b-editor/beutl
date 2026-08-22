@@ -120,7 +120,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
                 matrix *= Graphics.Matrix.CreateTranslation(thickness, thickness);
             }
 
-            Matrix mat = drawable.GetOriginal().GetTransformMatrix(frameSize, size, drawable);
+            Matrix mat = drawable.GetOriginal()!.GetTransformMatrix(frameSize, size, drawable);
             matrix *= mat;
         }
 
@@ -180,7 +180,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
                 point.ToBtlPoint(), geometryShapeResource.Pen);
             if (figure != null)
             {
-                var figContext = context.FindPathFigureContext(figure.GetOriginal());
+                var figContext = context.FindPathFigureContext(figure.GetOriginal()!);
                 if (figContext != null)
                 {
                     StartEdit(figContext);

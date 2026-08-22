@@ -19,7 +19,7 @@ public abstract partial class ConfigureNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = GetOriginal()!;
             var inputs = context.CollectListInputValues(node.InputPort);
 
             UpdateCore(context);

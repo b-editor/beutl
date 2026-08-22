@@ -733,7 +733,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyNestedExecutionOperation();
         using var node = new DrawableRenderNode(drawable);
         using var context = new GraphicsContext2D(node, LogicalSize, _currentDensity);
-        drawable.GetOriginal().Render(context, drawable);
+        drawable.GetOriginal()!.Render(context, drawable);
         using var renderer = new RenderNodeRenderer(
             node,
             new RenderNodeRendererOptions

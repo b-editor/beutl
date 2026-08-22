@@ -420,7 +420,7 @@ public class Renderer : IRenderer
 
     private Entry PrepareDrawable(Drawable.Resource resource)
     {
-        Drawable drawable = resource.GetOriginal();
+        Drawable drawable = resource.GetOriginal()!;
         Entry entry;
         bool shouldRender;
 
@@ -576,7 +576,7 @@ public class Renderer : IRenderer
     {
         _dispatcher.VerifyAccess();
         return [.. _allCurrentEntries
-            .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
+            .Where(e => e.Node.Drawable?.Resource.GetOriginal()!.ZIndex == zIndex)
             .Select(e => e.GetBounds())];
     }
 
@@ -616,7 +616,7 @@ public class Renderer : IRenderer
     {
         _dispatcher.VerifyAccess();
         return [.. _allCurrentEntries
-            .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
+            .Where(e => e.Node.Drawable?.Resource.GetOriginal()!.ZIndex == zIndex)
             .Select(e => e.RecalculateBounds())];
     }
 

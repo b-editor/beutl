@@ -101,7 +101,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         {
             // This only builds the child's RenderNode tree. Pixel execution remains in the parent
             // request after RecordSubtree imports the complete child sequence.
-            drawable.GetOriginal().Render(graphics, drawable);
+            drawable.GetOriginal()!.Render(graphics, drawable);
         }
 
         IReadOnlyList<RenderFragmentHandle> outputs = context.RecordSubtree(root);
