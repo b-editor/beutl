@@ -944,8 +944,10 @@ public sealed class RenderNodeContext
         bounds = hasConcreteInputMetadata
             ? bounds.Intersect(domain)
             : domain;
+        // The layer's own bounds are clipped to the domain above, so a point the domain excludes names
+        // content the layer cannot render however far an input's geometry reaches.
         Func<Point, bool> hitTest = hasConcreteInputMetadata
-            ? point => references.Any(item => item.HitTest(point))
+            ? point => domain.Contains(point) && references.Any(item => item.HitTest(point))
             : domain.Contains;
         return transaction.CreateFragment(
             RenderFragmentKind.Layer,

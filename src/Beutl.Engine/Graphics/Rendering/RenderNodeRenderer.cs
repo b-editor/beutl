@@ -661,10 +661,15 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
         RenderNodeRenderRequest effectiveRequest = ResolveRequest(requestOptions);
-        bool pointInRequestedRegion = effectiveRequest.RequestedRegion is not { } requested
-                                      || (requested.Width > 0
-                                          && requested.Height > 0
-                                          && requested.Contains(point));
+        // Both bound what the request can actually put on screen: a finite TargetDomain clips the resolved
+        // output the same way it clips rasterization, so a point outside either one names content this
+        // request cannot render.
+        bool pointIsRenderable = (effectiveRequest.RequestedRegion is not { } requested
+                                  || (requested.Width > 0
+                                      && requested.Height > 0
+                                      && requested.Contains(point)))
+                                 && (effectiveRequest.TargetDomain is not { } domain
+                                     || domain.Contains(point));
 
         RenderRequest request = CreateRequest(
             RenderRequestPurpose.HitTest,
@@ -681,7 +686,7 @@ public sealed class RenderNodeRenderer : IDisposable
             RecordedRenderGraph graph = recorder.Record(Root);
             var compiler = new RenderRequestCompiler();
             _ = compiler.ResolveMetadata(request, graph);
-            if (pointInRequestedRegion)
+            if (pointIsRenderable)
             {
                 var roots = RenderRequestCompiler.ResolveRoots(graph);
                 for (int index = roots.Length - 1; index >= 0; index--)
