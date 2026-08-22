@@ -1,4 +1,4 @@
-﻿---
+---
 name: beutl-filter-effect
 description: |
   Implementation guide for Beutl's FilterEffect. Use when authoring a new filter effect (blur, color
@@ -254,7 +254,46 @@ Create your own resource files inside the extension project, or pass a literal s
 | Skia image filters (`Blur`, `DropShadow`, `Dilate`, `Erode`); `CustomEffect`; Geometry; 3D; raw canvas access | Not fusable | Forms a fusion boundary. |
 | Sampler/child budget | Portable: 12; Vulkan/Metal: 12 | The implicit `src` sampler consumes one slot; exceeding the cap falls back to a standalone pass. |
 
-Compile the shader in the static constructor and apply it through `CustomEffect`:
+Declare the shader once as a `static readonly ShaderDefinition<TState>` and record a call of it per frame.
+The definition holds the shape — source, uniform and resource bindings — and `.Call(state)` supplies this
+frame's values, so the planner sees a typed fragment it can fuse:
+
+```csharp
+public partial class MosaicEffect : FilterEffect
+{
+    private static readonly ShaderDefinition<Size> s_definition =
+        ShaderDefinition<Size>.WholeSource(
+            """
+            uniform shader src;
+            uniform float2 tileSize;
+
+            half4 main(float2 fragCoord) {
+                float2 blockIndex = floor(fragCoord / tileSize);
+                float2 sampleCoord = blockIndex * tileSize + tileSize * 0.5;
+                return src.eval(sampleCoord);
+            }
+            """,
+            RenderBoundsContract.Identity,
+            static bindings => bindings.Uniform("tileSize", static tileSize => tileSize.ToVector2()));
+
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        context.Shader(s_definition.Call(r.TileSize));
+    }
+}
+```
+
+The definition callback must be pure and non-capturing: its `MethodInfo` is the shader's structural
+identity, so two frames that differ only in `tileSize` reuse one compiled program. If several effects share
+one source, parse it once with `SkslSource.WholeSource(...)` or `SkslSource.CurrentPixel(...)` and pass the
+result to the matching factory instead of the raw string.
+
+### The `CustomEffect` fallback
+
+Reach for this only when the work cannot be expressed declaratively — raw target allocation, sampling
+outside the declared input, or drawing onto the target. It is opaque to the planner and forms a fusion
+boundary. The same mosaic, written the imperative way:
 
 ```csharp
 public partial class MosaicEffect : FilterEffect

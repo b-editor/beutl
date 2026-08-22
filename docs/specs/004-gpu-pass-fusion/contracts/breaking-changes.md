@@ -8,9 +8,9 @@ BREAKING CHANGE: public callback authoring now uses immutable `*Definition<TStat
 
 BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation signal. A node sets it when its pixel-, metadata-, or topology-affecting state changes. No public API accepts caller-supplied cache identity, resource content metadata, or a manual operation fingerprint.
 
-The affected public surface is in `Beutl.Engine`. In-tree consumers in `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and the test/benchmark hosts have already migrated, but out-of-tree render-node, filter-effect, geometry, mesh, renderer, target-factory, and brush-construction code must apply the recipes below.
+The affected public surface is mostly in `Beutl.Engine`, plus `Beutl.ProjectSystem`'s `SceneRenderer`, which now takes its render intent as a required argument. In-tree consumers in `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and the test/benchmark hosts have already migrated, but out-of-tree render-node, filter-effect, geometry, mesh, renderer, target-factory, brush-construction, and graphics-backend code must apply the recipes below. Anything implementing `IGraphicsContext`, `IRenderPass3D`, or the other backend interfaces has to be recompiled even where its own source is unchanged, because those contracts gained members and lost a default.
 
-The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The remaining fourteen each carry their own footer as well: `999ad728f`, `991f49e70`, `ee507067d`, `2974a6073`, `6dfd0f2d3`, `66cd2dc4c`, `7e2d928b5`, `48318a60f`, `70479b19f`, `a619d8046`, `3c33795ab`, `d53b155e8`, `449e71258` and `c8314e40f`, documented in the sections below. All sixteen contain a literal `BREAKING CHANGE:` footer, so no history rewrite is required.
+The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The remaining seventeen each carry their own footer as well: `999ad728f`, `991f49e70`, `ee507067d`, `2974a6073`, `6dfd0f2d3`, `66cd2dc4c`, `7e2d928b5`, `48318a60f`, `70479b19f`, `a619d8046`, `3c33795ab`, `d53b155e8`, `449e71258`, `c8314e40f`, `6857dfa98`, `def8dcb1b` and `66dc0486b`, documented in the sections below. All nineteen contain a literal `BREAKING CHANGE:` footer, so no history rewrite is required. Keep this list and the count current when a new `!` commit lands on the branch; a squash merge takes its footer from the pull request description, not from these messages, so the description is the only place the changelog reads.
 
 `main` is squash-only, so the single commit that lands there is built from the pull request's title and body, not from any of those messages. The footer that reaches changelog tooling is therefore the one in the **pull request description**; a branch full of correctly footed commits does not supply it. Keep a `BREAKING CHANGE:` footer in the description that names `Beutl.Engine` and summarises the migrations below, and update it whenever a new breaking commit is added to the branch.
 
@@ -809,3 +809,53 @@ commit before these three changes and the commit after, 2,217 of 94,862 shots di
 on Windows, with no render errors, no dimension mismatches, no shot blank on one side only, and no
 non-finite pixel on either. Every differing case draws text, particles, or a chroma key; no case without
 one of those moved.
+
+## A detached resource's backing object is nullable
+
+`EngineObject.Resource.GetOriginal()` returned `EngineObject` and initialised its backing field to `null!`.
+A resource built directly rather than through `EngineObject.ToResource` — a detached resource, which the
+public authoring contract supports — never receives one, so the accessor returned `null` under a declaration
+that promised it could not. `EngineResourceIdentity` already handled that null, and any plugin that trusted
+the declaration met a `NullReferenceException` instead of a diagnosable one.
+
+The base accessor and the `GetOriginal()` override the resource source generator emits now return a nullable
+reference. Nothing about the runtime behaviour changed. Under nullable reference types, a caller that only
+ever holds resources produced by `ToResource` states that:
+
+```csharp
+// before
+Drawable drawable = resource.GetOriginal();
+
+// after — the resource came from ToResource, so it is attached
+Drawable drawable = resource.GetOriginal()!;
+```
+
+A caller that may hold a detached resource handles the null it was already able to receive, or keys on
+`EngineResourceIdentity` when it only needs an equality-stable identity.
+
+## A render host states what its output is for
+
+`Renderer`, `SceneRenderer` and `BrushConstructor` took `RenderIntent` as a trailing optional argument
+defaulting to `RenderIntent.Preview`. The intent decides whether an intermediate that cannot be allocated
+fails the render or drops the contribution, so an export host that let it default shipped a frame missing
+whatever could not be allocated, and nothing in the source said so. `BrushConstructor`'s drawable-brush
+materializer had the same shape and the same consequence: without one a `DrawableBrush` fill resolves to
+transparent.
+
+Both are now required, positioned where they cannot be reached by dropping a trailing argument:
+
+```csharp
+// before
+using var renderer = new SceneRenderer(scene, renderScale, maxWorkingScale: ceiling, intent: RenderIntent.Delivery);
+var brush = new BrushConstructor(bounds, resource, BlendMode.SrcOver, scale, maxWorkingScale);
+
+// after
+using var renderer = new SceneRenderer(scene, RenderIntent.Delivery, renderScale, maxWorkingScale: ceiling);
+var brush = new BrushConstructor(
+    bounds, resource, BlendMode.SrcOver, RenderIntent.Preview, drawableBrushMaterializer: null,
+    scale, maxWorkingScale);
+```
+
+A call that previously relied on the default was rendering as a preview, so `RenderIntent.Preview` preserves
+its behaviour exactly; an export host that meant delivery was already degrading silently and should pass
+`RenderIntent.Delivery`. Pass `null` for the materializer when the brush is never a `DrawableBrush`.

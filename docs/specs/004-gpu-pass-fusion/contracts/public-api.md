@@ -243,6 +243,8 @@ Use `ShaderDefinition<TState>.CurrentPixel` for a `half4 apply(half4 color)` sta
 
 A whole-source stage that enlarges what it samples also declares `inputDemand`: a `RenderInputDemandContract` mapping the stage's resolved output demand to the demand it places on `src`. Without it the output demand reaches `src` unchanged, so an unbounded or vector source asked for 1x output rasterizes at 1x and is then stretched. The default leaves demand unchanged, which is correct only for a stage that samples at the density its own consumer asked for.
 
+Several definitions over one source can share its parsed form: `SkslSource.CurrentPixel(source)` and `SkslSource.WholeSource(source)` validate the text once, and the matching `ShaderDefinition<TState>` factories accept the result in place of a raw string. The parsed source is immutable and carries its `Kind` and `IdentityHash`; passing one of the wrong kind is rejected where the definition is declared.
+
 `GeometryDefinition<TState>.Create(render, bounds, hitTest, requiresReadback, resources)` follows the same model and produces `GeometryCall<TState>` for `RenderNodeContext.Geometry`. Geometry callbacks lease declared tokens through slots.
 
 `FilterEffectContext` accepts the same public calls:
@@ -276,6 +278,8 @@ Definitions use `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleCon
 ## Cache and failure rules
 
 The renderer controls retained output and resource lifetime. An author invalidates node content only by setting `HasChanges`; no context method opts a recording out of reuse and no token carries public content metadata. Raw target work remains request-local by definition.
+
+`ContainerRenderNode` sets `HasChanges` itself when its children change — `AddChild`, `RemoveChild`, `RemoveRange`, `SetChild`, and `BringFrom` — because replacing a child changes what the container composes and the container's own state does not otherwise record it. `SetChild` with the child already at that index is a no-op. A container assembled and then rendered is therefore dirty on its first frame, which is one frame before its cache can warm.
 
 *Amended.* The reuse opt-out this contract withheld was reinstated during implementation: `RenderNodeContext.DisableRenderCache()` monotonically removes the current transaction from persistent caching, and `IsRenderCacheEnabled` reports that state. It was published because a node that records a child it cannot list in `ChildNodes` has no other way to stay correct — the cache cannot observe a change reported only by that unlisted child. It is not a second invalidation signal: `HasChanges` remains the only way to invalidate a cached node. The migration is in [breaking-changes.md](breaking-changes.md), which carries the current contract. The rest of the paragraph is unchanged: no token carries public content metadata, and raw target work stays request-local.
 
