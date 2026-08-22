@@ -18,6 +18,7 @@ internal sealed class ShaderDescription
         SkslSource parsed,
         SpirvShaderLowering? spirvLowering,
         RenderBoundsContract bounds,
+        RenderInputDemandContract inputDemand,
         Action<ShaderBindingBuilder>? bindings,
         SKShaderTileMode sourceTileMode)
     {
@@ -28,6 +29,7 @@ internal sealed class ShaderDescription
         Kind = kind;
         Source = parsed;
         Bounds = bounds;
+        InputDemand = inputDemand;
         Uniforms = new ReadOnlyCollection<ShaderUniformBinding>(builder.Uniforms.ToArray());
         Resources = new ReadOnlyCollection<ShaderResourceBinding>(builder.Resources.ToArray());
         SourceTileMode = sourceTileMode;
@@ -38,6 +40,7 @@ internal sealed class ShaderDescription
             parsed.Text,
             spirvLowering?.StructuralIdentity,
             bounds.StructuralIdentity,
+            inputDemand.StructuralIdentity,
             sourceTileMode,
             Uniforms.Select(static item => new ShaderBindingStructuralIdentity(item.Name, item.DefinitionFingerprint)).ToArray(),
             Resources.Select(static item => new ShaderResourceStructuralIdentity(
@@ -56,6 +59,13 @@ internal sealed class ShaderDescription
     /// <summary>Gets the pure mapping from complete input bounds to complete output bounds.</summary>
     /// <remarks><see cref="CurrentPixel"/> descriptions always use <see cref="RenderBoundsContract.Identity"/>.</remarks>
     public RenderBoundsContract Bounds { get; }
+
+    /// <summary>Gets the mapping from this stage's resolved output demand to the demand on its input.</summary>
+    /// <remarks>
+    /// <see cref="CurrentPixel"/> descriptions always leave demand unchanged; they consume one resolved pixel
+    /// value and never resample.
+    /// </remarks>
+    public RenderInputDemandContract InputDemand { get; }
 
     /// <summary>Gets the non-null immutable uniform bindings in declaration order.</summary>
     public IReadOnlyList<ShaderUniformBinding> Uniforms { get; }
@@ -128,6 +138,7 @@ internal sealed class ShaderDescription
             source,
             spirvLowering: null,
             RenderBoundsContract.Identity,
+            RenderInputDemandContract.Unchanged,
             bindings,
             SKShaderTileMode.Decal);
     }
@@ -147,6 +158,7 @@ internal sealed class ShaderDescription
             source,
             spirvLowering,
             RenderBoundsContract.Identity,
+            RenderInputDemandContract.Unchanged,
             bindings,
             SKShaderTileMode.Decal);
     }
@@ -181,7 +193,8 @@ internal sealed class ShaderDescription
         string source,
         RenderBoundsContract bounds,
         Action<ShaderBindingBuilder>? bindings = null,
-        SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal)
+        SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal,
+        RenderInputDemandContract inputDemand = default)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
         if (!Enum.IsDefined(sourceTileMode))
@@ -192,6 +205,7 @@ internal sealed class ShaderDescription
             new SkslSource(source, ShaderDescriptionKind.WholeSource),
             spirvLowering: null,
             bounds,
+            inputDemand,
             bindings,
             sourceTileMode);
     }
@@ -200,7 +214,8 @@ internal sealed class ShaderDescription
         SkslSource source,
         RenderBoundsContract bounds,
         Action<ShaderBindingBuilder>? bindings,
-        SKShaderTileMode sourceTileMode)
+        SKShaderTileMode sourceTileMode,
+        RenderInputDemandContract inputDemand = default)
     {
         if (source.Kind != ShaderDescriptionKind.WholeSource)
             throw new ArgumentException("The parsed source is not a WholeSource source.", nameof(source));
@@ -213,6 +228,7 @@ internal sealed class ShaderDescription
             source,
             spirvLowering: null,
             bounds,
+            inputDemand,
             bindings,
             sourceTileMode);
     }
@@ -286,6 +302,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
     string source,
     object? spirvLowering,
     object bounds,
+    object inputDemand,
     SKShaderTileMode tileMode,
     ShaderBindingStructuralIdentity[] uniforms,
     ShaderResourceStructuralIdentity[] resources)
@@ -297,6 +314,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
            && source == other.Source
            && Equals(spirvLowering, other.SpirvLowering)
            && Equals(bounds, other.Bounds)
+           && Equals(inputDemand, other.InputDemand)
            && tileMode == other.TileMode
            && uniforms.AsSpan().SequenceEqual(other.Uniforms)
            && resources.AsSpan().SequenceEqual(other.Resources);
@@ -310,6 +328,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
         hash.Add(source, StringComparer.Ordinal);
         hash.Add(spirvLowering);
         hash.Add(bounds);
+        hash.Add(inputDemand);
         hash.Add(tileMode);
         foreach (ShaderBindingStructuralIdentity item in uniforms)
             hash.Add(item);
@@ -322,6 +341,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
     private string Source => source;
     private object? SpirvLowering => spirvLowering;
     private object Bounds => bounds;
+    private object InputDemand => inputDemand;
     private SKShaderTileMode TileMode => tileMode;
     private ShaderBindingStructuralIdentity[] Uniforms => uniforms;
     private ShaderResourceStructuralIdentity[] Resources => resources;

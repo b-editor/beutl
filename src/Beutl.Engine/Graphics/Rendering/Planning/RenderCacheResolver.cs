@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
@@ -618,6 +619,16 @@ internal static class RenderMaterializationDemandResolver
                     maxWorkingScale);
                 EnqueueInputs(fragment, inputDemand, DemandUse.MaterializeValue, pending);
                 return;
+            case RenderFragmentKind.Shader:
+                ShaderDescription shader =
+                    ((ShaderRenderFragmentPayload)fragment.Payload!).Description;
+                EnqueueInputs(
+                    fragment,
+                    ResolveMappedInputDemand(shader.InputDemand, valueDemand, maxWorkingScale),
+                    DemandUse.MaterializeValue,
+                    pending,
+                    IsEffectClassConsumer(fragment));
+                return;
             case RenderFragmentKind.MaterializedInput:
             case RenderFragmentKind.TargetCapture:
             case RenderFragmentKind.BuiltInBackdropCapture:
@@ -652,11 +663,23 @@ internal static class RenderMaterializationDemandResolver
     }
 
     private static float ResolveMappedInputDemand(
+        RenderInputDemandContract inputDemand,
+        float outputDemand,
+        float maxWorkingScale)
+        => BoundMappedInputDemand(
+            inputDemand.Resolve(EffectiveScale.At(outputDemand)).Value,
+            maxWorkingScale);
+
+    private static float ResolveMappedInputDemand(
         RenderScaleContract scale,
         float outputDemand,
         float maxWorkingScale)
+        => BoundMappedInputDemand(
+            scale.MapOutputDemandToInput(EffectiveScale.At(outputDemand)).Value,
+            maxWorkingScale);
+
+    private static float BoundMappedInputDemand(float mapped, float maxWorkingScale)
     {
-        float mapped = scale.MapOutputDemandToInput(EffectiveScale.At(outputDemand)).Value;
         // Cap amplification at the request ceiling before another map can observe it. The pending
         // input's ResolveDemand pass applies its own logical-bounds buffer budget if it materializes.
         return MathF.Min(

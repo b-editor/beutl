@@ -17,6 +17,7 @@ public sealed class ShaderDefinition<TState>
     private readonly ShaderDescriptionKind _kind;
     private readonly SkslSource _source;
     private readonly RenderBoundsContract _bounds;
+    private readonly RenderInputDemandContract _inputDemand;
     private readonly SKShaderTileMode _sourceTileMode;
     private readonly IReadOnlyList<ShaderBindingTemplate<TState>> _bindings;
     private readonly IReadOnlyList<RenderResourceSlot> _resourceSlots;
@@ -25,6 +26,7 @@ public sealed class ShaderDefinition<TState>
         ShaderDescriptionKind kind,
         SkslSource source,
         RenderBoundsContract bounds,
+        RenderInputDemandContract inputDemand,
         SKShaderTileMode sourceTileMode,
         Action<ShaderDefinitionBuilder<TState>>? bindings)
     {
@@ -35,6 +37,7 @@ public sealed class ShaderDefinition<TState>
         _kind = kind;
         _source = source;
         _bounds = bounds;
+        _inputDemand = inputDemand;
         _sourceTileMode = sourceTileMode;
         _bindings = builder.Templates.ToArray();
         _resourceSlots = RenderDescriptionValidation.CopyResourceSlots(builder.ResourceSlots, nameof(bindings));
@@ -50,6 +53,7 @@ public sealed class ShaderDefinition<TState>
             ShaderDescriptionKind.CurrentPixel,
             new SkslSource(source, ShaderDescriptionKind.CurrentPixel),
             RenderBoundsContract.Identity,
+            RenderInputDemandContract.Unchanged,
             SKShaderTileMode.Decal,
             bindings);
 
@@ -65,6 +69,7 @@ public sealed class ShaderDefinition<TState>
             ShaderDescriptionKind.CurrentPixel,
             source,
             RenderBoundsContract.Identity,
+            RenderInputDemandContract.Unchanged,
             SKShaderTileMode.Decal,
             bindings);
     }
@@ -77,11 +82,17 @@ public sealed class ShaderDefinition<TState>
     /// <param name="bounds">The fixed pure mapping from complete input to complete output bounds.</param>
     /// <param name="bindings">The fixed uniform and resource binding shape, or <see langword="null"/> for none.</param>
     /// <param name="sourceTileMode">The fixed sampling mode outside the implicit source bounds.</param>
+    /// <param name="inputDemand">
+    /// The fixed mapping from this stage's resolved output demand to the demand it places on <c>src</c>.
+    /// A stage that enlarges what it samples must declare it; the default leaves demand unchanged, which is
+    /// only correct for a stage that samples <c>src</c> at the density its own consumer asked for.
+    /// </param>
     public static ShaderDefinition<TState> WholeSource(
         string source,
         RenderBoundsContract bounds,
         Action<ShaderDefinitionBuilder<TState>>? bindings = null,
-        SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal)
+        SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal,
+        RenderInputDemandContract inputDemand = default)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
         if (!Enum.IsDefined(sourceTileMode))
@@ -91,6 +102,7 @@ public sealed class ShaderDefinition<TState>
             ShaderDescriptionKind.WholeSource,
             new SkslSource(source, ShaderDescriptionKind.WholeSource),
             bounds,
+            inputDemand,
             sourceTileMode,
             bindings);
     }
@@ -99,7 +111,8 @@ public sealed class ShaderDefinition<TState>
         SkslSource source,
         RenderBoundsContract bounds,
         Action<ShaderDefinitionBuilder<TState>>? bindings = null,
-        SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal)
+        SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal,
+        RenderInputDemandContract inputDemand = default)
     {
         ArgumentNullException.ThrowIfNull(source);
         if (source.Kind != ShaderDescriptionKind.WholeSource)
@@ -112,6 +125,7 @@ public sealed class ShaderDefinition<TState>
             ShaderDescriptionKind.WholeSource,
             source,
             bounds,
+            inputDemand,
             sourceTileMode,
             bindings);
     }
@@ -137,7 +151,7 @@ public sealed class ShaderDefinition<TState>
 
         return _kind == ShaderDescriptionKind.CurrentPixel
             ? ShaderDescription.CurrentPixel(_source, apply)
-            : ShaderDescription.WholeSource(_source, _bounds, apply, _sourceTileMode);
+            : ShaderDescription.WholeSource(_source, _bounds, apply, _sourceTileMode, _inputDemand);
     }
 
     private static void ValidateBindings(

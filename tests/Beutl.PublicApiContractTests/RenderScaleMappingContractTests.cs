@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
@@ -68,6 +69,38 @@ public sealed class RenderScaleMappingContractTests
     {
         var probe = new MaterializationDensityProbe();
         using var node = new EnlargingMapNode(probe, mapsOutputDemand: false);
+        using var renderer = CreateRenderer(node);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(probe.ObservedWorkingScale, Is.EqualTo(1f));
+        });
+    }
+
+    [Test]
+    public void AWholeSourceShaderCanRaiseTheDemandOnTheInputItEnlarges()
+    {
+        var probe = new MaterializationDensityProbe();
+        using var node = new EnlargingShaderNode(probe, mapsOutputDemand: true);
+        using var renderer = CreateRenderer(node);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(probe.ObservedWorkingScale, Is.EqualTo(2f));
+        });
+    }
+
+    [Test]
+    public void AWholeSourceShaderThatDeclaresNoDemandMappingPassesItThroughUnchanged()
+    {
+        var probe = new MaterializationDensityProbe();
+        using var node = new EnlargingShaderNode(probe, mapsOutputDemand: false);
         using var renderer = CreateRenderer(node);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -184,6 +217,49 @@ public sealed class RenderScaleMappingContractTests
             => inputSupply.IsUnbounded
                 ? EffectiveScale.Unbounded
                 : EffectiveScale.At(inputSupply.Value / 2);
+
+        private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
+            => EffectiveScale.At(outputDemand.Value * 2);
+    }
+
+    private sealed class EnlargingShaderNode(
+        MaterializationDensityProbe probe,
+        bool mapsOutputDemand) : RenderNode
+    {
+        private const string EnlargingSource =
+            "uniform shader src; half4 main(float2 coord) { return src.eval(coord * 0.5); }";
+
+        private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
+
+        private static readonly ShaderDefinition<byte> s_mapsDemand =
+            ShaderDefinition<byte>.WholeSource(
+                EnlargingSource,
+                RenderBoundsContract.Create(Enlarge, Shrink),
+                inputDemand: RenderInputDemandContract.MapOutputDemandToInput(DoubleDemand));
+
+        private static readonly ShaderDefinition<byte> s_leavesDemandUnchanged =
+            ShaderDefinition<byte>.WholeSource(
+                EnlargingSource,
+                RenderBoundsContract.Create(Enlarge, Shrink));
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle source = context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
+                probe,
+                static (session, state) => state.Execute(session),
+                bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
+                hitTest: RenderHitTestContract.OutputBounds,
+                valueCardinality: RenderValueCardinality.Single,
+                scale: RenderScaleContract.Vector));
+            ShaderDefinition<byte> definition = mapsOutputDemand ? s_mapsDemand : s_leavesDemandUnchanged;
+            context.Publish(context.Shader(source, definition.Call(0)));
+        }
+
+        private static Rect Enlarge(Rect inputBounds)
+            => new(inputBounds.X * 2, inputBounds.Y * 2, inputBounds.Width * 2, inputBounds.Height * 2);
+
+        private static Rect Shrink(Rect outputBounds)
+            => new(outputBounds.X / 2, outputBounds.Y / 2, outputBounds.Width / 2, outputBounds.Height / 2);
 
         private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
             => EffectiveScale.At(outputDemand.Value * 2);

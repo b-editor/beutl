@@ -1,0 +1,69 @@
+﻿namespace Beutl.Graphics.Rendering;
+
+/// <summary>
+/// Declares how a one-input operation carries a resolved output demand back to its input.
+/// </summary>
+/// <remarks>
+/// Demand travels the opposite way from supply: a consumer asks for a density, and every operation between
+/// it and a source decides what density that source has to produce. An operation that resamples its input —
+/// a shader that enlarges what it samples, for instance — needs its input at a different density than it is
+/// itself asked for, and only the operation knows the factor. Leaving demand unchanged is correct for an
+/// operation that consumes its input at the density its own consumer asked for; for one that enlarges, it
+/// lets an unbounded or vector input rasterize below the density the enlargement consumes, and the result is
+/// blurred by exactly the enlargement factor. <see langword="default"/> is <see cref="Unchanged"/>.
+/// </remarks>
+public readonly struct RenderInputDemandContract
+{
+    private readonly Func<EffectiveScale, EffectiveScale>? _map;
+    private readonly object? _structuralIdentity;
+
+    private RenderInputDemandContract(
+        Func<EffectiveScale, EffectiveScale> map,
+        object structuralIdentity)
+    {
+        _map = map;
+        _structuralIdentity = structuralIdentity;
+    }
+
+    /// <summary>Gets the contract that passes a resolved output demand to the input untouched.</summary>
+    public static RenderInputDemandContract Unchanged => default;
+
+    /// <summary>
+    /// Creates a contract that maps a resolved output demand to the input demand that satisfies it.
+    /// </summary>
+    /// <param name="map">
+    /// A pure metadata callback that maps a concrete output demand to the concrete input demand. It must
+    /// return a finite positive density; the engine bounds the result by the request ceiling. It may be
+    /// evaluated again during graph-wide metadata resolution, so it must remain deterministic and
+    /// side-effect-free.
+    /// </param>
+    /// <returns>A declarative backward-demand mapping contract.</returns>
+    public static RenderInputDemandContract MapOutputDemandToInput(
+        Func<EffectiveScale, EffectiveScale> map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
+        return new RenderInputDemandContract(map, map.Method);
+    }
+
+    internal bool IsUnchanged => _map is null;
+
+    internal object StructuralIdentity => _structuralIdentity ?? nameof(Unchanged);
+
+    internal EffectiveScale Resolve(EffectiveScale outputDemand)
+    {
+        if (outputDemand.IsUnbounded)
+            throw new ArgumentException("Output demand must be concrete.", nameof(outputDemand));
+        if (_map is null)
+            return outputDemand;
+
+        EffectiveScale mapped = _map(outputDemand);
+        if (mapped.IsUnbounded)
+        {
+            throw new InvalidOperationException(
+                "An output-demand mapping must return a concrete positive density.");
+        }
+
+        return EffectiveScale.At(mapped.Value);
+    }
+}
