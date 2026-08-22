@@ -487,7 +487,11 @@ public sealed class RenderNodeContext
             scale = EffectiveScale.At(workingScale);
         }
 
-        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, bounds, [reference]);
+        Func<Point, bool> hitTest = CreateHitTest(
+            description.HitTest,
+            bounds,
+            [reference],
+            description.Resources);
         RenderValueCardinality cardinality = RenderValueCardinality.Range(
             minimum: 0,
             maximum: reference.ValueCardinality.Maximum);
@@ -598,7 +602,7 @@ public sealed class RenderNodeContext
 
         Rect bounds = description.Bounds.TransformBounds([]);
         EffectiveScale scale = description.Scale.Resolve([], bounds, OutputScale, MaxWorkingScale);
-        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, bounds, []);
+        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, bounds, [], description.Resources);
         return GetTransaction().CreateFragment(
             RenderFragmentKind.OpaqueSource,
             bounds,
@@ -650,7 +654,11 @@ public sealed class RenderNodeContext
         RenderValueCardinality cardinality = description.ValueCardinality.Equals(RenderValueCardinality.Single)
             ? reference.ValueCardinality
             : RenderValueCardinality.Range(0, reference.ValueCardinality.Maximum);
-        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, bounds, [reference]);
+        Func<Point, bool> hitTest = CreateHitTest(
+            description.HitTest,
+            bounds,
+            [reference],
+            description.Resources);
         return transaction.CreateFragment(
             RenderFragmentKind.OpaqueMap,
             bounds,
@@ -799,7 +807,7 @@ public sealed class RenderNodeContext
     {
         ArgumentNullException.ThrowIfNull(description);
         ValidateDescriptionResources([description.Target], nameof(description));
-        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, description.Bounds, []);
+        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, description.Bounds, [], []);
         return GetTransaction().CreateFragment(
             RenderFragmentKind.MaterializedInput,
             description.Bounds,
@@ -830,7 +838,7 @@ public sealed class RenderNodeContext
                 description.Bounds,
                 OutputScale,
                 MaxWorkingScale);
-        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, description.Bounds, []);
+        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, description.Bounds, [], []);
         return GetTransaction().CreateFragment(
             RenderFragmentKind.TargetCapture,
             description.Bounds,
@@ -1080,7 +1088,8 @@ public sealed class RenderNodeContext
         Func<Point, bool> hitTest = CreateHitTest(
             description.HitTest,
             description.QueryBounds,
-            []);
+            [],
+            description.Resources);
         return GetTransaction().CreateFragment(
             RenderFragmentKind.RawTargetCommand,
             description.QueryBounds,
@@ -1131,7 +1140,8 @@ public sealed class RenderNodeContext
         Func<Point, bool> hitTest = CreateHitTest(
             description.HitTest,
             description.QueryBounds,
-            references);
+            references,
+            description.Resources);
         return transaction.CreateFragment(
             RenderFragmentKind.TargetCommand,
             description.QueryBounds,
@@ -1373,7 +1383,11 @@ public sealed class RenderNodeContext
             bounds,
             OutputScale,
             MaxWorkingScale);
-        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, bounds, references);
+        Func<Point, bool> hitTest = CreateHitTest(
+            description.HitTest,
+            bounds,
+            references,
+            description.Resources);
         return transaction.CreateFragment(
             topology == OpaqueRenderTopology.Combine
                 ? RenderFragmentKind.OpaqueCombine
@@ -1427,7 +1441,7 @@ public sealed class RenderNodeContext
             bounds,
             OutputScale,
             MaxWorkingScale);
-        Func<Point, bool> hitTest = CreateHitTest(hitTestContract, bounds, [reference]);
+        Func<Point, bool> hitTest = CreateHitTest(hitTestContract, bounds, [reference], resourceBindings);
         bool isValueReplayMap = !raw
             && ((TargetScopeDescription)description).IsValueReplayMap;
         return transaction.CreateFragment(
@@ -1477,12 +1491,13 @@ public sealed class RenderNodeContext
     private static Func<Point, bool> CreateHitTest(
         RenderHitTestContract contract,
         Rect outputBounds,
-        IReadOnlyList<RenderFragmentReference> inputs)
+        IReadOnlyList<RenderFragmentReference> inputs,
+        IReadOnlyList<RenderResourceBinding> resources)
     {
         RenderHitTestInput[] views = inputs
             .Select(static item => new RenderHitTestInput(item.Bounds, item.HitTest))
             .ToArray();
-        return point => contract.Evaluate(outputBounds, views, point);
+        return point => contract.Evaluate(outputBounds, views, resources, point);
     }
 
     private static Rect CalculateReferenceBounds(

@@ -77,14 +77,14 @@ public sealed class RenderDescriptionAndExecutionContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(RenderHitTestContract.None.Evaluate(output, inputs, new Point(12, 24)), Is.False);
-            Assert.That(RenderHitTestContract.OutputBounds.Evaluate(output, inputs, new Point(12, 24)), Is.True);
-            Assert.That(RenderHitTestContract.OutputBounds.Evaluate(output, inputs, new Point(1, 1)), Is.False);
-            Assert.That(RenderHitTestContract.AnyInput.Evaluate(output, inputs, new Point(2, 3)), Is.True);
-            Assert.That(custom.Evaluate(output, inputs, new Point(12, 24)), Is.True);
+            Assert.That(RenderHitTestContract.None.Evaluate(output, inputs, [], new Point(12, 24)), Is.False);
+            Assert.That(RenderHitTestContract.OutputBounds.Evaluate(output, inputs, [], new Point(12, 24)), Is.True);
+            Assert.That(RenderHitTestContract.OutputBounds.Evaluate(output, inputs, [], new Point(1, 1)), Is.False);
+            Assert.That(RenderHitTestContract.AnyInput.Evaluate(output, inputs, [], new Point(2, 3)), Is.True);
+            Assert.That(custom.Evaluate(output, inputs, [], new Point(12, 24)), Is.True);
             Assert.That(inputs[0].Bounds, Is.EqualTo(new Rect(0, 0, 5, 5)));
             Assert.That(inputs[0].HitTest(new Point(2, 3)), Is.True);
-            Assert.That(() => default(RenderHitTestContract).Evaluate(output, inputs, default),
+            Assert.That(() => default(RenderHitTestContract).Evaluate(output, inputs, [], default),
                 Throws.TypeOf<InvalidOperationException>());
         });
     }

@@ -708,6 +708,52 @@ public readonly struct RenderHitTestContract
         return new RenderHitTestContract(hitTest, hitTest.Method);
     }
 
+    /// <summary>
+    /// Creates a hit test that reads the resource a call bound to <paramref name="slot"/>.
+    /// </summary>
+    /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
+    /// <param name="slot">A slot the owning definition declares.</param>
+    /// <param name="hitTest">
+    /// The pure test, given the bound resource. It must not capture a resource of its own; the slot is
+    /// resolved against the bindings of the call being tested, so one definition can be reused across
+    /// recordings that bind different resources.
+    /// </param>
+    public static RenderHitTestContract FromSlot<T>(
+        RenderResourceSlot<T> slot,
+        Func<T, Point, bool> hitTest)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+        ArgumentNullException.ThrowIfNull(hitTest);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
+        return new RenderHitTestContract(
+            (context, point) => context.UseResource(slot, value => hitTest(value, point)),
+            hitTest.Method);
+    }
+
+    /// <summary>
+    /// Creates a hit test that reads the resource a call bound to <paramref name="slot"/> and also
+    /// consults the operation's output bounds and inputs.
+    /// </summary>
+    /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
+    /// <param name="slot">A slot the owning definition declares.</param>
+    /// <param name="hitTest">
+    /// The pure test, given the bound resource and the hit-test context. It must not capture a resource
+    /// of its own.
+    /// </param>
+    public static RenderHitTestContract FromSlot<T>(
+        RenderResourceSlot<T> slot,
+        Func<T, RenderHitTestContext, Point, bool> hitTest)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+        ArgumentNullException.ThrowIfNull(hitTest);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
+        return new RenderHitTestContract(
+            (context, point) => context.UseResource(slot, value => hitTest(value, context, point)),
+            hitTest.Method);
+    }
+
     internal static RenderHitTestContract FromResource<T>(
         RenderResource<T> resource,
         Func<T, Point, bool> hitTest)
@@ -748,18 +794,21 @@ public readonly struct RenderHitTestContract
     internal bool Evaluate(
         Rect outputBounds,
         IReadOnlyList<RenderHitTestInput> inputs,
+        IReadOnlyList<RenderResourceBinding> resources,
         Point point)
     {
         ThrowIfNotInitialized();
         RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(outputBounds));
         ArgumentNullException.ThrowIfNull(inputs);
+        ArgumentNullException.ThrowIfNull(resources);
 
         return _kind switch
         {
             RenderHitTestContractKind.None => false,
             RenderHitTestContractKind.OutputBounds => outputBounds.Contains(point),
             RenderHitTestContractKind.AnyInput => inputs.Any(input => input.HitTest(point)),
-            RenderHitTestContractKind.Custom => _hitTest!(new RenderHitTestContext(outputBounds, inputs), point),
+            RenderHitTestContractKind.Custom =>
+                _hitTest!(new RenderHitTestContext(outputBounds, inputs, resources), point),
             _ => throw new InvalidOperationException("The hit-test contract is invalid."),
         };
     }
@@ -786,17 +835,50 @@ public readonly struct RenderHitTestContract
 
 public sealed class RenderHitTestContext
 {
-    internal RenderHitTestContext(Rect outputBounds, IReadOnlyList<RenderHitTestInput> inputs)
+    private readonly IReadOnlyList<RenderResourceBinding> _resources;
+
+    internal RenderHitTestContext(
+        Rect outputBounds,
+        IReadOnlyList<RenderHitTestInput> inputs,
+        IReadOnlyList<RenderResourceBinding> resources)
     {
         OutputBounds = outputBounds;
         Inputs = inputs is ReadOnlyCollection<RenderHitTestInput>
             ? inputs
             : Array.AsReadOnly(inputs.ToArray());
+        _resources = resources;
     }
 
     public Rect OutputBounds { get; }
 
     public IReadOnlyList<RenderHitTestInput> Inputs { get; }
+
+    /// <summary>
+    /// Reads the resource that the call being hit-tested bound to <paramref name="slot"/>.
+    /// </summary>
+    /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
+    /// <typeparam name="TResult">The value the reader produces.</typeparam>
+    /// <param name="slot">A slot the owning definition declares.</param>
+    /// <param name="use">Reads the bound resource. The raw value must not outlive this call.</param>
+    /// <exception cref="KeyNotFoundException">The call bound no resource to that slot.</exception>
+    public TResult UseResource<T, TResult>(RenderResourceSlot<T> slot, Func<T, TResult> use)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+        ArgumentNullException.ThrowIfNull(use);
+
+        foreach (RenderResourceBinding binding in _resources)
+        {
+            if (ReferenceEquals(binding.Slot, slot))
+            {
+                var resource = (RenderResource<T>)binding.Resource;
+                return resource.Registry.Use(resource, use);
+            }
+        }
+
+        throw new KeyNotFoundException(
+            "No resource was bound to the requested slot for this hit test.");
+    }
 }
 
 public readonly struct RenderHitTestInput

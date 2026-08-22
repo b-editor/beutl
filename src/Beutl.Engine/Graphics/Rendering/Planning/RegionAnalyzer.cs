@@ -723,7 +723,7 @@ internal sealed class RegionAnalyzer
                 => reference.Inputs[0].HitTest,
             RenderFragmentKind.Geometry
                 => CreateResolvedHitTest(
-                    ((GeometryRenderFragmentPayload)reference.Payload!).Description.HitTest,
+                    ((GeometryRenderFragmentPayload)reference.Payload!).Description,
                     resolvedBounds,
                     reference.Inputs),
             RenderFragmentKind.OpaqueSource
@@ -731,7 +731,7 @@ internal sealed class RegionAnalyzer
                 or RenderFragmentKind.OpaqueCombine
                 or RenderFragmentKind.OpaqueExpand
                 => CreateResolvedHitTest(
-                    ((OpaqueRenderFragmentPayload)reference.Payload!).Description.HitTest,
+                    ((OpaqueRenderFragmentPayload)reference.Payload!).Description,
                     resolvedBounds,
                     reference.Inputs),
             RenderFragmentKind.FilterEffectSegment => resolvedBounds.Contains,
@@ -739,37 +739,40 @@ internal sealed class RegionAnalyzer
                 => CreateResolvedHitTest(
                     ((MaterializedInputRenderFragmentPayload)reference.Payload!).Description.HitTest,
                     resolvedBounds,
-                    reference.Inputs),
+                    reference.Inputs,
+                    []),
             RenderFragmentKind.TargetCapture
                 => CreateResolvedHitTest(
                     ((TargetCaptureRenderFragmentPayload)reference.Payload!).Description.HitTest,
                     resolvedBounds,
-                    reference.Inputs),
+                    reference.Inputs,
+                    []),
             RenderFragmentKind.BuiltInBackdropCapture
                 => CreateResolvedHitTest(
                     ((BuiltInBackdropCaptureRenderFragmentPayload)reference.Payload!).Description.HitTest,
                     resolvedBounds,
-                    reference.Inputs),
+                    reference.Inputs,
+                    []),
             RenderFragmentKind.Layer or RenderFragmentKind.TargetLayerScope
                 => point => reference.Inputs.Any(input => input.HitTest(point)),
             RenderFragmentKind.TargetScope
                 => CreateResolvedHitTest(
-                    ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.HitTest,
+                    ((TargetScopeRenderFragmentPayload)reference.Payload!).Description,
                     resolvedBounds,
                     reference.Inputs),
             RenderFragmentKind.RawTargetScope
                 => CreateResolvedHitTest(
-                    ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.HitTest,
+                    ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description,
                     resolvedBounds,
                     reference.Inputs),
             RenderFragmentKind.RawTargetCommand
                 => CreateResolvedHitTest(
-                    ((RawTargetCommandRenderFragmentPayload)reference.Payload!).Description.HitTest,
+                    ((RawTargetCommandRenderFragmentPayload)reference.Payload!).Description,
                     resolvedBounds,
                     reference.Inputs),
             RenderFragmentKind.TargetCommand
                 => CreateResolvedHitTest(
-                    ((TargetCommandRenderFragmentPayload)reference.Payload!).Description.HitTest,
+                    ((TargetCommandRenderFragmentPayload)reference.Payload!).Description,
                     resolvedBounds,
                     reference.Inputs),
             _ => throw new InvalidOperationException(
@@ -778,14 +781,51 @@ internal sealed class RegionAnalyzer
     }
 
     private static Func<Point, bool> CreateResolvedHitTest(
-        RenderHitTestContract contract,
+        GeometryDescription description,
         Rect outputBounds,
         IReadOnlyList<RenderFragmentReference> inputs)
+        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+
+    private static Func<Point, bool> CreateResolvedHitTest(
+        OpaqueRenderDescription description,
+        Rect outputBounds,
+        IReadOnlyList<RenderFragmentReference> inputs)
+        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+
+    private static Func<Point, bool> CreateResolvedHitTest(
+        TargetScopeDescription description,
+        Rect outputBounds,
+        IReadOnlyList<RenderFragmentReference> inputs)
+        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+
+    private static Func<Point, bool> CreateResolvedHitTest(
+        RawTargetScopeDescription description,
+        Rect outputBounds,
+        IReadOnlyList<RenderFragmentReference> inputs)
+        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+
+    private static Func<Point, bool> CreateResolvedHitTest(
+        RawTargetCommandDescription description,
+        Rect outputBounds,
+        IReadOnlyList<RenderFragmentReference> inputs)
+        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+
+    private static Func<Point, bool> CreateResolvedHitTest(
+        TargetCommandDescription description,
+        Rect outputBounds,
+        IReadOnlyList<RenderFragmentReference> inputs)
+        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+
+    private static Func<Point, bool> CreateResolvedHitTest(
+        RenderHitTestContract contract,
+        Rect outputBounds,
+        IReadOnlyList<RenderFragmentReference> inputs,
+        IReadOnlyList<RenderResourceBinding> resources)
     {
         RenderHitTestInput[] views = inputs
             .Select(static input => new RenderHitTestInput(input.Bounds, input.HitTest))
             .ToArray();
-        return point => contract.Evaluate(outputBounds, views, point);
+        return point => contract.Evaluate(outputBounds, views, resources, point);
     }
 
     private static EffectiveScale ResolveMaterializedScale(

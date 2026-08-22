@@ -133,6 +133,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererSnapshotFastPathTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RendererExceptionSafetyTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/ResolutionScaleTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/SlotBackedHitTestTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/SourceEffectiveScaleFlowTests.cs"] = 13,
             ["tests/Beutl.UnitTests/NodeGraph/ConfigureNodeOwnershipTests.cs"] = 2,
             ["tests/Beutl.UnitTests/NodeGraph/NodeGraphFilterEffectRenderNodeTests.cs"] = 6,
@@ -187,7 +188,7 @@ public sealed class RenderPipelineMigrationCensusTests
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
             AssertAllOverridesAreMapped(overrides);
             AssertBaselineInventory("production", 31, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 192, s_testOverrideBaseline, overrides);
+            AssertBaselineInventory("test", 193, s_testOverrideBaseline, overrides);
         }
     }
 
