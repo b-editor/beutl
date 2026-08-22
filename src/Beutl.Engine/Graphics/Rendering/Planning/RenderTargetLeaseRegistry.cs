@@ -225,6 +225,21 @@ internal sealed class RenderTargetLeaseSession : IDisposable
     /// <inheritdoc cref="RenderTargetLeaseRegistry.HasTargetFactory"/>
     public bool HasTargetFactory => _registry.HasTargetFactory;
 
+    /// <summary>
+    /// Whether a path that allocates its own surfaces dropped content it was asked to draw rather than
+    /// failing the render.
+    /// </summary>
+    /// <remarks>
+    /// Tile-brush intermediates, custom-effect targets, and effect flush buffers degrade to transparent
+    /// under <see cref="RenderIntent.Preview"/> instead of throwing, and the executor's own drop
+    /// observation cannot see them: they never take a lease. Folding this in keeps a frame that is missing
+    /// pixels out of anything that outlives it — a render cache or a captured backdrop.
+    /// </remarks>
+    internal bool ContentDropObserved { get; private set; }
+
+    /// <summary>Records that content this session backs was dropped for want of a target.</summary>
+    internal void MarkContentDropped() => ContentDropObserved = true;
+
     public bool IsDisposed { get; private set; }
 
     internal RenderTargetPoolRequest Request { get; }

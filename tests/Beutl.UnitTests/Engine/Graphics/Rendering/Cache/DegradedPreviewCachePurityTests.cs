@@ -4,6 +4,8 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.Serialization;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
@@ -85,6 +87,81 @@ public sealed class DegradedPreviewCachePurityTests
             Assert.That(probe.Commits, Is.Zero,
                 "A snapshot sink outlives the frame, so a degraded frame has nothing fit to commit to it.");
         });
+    }
+
+    /// <remarks>
+    /// A tile brush allocates its own intermediate instead of taking a materialization lease, so nothing in
+    /// the executor sees it run dry. Without a report the frame reads as complete and the transparent hole
+    /// where the fill should be is exactly what a snapshot sink keeps.
+    /// </remarks>
+    [Test]
+    public void APreviewWhoseTileBrushDroppedItsIntermediate_CommitsNoBackdropSnapshot()
+    {
+        // The frame's own target is the only size this factory hands out, and the tile intermediate is
+        // sized from the shape, which is smaller.
+        var factory = new SizedTargetFactory(PixelRect.FromRect(s_bounds, 1).Size);
+        BackdropSinkProbeNode probe = RenderTileBrushFrame(factory);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(factory.Declined, Is.GreaterThan(0),
+                "The fixture must actually make the tile brush run out of targets.");
+            Assert.That(probe.Commits, Is.Zero,
+                "A frame whose tile fill degraded to transparent has nothing fit to outlive it.");
+        });
+    }
+
+    [Test]
+    public void APreviewWhoseTileBrushKeptItsIntermediate_CommitsItsBackdropSnapshot()
+    {
+        var factory = new BudgetedTargetFactory(budget: 16);
+        BackdropSinkProbeNode probe = RenderTileBrushFrame(factory);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(factory.Declined, Is.Zero, "precondition: nothing ran out of targets");
+            Assert.That(probe.Commits, Is.EqualTo(1),
+                "Without this the guard above would hold for a frame that never committed anything.");
+        });
+    }
+
+    private static BackdropSinkProbeNode RenderTileBrushFrame(IRenderTargetFactory factory)
+    {
+        var shape = new RectShape();
+        shape.Width.CurrentValue = 16;
+        shape.Height.CurrentValue = 12;
+        shape.Fill.CurrentValue = CreateTileBrush();
+        using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
+        using var brushRoot = new DrawableRenderNode(resource);
+        using (var context = new GraphicsContext2D(brushRoot, s_bounds.Size))
+        {
+            context.Clear();
+            context.DrawDrawable(resource);
+        }
+
+        using var root = new ContainerRenderNode();
+        root.AddChild(brushRoot);
+        var probe = new BackdropSinkProbeNode();
+        root.AddChild(probe);
+        using RenderNodeRenderer renderer = CreateRenderer(root, factory, RenderIntent.Preview);
+
+        renderer.Rasterize().Dispose();
+        return probe;
+    }
+
+    private static Brush CreateTileBrush()
+    {
+        using var bitmap = new Bitmap(4, 4);
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, EncodedImageFormat.Png);
+
+        var source = new ImageSource();
+        source.ReadFrom(UriHelper.CreateBase64DataUri("image/png", stream.ToArray()));
+        var brush = new ImageBrush(source);
+        brush.Stretch.CurrentValue = Stretch.Fill;
+        brush.TileMode.CurrentValue = TileMode.None;
+        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+        return brush;
     }
 
     private sealed class BackdropSinkProbeNode : SnapshotBackdropRenderNode, IBuiltInBackdropCaptureSink

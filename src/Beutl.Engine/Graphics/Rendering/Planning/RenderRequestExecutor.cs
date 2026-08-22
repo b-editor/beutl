@@ -416,7 +416,14 @@ internal sealed partial class RenderRequestExecutor
         /// Whether anything this request rendered was dropped for want of a target, which makes its output
         /// incomplete and therefore unfit for anything that outlives the frame.
         /// </summary>
-        public bool PreviewAllocationDropObserved => _previewAllocationDropObserved;
+        /// <remarks>
+        /// The lease session is consulted alongside this request's own observation because the paths that
+        /// allocate their own surfaces - tile-brush intermediates, custom-effect targets, effect flush
+        /// buffers - degrade without ever taking a lease, and a frame missing their pixels is exactly as
+        /// unfit for a cache as one whose materialization failed.
+        /// </remarks>
+        public bool PreviewAllocationDropObserved
+            => _previewAllocationDropObserved || _targets.ContentDropObserved;
 
         public void Replay(RenderFragmentReference fragment, ImmediateCanvas destination)
         {

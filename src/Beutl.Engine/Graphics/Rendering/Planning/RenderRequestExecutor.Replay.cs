@@ -389,7 +389,7 @@ internal sealed partial class RenderRequestExecutor
         public void ValidateCacheCaptures(ISet<RenderNodeCache> seenCaches)
         {
             ArgumentNullException.ThrowIfNull(seenCaches);
-            if (_previewAllocationDropObserved)
+            if (PreviewAllocationDropObserved)
                 return;
             if (_pendingCacheCaptures.Count + _suppressedCacheCaptures.Count
                 != _cacheResolution.MissCaptures.Length)
@@ -422,7 +422,7 @@ internal sealed partial class RenderRequestExecutor
         {
             ArgumentNullException.ThrowIfNull(publications);
             ArgumentNullException.ThrowIfNull(transferredTargets);
-            if (_previewAllocationDropObserved)
+            if (PreviewAllocationDropObserved)
                 return;
             var byCandidate = _pendingCacheCaptures.ToDictionary(static item => item.Descriptor.CandidateId);
             foreach (RenderCacheMissCapture descriptor in _cacheResolution.MissCaptures)
@@ -458,7 +458,7 @@ internal sealed partial class RenderRequestExecutor
 
         public void AcceptCacheCaptures()
         {
-            if (_previewAllocationDropObserved)
+            if (PreviewAllocationDropObserved)
             {
                 RejectCacheCaptures();
                 return;
@@ -549,7 +549,7 @@ internal sealed partial class RenderRequestExecutor
 
         public void ValidateExecutionCompleted(bool allowSkippedIslands)
             => _executionLedger.ValidateCompleted(
-                allowSkippedIslands || _previewAllocationDropObserved,
+                allowSkippedIslands || PreviewAllocationDropObserved,
                 _regionEmptyIslands);
 
         private static bool IsRegionEmpty(ExecutionIsland island, RegionAnalysis regions)

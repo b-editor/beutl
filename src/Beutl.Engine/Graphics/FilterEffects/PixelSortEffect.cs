@@ -373,6 +373,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 {
                     newTarget.Dispose();
                     ThrowIfDeliveryAllocationFailure(ctx.Intent, i);
+                    ctx.RenderTargetLeaseSession?.MarkContentDropped();
                     continue;
                 }
 

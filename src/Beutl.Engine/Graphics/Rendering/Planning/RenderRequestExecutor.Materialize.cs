@@ -193,7 +193,7 @@ internal sealed partial class RenderRequestExecutor
             RenderFragmentReference fragment,
             IReadOnlyList<MaterializedRenderValue> values)
         {
-            if (_previewAllocationDropObserved)
+            if (PreviewAllocationDropObserved)
                 return;
             if (fragment.Id is not { } id || !_cacheMisses.TryGetValue(id, out var misses))
                 return;

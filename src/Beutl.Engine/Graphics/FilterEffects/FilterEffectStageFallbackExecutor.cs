@@ -513,6 +513,7 @@ internal static class FilterEffectStageFallbackExecutor
                 message);
             if (intent == RenderIntent.Delivery)
                 throw new InvalidOperationException(message);
+            leaseSession?.MarkContentDropped();
             return null;
         }
 

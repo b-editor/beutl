@@ -336,6 +336,7 @@ public readonly struct BrushConstructor(
                     iw, ih, s);
                 ThrowIfDeliveryAllocationFailure(
                     $"Tile-brush intermediate allocation failed ({iw}x{ih} px, density {s}).");
+                _renderTargetLeaseSession?.MarkContentDropped();
                 return null;
             }
 

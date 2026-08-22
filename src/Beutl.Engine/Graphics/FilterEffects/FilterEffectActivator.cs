@@ -290,6 +290,7 @@ public sealed class FilterEffectActivator : IDisposable
                 target.Dispose();
                 ThrowIfDeliveryAllocationFailure(
                     $"Effect flush buffer allocation failed (non-allocatable bounds {allocationBounds}).");
+                _renderTargetLeaseSession?.MarkContentDropped();
                 CurrentTargets.RemoveAt(i);
                 i--;
                 continue;
@@ -389,6 +390,7 @@ public sealed class FilterEffectActivator : IDisposable
 
                 ThrowIfDeliveryAllocationFailure(
                     $"Effect flush buffer allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, w {w}, bounds {flushTarget.PhysicalBounds}).");
+                _renderTargetLeaseSession?.MarkContentDropped();
 
                 CurrentTargets.RemoveAt(i);
                 i--;

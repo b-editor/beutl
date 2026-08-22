@@ -243,6 +243,7 @@ public class CustomFilterEffectContext
             source.DeviceBounds.Height,
             source.Scale.Value,
             source.Bounds);
+        _renderTargetLeaseSession?.MarkContentDropped();
         return new EffectTarget();
     }
 
@@ -513,6 +514,7 @@ public class CustomFilterEffectContext
                     + $"w {density}, bounds {bounds}); the delivery render fails instead of shipping an incomplete frame.");
             }
 
+            _renderTargetLeaseSession?.MarkContentDropped();
             return new EffectTarget();
         }
     }

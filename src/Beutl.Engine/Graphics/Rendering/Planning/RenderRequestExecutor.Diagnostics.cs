@@ -48,7 +48,7 @@ internal sealed partial class RenderRequestExecutor
         public void PublishBuiltInBackdropCaptures()
         {
             // The sink outlives this frame, so a frame that dropped part of itself has nothing fit to commit.
-            if (_previewAllocationDropObserved)
+            if (PreviewAllocationDropObserved)
             {
                 RejectBuiltInBackdropCaptures();
                 return;
