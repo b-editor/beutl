@@ -744,3 +744,68 @@ intent; `null` is the colour-only pass, and `depthLoadOp` is ignored for one.
 
 `SpecializationConstant` is additive: an implementation that ignores `SpecializationConstants` compiles and
 behaves as before, and only a backend that wants compile-time specialization needs to read it.
+
+## A source declares the room its rasterization needs instead of publishing it
+
+BREAKING CHANGE: `OpaqueRenderBoundsContract.Source` takes an optional `Thickness rasterOutset`, and
+`RenderNodeContext.PaintedSource` takes a matching optional argument. Existing calls compile unchanged;
+both signatures moved, so a caller compiled against the previous assembly must be rebuilt.
+
+| Before | After |
+|---|---|
+| `OpaqueRenderBoundsContract.Source(outputBounds)` | unchanged, or `Source(outputBounds, rasterOutset)` |
+| `PaintedSource(..., resources)` | unchanged, or `PaintedSource(..., resources, rasterOutset)` |
+
+The outset is logical room per side that widens only the buffer the source draws into. Nothing
+downstream sees it: the fragment still publishes `outputBounds`, and that is what places it.
+
+The pipeline already had a fixed one-device-pixel raster apron for a source whose rasterization spills
+past its bounds, and that is what this generalizes. A fixed pixel is the wrong unit whenever the spill
+is measured in logical units and varies with density, which is exactly the text case below. An author
+whose source draws entirely inside its bounds — every built-in but text — declares nothing and gets the
+previous behaviour.
+
+## Text publishes the rectangle it occupies, not the one its masks need
+
+BREAKING CHANGE: a `TextRenderNode` fragment publishes `FormattedText.ActualBounds`. It previously
+published `FormattedText.GetRasterBounds(OutputScale)`. Code that read those bounds to place, measure or
+lay out text now sees the text's own rectangle, unchanged by render density.
+
+The bounds a fragment publishes are what place it, so a density-dependent value moved the text whenever
+the density changed. Measured on this branch, one string published `(0, -44, 355.56, 60)` at a 50%
+preview and `(2, -41, 351.56, 54)` at 100% and at a 2x export — the same project, three compositions.
+`RasterBounds` documents this itself: only the allocated footprint may use it, and layout stays on the
+semantic bounds.
+
+Publishing the semantic bounds alone would clip the hinted glyph masks, which reach two to three logical
+units outside them and by a different amount at every density. The masks' room is therefore declared as
+the raster outset above, so the buffer still clears them while the published rectangle stays put.
+
+The emptiness gate still tests the mask: a glyph can have a degenerate outline and rasterize something,
+and that case has no scale-independent rectangle to be placed by, so it falls back to the mask footprint.
+
+`main` published `ActualBounds`, so this restores the composition a project had before the branch.
+
+## A particle covers the rectangle it is turned into, and is resampled into it
+
+BREAKING CHANGE: a particle's extent is the bounding box of its scaled and rotated source rather than a
+square of the source's longer side, and the blit resamples with Mitchell rather than point sampling.
+Both change the pixels a `ParticleEmitter` produces.
+
+The extent is what the layer buffer is allocated from, so the previous square clipped whatever the
+rotation pushed outside it — a 20x20 source turned 45 degrees reached about 4.14 further along each axis.
+The new extent is exact rather than merely larger: an unrotated non-square source now allocates less than
+it did.
+
+Point sampling reduced each particle to whichever texels its sample points landed on, which is visible as
+a stair-stepped edge on every particle whose size is not exactly the source's. Measured on a magnified
+particle, its edge carried 81 distinct alpha values against 314 resampled. Mitchell is the resampler the
+canvas applies to any other scaled bitmap, and is what the pipeline used before this branch.
+
+## What these three change in the corpus
+
+The differential harness renders the case corpus on two builds and compares every shot. Between the
+commit before these three changes and the commit after, 2,217 of 94,862 shots differ on Linux and 2,190
+on Windows, with no render errors, no dimension mismatches, no shot blank on one side only, and no
+non-finite pixel on either. Every differing case draws text, particles, or a chroma key; no case without
+one of those moved.
