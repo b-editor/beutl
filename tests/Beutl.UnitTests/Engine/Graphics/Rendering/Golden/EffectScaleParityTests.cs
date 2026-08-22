@@ -456,10 +456,34 @@ public class EffectScaleParityTests
                   + "by a software-Vulkan (SwiftShader) blur artifact, so parity cannot be measured against it"
                 : "a non-finite pixel persisted at a run-varying location — a software-Vulkan (SwiftShader) blur "
                   + "artifact (nondeterministic)";
-            Assert.Ignore($"{name}: persistent non-finite pixels across {maxAttempts} attempts ["
+            InconclusiveOnSoftwareVulkan($"{name}: persistent non-finite pixels across {maxAttempts} attempts ["
                 + string.Join("; ", attempts.Select(a => $"ref={a.Ref ?? "ok"}|scaled={a.Scaled ?? "ok"}"))
                 + $"] — {detail}; parity is verified on a hardware GPU.");
         }
+    }
+
+    /// <summary>
+    /// Skips a run-varying non-finite result as a software-Vulkan artifact, unless the job declared a real
+    /// GPU.
+    /// </summary>
+    /// <remarks>
+    /// Non-finite pixels are exactly what the scratch-memory initialization in the Vulkan backend exists to
+    /// prevent, so on a job that set <c>BEUTL_REQUIRE_GPU</c> - where the SwiftShader explanation does not
+    /// apply - swallowing them would hide the regression this suite is here to catch.
+    /// </remarks>
+    private static void InconclusiveOnSoftwareVulkan(string message)
+    {
+        string? require = Environment.GetEnvironmentVariable("BEUTL_REQUIRE_GPU");
+        if (!string.IsNullOrEmpty(require)
+            && !string.Equals(require, "0", StringComparison.Ordinal)
+            && !string.Equals(require, "false", StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.Fail(message
+                + " BEUTL_REQUIRE_GPU is set, so this is a hardware run: a non-finite pixel is a defect, not "
+                + "a software-Vulkan artifact.");
+        }
+
+        Assert.Ignore(message);
     }
 
     private static bool HasFiniteVisibleContent(Bitmap bitmap)
@@ -596,7 +620,7 @@ public class EffectScaleParityTests
                     + "while the 1:1 reference was finite — a scale-parity defect.");
             }
 
-            Assert.Ignore($"{label}: persistent non-finite pixels across {maxAttempts} attempts ["
+            InconclusiveOnSoftwareVulkan($"{label}: persistent non-finite pixels across {maxAttempts} attempts ["
                 + string.Join("; ", attempts.Select(a => $"ref={a.Ref ?? "ok"}|scaled={a.Scaled ?? "ok"}"))
                 + "] — software-Vulkan artifact; parity is verified on a hardware GPU.");
         }
