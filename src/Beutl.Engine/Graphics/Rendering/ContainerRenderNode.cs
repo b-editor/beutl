@@ -14,24 +14,37 @@ public class ContainerRenderNode : RenderNode
     {
         ArgumentNullException.ThrowIfNull(item);
         _children.Add(item);
+        HasChanges = true;
     }
 
     public void RemoveChild(RenderNode item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        _children.Remove(item);
+        if (_children.Remove(item))
+            HasChanges = true;
     }
 
     public void RemoveRange(int index, int count)
     {
         _children.RemoveRange(index, count);
+        if (count > 0)
+            HasChanges = true;
     }
 
+    /// <summary>Replaces the child at <paramref name="index"/> and disposes the one it replaced.</summary>
+    /// <remarks>
+    /// Passing the child already at that index is a no-op rather than a self-replacement: disposing the
+    /// previous child after storing the new one would otherwise leave a disposed node in the container.
+    /// </remarks>
     public void SetChild(int index, RenderNode item)
     {
         ArgumentNullException.ThrowIfNull(item);
         RenderNode? previous = _children[index];
+        if (ReferenceEquals(previous, item))
+            return;
+
         _children[index] = item;
+        HasChanges = true;
         previous?.Dispose();
     }
 
@@ -41,6 +54,8 @@ public class ContainerRenderNode : RenderNode
         _children.AddRange(containerNode._children);
 
         containerNode._children.Clear();
+        HasChanges = true;
+        containerNode.HasChanges = true;
     }
 
     public override void Process(RenderNodeContext context)

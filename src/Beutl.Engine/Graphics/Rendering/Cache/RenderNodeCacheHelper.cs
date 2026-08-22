@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization;
 using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media;
@@ -180,6 +181,9 @@ internal sealed class RenderNodeCacheLifecycle
         }
     }
 
+    // The child's runtime identity is mixed in alongside its signature: two freshly built children both sit at
+    // change version 0, so a container that swaps one for the other would otherwise reproduce the parent's
+    // previous signature exactly and keep serving the replaced child's cached pixels.
     private static long ComputeSignature(NodeSnapshot snapshot, long changeVersion)
     {
         unchecked
@@ -187,7 +191,10 @@ internal sealed class RenderNodeCacheLifecycle
             const ulong Basis = 14695981039346656037UL;
             ulong hash = Mix(Basis, (ulong)changeVersion);
             foreach (NodeSnapshot child in snapshot.Children)
+            {
+                hash = Mix(hash, (ulong)(uint)RuntimeHelpers.GetHashCode(child.Node));
                 hash = Mix(hash, (ulong)child.Signature);
+            }
 
             // 0 is the unstamped marker.
             return hash == 0 ? 1 : (long)hash;
