@@ -114,6 +114,9 @@ public sealed partial class AiSubtitleDialogViewModel
         _pendingTranslation = null;
         _pendingSceneTranscription = null;
         _pendingSourceTranscription = null;
+        // 抱えていた名前もここで無くなる。伝えないと、モデル一覧は止まったまま、
+        // 残高の判定も回収中のつもりのまま残る。
+        UpdateOutstandingCaptionRequest();
         _partialResult = null;
         HasPartialResult.Value = false;
         PartialResultMessage.Value = null;
@@ -556,7 +559,9 @@ public sealed partial class AiSubtitleDialogViewModel
 
                 AiRequestName name = operation.RequestNameFor(chunkIndex, runModel);
                 UpdateOutstandingCaptionRequest();
-                AiTranscriptionResponse response;
+                // Anything that ends here ends before the request went out, so
+                // the name reached nothing — a refusal, a run stopped while the
+                // check was in the air, any of it.
                 try
                 {
                     // Not for a repeat: the server looks up the job this name
@@ -582,11 +587,19 @@ public sealed partial class AiSubtitleDialogViewModel
                         case CaptionDraftOutcome.Superseded:
                             return;
                         case CaptionDraftOutcome.NotRecorded:
-                            WithdrawSourceTranscriptionName(operation, name);
                             throw new SubtitleInputException(
                                 Strings.AiSubtitle_RunCannotBeRecorded);
                     }
+                }
+                catch
+                {
+                    WithdrawSourceTranscriptionName(operation, name);
+                    throw;
+                }
 
+                AiTranscriptionResponse response;
+                try
+                {
                     response = await _aiService.TranscribeAsync(
                         new AiTranscriptionRequest(
                             AiUploadSource.FromFile(
@@ -928,7 +941,9 @@ public sealed partial class AiSubtitleDialogViewModel
                 TranslationBatch batch = operation.Batches[index];
                 AiRequestName name = operation.RequestNameFor(index, runModel);
                 UpdateOutstandingCaptionRequest();
-                AiCaptionTranslationResponse response;
+                // Anything that ends here ends before the request went out, so
+                // the name reached nothing — a refusal, a run stopped while the
+                // check was in the air, any of it.
                 try
                 {
                     if (!name.IsRepeat)
@@ -949,11 +964,19 @@ public sealed partial class AiSubtitleDialogViewModel
                         case CaptionDraftOutcome.Superseded:
                             return;
                         case CaptionDraftOutcome.NotRecorded:
-                            WithdrawTranslationName(operation, name);
                             throw new SubtitleInputException(
                                 Strings.AiSubtitle_RunCannotBeRecorded);
                     }
+                }
+                catch
+                {
+                    WithdrawTranslationName(operation, name);
+                    throw;
+                }
 
+                AiCaptionTranslationResponse response;
+                try
+                {
                     response = await _aiService.TranslateAsync(
                         new AiCaptionTranslationRequest(
                             batch.Pieces.Select(piece => new AiCaptionTranslationSegment
@@ -1442,6 +1465,12 @@ public sealed partial class AiSubtitleDialogViewModel
         if (!IsCurrentCaptionDraftScope(result.DraftScopeRevision))
             return CaptionDraftOutcome.Superseded;
 
+        // この場面の控えを別のタブが握っていた。向こうが手を放していれば、ここで
+        // 取れる——一度取れなかったきり諦めると、そのタブは以後ずっと課金つきの
+        // 実行を始められない。
+        if (_captionDraftSession is null && _captionDraftScopeIsHeldElsewhere)
+            OpenCaptionDraftSession(_captionDraftBaseScope);
+
         _partialResult = result;
         // A run that has only named its first piece has nothing to apply yet.
         // It is still written down — the name is what makes that piece
@@ -1765,6 +1794,10 @@ public sealed partial class AiSubtitleDialogViewModel
                             : Strings.AiSubtitle_PartialTranscriptionAvailable,
                         draft.CompletedSteps,
                         draft.TotalSteps);
+            // 拾い直した実行が抱えている名前を、画面にも伝える。伝えないと、
+            // 見た目には何も無い実行——最初のひと切れを送ったきりのもの——が、
+            // 断りなく上書きされて消える。
+            UpdateOutstandingCaptionRequest();
             _transcriptionEstimateRevision.Value++;
             RefreshTranslationEstimate();
         }

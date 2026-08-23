@@ -468,6 +468,77 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task Transcription_AnUncollectedRunIsNotOverwrittenWithoutAsking()
+    {
+        // 最初のひと切れを送ったきり何も返ってきていない実行は、見た目には何も
+        // 無い——部分結果も cue も無い。それでも支払い済みかもしれない名前を
+        // 抱えているので、履歴からの取り込みで断りなく消してはいけない。
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-subtitle-history-guard");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/transcriptions" => JsonResponse(HttpStatusCode.Conflict, """
+                {
+                  "error_code": "aiRequestInProgress",
+                  "message": "The first attempt is still running.",
+                  "documentation_url": null
+                }
+                """),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(clients, editor);
+        viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
+        viewModel.SceneMixAudioComposer = (start, duration, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
+            return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
+                new float[sampleCount],
+                16_000,
+                1,
+                start));
+        };
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
+        editor.Scene.Start = TimeSpan.Zero;
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
+
+        await viewModel.Transcribe.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(viewModel.HasPartialResult.Value, Is.False,
+                "Nothing has come back, so there is nothing to apply.");
+            Assert.That(viewModel.HasOutstandingTranscriptionRequest.Value, Is.True);
+        }
+
+        viewModel.LoadHistoryResult(new AiCaptionHistoryResult(
+            new AiJobId("history-job"),
+            [new AiTranscriptionSegment { Start = 0, End = 1, Text = "from history" }],
+            "en"));
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(
+            viewModel.HasPendingHistoryResult.Value,
+            Is.True,
+            "A run that may already have been charged for is worth asking about.");
+
+        viewModel.ConfirmPendingHistoryResult();
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(
+            viewModel.HasOutstandingTranscriptionRequest.Value,
+            Is.False,
+            "Once it is overwritten the run is gone, and so is what it was holding.");
+    }
+
+    [AvaloniaTest]
     public async Task ImageGeneration_ShowsTheRoughPictureWhileTheModelWorks()
     {
         await TestReset.ResetShellAsync();

@@ -145,10 +145,16 @@ internal sealed class AiRequestKey
             $"{Fingerprint(parts)}-{pieceIndex.ToString(CultureInfo.InvariantCulture)}");
 
     /// <summary>
-    /// Identifies a file as it stands now. The server fingerprints an upload by
-    /// its bytes, so a request naming a file that has since been edited is a
-    /// different request and has to be named differently too.
+    /// Identifies a file the way the server does: by the name it arrives under
+    /// and by its bytes.
     /// </summary>
+    /// <remarks>
+    /// Anything else drifts from what the server calls the same request. Its
+    /// path would make a file moved between folders a new request, and its
+    /// modified time would do the same for a file merely touched — both would
+    /// buy the same work a second time. Reading the bytes is what the upload is
+    /// about to do anyway.
+    /// </remarks>
     public static string FileStamp(string? filePath)
     {
         if (string.IsNullOrEmpty(filePath))
@@ -156,10 +162,11 @@ internal sealed class AiRequestKey
 
         try
         {
-            var file = new FileInfo(filePath);
+            using FileStream stream = File.OpenRead(filePath);
+            string content = Convert.ToHexString(SHA256.HashData(stream));
             return string.Create(
                 CultureInfo.InvariantCulture,
-                $"{filePath}:{file.Length}:{file.LastWriteTimeUtc.Ticks}");
+                $"{Path.GetFileName(filePath)}:{content}");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

@@ -256,13 +256,18 @@ internal sealed class AiModelPickerViewModel : IDisposable
         // The choice already made, kept when it is still on offer: a reload is
         // not a reason to move it.
         AiModelId? keep = preferred ?? SelectedModel;
-        // What was on offer a moment ago. A model asked for by name that the
-        // catalog no longer lists is still what an uncollected request was sent
-        // with, and the server answers that request before it looks at whether
-        // the model is still offered — so it stays on the list, unpickable for
-        // anything new, until that request is settled.
+        // A model asked for by name that the catalog no longer lists is still
+        // what an uncollected request was sent with, and the server answers that
+        // request before it looks at whether the model is still offered — so it
+        // stays on the list, unpickable for anything new, until that request is
+        // settled. What is on offer right now may be another operation's list
+        // entirely, so a name with nothing behind it is shown as itself rather
+        // than dropped.
         AiModelPickerOption? withdrawn = preferred is { } wantedByName
             ? Options.FirstOrDefault(option => option.Id == wantedByName)
+                ?? new AiModelPickerOption(
+                    new AiModelOption(wantedByName, wantedByName.Value, null, false),
+                    IsAvailable: false)
             : null;
         Operation = operation;
         MaxImageReferencesTotalBytes = catalog.MaxImageReferencesTotalBytes;
