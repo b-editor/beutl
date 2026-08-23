@@ -181,6 +181,37 @@ public sealed class RenderContractPrimitiveTests
     }
 
     /// <remarks>
+    /// A ReadOnlyMemory is a read-only view, not an immutable value: the array it ordinarily wraps stays in
+    /// the author's hands and can be written after the callback is recorded.
+    /// </remarks>
+    [Test]
+    public void RenderBoundsContract_RejectsACaptureViewingAnArrayItCannotOwn()
+    {
+        ReadOnlyMemory<float> view = new float[] { 4f }.AsMemory();
+
+        Assert.That(
+            () => RenderBoundsContract.Create(
+                _ => new Rect(0, 0, view.Span[0], view.Span[0]),
+                static value => value),
+            Throws.TypeOf<ArgumentException>());
+    }
+
+    /// <remarks>
+    /// The same view over a string is accepted, because what it points at cannot be written either.
+    /// </remarks>
+    [Test]
+    public void RenderBoundsContract_AcceptsACaptureViewingSomethingFixed()
+    {
+        ReadOnlyMemory<char> view = "4".AsMemory();
+
+        Assert.That(
+            () => RenderBoundsContract.Create(
+                _ => new Rect(0, 0, view.Span[0], view.Span[0]),
+                static value => value),
+            Throws.Nothing);
+    }
+
+    /// <remarks>
     /// Roslyn caches an inner lambda in the closure it shares with the enclosing one, so a contract recorded
     /// from inside any other lambda reaches validation with a delegate field the author never wrote.
     /// </remarks>

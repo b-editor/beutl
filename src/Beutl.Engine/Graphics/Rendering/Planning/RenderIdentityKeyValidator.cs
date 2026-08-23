@@ -158,6 +158,9 @@ internal static class RenderIdentityKeyValidator
 
     // Types whose contents cannot change, so following their fields would only reach private
     // implementation detail - an ImmutableArray's backing array reads as a mutable array from the outside.
+    // ReadOnlyMemory is deliberately absent: it is a read-only view, and the array it ordinarily wraps stays
+    // in the author's hands, so its contents are followed like any other capture. Nullable is absent for the
+    // opposite reason - the struct rule below already decides it from the type it wraps.
     private static bool IsFixedLeaf(Type type) => s_fixedLeaf.GetOrAdd(type, static key => ComputeIsFixedLeaf(key));
 
     private static bool ComputeIsFixedLeaf(Type type)
@@ -181,9 +184,7 @@ internal static class RenderIdentityKeyValidator
                 || definition == typeof(System.Collections.Immutable.ImmutableDictionary<,>)
                 || definition == typeof(System.Collections.Immutable.ImmutableSortedDictionary<,>)
                 || definition == typeof(System.Collections.Immutable.ImmutableQueue<>)
-                || definition == typeof(System.Collections.Immutable.ImmutableStack<>)
-                || definition == typeof(ReadOnlyMemory<>)
-                || definition == typeof(Nullable<>))
+                || definition == typeof(System.Collections.Immutable.ImmutableStack<>))
             {
                 return true;
             }
