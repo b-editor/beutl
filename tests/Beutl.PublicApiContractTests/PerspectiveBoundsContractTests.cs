@@ -5,11 +5,11 @@ using Beutl.Graphics;
 namespace Beutl.PublicApiContractTests;
 
 /// <summary>
-/// A plugin author gets one way to bound a transformed rectangle, and it is the one that survives
-/// perspective. The mapped-corner box is exact only while the rectangle stays on one side of the
-/// matrix's <c>w = 0</c> plane, and it fails silently rather than loudly when it does not — it returns
-/// a box on the far side of the image. It is bit-identical to the safe answer everywhere else, so a
-/// caller cannot discover the difference by testing, which is why it is not reachable from here.
+/// Every way a plugin author can bound a transformed rectangle survives perspective. The mapped-corner
+/// box does not: it is exact only while the rectangle stays on one side of the matrix's <c>w = 0</c>
+/// plane, and it fails silently rather than loudly when it does not — it returns a box on the far side
+/// of the image. It is bit-identical to the safe answers everywhere else, so a caller cannot discover
+/// the difference by testing, which is why it is not reachable from here.
 /// </summary>
 [TestFixture]
 public sealed class PerspectiveBoundsContractTests
@@ -32,12 +32,23 @@ public sealed class PerspectiveBoundsContractTests
 
         Assert.That(
             published.Select(static method => method.Name),
-            Is.EquivalentTo(new[] { nameof(Rect.TransformToAABB) }),
-            "the mapped-corner box must not be published alongside the safe one");
+            Is.EquivalentTo(new[]
+            {
+                nameof(Rect.TransformToAABB),
+                nameof(Rect.TransformToDeliveredAABB),
+            }),
+            "the mapped-corner box must not be published alongside the camera-plane aware ones");
         Assert.That(
-            published.Single().GetParameters().Select(static p => p.Name),
+            published.Single(static method => method.Name == nameof(Rect.TransformToAABB))
+                .GetParameters().Select(static p => p.Name),
             Is.EqualTo(new[] { "matrix", "nearPlane" }),
             "the near plane must stay selectable so a caller can opt into Rect.RasterizerNearPlane");
+        Assert.That(
+            published.Single(static method => method.Name == nameof(Rect.TransformToDeliveredAABB))
+                .GetParameters().Select(static p => p.Name),
+            Is.EqualTo(new[] { "matrix", "deliveredTo" }),
+            "the delivery region is the whole of what makes the exact near plane affordable, so it is "
+            + "named rather than defaulted");
     }
 
     [Test]

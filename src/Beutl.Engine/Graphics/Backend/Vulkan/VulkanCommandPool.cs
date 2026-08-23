@@ -19,7 +19,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     private Semaphore _submissionSemaphore;
     private bool _isRecording;
     private int _renderPassScopeDepth;
-    private object? _activeRenderPassOwner;
+    private IVulkanRenderPassSuspension? _activeRenderPassOwner;
     private bool _hasPendingSemaphoreSignal;
     private bool _isCompletingSubmissions;
     private bool _disposed;
@@ -96,19 +96,51 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         ArgumentNullException.ThrowIfNull(record);
         if (_renderPassScopeDepth > 0)
         {
-            RecordOutOfBand(record);
+            RecordAroundTheRenderPassInstance(record);
             return;
         }
 
         record(GetRecordingCommandBuffer());
     }
 
+    /// <summary>
+    /// Records <paramref name="record"/> onto the claimed batch outside the render pass instance, ending
+    /// that instance first and beginning it again after when one is open.
+    /// </summary>
+    /// <remarks>
+    /// Vulkan forbids a transfer or a barrier inside a render pass instance, and this is the arrangement
+    /// that obeys that without reordering anything: the whole sequence stays on one command buffer in the
+    /// order it was recorded, so a draw already recorded in this pass still runs before work requested
+    /// after it. Nothing is suspended when the batch is claimed but the instance is not open yet, or when
+    /// an outer split already suspended it - in both cases the work simply joins the batch in place.
+    /// </remarks>
+    private void RecordAroundTheRenderPassInstance(Action<CommandBuffer> record)
+    {
+        IVulkanRenderPassSuspension owner = _activeRenderPassOwner
+            ?? throw new InvalidOperationException(
+                "A claimed render-pass scope must have an owner that can suspend its instance.");
+        if (!owner.TrySuspend())
+        {
+            record(GetRecordingCommandBuffer());
+            return;
+        }
+
+        try
+        {
+            record(GetRecordingCommandBuffer());
+        }
+        finally
+        {
+            owner.Resume();
+        }
+    }
+
     /// <summary>Rejects a caller that is about to record a render pass while another one owns the batch.</summary>
     /// <remarks>
     /// Separate from <see cref="BeginRenderPassScope"/> so a pass can reject a double begin before it
     /// records anything, while still claiming the batch only at the command that opens the pass: claiming
-    /// it earlier would divert the pass's own preparation barriers into an out-of-band batch that submits
-    /// ahead of everything already recorded, which reorders them against work they must follow.
+    /// it earlier would send the pass's own preparation barriers through the suspend path, and there is
+    /// nothing to suspend yet.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Another render pass already owns the batch.</exception>
     public void ThrowIfRenderPassActive()
@@ -135,7 +167,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     /// buffer the first pass is still recording into.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Another render pass already owns the batch.</exception>
-    public void BeginRenderPassScope(object owner)
+    public void BeginRenderPassScope(IVulkanRenderPassSuspension owner)
     {
         ArgumentNullException.ThrowIfNull(owner);
         ThrowIfRenderPassActive();
@@ -145,7 +177,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
 
     /// <summary>Releases the recording batch claimed by <paramref name="owner"/>.</summary>
     /// <exception cref="InvalidOperationException"><paramref name="owner"/> does not own the batch.</exception>
-    public void EndRenderPassScope(object owner)
+    public void EndRenderPassScope(IVulkanRenderPassSuspension owner)
     {
         ArgumentNullException.ThrowIfNull(owner);
         if (!ReferenceEquals(_activeRenderPassOwner, owner))
@@ -157,34 +189,6 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         _activeRenderPassOwner = null;
         if (_renderPassScopeDepth > 0)
             _renderPassScopeDepth--;
-    }
-
-    // Vulkan forbids transfers and barriers inside a render pass instance, so one recorded there
-    // takes its own batch, submitted ahead of the pass that is still recording. The submission
-    // semaphore orders it before that pass without stalling the CPU.
-    private void RecordOutOfBand(Action<CommandBuffer> record)
-    {
-        CommandBuffer suspended = _recordingCommandBuffer;
-        bool wasRecording = _isRecording;
-        Action[] suspendedReleases = [.. _recordingReleases];
-        _recordingCommandBuffer = default;
-        _isRecording = false;
-        _recordingReleases.Clear();
-        int scopeDepth = _renderPassScopeDepth;
-        _renderPassScopeDepth = 0;
-        try
-        {
-            record(GetRecordingCommandBuffer());
-            SubmitRecordingCommandBuffer();
-        }
-        finally
-        {
-            _renderPassScopeDepth = scopeDepth;
-            _recordingCommandBuffer = suspended;
-            _isRecording = wasRecording;
-            _recordingReleases.Clear();
-            _recordingReleases.AddRange(suspendedReleases);
-        }
     }
 
     /// <summary>
@@ -326,9 +330,10 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         // A render pass instance owns the recording batch until it ends, so submitting it here would
-        // end and free the command buffer the pass is still recording into. Everything recorded during
-        // the scope already took its own batch through RecordOutOfBand, so waiting on the in-flight
-        // submissions is the whole of what a synchronous caller can be owed.
+        // end and free the command buffer the pass is still recording into - the same buffer a suspended
+        // instance resumes on. Everything recorded during the scope is on that unfinished batch, which a
+        // synchronous caller cannot be owed yet, so waiting on the in-flight submissions is the whole of
+        // what it can be owed.
         if (_renderPassScopeDepth == 0)
         {
             SubmitRecordingCommandBuffer();

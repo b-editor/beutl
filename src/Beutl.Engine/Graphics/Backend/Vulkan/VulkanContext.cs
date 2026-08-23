@@ -985,14 +985,14 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         _vulkanCommandPool.ThrowIfRenderPassActive();
     }
 
-    /// <inheritdoc cref="VulkanCommandPool.BeginRenderPassScope(object)"/>
-    public void BeginRenderPassScope(object owner)
+    /// <inheritdoc cref="VulkanCommandPool.BeginRenderPassScope(IVulkanRenderPassSuspension)"/>
+    public void BeginRenderPassScope(IVulkanRenderPassSuspension owner)
     {
         _vulkanCommandPool.BeginRenderPassScope(owner);
     }
 
-    /// <inheritdoc cref="VulkanCommandPool.EndRenderPassScope(object)"/>
-    public void EndRenderPassScope(object owner)
+    /// <inheritdoc cref="VulkanCommandPool.EndRenderPassScope(IVulkanRenderPassSuspension)"/>
+    public void EndRenderPassScope(IVulkanRenderPassSuspension owner)
     {
         _vulkanCommandPool.EndRenderPassScope(owner);
     }

@@ -7,15 +7,20 @@ using Beutl.Media;
 namespace Beutl.Graphics3DTests;
 
 /// <summary>
-/// Pins that a transfer issued while a render pass is recording takes its own submission.
+/// Pins that a transfer issued while a render pass is recording splits that pass instead of taking its
+/// own submission.
 /// </summary>
 /// <remarks>
 /// Meshes upload their vertex and index buffers lazily from inside the draw loop, which runs between
 /// <see cref="IRenderPass3D.Begin"/> and <see cref="IRenderPass3D.End"/>. Vulkan forbids a transfer
 /// inside a render pass instance, so appending one to the pass's own batch loses the upload: the mesh
 /// then draws undefined vertices over the whole framebuffer, which a deferred renderer turns into a
-/// black frame. The submission count is the observable part of that contract; the rendering
-/// consequence is covered by the lit-framebuffer assertions in <see cref="Renderer3DTests"/>.
+/// black frame. Giving the transfer its own batch avoids that but submits it ahead of the pass, so every
+/// draw already recorded in the pass runs after work requested later than it. Ending the instance,
+/// recording the transfer, and beginning it again keeps the whole sequence on one command buffer in
+/// recording order, which is the only arrangement that is right for both. The submission count is the
+/// observable part of that contract; the rendering consequence is covered by the lit-framebuffer
+/// assertions in <see cref="Renderer3DTests"/>.
 /// </remarks>
 [TestFixture]
 [NonParallelizable]
@@ -44,10 +49,11 @@ public sealed class RenderPassTransferScopeTests
     }
 
     /// <remarks>
-    /// A claimed render-pass scope diverts every barrier into its own batch, which submits ahead of the
-    /// batch still being recorded. That is right for a transfer issued mid-pass and wrong for the pass's own
-    /// attachment transitions: those have to stay in recording order behind whatever was recorded before
-    /// them, or the queue runs them against an image that has since moved to a different layout.
+    /// A claimed render-pass scope sends every barrier through the split path, and a scope claimed before
+    /// its instance is open cannot split, so it falls back to a batch of its own submitted ahead. That is
+    /// wrong for the pass's own attachment transitions: those have to stay in recording order behind
+    /// whatever was recorded before them, or the queue runs them against an image that has since moved to a
+    /// different layout. The batch is therefore claimed at the command that opens the instance, not before.
     /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
@@ -97,7 +103,7 @@ public sealed class RenderPassTransferScopeTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void CopyBufferInsideARenderPass_SubmitsAheadOfThatPass()
+    public void CopyBufferInsideARenderPass_SplitsThatPassInsteadOfSubmittingAheadOfIt()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
@@ -134,9 +140,9 @@ public sealed class RenderPassTransferScopeTests
 
             Assert.That(
                 duringPass.Count(static item => item == VulkanCommandPoolEvent.Submission),
-                Is.EqualTo(1),
-                "A transfer recorded inside a render pass must be submitted as its own batch, "
-                + "not appended to the batch the pass is still recording.");
+                Is.Zero,
+                "A transfer recorded inside a render pass must split that pass and stay on its batch, so "
+                + "it lands after the draws already recorded there rather than ahead of all of them.");
         });
     }
 
