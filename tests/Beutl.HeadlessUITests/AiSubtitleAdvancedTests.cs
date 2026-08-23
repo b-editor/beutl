@@ -399,7 +399,7 @@ public sealed class AiSubtitleAdvancedTests
             Assert.That(store.TryOpen(userA, out ICaptionDraftSession? userASession), Is.True);
             using (userASession)
             {
-                CaptionDraftEntry? untouched = userASession!.Load();
+                CaptionDraftEntry? untouched = userASession!.Read().Entry;
                 Assert.Multiple(() =>
                 {
                     Assert.That(untouched?.JobId, Is.EqualTo("job-a"));

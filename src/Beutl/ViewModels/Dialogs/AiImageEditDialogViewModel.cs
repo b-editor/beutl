@@ -436,6 +436,10 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 ? new AiModelId(model)
                 : null;
 
+    private bool ContinuesARequestThatNamedNoModel(string?[] request)
+        => _outstanding.All().Any(held =>
+            held[ModelPartIndex] is null && held.AsSpan().SequenceEqual(request));
+
     private IReadOnlyList<AiModelId> ModelsOfOutstandingRequestsFor(AiOperationId operation)
         => _outstanding.All()
             .Where(request => request[TaskPartIndex] is { } task
@@ -632,8 +636,9 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             // is the expanded canvas, not the picture it was made from: two
             // different sources and expansions can expand to the same canvas,
             // and naming the source would ask for the same work twice.
-            byte[] uploadBytes = await File.ReadAllBytesAsync(
+            byte[] uploadBytes = await AiUploadBytes.ReadWithinAsync(
                 uploadPath,
+                AiRequestLimits.MaxImageUploadBytes,
                 operation.CancellationToken);
             AiOperationId editOperation = AiOperations.ImageEdit(new AiImageEditTaskId(task));
             // Only the model the picker is currently showing for this task; a
@@ -649,8 +654,14 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 null,
                 AiRequestKey.FileStamp(uploadName, uploadBytes),
             ];
-            AiModelId? model =
-                ModelPicker.Operation == editOperation ? ModelPicker.SelectedModel : null;
+            // 一覧が空だった頃に出した依頼は、モデルを名乗っていない。いまは
+            // 一覧があっても、その依頼を出し直すときに名乗ってしまうと別の依頼
+            // になる。中身が同じものにだけ、その「名乗らない」を引き継ぐ。
+            AiModelId? model = ContinuesARequestThatNamedNoModel(requestParts)
+                ? null
+                : ModelPicker.Operation == editOperation
+                    ? ModelPicker.SelectedModel
+                    : null;
             requestParts[ModelPartIndex] = model?.Value;
             AiRequestName name = _requestKey.NameFor(requestParts);
             issued = name;

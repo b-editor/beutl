@@ -60,6 +60,8 @@ public sealed partial class AiSubtitleDialogViewModel
     // この場面の控えを別のタブが握っていて、こちらからは書けない。書けないまま
     // 課金された依頼は、セッションが終わればその名前ごと失われる。
     private bool _captionDraftScopeIsHeldElsewhere;
+    // この場面の控えが読めなかった。無いのとは違うので、書き込まない。
+    private bool _captionDraftIsUnreadable;
     private CaptionDraftScope? _captionDraftBaseScope;
     private string? _captionDraftJobId;
     private long _captionDraftScopeRevision;
@@ -1476,6 +1478,16 @@ public sealed partial class AiSubtitleDialogViewModel
         // It is still written down — the name is what makes that piece
         // collectable — but the button that imports a partial stays closed.
         HasPartialResult.Value = result.CompletedSteps > 0;
+        if (_captionDraftIsUnreadable)
+        {
+            // 読み直せていれば、書ける。読めないままなら、そこに何が書いてあるか
+            // 分からないので上書きしない。
+            _captionDraftIsUnreadable =
+                _captionDraftSession?.Read().Outcome == CaptionDraftReadOutcome.Unreadable;
+            if (_captionDraftIsUnreadable)
+                return CaptionDraftOutcome.NotRecorded;
+        }
+
         if (_captionDraftSession is null)
         {
             return _captionDraftScopeIsHeldElsewhere
@@ -1594,17 +1606,22 @@ public sealed partial class AiSubtitleDialogViewModel
         if (_captionDraftSession is null)
             return;
 
-        CaptionDraftEntry? entry;
+        CaptionDraftReadResult read;
         try
         {
-            entry = _captionDraftSession.Load();
+            read = _captionDraftSession.Read();
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to restore the recoverable paid caption result.");
-            return;
+            read = CaptionDraftReadResult.Unreadable;
         }
 
+        // 読めなかった。何も無いのとは違う——そこに支払い済みの名前が書いて
+        // あるかもしれないので、この場面には書き込まない。課金つきの実行は、
+        // 読めるようになるまで始めない。
+        _captionDraftIsUnreadable = read.Outcome == CaptionDraftReadOutcome.Unreadable;
+        CaptionDraftEntry? entry = read.Entry;
         if (entry is null)
             return;
 
@@ -2218,18 +2235,21 @@ public sealed partial class AiSubtitleDialogViewModel
         if (_captionDraftSession is null)
             return;
 
-        CaptionDraftEntry? left;
+        CaptionDraftReadResult left;
         try
         {
-            left = _captionDraftSession.Load();
+            left = _captionDraftSession.Read();
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to read the caption draft left by another tab.");
-            left = null;
+            left = CaptionDraftReadResult.Unreadable;
         }
 
-        if (left is null || !HoldsPaidWork(left.Draft))
+        // 何も無いと分かったときだけ引き継ぐ。読めなかったのは、無いのとは違う。
+        if (left.Outcome == CaptionDraftReadOutcome.Absent)
+            return;
+        if (left.Entry is { } entry && !HoldsPaidWork(entry.Draft))
             return;
 
         _captionDraftSession.Dispose();
@@ -2237,11 +2257,14 @@ public sealed partial class AiSubtitleDialogViewModel
         _captionDraftScopeIsHeldElsewhere = true;
     }
 
+    // 上書きしてはいけない控えか。名前を抱えたまま終わったか、支払い済みの
+    // 切れ端があるものだけ——予約されずに取り下げられた名前の seed は残るが、
+    // それが指す job は無いので、引き継ぎを断る理由にはならない。
     private static bool HoldsPaidWork(CaptionDraft draft)
         => draft.CompletedSteps > 0
-            || !string.IsNullOrEmpty(draft.TranslationResume?.RequestKeySeed)
-            || !string.IsNullOrEmpty(draft.SourceTranscriptionResume?.RequestKeySeed)
-            || !string.IsNullOrEmpty(draft.SceneTranscriptionResume?.RequestKeySeed);
+            || draft.TranslationResume?.RequestKeyNamePending == true
+            || draft.SourceTranscriptionResume?.RequestKeyNamePending == true
+            || draft.SceneTranscriptionResume?.RequestKeyNamePending == true;
 
     private void OpenCaptionDraftSession(CaptionDraftScope? scope)
     {

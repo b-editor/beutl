@@ -1418,7 +1418,10 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             return (null, string.Empty);
 
         string fileName = Path.GetFileName(path);
-        byte[] bytes = await File.ReadAllBytesAsync(path, cancellationToken);
+        byte[] bytes = await AiUploadBytes.ReadWithinAsync(
+            path,
+            AiRequestLimits.MaxFrameUploadBytes,
+            cancellationToken);
         return (
             AiUploadSource.FromBytes(fileName, bytes),
             AiRequestKey.FileStamp(fileName, bytes));

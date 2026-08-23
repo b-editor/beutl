@@ -149,11 +149,38 @@ internal sealed record CaptionDraftEntry
     public CaptionDraft Draft { get; }
 }
 
+/// <summary>What came of looking for a scope's draft.</summary>
+internal enum CaptionDraftReadOutcome
+{
+    /// <summary>Nothing is stored for this scope, and nothing was.</summary>
+    Absent,
+
+    /// <summary>
+    /// Something may be stored and could not be read. Never the same as absent:
+    /// writing over what could not be read destroys whatever it held, which may
+    /// be the only way back to something already paid for.
+    /// </summary>
+    Unreadable,
+
+    /// <summary>A draft was read.</summary>
+    Read,
+}
+
+internal readonly record struct CaptionDraftReadResult(
+    CaptionDraftReadOutcome Outcome,
+    CaptionDraftEntry? Entry)
+{
+    public static readonly CaptionDraftReadResult Absent = new(CaptionDraftReadOutcome.Absent, null);
+
+    public static readonly CaptionDraftReadResult Unreadable =
+        new(CaptionDraftReadOutcome.Unreadable, null);
+}
+
 internal interface ICaptionDraftSession : IDisposable
 {
     CaptionDraftScope Scope { get; }
 
-    CaptionDraftEntry? Load();
+    CaptionDraftReadResult Read();
 
     void Save(CaptionDraftEntry entry);
 
@@ -258,7 +285,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         return Path.Combine(StorageDirectory, fileName);
     }
 
-    private CaptionDraftEntry? Load(CaptionDraftScope scope, Guid leaseId)
+    private CaptionDraftReadResult Read(CaptionDraftScope scope, Guid leaseId)
     {
         lock (_gate)
         {
@@ -266,18 +293,29 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             string storagePath = GetStoragePath(scope);
             DeleteStaleTemporaryFiles(storagePath);
             if (!File.Exists(storagePath))
-                return null;
+                return CaptionDraftReadResult.Absent;
 
+            byte[] bytes;
             try
             {
                 var info = new FileInfo(storagePath);
                 if (info.Length is <= 0 or > MaximumStorageBytes)
                 {
                     DeleteInvalidFile(storagePath);
-                    return null;
+                    return CaptionDraftReadResult.Absent;
                 }
 
-                byte[] bytes = File.ReadAllBytes(storagePath);
+                bytes = File.ReadAllBytes(storagePath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // 読めなかっただけで、無いとは限らない。消しても上書きもしない
+                // ——そこに支払い済みの名前が書いてあるかもしれない。
+                return CaptionDraftReadResult.Unreadable;
+            }
+
+            try
+            {
                 CaptionDraftEnvelope? envelope = JsonSerializer.Deserialize<CaptionDraftEnvelope>(
                     bytes,
                     s_jsonOptions);
@@ -286,7 +324,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                     || envelope.Scope != scope)
                 {
                     DeleteInvalidFile(storagePath);
-                    return null;
+                    return CaptionDraftReadResult.Absent;
                 }
 
                 CaptionDraft draft = Migrate(
@@ -296,18 +334,19 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 if (!IsValid(draft))
                 {
                     DeleteInvalidFile(storagePath);
-                    return null;
+                    return CaptionDraftReadResult.Absent;
                 }
-                return new CaptionDraftEntry(envelope.JobId, draft);
+                return new CaptionDraftReadResult(
+                    CaptionDraftReadOutcome.Read,
+                    new CaptionDraftEntry(envelope.JobId, draft));
             }
-            catch (Exception ex) when (ex is IOException
-                or UnauthorizedAccessException
-                or JsonException
+            catch (Exception ex) when (ex is JsonException
                 or NotSupportedException
                 or ArgumentException)
             {
+                // 読めたが、中身が控えとして成り立っていない。これは消してよい。
                 DeleteInvalidFile(storagePath);
-                return null;
+                return CaptionDraftReadResult.Absent;
             }
         }
     }
@@ -703,8 +742,8 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
 
         public CaptionDraftScope Scope { get; } = scope;
 
-        public CaptionDraftEntry? Load()
-            => GetOwner().Load(Scope, leaseId);
+        public CaptionDraftReadResult Read()
+            => GetOwner().Read(Scope, leaseId);
 
         public void Save(CaptionDraftEntry entry)
             => GetOwner().Save(Scope, leaseId, entry);

@@ -73,12 +73,14 @@ internal static class TestReset
 
             public CaptionDraftScope Scope { get; } = scope;
 
-            public CaptionDraftEntry? Load()
+            public CaptionDraftReadResult Read()
             {
                 TestCaptionDraftStore store = GetOwner();
                 lock (store._gate)
                 {
-                    return store._drafts.GetValueOrDefault(Scope);
+                    return store._drafts.GetValueOrDefault(Scope) is { } entry
+                        ? new CaptionDraftReadResult(CaptionDraftReadOutcome.Read, entry)
+                        : CaptionDraftReadResult.Absent;
                 }
             }
 

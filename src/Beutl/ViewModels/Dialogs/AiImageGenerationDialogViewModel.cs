@@ -1051,7 +1051,10 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         for (int index = 0; index < paths.Length; index++)
         {
             string fileName = Path.GetFileName(paths[index]);
-            byte[] bytes = await File.ReadAllBytesAsync(paths[index], cancellationToken);
+            byte[] bytes = await AiUploadBytes.ReadWithinAsync(
+                paths[index],
+                AiRequestLimits.MaxImageUploadBytes,
+                cancellationToken);
             stamps[index] = AiRequestKey.FileStamp(fileName, bytes);
             sources[index] = AiUploadSource.FromBytes(fileName, bytes);
         }

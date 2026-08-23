@@ -39,7 +39,7 @@ public sealed class CaptionDraftStoreTests
         using (session)
         {
             session!.Save(new CaptionDraftEntry("job-42", original));
-            CaptionDraftEntry? restored = session.Load();
+            CaptionDraftEntry? restored = session.Read().Entry;
 
             Assert.That(restored, Is.Not.Null);
             Assert.Multiple(() =>
@@ -52,7 +52,7 @@ public sealed class CaptionDraftStoreTests
             });
 
             session.Delete();
-            Assert.That(session.Load(), Is.Null);
+            Assert.That(session.Read().Entry, Is.Null);
         }
     }
 
@@ -70,7 +70,7 @@ public sealed class CaptionDraftStoreTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(session!.Load(), Is.Null);
+                Assert.That(session!.Read().Entry, Is.Null);
                 Assert.That(File.Exists(storagePath), Is.False);
             });
 
@@ -79,7 +79,7 @@ public sealed class CaptionDraftStoreTests
                 new byte[FileCaptionDraftStore.MaximumStorageBytes + 1]);
             Assert.Multiple(() =>
             {
-                Assert.That(session!.Load(), Is.Null);
+                Assert.That(session!.Read().Entry, Is.Null);
                 Assert.That(File.Exists(storagePath), Is.False);
             });
         }
@@ -105,7 +105,7 @@ public sealed class CaptionDraftStoreTests
                 Assert.That(store.TryOpen(scope, out ICaptionDraftSession? other), Is.True);
                 using (other)
                 {
-                    Assert.That(other!.Load(), Is.Null, scope.ToString());
+                    Assert.That(other!.Read().Entry, Is.Null, scope.ToString());
                 }
             }
         }
@@ -121,13 +121,13 @@ public sealed class CaptionDraftStoreTests
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? competing), Is.False);
         Assert.That(competing, Is.Null);
-        Assert.That(owner.Load(), Is.Not.Null);
+        Assert.That(owner.Read().Entry, Is.Not.Null);
 
         owner.Dispose();
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? successor), Is.True);
         using (successor)
         {
-            Assert.That(successor!.Load()?.Draft.Cues.Single().Text, Is.EqualTo("paid result"));
+            Assert.That(successor!.Read().Entry?.Draft.Cues.Single().Text, Is.EqualTo("paid result"));
         }
     }
 
@@ -146,7 +146,7 @@ public sealed class CaptionDraftStoreTests
         Assert.That(recreatedStore.TryOpen(scope, out ICaptionDraftSession? restoredSession), Is.True);
         using (restoredSession)
         {
-            CaptionDraftEntry? restored = restoredSession!.Load();
+            CaptionDraftEntry? restored = restoredSession!.Read().Entry;
             Assert.Multiple(() =>
             {
                 Assert.That(restored?.JobId, Is.EqualTo("paid-job-123"));
@@ -171,7 +171,7 @@ public sealed class CaptionDraftStoreTests
         using (session)
         {
             session!.Save(new CaptionDraftEntry(null, CreateUnstartedDraft()));
-            CaptionDraftEntry? restored = session.Load();
+            CaptionDraftEntry? restored = session.Read().Entry;
 
             Assert.That(restored, Is.Not.Null);
             Assert.Multiple(() =>
@@ -211,7 +211,7 @@ public sealed class CaptionDraftStoreTests
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
         using (reopened)
         {
-            CaptionDraftEntry? restored = reopened!.Load();
+            CaptionDraftEntry? restored = reopened!.Read().Entry;
 
             Assert.That(restored, Is.Not.Null);
             Assert.Multiple(() =>
@@ -259,7 +259,7 @@ public sealed class CaptionDraftStoreTests
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
         using (reopened)
         {
-            CaptionDraftEntry? restored = reopened!.Load();
+            CaptionDraftEntry? restored = reopened!.Read().Entry;
 
             Assert.That(restored, Is.Not.Null);
             Assert.Multiple(() =>
@@ -320,13 +320,45 @@ public sealed class CaptionDraftStoreTests
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
         using (reopened)
         {
-            CaptionDraftEntry? restored = reopened!.Load();
+            CaptionDraftEntry? restored = reopened!.Read().Entry;
 
             Assert.That(restored, Is.Not.Null);
             Assert.That(
                 restored!.Draft.SourceTranscriptionResume?.RequestKeyNamePending,
                 Is.False,
                 "A draft that says the run settled is not a paid recovery.");
+        }
+    }
+
+    [Test]
+    public void Read_SaysUnreadableRatherThanDeletingWhatItCannotOpen()
+    {
+        // 読めなかったのと、無いのとは違う。取り違えて消すか上書きすると、
+        // そこに書いてあった支払い済みの名前ごと失われる。
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
+        }
+
+        string path = store.GetStoragePath(scope);
+        using (FileStream held = new(path, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            Assert.That(store.TryOpen(scope, out ICaptionDraftSession? blocked), Is.True);
+            using (blocked)
+            {
+                CaptionDraftReadResult read = blocked!.Read();
+                Assert.That(read.Outcome, Is.EqualTo(CaptionDraftReadOutcome.Unreadable));
+            }
+        }
+
+        Assert.That(File.Exists(path), Is.True, "What could not be read is still there.");
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
+        using (reopened)
+        {
+            Assert.That(reopened!.Read().Entry, Is.Not.Null);
         }
     }
 
@@ -466,7 +498,7 @@ public sealed class CaptionDraftStoreTests
         Assert.That(store.TryOpen(scope, out session), Is.True);
         using (session)
         {
-            CaptionDraftEntry? restored = session!.Load();
+            CaptionDraftEntry? restored = session!.Read().Entry;
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(restored, Is.Not.Null);
@@ -534,7 +566,7 @@ public sealed class CaptionDraftStoreTests
         Assert.That(store.TryOpen(scope, out session), Is.True);
         using (session)
         {
-            CaptionDraftEntry? restored = session!.Load();
+            CaptionDraftEntry? restored = session!.Read().Entry;
             Assert.Multiple(() =>
             {
                 Assert.That(restored, Is.Not.Null);
