@@ -171,25 +171,11 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             throw new ArgumentException("The framebuffer was created for a different render pass.", nameof(framebuffer));
         }
 
-        // Claimed before the first barrier: every pass on this context records into one command buffer, so a
-        // second concurrent pass has to be rejected before it prepares anything, not after.
-        _context.BeginRenderPassScope(this);
-        try
-        {
-            BeginCore(vulkanFramebuffer, clearColors, clearDepth);
-        }
-        catch
-        {
-            _context.EndRenderPassScope(this);
-            throw;
-        }
-    }
+        // Rejected before the first barrier, but the batch is not claimed until the command that opens the
+        // pass: a claimed scope diverts every barrier into an out-of-band batch that submits ahead of
+        // everything already recorded, and the preparation below has to stay in recording order.
+        _context.ThrowIfRenderPassActive();
 
-    private void BeginCore(
-        VulkanFramebuffer3D vulkanFramebuffer,
-        ReadOnlySpan<Color> clearColors,
-        float clearDepth)
-    {
         // Prepare textures for rendering
         vulkanFramebuffer.PrepareForRendering();
 
@@ -232,6 +218,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             PClearValues = clearValues
         };
 
+        _context.BeginRenderPassScope(this);
         _context.Vk.CmdBeginRenderPass(_currentCommandBuffer, &renderPassBeginInfo, SubpassContents.Inline);
 
         // Set viewport and scissor

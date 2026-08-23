@@ -43,6 +43,58 @@ public sealed class RenderPassTransferScopeTests
         public byte First;
     }
 
+    /// <remarks>
+    /// A claimed render-pass scope diverts every barrier into its own batch, which submits ahead of the
+    /// batch still being recorded. That is right for a transfer issued mid-pass and wrong for the pass's own
+    /// attachment transitions: those have to stay in recording order behind whatever was recorded before
+    /// them, or the queue runs them against an image that has since moved to a different layout.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void BeginningAPass_KeepsItsPreparationBarriersInTheRecordedBatch()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using IRenderPass3D pass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
+            using ITexture2D color = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(pass, [color], null);
+
+            // Put the attachment somewhere Begin has to transition it back from, so the barrier this test is
+            // about is recorded on every backend. A texture that is already an attachment - which is how the
+            // Metal-backed one arrives - would make the observation below vacuous.
+            framebuffer.PrepareForSampling();
+
+            var duringSampling = new List<VulkanCommandPoolEvent>();
+            var duringBegin = new List<VulkanCommandPoolEvent>();
+            using (VulkanCommandPool.Observe(duringSampling.Add))
+            {
+                framebuffer.PrepareForSampling();
+            }
+
+            using (VulkanCommandPool.Observe(duringBegin.Add))
+            {
+                pass.Begin(framebuffer, [Colors.Transparent]);
+            }
+
+            pass.End();
+            context.WaitIdle();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    duringSampling.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                    Is.Zero,
+                    "precondition: an ordinary barrier outside a pass joins the recorded batch");
+                Assert.That(
+                    duringBegin.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                    Is.Zero,
+                    "Opening a render pass must not submit anything: its attachment transitions belong to "
+                    + "the batch already being recorded, in the order they were recorded.");
+            }
+        });
+    }
+
     [Test]
     [Category("GpuPassFusionGpu")]
     public void CopyBufferInsideARenderPass_SubmitsAheadOfThatPass()

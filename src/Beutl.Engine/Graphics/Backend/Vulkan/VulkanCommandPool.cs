@@ -103,6 +103,26 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         record(GetRecordingCommandBuffer());
     }
 
+    /// <summary>Rejects a caller that is about to record a render pass while another one owns the batch.</summary>
+    /// <remarks>
+    /// Separate from <see cref="BeginRenderPassScope"/> so a pass can reject a double begin before it
+    /// records anything, while still claiming the batch only at the command that opens the pass: claiming
+    /// it earlier would divert the pass's own preparation barriers into an out-of-band batch that submits
+    /// ahead of everything already recorded, which reorders them against work they must follow.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Another render pass already owns the batch.</exception>
+    public void ThrowIfRenderPassActive()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_activeRenderPassOwner is not null)
+        {
+            throw new InvalidOperationException(
+                "A render pass instance is already recording on this context's command buffer. Vulkan does "
+                + "not allow one render pass inside another, so the active pass must end before the next "
+                + "begins.");
+        }
+    }
+
     /// <summary>
     /// Claims the recording batch for one render pass instance, during which transfers and barriers cannot
     /// join it.
@@ -117,16 +137,8 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     /// <exception cref="InvalidOperationException">Another render pass already owns the batch.</exception>
     public void BeginRenderPassScope(object owner)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(owner);
-        if (_activeRenderPassOwner is not null)
-        {
-            throw new InvalidOperationException(
-                "A render pass instance is already recording on this context's command buffer. Vulkan does "
-                + "not allow one render pass inside another, so the active pass must end before the next "
-                + "begins.");
-        }
-
+        ThrowIfRenderPassActive();
         _activeRenderPassOwner = owner;
         _renderPassScopeDepth++;
     }

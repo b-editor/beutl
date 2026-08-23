@@ -976,6 +976,12 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         _vulkanCommandPool.Flush(waitForCompletion);
     }
 
+    /// <inheritdoc cref="VulkanCommandPool.ThrowIfRenderPassActive"/>
+    public void ThrowIfRenderPassActive()
+    {
+        _vulkanCommandPool.ThrowIfRenderPassActive();
+    }
+
     /// <inheritdoc cref="VulkanCommandPool.BeginRenderPassScope(object)"/>
     public void BeginRenderPassScope(object owner)
     {
