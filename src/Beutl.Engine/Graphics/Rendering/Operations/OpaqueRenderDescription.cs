@@ -1669,6 +1669,12 @@ internal static class RenderDescriptionValidation
             if (captured is null)
                 continue;
 
+            // When a lambda is written inside another lambda over the same locals, Roslyn caches the inner
+            // delegate in the shared closure. That field is the compiler's, not the author's: whatever the
+            // cached delegate reads is one of the closure's other fields, which this loop checks anyway.
+            if (captured is Delegate cached && ReferenceEquals(cached.Target, target))
+                continue;
+
             ThrowIfExecutionFacadeIdentity(captured, parameterName);
             try
             {

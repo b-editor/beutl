@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using System.Collections.Immutable;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
@@ -164,14 +165,9 @@ public sealed class RenderContractPrimitiveTests
     {
         var fixedValue = new FixedRect(new Rect(0, 0, 4, 4));
 
-        try
-        {
-            RenderBoundsContract.Create(_ => fixedValue.Value, static value => value);
-        }
-        catch (ArgumentException ex)
-        {
-            Assert.Fail("rejected: " + (ex.InnerException?.Message ?? ex.Message));
-        }
+        Assert.That(
+            () => RenderBoundsContract.Create(_ => fixedValue.Value, static value => value),
+            Throws.Nothing);
     }
 
     [Test]
@@ -179,35 +175,40 @@ public sealed class RenderContractPrimitiveTests
     {
         var fixedValue = new FixedRects([new Rect(0, 0, 4, 4)]);
 
-        try
-        {
-            RenderBoundsContract.Create(_ => fixedValue.Values[0], static value => value);
-        }
-        catch (ArgumentException ex)
-        {
-            Assert.Fail("rejected: " + (ex.InnerException?.Message ?? ex.Message));
-        }
+        Assert.That(
+            () => RenderBoundsContract.Create(_ => fixedValue.Values[0], static value => value),
+            Throws.Nothing);
     }
 
-    private sealed class MutableBox
+    /// <remarks>
+    /// Roslyn caches an inner lambda in the closure it shares with the enclosing one, so a contract recorded
+    /// from inside any other lambda reaches validation with a delegate field the author never wrote.
+    /// </remarks>
+    [Test]
+    public void RenderBoundsContract_AcceptsAContractRecordedInsideAnotherLambda()
     {
-        public Rect Value;
+        var fixedValue = new FixedRect(new Rect(0, 0, 4, 4));
+        Func<RenderBoundsContract> record =
+            () => RenderBoundsContract.Create(_ => fixedValue.Value, static value => value);
+
+        Assert.That(() => record(), Throws.Nothing);
     }
 
-    private sealed class FixedBox(MutableBox inner)
+    /// <remarks>
+    /// The compiler's own cache is recognised by pointing back at the closure being validated, so a delegate
+    /// the author really did capture - one built elsewhere, over state this closure cannot show - still fails.
+    /// </remarks>
+    [Test]
+    public void RenderBoundsContract_RejectsADelegateCapturedFromAnotherClosure()
     {
-        public readonly MutableBox Inner = inner;
+        Func<Rect, Rect> elsewhere = ReadFrom(new MutableBox { Value = new Rect(0, 0, 4, 4) });
+
+        Assert.That(
+            () => RenderBoundsContract.Create(value => elsewhere(value), static value => value),
+            Throws.TypeOf<ArgumentException>());
     }
 
-    private sealed class FixedRect(Rect value)
-    {
-        public readonly Rect Value = value;
-    }
-
-    private sealed class FixedRects(System.Collections.Immutable.ImmutableArray<Rect> values)
-    {
-        public readonly System.Collections.Immutable.ImmutableArray<Rect> Values = values;
-    }
+    private static Func<Rect, Rect> ReadFrom(MutableBox box) => _ => box.Value;
 
     [Test]
     public void RenderBoundsContract_RejectsMetadataCallbacksThatCaptureLifetimeState()
@@ -236,6 +237,26 @@ public sealed class RenderContractPrimitiveTests
                     capturing),
                 Throws.TypeOf<ArgumentException>());
         });
+    }
+
+    private sealed class MutableBox
+    {
+        public Rect Value;
+    }
+
+    private sealed class FixedBox(MutableBox inner)
+    {
+        public readonly MutableBox Inner = inner;
+    }
+
+    private sealed class FixedRect(Rect value)
+    {
+        public readonly Rect Value = value;
+    }
+
+    private sealed class FixedRects(ImmutableArray<Rect> values)
+    {
+        public readonly ImmutableArray<Rect> Values = values;
     }
 
     private sealed class DerivedMutableKey : List<int>;
