@@ -1672,7 +1672,7 @@ internal static class RenderDescriptionValidation
             ThrowIfExecutionFacadeIdentity(captured, parameterName);
             try
             {
-                RenderIdentityKeyValidator.ThrowIfInvalid(captured, parameterName);
+                RenderIdentityKeyValidator.ThrowIfMutableCapture(captured, parameterName);
             }
             catch (ArgumentException ex)
             {

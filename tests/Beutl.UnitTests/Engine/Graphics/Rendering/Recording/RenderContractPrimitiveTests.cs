@@ -134,6 +134,81 @@ public sealed class RenderContractPrimitiveTests
         });
     }
 
+    /// <remarks>
+    /// A metadata callback is evaluated repeatedly and its structural identity is only its MethodInfo, so a
+    /// capture the author can still change makes one identity stand for different bounds. The named mutable
+    /// collections were the only shape rejected; an ordinary class with a settable field does it too.
+    /// </remarks>
+    [Test]
+    public void RenderBoundsContract_RejectsAMetadataCallbackThatCapturesAnAssignableField()
+    {
+        var box = new MutableBox { Value = new Rect(0, 0, 4, 4) };
+
+        Assert.That(
+            () => RenderBoundsContract.Create(_ => box.Value, static value => value),
+            Throws.TypeOf<ArgumentException>().With.InnerException.Message.Contains("MutableBox.Value"));
+    }
+
+    [Test]
+    public void RenderBoundsContract_RejectsACaptureWhoseReadOnlyFieldHoldsSomethingAssignable()
+    {
+        var nested = new FixedBox(new MutableBox { Value = new Rect(0, 0, 4, 4) });
+
+        Assert.That(
+            () => RenderBoundsContract.Create(_ => nested.Inner.Value, static value => value),
+            Throws.TypeOf<ArgumentException>());
+    }
+
+    [Test]
+    public void RenderBoundsContract_AcceptsACaptureNothingCanReassign()
+    {
+        var fixedValue = new FixedRect(new Rect(0, 0, 4, 4));
+
+        try
+        {
+            RenderBoundsContract.Create(_ => fixedValue.Value, static value => value);
+        }
+        catch (ArgumentException ex)
+        {
+            Assert.Fail("rejected: " + (ex.InnerException?.Message ?? ex.Message));
+        }
+    }
+
+    [Test]
+    public void RenderBoundsContract_AcceptsACaptureHoldingAnImmutableCollection()
+    {
+        var fixedValue = new FixedRects([new Rect(0, 0, 4, 4)]);
+
+        try
+        {
+            RenderBoundsContract.Create(_ => fixedValue.Values[0], static value => value);
+        }
+        catch (ArgumentException ex)
+        {
+            Assert.Fail("rejected: " + (ex.InnerException?.Message ?? ex.Message));
+        }
+    }
+
+    private sealed class MutableBox
+    {
+        public Rect Value;
+    }
+
+    private sealed class FixedBox(MutableBox inner)
+    {
+        public readonly MutableBox Inner = inner;
+    }
+
+    private sealed class FixedRect(Rect value)
+    {
+        public readonly Rect Value = value;
+    }
+
+    private sealed class FixedRects(System.Collections.Immutable.ImmutableArray<Rect> values)
+    {
+        public readonly System.Collections.Immutable.ImmutableArray<Rect> Values = values;
+    }
+
     [Test]
     public void RenderBoundsContract_RejectsMetadataCallbacksThatCaptureLifetimeState()
     {
