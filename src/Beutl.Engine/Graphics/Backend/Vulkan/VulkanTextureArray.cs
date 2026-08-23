@@ -167,13 +167,29 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
         // ever writes to it - a shadow atlas binds its whole array while only the lights actually present
         // fill a slot - so a slot has to start in a layout the sampler can read rather than in UNDEFINED,
         // which is what the descriptor would otherwise present to the lighting pass.
-        _context.TransitionImageLayout(
-            _image,
-            ImageLayout.Undefined,
-            ImageLayout.ShaderReadOnlyOptimal,
-            _format.GetAspectMask(),
-            baseArrayLayer: 0,
-            layerCount: _arraySize);
+        // Recording it can fail - allocating or beginning a command buffer - and the type has no finalizer,
+        // so everything created above has to be released here rather than left to a caller that only holds
+        // a thrown exception.
+        try
+        {
+            _context.TransitionImageLayout(
+                _image,
+                ImageLayout.Undefined,
+                ImageLayout.ShaderReadOnlyOptimal,
+                _format.GetAspectMask(),
+                baseArrayLayer: 0,
+                layerCount: _arraySize);
+        }
+        catch
+        {
+            for (uint i = 0; i < _arraySize; i++)
+                vk.DestroyImageView(device, _layerViews[i], null);
+            vk.DestroyImageView(device, _imageView, null);
+            vk.FreeMemory(device, _memory, null);
+            vk.DestroyImage(device, _image, null);
+            throw;
+        }
+
         for (uint i = 0; i < _arraySize; i++)
             _layerLayouts[i] = ImageLayout.ShaderReadOnlyOptimal;
     }

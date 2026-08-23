@@ -155,13 +155,26 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
 
         // The cube view samples all six faces whether or not every one is rendered into, so a face has to
         // start in a layout the sampler can read rather than in UNDEFINED.
-        _context.TransitionImageLayout(
-            _image,
-            ImageLayout.Undefined,
-            ImageLayout.ShaderReadOnlyOptimal,
-            _format.GetAspectMask(),
-            baseArrayLayer: 0,
-            layerCount: 6);
+        try
+        {
+            _context.TransitionImageLayout(
+                _image,
+                ImageLayout.Undefined,
+                ImageLayout.ShaderReadOnlyOptimal,
+                _format.GetAspectMask(),
+                baseArrayLayer: 0,
+                layerCount: 6);
+        }
+        catch
+        {
+            for (int i = 0; i < _faceViews.Length; i++)
+                vk.DestroyImageView(device, _faceViews[i], null);
+            vk.DestroyImageView(device, _imageView, null);
+            vk.FreeMemory(device, _memory, null);
+            vk.DestroyImage(device, _image, null);
+            throw;
+        }
+
         for (int i = 0; i < _faceLayouts.Length; i++)
             _faceLayouts[i] = ImageLayout.ShaderReadOnlyOptimal;
     }

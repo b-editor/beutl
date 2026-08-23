@@ -178,13 +178,25 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
         // Every allocated face is covered by the cube-array view the shader samples, whether or not any
         // light ever renders into it, so a face has to start in a layout the sampler can read rather than
         // in UNDEFINED, which is what the descriptor would otherwise present to the lighting pass.
-        _context.TransitionImageLayout(
-            _image,
-            ImageLayout.Undefined,
-            ImageLayout.ShaderReadOnlyOptimal,
-            _format.GetAspectMask(),
-            baseArrayLayer: 0,
-            layerCount: totalLayers);
+        try
+        {
+            _context.TransitionImageLayout(
+                _image,
+                ImageLayout.Undefined,
+                ImageLayout.ShaderReadOnlyOptimal,
+                _format.GetAspectMask(),
+                baseArrayLayer: 0,
+                layerCount: totalLayers);
+        }
+        catch
+        {
+            CleanupFaceViews(arraySize - 1, 6, vk, device);
+            vk.DestroyImageView(device, _imageView, null);
+            vk.FreeMemory(device, _memory, null);
+            vk.DestroyImage(device, _image, null);
+            throw;
+        }
+
         for (uint arrIdx = 0; arrIdx < arraySize; arrIdx++)
         {
             for (int faceIdx = 0; faceIdx < 6; faceIdx++)
