@@ -194,7 +194,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         {
             _renderPass.BindPipeline(_pipeline);
             _renderPass.BindDescriptorSet(_pipeline, descriptorSet);
-            _renderPass.SetPushConstants(pushConstants, ShaderStage.Fragment);
+            _renderPass.SetPushConstants(pushConstants);
             _renderPass.Draw(3); // Fullscreen triangle
         }
         finally
@@ -243,7 +243,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         {
             _renderPass.BindPipeline(_pipeline);
             _renderPass.BindDescriptorSet(_pipeline, descriptorSet);
-            _renderPass.SetPushConstants(pushConstants, ShaderStage.Fragment);
+            _renderPass.SetPushConstants(pushConstants);
             _renderPass.Draw(3); // Fullscreen triangle
         }
         finally

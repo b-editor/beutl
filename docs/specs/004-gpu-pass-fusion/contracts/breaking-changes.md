@@ -727,6 +727,7 @@ item below is source-breaking; none has a default implementation or an overload 
 | `IGraphicsContext.CreateFramebuffer3D` | `ITexture2D depthTexture` | `ITexture2D? depthTexture` |
 | `IFramebuffer3D.DepthTexture` | `ITexture2D` | `ITexture2D?` |
 | `PipelineOptions` | — | adds `ImmutableArray<SpecializationConstant> SpecializationConstants { get; set; }` |
+| `IRenderPass3D.SetPushConstants` | `SetPushConstants<T>(T data, ShaderStage stageFlags = Vertex \| Fragment)` | `SetPushConstants<T>(T data)` |
 
 The three `ITexture2D` members exist because the fused pipeline hands one texture back and forth between Skia
 and the backend within a frame. Skia records into a surface it owns while the backend records into the same
@@ -744,6 +745,14 @@ intent; `null` is the colour-only pass, and `depthLoadOp` is ignored for one.
 
 `SpecializationConstant` is additive: an implementation that ignores `SpecializationConstants` compiles and
 behaves as before, and only a backend that wants compile-time specialization needs to read it.
+
+`SetPushConstants` lost its `stageFlags` argument because no caller could set it correctly. A push-constant
+update must name every shader stage of every declared range it overlaps, and which stages those are is a
+property of the bound pipeline layout — which the Vulkan backend declares as one range spanning vertex and
+fragment. A caller naming only the stage it reads from, as the GLSL filter pipeline did, produced undefined
+behaviour that no driver is required to report; the Vulkan validation gate reports it as
+`VUID-vkCmdPushConstants-offset-01796`. Delete the argument: the backend now takes the stages from the layout
+it is pushing against, which is the only value that was ever correct.
 
 ## A source declares the room its rasterization needs instead of publishing it
 

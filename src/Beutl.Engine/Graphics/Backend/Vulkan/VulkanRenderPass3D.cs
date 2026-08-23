@@ -350,7 +350,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         _context.Vk.CmdDraw(_currentCommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
     }
 
-    public void SetPushConstants<T>(T data, ShaderStage stageFlags = ShaderStage.Vertex | ShaderStage.Fragment) where T : unmanaged
+    public void SetPushConstants<T>(T data) where T : unmanaged
     {
         if (!_inRenderPass)
         {
@@ -363,21 +363,18 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         }
 
         var size = (uint)sizeof(T);
-        if (size > 128)
+        if (size > VulkanPipeline3D.MaxPushConstantsSize)
         {
-            throw new ArgumentException($"Push constants size {size} exceeds maximum of 128 bytes");
+            throw new ArgumentException(
+                $"Push constants size {size} exceeds maximum of {VulkanPipeline3D.MaxPushConstantsSize} bytes");
         }
 
-        ShaderStageFlags vulkanStageFlags = 0;
-        if ((stageFlags & ShaderStage.Vertex) != 0)
-            vulkanStageFlags |= ShaderStageFlags.VertexBit;
-        if ((stageFlags & ShaderStage.Fragment) != 0)
-            vulkanStageFlags |= ShaderStageFlags.FragmentBit;
-
+        // The bound layout's range is what decides these, not the caller: an update has to name every stage
+        // of every range it overlaps, so naming fewer is undefined behaviour the driver need not report.
         _context.Vk.CmdPushConstants(
             _currentCommandBuffer,
             _currentPipeline.PipelineLayoutHandle,
-            vulkanStageFlags,
+            VulkanPipeline3D.PushConstantStages,
             0,
             size,
             &data);

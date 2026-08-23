@@ -1,10 +1,31 @@
-﻿using Beutl.Graphics.Backend;
+﻿using System.Reflection;
+using Beutl.Graphics.Backend;
 
 namespace Beutl.PublicApiContractTests;
 
 [TestFixture]
 public sealed class PipelineSpecializationContractTests
 {
+    /// <remarks>
+    /// A push-constant update must name every shader stage of every declared range it overlaps, and which
+    /// stages those are is a property of the bound pipeline layout, not of the calling site. Offering the
+    /// caller a stage argument invited it to name only the stage it reads from — undefined behaviour the
+    /// driver is not required to diagnose, and which the Vulkan validation gate catches as
+    /// VUID-vkCmdPushConstants-offset-01796.
+    /// </remarks>
+    [Test]
+    public void SettingPushConstants_OffersNoWayToNameTheStages()
+    {
+        MethodInfo setPushConstants = typeof(IRenderPass3D)
+            .GetMethods()
+            .Single(static method => method.Name == nameof(IRenderPass3D.SetPushConstants));
+
+        Assert.That(
+            setPushConstants.GetParameters().Select(static parameter => parameter.ParameterType),
+            Is.EqualTo(new[] { setPushConstants.GetGenericArguments()[0] }),
+            "the data is the only thing the caller decides");
+    }
+
     [Test]
     public void ExternalAuthorCanDescribeImmutableTypedSpecializationConstants()
     {

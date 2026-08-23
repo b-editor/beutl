@@ -73,13 +73,14 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             _descriptorSetLayout = descriptorLayout;
         }
 
-        // Create pipeline layout with push constants support
-        // Use 128 bytes which is the minimum guaranteed by Vulkan
+        // One range covering both stages over the 128 bytes Vulkan guarantees. Because the range spans both
+        // stages, every vkCmdPushConstants against this layout must name both: the spec requires the update
+        // to cover all stages of every range it overlaps.
         var pushConstantRange = new PushConstantRange
         {
-            StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit,
+            StageFlags = PushConstantStages,
             Offset = 0,
-            Size = 128
+            Size = MaxPushConstantsSize
         };
 
         var layouts = stackalloc DescriptorSetLayout[] { _descriptorSetLayout };
@@ -110,6 +111,19 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             srcAlphaBlendFactor, dstAlphaBlendFactor, colorBlendOp, alphaBlendOp,
             specializationConstants);
     }
+
+    /// <summary>The stages the pipeline layout's push-constant range covers.</summary>
+    /// <remarks>
+    /// Every <c>vkCmdPushConstants</c> against this layout must pass exactly these: the spec requires an
+    /// update to name all stages of every range it overlaps, and this layout declares one range spanning
+    /// them. Reading it from here rather than from the caller is what keeps the two in step.
+    /// </remarks>
+    public const ShaderStageFlags PushConstantStages =
+        ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit;
+
+    /// <summary>The size of the pipeline layout's push-constant range, in bytes.</summary>
+    /// <remarks>128 is the minimum every Vulkan implementation guarantees.</remarks>
+    public const uint MaxPushConstantsSize = 128;
 
     public Pipeline Handle => _pipeline;
 

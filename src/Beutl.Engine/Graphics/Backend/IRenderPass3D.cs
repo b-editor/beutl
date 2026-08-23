@@ -61,6 +61,10 @@ public interface IRenderPass3D : IDisposable
     /// </summary>
     /// <typeparam name="T">The type of push constants data.</typeparam>
     /// <param name="data">The push constants data.</param>
-    /// <param name="stageFlags">The shader stages that will access the push constants.</param>
-    void SetPushConstants<T>(T data, ShaderStage stageFlags = ShaderStage.Vertex | ShaderStage.Fragment) where T : unmanaged;
+    /// <remarks>
+    /// Which shader stages the update names is the bound pipeline layout's to decide, not the caller's: an
+    /// update must name every stage of every declared range it overlaps, so a caller naming only the stage
+    /// it happens to read from would be describing something the layout does not offer.
+    /// </remarks>
+    void SetPushConstants<T>(T data) where T : unmanaged;
 }
