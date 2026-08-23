@@ -555,11 +555,17 @@ internal static class RenderMaterializationDemandResolver
                 }
                 return;
             case RenderFragmentKind.TargetCommand:
+                TargetCommandDescription command =
+                    ((TargetCommandRenderFragmentPayload)fragment.Payload!).Description;
                 for (int index = fragment.Inputs.Length - 1; index >= 0; index--)
                 {
                     pending.Push(new PendingDemand(
                         fragment.Inputs[index],
-                        targetDemand,
+                        ResolveMappedInputDemand(
+                            command.InputDemand,
+                            index,
+                            targetDemand,
+                            maxWorkingScale),
                         DemandUse.MaterializeValue,
                         UseSupplyFallback: true,
                         IsEffectClassConsumer: IsEffectClassConsumer(fragment)));

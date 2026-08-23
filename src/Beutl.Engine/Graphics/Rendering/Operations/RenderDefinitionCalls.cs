@@ -259,6 +259,7 @@ public sealed class TargetCommandDefinition<TState>
     private readonly RenderHitTestContract _hitTest;
     private readonly TargetAccess _access;
     private readonly IReadOnlyList<RenderInputReadback> _inputReadbacks;
+    private readonly RenderInputDemandContract _inputDemand;
     private readonly IReadOnlyList<RenderResourceSlot> _resourceSlots;
 
     private TargetCommandDefinition(
@@ -268,6 +269,7 @@ public sealed class TargetCommandDefinition<TState>
         RenderHitTestContract hitTest,
         TargetAccess access,
         IReadOnlyList<RenderInputReadback> inputReadbacks,
+        RenderInputDemandContract inputDemand,
         IReadOnlyList<RenderResourceSlot> resourceSlots)
     {
         _execute = execute;
@@ -276,6 +278,7 @@ public sealed class TargetCommandDefinition<TState>
         _hitTest = hitTest;
         _access = access;
         _inputReadbacks = inputReadbacks;
+        _inputDemand = inputDemand;
         _resourceSlots = resourceSlots;
     }
 
@@ -287,7 +290,8 @@ public sealed class TargetCommandDefinition<TState>
         RenderHitTestContract hitTest,
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceSlot>? resources = null)
+        IEnumerable<RenderResourceSlot>? resources = null,
+        RenderInputDemandContract inputDemand = default)
     {
         ArgumentNullException.ThrowIfNull(execute);
         affectedRegion.ThrowIfUninitialized(nameof(affectedRegion));
@@ -313,6 +317,7 @@ public sealed class TargetCommandDefinition<TState>
             hitTest,
             access,
             inputReadbacks?.ToArray() ?? [],
+            inputDemand,
             RenderDescriptionValidation.CopyResourceSlots(resources, nameof(resources)));
     }
 
@@ -337,6 +342,7 @@ public sealed class TargetCommandDefinition<TState>
             _access,
             _inputReadbacks,
             definitionFingerprint: _execute.Method,
+            inputDemand: _inputDemand,
             resources: RenderDescriptionValidation.ValidateResourceBindings(
                 _resourceSlots,
                 bindings,

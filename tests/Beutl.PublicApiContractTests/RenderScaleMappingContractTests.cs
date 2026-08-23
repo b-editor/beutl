@@ -185,6 +185,43 @@ public sealed class RenderScaleMappingContractTests
         });
     }
 
+    /// <remarks>
+    /// A target command draws its inputs onto the target, and one that resamples an input while drawing it
+    /// needs that input at a different density from the target. Every input used to be materialized at the
+    /// target's density with no way to say otherwise.
+    /// </remarks>
+    [Test]
+    public void ATargetCommandCanRaiseTheDemandOnTheInputItEnlarges()
+    {
+        var probe = new MaterializationDensityProbe();
+        using var node = new EnlargingTargetCommandNode(probe, mapsOutputDemand: true);
+        using var renderer = CreateRenderer(node);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(probe.ObservedWorkingScale, Is.EqualTo(2f));
+        });
+    }
+
+    [Test]
+    public void ATargetCommandThatDeclaresNoDemandMappingPassesItThroughUnchanged()
+    {
+        var probe = new MaterializationDensityProbe();
+        using var node = new EnlargingTargetCommandNode(probe, mapsOutputDemand: false);
+        using var renderer = CreateRenderer(node);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(probe.ObservedWorkingScale, Is.EqualTo(1f));
+        });
+    }
+
     [Test]
     public void ACombineCanRaiseTheDemandOfOnlyTheInputItEnlarges()
     {
@@ -293,6 +330,43 @@ public sealed class RenderScaleMappingContractTests
             output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
             session.Publish(output);
         }
+    }
+
+    private sealed class EnlargingTargetCommandNode(
+        MaterializationDensityProbe probe,
+        bool mapsOutputDemand) : RenderNode
+    {
+        private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
+        private static readonly Rect s_targetBounds = new(0, 0, 20, 20);
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle source = context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
+                probe,
+                static (session, state) => state.Execute(session),
+                bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
+                hitTest: RenderHitTestContract.OutputBounds,
+                valueCardinality: RenderValueCardinality.Single,
+                scale: RenderScaleContract.Vector));
+            TargetCommandDefinition<byte> definition = TargetCommandDefinition<byte>.Create(
+                static (session, _) => session.Canvas.Use(canvas =>
+                {
+                    using (canvas.PushTransform(Matrix.CreateScale(2, 2)))
+                    {
+                        session.Inputs[0].Draw(canvas);
+                    }
+                }),
+                TargetRegion.Region(s_targetBounds),
+                s_targetBounds,
+                RenderHitTestContract.OutputBounds,
+                inputDemand: mapsOutputDemand
+                    ? RenderInputDemandContract.MapOutputDemandToInput(DoubleDemand)
+                    : default);
+            context.Publish(context.TargetCommand([source], definition.Call(default)));
+        }
+
+        private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
+            => EffectiveScale.At(outputDemand.Value * 2);
     }
 
     private sealed class EnlargingGeometryNode(

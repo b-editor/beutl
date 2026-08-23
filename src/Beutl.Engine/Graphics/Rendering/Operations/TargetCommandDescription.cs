@@ -14,6 +14,7 @@ internal sealed class TargetCommandDescription
         TargetAccess access,
         IReadOnlyList<RenderInputReadback> inputReadbacks,
         object definitionFingerprint,
+        RenderInputDemandContract inputDemand,
         IReadOnlyList<RenderResourceBinding> resources)
     {
         _execution = execution;
@@ -23,8 +24,16 @@ internal sealed class TargetCommandDescription
         Access = access;
         InputReadbacks = inputReadbacks;
         DefinitionFingerprint = definitionFingerprint;
+        InputDemand = inputDemand;
         Resources = resources;
     }
+
+    /// <summary>Gets the mapping from this command's target demand to the demand it places on each input.</summary>
+    /// <remarks>
+    /// A command that resamples an input while drawing it - a transform pushed before
+    /// <c>Inputs[i].Draw</c> - needs that input at a different density from the target it draws onto.
+    /// </remarks>
+    public RenderInputDemandContract InputDemand { get; }
 
     public TargetRegion AffectedRegion { get; }
 
@@ -62,7 +71,8 @@ internal sealed class TargetCommandDescription
         RenderHitTestContract hitTest,
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IEnumerable<RenderResourceBinding>? resources = null,
+        RenderInputDemandContract inputDemand = default)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -76,6 +86,7 @@ internal sealed class TargetCommandDescription
             access,
             inputReadbacks,
             execute.Method,
+            inputDemand,
             resources);
 
     /// <summary>
@@ -93,7 +104,8 @@ internal sealed class TargetCommandDescription
         RenderHitTestContract hitTest,
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IEnumerable<RenderResourceBinding>? resources = null,
+        RenderInputDemandContract inputDemand = default)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             affectedRegion,
@@ -102,6 +114,7 @@ internal sealed class TargetCommandDescription
             access,
             inputReadbacks,
             execute.Method,
+            inputDemand,
             resources);
 
     internal static TargetCommandDescription CreateCore(
@@ -112,6 +125,7 @@ internal sealed class TargetCommandDescription
         TargetAccess access,
         IEnumerable<RenderInputReadback>? inputReadbacks,
         object definitionFingerprint,
+        RenderInputDemandContract inputDemand,
         IEnumerable<RenderResourceBinding>? resources)
     {
         affectedRegion.ThrowIfUninitialized(nameof(affectedRegion));
@@ -141,6 +155,7 @@ internal sealed class TargetCommandDescription
             access,
             Array.AsReadOnly(readbacks),
             definitionFingerprint,
+            inputDemand,
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
     }
 
