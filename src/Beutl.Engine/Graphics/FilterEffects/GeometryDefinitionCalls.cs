@@ -11,6 +11,7 @@ public sealed class GeometryDefinition<TState>
     private readonly RenderBoundsContract _bounds;
     private readonly RenderHitTestContract _hitTest;
     private readonly bool _requiresReadback;
+    private readonly RenderInputDemandContract _inputDemand;
     private readonly IReadOnlyList<RenderResourceSlot> _resourceSlots;
 
     private GeometryDefinition(
@@ -18,22 +19,30 @@ public sealed class GeometryDefinition<TState>
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         bool requiresReadback,
+        RenderInputDemandContract inputDemand,
         IReadOnlyList<RenderResourceSlot> resourceSlots)
     {
         _render = render;
         _bounds = bounds;
         _hitTest = hitTest;
         _requiresReadback = requiresReadback;
+        _inputDemand = inputDemand;
         _resourceSlots = resourceSlots;
     }
 
     /// <summary>Creates an immutable deferred geometry definition.</summary>
+    /// <param name="inputDemand">
+    /// The fixed mapping from this operation's resolved output demand to the demand it places on its input.
+    /// An operation that enlarges what it draws must declare it; the default leaves demand unchanged, which
+    /// is only correct for one that draws its input at the density its own consumer asked for.
+    /// </param>
     public static GeometryDefinition<TState> Create(
         Action<GeometrySession, TState> render,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         bool requiresReadback = false,
-        IEnumerable<RenderResourceSlot>? resources = null)
+        IEnumerable<RenderResourceSlot>? resources = null,
+        RenderInputDemandContract inputDemand = default)
     {
         ArgumentNullException.ThrowIfNull(render);
         bounds.ThrowIfUninitialized(nameof(bounds));
@@ -43,6 +52,7 @@ public sealed class GeometryDefinition<TState>
             bounds,
             hitTest,
             requiresReadback,
+            inputDemand,
             RenderDescriptionValidation.CopyResourceSlots(resources, nameof(resources)));
     }
 
@@ -65,6 +75,7 @@ public sealed class GeometryDefinition<TState>
             _hitTest,
             definitionFingerprint: _render.Method,
             requiresReadback: _requiresReadback,
+            inputDemand: _inputDemand,
             resources: RenderDescriptionValidation.ValidateResourceBindings(
                 _resourceSlots,
                 bindings,

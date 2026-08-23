@@ -656,6 +656,16 @@ internal static class RenderMaterializationDemandResolver
                     pending,
                     IsEffectClassConsumer(fragment));
                 return;
+            case RenderFragmentKind.Geometry:
+                GeometryDescription geometry =
+                    ((GeometryRenderFragmentPayload)fragment.Payload!).Description;
+                EnqueueInputs(
+                    fragment,
+                    ResolveMappedInputDemand(geometry.InputDemand, 0, valueDemand, maxWorkingScale),
+                    DemandUse.MaterializeValue,
+                    pending,
+                    IsEffectClassConsumer(fragment));
+                return;
             case RenderFragmentKind.MaterializedInput:
             case RenderFragmentKind.TargetCapture:
             case RenderFragmentKind.BuiltInBackdropCapture:

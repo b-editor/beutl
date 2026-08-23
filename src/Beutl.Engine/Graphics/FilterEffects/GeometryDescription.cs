@@ -18,6 +18,7 @@ internal sealed class GeometryDescription
         RenderHitTestContract hitTest,
         object definitionFingerprint,
         bool requiresReadback,
+        RenderInputDemandContract inputDemand,
         IReadOnlyList<RenderResourceBinding> resources)
     {
         _execution = execution;
@@ -25,17 +26,26 @@ internal sealed class GeometryDescription
         HitTest = hitTest;
         DefinitionFingerprint = definitionFingerprint;
         RequiresReadback = requiresReadback;
+        InputDemand = inputDemand;
         Resources = resources;
         StructuralIdentity = new GeometryStructuralIdentity(
             definitionFingerprint,
             bounds.StructuralIdentity,
             hitTest.StructuralIdentity,
             requiresReadback,
+            inputDemand.StructuralIdentity,
             resources.Select(static binding => binding.Slot.ValueType).ToArray());
     }
 
     /// <summary>Gets the pure mapping from complete input bounds to conservative complete output bounds.</summary>
     public RenderBoundsContract Bounds { get; }
+
+    /// <summary>Gets the mapping from this operation's output demand to the demand it places on its input.</summary>
+    /// <remarks>
+    /// A geometry operation that enlarges what it draws has to declare it, or the source it draws is
+    /// rasterized at the density the consumer asked for and then stretched.
+    /// </remarks>
+    public RenderInputDemandContract InputDemand { get; }
 
     /// <summary>Gets the CPU-only hit-test contract for the conservative produced geometry.</summary>
     public RenderHitTestContract HitTest { get; }
@@ -87,6 +97,7 @@ internal sealed class GeometryDescription
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         bool requiresReadback = false,
+        RenderInputDemandContract inputDemand = default,
         IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull
         => CreateCore(
@@ -99,6 +110,7 @@ internal sealed class GeometryDescription
             hitTest,
             render.Method,
             requiresReadback,
+            inputDemand,
             resources);
 
     /// <summary>
@@ -113,6 +125,7 @@ internal sealed class GeometryDescription
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         bool requiresReadback = false,
+        RenderInputDemandContract inputDemand = default,
         IEnumerable<RenderResourceBinding>? resources = null)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(render, nameof(render)),
@@ -120,6 +133,7 @@ internal sealed class GeometryDescription
             hitTest,
             render.Method,
             requiresReadback,
+            inputDemand,
             resources);
 
     internal static GeometryDescription CreateCore(
@@ -128,6 +142,7 @@ internal sealed class GeometryDescription
         RenderHitTestContract hitTest,
         object definitionFingerprint,
         bool requiresReadback,
+        RenderInputDemandContract inputDemand,
         IEnumerable<RenderResourceBinding>? resources)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
@@ -143,6 +158,7 @@ internal sealed class GeometryDescription
             hitTest,
             definitionFingerprint,
             requiresReadback,
+            inputDemand,
             resourceCopy);
     }
 }
@@ -152,6 +168,7 @@ internal sealed class GeometryStructuralIdentity(
     object bounds,
     object hitTest,
     bool requiresReadback,
+    object inputDemand,
     Type[] resourceTypes)
     : IEquatable<GeometryStructuralIdentity>
 {
@@ -161,6 +178,7 @@ internal sealed class GeometryStructuralIdentity(
            && Equals(bounds, other.Bounds)
            && Equals(hitTest, other.HitTest)
            && requiresReadback == other.RequiresReadback
+           && Equals(inputDemand, other.InputDemand)
            && resourceTypes.AsSpan().SequenceEqual(other.ResourceTypes);
 
     public override bool Equals(object? obj) => obj is GeometryStructuralIdentity other && Equals(other);
@@ -172,6 +190,7 @@ internal sealed class GeometryStructuralIdentity(
         hash.Add(bounds);
         hash.Add(hitTest);
         hash.Add(requiresReadback);
+        hash.Add(inputDemand);
         foreach (Type resourceType in resourceTypes)
         {
             hash.Add(resourceType);
@@ -183,5 +202,6 @@ internal sealed class GeometryStructuralIdentity(
     private object Bounds => bounds;
     private object HitTest => hitTest;
     private bool RequiresReadback => requiresReadback;
+    private object InputDemand => inputDemand;
     private Type[] ResourceTypes => resourceTypes;
 }
