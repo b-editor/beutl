@@ -162,6 +162,20 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
             _layerViews[i] = layerView;
             _layerLayouts[i] = ImageLayout.Undefined;
         }
+
+        // Every allocated slot is covered by the array view the shader samples, whether or not anything
+        // ever writes to it - a shadow atlas binds its whole array while only the lights actually present
+        // fill a slot - so a slot has to start in a layout the sampler can read rather than in UNDEFINED,
+        // which is what the descriptor would otherwise present to the lighting pass.
+        _context.TransitionImageLayout(
+            _image,
+            ImageLayout.Undefined,
+            ImageLayout.ShaderReadOnlyOptimal,
+            _format.GetAspectMask(),
+            baseArrayLayer: 0,
+            layerCount: _arraySize);
+        for (uint i = 0; i < _arraySize; i++)
+            _layerLayouts[i] = ImageLayout.ShaderReadOnlyOptimal;
     }
 
     public int Width => _width;
@@ -282,6 +296,20 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
             baseArrayLayer: layerIndex,
             layerCount: 1);
         _layerLayouts[layerIndex] = newLayout;
+    }
+
+    /// <summary>The layout the given slot is tracked as being in.</summary>
+    /// <remarks>
+    /// Every allocated slot must be readable by a sampler even before anything writes to it, because the
+    /// array view a shader binds covers all of them.
+    /// </remarks>
+    internal ImageLayout GetLayerLayout(uint layerIndex)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (layerIndex >= _arraySize)
+            throw new ArgumentOutOfRangeException(nameof(layerIndex));
+
+        return _layerLayouts[layerIndex];
     }
 
     public IntPtr GetLayerView(uint layerIndex)

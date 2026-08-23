@@ -174,6 +174,22 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
                 _faceViews[arrIdx, faceIdx] = faceView;
             }
         }
+
+        // Every allocated face is covered by the cube-array view the shader samples, whether or not any
+        // light ever renders into it, so a face has to start in a layout the sampler can read rather than
+        // in UNDEFINED, which is what the descriptor would otherwise present to the lighting pass.
+        _context.TransitionImageLayout(
+            _image,
+            ImageLayout.Undefined,
+            ImageLayout.ShaderReadOnlyOptimal,
+            _format.GetAspectMask(),
+            baseArrayLayer: 0,
+            layerCount: totalLayers);
+        for (uint arrIdx = 0; arrIdx < arraySize; arrIdx++)
+        {
+            for (int faceIdx = 0; faceIdx < 6; faceIdx++)
+                _faceLayouts[arrIdx, faceIdx] = ImageLayout.ShaderReadOnlyOptimal;
+        }
     }
 
     private void CleanupFaceViews(uint currentArrayIdx, int currentFaceIdx, Vk vk, Device device)
@@ -268,6 +284,14 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
         ObjectDisposedException.ThrowIf(_disposed, this);
         ValidateFace(arrayIndex, faceIndex);
         TransitionFace(arrayIndex, faceIndex, ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    /// <inheritdoc cref="VulkanTextureArray.GetLayerLayout"/>
+    internal ImageLayout GetFaceLayout(uint arrayIndex, int faceIndex)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ValidateFace(arrayIndex, faceIndex);
+        return _faceLayouts[arrayIndex, faceIndex];
     }
 
     private void TransitionFace(uint arrayIndex, int faceIndex, ImageLayout newLayout)

@@ -160,6 +160,59 @@ public sealed class VulkanContextIsolationTests
         });
     }
 
+    /// <remarks>
+    /// A shadow atlas binds its whole array to the lighting pass while only the lights actually present
+    /// fill a slot. A slot nothing wrote to used to stay in UNDEFINED, so the descriptor handed the sampler
+    /// an image in a layout it may not read - undefined behaviour the driver need not report, and what
+    /// validation flags as InvalidImageLayout on every unfilled slot.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void AFreshArrayTexture_IsReadableInEverySlotBeforeAnythingWritesToIt()
+    {
+        VulkanContext context = ResolveVulkan(GpuTestEnvironment.EnsureAvailable());
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var array = new VulkanTextureArray(context, Width, Height, 4, TextureFormat.RGBA8Unorm);
+
+            using (Assert.EnterMultipleScope())
+            {
+                for (uint layer = 0; layer < 4; layer++)
+                {
+                    Assert.That(
+                        array.GetLayerLayout(layer),
+                        Is.EqualTo(ImageLayout.ShaderReadOnlyOptimal),
+                        $"layer {layer}");
+                }
+            }
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void AFreshCubeArrayTexture_IsReadableInEveryFaceBeforeAnythingWritesToIt()
+    {
+        VulkanContext context = ResolveVulkan(GpuTestEnvironment.EnsureAvailable());
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var cubes = new VulkanTextureCubeArray(context, Height, 2, TextureFormat.Depth32Float);
+
+            using (Assert.EnterMultipleScope())
+            {
+                for (uint cube = 0; cube < 2; cube++)
+                {
+                    for (int face = 0; face < 6; face++)
+                    {
+                        Assert.That(
+                            cubes.GetFaceLayout(cube, face),
+                            Is.EqualTo(ImageLayout.ShaderReadOnlyOptimal),
+                            $"cube {cube} face {face}");
+                    }
+                }
+            }
+        });
+    }
+
     // On macOS the shared context is a CompositeContext pairing a Metal context with the Vulkan one that
     // owns the device; everywhere else it is the Vulkan context itself.
     private static VulkanContext ResolveVulkan(IGraphicsContext context)

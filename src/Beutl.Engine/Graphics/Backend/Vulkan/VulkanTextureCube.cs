@@ -152,6 +152,18 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
             }
             _faceViews[i] = faceView;
         }
+
+        // The cube view samples all six faces whether or not every one is rendered into, so a face has to
+        // start in a layout the sampler can read rather than in UNDEFINED.
+        _context.TransitionImageLayout(
+            _image,
+            ImageLayout.Undefined,
+            ImageLayout.ShaderReadOnlyOptimal,
+            _format.GetAspectMask(),
+            baseArrayLayer: 0,
+            layerCount: 6);
+        for (int i = 0; i < _faceLayouts.Length; i++)
+            _faceLayouts[i] = ImageLayout.ShaderReadOnlyOptimal;
     }
 
     public int Size => _size;
