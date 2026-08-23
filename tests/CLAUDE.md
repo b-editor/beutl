@@ -1,4 +1,4 @@
-# tests/ — local context
+﻿# tests/ — local context
 
 Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are the two BenchmarkDotNet projects (`Beutl.Benchmarks`, `Beutl.FFmpegBenchmarks`). Use this index when picking the right project for a new test.
 
@@ -52,7 +52,8 @@ assemblies on it. `RenderTarget` builds its
 image separately as the backend transitions it — so the two records drift and a barrier eventually names an
 `oldLayout` the image has left. Closing that needs a way to read back or command the layout Skia holds,
 which SkiaSharp 3.119 does not expose. Those tests run normally in the ordinary suite; only the
-validation job skips them, so the gate still covers everything else. Drop the exclusion from
+validation job skips them, so the gate still covers everything else. Tracked as
+[#2263](https://github.com/b-editor/beutl/issues/2263); drop the exclusion from
 `.github/workflows/dotnet.yml` once the interop keeps one record.
 
 ## Headless E2E tests

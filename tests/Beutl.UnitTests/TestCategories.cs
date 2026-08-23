@@ -20,7 +20,8 @@ internal static class TestCategories
     /// This is a pre-existing defect in the Skia interop, not in what these tests assert, and closing it
     /// needs a way to read back or command the layout Skia holds — which SkiaSharp 3.119 does not expose.
     /// Until then the validation job skips this category so the gate still covers everything else; the tests
-    /// themselves run normally in the ordinary suite.
+    /// themselves run normally in the ordinary suite. Tracked as b-editor/beutl#2263, which is also where
+    /// the condition for deleting this category is recorded.
     /// </para>
     /// </remarks>
     public const string KnownVulkanSkiaLayoutInterop = "KnownVulkanSkiaLayoutInterop";

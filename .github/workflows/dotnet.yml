@@ -1,4 +1,4 @@
-name: .NET
+﻿name: .NET
 
 on:
   push:
@@ -68,7 +68,8 @@ jobs:
       # KnownVulkanSkiaLayoutInterop is excluded: Skia and the backend track the same image's layout
       # independently and drift apart, which validation reports as InvalidImageLayout. Closing it needs a
       # way to read back or command the layout Skia holds, which SkiaSharp 3.119 does not expose. Those
-      # tests still run in the step above; see TestCategories.KnownVulkanSkiaLayoutInterop.
+      # tests still run in the step above; see TestCategories.KnownVulkanSkiaLayoutInterop and issue #2263,
+      # on whose close both TestCategory!= clauses below come out.
       - name: GPU tests under Vulkan validation
         run: |
           dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --no-build -f net10.0 \
