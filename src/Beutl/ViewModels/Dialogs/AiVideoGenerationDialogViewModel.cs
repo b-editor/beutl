@@ -1422,9 +1422,12 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             path,
             AiRequestLimits.MaxFrameUploadBytes,
             cancellationToken);
+        // 名前は数えない。サーバーはフレームを中身と種類だけで見分ける——場面から
+        // 切り出したフレームは、その都度ちがう名前のファイルに落ちるので、名前を
+        // 数えると、同じ一枚で送り直すたびに別の依頼になって買い直しになる。
         return (
             AiUploadSource.FromBytes(fileName, bytes),
-            AiRequestKey.FileStamp(fileName, bytes));
+            AiRequestKey.ContentStamp(bytes));
     }
 
     private IDisposable AcquireTemporaryFileLease(string? path)

@@ -188,6 +188,21 @@ internal sealed class AiRequestKey
             $"{fileName}:{Convert.ToHexString(SHA256.HashData(content))}");
 
     /// <summary>
+    /// Identifies bytes by the bytes alone, for an upload the server takes no
+    /// name from.
+    /// </summary>
+    /// <remarks>
+    /// A video's frames are identified by their contents and their type, never
+    /// by what the file was called: a frame is a picture, and the name it
+    /// reached disk under says nothing about the request. Naming it here would
+    /// make the same picture two requests — a frame captured from the scene
+    /// lands in a file named for uniqueness, so capturing it again to retry an
+    /// interrupted run would buy that run a second time.
+    /// </remarks>
+    public static string ContentStamp(ReadOnlySpan<byte> content)
+        => Convert.ToHexString(SHA256.HashData(content));
+
+    /// <summary>
     /// Says the server settled the job this one name made. Only that request
     /// starts again under a fresh name.
     /// </summary>

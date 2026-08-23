@@ -924,6 +924,89 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task VideoGeneration_AsksUnderOneNameForTheSameFrameUnderAnotherFileName()
+    {
+        // 場面から切り出したフレームは、その都度ちがう名前のファイルに落ちる。
+        // サーバーはフレームを中身と種類だけで見分けるので、名前まで数えると、
+        // 途切れた実行を同じ一枚で送り直しただけで別の依頼になり、支払い済みの
+        // ものへ戻れないまま二度課金される。
+        await TestReset.ResetShellAsync();
+        string firstPath = Path.Combine(Path.GetTempPath(), $"frame-{Guid.NewGuid():N}.png");
+        string secondPath = Path.Combine(Path.GetTempPath(), $"frame-{Guid.NewGuid():N}.png");
+        await File.WriteAllBytesAsync(firstPath, s_png);
+        await File.WriteAllBytesAsync(secondPath, s_png);
+        var keys = new List<string?>();
+        bool cutFirstAttempt = true;
+        try
+        {
+            using var handler = new StubHandler(request =>
+            {
+                switch (request.RequestUri?.AbsolutePath)
+                {
+                    case "/api/v3/user/entitlements":
+                        return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                    case "/api/v3/ai/videos/frames":
+                        keys.Add(IdempotencyKeyOf(request));
+                        if (cutFirstAttempt)
+                        {
+                            cutFirstAttempt = false;
+                            // 答えが返らない。作られて課金されたのかどうか、この
+                            // 側からは分からない。
+                            throw new HttpRequestException("The connection was reset.");
+                        }
+
+                        return JsonResponse(HttpStatusCode.OK, """
+                            {
+                              "jobId": "video-job",
+                              "status": "queued"
+                            }
+                            """);
+                    case "/api/v3/ai/videos/video-job":
+                        return JsonResponse(HttpStatusCode.OK, """
+                            {
+                              "jobId": "video-job",
+                              "status": "succeeded",
+                              "fileId": "video-file",
+                              "url": "https://beutl.beditor.net/api/contents/video-file",
+                              "error": null
+                            }
+                            """);
+                    case "/api/contents/video-file":
+                        return ByteResponse([1, 2, 3, 4], "video/mp4");
+                    default:
+                        return JsonResponse(HttpStatusCode.NotFound, "{}");
+                }
+            });
+            using var httpClient = new HttpClient(handler);
+            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            SetAuthenticatedUser(clients, httpClient);
+            await using AiVideoGenerationDialogViewModel viewModel =
+                CreateVideoGenerationDialog(clients);
+            await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+                && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
+            viewModel.Prompt.Value = "A slow camera pan";
+
+            viewModel.FirstFramePath.Value = firstPath;
+            await viewModel.Generate.ExecuteAsync();
+
+            // 同じ一枚を、切り出し直したぶんだけ別の名前で。
+            viewModel.FirstFramePath.Value = secondPath;
+            await viewModel.Generate.ExecuteAsync();
+
+            Assert.That(keys, Has.Count.EqualTo(2));
+            Assert.That(
+                keys[1],
+                Is.EqualTo(keys[0]),
+                "The same picture is the same request, whatever the file was called.");
+        }
+        finally
+        {
+            File.Delete(firstPath);
+            File.Delete(secondPath);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task VideoOptions_FollowTheChosenModel()
     {
         await TestReset.ResetShellAsync();
