@@ -523,12 +523,14 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.TargetScope:
                 TargetScopeDescription targetScope =
                     ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
-                float inputDemand = targetScope.IsValueReplayMap
-                    ? ResolveMappedInputDemand(
-                        targetScope.Scale,
-                        targetDemand,
-                        maxWorkingScale)
-                    : targetDemand;
+                // Every target scope, not only the internal value-replay map: a scope that enlarges its
+                // input while replaying it onto the target needs that input denser, and the contract is
+                // where it says so. A contract that declares no backward map maps demand to itself, so
+                // asking unconditionally costs the others nothing.
+                float inputDemand = ResolveMappedInputDemand(
+                    targetScope.Scale,
+                    targetDemand,
+                    maxWorkingScale);
                 EnqueueInputs(fragment, inputDemand, DemandUse.ReplayTarget, pending);
                 return;
             case RenderFragmentKind.OpacityMask:
@@ -598,12 +600,12 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.TargetScope:
                 TargetScopeDescription targetScope =
                     ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
-                float targetScopeInputDemand = targetScope.IsValueReplayMap
-                    ? ResolveMappedInputDemand(
-                        targetScope.Scale,
-                        valueDemand,
-                        maxWorkingScale)
-                    : valueDemand;
+                // See EnqueueReplayInputs: the mapping belongs to every target scope, and is the identity
+                // for a contract that declares no backward map.
+                float targetScopeInputDemand = ResolveMappedInputDemand(
+                    targetScope.Scale,
+                    valueDemand,
+                    maxWorkingScale);
                 EnqueueInputs(
                     fragment,
                     targetScopeInputDemand,

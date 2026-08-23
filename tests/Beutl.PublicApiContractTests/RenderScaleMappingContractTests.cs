@@ -112,6 +112,42 @@ public sealed class RenderScaleMappingContractTests
         });
     }
 
+    /// <remarks>
+    /// A target scope enlarging its input while replaying it needs that input denser, and its scale
+    /// contract is where it says so. Only the engine's internal value-replay map used to be asked.
+    /// </remarks>
+    [Test]
+    public void ATargetScopeCanRaiseTheDemandOnTheInputItEnlarges()
+    {
+        var probe = new MaterializationDensityProbe();
+        using var node = new EnlargingTargetScopeNode(probe, mapsOutputDemand: true);
+        using var renderer = CreateRenderer(node);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(probe.ObservedWorkingScale, Is.EqualTo(2f));
+        });
+    }
+
+    [Test]
+    public void ATargetScopeThatDeclaresNoDemandMappingPassesItThroughUnchanged()
+    {
+        var probe = new MaterializationDensityProbe();
+        using var node = new EnlargingTargetScopeNode(probe, mapsOutputDemand: false);
+        using var renderer = CreateRenderer(node);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(probe.ObservedWorkingScale, Is.EqualTo(1f));
+        });
+    }
+
     [Test]
     public void ACombineCanRaiseTheDemandOfOnlyTheInputItEnlarges()
     {
@@ -220,6 +256,54 @@ public sealed class RenderScaleMappingContractTests
             output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
             session.Publish(output);
         }
+    }
+
+    private sealed class EnlargingTargetScopeNode(
+        MaterializationDensityProbe probe,
+        bool mapsOutputDemand) : RenderNode
+    {
+        private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle source = context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
+                probe,
+                static (session, state) => state.Execute(session),
+                bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
+                hitTest: RenderHitTestContract.OutputBounds,
+                valueCardinality: RenderValueCardinality.Single,
+                scale: RenderScaleContract.Vector));
+            RenderScaleContract scale = mapsOutputDemand
+                ? RenderScaleContract.MapInputSupply(HalveSupply, DoubleDemand)
+                : RenderScaleContract.MapInputSupplyPreservingDemand(HalveSupply);
+            TargetScopeDefinition<byte> definition = TargetScopeDefinition<byte>.Create(
+                static (session, _) => session.Canvas.Use(canvas =>
+                {
+                    using (canvas.PushTransform(Matrix.CreateScale(2, 2)))
+                    {
+                        session.ReplayInput();
+                    }
+                }),
+                RenderBoundsContract.Create(Enlarge, Shrink),
+                RenderHitTestContract.AnyInput,
+                scale,
+                resources: []);
+            context.Publish(context.TargetScope(source, definition.Call(default)));
+        }
+
+        private static Rect Enlarge(Rect inputBounds)
+            => new(inputBounds.X * 2, inputBounds.Y * 2, inputBounds.Width * 2, inputBounds.Height * 2);
+
+        private static Rect Shrink(Rect outputBounds)
+            => new(outputBounds.X / 2, outputBounds.Y / 2, outputBounds.Width / 2, outputBounds.Height / 2);
+
+        private static EffectiveScale HalveSupply(EffectiveScale inputSupply)
+            => inputSupply.IsUnbounded
+                ? EffectiveScale.Unbounded
+                : EffectiveScale.At(inputSupply.Value / 2);
+
+        private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
+            => EffectiveScale.At(outputDemand.Value * 2);
     }
 
     private sealed class EnlargingMapNode(
