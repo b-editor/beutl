@@ -691,6 +691,31 @@ public sealed class DrawableGroupIsolationTests
         }
     }
 
+    /// <remarks>
+    /// A drawable whose whole output is a target-wide clear records a symbolic full-target write and no value
+    /// bounds at all. Deriving the isolation region from recorded value bounds alone makes that group an empty
+    /// scope, and an empty scope renders nothing - the group's content disappears instead of compositing at
+    /// its opacity.
+    /// </remarks>
+    [Test]
+    public void GroupOpacityOverAFullTargetClear_StillCompositesTheClearedTarget()
+    {
+        var frame = new PixelSize(8, 8);
+        using Drawable.Resource group = CreateGroup(
+            opacity: 50,
+            effect: null,
+            new ClearOnlyDrawable(Colors.White));
+
+        using Bitmap actual = RenderScene(frame, group);
+
+        Rgba pixel = ReadPixel(actual, 4, 4);
+        Assert.Multiple(() =>
+        {
+            Assert.That(pixel.Alpha, Is.EqualTo(0.5f).Within(0.01f));
+            Assert.That(pixel.Red, Is.EqualTo(pixel.Alpha).Within(0.01f));
+        });
+    }
+
     private static Drawable.Resource CreateGroup(
         float opacity,
         FilterEffect? effect,
@@ -901,4 +926,16 @@ public sealed class DrawableGroupIsolationTests
             height);
 
     private readonly record struct Rgba(float Red, float Green, float Blue, float Alpha);
+}
+
+internal sealed partial class ClearOnlyDrawable(Color color) : Drawable
+{
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+        => context.Clear(color);
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => availableSize;
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
 }

@@ -190,6 +190,7 @@ internal sealed class RenderFragmentReference
             || Inputs.Any(static input => input.HasSymbolicBoundsDependency);
         Payload = payload;
         PotentiallyWritesTarget = ComputePotentiallyWritesTarget();
+        HasSymbolicTargetWrite = ComputeHasSymbolicTargetWrite();
         _hitTest = hitTest ?? (static _ => false);
     }
 
@@ -218,6 +219,16 @@ internal sealed class RenderFragmentReference
     public bool HasTargetEffects { get; }
 
     public bool PotentiallyWritesTarget { get; }
+
+    /// <summary>
+    /// Gets whether this fragment writes target pixels that <see cref="RecordedBounds"/> does not describe.
+    /// </summary>
+    /// <remarks>
+    /// A full-target write - a clear, an opaque raw command - states its extent symbolically and contributes
+    /// no value bounds, so a consumer that scopes by recorded bounds alone would clip it away entirely.
+    /// A finite region restores a described extent: it bounds what the scope can reach whatever is inside it.
+    /// </remarks>
+    public bool HasSymbolicTargetWrite { get; }
 
     public bool HasOpaqueExternalWork { get; }
 
@@ -264,6 +275,24 @@ internal sealed class RenderFragmentReference
         EffectiveScale = effectiveScale;
         if (hitTest is not null)
             _hitTest = hitTest;
+    }
+
+    private bool ComputeHasSymbolicTargetWrite()
+    {
+        bool inputsWriteSymbolically = Inputs.Any(static input => input.HasSymbolicTargetWrite);
+        return Kind switch
+        {
+            RenderFragmentKind.TargetCommand
+                => Payload is TargetCommandRenderFragmentPayload command
+                   && command.Description.AffectedRegion.Kind == TargetRegionKind.Full,
+            RenderFragmentKind.RawTargetCommand or RenderFragmentKind.RawTargetScope => true,
+            RenderFragmentKind.TargetCapture or RenderFragmentKind.BuiltInBackdropCapture => false,
+            RenderFragmentKind.TargetLayerScope
+                => Payload is TargetLayerScopeRenderFragmentPayload layer
+                   && layer.Region.Kind == TargetRegionKind.Full
+                   && inputsWriteSymbolically,
+            _ => inputsWriteSymbolically,
+        };
     }
 
     private bool ComputePotentiallyWritesTarget()

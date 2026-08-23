@@ -1361,6 +1361,27 @@ public sealed class RenderNodeContext
         return result;
     }
 
+    /// <summary>
+    /// Gets whether a recorded input writes target pixels that
+    /// <see cref="CalculateRecordedInputBoundsHint"/> does not describe.
+    /// </summary>
+    /// <remarks>
+    /// A node that scopes its inputs by their recorded value bounds has to ask this first: a full-target
+    /// write contributes no value bounds, so scoping by them alone turns the whole scope empty and drops the
+    /// write. Such a node scopes by <see cref="TargetRegion.Full"/> instead.
+    /// </remarks>
+    internal bool HasSymbolicInputTargetWrite()
+    {
+        NodeRecordingTransaction transaction = GetTransaction();
+        foreach (RenderFragmentHandle input in _inputs)
+        {
+            if (transaction.GetReference(input).HasSymbolicTargetWrite)
+                return true;
+        }
+
+        return false;
+    }
+
     private NodeRecordingTransaction GetTransaction()
     {
         VerifyActive();

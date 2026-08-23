@@ -164,8 +164,13 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         {
             if (IsolatesContent)
             {
-                Rect bounds = context.CalculateRecordedInputBoundsHint();
-                context.Publish(context.TargetLayerScope(context.Inputs, TargetRegion.Region(bounds)));
+                // A full-target write in the group - a clear, an opaque raw command - has no recorded value
+                // bounds, so scoping by them would make the isolation scope empty and drop the group's whole
+                // contribution instead of compositing it.
+                TargetRegion region = context.HasSymbolicInputTargetWrite()
+                    ? TargetRegion.Full
+                    : TargetRegion.Region(context.CalculateRecordedInputBoundsHint());
+                context.Publish(context.TargetLayerScope(context.Inputs, region));
             }
             else
             {
