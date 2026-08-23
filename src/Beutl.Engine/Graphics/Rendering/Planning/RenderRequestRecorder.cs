@@ -131,7 +131,14 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
     {
         ActiveNodeScope scope = default;
         if (!guardAlreadyHeld)
+        {
             scope = EnterNode(node);
+
+            // The subtree walk already prepared this node on its way down. A node reached with explicit
+            // inputs is not walked, so this is where it gets its one call for the request - the contract is
+            // that PrepareForRequest runs before Process, on every request, however the node is reached.
+            node.PrepareForRequest(new RenderNodePreparation(Request.Options));
+        }
 
         try
         {

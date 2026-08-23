@@ -58,8 +58,9 @@ public abstract class RenderNode : IDisposable
     /// Recording walks children before their parent, so a node whose children depend on the request - one
     /// that records a nested graph at the request's density, say - cannot rebuild them from
     /// <see cref="Process"/>: they are already recorded by then. Override this to reconcile them against
-    /// <paramref name="preparation"/> first. It runs on every request, so an override that changes nothing
-    /// must cost nothing.
+    /// <paramref name="preparation"/> first. It runs before <see cref="Process"/> on every request, however
+    /// the node is reached - walked as part of a subtree, or recorded with explicit inputs - so an override
+    /// that changes nothing must cost nothing.
     /// </remarks>
     public virtual void PrepareForRequest(RenderNodePreparation preparation)
     {

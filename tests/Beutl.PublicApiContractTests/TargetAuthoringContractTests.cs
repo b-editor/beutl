@@ -161,6 +161,36 @@ public sealed class TargetAuthoringContractTests
     }
 
     /// <remarks>
+    /// PrepareForRequest is where a node reconciles what depends on the request, and RenderNodePreparation
+    /// cannot be constructed from outside the engine, so a node reached through RecordNode with explicit
+    /// inputs has no other way to get its call. Missing it there would leave that node on the state some
+    /// earlier request left behind.
+    /// </remarks>
+    [Test]
+    public void ANodeRecordedWithExplicitInputs_IsStillPreparedForTheRequest()
+    {
+        var recorded = new PreparationCountingNode();
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(s_sourceDefinition.Call(Colors.White));
+            foreach (RenderFragmentHandle output in context.RecordNode(recorded, [source]))
+                context.Publish(output);
+        });
+
+        using RenderNodeRasterization first = Rasterize(node);
+        using RenderNodeRasterization second = Rasterize(node);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recorded.Preparations, Is.EqualTo(2), "one preparation per request");
+            Assert.That(
+                recorded.Preparations,
+                Is.EqualTo(recorded.Processes),
+                "every Process must be preceded by exactly one PrepareForRequest");
+        });
+    }
+
+    /// <remarks>
     /// Whether a scope's replay transform lives in its input's coordinates or against the ambient target is
     /// something only the author knows, and it decides whether the declared scale contract can carry an
     /// output demand back to the input. An out-of-tree scope has to be able to say it.
@@ -234,6 +264,21 @@ public sealed class TargetAuthoringContractTests
     private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
     {
         public override void Process(RenderNodeContext context) => process(context);
+    }
+
+    private sealed class PreparationCountingNode : RenderNode
+    {
+        public int Preparations { get; private set; }
+
+        public int Processes { get; private set; }
+
+        public override void PrepareForRequest(RenderNodePreparation preparation) => Preparations++;
+
+        public override void Process(RenderNodeContext context)
+        {
+            Processes++;
+            context.PassThrough();
+        }
     }
 
     private sealed class CommandPayload
