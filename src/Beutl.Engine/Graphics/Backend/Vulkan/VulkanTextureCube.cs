@@ -25,7 +25,7 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
         VulkanContext context,
         int size,
         TextureFormat format,
-        ImageUsageFlags usage = ImageUsageFlags.SampledBit | ImageUsageFlags.DepthStencilAttachmentBit)
+        ImageUsageFlags usage)
     {
         _context = context;
         _size = size;

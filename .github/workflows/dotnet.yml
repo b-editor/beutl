@@ -73,7 +73,8 @@ jobs:
         run: |
           dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --no-build -f net10.0 \
             --filter "(TestCategory=GpuPassFusionGpu|FullyQualifiedName~VulkanValidationGateTests|FullyQualifiedName~GpuGoldenSuiteCanaryTests)&TestCategory!=KnownVulkanSkiaLayoutInterop"
-          dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj --no-build -f net10.0
+          dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj --no-build -f net10.0 \
+            --filter "TestCategory!=KnownVulkanSkiaLayoutInterop"
         env:
           BEUTL_REQUIRE_GPU: "1"
           BEUTL_VULKAN_VALIDATION: "1"

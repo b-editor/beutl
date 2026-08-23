@@ -29,7 +29,7 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
         int height,
         uint arraySize,
         TextureFormat format,
-        ImageUsageFlags usage = ImageUsageFlags.SampledBit | ImageUsageFlags.DepthStencilAttachmentBit)
+        ImageUsageFlags usage)
     {
         if (arraySize == 0)
             throw new ArgumentException("Array size must be greater than 0", nameof(arraySize));

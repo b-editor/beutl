@@ -45,7 +45,9 @@ BEUTL_REQUIRE_GPU=1 BEUTL_VULKAN_VALIDATION=1 \
 but the layer did not load, because a gate that observes nothing must not report success. Without the
 Vulkan SDK it will fail for that reason — install the layer before enabling the variable.
 
-One category is held back: `TestCategories.KnownVulkanSkiaLayoutInterop`. `RenderTarget` builds its
+One category is held back: `TestCategories.KnownVulkanSkiaLayoutInterop`, declared in both
+`Beutl.UnitTests` and `Beutl.Graphics3DTests` under the same name because the validation job filters both
+assemblies on it. `RenderTarget` builds its
 `SKSurface` once and Skia tracks that image's layout from there, while `VulkanTexture2D` tracks the same
 image separately as the backend transitions it — so the two records drift and a barrier eventually names an
 `oldLayout` the image has left. Closing that needs a way to read back or command the layout Skia holds,

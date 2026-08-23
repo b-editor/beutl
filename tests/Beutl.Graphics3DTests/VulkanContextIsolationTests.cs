@@ -173,7 +173,13 @@ public sealed class VulkanContextIsolationTests
         VulkanContext context = ResolveVulkan(GpuTestEnvironment.EnsureAvailable());
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var array = new VulkanTextureArray(context, Width, Height, 4, TextureFormat.RGBA8Unorm);
+            // Through the context, which picks the usage flags the format supports. Constructing the texture
+            // directly would let this fixture ask for a depth attachment backed by a colour format.
+            using var array = (VulkanTextureArray)context.CreateTextureArray(
+                Width,
+                Height,
+                4,
+                TextureFormat.RGBA8Unorm);
 
             using (Assert.EnterMultipleScope())
             {
@@ -195,7 +201,10 @@ public sealed class VulkanContextIsolationTests
         VulkanContext context = ResolveVulkan(GpuTestEnvironment.EnsureAvailable());
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var cubes = new VulkanTextureCubeArray(context, Height, 2, TextureFormat.Depth32Float);
+            using var cubes = (VulkanTextureCubeArray)context.CreateTextureCubeArray(
+                Height,
+                2,
+                TextureFormat.Depth32Float);
 
             using (Assert.EnterMultipleScope())
             {
