@@ -382,6 +382,7 @@ public sealed class RawTargetScopeSession
     private readonly Rect _outputBounds;
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
+    private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
     private readonly IReadOnlyList<RenderResource> _resources;
     private readonly Action<ImmediateCanvas> _replayInput;
     private bool _replayed;
@@ -400,6 +401,7 @@ public sealed class RawTargetScopeSession
         _outputBounds = outputBounds;
         _intent = intent;
         _purpose = purpose;
+        _resourceBindings = resources;
         _resources = resources.Select(static binding => binding.Resource).ToArray();
         _replayInput = replayInput;
     }
@@ -436,11 +438,19 @@ public sealed class RawTargetScopeSession
         _replayInput(_canvas);
     }
 
-    /// <summary>Uses a resource by its token.</summary>
+    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
     /// <remarks>
-    /// The only addressing mode here. An unguarded external callback is never reusable, so it is recorded
-    /// through <c>CreateRequestLocal</c> only and may always capture the tokens it needs.
+    /// The addressing mode a reusable definition needs: its callback is static and its slots are fixed, so
+    /// the token changes per call and only the slot names it from inside the callback.
     /// </remarks>
+    public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
+        where T : class
+    {
+        _token.UseResource(slot, _resourceBindings, use);
+    }
+
+    /// <summary>Uses a resource by its token.</summary>
+    /// <remarks>For a request-local callback, which may capture the tokens it needs.</remarks>
     public void UseResource<T>(RenderResource<T> resource, Action<T> use)
         where T : class
     {
@@ -540,6 +550,7 @@ public sealed class RawTargetCommandSession
     private readonly ImmediateCanvas _canvas;
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
+    private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
     private readonly IReadOnlyList<RenderResource> _resources;
 
     internal RawTargetCommandSession(
@@ -553,6 +564,7 @@ public sealed class RawTargetCommandSession
         _canvas = canvas;
         _intent = intent;
         _purpose = purpose;
+        _resourceBindings = resources;
         _resources = resources.Select(static binding => binding.Resource).ToArray();
     }
 
@@ -571,11 +583,19 @@ public sealed class RawTargetCommandSession
         get { _token.ThrowIfInactive(); return _purpose; }
     }
 
-    /// <summary>Uses a resource by its token.</summary>
+    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
     /// <remarks>
-    /// The only addressing mode here. An unguarded external callback is never reusable, so it is recorded
-    /// through <c>CreateRequestLocal</c> only and may always capture the tokens it needs.
+    /// The addressing mode a reusable definition needs: its callback is static and its slots are fixed, so
+    /// the token changes per call and only the slot names it from inside the callback.
     /// </remarks>
+    public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
+        where T : class
+    {
+        _token.UseResource(slot, _resourceBindings, use);
+    }
+
+    /// <summary>Uses a resource by its token.</summary>
+    /// <remarks>For a request-local callback, which may capture the tokens it needs.</remarks>
     public void UseResource<T>(RenderResource<T> resource, Action<T> use)
         where T : class
     {

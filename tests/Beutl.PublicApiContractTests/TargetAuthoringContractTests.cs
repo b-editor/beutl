@@ -160,6 +160,28 @@ public sealed class TargetAuthoringContractTests
         });
     }
 
+    /// <remarks>
+    /// A raw definition's callback is static and its slots are fixed, so the only thing that changes per call
+    /// is the binding. Without slot addressing the callback would have to be handed the exact token in its
+    /// state as well, leaving the declared binding validation-only and the resource named in two places.
+    /// </remarks>
+    [Test]
+    public void ARawCommandAddressesItsResourceByTheSlotItDeclared()
+    {
+        var payload = new CommandPayload();
+        RawTargetCommandDefinition<byte> definition = RawTargetCommandDefinition<byte>.Create(
+            static (session, _) => session.UseResource(s_payloadSlot, static bound => bound.Uses++),
+            Rect.Empty,
+            RenderHitTestContract.None,
+            resources: [s_payloadSlot]);
+        using var node = new DelegateNode(context => context.Publish(context.RawTargetCommand(
+            definition.Call(0, [s_payloadSlot.Bind(context.Borrow(payload))]))));
+
+        using RenderNodeRasterization rasterization = Rasterize(node);
+
+        Assert.That(payload.Uses, Is.EqualTo(1));
+    }
+
     private static RenderNodeMeasurement Measure(RenderNode node)
     {
         using var renderer = CreateRenderer(node);
