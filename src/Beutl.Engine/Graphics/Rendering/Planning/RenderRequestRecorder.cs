@@ -110,6 +110,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         NodeRecordingTransaction? parent)
     {
         using ActiveNodeScope scope = EnterNode(node);
+        node.PrepareForRequest(new RenderNodePreparation(Request.Options));
         var inputs = new List<RenderFragmentReference>();
         if (node is ContainerRenderNode container)
         {

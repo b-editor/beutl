@@ -426,6 +426,76 @@ public class SceneDrawableScaleTests
         }
     }
 
+    /// <remarks>
+    /// The graph is recorded once, by the GraphicsContext2D, at whatever density that context carried. A
+    /// request rasterizing at another one moves everything else, so a nested scene left at the recording
+    /// density is the one thing in the frame drawn at the wrong scale.
+    /// </remarks>
+    [Test]
+    public void NestedScene_RebuildsWhenARequestAsksForADifferentOutputScale()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene inner = CreateInnerSceneWithRetryingDrawable(
+                basePath,
+                120,
+                90,
+                out RetryingSceneDrawable retrying);
+            var drawable = new SceneDrawable();
+            drawable.ReferencedScene.CurrentValue = inner;
+
+            using var resource = (SceneDrawable.Resource)drawable.ToResource(
+                new CompositionContext(TimeSpan.Zero));
+            using var root = new DrawableRenderNode(resource);
+            RenderDrawableTree(
+                drawable,
+                resource,
+                root,
+                inner.FrameSize.ToSize(1),
+                outputScale: 1);
+
+            using var renderer = new RenderNodeRenderer(
+                root,
+                new RenderNodeRendererOptions
+                {
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        TargetDomain = new Rect(default, inner.FrameSize.ToSize(1)),
+                        OutputScale = 1,
+                        CacheOptions = RenderCacheOptions.Disabled,
+                        Purpose = RenderRequestPurpose.Bounds,
+                    },
+                });
+            renderer.Measure();
+            int afterRecordingScale = retrying.RenderCalls;
+
+            renderer.Measure(new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(default, inner.FrameSize.ToSize(1)),
+                OutputScale = 2,
+                CacheOptions = RenderCacheOptions.Disabled,
+                Purpose = RenderRequestPurpose.Bounds,
+            });
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    afterRecordingScale,
+                    Is.EqualTo(1),
+                    "The control: a request at the recording density must not rebuild anything.");
+                Assert.That(
+                    retrying.ObservedOutputScales,
+                    Is.EqualTo(new[] { 1f, 2f }),
+                    "A request at a new density must rebuild the nested graph at that density.");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
     [Test]
     public void NestedScene_RebuildsAtANewOutputScaleWithoutReplacingChildren()
     {

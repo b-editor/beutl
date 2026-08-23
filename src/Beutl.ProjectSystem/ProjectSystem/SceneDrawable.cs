@@ -165,6 +165,20 @@ public sealed partial class SceneDrawable : Drawable
 
         public (Resource Resource, int Version)? Scene { get; private set; }
 
+        /// <remarks>
+        /// These children are built once, by the <see cref="GraphicsContext2D"/> that recorded the drawable,
+        /// at whatever density that context carried. A later request rasterizing at a different one would
+        /// otherwise replay a nested scene frozen at the first, while everything around it moved. Recording
+        /// walks children before their parent, so this is the last moment they can still be rebuilt.
+        /// </remarks>
+        public override void PrepareForRequest(RenderNodePreparation preparation)
+        {
+            if (Scene is { } captured)
+            {
+                Update(new SceneBitmapParameters(captured.Resource, preparation.OutputScale));
+            }
+        }
+
         public static SceneBitmapRenderNode Create(SceneBitmapParameters parameters)
         {
             var node = new SceneBitmapRenderNode();

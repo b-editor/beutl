@@ -53,6 +53,18 @@ public abstract class RenderNode : IDisposable
 
     public abstract void Process(RenderNodeContext context);
 
+    /// <summary>Prepares this node for one request, before its children are recorded.</summary>
+    /// <remarks>
+    /// Recording walks children before their parent, so a node whose children depend on the request - one
+    /// that records a nested graph at the request's density, say - cannot rebuild them from
+    /// <see cref="Process"/>: they are already recorded by then. Override this to reconcile them against
+    /// <paramref name="preparation"/> first. It runs on every request, so an override that changes nothing
+    /// must cost nothing.
+    /// </remarks>
+    public virtual void PrepareForRequest(RenderNodePreparation preparation)
+    {
+    }
+
     public void Dispose()
     {
         if (!IsDisposed)
