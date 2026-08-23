@@ -279,7 +279,11 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
             Image = _image.Handle,
             Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
             ImageTiling = (uint)ImageTiling.Optimal,
-            ImageLayout = (uint)ImageLayout.ColorAttachmentOptimal,
+            // The layout the image is actually in, not the one it is usually in. Skia takes this as the
+            // starting point for its own tracking and barriers, so declaring a layout the image has not
+            // reached tells it to skip a transition it needs - and, when the image was just cleared, to
+            // treat contents as undefined that are not.
+            ImageLayout = (uint)_currentLayout,
             Format = (uint)_format.ToVulkanFormat(),
             ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
                                      ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),

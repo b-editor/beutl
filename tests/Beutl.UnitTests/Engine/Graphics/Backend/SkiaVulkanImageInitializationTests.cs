@@ -57,6 +57,7 @@ public class SkiaVulkanImageInitializationTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void NewRenderTarget_SubmitsInitializationBeforeUntouchedSnapshot()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();

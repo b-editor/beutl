@@ -179,6 +179,7 @@ public class GLSLShaderTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void ConsecutiveEffects_SubmitEachEffectAndWaitOnlyAtTheReadbackBoundary()
     {
         IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
@@ -243,6 +244,7 @@ public class GLSLShaderTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void RepeatedNativeEffectChain_AllocatesOnlyWhileWarmingTheTargetPool()
     {
         IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
@@ -279,6 +281,7 @@ public class GLSLShaderTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void DiscardingShader_ClearsAReusedTargetBeforeRendering()
     {
         VulkanTestEnvironment.EnsureAvailable();
