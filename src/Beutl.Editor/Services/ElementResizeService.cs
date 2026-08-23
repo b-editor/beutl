@@ -25,6 +25,14 @@ public sealed class ElementResizeService : IElementResizeService
         requests = requests.Where(r => !scene.IsElementLocked(r.Element)).ToArray();
         if (requests.Count == 0) return;
 
+        // Clamp rather than throw, matching the ripple geometry clamps below: UI callers run on
+        // async-void pointer paths, and frame rounding at submission can dip below the preview
+        // floor (an original duration shorter than one frame, a pixel width that rounds to zero).
+        // Before this normalization the non-ripple branch handed such values straight to
+        // Scene.MoveChild, whose ArgumentOutOfRangeException escaped the async-void handler and
+        // terminated the app.
+        requests = NormalizeRequests(scene, requests);
+
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
         var clamped = ripple ? new Dictionary<Element, (TimeSpan Start, TimeSpan Length)>(requests.Count) : null;
@@ -33,7 +41,6 @@ public sealed class ElementResizeService : IElementResizeService
             var resizedSet = new HashSet<Element>(requests.Select(r => r.Element));
             foreach (ElementResizeRequest req in requests)
             {
-                ValidateRippleRequest(req);
                 // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
                 (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet);
                 length = ClampRippleEnd(scene, req, start, length, resizedSet);
@@ -102,19 +109,25 @@ public sealed class ElementResizeService : IElementResizeService
         scene.Duration = sceneEnd - scene.Start;
     }
 
-    private static void ValidateRippleRequest(ElementResizeRequest req)
+    // Floors every request into Scene.MoveChild's valid range: start at or after the timeline
+    // start and length at least one frame at the scene rate. Both branches submit through this
+    // boundary, so the floor protects the direct MoveChild writes and the ripple geometry clamps
+    // alike.
+    private static ElementResizeRequest[] NormalizeRequests(Scene scene, IReadOnlyList<ElementResizeRequest> requests)
     {
-        ArgumentNullException.ThrowIfNull(req.Element);
-
-        if (req.NewStart < TimeSpan.Zero)
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
+        var normalized = new ElementResizeRequest[requests.Count];
+        for (int i = 0; i < requests.Count; i++)
         {
-            throw new ArgumentOutOfRangeException(nameof(ElementResizeRequest.NewStart));
+            ElementResizeRequest req = requests[i];
+            ArgumentNullException.ThrowIfNull(req.Element);
+            TimeSpan start = req.NewStart < TimeSpan.Zero ? TimeSpan.Zero : req.NewStart;
+            TimeSpan length = req.NewLength < minLength ? minLength : req.NewLength;
+            normalized[i] = new ElementResizeRequest(req.Element, start, length, req.ZIndex);
         }
 
-        if (req.NewLength <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(ElementResizeRequest.NewLength));
-        }
+        return normalized;
     }
 
     // Limits a same-layer left-edge grow so the rigid ripple shift cannot push any upstream element
