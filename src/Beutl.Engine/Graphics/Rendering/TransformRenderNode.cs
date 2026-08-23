@@ -34,7 +34,11 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
         Matrix transform = Transform;
         TransformOperator transformOperator = TransformOperator;
         Matrix inverse = transform.HasInverse ? transform.Invert() : default;
-        var metadataState = new TransformMetadataState(transform, transform.HasInverse, inverse);
+        var metadataState = new TransformMetadataState(
+            transform,
+            transform.HasInverse,
+            inverse,
+            context.TargetDomain);
         RenderBoundsContract bounds = transform.HasInverse
             ? RenderBoundsContract.Create(
                 metadataState.TransformBounds,
@@ -149,9 +153,10 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
     private readonly record struct TransformMetadataState(
         Matrix Transform,
         bool HasInverse,
-        Matrix Inverse)
+        Matrix Inverse,
+        Rect? DeliveredTo)
     {
-        public Rect TransformBounds(Rect value) => value.TransformToAABB(Transform);
+        public Rect TransformBounds(Rect value) => value.TransformToDeliveredAABB(Transform, DeliveredTo);
 
         public Rect GetRequiredInputBounds(Rect value) => value.TransformToAABB(Inverse);
 

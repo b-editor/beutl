@@ -5,10 +5,11 @@ using Beutl.Media;
 namespace Beutl.UnitTests.Engine.Graphics;
 
 /// <summary>
-/// Pins the content <see cref="Rect.DefaultNearPlane"/> gives up. The default clips 820x in front of
-/// <see cref="Rect.RasterizerNearPlane"/>, so a near-edge-on layer declares bounds that exclude pixels
-/// Skia still draws — and the planner turns those bounds into a hard raster clip. These cases are the
-/// documented limitation, not the desired behaviour: a change that closes the gap must make them fail.
+/// Pins the content <see cref="Rect.DefaultNearPlane"/> gives up on its own, and that
+/// <see cref="Rect.TransformToDeliveredAABB"/> gives up none of it where the request delivers. The default
+/// clips 820x in front of <see cref="Rect.RasterizerNearPlane"/>, so a near-edge-on layer declares bounds
+/// that exclude pixels Skia still draws, and the planner turns declared bounds into a hard raster clip.
+/// That is why a transform declares against its delivery region instead of against the bare default.
 /// </summary>
 [TestFixture]
 public sealed class PerspectiveNearPlaneResidualTests
@@ -49,6 +50,45 @@ public sealed class PerspectiveNearPlaneResidualTests
                 "Rect.DefaultNearPlane's documented residual loss changed");
             Assert.That(outsideRasterizerExact, Is.Zero,
                 "the loss is the default's alone: the rasterizer's own near plane bounds every drawn pixel");
+        });
+    }
+
+    /// <remarks>
+    /// The delivered box keeps whatever of the exact box either reaches the frame or the pragmatic box
+    /// already declared, so nothing drawn inside the frame is given up and nothing outside it grows.
+    /// </remarks>
+    [TestCase(1200f, 54f, 60.0f, 500f)]
+    [TestCase(1200f, 54f, 89.5f, 500f)]
+    [TestCase(1200f, 54f, 89.8f, 500f)]
+    [TestCase(124f, 58f, 60.0f, 10f)]
+    public void TheDeliveredBounds_ExcludeNoFramePixelTheRasterizerDraws(
+        float width, float height, float rotationY, float depth)
+    {
+        Matrix matrix = ComposeCenteredRotation(width, height, rotationY, depth);
+        var local = new Rect(0, 0, width, height);
+        var frame = new Rect(0, 0, s_frame.Width, s_frame.Height);
+        Rect pragmatic = local.TransformToAABB(matrix);
+        Rect delivered = local.TransformToDeliveredAABB(matrix, frame);
+
+        int drawn = 0;
+        int outsideDelivered = 0;
+        foreach (Point pixel in DrawnFramePixels(matrix, local))
+        {
+            drawn++;
+            if (!Covers(delivered, pixel)) outsideDelivered++;
+        }
+
+        TestContext.WriteLine(
+            $"[{width}x{height} @{rotationY}deg depth{depth}] drawn={drawn} outsideDelivered={outsideDelivered} "
+            + $"deliveredWidth={delivered.Width} pragmaticWidth={pragmatic.Width}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outsideDelivered, Is.Zero,
+                "every pixel the rasterizer draws inside the frame must be declared");
+            Assert.That(delivered.Width, Is.LessThanOrEqualTo(pragmatic.Union(frame).Width + 0.001f),
+                "the delivered box must not cost more density than the pragmatic one already did");
+            Assert.That(delivered.Height, Is.LessThanOrEqualTo(pragmatic.Union(frame).Height + 0.001f));
         });
     }
 

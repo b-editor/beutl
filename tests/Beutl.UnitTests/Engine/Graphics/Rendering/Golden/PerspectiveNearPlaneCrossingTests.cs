@@ -49,14 +49,15 @@ public sealed class PerspectiveNearPlaneCrossingTests
     }
 
     /// <summary>
-    /// The documented limitation of <see cref="Rect.DefaultNearPlane"/>, at the renderer. Rotated near
-    /// edge-on, the same layer's w = 0.05 image line lands inside the frame, so the declared bounds cut
-    /// a wedge the rasterizer would otherwise draw. This asserts the loss is exactly that wedge and
-    /// nothing more; closing the gap must make it fail. See PerspectiveNearPlaneResidualTests.
+    /// Rotated near edge-on, the same layer's w = 0.05 image line lands inside the frame, so a scope
+    /// declaring <see cref="Rect.DefaultNearPlane"/> bounds cut a wedge the rasterizer draws - thousands of
+    /// frame pixels the viewer should have seen. A transform now declares
+    /// <see cref="Rect.TransformToDeliveredAABB"/>, which is exact wherever the request delivers, so the
+    /// wedge survives. See PerspectiveNearPlaneResidualTests for what the bare default still gives up.
     /// </summary>
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void DefaultDepth_NearEdgeOnRotation_LosesOnlyTheWedgeOutsideTheDeclaredBounds()
+    public void DefaultDepth_NearEdgeOnRotation_DrawsTheWedgeThePragmaticBoundsExcluded()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -79,11 +80,13 @@ public sealed class PerspectiveNearPlaneCrossingTests
             Assert.Multiple(() =>
             {
                 Assert.That(residual.InsideDeclaredMissing, Is.LessThan(residual.InsideDeclared / 100),
-                    "everything the declared bounds do cover must still be drawn");
+                    "everything the pragmatic bounds do cover must still be drawn");
                 Assert.That(residual.OutsideDeclared, Is.GreaterThan(6000),
-                    "Rect.DefaultNearPlane's documented residual loss changed");
-                Assert.That(residual.OutsideDeclaredRendered, Is.Zero,
-                    "the declared bounds are a hard raster clip, so the residual really is dropped");
+                    "the fixture must put a substantial wedge outside the pragmatic bounds");
+                Assert.That(
+                    residual.OutsideDeclaredRendered,
+                    Is.GreaterThan(residual.OutsideDeclared - (residual.OutsideDeclared / 100)),
+                    "the wedge outside the pragmatic bounds is inside the frame, so it must be drawn");
             });
         });
     }

@@ -50,8 +50,9 @@ public readonly struct Rect
     /// that term drops below the half-frame width — which is what a near-edge-on card flip does. A
     /// 1200x54 layer at Depth 500 in a 256x144 frame loses none of the 13824 pixels it draws at 60
     /// degrees, 6480 of 18188 at 89.5 degrees, and 13680 of 18340 at 89.8 degrees; a 124x58 layer at
-    /// Depth 10 loses 2592 of 18232 at 60 degrees. Callers that intersect the result with their own
-    /// target before sizing a buffer should pass <see cref="RasterizerNearPlane"/> instead.
+    /// Depth 10 loses 2592 of 18232 at 60 degrees. A caller that knows where its output is delivered gives
+    /// up none of that: see <see cref="TransformToDeliveredAABB"/>, which is what the built-in transforms
+    /// declare.
     /// </para>
     /// </remarks>
     public const float DefaultNearPlane = 0.05f;
@@ -497,6 +498,35 @@ public readonly struct Rect
     /// Identical to the plain mapped-corner box whenever the rectangle does not cross the camera
     /// plane, which is every case those corners already answer exactly.
     /// </returns>
+    /// <summary>
+    /// Maps this rectangle through <paramref name="matrix"/> covering every pixel the rasterizer can draw,
+    /// then keeps whatever of that box either reaches <paramref name="deliveredTo"/> or would have been
+    /// declared at <see cref="DefaultNearPlane"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A perspective-mapped rectangle's exact box runs to millions of pixels as the near edge tips towards
+    /// the eye, and <see cref="RenderScaleUtilities.ClampWorkingScaleToBufferBudget"/> pays for that in
+    /// working density. <see cref="DefaultNearPlane"/> bought the density back by giving up a wedge the
+    /// rasterizer still draws - and, when the wedge falls inside the frame, that wedge is content the viewer
+    /// should have seen.
+    /// </para>
+    /// <para>
+    /// The union is what makes both affordable: inside <paramref name="deliveredTo"/> the box is exact, so
+    /// nothing drawn there is given up, and outside it the box is never larger than
+    /// <see cref="DefaultNearPlane"/> already made it, so the density it costs is unchanged. Without a
+    /// delivery region there is no output clip to be exact against and the pragmatic box is returned.
+    /// </para>
+    /// </remarks>
+    public Rect TransformToDeliveredAABB(Matrix matrix, Rect? deliveredTo)
+    {
+        Rect pragmatic = TransformToAABB(matrix);
+        if (deliveredTo is not { } delivered)
+            return pragmatic;
+
+        return TransformToAABB(matrix, RasterizerNearPlane).Intersect(pragmatic.Union(delivered));
+    }
+
     public Rect TransformToAABB(Matrix matrix, float nearPlane = DefaultNearPlane)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(nearPlane);

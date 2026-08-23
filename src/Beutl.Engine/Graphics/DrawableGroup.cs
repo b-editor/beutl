@@ -311,7 +311,11 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             var transform = GetTransformMatrix(bounds);
             bool hasInverse = transform.HasInverse;
             Matrix inverse = hasInverse ? transform.Invert() : Matrix.Identity;
-            var metadataState = new CustomTransformMetadataState(transform, hasInverse, inverse);
+            var metadataState = new CustomTransformMetadataState(
+                transform,
+                hasInverse,
+                inverse,
+                context.TargetDomain);
             RenderBoundsContract boundsContract = hasInverse
                 ? RenderBoundsContract.Create(
                     metadataState.TransformBounds,
@@ -350,9 +354,11 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         private readonly record struct CustomTransformMetadataState(
             Matrix Transform,
             bool HasInverse,
-            Matrix Inverse)
+            Matrix Inverse,
+            Rect? DeliveredTo)
         {
-            public Rect TransformBounds(Rect inputBounds) => inputBounds.TransformToAABB(Transform);
+            public Rect TransformBounds(Rect inputBounds)
+                => inputBounds.TransformToDeliveredAABB(Transform, DeliveredTo);
 
             public Rect GetRequiredInputBounds(Rect outputBounds) => outputBounds.TransformToAABB(Inverse);
 
