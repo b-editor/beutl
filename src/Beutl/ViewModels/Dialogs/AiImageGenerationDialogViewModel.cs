@@ -684,6 +684,12 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             // model's place is left empty until it is known, because which
             // model this request carries depends on whether it is the request a
             // name is already outstanding for.
+            // Read once, and named by that reading. Reading again to send would
+            // name one set of bytes and upload another if a picture changed in
+            // between, and the answer would be recorded under a name that
+            // describes something else.
+            (AiUploadSource[] references, string[] referenceStamps) =
+                await ReadReferencesAsync(referencePaths, operation.CancellationToken);
             string?[] requestParts =
             [
                 prompt,
@@ -691,7 +697,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                 background,
                 Seed.Value?.ToString(CultureInfo.InvariantCulture),
                 null,
-                .. referencePaths.Select(AiRequestKey.FileStamp),
+                .. referenceStamps,
             ];
             AiModelId? model = ModelPicker.SelectedModel;
             requestParts[ModelPartIndex] = model?.Value;
@@ -730,7 +736,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                         new AiImageAspectRatioId(aspectRatio),
                         new AiImageBackgroundId(background),
                         seed: Seed.Value,
-                        references: Array.ConvertAll(referencePaths, AiUploadSource.FromFile),
+                        references: references,
                         model: model,
                         idempotencyKey: name.Key,
                         referencesTotalLimitBytes: ModelPicker.MaxImageReferencesTotalBytes),
@@ -1032,6 +1038,25 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
 
         UpdateReferenceImageState();
+    }
+
+    // 送るものと、名前に使うものを、同じ一度の読み取りから作る。読み直すと、
+    // 名前を付けた中身と実際に送る中身が食い違い、答えは別のものを指す名前で
+    // 記録される。
+    private static async Task<(AiUploadSource[] References, string[] Stamps)>
+        ReadReferencesAsync(string[] paths, CancellationToken cancellationToken)
+    {
+        var sources = new AiUploadSource[paths.Length];
+        var stamps = new string[paths.Length];
+        for (int index = 0; index < paths.Length; index++)
+        {
+            string fileName = Path.GetFileName(paths[index]);
+            byte[] bytes = await File.ReadAllBytesAsync(paths[index], cancellationToken);
+            stamps[index] = AiRequestKey.FileStamp(fileName, bytes);
+            sources[index] = AiUploadSource.FromBytes(fileName, bytes);
+        }
+
+        return (sources, stamps);
     }
 
     private static long SizeOf(string path)

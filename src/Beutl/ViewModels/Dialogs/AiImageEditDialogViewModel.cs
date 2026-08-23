@@ -135,6 +135,9 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         // here yet has to be fetched even while its own request is waiting to be
         // collected — without it the screen has no model to send and the paid
         // request is stranded.
+        // 未回収の依頼が名乗ったモデルは、カタログから消えても一覧に残す。同じ
+        // task に二つ残っていることもあるので、全部を渡す。
+        ModelPicker.KeepOffered = requested => ModelsOfOutstandingRequestsFor(requested);
         ModelPicker.CanReload = requested =>
             ModelPicker.Operation != requested
             || !HoldsNameFor(SelectedTask.Value.Value);
@@ -433,6 +436,16 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 ? new AiModelId(model)
                 : null;
 
+    private IReadOnlyList<AiModelId> ModelsOfOutstandingRequestsFor(AiOperationId operation)
+        => _outstanding.All()
+            .Where(request => request[TaskPartIndex] is { } task
+                && AiOperations.ImageEdit(new AiImageEditTaskId(task)) == operation)
+            .Select(request => request[ModelPartIndex])
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .Select(model => new AiModelId(model))
+            .ToArray();
+
     private static bool IsFor(string?[] request, string task)
         => string.Equals(request[TaskPartIndex], task, StringComparison.Ordinal);
 
@@ -614,6 +627,14 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 prompt = $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt}";
             }
 
+            // Read once, and named by that reading. What the server
+            // fingerprints is the picture that arrives — for an outpaint that
+            // is the expanded canvas, not the picture it was made from: two
+            // different sources and expansions can expand to the same canvas,
+            // and naming the source would ask for the same work twice.
+            byte[] uploadBytes = await File.ReadAllBytesAsync(
+                uploadPath,
+                operation.CancellationToken);
             AiOperationId editOperation = AiOperations.ImageEdit(new AiImageEditTaskId(task));
             // Only the model the picker is currently showing for this task; a
             // selection left over from another task belongs to another
@@ -626,8 +647,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 task,
                 prompt,
                 null,
-                outpaintExpansionPercent?.ToString(CultureInfo.InvariantCulture),
-                AiRequestKey.FileStamp(filePath),
+                AiRequestKey.FileStamp(uploadName, uploadBytes),
             ];
             AiModelId? model =
                 ModelPicker.Operation == editOperation ? ModelPicker.SelectedModel : null;
@@ -662,7 +682,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             {
                 response = await _images.EditAsync(
                     new AiImageEditRequest(
-                        AiUploadSource.FromFile(uploadPath, uploadName),
+                        AiUploadSource.FromBytes(uploadName, uploadBytes),
                         new AiImageEditTaskId(task),
                         prompt,
                         model,

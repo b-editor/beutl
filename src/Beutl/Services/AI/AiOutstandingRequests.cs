@@ -29,6 +29,9 @@ internal sealed class AiOutstandingRequests
             _byName.Remove(name.Key);
     }
 
+    /// <summary>Every request being held.</summary>
+    public IEnumerable<string?[]> All() => _byName.Values;
+
     /// <summary>Whether any request being held matches <paramref name="predicate"/>.</summary>
     public bool Any(Func<string?[], bool> predicate)
         => TryFind(predicate, out _);

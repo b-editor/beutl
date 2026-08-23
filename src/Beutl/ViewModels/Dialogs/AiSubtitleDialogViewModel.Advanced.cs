@@ -1469,7 +1469,7 @@ public sealed partial class AiSubtitleDialogViewModel
         // 取れる——一度取れなかったきり諦めると、そのタブは以後ずっと課金つきの
         // 実行を始められない。
         if (_captionDraftSession is null && _captionDraftScopeIsHeldElsewhere)
-            OpenCaptionDraftSession(_captionDraftBaseScope);
+            TakeOverReleasedCaptionDraft();
 
         _partialResult = result;
         // A run that has only named its first piece has nothing to apply yet.
@@ -2207,6 +2207,41 @@ public sealed partial class AiSubtitleDialogViewModel
         string targetCode = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja" ? "en" : "ja";
         return TargetLanguages.First(option => option.Code == targetCode);
     }
+
+    // 手放された控えを引き継ぐ。ただし、そこに支払い済みのものが書いてあるなら
+    // 引き継がない——ここは実行の途中で、書けば相手の名前と切れ端を上から潰す。
+    // 潰されたものは誰も取りに行けず、買い直しになる。その場面を新しく開けば
+    // そのまま復元されるので、失われはしない。
+    private void TakeOverReleasedCaptionDraft()
+    {
+        OpenCaptionDraftSession(_captionDraftBaseScope);
+        if (_captionDraftSession is null)
+            return;
+
+        CaptionDraftEntry? left;
+        try
+        {
+            left = _captionDraftSession.Load();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read the caption draft left by another tab.");
+            left = null;
+        }
+
+        if (left is null || !HoldsPaidWork(left.Draft))
+            return;
+
+        _captionDraftSession.Dispose();
+        _captionDraftSession = null;
+        _captionDraftScopeIsHeldElsewhere = true;
+    }
+
+    private static bool HoldsPaidWork(CaptionDraft draft)
+        => draft.CompletedSteps > 0
+            || !string.IsNullOrEmpty(draft.TranslationResume?.RequestKeySeed)
+            || !string.IsNullOrEmpty(draft.SourceTranscriptionResume?.RequestKeySeed)
+            || !string.IsNullOrEmpty(draft.SceneTranscriptionResume?.RequestKeySeed);
 
     private void OpenCaptionDraftSession(CaptionDraftScope? scope)
     {

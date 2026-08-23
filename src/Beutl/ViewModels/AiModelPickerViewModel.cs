@@ -102,6 +102,18 @@ internal sealed class AiModelPickerViewModel : IDisposable
     /// </remarks>
     public Func<AiOperationId, bool>? CanReload { get; set; }
 
+    /// <summary>
+    /// Models that must stay on the list for an operation however the catalog
+    /// changes, because a request still waiting to be collected named them.
+    /// </summary>
+    /// <remarks>
+    /// The server answers such a request before it looks at whether the model
+    /// is still offered, so the screen has to be able to say that model's name.
+    /// There may be more than one — two requests on the same operation, sent on
+    /// different models, can both be waiting.
+    /// </remarks>
+    public Func<AiOperationId, IReadOnlyList<AiModelId>>? KeepOffered { get; set; }
+
     private void ReloadOnSchedule()
     {
         if (!IsLoaded.Value || CanReload?.Invoke(Operation) == false)
@@ -213,7 +225,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
         int generation = ++_loadGeneration;
         try
         {
-            await LoadCoreAsync(operation, preferred, cancellationToken);
+            await LoadCoreAsync(operation, preferred, generation, cancellationToken);
         }
         finally
         {
@@ -229,9 +241,16 @@ internal sealed class AiModelPickerViewModel : IDisposable
     private async Task LoadCoreAsync(
         AiOperationId operation,
         AiModelId? preferred,
+        int generation,
         CancellationToken cancellationToken)
     {
         AiModelCatalog catalog = await _catalog.GetAsync(cancellationToken);
+        // Overtaken while this was being fetched: the screen has moved on to
+        // another operation, and putting this list up would replace the one it
+        // is actually showing.
+        if (generation != _loadGeneration)
+            return;
+
         // Asked again on the way back. A request may have gone out while this
         // was being fetched, and what it carries — the model, and the shape and
         // background that follow it — is what this list would replace.
@@ -256,19 +275,18 @@ internal sealed class AiModelPickerViewModel : IDisposable
         // The choice already made, kept when it is still on offer: a reload is
         // not a reason to move it.
         AiModelId? keep = preferred ?? SelectedModel;
-        // A model asked for by name that the catalog no longer lists is still
-        // what an uncollected request was sent with, and the server answers that
-        // request before it looks at whether the model is still offered — so it
-        // stays on the list, unpickable for anything new, until that request is
-        // settled. What is on offer right now may be another operation's list
-        // entirely, so a name with nothing behind it is shown as itself rather
-        // than dropped.
-        AiModelPickerOption? withdrawn = preferred is { } wantedByName
-            ? Options.FirstOrDefault(option => option.Id == wantedByName)
+        // Models the catalog no longer lists that an uncollected request was
+        // sent with. The server answers such a request before it looks at
+        // whether the model is still offered, so each one stays on the list,
+        // unpickable for anything new, until that request is settled. What is on
+        // offer right now may be another operation's list entirely, so a name
+        // with nothing behind it is shown as itself rather than dropped.
+        AiModelPickerOption[] mustStay = (KeepOffered?.Invoke(operation) ?? [])
+            .Select(id => Options.FirstOrDefault(option => option.Id == id)
                 ?? new AiModelPickerOption(
-                    new AiModelOption(wantedByName, wantedByName.Value, null, false),
-                    IsAvailable: false)
-            : null;
+                    new AiModelOption(id, id.Value, null, false),
+                    IsAvailable: false))
+            .ToArray();
         Operation = operation;
         MaxImageReferencesTotalBytes = catalog.MaxImageReferencesTotalBytes;
         _loadedCatalog = catalog;
@@ -288,10 +306,10 @@ internal sealed class AiModelPickerViewModel : IDisposable
                     operationIsAvailable) ?? false));
         }
 
-        if (withdrawn is not null
-            && !Options.Any(option => option.Id == withdrawn.Id))
+        foreach (AiModelPickerOption held in mustStay)
         {
-            Options.Add(withdrawn with { IsAvailable = false });
+            if (!Options.Any(option => option.Id == held.Id))
+                Options.Add(held with { IsAvailable = false });
         }
 
         HasChoice.Value = Options.Count > 1;

@@ -959,6 +959,16 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             // The model's place is left empty until it is known, because which
             // model this request carries depends on whether a name is already
             // outstanding for the rest of it.
+            // Read once, and named by that reading. Reading again to send would
+            // name one set of bytes and upload another if a frame changed in
+            // between, and the answer would be recorded under a name that
+            // describes something else.
+            (AiUploadSource? firstFrame, string firstFrameStamp) = await ReadFrameAsync(
+                firstFramePath,
+                operation.CancellationToken);
+            (AiUploadSource? lastFrame, string lastFrameStamp) = await ReadFrameAsync(
+                lastFramePath,
+                operation.CancellationToken);
             string?[] requestParts =
             [
                 prompt,
@@ -968,8 +978,8 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                 generateAudio ? "audio" : "silent",
                 Seed.Value?.ToString(CultureInfo.InvariantCulture),
                 null,
-                AiRequestKey.FileStamp(firstFramePath),
-                AiRequestKey.FileStamp(lastFramePath),
+                firstFrameStamp,
+                lastFrameStamp,
             ];
             AiModelId? model = ModelPicker.SelectedModel;
             requestParts[ModelPartIndex] = model?.Value;
@@ -1013,12 +1023,8 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                         new AiVideoAspectRatioId(aspectRatio),
                         generateAudio,
                         seed: Seed.Value,
-                        firstFrame: firstFramePath is null
-                            ? null
-                            : AiUploadSource.FromFile(firstFramePath),
-                        lastFrame: lastFramePath is null
-                            ? null
-                            : AiUploadSource.FromFile(lastFramePath),
+                        firstFrame: firstFrame,
+                        lastFrame: lastFrame,
                         model: model,
                         idempotencyKey: name.Key),
                     operation.CancellationToken);
@@ -1399,6 +1405,23 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         }
 
         held.Dispose();
+    }
+
+    // 送るものと、名前に使うものを、同じ一度の読み取りから作る。読み直すと、
+    // 名前を付けた中身と実際に送る中身が食い違い、答えは別のものを指す名前で
+    // 記録される。
+    private static async Task<(AiUploadSource? Frame, string Stamp)> ReadFrameAsync(
+        string? path,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(path))
+            return (null, string.Empty);
+
+        string fileName = Path.GetFileName(path);
+        byte[] bytes = await File.ReadAllBytesAsync(path, cancellationToken);
+        return (
+            AiUploadSource.FromBytes(fileName, bytes),
+            AiRequestKey.FileStamp(fileName, bytes));
     }
 
     private IDisposable AcquireTemporaryFileLease(string? path)

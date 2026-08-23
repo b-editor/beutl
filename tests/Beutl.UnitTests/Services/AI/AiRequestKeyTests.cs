@@ -99,6 +99,49 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
+    public void FileStamp_NamesAFileTheWayTheServerDoes()
+    {
+        // サーバーは、届いた名前と中身でその依頼を見分ける。場所や更新時刻で
+        // 見分けると、移しただけ・触っただけの絵が別の依頼になり、同じ仕事を
+        // 二度買うことになる。
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            "Beutl.UnitTests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string here = Path.Combine(directory, "picture.png");
+            string moved = Path.Combine(directory, "moved");
+            Directory.CreateDirectory(moved);
+            string there = Path.Combine(moved, "picture.png");
+            File.WriteAllBytes(here, [1, 2, 3]);
+            string before = AiRequestKey.FileStamp(here);
+
+            File.SetLastWriteTimeUtc(here, DateTime.UnixEpoch);
+            Assert.That(AiRequestKey.FileStamp(here), Is.EqualTo(before),
+                "Touching a file does not make it another request.");
+
+            File.Copy(here, there);
+            Assert.That(AiRequestKey.FileStamp(there), Is.EqualTo(before),
+                "Nor does moving it.");
+
+            File.WriteAllBytes(here, [3, 2, 1]);
+            Assert.That(AiRequestKey.FileStamp(here), Is.Not.EqualTo(before),
+                "Changing what is in it does.");
+
+            string renamed = Path.Combine(directory, "another.png");
+            File.WriteAllBytes(renamed, [1, 2, 3]);
+            Assert.That(AiRequestKey.FileStamp(renamed), Is.Not.EqualTo(before),
+                "So does the name it arrives under.");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
     public void Retire_StartsTheNextRequestUnderAFreshName()
     {
         var key = new AiRequestKey();

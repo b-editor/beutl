@@ -163,10 +163,7 @@ internal sealed class AiRequestKey
         try
         {
             using FileStream stream = File.OpenRead(filePath);
-            string content = Convert.ToHexString(SHA256.HashData(stream));
-            return string.Create(
-                CultureInfo.InvariantCulture,
-                $"{Path.GetFileName(filePath)}:{content}");
+            return FileStamp(Path.GetFileName(filePath), SHA256.HashData(stream));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -175,6 +172,20 @@ internal sealed class AiRequestKey
             return filePath;
         }
     }
+
+    /// <summary>
+    /// Identifies bytes already in hand, sent under <paramref name="fileName"/>.
+    /// </summary>
+    /// <remarks>
+    /// Reading the file once and naming that reading is the only way the name
+    /// is sure to belong to what goes out: read for the name and read again to
+    /// send, and a file rewritten in between is recorded under a name that
+    /// describes something else.
+    /// </remarks>
+    public static string FileStamp(string fileName, ReadOnlySpan<byte> content)
+        => string.Create(
+            CultureInfo.InvariantCulture,
+            $"{fileName}:{Convert.ToHexString(SHA256.HashData(content))}");
 
     /// <summary>
     /// Says the server settled the job this one name made. Only that request

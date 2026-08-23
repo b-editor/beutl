@@ -77,6 +77,35 @@ public sealed class AiUploadSource
     }
 
     /// <summary>
+    /// The bytes already in hand, sent under a name of the caller's choosing.
+    /// </summary>
+    /// <remarks>
+    /// A request is named partly by what its file contains, and the file on
+    /// disk can change between being read for the name and being read again to
+    /// be sent. One reading serves both, so the name always belongs to the
+    /// bytes that actually go out.
+    /// </remarks>
+    public static AiUploadSource FromBytes(string fileName, ReadOnlyMemory<byte> bytes)
+        => FromBytes(fileName, AiMediaTypes.Get(fileName), bytes);
+
+    public static AiUploadSource FromBytes(
+        string fileName,
+        string mediaType,
+        ReadOnlyMemory<byte> bytes)
+    {
+        return new AiUploadSource(
+            fileName,
+            mediaType,
+            cancellationToken =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return ValueTask.FromResult<Stream>(
+                    new MemoryStream(bytes.ToArray(), writable: false));
+            },
+            bytes.Length);
+    }
+
+    /// <summary>
     /// Opens a readable stream for this upload. The caller owns the returned stream and must dispose it.
     /// </summary>
     public async ValueTask<Stream> OpenReadAsync(CancellationToken cancellationToken)
