@@ -138,18 +138,24 @@ public sealed class VulkanContextIsolationTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void TheLogicalDevice_EnablesTheSixtyFourBitShaderFeaturesItAdvertises()
+    public void TheLogicalDevice_EnablesTheShaderFeaturesItAdvertises()
     {
         VulkanContext vulkanContext = ResolveVulkan(GpuTestEnvironment.EnsureAvailable());
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             PhysicalDeviceFeatures available = ReadAdvertisedFeatures(vulkanContext);
             TestContext.WriteLine(
-                $"advertised int64={available.ShaderInt64} float64={available.ShaderFloat64}");
+                $"advertised int64={available.ShaderInt64} float64={available.ShaderFloat64} "
+                + $"cubeArray={available.ImageCubeArray}");
             Assert.Multiple(() =>
             {
                 Assert.That(vulkanContext.SupportsShaderInt64, Is.EqualTo((bool)available.ShaderInt64));
                 Assert.That(vulkanContext.SupportsShaderFloat64, Is.EqualTo((bool)available.ShaderFloat64));
+                Assert.That(
+                    vulkanContext.SupportsImageCubeArray,
+                    Is.EqualTo((bool)available.ImageCubeArray),
+                    "point-light shadows sample a cube array, so the device has to request the feature "
+                    + "its own views and shaders rely on");
             });
         });
     }

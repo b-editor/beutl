@@ -367,6 +367,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     /// <inheritdoc cref="VulkanDevice.SupportsShaderFloat64"/>
     public bool SupportsShaderFloat64 => _vulkanDevice.SupportsShaderFloat64;
 
+    /// <inheritdoc cref="VulkanDevice.SupportsImageCubeArray"/>
+    public bool SupportsImageCubeArray => _vulkanDevice.SupportsImageCubeArray;
+
     public Queue GraphicsQueue => _vulkanDevice.GraphicsQueue;
 
     public uint GraphicsQueueFamilyIndex => _vulkanDevice.GraphicsQueueFamilyIndex;

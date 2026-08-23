@@ -31,6 +31,15 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
     {
         if (arraySize == 0)
             throw new ArgumentException("Array size must be greater than 0", nameof(arraySize));
+        if (!context.SupportsImageCubeArray)
+        {
+            // Named here rather than left to vkCreateImageView, whose failure mentions neither this texture
+            // nor the feature that is missing.
+            throw new NotSupportedException(
+                "This Vulkan device does not support cube-array image views (imageCubeArray), which a cube "
+                + "texture array needs both for its view and for the SampledCubeArray capability its shaders "
+                + "declare.");
+        }
 
         _context = context;
         _size = size;

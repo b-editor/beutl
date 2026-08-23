@@ -56,6 +56,9 @@ internal sealed unsafe class VulkanDevice : IDisposable
     /// <summary>Whether the logical device enabled 64-bit floating-point arithmetic in shaders.</summary>
     public bool SupportsShaderFloat64 => _enabledFeatures.ShaderFloat64;
 
+    /// <summary>Whether the logical device enabled cube-array image views and sampling.</summary>
+    public bool SupportsImageCubeArray => _enabledFeatures.ImageCubeArray;
+
 
     private uint FindGraphicsQueueFamily()
     {
@@ -126,15 +129,20 @@ internal sealed unsafe class VulkanDevice : IDisposable
             PQueuePriorities = &queuePriority
         };
 
-        // A 64-bit specialization constant, or any shader that declares a 64-bit scalar, needs the matching
-        // feature enabled on the logical device: advertising it on the physical device is not enough, and
-        // pipeline creation fails without it. Requesting only what this device already reports costs nothing.
+        // A feature the engine's own code uses has to be requested here: advertising it on the physical
+        // device is not enough, and using it without requesting it is undefined behaviour the driver need
+        // not report. Requesting only what this device already reports costs nothing.
+        //   - shaderInt64/shaderFloat64: a 64-bit specialization constant, or any shader declaring a 64-bit
+        //     scalar, fails pipeline creation without them.
+        //   - imageCubeArray: point-light shadows sample every cube at once, which needs a
+        //     VK_IMAGE_VIEW_TYPE_CUBE_ARRAY view and the SampledCubeArray SPIR-V capability.
         PhysicalDeviceFeatures available;
         _vk.GetPhysicalDeviceFeatures(_physicalDevice, &available);
         var features = new PhysicalDeviceFeatures
         {
             ShaderInt64 = available.ShaderInt64,
             ShaderFloat64 = available.ShaderFloat64,
+            ImageCubeArray = available.ImageCubeArray,
         };
         enabledFeatures = features;
 
