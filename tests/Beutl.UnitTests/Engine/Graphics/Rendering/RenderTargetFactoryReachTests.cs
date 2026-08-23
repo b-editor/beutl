@@ -108,6 +108,75 @@ public sealed class RenderTargetFactoryReachTests
         });
     }
 
+    /// <remarks>
+    /// A declined native replacement leaves the caller holding the unfiltered source, and a preview keeps
+    /// going with it. The request has to be told, or the executor can publish that unfiltered frame into a
+    /// persistent node cache or a backdrop snapshot and keep bypassing the effect long after the factory
+    /// recovers.
+    /// </remarks>
+    [Test]
+    public void ADeclinedNativeReplacement_MarksTheRequestAsHavingDroppedContent()
+    {
+        using EffectTargets targets = CreateSolidTargets(s_bounds);
+        var factory = new DecliningTargetFactory();
+        using var registry = new RenderTargetLeaseRegistry(factory);
+        using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: 1,
+            workingScale: 1,
+            maxWorkingScale: 1,
+            renderTargetLeaseSession: session);
+
+        using EffectTarget replacement = context.CreateNativeTargetLike(targets[0]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(factory.Declined, Is.GreaterThan(0), "the fixture must actually decline");
+            Assert.That(replacement.RenderTarget, Is.Null, "a declined replacement is an empty target");
+            Assert.That(
+                session.ContentDropObserved,
+                Is.True,
+                "the preview kept the unfiltered source, so the request dropped content");
+        });
+    }
+
+    /// <remarks>
+    /// A delivery render ships what it produces, so it fails rather than writing an unprocessed frame. The
+    /// lease session is what says so, by throwing on the declined acquire rather than reporting it, so the
+    /// preview-only handling above is never the delivery answer.
+    /// </remarks>
+    [Test]
+    public void ADeclinedNativeReplacement_FailsADeliveryRenderInsteadOfDroppingTheEffect()
+    {
+        using EffectTargets targets = CreateSolidTargets(s_bounds);
+        var factory = new DecliningTargetFactory();
+        using var registry = new RenderTargetLeaseRegistry(factory);
+        using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Delivery);
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Frame,
+            outputScale: 1,
+            workingScale: 1,
+            maxWorkingScale: 1,
+            renderTargetLeaseSession: session);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => context.CreateNativeTargetLike(targets[0]),
+                Throws.TypeOf<InvalidOperationException>()
+                    .With.Message.Contains("could not allocate"));
+            Assert.That(
+                session.ContentDropObserved,
+                Is.False,
+                "a delivery render fails rather than recording a drop and carrying on");
+        });
+    }
+
     [Test]
     public void TileBrushIntermediate_AllocatesThroughTheFactory()
     {
@@ -172,6 +241,17 @@ public sealed class RenderTargetFactoryReachTests
         {
             new EffectTarget(renderTarget, bounds, EffectiveScale.At(1)),
         };
+    }
+
+    private sealed class DecliningTargetFactory : IRenderTargetFactory
+    {
+        public int Declined { get; private set; }
+
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            Declined++;
+            return null;
+        }
     }
 
     private sealed class CountingTargetFactory : IRenderTargetFactory

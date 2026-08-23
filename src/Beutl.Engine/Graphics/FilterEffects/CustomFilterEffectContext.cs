@@ -247,6 +247,13 @@ public class CustomFilterEffectContext
         return new EffectTarget();
     }
 
+    /// <remarks>
+    /// A declined allocation leaves the caller holding the unfiltered source, and the request is told it
+    /// dropped content. Without that, an executor can publish the unfiltered frame into a persistent
+    /// render-node cache or a backdrop snapshot, and a later hit keeps bypassing the effect long after the
+    /// factory recovered. This reaches only a preview: a lease session declines by throwing under
+    /// <see cref="RenderIntent.Delivery"/>, so a delivery render fails before it gets here.
+    /// </remarks>
     internal EffectTarget CreateNativeTargetLike(EffectTarget source)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -255,7 +262,13 @@ public class CustomFilterEffectContext
         if (source.RenderTarget is null || source.Scale.IsUnbounded)
             return new EffectTarget();
 
-        EffectTarget? replacement = AllocateReplacement(source, _renderTargetLeaseSession);
+        // Every consumer of this target is a full-frame shader pass: its load op either clears the
+        // attachment or the shader provably writes every pixel, so the pool's own clear - and the two
+        // layout transitions around it - would be undone before anything read them.
+        EffectTarget? replacement = AllocateReplacement(
+            source,
+            _renderTargetLeaseSession,
+            clearContents: false);
         if (replacement != null)
             return replacement;
 
@@ -265,6 +278,7 @@ public class CustomFilterEffectContext
             source.DeviceBounds.Height,
             source.Scale.Value,
             source.Bounds);
+        _renderTargetLeaseSession.MarkContentDropped();
         return new EffectTarget();
     }
 
@@ -277,11 +291,14 @@ public class CustomFilterEffectContext
     /// come from a context the global allocator knows nothing about. Going around it here would both ignore the
     /// caller's allocation policy and let a custom effect sample a factory-backed input into a foreign surface.
     /// </remarks>
-    private EffectTarget? AllocateReplacement(EffectTarget source, RenderTargetLeaseSession? leaseSession)
+    private EffectTarget? AllocateReplacement(
+        EffectTarget source,
+        RenderTargetLeaseSession? leaseSession,
+        bool clearContents = true)
     {
         if (leaseSession is not null)
         {
-            RenderTargetLease? lease = leaseSession.TryAcquire(source.DeviceBounds.Size);
+            RenderTargetLease? lease = leaseSession.TryAcquire(source.DeviceBounds.Size, clearContents);
             if (lease is null)
                 return null;
 
