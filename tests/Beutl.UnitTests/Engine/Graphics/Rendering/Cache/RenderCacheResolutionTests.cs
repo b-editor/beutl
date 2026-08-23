@@ -876,6 +876,50 @@ public sealed class RenderCacheResolutionTests
         });
     }
 
+    /// <remarks>
+    /// A raw scope's callback is opaque, so the declared scale contract is the only statement of how the
+    /// replayed input is consumed. Forwarding the target demand past a scope that resamples rasterizes an
+    /// unbounded child at the target density and then enlarges it.
+    /// </remarks>
+    [Test]
+    public void MaterializationDemands_RawTargetScopeCarriesItsDeclaredDemandBackwards()
+    {
+        RenderFragmentReference leaf = Pure();
+        RenderFragmentReference scope = RawTargetScope(
+            leaf,
+            RenderScaleContract.MapInputSupply(ReduceSupplyByFour, QuadrupleDemand));
+
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+            RenderMaterializationDemandResolver.Resolve(
+                [scope],
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity).Demands;
+
+        Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(4)));
+    }
+
+    /// <remarks>
+    /// The companion to <see cref="MaterializationDemands_RawTargetScopeCarriesItsDeclaredDemandBackwards"/>:
+    /// a scope whose enlargement is already carried by the destination matrix declares no backward map, and
+    /// pre-scaling its input there would rasterize it large and then draw it scaled again.
+    /// </remarks>
+    [Test]
+    public void MaterializationDemands_RawTargetScopeWithoutABackwardMapLeavesTheDemandAlone()
+    {
+        RenderFragmentReference leaf = Pure();
+        RenderFragmentReference scope = RawTargetScope(
+            leaf,
+            RenderScaleContract.MapInputSupplyPreservingDemand(ReduceSupplyByFour));
+
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+            RenderMaterializationDemandResolver.Resolve(
+                [scope],
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity).Demands;
+
+        Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(1)));
+    }
+
     [TestCase(4f)]
     [TestCase(float.PositiveInfinity)]
     public void MaterializationDemands_UpscalingTransformStaysWithinWorkingAndBufferCeilings(
@@ -1337,6 +1381,35 @@ public sealed class RenderCacheResolutionTests
             new TargetScopeRenderFragmentPayload(description),
             static _ => true);
     }
+
+    private static RenderFragmentReference RawTargetScope(
+        RenderFragmentReference input,
+        RenderScaleContract scale)
+    {
+        RawTargetScopeDescription description = RawTargetScopeDescription.CreateRequestLocal(
+            static session => session.ReplayInput(),
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.AnyInput,
+            scale);
+        return new RenderFragmentReference(
+            RenderFragmentKind.RawTargetScope,
+            input.Bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: false,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: true,
+            [input],
+            new RawTargetScopeRenderFragmentPayload(description),
+            static _ => true);
+    }
+
+    private static EffectiveScale ReduceSupplyByFour(EffectiveScale inputSupply)
+        => inputSupply.IsUnbounded ? EffectiveScale.Unbounded : EffectiveScale.At(inputSupply.Value / 4);
+
+    private static EffectiveScale QuadrupleDemand(EffectiveScale outputDemand)
+        => EffectiveScale.At(outputDemand.Value * 4);
 
     private static EffectiveScale ScaleDemandByOneMillion(EffectiveScale outputDemand)
         => EffectiveScale.At(outputDemand.Value * 1_000_000);

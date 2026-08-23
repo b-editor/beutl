@@ -517,8 +517,22 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.Opacity:
             case RenderFragmentKind.Blend:
             case RenderFragmentKind.TargetLayerScope:
-            case RenderFragmentKind.RawTargetScope:
                 EnqueueInputs(fragment, targetDemand, DemandUse.ReplayTarget, pending);
+                return;
+            case RenderFragmentKind.RawTargetScope:
+                // A raw scope hands an unguarded canvas to an opaque callback, so its declared scale
+                // contract is the only thing that says how the replayed input is consumed. The backward
+                // half is identity unless the author asked for MapInputSupply, so a scope that carries its
+                // enlargement in the destination matrix stays unchanged, and one that resamples its input
+                // gets the density it declared instead of rasterizing at the target's and stretching.
+                float rawScopeInputDemand =
+                    fragment.Payload is RawTargetScopeRenderFragmentPayload rawScopePayload
+                        ? ResolveMappedInputDemand(
+                            rawScopePayload.Description.Scale,
+                            targetDemand,
+                            maxWorkingScale)
+                        : targetDemand;
+                EnqueueInputs(fragment, rawScopeInputDemand, DemandUse.ReplayTarget, pending);
                 return;
             case RenderFragmentKind.TargetScope:
                 TargetScopeDescription targetScope =
