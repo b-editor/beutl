@@ -877,6 +877,50 @@ public sealed class RenderCacheResolutionTests
     }
 
     /// <remarks>
+    /// An authored scope that transforms its input in the input's own coordinates says so, and only then does
+    /// its scale contract describe the step between them completely enough to carry demand back.
+    /// </remarks>
+    [Test]
+    public void MaterializationDemands_AnInputLogicalScopeCarriesItsDeclaredDemandBackwards()
+    {
+        RenderFragmentReference leaf = Pure();
+        RenderFragmentReference scope = AuthoredTargetScope(
+            leaf,
+            RenderScaleContract.MapInputSupply(ReduceSupplyByFour, QuadrupleDemand),
+            RenderScopeTransformSpace.InputLogical);
+
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+            RenderMaterializationDemandResolver.Resolve(
+                [scope],
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity).Demands;
+
+        Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(4)));
+    }
+
+    /// <remarks>
+    /// The default, and what an appended transform is: the destination matrix already carries the scope's
+    /// scale, so raising the input's demand would rasterize it enlarged and then draw it enlarged again.
+    /// </remarks>
+    [Test]
+    public void MaterializationDemands_AnAmbientTargetScopeLeavesTheDemandAlone()
+    {
+        RenderFragmentReference leaf = Pure();
+        RenderFragmentReference scope = AuthoredTargetScope(
+            leaf,
+            RenderScaleContract.MapInputSupply(ReduceSupplyByFour, QuadrupleDemand),
+            RenderScopeTransformSpace.AmbientTarget);
+
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+            RenderMaterializationDemandResolver.Resolve(
+                [scope],
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity).Demands;
+
+        Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(1)));
+    }
+
+    /// <remarks>
     /// A raw scope's callback is opaque, so the declared scale contract is the only statement of how the
     /// replayed input is consumed. Forwarding the target demand past a scope that resamples rasterizes an
     /// unbounded child at the target density and then enlarges it.
@@ -1375,6 +1419,34 @@ public sealed class RenderCacheResolutionTests
             RenderValueCardinality.Single,
             contributesValuesToTarget: true,
             canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            [input],
+            new TargetScopeRenderFragmentPayload(description),
+            static _ => true);
+    }
+
+    private static RenderFragmentReference AuthoredTargetScope(
+        RenderFragmentReference input,
+        RenderScaleContract scale,
+        RenderScopeTransformSpace transformSpace)
+    {
+        TargetScopeDescription description = TargetScopeDescription.Create(
+            (byte)0,
+            static (session, _) => session.ReplayInput(),
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.AnyInput,
+            scale,
+            RenderDeviceGridSensitivity.Insensitive,
+            RenderDeviceGridMapping.Remapped,
+            transformSpace);
+        return new RenderFragmentReference(
+            RenderFragmentKind.TargetScope,
+            input.Bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: false,
             hasTargetEffects: true,
             hasOpaqueExternalWork: false,
             [input],

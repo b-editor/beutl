@@ -469,6 +469,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
         components.Add(description.HitTest.StructuralIdentity);
         components.Add(description.Scale.StructuralIdentity);
         components.Add(description.IsValueReplayMap);
+        components.Add(description.TransformSpace);
         components.Add(description.BuiltInBackdropCapturesBackingTarget);
         AddResourceTypes(description.Resources, components);
     }

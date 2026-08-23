@@ -537,11 +537,11 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.TargetScope:
                 TargetScopeDescription targetScope =
                     ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
-                // Only the value-replay map. An ordinary scope replays its input onto the target, and one
-                // whose transform is appended to the destination matrix - TransformOperator.Append - has
-                // that scale carried by the destination already, so pre-scaling the input would rasterize
-                // it twice as large and then draw it scaled again.
-                float inputDemand = targetScope.IsValueReplayMap
+                // Only a scope that says its transform is in the input's own coordinates. One defined
+                // against the ambient target transform - TransformOperator.Append - has that scale carried
+                // by the destination already, so pre-scaling the input would rasterize it twice as large
+                // and then draw it scaled again.
+                float inputDemand = targetScope.TransformSpace == RenderScopeTransformSpace.InputLogical
                     ? ResolveMappedInputDemand(
                         targetScope.Scale,
                         targetDemand,
@@ -624,12 +624,13 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.TargetScope:
                 TargetScopeDescription targetScope =
                     ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
-                float targetScopeInputDemand = targetScope.IsValueReplayMap
-                    ? ResolveMappedInputDemand(
-                        targetScope.Scale,
-                        valueDemand,
-                        maxWorkingScale)
-                    : valueDemand;
+                float targetScopeInputDemand =
+                    targetScope.TransformSpace == RenderScopeTransformSpace.InputLogical
+                        ? ResolveMappedInputDemand(
+                            targetScope.Scale,
+                            valueDemand,
+                            maxWorkingScale)
+                        : valueDemand;
                 EnqueueInputs(
                     fragment,
                     targetScopeInputDemand,

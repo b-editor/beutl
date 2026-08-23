@@ -299,7 +299,9 @@ public override void Process(RenderNodeContext context)
 }
 ```
 
-For a raw scope, use `RawTargetScopeDefinition<TState>` and call `ReplayInput` exactly once. The raw session uses the token held in call state; guarded sessions use the declared slot. In both cases, the typed slot in the definition and `slot.Bind(token)` at the call site are mandatory.
+For a raw scope, use `RawTargetScopeDefinition<TState>` and call `ReplayInput` exactly once. Both raw and guarded sessions address a resource by the slot the definition declared; the token overload remains for a request-local callback that captures what it needs. In both cases, the typed slot in the definition and `slot.Bind(token)` at the call site are mandatory.
+
+`TargetScopeDefinition<TState>.Create` takes a `RenderScopeTransformSpace` before its `resources` argument, so a call that passed `resources` positionally after `deviceGridMapping` must name it. The default, `AmbientTarget`, keeps the previous planning behaviour. Declare `InputLogical` when the callback transforms its input in the input's own coordinates: only then does the declared `RenderScaleContract`'s backward map carry an output demand back to the input, which is what keeps an unbounded child from rasterizing at the target's density and being enlarged afterwards.
 
 #### Resources
 

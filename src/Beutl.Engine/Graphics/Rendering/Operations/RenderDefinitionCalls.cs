@@ -147,6 +147,7 @@ public sealed class TargetScopeDefinition<TState>
     private readonly RenderScaleContract _scale;
     private readonly RenderDeviceGridSensitivity _deviceGridSensitivity;
     private readonly RenderDeviceGridMapping _deviceGridMapping;
+    private readonly RenderScopeTransformSpace _transformSpace;
     private readonly IReadOnlyList<RenderResourceSlot> _resourceSlots;
 
     private TargetScopeDefinition(
@@ -156,6 +157,7 @@ public sealed class TargetScopeDefinition<TState>
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
         RenderDeviceGridMapping deviceGridMapping,
+        RenderScopeTransformSpace transformSpace,
         IReadOnlyList<RenderResourceSlot> resourceSlots)
     {
         _execute = execute;
@@ -164,10 +166,17 @@ public sealed class TargetScopeDefinition<TState>
         _scale = scale;
         _deviceGridSensitivity = deviceGridSensitivity;
         _deviceGridMapping = deviceGridMapping;
+        _transformSpace = transformSpace;
         _resourceSlots = resourceSlots;
     }
 
     /// <summary>Creates an immutable guarded target-scope definition.</summary>
+    /// <param name="transformSpace">
+    /// The space the callback's replay transform is defined in. The default assumes the ambient target
+    /// transform, which carries the scope's own scale; declare
+    /// <see cref="RenderScopeTransformSpace.InputLogical"/> when the callback transforms its input in the
+    /// input's own coordinates, so <paramref name="scale"/>'s backward map reaches it.
+    /// </param>
     public static TargetScopeDefinition<TState> Create(
         Action<TargetScopeSession, TState> execute,
         RenderBoundsContract bounds,
@@ -175,6 +184,7 @@ public sealed class TargetScopeDefinition<TState>
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
+        RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
         IEnumerable<RenderResourceSlot>? resources = null)
     {
         ArgumentNullException.ThrowIfNull(execute);
@@ -185,6 +195,8 @@ public sealed class TargetScopeDefinition<TState>
             throw new ArgumentOutOfRangeException(nameof(deviceGridSensitivity));
         if (!Enum.IsDefined(deviceGridMapping))
             throw new ArgumentOutOfRangeException(nameof(deviceGridMapping));
+        if (!Enum.IsDefined(transformSpace))
+            throw new ArgumentOutOfRangeException(nameof(transformSpace));
 
         return new TargetScopeDefinition<TState>(
             execute,
@@ -193,6 +205,7 @@ public sealed class TargetScopeDefinition<TState>
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
+            transformSpace,
             RenderDescriptionValidation.CopyResourceSlots(resources, nameof(resources)));
     }
 
@@ -221,7 +234,8 @@ public sealed class TargetScopeDefinition<TState>
                 _resourceSlots,
                 bindings,
                 nameof(bindings)),
-            isValueReplayMap: false);
+            isValueReplayMap: false,
+            _transformSpace);
 }
 
 /// <summary>Binds one guarded target-scope definition to one recording's state and resource tokens.</summary>

@@ -26,6 +26,31 @@ public enum RenderDeviceGridMapping : byte
     Preserved,
 }
 
+/// <summary>
+/// Declares the space a guarded target scope's replay transform is defined in.
+/// </summary>
+/// <remarks>
+/// A scope's declared <see cref="RenderScaleContract"/> can carry an output demand back to its input only when
+/// the transform between them is expressed in the input's own coordinates. A scope defined against the ambient
+/// target transform - what <c>TransformOperator.Append</c> and <c>TransformOperator.Set</c> do - has that scale
+/// carried by the destination matrix instead, which the value graph has no representation of, so raising the
+/// input's demand there would rasterize it enlarged and then draw it enlarged again.
+/// </remarks>
+public enum RenderScopeTransformSpace : byte
+{
+    /// <summary>
+    /// The replay transform is defined against the ambient target transform. The scale contract's backward
+    /// map is not applied, because the destination already carries whatever the scope contributes.
+    /// </summary>
+    AmbientTarget,
+
+    /// <summary>
+    /// The replay transform is defined in the input's own logical space, so the scale contract describes the
+    /// step between them completely and its backward map reaches the input.
+    /// </summary>
+    InputLogical,
+}
+
 internal sealed class TargetScopeDescription
 {
     private readonly RenderExecutionChannel<TargetScopeSession> _execution;
@@ -40,6 +65,7 @@ internal sealed class TargetScopeDescription
         object definitionFingerprint,
         IReadOnlyList<RenderResourceBinding> resources,
         bool isValueReplayMap,
+        RenderScopeTransformSpace transformSpace,
         bool builtInBackdropCapturesBackingTarget)
     {
         _execution = execution;
@@ -51,6 +77,7 @@ internal sealed class TargetScopeDescription
         DefinitionFingerprint = definitionFingerprint;
         Resources = resources;
         IsValueReplayMap = isValueReplayMap;
+        TransformSpace = transformSpace;
         BuiltInBackdropCapturesBackingTarget = builtInBackdropCapturesBackingTarget;
     }
 
@@ -72,7 +99,16 @@ internal sealed class TargetScopeDescription
 
     internal void Execute(TargetScopeSession session) => _execution.Invoke(session);
 
+    /// <summary>Gets whether the renderer lowers this scope into the value graph.</summary>
+    /// <remarks>
+    /// Engine-owned and not declarable: it requires the callback to be mechanically restricted to
+    /// allocation-free target state plus exactly one replay. <see cref="TransformSpace"/> is the separate,
+    /// author-declarable question of where the replay transform lives.
+    /// </remarks>
     internal bool IsValueReplayMap { get; }
+
+    /// <summary>Gets the space this scope's replay transform is defined in.</summary>
+    public RenderScopeTransformSpace TransformSpace { get; }
 
     internal bool BuiltInBackdropCapturesBackingTarget { get; }
 
@@ -101,6 +137,7 @@ internal sealed class TargetScopeDescription
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
+        RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
         IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull
         => CreateCore(
@@ -117,6 +154,7 @@ internal sealed class TargetScopeDescription
             execute.Method,
             resources,
             isValueReplayMap: false,
+            transformSpace,
             builtInBackdropCapturesBackingTarget: false);
 
     /// <summary>
@@ -134,6 +172,7 @@ internal sealed class TargetScopeDescription
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
+        RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
         IEnumerable<RenderResourceBinding>? resources = null)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
@@ -145,6 +184,7 @@ internal sealed class TargetScopeDescription
             execute.Method,
             resources,
             isValueReplayMap: false,
+            transformSpace,
             builtInBackdropCapturesBackingTarget: false);
 
     /// <summary>
@@ -174,6 +214,9 @@ internal sealed class TargetScopeDescription
             new EngineValueReplayMapDefinition(execute.Method),
             resources,
             isValueReplayMap: true,
+            // A value replay map is lowered into the value graph, which only holds together when the
+            // transform between the scope and its input is expressed in the input's own coordinates.
+            RenderScopeTransformSpace.InputLogical,
             builtInBackdropCapturesBackingTarget);
 
     internal static TargetScopeDescription CreateCore(
@@ -186,6 +229,7 @@ internal sealed class TargetScopeDescription
         object definitionFingerprint,
         IEnumerable<RenderResourceBinding>? resources,
         bool isValueReplayMap,
+        RenderScopeTransformSpace transformSpace,
         bool builtInBackdropCapturesBackingTarget = false)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
@@ -195,6 +239,8 @@ internal sealed class TargetScopeDescription
             throw new ArgumentOutOfRangeException(nameof(deviceGridSensitivity));
         if (!Enum.IsDefined(deviceGridMapping))
             throw new ArgumentOutOfRangeException(nameof(deviceGridMapping));
+        if (!Enum.IsDefined(transformSpace))
+            throw new ArgumentOutOfRangeException(nameof(transformSpace));
         ArgumentNullException.ThrowIfNull(definitionFingerprint);
 
         return new TargetScopeDescription(
@@ -207,6 +253,7 @@ internal sealed class TargetScopeDescription
             definitionFingerprint,
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
             isValueReplayMap,
+            transformSpace,
             builtInBackdropCapturesBackingTarget);
     }
 }

@@ -104,6 +104,7 @@ internal static class RenderDefinitionCallFactory
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
+        RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
         IEnumerable<RenderResourceSlot>? resources = null,
         IEnumerable<RenderResourceBinding>? bindings = null)
         where TState : notnull
@@ -115,6 +116,7 @@ internal static class RenderDefinitionCallFactory
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
+            transformSpace,
             resources)
             .Call(state, bindings);
     }
@@ -126,6 +128,7 @@ internal static class RenderDefinitionCallFactory
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
+        RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
         IEnumerable<RenderResourceSlot>? resources = null,
         IEnumerable<RenderResourceBinding>? bindings = null)
     {
@@ -137,6 +140,7 @@ internal static class RenderDefinitionCallFactory
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
+            transformSpace,
             resources,
             bindings);
     }
