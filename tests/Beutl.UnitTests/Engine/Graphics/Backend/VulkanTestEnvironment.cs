@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -92,12 +93,18 @@ internal static class VulkanTestEnvironment
     }
 
     public static T InvokeOnRenderThread<T>(Func<T> func)
-        => RenderThread.Dispatcher.CheckAccess()
+    {
+        int before = VulkanValidationErrorLog.Shared.Count;
+        T result = RenderThread.Dispatcher.CheckAccess()
             ? func()
             : RenderThread.Dispatcher.InvokeAsync(func).GetAwaiter().GetResult();
+        FailOnValidationErrorsSince(before);
+        return result;
+    }
 
     public static void InvokeOnRenderThread(Action action)
     {
+        int before = VulkanValidationErrorLog.Shared.Count;
         if (RenderThread.Dispatcher.CheckAccess())
         {
             action();
@@ -106,5 +113,23 @@ internal static class VulkanTestEnvironment
         {
             RenderThread.Dispatcher.InvokeAsync(action).GetAwaiter().GetResult();
         }
+
+        FailOnValidationErrorsSince(before);
+    }
+
+    /// <summary>
+    /// Fails the current test when the work just run reported a Vulkan validation error.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is recorded unless the job enabled validation, so this is inert on an ordinary run. The
+    /// layer reports some errors at queue submission rather than at the offending call, so an error can
+    /// land on a later invocation than the one that caused it; it still fails the run, which is what the
+    /// gate is for.
+    /// </remarks>
+    private static void FailOnValidationErrorsSince(int previousCount)
+    {
+        string report = VulkanValidationErrorLog.Shared.DescribeSince(previousCount);
+        if (report.Length != 0)
+            Assert.Fail(report);
     }
 }

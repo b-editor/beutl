@@ -25,6 +25,26 @@ Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are 
 
 The interactive Avalonia previewers / sample apps no longer live here. The sample extension package `PackageSample` was moved out of `tests/` (and out of `Beutl.slnx`, so CI does not build it) and now lives under `samples/`. Running it launches a window; it is not a test harness.
 
+## Vulkan validation gate
+
+Vulkan validation is off by default and enabled with `BEUTL_VULKAN_VALIDATION=1`, which requires
+`VK_LAYER_KHRONOS_validation` to be installed. When it is on, `VulkanTestEnvironment.InvokeOnRenderThread`
+and its `GpuTestEnvironment` twin read `VulkanValidationErrorLog.Shared` before and after every
+render-thread invocation and fail the test that reported an error, so API misuse the driver is not required
+to diagnose — a nested render pass instance, a handle from another device — cannot pass as green.
+
+CI runs the GPU-backed tests a second time with the layer installed (`GPU tests under Vulkan validation` in
+`.github/workflows/dotnet.yml`). Locally:
+
+```bash
+BEUTL_REQUIRE_GPU=1 BEUTL_VULKAN_VALIDATION=1 \
+  dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj -f net10.0
+```
+
+`VulkanValidationGateTests.WhenTheJobAsksForValidation_TheInstanceEnabledIt` fails when the variable is set
+but the layer did not load, because a gate that observes nothing must not report success. Without the
+Vulkan SDK it will fail for that reason — install the layer before enabling the variable.
+
 ## Headless E2E tests
 
 The end-to-end suites are built on `Avalonia.Headless.NUnit` (they run on headless CI without xvfb or a GPU). Shared helpers live in the non-test library `tests/Beutl.Testing.Headless/` (`BeutlHomeIsolation`, `HeadlessTestHelpers`).

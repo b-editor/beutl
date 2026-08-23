@@ -411,6 +411,20 @@ internal sealed unsafe class VulkanInstance : IDisposable
         void* userData)
     {
         var message = Marshal.PtrToStringAnsi((IntPtr)callbackData->PMessage);
+        if ((severity & DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt) != 0
+            && (type & DebugUtilsMessageTypeFlagsEXT.ValidationBitExt) != 0)
+        {
+            try
+            {
+                VulkanValidationErrorLog.Shared.Record(message);
+            }
+            catch
+            {
+                // Never let a managed exception cross the unmanaged Vulkan callback boundary. Losing the
+                // record is better than tearing down the driver's reporting thread.
+            }
+        }
+
         switch (severity)
         {
 #pragma warning disable CA2254, CA1873

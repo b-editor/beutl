@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics3DTests;
@@ -113,8 +114,33 @@ internal static class GpuTestEnvironment
     }
 
     public static T InvokeOnRenderThread<T>(Func<T> func)
-        => RenderThread.Dispatcher.Invoke(func);
+    {
+        int before = VulkanValidationErrorLog.Shared.Count;
+        T result = RenderThread.Dispatcher.Invoke(func);
+        FailOnValidationErrorsSince(before);
+        return result;
+    }
 
     public static void InvokeOnRenderThread(Action action)
-        => RenderThread.Dispatcher.Invoke(action);
+    {
+        int before = VulkanValidationErrorLog.Shared.Count;
+        RenderThread.Dispatcher.Invoke(action);
+        FailOnValidationErrorsSince(before);
+    }
+
+    /// <summary>
+    /// Fails the current test when the work just run reported a Vulkan validation error.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is recorded unless the job enabled validation, so this is inert on an ordinary run. The
+    /// layer reports some errors at queue submission rather than at the offending call, so an error can
+    /// land on a later invocation than the one that caused it; it still fails the run, which is what the
+    /// gate is for.
+    /// </remarks>
+    private static void FailOnValidationErrorsSince(int previousCount)
+    {
+        string report = VulkanValidationErrorLog.Shared.DescribeSince(previousCount);
+        if (report.Length != 0)
+            Assert.Fail(report);
+    }
 }

@@ -52,6 +52,28 @@ jobs:
           # SwiftShader Vulkan ICD fails to load; see GpuGoldenSuiteCanaryTests.
           BEUTL_REQUIRE_GPU: "1"
 
+      # A validation error names API misuse the driver is not required to diagnose - a render pass instance
+      # begun inside another, a handle submitted to a device that never created it - so a suite that runs
+      # green while reporting one has already entered undefined behaviour. The layer stays off for the run
+      # above because it costs time on all 7,000 tests and is only meaningful for the GPU-backed ones; this
+      # step turns it on for exactly those. VulkanTestEnvironment/GpuTestEnvironment compare the validation
+      # log around every render-thread invocation, so an error fails the test that reported it, and
+      # VulkanValidationGateTests fails if the layer was requested but did not load - a gate that cannot
+      # observe anything must not pass quietly.
+      - name: Install Vulkan validation layers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends vulkan-validationlayers
+
+      - name: GPU tests under Vulkan validation
+        run: |
+          dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --no-build -f net10.0 \
+            --filter "TestCategory=GpuPassFusionGpu|FullyQualifiedName~VulkanValidationGateTests|FullyQualifiedName~GpuGoldenSuiteCanaryTests"
+          dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj --no-build -f net10.0
+        env:
+          BEUTL_REQUIRE_GPU: "1"
+          BEUTL_VULKAN_VALIDATION: "1"
+
       - name: Merge coverage reports
         # Every test project now collects coverage (coverlet.collector is shared via
         # tests/Directory.Build.props), so dotnet test emits one cobertura file per test
