@@ -523,14 +523,16 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.TargetScope:
                 TargetScopeDescription targetScope =
                     ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
-                // Every target scope, not only the internal value-replay map: a scope that enlarges its
-                // input while replaying it onto the target needs that input denser, and the contract is
-                // where it says so. A contract that declares no backward map maps demand to itself, so
-                // asking unconditionally costs the others nothing.
-                float inputDemand = ResolveMappedInputDemand(
-                    targetScope.Scale,
-                    targetDemand,
-                    maxWorkingScale);
+                // Only the value-replay map. An ordinary scope replays its input onto the target, and one
+                // whose transform is appended to the destination matrix - TransformOperator.Append - has
+                // that scale carried by the destination already, so pre-scaling the input would rasterize
+                // it twice as large and then draw it scaled again.
+                float inputDemand = targetScope.IsValueReplayMap
+                    ? ResolveMappedInputDemand(
+                        targetScope.Scale,
+                        targetDemand,
+                        maxWorkingScale)
+                    : targetDemand;
                 EnqueueInputs(fragment, inputDemand, DemandUse.ReplayTarget, pending);
                 return;
             case RenderFragmentKind.OpacityMask:
@@ -555,14 +557,16 @@ internal static class RenderMaterializationDemandResolver
                 }
                 return;
             case RenderFragmentKind.TargetCommand:
-                TargetCommandDescription command =
-                    ((TargetCommandRenderFragmentPayload)fragment.Payload!).Description;
+                RenderInputDemandContract commandDemand =
+                    fragment.Payload is TargetCommandRenderFragmentPayload commandPayload
+                        ? commandPayload.Description.InputDemand
+                        : default;
                 for (int index = fragment.Inputs.Length - 1; index >= 0; index--)
                 {
                     pending.Push(new PendingDemand(
                         fragment.Inputs[index],
                         ResolveMappedInputDemand(
-                            command.InputDemand,
+                            commandDemand,
                             index,
                             targetDemand,
                             maxWorkingScale),
@@ -606,12 +610,12 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.TargetScope:
                 TargetScopeDescription targetScope =
                     ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
-                // See EnqueueReplayInputs: the mapping belongs to every target scope, and is the identity
-                // for a contract that declares no backward map.
-                float targetScopeInputDemand = ResolveMappedInputDemand(
-                    targetScope.Scale,
-                    valueDemand,
-                    maxWorkingScale);
+                float targetScopeInputDemand = targetScope.IsValueReplayMap
+                    ? ResolveMappedInputDemand(
+                        targetScope.Scale,
+                        valueDemand,
+                        maxWorkingScale)
+                    : valueDemand;
                 EnqueueInputs(
                     fragment,
                     targetScopeInputDemand,
