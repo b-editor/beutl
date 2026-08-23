@@ -181,6 +181,20 @@ public sealed class RenderContractPrimitiveTests
     }
 
     /// <remarks>
+    /// What an immutable collection fixes is the collection, not what it holds. An element the author can
+    /// still assign reads through the array exactly as it reads through a field.
+    /// </remarks>
+    [Test]
+    public void RenderBoundsContract_RejectsACaptureHoldingAnImmutableCollectionOfMutableElements()
+    {
+        var boxes = ImmutableArray.Create(new MutableBox { Value = new Rect(0, 0, 4, 4) });
+
+        Assert.That(
+            () => RenderBoundsContract.Create(_ => boxes[0].Value, static value => value),
+            Throws.TypeOf<ArgumentException>());
+    }
+
+    /// <remarks>
     /// A ReadOnlyMemory is a read-only view, not an immutable value: the array it ordinarily wraps stays in
     /// the author's hands and can be written after the callback is recorded.
     /// </remarks>

@@ -186,7 +186,10 @@ internal static class RenderIdentityKeyValidator
                 || definition == typeof(System.Collections.Immutable.ImmutableQueue<>)
                 || definition == typeof(System.Collections.Immutable.ImmutableStack<>))
             {
-                return true;
+                // What cannot change is the collection, not what it holds. A boxes[0].Value the author can
+                // still assign reads through an immutable array exactly as it reads through a field, so the
+                // exemption only stands when the elements are settled by their own declaration too.
+                return type.GetGenericArguments().All(IsSettledCaptureType);
             }
         }
 

@@ -62,6 +62,58 @@ public sealed class ReadDocumentTests
         });
     }
 
+    /// <remarks>
+    /// A request's target domain is a hard clip on OutputBounds, and only on OutputBounds. This measurement
+    /// reads QueryBounds, which the domain never touches, so an off-frame drawable reports where it actually
+    /// is - the case an agent most needs, since it is how it works out how far to move the object back.
+    /// </remarks>
+    [Test]
+    public void Measure_object_bounds_reports_an_off_frame_drawable_where_it_actually_is()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(320, 180, "off-frame-measure")
+        {
+            Duration = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
+        var plate = new RectShape
+        {
+            Name = "OffFrame",
+            Width = { CurrentValue = 40 },
+            Height = { CurrentValue = 20 },
+            Fill = { CurrentValue = Brushes.White },
+            AlignmentX = { CurrentValue = AlignmentX.Left },
+            AlignmentY = { CurrentValue = AlignmentY.Top },
+            Transform = { CurrentValue = new TranslateTransform(600, 400) },
+        };
+        var element = new Element
+        {
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(dir, "element.belm"))
+        };
+        element.AddObject(plate);
+        scene.Children.Add(element);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new QueryTools(manager);
+
+        ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
+            objectId: plate.Id.ToString(),
+            timeSeconds: 0.0);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        ObjectBoundsMeasurement measured = result.Value!.Objects.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(measured.TransformedBounds.Width, Is.EqualTo(40).Within(0.5));
+            Assert.That(measured.TransformedBounds.Height, Is.EqualTo(20).Within(0.5));
+            Assert.That(measured.TransformedBounds.Left, Is.EqualTo(600).Within(0.5));
+            Assert.That(measured.TransformedBounds.Top, Is.EqualTo(400).Within(0.5));
+        });
+    }
+
     [Test]
     public void Measure_object_bounds_reports_a_nested_drawable_as_unsupported_even_with_a_time_filter()
     {
