@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Beutl.Graphics.Effects;
@@ -72,12 +73,21 @@ internal static class RenderIdentityKeyValidator
     public static void ThrowIfMutableCapture(object captured, string parameterName)
     {
         ArgumentNullException.ThrowIfNull(captured, parameterName);
-        Validate(captured, parameterName, new HashSet<object>(ReferenceEqualityComparer.Instance), depth: 0);
+        CapturePath path = default;
+        Validate(captured, parameterName, path, depth: 0);
     }
 
     private const int MaxCaptureDepth = 8;
 
-    private static void Validate(object value, string parameterName, HashSet<object> visited, int depth)
+    // The references on the way down to the value being read. This runs once per recorded callback per
+    // frame, so the walk carries its own cycle guard on the stack rather than allocating a set per call.
+    [InlineArray(MaxCaptureDepth)]
+    private struct CapturePath
+    {
+        private object? _element;
+    }
+
+    private static void Validate(object value, string parameterName, Span<object?> path, int depth)
     {
         ThrowIfInvalid(value, parameterName);
 
@@ -92,11 +102,20 @@ internal static class RenderIdentityKeyValidator
             throw new ArgumentException(IdentityRejection, parameterName);
         }
 
-        if (!type.IsValueType && !visited.Add(value))
-            return;
+        if (!type.IsValueType)
+        {
+            // A reference already on this path is a cycle, and one left over from a sibling branch was
+            // accepted there, so either way it has nothing left to say.
+            for (int index = 0; index < depth; index++)
+            {
+                if (ReferenceEquals(path[index], value))
+                    return;
+            }
 
-        foreach (FieldInfo field in type.GetFields(
-                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            path[depth] = value;
+        }
+
+        foreach (FieldInfo field in GetInstanceFields(type))
         {
             if (!type.IsValueType && !field.IsInitOnly)
             {
@@ -107,14 +126,41 @@ internal static class RenderIdentityKeyValidator
                     parameterName);
             }
 
+            // A field whose declared type is fixed and has no subtype cannot hold anything that is not, so
+            // reading it would only box a number this walk has already accepted by its type.
+            if (IsSettledCaptureType(field.FieldType))
+                continue;
+
             if (field.GetValue(value) is { } nested)
-                Validate(nested, parameterName, visited, depth + 1);
+                Validate(nested, parameterName, path, depth + 1);
         }
     }
 
+    /// <summary>
+    /// Gets whether a field declared as <paramref name="type"/> is accepted by its declaration alone, so a
+    /// capture walk need not read its value.
+    /// </summary>
+    /// <remarks>
+    /// A value type is its own runtime type and a sealed one has no subtype, so when either is fixed nothing
+    /// can be stored there that this walk would reject.
+    /// </remarks>
+    internal static bool IsSettledCaptureType(Type type)
+        => (type.IsValueType || type.IsSealed) && IsFixedLeaf(type);
+
+    private static readonly ConcurrentDictionary<Type, FieldInfo[]> s_instanceFields = new();
+
+    internal static FieldInfo[] GetInstanceFields(Type type)
+        => s_instanceFields.GetOrAdd(
+            type,
+            static key => key.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+
+    private static readonly ConcurrentDictionary<Type, bool> s_fixedLeaf = new();
+
     // Types whose contents cannot change, so following their fields would only reach private
     // implementation detail - an ImmutableArray's backing array reads as a mutable array from the outside.
-    private static bool IsFixedLeaf(Type type)
+    private static bool IsFixedLeaf(Type type) => s_fixedLeaf.GetOrAdd(type, static key => ComputeIsFixedLeaf(key));
+
+    private static bool ComputeIsFixedLeaf(Type type)
     {
         if (type.IsPrimitive || type.IsEnum || type.IsPointer)
             return true;
@@ -143,7 +189,25 @@ internal static class RenderIdentityKeyValidator
             }
         }
 
-        return typeof(Type).IsAssignableFrom(type) || typeof(MemberInfo).IsAssignableFrom(type);
+        if (typeof(Type).IsAssignableFrom(type) || typeof(MemberInfo).IsAssignableFrom(type))
+            return true;
+
+        // A struct reachable only by copy is fixed when every field it carries is fixed in turn: nothing the
+        // callback's author still holds can reach into it. C# forbids a struct that contains itself, so this
+        // descent terminates, and it stops at the first reference type, which is never fixed by its
+        // declaration alone.
+        if (type.IsValueType && !typeof(IDisposable).IsAssignableFrom(type))
+        {
+            foreach (FieldInfo field in GetInstanceFields(type))
+            {
+                if (!IsFixedLeaf(field.FieldType))
+                    return false;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     public static bool CapturesState(Delegate callback)

@@ -17,17 +17,16 @@ public sealed class RenderDescriptionAllocationTests
     private const int SceneFrames = 40;
     private const int SceneWarmupFrames = 8;
 
-    // Measured steady state is ~255,300 bytes/frame; observed runs span 254,968-255,336, a 0.14% spread. The
-    // headroom is for the platform-dependent part of the scene - font fallback for its TextBlock - rather than
-    // for measurement noise, so a whole-frame regression above roughly a fifth fails here while per-call
-    // regressions are caught by the comparative tests in this fixture.
+    // Measured steady state is ~267,700 bytes/frame, leaving about 12% headroom. That headroom is for the
+    // platform-dependent part of the scene - font fallback for its TextBlock - rather than for measurement
+    // noise, so a whole-frame regression fails here while per-call regressions are caught by the comparative
+    // tests in this fixture.
     private const long SceneBytesPerFrameCeiling = 300_000;
 
-    // The same scene with the render cache warm allocates about 289,400-289,500 bytes/frame. Each machine
-    // reports one deterministic value, but not the same one: two machines measured 105 bytes apart, so the
-    // figure is platform-specific rather than a property of the scene. The ceiling keeps the same
-    // proportional headroom as the cache-disabled budget above, for the same platform-dependent font
-    // fallback.
+    // The same scene with the render cache warm allocates about 321,500 bytes/frame, leaving about 7%
+    // headroom. Each machine reports one deterministic value, but not the same one: a Linux runner and a
+    // macOS machine measured 261 bytes apart on the same commit, so the figure is platform-specific rather
+    // than a property of the scene, and the spread is far below the headroom either budget keeps.
     private const long WarmCacheSceneBytesPerFrameCeiling = 345_000;
 
     private static readonly object s_explicitKey = new();
@@ -91,6 +90,32 @@ public sealed class RenderDescriptionAllocationTests
             nested,
             Is.LessThanOrEqualTo(flat),
             "descending through tuple element types happens once per closed state type, not per call");
+    }
+
+    /// <remarks>
+    /// A pure metadata callback is validated once per node per frame, and every transform in a scene hands
+    /// the walk a matrix. Reading a fixed struct to accept it boxes each of its numbers, which is a per-frame
+    /// cost for a verdict its declared type already settles.
+    /// </remarks>
+    [Test]
+    public void ValidatingACallbackOverFixedStructCaptures_DoesNotAllocate()
+    {
+        var metadata = new MatrixMetadata(Matrix.CreateScale(2, 2));
+        Func<Rect, Rect> callback = metadata.TransformBounds;
+        for (int index = 0; index < 200; index++)
+            RenderDescriptionValidation.ValidatePureMetadataCallback(callback, nameof(callback));
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int index = 0; index < Iterations; index++)
+            RenderDescriptionValidation.ValidatePureMetadataCallback(callback, nameof(callback));
+        long after = GC.GetAllocatedBytesForCurrentThread();
+
+        long bytesPerCall = (after - before) / Iterations;
+        TestContext.Out.WriteLine($"validating a fixed-struct capture: {bytesPerCall} bytes/call");
+        Assert.That(
+            bytesPerCall,
+            Is.Zero,
+            "a capture whose declared type already settles the verdict must not be read to reach it");
     }
 
     [Test]
@@ -300,6 +325,14 @@ public sealed class RenderDescriptionAllocationTests
 
     private static void Execute(TargetCommandSession session)
     {
+    }
+
+    private sealed class MatrixMetadata(Matrix transform)
+    {
+        private readonly Matrix _transform = transform;
+        private readonly bool _hasInverse = transform.HasInverse;
+
+        public Rect TransformBounds(Rect bounds) => bounds.TransformToAABB(_transform);
     }
 
     private sealed class CpuTargetFactory : IRenderTargetFactory

@@ -1662,9 +1662,13 @@ internal static class RenderDescriptionValidation
         ThrowIfExecutionFacadeIdentity(target, parameterName);
         RenderIdentityKeyValidator.ThrowIfInvalid(target, parameterName);
 
-        foreach (FieldInfo field in target.GetType().GetFields(
-                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+        foreach (FieldInfo field in RenderIdentityKeyValidator.GetInstanceFields(target.GetType()))
         {
+            // This runs once per recorded callback per frame, and reading a field whose declared type is
+            // already fixed and has no subtype would only box a number to accept it again.
+            if (RenderIdentityKeyValidator.IsSettledCaptureType(field.FieldType))
+                continue;
+
             object? captured = field.GetValue(target);
             if (captured is null)
                 continue;
