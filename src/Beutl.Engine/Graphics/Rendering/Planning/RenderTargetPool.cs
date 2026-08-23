@@ -198,10 +198,18 @@ internal sealed class RenderTargetPool : IDisposable
 
     /// <summary>Leases an exact-size target, reporting <see langword="false"/> only when the allocator declines.</summary>
     /// <remarks>Every other failure — a stale slot, a contract-violating factory return — still throws.</remarks>
+    /// <param name="clearContents">
+    /// Whether the lease must arrive transparent. A caller that defines every pixel of the target before
+    /// reading any of it - a full-frame pass whose load op clears, or a shader that provably writes
+    /// everywhere - passes <see langword="false"/> and saves the clear and the two layout transitions
+    /// around it. The slot's recorded contents stay unknown either way, so the next caller that does want a
+    /// blank target still gets one.
+    /// </param>
     internal bool TryAcquire(
         RenderTargetPoolRequest request,
         PixelSize deviceSize,
-        [NotNullWhen(true)] out PooledRenderTargetLease? lease)
+        [NotNullWhen(true)] out PooledRenderTargetLease? lease,
+        bool clearContents = true)
     {
         VerifyActive(request);
         if (deviceSize.Width <= 0 || deviceSize.Height <= 0)
@@ -218,7 +226,8 @@ internal sealed class RenderTargetPool : IDisposable
             try
             {
                 ValidateReusableSlot(reusable, request);
-                reusable.Target.ClearToTransparent();
+                if (clearContents)
+                    reusable.Target.ClearToTransparent();
             }
             catch (Exception ex)
             {
@@ -253,7 +262,7 @@ internal sealed class RenderTargetPool : IDisposable
         try
         {
             SKSurface surface = ValidateFactoryTarget(target, deviceSize, request);
-            if (!target.HasTransparentContents)
+            if (clearContents && !target.HasTransparentContents)
                 target.ClearToTransparent();
             long byteSize = GetByteSize(deviceSize);
             long nextOwnedBytes = checked(_ownedBytes + byteSize);
@@ -893,10 +902,13 @@ internal sealed class RenderTargetPoolRequest : IDisposable
         return _pool.Acquire(this, deviceSize);
     }
 
-    public bool TryAcquire(PixelSize deviceSize, [NotNullWhen(true)] out PooledRenderTargetLease? lease)
+    public bool TryAcquire(
+        PixelSize deviceSize,
+        [NotNullWhen(true)] out PooledRenderTargetLease? lease,
+        bool clearContents = true)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        return _pool.TryAcquire(this, deviceSize, out lease);
+        return _pool.TryAcquire(this, deviceSize, out lease, clearContents);
     }
 
     public void Dispose()

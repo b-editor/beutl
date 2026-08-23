@@ -110,10 +110,13 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
     /// <see cref="RenderIntent.Preview"/> session may drop the caller's contribution instead.
     /// </summary>
     /// <remarks>A <see cref="RenderIntent.Delivery"/> session never degrades: it throws.</remarks>
-    internal RenderTargetLease? TryAcquire(RenderTargetLeaseSession session, PixelSize deviceSize)
+    internal RenderTargetLease? TryAcquire(
+        RenderTargetLeaseSession session,
+        PixelSize deviceSize,
+        bool clearContents = true)
     {
         VerifyActive(session);
-        if (!session.Request.TryAcquire(deviceSize, out PooledRenderTargetLease? pooled))
+        if (!session.Request.TryAcquire(deviceSize, out PooledRenderTargetLease? pooled, clearContents))
         {
             s_logger.LogWarning(
                 "Intermediate render-target allocation failed ({Width}x{Height} px); preview drops this target, delivery render fails fast.",
@@ -288,10 +291,14 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         return _registry.Acquire(this, deviceSize);
     }
 
-    public RenderTargetLease? TryAcquire(PixelSize deviceSize)
+    /// <param name="clearContents">
+    /// Whether the lease must arrive transparent. Pass <see langword="false"/> only when every pixel is
+    /// defined before any is read.
+    /// </param>
+    public RenderTargetLease? TryAcquire(PixelSize deviceSize, bool clearContents = true)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        return _registry.TryAcquire(this, deviceSize);
+        return _registry.TryAcquire(this, deviceSize, clearContents);
     }
 
     public void Dispose()

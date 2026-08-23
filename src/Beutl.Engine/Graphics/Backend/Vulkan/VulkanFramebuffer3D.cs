@@ -145,11 +145,17 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
         _depthTexture?.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
+    /// <remarks>
+    /// A pass writes its attachments, so whatever the backend recorded about their contents stops being
+    /// true here. Leaving a transparent record standing would let the next caller that wants a blank target
+    /// skip its clear and get the pass's output instead.
+    /// </remarks>
     public void PrepareForRendering()
     {
         foreach (var texture in _colorTextures)
         {
             texture.TransitionTo(ImageLayout.ColorAttachmentOptimal);
+            texture.MarkContentsUnknown();
         }
         _depthTexture?.TransitionTo(ImageLayout.DepthStencilAttachmentOptimal);
     }
