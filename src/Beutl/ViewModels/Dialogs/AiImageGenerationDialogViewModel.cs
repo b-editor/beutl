@@ -689,7 +689,10 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             // between, and the answer would be recorded under a name that
             // describes something else.
             (AiUploadSource[] references, string[] referenceStamps) =
-                await ReadReferencesAsync(referencePaths, operation.CancellationToken);
+                await ReadReferencesAsync(
+                    referencePaths,
+                    ModelPicker.MaxImageReferencesTotalBytes,
+                    operation.CancellationToken);
             string?[] requestParts =
             [
                 prompt,
@@ -1044,17 +1047,25 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     // 名前を付けた中身と実際に送る中身が食い違い、答えは別のものを指す名前で
     // 記録される。
     private static async Task<(AiUploadSource[] References, string[] Stamps)>
-        ReadReferencesAsync(string[] paths, CancellationToken cancellationToken)
+        ReadReferencesAsync(
+            string[] paths,
+            long totalLimit,
+            CancellationToken cancellationToken)
     {
         var sources = new AiUploadSource[paths.Length];
         var stamps = new string[paths.Length];
+        // どの一枚も上限があるが、まとめて送れる量にも上限がある。一枚ずつしか
+        // 見ないと、全部読み終えて写しまで作ってから断ることになる——残りの分
+        // だけを読めば、断るときにはもう抱えていない。
+        long remaining = Math.Min(totalLimit, AiRequestLimits.MaxImageReferencesTotalBytes);
         for (int index = 0; index < paths.Length; index++)
         {
             string fileName = Path.GetFileName(paths[index]);
             byte[] bytes = await AiUploadBytes.ReadWithinAsync(
                 paths[index],
-                AiRequestLimits.MaxImageUploadBytes,
+                Math.Min(remaining, AiRequestLimits.MaxImageUploadBytes),
                 cancellationToken);
+            remaining -= bytes.LongLength;
             stamps[index] = AiRequestKey.FileStamp(fileName, bytes);
             sources[index] = AiUploadSource.FromBytes(fileName, bytes);
         }

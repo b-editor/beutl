@@ -14,41 +14,46 @@ namespace Beutl.Services.AI;
 /// </remarks>
 internal sealed class AiOutstandingRequests
 {
-    private readonly Dictionary<string, string?[]> _byName = new(StringComparer.Ordinal);
+    // 送った順のまま持つ。task ごとに 1 つとは限らず、同じ task の依頼が 2 つ
+    // 未回収で残ることがある——そのとき「どれか 1 つ」では、戻ってきた画面が
+    // 名乗るモデルが呼び出しごとに変わる。
+    private readonly List<(string Key, string?[] Request)> _held = [];
 
     public void Remember(AiRequestName name, string?[] request)
     {
         if (string.IsNullOrEmpty(name.Key))
             return;
-        _byName[name.Key] = request;
+        Forget(name);
+        _held.Add((name.Key, request));
     }
 
     public void Forget(AiRequestName name)
     {
         if (!string.IsNullOrEmpty(name.Key))
-            _byName.Remove(name.Key);
+            _held.RemoveAll(held => string.Equals(held.Key, name.Key, StringComparison.Ordinal));
     }
 
-    /// <summary>Every request being held.</summary>
-    public IEnumerable<string?[]> All() => _byName.Values;
+    /// <summary>Every request being held, oldest first.</summary>
+    public IEnumerable<string?[]> All() => _held.Select(held => held.Request);
 
     /// <summary>Whether any request being held matches <paramref name="predicate"/>.</summary>
     public bool Any(Func<string?[], bool> predicate)
-        => TryFind(predicate, out _);
+        => _held.Exists(held => predicate(held.Request));
 
     /// <summary>
-    /// The first request being held that matches <paramref name="predicate"/>.
-    /// Reading what it was sent with is how a list fetched later lands on the
-    /// model that request named, rather than on whichever the account can
-    /// afford today.
+    /// The most recently sent request being held that matches
+    /// <paramref name="predicate"/>. Reading what it was sent with is how a list
+    /// fetched later lands on the model that request named, rather than on
+    /// whichever the account can afford today — and the newest is the one the
+    /// screen was last showing, so coming back lands where it was left.
     /// </summary>
     public bool TryFind(Func<string?[], bool> predicate, out string?[] request)
     {
-        foreach (string?[] held in _byName.Values)
+        for (int index = _held.Count - 1; index >= 0; index--)
         {
-            if (predicate(held))
+            if (predicate(_held[index].Request))
             {
-                request = held;
+                request = _held[index].Request;
                 return true;
             }
         }

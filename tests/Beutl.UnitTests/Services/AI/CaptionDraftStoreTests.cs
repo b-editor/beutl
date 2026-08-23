@@ -1,4 +1,5 @@
-﻿using Beutl.Api.Services;
+﻿using System.Globalization;
+using Beutl.Api.Services;
 using Beutl.Services.AI;
 
 namespace Beutl.UnitTests.Services.AI;
@@ -273,6 +274,45 @@ public sealed class CaptionDraftStoreTests
                     Is.True);
             });
         }
+    }
+
+    [Test]
+    public void Read_SaysUnreadableForADraftANewerVersionWroteInsteadOfDeletingIt()
+    {
+        // 新しい版で書かれた控えを、古い版に戻して開いたとき。読めないだけで
+        // 壊れてはいないので、消してはいけない——消すと、新しい版に戻っても
+        // そこに書いてあった支払い済みの名前は返ってこない。
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(new CaptionDraftEntry("job-1", CreateResumableSourceDraft()));
+        }
+
+        string path = store.GetStoragePath(scope);
+        string stored = File.ReadAllText(path);
+        string asFutureVersion = stored.Replace(
+            string.Create(CultureInfo.InvariantCulture, $"\"version\":{FileCaptionDraftStore.CurrentVersion}"),
+            string.Create(CultureInfo.InvariantCulture, $"\"version\":{FileCaptionDraftStore.CurrentVersion + 1}"));
+        Assert.That(asFutureVersion, Is.Not.EqualTo(stored));
+        File.WriteAllText(path, asFutureVersion);
+
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
+        using (reopened)
+        {
+            CaptionDraftReadResult read = reopened!.Read();
+            Assert.Multiple(() =>
+            {
+                Assert.That(read.Outcome, Is.EqualTo(CaptionDraftReadOutcome.Unreadable));
+                Assert.That(read.Entry, Is.Null);
+            });
+        }
+
+        Assert.That(
+            File.Exists(path),
+            Is.True,
+            "A draft a newer version wrote is still there for that version to read.");
     }
 
     [Test]

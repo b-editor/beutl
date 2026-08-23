@@ -436,10 +436,6 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 ? new AiModelId(model)
                 : null;
 
-    private bool ContinuesARequestThatNamedNoModel(string?[] request)
-        => _outstanding.All().Any(held =>
-            held[ModelPartIndex] is null && held.AsSpan().SequenceEqual(request));
-
     private IReadOnlyList<AiModelId> ModelsOfOutstandingRequestsFor(AiOperationId operation)
         => _outstanding.All()
             .Where(request => request[TaskPartIndex] is { } task
@@ -654,14 +650,12 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 null,
                 AiRequestKey.FileStamp(uploadName, uploadBytes),
             ];
-            // 一覧が空だった頃に出した依頼は、モデルを名乗っていない。いまは
-            // 一覧があっても、その依頼を出し直すときに名乗ってしまうと別の依頼
-            // になる。中身が同じものにだけ、その「名乗らない」を引き継ぐ。
-            AiModelId? model = ContinuesARequestThatNamedNoModel(requestParts)
-                ? null
-                : ModelPicker.Operation == editOperation
-                    ? ModelPicker.SelectedModel
-                    : null;
+            // 画面が言っているモデルをそのまま名乗る。未回収の依頼に合わせて
+            // 黙って別のものを名乗ると、画面が見せているのとは違うもので課金
+            // される——一覧が空だった頃に出した依頼は、いまの画面では言い表せ
+            // ないので、履歴から回収する。
+            AiModelId? model =
+                ModelPicker.Operation == editOperation ? ModelPicker.SelectedModel : null;
             requestParts[ModelPartIndex] = model?.Value;
             AiRequestName name = _requestKey.NameFor(requestParts);
             issued = name;

@@ -1478,15 +1478,8 @@ public sealed partial class AiSubtitleDialogViewModel
         // It is still written down — the name is what makes that piece
         // collectable — but the button that imports a partial stays closed.
         HasPartialResult.Value = result.CompletedSteps > 0;
-        if (_captionDraftIsUnreadable)
-        {
-            // 読み直せていれば、書ける。読めないままなら、そこに何が書いてあるか
-            // 分からないので上書きしない。
-            _captionDraftIsUnreadable =
-                _captionDraftSession?.Read().Outcome == CaptionDraftReadOutcome.Unreadable;
-            if (_captionDraftIsUnreadable)
-                return CaptionDraftOutcome.NotRecorded;
-        }
+        if (_captionDraftIsUnreadable && !CanWriteOverUnreadableDraft())
+            return CaptionDraftOutcome.NotRecorded;
 
         if (_captionDraftSession is null)
         {
@@ -2223,6 +2216,34 @@ public sealed partial class AiSubtitleDialogViewModel
     {
         string targetCode = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja" ? "en" : "ja";
         return TargetLanguages.First(option => option.Code == targetCode);
+    }
+
+    // 読めなかった控えが、いま読めるか。読めて、そこに支払い済みのものがあれば、
+    // 書いてはいけない——この実行を書き込めば、その名前と切れ端を上から潰す。
+    // 何も無いと読めたときだけ、この場面を自分のものとして書き始める。
+    private bool CanWriteOverUnreadableDraft()
+    {
+        if (_captionDraftSession is null)
+            return false;
+
+        CaptionDraftReadResult read;
+        try
+        {
+            read = _captionDraftSession.Read();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to re-read a caption draft that could not be read.");
+            return false;
+        }
+
+        if (read.Outcome == CaptionDraftReadOutcome.Unreadable)
+            return false;
+        if (read.Entry is { } entry && HoldsPaidWork(entry.Draft))
+            return false;
+
+        _captionDraftIsUnreadable = false;
+        return true;
     }
 
     // 手放された控えを引き継ぐ。ただし、そこに支払い済みのものが書いてあるなら

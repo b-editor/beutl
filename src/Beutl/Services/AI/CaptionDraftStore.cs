@@ -319,8 +319,14 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 CaptionDraftEnvelope? envelope = JsonSerializer.Deserialize<CaptionDraftEnvelope>(
                     bytes,
                     s_jsonOptions);
+                // 新しい版で書かれた控え。読めないだけで、壊れてはいない
+                // ——古い版へ戻したときに消してしまうと、新しい版に戻っても
+                // 支払い済みの名前は返ってこない。
+                if (envelope is not null && envelope.Version > CurrentVersion)
+                    return CaptionDraftReadResult.Unreadable;
+
                 if (envelope is null
-                    || envelope.Version is < OldestSupportedVersion or > CurrentVersion
+                    || envelope.Version < OldestSupportedVersion
                     || envelope.Scope != scope)
                 {
                     DeleteInvalidFile(storagePath);

@@ -410,6 +410,79 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageEdit_NamesARequestByTheModelOnScreen()
+    {
+        // モデルもその依頼の一部。画面が X を見せているなら、送るのも課金される
+        // のも X——未回収の依頼に合わせて黙って別のものを名乗ると、画面にある
+        // ものとは違うモデルで課金される。
+        await TestReset.ResetShellAsync();
+        string sourcePath = Path.Combine(Path.GetTempPath(), $"source-{Guid.NewGuid():N}.png");
+        await File.WriteAllBytesAsync(sourcePath, s_png);
+        var sent = new List<(string? Model, string? Key)>();
+        try
+        {
+            using var handler = new StubHandler(async (request, cancellationToken) =>
+            {
+                switch (request.RequestUri?.AbsolutePath)
+                {
+                    case "/api/v3/user/entitlements":
+                        return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                    case "/api/v3/ai/capabilities":
+                        return JsonResponse(HttpStatusCode.OK, ImageEditCapabilitiesJson());
+                    case "/api/v3/ai/images/edit":
+                        string body = await request.Content!.ReadAsStringAsync(cancellationToken);
+                        sent.Add((ModelOfMultipart(body), IdempotencyKeyOf(request)));
+                        // 最初の 1 回は答えが返らない。名前は残り、その依頼は
+                        // 未回収のまま次の送信を迎える。
+                        return sent.Count == 1
+                            ? throw new HttpRequestException("The connection was reset.")
+                            : JsonResponse(
+                                HttpStatusCode.OK,
+                                ImageResponseJson("edit-job", "edit-file"));
+                    case "/api/contents/edit-file":
+                        return ByteResponse(s_png, "image/png");
+                    default:
+                        return JsonResponse(HttpStatusCode.NotFound, "{}");
+                }
+            });
+            using var httpClient = new HttpClient(handler);
+            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            SetAuthenticatedUser(clients, httpClient);
+            using var viewModel = CreateImageEditDialog(clients);
+            viewModel.SelectedTask.Value = viewModel.Tasks
+                .First(option => option.Value == "upscale");
+            await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 2);
+            viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+                .First(option => option.Id.Value == "topaz/gigapixel-2");
+            viewModel.SourceFilePath.Value = sourcePath;
+
+            await viewModel.Edit.ExecuteAsync();
+            await viewModel.Edit.ExecuteAsync();
+
+            Assert.That(sent, Has.Count.EqualTo(2));
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    sent[0].Model,
+                    Is.EqualTo("topaz/gigapixel-2"),
+                    "The screen said this model, so this is what is asked for and charged.");
+                Assert.That(
+                    sent[1].Model,
+                    Is.EqualTo("topaz/gigapixel-2"),
+                    "Asking again does not quietly move to another model.");
+                Assert.That(
+                    sent[1].Key,
+                    Is.EqualTo(sent[0].Key),
+                    "The same request under the same name reaches what it paid for.");
+            }
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ImageEdit_ComingBackToAnUncollectedTaskCanStillSendIt()
     {
         // 未回収の依頼を抱えたまま別の task を見て戻ってくる。戻り先の一覧を
@@ -3028,6 +3101,45 @@ public sealed class AiDialogWorkflowTests
           }
         }
         """;
+
+    // 拡大に 2 つのモデル。画面が見せているモデルがそのまま送られることを
+    // 確かめるために、既定でないほうを選べる形にしてある。
+    private static string ImageEditCapabilitiesJson() => """
+        {
+          "operations": {
+            "image.edit.upscale": {
+              "models": [
+                {
+                  "id": "openai/gpt-image-1",
+                  "displayName": "GPT Image-1",
+                  "costTier": "medium",
+                  "isDefault": true
+                },
+                {
+                  "id": "topaz/gigapixel-2",
+                  "displayName": "Gigapixel 2",
+                  "costTier": "low",
+                  "isDefault": false
+                }
+              ]
+            }
+          }
+        }
+        """;
+
+    private static string? ModelOfMultipart(string body)
+    {
+        const string Marker = "name=model";
+        int at = body.IndexOf(Marker, StringComparison.Ordinal);
+        if (at < 0) return null;
+
+        int start = body.IndexOf("\r\n\r\n", at, StringComparison.Ordinal);
+        if (start < 0) return null;
+
+        start += 4;
+        int end = body.IndexOf("\r\n", start, StringComparison.Ordinal);
+        return end < 0 ? null : body[start..end];
+    }
 
     private static string ImageCapabilitiesJson() => """
         {
