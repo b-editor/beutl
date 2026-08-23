@@ -353,6 +353,63 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageGeneration_LookingAtAnotherModelDoesNotRewriteTheRequest()
+    {
+        // モデルを見比べるあいだ、画面はそのモデルが取れる範囲へ寄せられる。
+        // 寄せた先を利用者の選択として覚えてしまうと、元のモデルへ戻したときに
+        // 別の依頼になり、出してある名前が指す支払い済みのものへ届かない。
+        await TestReset.ResetShellAsync();
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/capabilities" => JsonResponse(
+                HttpStatusCode.OK,
+                ImageCapabilitiesJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
+
+        // GPT Image-1 takes 3:2 and a transparent background; GPT Image-2 takes
+        // neither.
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-1");
+        viewModel.SelectedAspectRatio.Value = viewModel.AspectRatioOptions
+            .First(option => option.Value == "3:2");
+        viewModel.SelectedBackground.Value = viewModel.BackgroundOptions
+            .First(option => option.Value == "transparent");
+
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-2");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(viewModel.SelectedAspectRatio.Value.Value, Is.Not.EqualTo("3:2"),
+                "This model does not take it, so it is not on offer.");
+            Assert.That(
+                viewModel.BackgroundOptions.Select(option => option.Value),
+                Does.Not.Contain("transparent"));
+        }
+
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-1");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                viewModel.SelectedAspectRatio.Value.Value,
+                Is.EqualTo("3:2"),
+                "Back on a model that takes it, the request is the one it was.");
+            Assert.That(
+                viewModel.SelectedBackground.Value.Value,
+                Is.EqualTo("transparent"));
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ImageGeneration_ShowsTheRoughPictureWhileTheModelWorks()
     {
         await TestReset.ResetShellAsync();

@@ -131,7 +131,13 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         SelectedTask
             .Subscribe(task => _ = ReloadModelsAsync(task))
             .DisposeWith(_disposables);
-        ModelPicker.CanReload = () => !HoldsNameFor(SelectedTask.Value.Value);
+        // Only the list this screen already has. A task whose list is not
+        // here yet has to be fetched even while its own request is waiting to be
+        // collected — without it the screen has no model to send and the paid
+        // request is stranded.
+        ModelPicker.CanReload = requested =>
+            ModelPicker.Operation != requested
+            || !HoldsNameFor(SelectedTask.Value.Value);
         RequiresPrompt = SelectedTask
             .Select(task => task.Value is "restyle" or "remove_object" or "outpaint")
             .ToReadOnlyReactivePropertySlim()
@@ -419,8 +425,16 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     // Each of the five is its own operation with its own models and its own
     // price, so a name outstanding on one says nothing about another.
     private bool HoldsNameFor(string task)
-        => _outstanding.Any(request =>
-            string.Equals(request[TaskPartIndex], task, StringComparison.Ordinal));
+        => _outstanding.Any(request => IsFor(request, task));
+
+    private AiModelId? ModelOfOutstandingRequestFor(string task)
+        => _outstanding.TryFind(request => IsFor(request, task), out string?[] held)
+            && held[ModelPartIndex] is { } model
+                ? new AiModelId(model)
+                : null;
+
+    private static bool IsFor(string?[] request, string task)
+        => string.Equals(request[TaskPartIndex], task, StringComparison.Ordinal);
 
     private async Task LoadEntitlementsAsync()
     {
@@ -494,6 +508,10 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         {
             await ModelPicker.LoadAsync(
                 AiOperations.ImageEdit(new AiImageEditTaskId(task.Value)),
+                // 未回収の依頼がある task に戻ってきたら、その依頼が名乗った
+                // モデルに合わせる。今この口座で払えるモデルに落ち着かせると、
+                // 送り直したものが別の依頼になり、支払い済みのものへ届かない。
+                ModelOfOutstandingRequestFor(task.Value),
                 operation.CancellationToken);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)

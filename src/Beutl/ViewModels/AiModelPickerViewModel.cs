@@ -89,15 +89,22 @@ internal sealed class AiModelPickerViewModel : IDisposable
     }
 
     /// <summary>
-    /// Whether the list may be replaced right now. A page holding a name the
-    /// server has not settled says no: what that request carries follows the
-    /// model on offer, and replacing it would rename a request already paid for.
+    /// Whether the list for <paramref name="operation"/> may be put on offer
+    /// right now.
     /// </summary>
-    public Func<bool>? CanReload { get; set; }
+    /// <remarks>
+    /// A screen holding a name the server has not settled says no to replacing
+    /// the list that request was built against: what it carries follows the
+    /// model on offer, and moving that renames a request already paid for. It
+    /// must not say no to a list it does not have yet, though — a screen with
+    /// no list for what it is showing cannot send anything at all, which is how
+    /// coming back to an unfinished request would strand it.
+    /// </remarks>
+    public Func<AiOperationId, bool>? CanReload { get; set; }
 
     private void ReloadOnSchedule()
     {
-        if (!IsLoaded.Value || CanReload?.Invoke() == false)
+        if (!IsLoaded.Value || CanReload?.Invoke(Operation) == false)
             return;
         _ = ReloadAsync();
     }
@@ -228,7 +235,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
         // Asked again on the way back. A request may have gone out while this
         // was being fetched, and what it carries — the model, and the shape and
         // background that follow it — is what this list would replace.
-        if (CanReload?.Invoke() == false)
+        if (CanReload?.Invoke(operation) == false)
             return;
 
         AiEntitlements? entitlements = _entitlements.Entitlements.Value;

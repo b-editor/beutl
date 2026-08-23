@@ -47,6 +47,24 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     private readonly EditViewModel? _editViewModel;
     private readonly HashSet<string> _temporaryFiles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _temporaryFileLeases = new(StringComparer.Ordinal);
+    // 決着していない名前ごとに、その依頼が名乗ったフレームの一時ファイルを
+    // 抱えておくもの。
+    private readonly Dictionary<string, IDisposable> _framesHeldByName =
+        new(StringComparer.Ordinal);
+    // 利用者が選んだもの。画面に出ているものとは別に持つ——モデルを選び直すと
+    // 画面のほうは、そのモデルが取れる範囲へ寄せられてしまう。元のモデルに
+    // 戻したときにここから戻せないと、同じつもりの依頼が別の依頼になり、
+    // 出してある名前が指すものへ届かなくなる。
+    private AiVideoDurationOption? _chosenDuration;
+    private AiVideoResolutionOption? _chosenResolution;
+    private AiVideoAspectRatioOption? _chosenAspectRatio;
+    private bool _chosenAudio = true;
+    private int? _chosenSeed;
+    private (string? Path, string? ElementId) _chosenFirstFrame;
+    private (string? Path, string? ElementId) _chosenLastFrame;
+    // モデルの都合で画面を書き換えている最中。そのあいだの変化は利用者の選択では
+    // ないので、覚えない。
+    private bool _applyingCapabilities;
     private readonly HashSet<string> _temporaryFilesPendingDeletion = new(StringComparer.Ordinal);
     private readonly object _lifetimeGate = new();
     private CancellationTokenSource? _pollingCts;
@@ -152,12 +170,42 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         // lists are rebuilt from whichever model is chosen.
         ModelPicker.Filter = model =>
             model.Video is not { } video || video.CanServeAnything();
+        SelectedDuration.Subscribe(option =>
+            {
+                if (!_applyingCapabilities)
+                    _chosenDuration = option;
+            })
+            .DisposeWith(_disposables);
+        SelectedResolution.Subscribe(option =>
+            {
+                if (!_applyingCapabilities)
+                    _chosenResolution = option;
+            })
+            .DisposeWith(_disposables);
+        SelectedAspectRatio.Subscribe(option =>
+            {
+                if (!_applyingCapabilities)
+                    _chosenAspectRatio = option;
+            })
+            .DisposeWith(_disposables);
+        GenerateAudio.Subscribe(value =>
+            {
+                if (!_applyingCapabilities)
+                    _chosenAudio = value;
+            })
+            .DisposeWith(_disposables);
+        Seed.Subscribe(seed =>
+            {
+                if (!_applyingCapabilities)
+                    _chosenSeed = seed;
+            })
+            .DisposeWith(_disposables);
         ModelPicker.Selected.Subscribe(option => ApplyModelCapabilities(option?.Model))
             .DisposeWith(_disposables);
         // The shape, and whether frames may guide the clip at all, follow the
         // chosen model; replacing the list under an outstanding name would
         // rewrite the request waiting to be collected.
-        ModelPicker.CanReload = () => !_requestKey.HasOutstandingName.Value;
+        ModelPicker.CanReload = _ => !_requestKey.HasOutstandingName.Value;
 
         IsGenerating = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
@@ -335,13 +383,33 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     {
         AiVideoModelCapabilities video = model?.Video ?? AiVideoModelCapabilities.Unrestricted;
 
+        // What the user asked for is remembered apart from what the model on
+        // screen will take. Reading the choice back off the screen loses it the
+        // moment a model that takes something narrower is picked, and going
+        // back to the first model then rebuilds a different request — one the
+        // name already handed out does not belong to.
+        _applyingCapabilities = true;
+        try
+        {
+            ApplyModelCapabilitiesCore(video);
+        }
+        finally
+        {
+            _applyingCapabilities = false;
+        }
+    }
+
+    private void ApplyModelCapabilitiesCore(AiVideoModelCapabilities video)
+    {
         // The model's own lists, already narrowed to what the server accepts.
         // The client's own are a fallback for a server that publishes none.
         IEnumerable<int> durations = video.DurationsSeconds.IsDefaultOrEmpty
             ? DefaultDurations
             : video.DurationsSeconds;
         Replace(DurationOptions, durations.Select(seconds => new AiVideoDurationOption(seconds)));
-        SelectedDuration.Value = NearestDuration(SelectedDuration.Value, DurationOptions);
+        SelectedDuration.Value = NearestDuration(
+            _chosenDuration ?? SelectedDuration.Value,
+            DurationOptions);
         MaxDurationIndex.Value = DurationOptions.Count - 1;
         DurationIndex.Value = IndexOfDuration(SelectedDuration.Value);
 
@@ -350,7 +418,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             : video.Resolutions;
         Replace(ResolutionOptions, resolutions.Select(value => new AiVideoResolutionOption(value)));
         SelectedResolution.Value =
-            ResolutionOptions.FirstOrDefault(option => option == SelectedResolution.Value)
+            ResolutionOptions.FirstOrDefault(option => option == _chosenResolution)
             ?? ResolutionOptions[0];
 
         IEnumerable<string> aspectRatios = video.AspectRatios.IsDefaultOrEmpty
@@ -360,17 +428,15 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             AspectRatioOptions,
             aspectRatios.Select(value => new AiVideoAspectRatioOption(value)));
         SelectedAspectRatio.Value =
-            AspectRatioOptions.FirstOrDefault(option => option == SelectedAspectRatio.Value)
+            AspectRatioOptions.FirstOrDefault(option => option == _chosenAspectRatio)
             // The shape it would have started on, which is the one nearest the
             // scene rather than whichever the model happens to list first.
             ?? GetSuggestedAspectRatio(AspectRatioOptions, _editViewModel?.Scene.FrameSize);
 
         SupportsAudio.Value = video.SupportsAudio;
-        if (!video.SupportsAudio)
-            GenerateAudio.Value = false;
+        GenerateAudio.Value = video.SupportsAudio && _chosenAudio;
         SupportsSeed.Value = video.SupportsSeed;
-        if (!video.SupportsSeed)
-            Seed.Value = null;
+        Seed.Value = video.SupportsSeed ? _chosenSeed : null;
         // A model conditions on the frames it publishes, and one of the two is
         // not the other. A picker left up for a frame the model does not take
         // only produces a request refused after the shape has been checked.
@@ -381,12 +447,19 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         SupportsFirstFrame.Value = video.SupportsFirstFrame;
         SupportsLastFrame.Value = video.SupportsFirstFrame && video.SupportsLastFrame;
         SupportsFrameGuidance.Value = SupportsFirstFrame.Value;
-        // Cleared the way the button clears it, so the preview goes with the
-        // path and the temporary file it was captured into is released.
-        if (!SupportsFirstFrame.Value)
-            SetFrameCore(isFirstFrame: true, null, null);
-        if (!SupportsLastFrame.Value)
-            SetFrameCore(isFirstFrame: false, null, null);
+        // Set aside rather than thrown away: a model that takes no frame is
+        // shown none, and going back to one that does puts the same frames back.
+        // The temporary file they were captured into is held for as long as a
+        // name that points at it is outstanding, so it is still there to go back
+        // to.
+        SetFrameCore(
+            isFirstFrame: true,
+            SupportsFirstFrame.Value ? _chosenFirstFrame.Path : null,
+            SupportsFirstFrame.Value ? _chosenFirstFrame.ElementId : null);
+        SetFrameCore(
+            isFirstFrame: false,
+            SupportsLastFrame.Value ? _chosenLastFrame.Path : null,
+            SupportsLastFrame.Value ? _chosenLastFrame.ElementId : null);
     }
 
     private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> values)
@@ -559,6 +632,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             _temporaryFiles.Clear();
             _temporaryFileLeases.Clear();
             _temporaryFilesPendingDeletion.Clear();
+            _framesHeldByName.Clear();
             pollingCts = _pollingCts;
             _pollingCts = null;
         }
@@ -627,6 +701,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     private void RetireRequestName(AiRequestName name)
     {
         _requestKey.Retire(name);
+        ReleaseFramesOf(name);
         // Reloads were held back while that name was outstanding, so this is
         // where an operator's change to the model list finally lands.
         _ = RefreshModelsAsync();
@@ -637,6 +712,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     private void WithdrawRequestName(AiRequestName name)
     {
         _requestKey.Withdraw(name);
+        ReleaseFramesOf(name);
     }
 
 
@@ -779,6 +855,21 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             return;
         }
 
+        // 利用者が選んだフレーム。モデルの都合で外しているだけのときは書き換え
+        // ない——元のモデルへ戻したときに、同じフレームを持つ同じ依頼に戻れる
+        // ようにしておく。
+        if (!_applyingCapabilities)
+        {
+            if (isFirstFrame)
+            {
+                _chosenFirstFrame = (path, sourceElementId);
+            }
+            else
+            {
+                _chosenLastFrame = (path, sourceElementId);
+            }
+        }
+
         ReactivePropertySlim<string?> pathProperty = isFirstFrame ? FirstFramePath : LastFramePath;
         ReactivePropertySlim<Ref<Bitmap>?> previewProperty = isFirstFrame ? FirstFramePreview : LastFramePreview;
         string? previousPath = pathProperty.Value;
@@ -794,7 +885,10 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             _lastFrameElementId = sourceElementId;
         }
 
-        if (!string.Equals(previousPath, path, StringComparison.Ordinal))
+        // 脇に置いているだけなら、その一時ファイルは捨てない。捨ててしまうと、
+        // 元のモデルへ戻しても同じ依頼を組み立て直せない。
+        if (!_applyingCapabilities
+            && !string.Equals(previousPath, path, StringComparison.Ordinal))
         {
             RequestTemporaryFileDeletion(previousPath);
         }
@@ -861,8 +955,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             string? lastFramePath = LastFramePath.Value;
             string? firstFrameElementId = _firstFrameElementId;
             string? lastFrameElementId = _lastFrameElementId;
-            using IDisposable firstFrameLease = AcquireTemporaryFileLease(firstFramePath);
-            using IDisposable lastFrameLease = AcquireTemporaryFileLease(lastFramePath);
+
             // The model's place is left empty until it is known, because which
             // model this request carries depends on whether a name is already
             // outstanding for the rest of it.
@@ -882,6 +975,12 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             requestParts[ModelPartIndex] = model?.Value;
             AiRequestName name = _requestKey.NameFor(requestParts);
             issued = name;
+            // Held for as long as the name is, not just for as long as the
+            // request is in the air. A frame captured from the scene lives in a
+            // temporary file, and the request is named partly by that file as it
+            // stands — deleted, the request can never be asked for again, and
+            // choosing another model is enough to delete it.
+            HoldFramesFor(name, firstFramePath, lastFramePath);
 
             // Before it goes out. A name that ends here reached nothing.
             try
@@ -1266,6 +1365,40 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             PollInterval.TotalMilliseconds * multiplier,
             MaximumTransientPollDelay.TotalMilliseconds);
         return TimeSpan.FromMilliseconds(Math.Max(0, milliseconds));
+    }
+
+    // 未回収の名前が指しているフレームの一時ファイルを、その名前が決着するまで
+    // 抱えておく。決着していない依頼はそのファイルの姿ごと名前になっているので、
+    // 消えると二度と同じ依頼を出せない——モデルを選び直しただけで消える。
+    private void HoldFramesFor(AiRequestName name, string? firstFrame, string? lastFrame)
+    {
+        if (string.IsNullOrEmpty(name.Key))
+            return;
+
+        var held = new CompositeDisposable(
+            AcquireTemporaryFileLease(firstFrame),
+            AcquireTemporaryFileLease(lastFrame));
+        lock (_lifetimeGate)
+        {
+            if (_framesHeldByName.Remove(name.Key, out IDisposable? previous))
+                previous.Dispose();
+            _framesHeldByName.Add(name.Key, held);
+        }
+    }
+
+    private void ReleaseFramesOf(AiRequestName name)
+    {
+        if (string.IsNullOrEmpty(name.Key))
+            return;
+
+        IDisposable? held;
+        lock (_lifetimeGate)
+        {
+            if (!_framesHeldByName.Remove(name.Key, out held))
+                return;
+        }
+
+        held.Dispose();
     }
 
     private IDisposable AcquireTemporaryFileLease(string? path)

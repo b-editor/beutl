@@ -576,8 +576,7 @@ public sealed partial class AiSubtitleDialogViewModel
                         case CaptionDraftOutcome.Superseded:
                             return;
                         case CaptionDraftOutcome.NotRecorded:
-                            operation.RequestKey.Withdraw(name);
-                            UpdateOutstandingCaptionRequest();
+                            WithdrawSourceTranscriptionName(operation, name);
                             throw new SubtitleInputException(
                                 Strings.AiSubtitle_RunCannotBeRecorded);
                     }
@@ -601,14 +600,12 @@ public sealed partial class AiSubtitleDialogViewModel
                     // spent key again.
                     operation.RequestKey.Retire();
                     UpdateOutstandingCaptionRequest();
-                    DiscardDraftIfNotRewritten(
-                        PublishSourceTranscriptionPartial(operation));
+                    PublishSourceTranscriptionPartial(operation);
                     throw;
                 }
                 catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
                 {
-                    operation.RequestKey.Withdraw(name);
-                    UpdateOutstandingCaptionRequest();
+                    WithdrawSourceTranscriptionName(operation, name);
                     throw;
                 }
                 operation.DetectedLanguage ??= response.Language;
@@ -752,8 +749,7 @@ public sealed partial class AiSubtitleDialogViewModel
             }
             catch
             {
-                operation.RequestKey.Withdraw(name);
-                UpdateOutstandingCaptionRequest();
+                WithdrawSceneTranscriptionName(operation, name);
                 throw;
             }
 
@@ -792,8 +788,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 }
                 catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
                 {
-                    operation.RequestKey.Withdraw(name);
-                    UpdateOutstandingCaptionRequest();
+                    WithdrawSceneTranscriptionName(operation, name);
                     throw;
                 }
                 operation.DetectedLanguage ??= response.Language;
@@ -942,8 +937,7 @@ public sealed partial class AiSubtitleDialogViewModel
                         case CaptionDraftOutcome.Superseded:
                             return;
                         case CaptionDraftOutcome.NotRecorded:
-                            operation.RequestKey.Withdraw(name);
-                            UpdateOutstandingCaptionRequest();
+                            WithdrawTranslationName(operation, name);
                             throw new SubtitleInputException(
                                 Strings.AiSubtitle_RunCannotBeRecorded);
                     }
@@ -976,13 +970,12 @@ public sealed partial class AiSubtitleDialogViewModel
                     // restart would ask under the spent key again.
                     operation.RequestKey.Retire();
                     UpdateOutstandingCaptionRequest();
-                    DiscardDraftIfNotRewritten(PublishTranslationPartial(operation));
+                    PublishTranslationPartial(operation);
                     throw;
                 }
                 catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
                 {
-                    operation.RequestKey.Withdraw(name);
-                    UpdateOutstandingCaptionRequest();
+                    WithdrawTranslationName(operation, name);
                     throw;
                 }
                 AddTranslatedBatch(operation, batch, response);
@@ -1051,7 +1044,7 @@ public sealed partial class AiSubtitleDialogViewModel
             _pendingTranslation?.RequestKey.Retire();
             UpdateOutstandingCaptionRequest();
             if (_pendingTranslation is { } changed)
-                DiscardDraftIfNotRewritten(PublishTranslationPartial(changed));
+                PublishTranslationPartial(changed);
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestChanged);
         }
         catch (AiRequestWasDeletedException)
@@ -1061,7 +1054,7 @@ public sealed partial class AiSubtitleDialogViewModel
             _pendingTranslation?.RequestKey.Retire();
             UpdateOutstandingCaptionRequest();
             if (_pendingTranslation is { } deleted)
-                DiscardDraftIfNotRewritten(PublishTranslationPartial(deleted));
+                PublishTranslationPartial(deleted);
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted);
         }
         catch (AiModelDoesNotSupportRequestException)
@@ -1460,8 +1453,9 @@ public sealed partial class AiSubtitleDialogViewModel
             _logger.LogWarning(ex, "Failed to persist a recoverable paid caption result.");
             // 書けなかったので、ディスクに残るのは 1 つ前の姿。消してはいけない
             // ——それは支払い済みの切れ端と、その名前を持っている唯一の控えかも
-            // しれない。古いままでも、そこに書かれた名前が指すのは支払い済みの
-            // job なので、次の起動はそれを取りに行ける。
+            // しれない。古いままでも損はしない: そこに書かれた名前が指すのは
+            // 支払い済みか、決着済みか、どこにも無いかのどれかで、どれを尋ねても
+            // 二重には課金されない。消せば、支払い済みのぶんを買い直す。
             return CaptionDraftOutcome.NotRecorded;
         }
         return CaptionDraftOutcome.Recorded;
@@ -2038,40 +2032,51 @@ public sealed partial class AiSubtitleDialogViewModel
         if (_pendingSourceTranscription is { } source)
         {
             source.RequestKey.Retire();
-            DiscardDraftIfNotRewritten(PublishSourceTranscriptionPartial(source));
+            PublishSourceTranscriptionPartial(source);
         }
 
         if (_pendingSceneTranscription is { } scene)
         {
             scene.RequestKey.Retire();
-            DiscardDraftIfNotRewritten(PublishSceneTranscriptionPartial(scene));
+            PublishSceneTranscriptionPartial(scene);
         }
 
         UpdateOutstandingCaptionRequest();
     }
 
-    // 使えなくなった名前を書き戻せなかったとき。ディスクに残っているのは、その
-    // 名前を「まだ抱えている」と言う 1 つ前の姿——次の起動はそれを支払い済みの
-    // 回収として扱い、決着済みの答えしか返ってこない名前で尋ねに行く。手元の
-    // 結果はこのセッションのあいだ残るので、そういう控えは消しておく。
-    private void DiscardDraftIfNotRewritten(CaptionDraftOutcome outcome)
-    {
-        if (outcome != CaptionDraftOutcome.NotRecorded || _captionDraftSession is null)
-            return;
-
-        try
-        {
-            _captionDraftSession.Delete();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to clear a caption draft that named a spent run.");
-        }
-    }
-
     // Whether a caption run has named a piece the server has not been seen to
     // settle. While it has, asking again may be answered by a job already paid
     // for, so the button stays live however little is left to spend.
+    // 送る前に終わった名前を取り消して、控えにも書き戻す。控えに「まだ抱えて
+    // いる」と書いたまま終わると、次の起動は、誰も払っていない依頼を支払い済みの
+    // 回収として扱い、自分の残高確認をすり抜ける。
+    private void WithdrawSourceTranscriptionName(
+        SourceTranscriptionOperation operation,
+        AiRequestName name)
+    {
+        operation.RequestKey.Withdraw(name);
+        UpdateOutstandingCaptionRequest();
+        PublishSourceTranscriptionPartial(operation);
+    }
+
+    private void WithdrawSceneTranscriptionName(
+        SceneTranscriptionOperation operation,
+        AiRequestName name)
+    {
+        operation.RequestKey.Withdraw(name);
+        UpdateOutstandingCaptionRequest();
+        PublishSceneTranscriptionPartial(operation);
+    }
+
+    private void WithdrawTranslationName(
+        TranslationOperation operation,
+        AiRequestName name)
+    {
+        operation.RequestKey.Withdraw(name);
+        UpdateOutstandingCaptionRequest();
+        PublishTranslationPartial(operation);
+    }
+
     private void UpdateOutstandingCaptionRequest()
     {
         HasOutstandingTranscriptionRequest.Value =

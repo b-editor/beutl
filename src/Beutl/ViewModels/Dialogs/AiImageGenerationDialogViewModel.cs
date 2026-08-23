@@ -37,6 +37,17 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     private readonly IAiImageGenerationService _images;
     private readonly IAuthenticatedContentService _content;
     private readonly AiRequestKey _requestKey = new();
+    // 利用者が選んだもの。画面に出ているものとは別に持つ——モデルを選び直すと
+    // 画面のほうは、そのモデルが取れる範囲へ寄せられてしまう。元のモデルに
+    // 戻したときにここから戻せないと、同じつもりの依頼が別の依頼になり、
+    // 出してある名前が指すものへ届かなくなる。
+    private AiImageAspectRatioOption? _chosenAspectRatio;
+    private AiImageBackgroundOption? _chosenBackground;
+    private int? _chosenSeed;
+    private readonly List<string> _chosenReferencePaths = [];
+    // モデルの都合で画面を書き換えている最中。そのあいだの変化は利用者の選択では
+    // ないので、覚えない。
+    private bool _applyingCapabilities;
     private readonly EditViewModel? _editViewModel;
     private Task? _disposeTask;
 
@@ -104,12 +115,30 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         // would only ever produce a request the server refuses.
         ModelPicker.Filter = model =>
             model.Image is not { } image || image.CanServeAnything(false);
+        SelectedAspectRatio.Subscribe(option =>
+            {
+                if (!_applyingCapabilities)
+                    _chosenAspectRatio = option;
+            })
+            .DisposeWith(_disposables);
+        SelectedBackground.Subscribe(option =>
+            {
+                if (!_applyingCapabilities)
+                    _chosenBackground = option;
+            })
+            .DisposeWith(_disposables);
+        Seed.Subscribe(seed =>
+            {
+                if (!_applyingCapabilities)
+                    _chosenSeed = seed;
+            })
+            .DisposeWith(_disposables);
         ModelPicker.Selected.Subscribe(option => ApplyModelCapabilities(option?.Model))
             .DisposeWith(_disposables);
         // The shape and the background follow the chosen model, so replacing the
         // list under an outstanding name would rewrite the request waiting to be
         // collected.
-        ModelPicker.CanReload = () => !_requestKey.HasOutstandingName.Value;
+        ModelPicker.CanReload = _ => !_requestKey.HasOutstandingName.Value;
 
         SelectReferenceImage = new AsyncReactiveCommand()
             .WithSubscribe(SelectReferenceImageAsync);
@@ -350,50 +379,81 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         AiImageModelCapabilities image =
             model?.Image ?? AiImageModelCapabilities.Unrestricted;
 
-        IEnumerable<string> aspectRatios = image.AspectRatios.IsDefaultOrEmpty
-            ? DefaultAspectRatios
-            : image.AspectRatios;
-        Replace(
-            AspectRatioOptions,
-            aspectRatios.Select(value => new AiImageAspectRatioOption(value)));
-        SelectedAspectRatio.Value =
-            AspectRatioOptions.FirstOrDefault(option => option == SelectedAspectRatio.Value)
-            ?? GetSuggestedAspectRatio(AspectRatioOptions, _editViewModel?.Scene.FrameSize);
-
-        IEnumerable<string> backgrounds = image.Backgrounds.IsDefaultOrEmpty
-            ? DefaultBackgrounds
-            : image.Backgrounds;
-        Replace(
-            BackgroundOptions,
-            backgrounds.Select(value => new AiImageBackgroundOption(value)));
-        // Falling back to the first, which is always "leave it to the model":
-        // keeping a background the new model does not take would be refused
-        // after the usage was reserved.
-        SelectedBackground.Value =
-            BackgroundOptions.FirstOrDefault(option => option == SelectedBackground.Value)
-            ?? BackgroundOptions[0];
-        HasBackgroundChoice.Value = BackgroundOptions.Count > 1;
-        SupportsSeed.Value = image.SupportsSeed;
-        if (!image.SupportsSeed)
-            Seed.Value = null;
-        // The model publishes its own count and the price covers a fixed one;
-        // whichever is smaller is what may actually be sent, and anything the
-        // new model will not take is dropped rather than refused after the usage
-        // has been reserved.
-        int maxReferences = Math.Clamp(
-            image.MaxReferenceImages,
-            0,
-            AiRequestLimits.MaxImageReferences);
-        SupportsReferenceImage.Value = maxReferences > 0;
-        MaxReferenceImages.Value = maxReferences;
-        while (ReferenceImages.Count > maxReferences)
+        // What the user asked for is remembered apart from what the model on
+        // screen will take. Reading the choice back off the screen loses it the
+        // moment a model that takes something narrower is picked, and going
+        // back to the first model then rebuilds a different request — one the
+        // name already handed out does not belong to.
+        _applyingCapabilities = true;
+        try
         {
-            AiReferenceImageViewModel dropped = ReferenceImages[^1];
-            ReferenceImages.RemoveAt(ReferenceImages.Count - 1);
-            dropped.Dispose();
+            IEnumerable<string> aspectRatios = image.AspectRatios.IsDefaultOrEmpty
+                ? DefaultAspectRatios
+                : image.AspectRatios;
+            Replace(
+                AspectRatioOptions,
+                aspectRatios.Select(value => new AiImageAspectRatioOption(value)));
+            SelectedAspectRatio.Value =
+                AspectRatioOptions.FirstOrDefault(option => option == _chosenAspectRatio)
+                ?? GetSuggestedAspectRatio(AspectRatioOptions, _editViewModel?.Scene.FrameSize);
+
+            IEnumerable<string> backgrounds = image.Backgrounds.IsDefaultOrEmpty
+                ? DefaultBackgrounds
+                : image.Backgrounds;
+            Replace(
+                BackgroundOptions,
+                backgrounds.Select(value => new AiImageBackgroundOption(value)));
+            // Falling back to the first, which is always "leave it to the
+            // model": keeping a background the new model does not take would be
+            // refused after the usage was reserved.
+            SelectedBackground.Value =
+                BackgroundOptions.FirstOrDefault(option => option == _chosenBackground)
+                ?? BackgroundOptions[0];
+            HasBackgroundChoice.Value = BackgroundOptions.Count > 1;
+            SupportsSeed.Value = image.SupportsSeed;
+            Seed.Value = image.SupportsSeed ? _chosenSeed : null;
+            // The model publishes its own count and the price covers a fixed
+            // one; whichever is smaller is what may actually be sent, and
+            // anything the new model will not take is set aside rather than
+            // refused after the usage has been reserved.
+            int maxReferences = Math.Clamp(
+                image.MaxReferenceImages,
+                0,
+                AiRequestLimits.MaxImageReferences);
+            SupportsReferenceImage.Value = maxReferences > 0;
+            MaxReferenceImages.Value = maxReferences;
+            ShowChosenReferenceImages(maxReferences);
+        }
+        finally
+        {
+            _applyingCapabilities = false;
         }
 
         UpdateReferenceImageState();
+    }
+
+    // The pictures the user picked, as many of them as this model takes. A
+    // model that takes fewer sets the rest aside rather than throwing them
+    // away, so going back to one that takes them all asks for the same request
+    // again rather than a smaller one.
+    private void ShowChosenReferenceImages(int maxReferences)
+    {
+        string[] wanted = _chosenReferencePaths.Take(maxReferences).ToArray();
+        if (ReferenceImages.Select(reference => reference.Path).SequenceEqual(
+                wanted,
+                StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        foreach (AiReferenceImageViewModel shown in ReferenceImages)
+            shown.Dispose();
+        ReferenceImages.Clear();
+        foreach (string path in wanted)
+        {
+            if (LoadReference(path) is { } reference)
+                ReferenceImages.Add(reference);
+        }
     }
 
     private void UpdateReferenceImageState()
@@ -412,6 +472,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         foreach (AiReferenceImageViewModel reference in ReferenceImages)
             reference.Dispose();
         ReferenceImages.Clear();
+        _chosenReferencePaths.Clear();
         UpdateReferenceImageState();
     }
 
@@ -419,6 +480,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     {
         if (!ReferenceImages.Remove(reference))
             return;
+        _chosenReferencePaths.Remove(reference.Path);
         reference.Dispose();
         UpdateReferenceImageState();
     }
@@ -536,6 +598,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             AiReferenceImageViewModel last = ReferenceImages[^1];
             total -= SizeOf(last.Path);
             ReferenceImages.RemoveAt(ReferenceImages.Count - 1);
+            _chosenReferencePaths.Remove(last.Path);
             last.Dispose();
             dropped = true;
         }
@@ -948,6 +1011,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             if (LoadReference(path) is { } reference)
             {
                 ReferenceImages.Add(reference);
+                _chosenReferencePaths.Add(path);
                 total += size;
             }
         }

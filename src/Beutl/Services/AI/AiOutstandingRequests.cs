@@ -31,13 +31,26 @@ internal sealed class AiOutstandingRequests
 
     /// <summary>Whether any request being held matches <paramref name="predicate"/>.</summary>
     public bool Any(Func<string?[], bool> predicate)
+        => TryFind(predicate, out _);
+
+    /// <summary>
+    /// The first request being held that matches <paramref name="predicate"/>.
+    /// Reading what it was sent with is how a list fetched later lands on the
+    /// model that request named, rather than on whichever the account can
+    /// afford today.
+    /// </summary>
+    public bool TryFind(Func<string?[], bool> predicate, out string?[] request)
     {
         foreach (string?[] held in _byName.Values)
         {
             if (predicate(held))
+            {
+                request = held;
                 return true;
+            }
         }
 
+        request = [];
         return false;
     }
 }
