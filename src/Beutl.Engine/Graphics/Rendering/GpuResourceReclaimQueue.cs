@@ -1,5 +1,7 @@
 ﻿using Beutl.Graphics.Backend;
 
+using SkiaSharp;
+
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
@@ -66,23 +68,33 @@ internal static class GpuResourceReclaimQueue
     /// <summary>
     /// Submits and synchronizes the shared context, then destroys everything queued so far.
     /// </summary>
-    /// <returns><see langword="true"/> when a context-wide flush was performed.</returns>
-    public static bool FlushAndDrain()
+    /// <param name="samplingContext">
+    /// The context whose own flush the caller wants to skip, or <see langword="null"/> when the caller only
+    /// wants the queue drained and is not about to sample anything.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> only when the context-wide flush covered <paramref name="samplingContext"/>
+    /// itself. The queue is drained either way; a caller told <see langword="false"/> still has to submit
+    /// its own surface, because only the shared context is flushed here and a target from a caller-supplied
+    /// factory can live on another one — skipping its flush would let a snapshot read work never submitted.
+    /// </returns>
+    public static bool FlushAndDrain(GRRecordingContext? samplingContext = null)
     {
         if (s_pending.Count == 0 || s_draining || !RenderThread.Dispatcher.CheckAccess())
         {
             return false;
         }
 
-        bool flushed = false;
+        bool flushedSamplingContext = false;
         if (GraphicsContextFactory.SharedContext is { } context)
         {
-            context.SkiaContext.Flush(true, true);
-            flushed = true;
+            GRContext shared = context.SkiaContext;
+            shared.Flush(true, true);
+            flushedSamplingContext = samplingContext is null || ReferenceEquals(shared, samplingContext);
         }
 
         Drain();
-        return flushed;
+        return flushedSamplingContext;
     }
 
     private static void Drain()

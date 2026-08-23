@@ -445,9 +445,10 @@ public class RenderTarget : IDisposable
             texture?.PrepareForSkiaSampling(waitForCompletion);
         }
 
-        // A context-wide flush is a superset of this surface's, so reclaiming deferred targets
-        // here replaces the surface flush instead of adding a second submit.
-        if (GpuResourceReclaimQueue.FlushAndDrain())
+        // A context-wide flush is a superset of this surface's, so reclaiming deferred targets here
+        // replaces the surface flush instead of adding a second submit - but only when it flushed this
+        // surface's own context. A target from a caller-supplied factory can live on another one.
+        if (GpuResourceReclaimQueue.FlushAndDrain(_surface.Value!.Context))
         {
             waitForCompletion = true;
         }

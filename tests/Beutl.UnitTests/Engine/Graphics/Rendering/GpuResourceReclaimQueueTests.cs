@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -13,6 +14,74 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [NonParallelizable]
 public sealed class GpuResourceReclaimQueueTests
 {
+    /// <remarks>
+    /// Draining flushes the shared context only. A caller about to sample a surface skips its own flush
+    /// when told a context-wide flush covered it, so claiming that for a target from a caller-supplied
+    /// factory living on another context would let a snapshot read work that was never submitted.
+    /// </remarks>
+    [Test]
+    public void Draining_ForASurfaceOnAnotherContext_DoesNotClaimToHaveFlushedIt()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using IGraphicsContext foreign = GraphicsContextFactory.CreateContext();
+            using RenderTarget destination = CreateBackendTarget(64, 64);
+            using var canvas = new ImmediateCanvas(destination);
+            canvas.Clear(Colors.Black);
+
+            RenderTarget source = CreateBackendTarget(32, 32);
+            using (var sourceCanvas = new ImmediateCanvas(source))
+            {
+                sourceCanvas.Clear(Colors.Red);
+            }
+
+            GpuResourceReclaimQueue.FlushAndDrain();
+            canvas.DrawRenderTargetPixelsWithoutFlush(source, 0, 0);
+            source.Dispose();
+            Assert.That(GpuResourceReclaimQueue.PendingCount, Is.GreaterThan(0), "precondition");
+
+            bool claimedForeign = GpuResourceReclaimQueue.FlushAndDrain(foreign.SkiaContext);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(claimedForeign, Is.False);
+                Assert.That(
+                    GpuResourceReclaimQueue.PendingCount,
+                    Is.Zero,
+                    "The queue is drained either way; only the caller's flush is not substituted.");
+            });
+        });
+    }
+
+    [Test]
+    public void Draining_ForASurfaceOnTheSharedContext_ReplacesItsOwnFlush()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget destination = CreateBackendTarget(64, 64);
+            using var canvas = new ImmediateCanvas(destination);
+            canvas.Clear(Colors.Black);
+
+            RenderTarget source = CreateBackendTarget(32, 32);
+            using (var sourceCanvas = new ImmediateCanvas(source))
+            {
+                sourceCanvas.Clear(Colors.Red);
+            }
+
+            GpuResourceReclaimQueue.FlushAndDrain();
+            canvas.DrawRenderTargetPixelsWithoutFlush(source, 0, 0);
+            source.Dispose();
+            Assert.That(GpuResourceReclaimQueue.PendingCount, Is.GreaterThan(0), "precondition");
+
+            bool claimedShared = GpuResourceReclaimQueue.FlushAndDrain(
+                GraphicsContextFactory.SharedContext!.SkiaContext);
+
+            Assert.That(claimedShared, Is.True);
+        });
+    }
+
     [Test]
     public void ReleasingATargetReadByUnsubmittedWork_DefersItsDestruction()
     {
