@@ -91,6 +91,10 @@ public sealed class NativeFilterScratchTextureTests
 
         public void ClearToTransparent() => ClearCount++;
 
+        public void MarkContentsTransparent() => MarkedTransparentCount++;
+
+        public int MarkedTransparentCount { get; private set; }
+
         public void Dispose()
         {
         }

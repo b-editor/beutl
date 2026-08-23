@@ -395,6 +395,11 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         _hasTransparentContents = false;
     }
 
+    void ITransparentClearableTexture.MarkContentsTransparent()
+    {
+        _hasTransparentContents = true;
+    }
+
     public void TransitionTo(ImageLayout layout)
     {
         if (_currentLayout == layout)

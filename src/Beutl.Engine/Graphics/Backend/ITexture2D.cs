@@ -100,4 +100,15 @@ internal interface ITransparentClearableTexture
     /// Records a transparent clear unless the current recorded content is already known transparent.
     /// </summary>
     void ClearToTransparent();
+
+    /// <summary>
+    /// Records that something other than <see cref="ClearToTransparent"/> has just defined the whole
+    /// texture as transparent.
+    /// </summary>
+    /// <remarks>
+    /// A surface cleared through Skia leaves the image transparent too, but the backend cannot see that
+    /// write. Without this the texture keeps reporting unknown contents and the next caller that wants a
+    /// blank target clears an already-blank image.
+    /// </remarks>
+    void MarkContentsTransparent();
 }

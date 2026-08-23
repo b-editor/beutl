@@ -404,6 +404,12 @@ public class RenderTarget : IDisposable
         // bookkeeping, keeps the clear ahead of any such writer.
         _surface.Value.Flush(true, false);
         _hasTransparentContents = true;
+
+        // HasTransparentContents prefers the backend's record when there is one, and the clear above went
+        // through Skia, which the backend cannot observe. Telling it here is what keeps a reused pooled
+        // target from being cleared a second time by the next caller that wants a blank one.
+        if (_texture?.Value is ITransparentClearableTexture clearableTexture)
+            clearableTexture.MarkContentsTransparent();
     }
 
     internal void PrepareForSampling(RenderTargetSamplingIntent intent)
