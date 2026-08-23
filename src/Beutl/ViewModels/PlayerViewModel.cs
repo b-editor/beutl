@@ -2086,19 +2086,27 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 drawable.Render(context, resource);
             }
 
+            var request = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = compositionContext.TargetDomain,
+                OutputScale = 1,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            };
             using var renderer = new RenderNodeRenderer(
                 root,
                 new RenderNodeRendererOptions
                 {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = compositionContext.TargetDomain,
-                        OutputScale = 1,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    },
+                    DefaultRequest = request,
                 });
-            return PixelRect.FromRect(GetSelectedDrawableRasterRegion(renderer.Measure())).Size;
+            RenderNodeRenderRequest measureRequest = request with
+            {
+                TargetDomain = ResolveSelectedDrawableDomain(
+                    renderer,
+                    request,
+                    compositionContext.TargetDomain),
+            };
+            return PixelRect.FromRect(GetSelectedDrawableRasterRegion(renderer.Measure(measureRequest))).Size;
         });
     }
 
@@ -2138,8 +2146,15 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 {
                     DefaultRequest = request,
                 });
-            Rect outputBounds = GetSelectedDrawableRasterRegion(renderer.Measure());
-            using RenderNodeRasterization rasterization = renderer.Rasterize(request with
+            RenderNodeRenderRequest exportRequest = request with
+            {
+                TargetDomain = ResolveSelectedDrawableDomain(
+                    renderer,
+                    request,
+                    compositionContext.TargetDomain),
+            };
+            Rect outputBounds = GetSelectedDrawableRasterRegion(renderer.Measure(exportRequest));
+            using RenderNodeRasterization rasterization = renderer.Rasterize(exportRequest with
             {
                 RequestedRegion = outputBounds,
             });
@@ -2150,6 +2165,36 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     internal static Rect GetSelectedDrawableRasterRegion(RenderNodeMeasurement measurement)
         => measurement.OutputBounds;
+
+    /// <summary>
+    /// The target domain a selected-drawable export renders against: wide enough to own a fragment that
+    /// resolves its region from the target, but never narrower than the drawable itself.
+    /// </summary>
+    /// <remarks>
+    /// A request's target domain is a hard output clip, so exporting against the scene frame cropped an
+    /// element hanging over the edge and produced nothing at all for one entirely outside it - neither of
+    /// which is what "save this element as an image" means. Measuring without a domain first asks the
+    /// drawable how much room it actually takes. A subtree that genuinely needs an owning domain says so by
+    /// throwing, and keeps the frame.
+    /// </remarks>
+    internal static Rect? ResolveSelectedDrawableDomain(
+        RenderNodeRenderer renderer,
+        RenderNodeRenderRequest request,
+        Rect? frameDomain)
+    {
+        try
+        {
+            Rect measured = renderer.Measure(request with { TargetDomain = null }).OutputBounds;
+            if (measured.Width <= 0 || measured.Height <= 0)
+                return frameDomain;
+
+            return frameDomain is { } frame ? frame.Union(measured) : measured;
+        }
+        catch (RenderTargetDomainRequiredException)
+        {
+            return frameDomain;
+        }
+    }
 
     internal static CompositionContext CreateSelectedDrawableCompositionContext(
         TimeSpan frame,

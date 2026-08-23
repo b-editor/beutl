@@ -128,6 +128,70 @@ public class SelectedDrawableRenderTests
         Assert.That(playerBitmap.IsDisposed, Is.True);
     }
 
+    /// <remarks>
+    /// "Save this element as an image" is about the element, not about what the scene happens to show. The
+    /// export used to render against the scene frame as its target domain, which is a hard output clip, so
+    /// an element hanging over the edge came out cropped and one entirely outside it produced no output at
+    /// all and threw.
+    /// </remarks>
+    [AvaloniaTest]
+    public async Task Selected_drawable_outside_the_frame_is_still_exported_whole()
+    {
+        GpuTestGate.EnsureAvailable();
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditor("selected-drawable-off-frame");
+        var drawable = new RectShape
+        {
+            Width = { CurrentValue = 48 },
+            Height = { CurrentValue = 32 },
+            AlignmentX = { CurrentValue = AlignmentX.Left },
+            AlignmentY = { CurrentValue = AlignmentY.Top },
+            // The project frame is 320x240, so this sits entirely beyond its bottom-right corner.
+            Transform = { CurrentValue = new TranslateTransform(400, 300) },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
+        };
+
+        PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(drawable);
+        Bitmap bitmap = await editor.Player.DrawSelectedDrawable(drawable);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(measuredSize, Is.EqualTo(new PixelSize(48, 32)));
+                Assert.That(bitmap.Width, Is.EqualTo(48));
+                Assert.That(bitmap.Height, Is.EqualTo(32));
+            });
+            AssertOpaqueRedCenter(bitmap, "off-frame export");
+        }
+        finally
+        {
+            bitmap.Dispose();
+        }
+    }
+
+    /// <remarks>An element straddling the edge keeps the half the frame does not show.</remarks>
+    [AvaloniaTest]
+    public async Task Selected_drawable_straddling_the_frame_edge_keeps_its_hidden_half()
+    {
+        GpuTestGate.EnsureAvailable();
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditor("selected-drawable-straddling");
+        var drawable = new RectShape
+        {
+            Width = { CurrentValue = 48 },
+            Height = { CurrentValue = 32 },
+            AlignmentX = { CurrentValue = AlignmentX.Left },
+            AlignmentY = { CurrentValue = AlignmentY.Top },
+            // Half of its width hangs past the frame's right edge at x = 320.
+            Transform = { CurrentValue = new TranslateTransform(296, 100) },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
+        };
+
+        PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(drawable);
+
+        Assert.That(measuredSize, Is.EqualTo(new PixelSize(48, 32)));
+    }
+
     private static void AssertOpaqueRedCenter(Bitmap bitmap, string label)
     {
         Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.RgbaF16), label);
