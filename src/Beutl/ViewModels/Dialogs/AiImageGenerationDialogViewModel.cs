@@ -438,7 +438,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     // again rather than a smaller one.
     private void ShowChosenReferenceImages(int maxReferences)
     {
-        string[] wanted = _chosenReferencePaths.Take(maxReferences).ToArray();
+        string[] wanted = WithinTotalLimit(_chosenReferencePaths.Take(maxReferences));
         if (ReferenceImages.Select(reference => reference.Path).SequenceEqual(
                 wanted,
                 StringComparer.Ordinal))
@@ -590,21 +590,36 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     // waiting to be collected.
     private void TrimReferenceImagesToLimit()
     {
+        // 脇に置いてあるぶんも含めて切る。表示されているものだけを数えると、
+        // 上限が下がったあとに広いモデルへ戻したとき、上限を超えた組が戻って
+        // くる。
+        string[] within = WithinTotalLimit(_chosenReferencePaths);
+        if (within.Length == _chosenReferencePaths.Count)
+            return;
+
+        _chosenReferencePaths.Clear();
+        _chosenReferencePaths.AddRange(within);
+        ShowChosenReferenceImages(MaxReferenceImages.Value);
+        UpdateReferenceImageState();
+    }
+
+    // What the pictures may come to together is published by the server. The
+    // ones that fit, in the order they were picked.
+    private string[] WithinTotalLimit(IEnumerable<string> paths)
+    {
         long limit = ModelPicker.MaxImageReferencesTotalBytes;
-        long total = ReferenceImages.Sum(reference => SizeOf(reference.Path));
-        bool dropped = false;
-        while (ReferenceImages.Count > 0 && total > limit)
+        long total = 0;
+        var within = new List<string>();
+        foreach (string path in paths)
         {
-            AiReferenceImageViewModel last = ReferenceImages[^1];
-            total -= SizeOf(last.Path);
-            ReferenceImages.RemoveAt(ReferenceImages.Count - 1);
-            _chosenReferencePaths.Remove(last.Path);
-            last.Dispose();
-            dropped = true;
+            long size = SizeOf(path);
+            if (total + size > limit)
+                break;
+            within.Add(path);
+            total += size;
         }
 
-        if (dropped)
-            UpdateReferenceImageState();
+        return within.ToArray();
     }
 
     // A name the server never made a job under. Withdrawing it lets the picker

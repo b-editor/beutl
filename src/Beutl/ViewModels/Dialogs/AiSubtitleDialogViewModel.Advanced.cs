@@ -99,8 +99,14 @@ public sealed partial class AiSubtitleDialogViewModel
         HistoryOverwriteMessage.Value = null;
     }
 
+    // 上書きする前に断るかどうか。画面に出ているものだけでは足りない——最初の
+    // ひと切れを送ったきり何も返ってきていない実行は、見た目には何も無いのに
+    // 支払い済みかもしれない名前を抱えている。黙って消すと、それごと消える。
     private bool HasUnsavedCaptionWork()
-        => HasPartialResult.Value || _editableCues.Count > 0;
+        => HasPartialResult.Value
+            || _editableCues.Count > 0
+            || HasOutstandingTranscriptionRequest.Value
+            || HasOutstandingTranslationRequest.Value;
 
     private void ApplyHistoryResult(AiCaptionHistoryResult result)
     {
@@ -782,8 +788,14 @@ public sealed partial class AiSubtitleDialogViewModel
                 }
                 catch (AiProviderErrorException)
                 {
+                    // The server settled this chunk as failed and refunded it.
+                    // Its key would keep answering with that failure, so the
+                    // rest of the run takes new ones — written down as well, or
+                    // a run picked up later asks under the spent key again and
+                    // gets the same failure every time.
                     operation.RequestKey.Retire();
                     UpdateOutstandingCaptionRequest();
+                    PublishSceneTranscriptionPartial(operation);
                     throw;
                 }
                 catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))

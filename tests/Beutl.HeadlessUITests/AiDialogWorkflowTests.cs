@@ -410,6 +410,64 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageEdit_ComingBackToAnUncollectedTaskCanStillSendIt()
+    {
+        // 未回収の依頼を抱えたまま別の task を見て戻ってくる。戻り先の一覧を
+        // 取りに行けないと、画面は何も選べないまま送信も閉じ、支払い済みの依頼が
+        // 取り残される。
+        await TestReset.ResetShellAsync();
+        string sourcePath = Path.Combine(Path.GetTempPath(), $"source-{Guid.NewGuid():N}.png");
+        await File.WriteAllBytesAsync(sourcePath, s_png);
+        try
+        {
+            using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+            {
+                "/api/v3/user/entitlements" => JsonResponse(
+                    HttpStatusCode.OK,
+                    EntitlementsJson()),
+                "/api/v3/ai/images/edit" => JsonResponse(HttpStatusCode.Conflict, """
+                    {
+                      "error_code": "aiRequestInProgress",
+                      "message": "The first attempt is still running.",
+                      "documentation_url": null
+                    }
+                    """),
+                _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+            });
+            using var httpClient = new HttpClient(handler);
+            await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            SetAuthenticatedUser(clients, httpClient);
+            using var viewModel = CreateImageEditDialog(clients);
+            viewModel.SelectedTask.Value = viewModel.Tasks
+                .Single(task => task.Value == "upscale");
+            viewModel.SourceFilePath.Value = sourcePath;
+            await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+                && viewModel.CanEdit.Value);
+
+            await viewModel.Edit.ExecuteAsync();
+            Assert.That(
+                viewModel.Error.Value,
+                Is.EqualTo(Beutl.Language.Strings.AiRequestInProgress));
+
+            viewModel.SelectedTask.Value = viewModel.Tasks
+                .Single(task => task.Value == "remove_background");
+            await WaitUntilAsync(() => viewModel.ModelPicker.IsLoaded.Value);
+            viewModel.SelectedTask.Value = viewModel.Tasks
+                .Single(task => task.Value == "upscale");
+
+            await WaitUntilAsync(() => viewModel.CanEdit.Value);
+            Assert.That(
+                viewModel.ModelPicker.IsLoaded.Value,
+                Is.True,
+                "The task holding an uncollected request has its own list again.");
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ImageGeneration_ShowsTheRoughPictureWhileTheModelWorks()
     {
         await TestReset.ResetShellAsync();
