@@ -2,8 +2,15 @@
 
 public sealed class FFmpegWorkerException : Exception
 {
-    public FFmpegWorkerException(
-        string message, string? remoteStackTrace = null, int? ffmpegErrorCode = null)
+    // The original two-argument constructor is preserved so extensions compiled against an older
+    // Beutl.FFmpegIpc keep binding (an optional parameter would change the CLR signature to
+    // .ctor(string, string, int?) and fail with MissingMethodException at runtime).
+    public FFmpegWorkerException(string message, string? remoteStackTrace = null)
+        : this(message, remoteStackTrace, ffmpegErrorCode: null)
+    {
+    }
+
+    public FFmpegWorkerException(string message, string? remoteStackTrace = null, int? ffmpegErrorCode = null)
         : base(message)
     {
         RemoteStackTrace = remoteStackTrace;

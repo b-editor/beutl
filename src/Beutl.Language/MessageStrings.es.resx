@@ -428,4 +428,19 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="WindowCapture_FfmpegNotFound" xml:space="preserve">
     <value>No se encontró el ejecutable de ffmpeg. Instala ffmpeg y asegúrate de que esté en PATH.</value>
   </data>
+  <data name="FFmpegErrorInvalidData" xml:space="preserve">
+    <value>El archivo de entrada parece estar dañado, incompleto o aún en escritura. Vuelve a exportarlo o restáuralo e inténtalo de nuevo.</value>
+  </data>
+  <data name="FFmpegErrorDecoderNotFound" xml:space="preserve">
+    <value>No se encontró un decodificador para este códec en la compilación de FFmpeg incluida.</value>
+  </data>
+  <data name="FFmpegErrorDemuxerNotFound" xml:space="preserve">
+    <value>El formato de contenedor no es compatible con la compilación de FFmpeg incluida.</value>
+  </data>
+  <data name="FFmpegErrorProtocolNotFound" xml:space="preserve">
+    <value>El protocolo de transmisión no es compatible con la compilación de FFmpeg incluida.</value>
+  </data>
+  <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
+    <value>No se encontró ningún flujo adecuado en la entrada.</value>
+  </data>
 </root>

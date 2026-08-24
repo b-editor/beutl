@@ -21,7 +21,7 @@ public sealed class IpcMessage
     [JsonPropertyName("errorStack")]
     public string? ErrorStackTrace { get; set; }
 
-    // FFmpeg の AVERROR コード (負値)。非 FFmpeg 由来のエラーでは null。
+    // The FFmpeg AVERROR code (negative). Null for non-FFmpeg errors.
     [JsonPropertyName("errorCode")]
     public int? ErrorCode { get; set; }
 

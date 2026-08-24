@@ -385,14 +385,31 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         catch (Exception ex)
         {
-            ProgressText.Value = ex.Message;
-            string userMessage = ex is FFmpegWorkerException ffmpegEx
-                ? FFmpegErrorMessageMapper.Translate(ffmpegEx.FFmpegErrorCode, ffmpegEx.Message) ?? ex.Message
-                : ex.Message;
+            // Classify known FFmpeg failures into a localized user-facing description; the raw
+            // exception message (with its numeric AVERROR code) stays in diagnostics only.
+            string userMessage = ex.Message;
+            if (ex is FFmpegWorkerException ffmpegEx
+                && FFmpegErrorMessageMapper.TryClassify(ffmpegEx.FFmpegErrorCode, ffmpegEx.Message) is { } ffmpegErrorKind)
+            {
+                userMessage = ffmpegErrorKind switch
+                {
+                    FFmpegErrorKind.InvalidData => MessageStrings.FFmpegErrorInvalidData,
+                    FFmpegErrorKind.DecoderNotFound => MessageStrings.FFmpegErrorDecoderNotFound,
+                    FFmpegErrorKind.DemuxerNotFound => MessageStrings.FFmpegErrorDemuxerNotFound,
+                    FFmpegErrorKind.ProtocolNotFound => MessageStrings.FFmpegErrorProtocolNotFound,
+                    FFmpegErrorKind.StreamNotFound => MessageStrings.FFmpegErrorStreamNotFound,
+                    _ => ex.Message,
+                };
+            }
+
+            // Assign the translated text to the persistent progress text too: the Output tool keeps
+            // showing ProgressText after a failure, so it must not retain the raw AVERROR either.
+            ProgressText.Value = userMessage;
             NotificationService.ShowError(MessageStrings.OutputException, userMessage);
             if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
             {
-                // 通知用に翻訳した後も、診断ログには機械可読な AVERROR コードを残す。
+                // Keep the machine-readable AVERROR code in the diagnostic log after the user-facing
+                // translation so telemetry can still group failures by code.
                 _logger.LogError(
                     ex, "An exception occurred during the encoding process. FFmpegErrorCode={FFmpegErrorCode}",
                     ffmpegErrorCode);

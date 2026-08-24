@@ -25,7 +25,8 @@ public sealed class FFmpegErrorMessageMapperTests
     [Test]
     public void Translate_InvalidDataTextWithoutCode_TranslatesViaMessageMatch()
     {
-        // EncodeComplete など FFmpegErrorCode を載せない経路でも翻訳できること。
+        // Paths that do not carry FFmpegErrorCode (e.g. EncodeComplete) must still translate
+        // by matching the known message text.
 
         string? translated = FFmpegErrorMessageMapper.Translate(null, InvalidDataMessage);
 
@@ -50,5 +51,34 @@ public sealed class FFmpegErrorMessageMapperTests
             FFmpegErrorMessageMapper.InvalidDataCode, InvalidDataMessage, "Prefix: {0}");
 
         Assert.That(translated, Does.StartWith("Prefix: "));
+    }
+
+    [Test]
+    public void TryClassify_KnownCodes_MapToStableKinds()
+    {
+        Assert.That(
+            FFmpegErrorMessageMapper.TryClassify(FFmpegErrorMessageMapper.InvalidDataCode, null),
+            Is.EqualTo(FFmpegErrorKind.InvalidData));
+        Assert.That(
+            FFmpegErrorMessageMapper.TryClassify(FFmpegErrorMessageMapper.DecoderNotFoundCode, null),
+            Is.EqualTo(FFmpegErrorKind.DecoderNotFound));
+        Assert.That(
+            FFmpegErrorMessageMapper.TryClassify(FFmpegErrorMessageMapper.DemuxerNotFoundCode, null),
+            Is.EqualTo(FFmpegErrorKind.DemuxerNotFound));
+        Assert.That(
+            FFmpegErrorMessageMapper.TryClassify(FFmpegErrorMessageMapper.ProtocolNotFoundCode, null),
+            Is.EqualTo(FFmpegErrorKind.ProtocolNotFound));
+        Assert.That(
+            FFmpegErrorMessageMapper.TryClassify(FFmpegErrorMessageMapper.StreamNotFoundCode, null),
+            Is.EqualTo(FFmpegErrorKind.StreamNotFound));
+    }
+
+    [Test]
+    public void TryClassify_LegacyInvalidDataTextWithoutCode_ClassifiesAsInvalidData()
+    {
+        Assert.That(
+            FFmpegErrorMessageMapper.TryClassify(null, InvalidDataMessage),
+            Is.EqualTo(FFmpegErrorKind.InvalidData));
+        Assert.That(FFmpegErrorMessageMapper.TryClassify(null, "some other error"), Is.Null);
     }
 }

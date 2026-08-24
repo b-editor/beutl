@@ -428,4 +428,19 @@
   <data name="WindowCapture_FfmpegNotFound" xml:space="preserve">
     <value>ffmpeg 실행 파일을 찾을 수 없습니다. ffmpeg를 설치하고 PATH에 있는지 확인하세요.</value>
   </data>
+  <data name="FFmpegErrorInvalidData" xml:space="preserve">
+    <value>입력 파일이 손상되었거나 아직 쓰기가 완료되지 않은 것 같습니다. 파일을 다시 내보내거나 복원한 후 다시 시도하세요.</value>
+  </data>
+  <data name="FFmpegErrorDecoderNotFound" xml:space="preserve">
+    <value>포함된 FFmpeg 빌드에서 이 코덱에 해당하는 디코더를 찾을 수 없습니다.</value>
+  </data>
+  <data name="FFmpegErrorDemuxerNotFound" xml:space="preserve">
+    <value>이 컨테이너 형식은 포함된 FFmpeg 빌드에서 지원되지 않습니다.</value>
+  </data>
+  <data name="FFmpegErrorProtocolNotFound" xml:space="preserve">
+    <value>이 스트림 프로토콜은 포함된 FFmpeg 빌드에서 지원되지 않습니다.</value>
+  </data>
+  <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
+    <value>입력에서 적합한 스트림을 찾을 수 없습니다.</value>
+  </data>
 </root>

@@ -10,8 +10,8 @@ public sealed class FFmpegErrorCodeExtractorTests
     // (moov atom not found) surfaces as AVERROR_INVALIDDATA.
     private const int InvalidDataCode = -1094995529;
 
-    // FFmpegException(error) コンストラクタは av_strerror でメッセージを生成するためネイティブが
-    // 必要。EncodingCancellationTests と同じく、ロードできない環境では自己スキップする。
+    // The FFmpegException(error) constructor builds its message through av_strerror, which needs
+    // the FFmpeg natives. Like EncodingCancellationTests, self-skip when they cannot be loaded.
     private static bool RequireFFmpeg()
     {
         try
@@ -32,7 +32,8 @@ public sealed class FFmpegErrorCodeExtractorTests
         if (!RequireFFmpeg())
             return;
 
-        // ThrowIfError (MediaDemuxer.Open などの実経路) と同じく FFmpegException(error) を使う。
+        // Use FFmpegException(error), exactly like ThrowIfError does on real paths such as
+        // MediaDemuxer.Open.
         var ex = new FFmpegException(InvalidDataCode);
 
         Assert.That(FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(ex), Is.EqualTo(InvalidDataCode));
@@ -61,8 +62,8 @@ public sealed class FFmpegErrorCodeExtractorTests
     [Test]
     public void TryGetFFmpegErrorCode_PlainStringFFmpegException_ReturnsNull()
     {
-        // プレーン文字列コンストラクタはコードを持たない (ThrowIfError 経由ではない)。
-        // ネイティブ非依存のためネイティブの有無に関わらず検証できる。
+        // The plain-string constructor carries no code (it is not produced by ThrowIfError).
+        // This is native-independent, so it can be verified regardless of native availability.
         Assert.That(
             FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(new FFmpegException("manual message")),
             Is.Null);

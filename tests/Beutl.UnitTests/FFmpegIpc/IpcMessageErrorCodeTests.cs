@@ -41,7 +41,7 @@ public sealed class IpcMessageErrorCodeTests
     [Test]
     public void CreateError_WithoutErrorCode_KeepsErrorCodeNull()
     {
-        // 後方互換: 既存の2引数/3引数呼び出しは ErrorCode=null のまま。
+        // Backward compatibility: existing two/three-argument calls keep ErrorCode == null.
         var msg = IpcMessage.CreateError(1, "plain error");
 
         Assert.That(msg.ErrorCode, Is.Null);

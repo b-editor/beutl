@@ -1,5 +1,9 @@
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
+using Beutl.FFmpegIpc;
+using Beutl.FFmpegIpc.Protocol;
+using Beutl.FFmpegIpc.Protocol.Messages;
+using Beutl.FFmpegIpc.Transport;
 using Beutl.Media.Decoding;
 
 namespace Beutl.FFmpegIpc.Tests;
@@ -22,8 +26,8 @@ public class FFmpegReaderProxyOpenContractTests
     {
         _moovMissingPath = Path.Combine(
             Path.GetTempPath(), $"beutl-ffmpeg-moovmissing-{Guid.NewGuid():N}.mp4");
-        // ftyp ボックスのみ (moov なし) — FFmpeg の mov デマッキサーが "moov atom not found" で
-        // AVERROR_INVALIDDATA を返す最小構成。
+        // An ftyp box only (no moov): the minimal layout that makes FFmpeg's mov demuxer fail
+        // with "moov atom not found" / AVERROR_INVALIDDATA.
         File.WriteAllBytes(_moovMissingPath,
         [
             0x00, 0x00, 0x00, 0x18, (byte)'f', (byte)'t', (byte)'y', (byte)'p',
@@ -77,7 +81,36 @@ public class FFmpegReaderProxyOpenContractTests
             "An mp4 without a moov atom cannot be opened; FFmpeg rejects it with AVERROR_INVALIDDATA.");
     }
 
-    // 同じプロセスレベル検査は既存の ReadVideo 契約テストと同じ条件 (worker バイナリの有無) に合わせる。
+    [Test]
+    public void OpenFile_Mp4WithoutMoovAtom_WorkerReportsInvalidDataErrorCode()
+    {
+        if (!WorkerProbe.WorkerBinaryPresent())
+        {
+            Assert.Ignore("FFmpeg worker binary not present in the test output; skipping.");
+        }
+
+        IpcConnection connection = GetConnectionOrIgnore();
+
+        var request = new OpenFileRequest
+        {
+            FilePath = _moovMissingPath,
+            StreamsToLoad = (int)MediaMode.Video,
+        };
+
+        // Assert the worker contract directly: FFmpegDecoderInfo.Open swallows every exception into
+        // a null reader, so its fallback test alone cannot distinguish the expected AVERROR from an
+        // IPC failure or any other exception. Exercise the OpenFile IPC operation and require the
+        // AVERROR_INVALIDDATA code on the surfaced FFmpegWorkerException.
+        var thrown = Assert.Throws<FFmpegWorkerException>(() =>
+            connection.RequestAsync<OpenFileRequest, OpenFileResponse>(
+                MessageType.OpenFile, MessageType.OpenFileResult, request)
+                .GetAwaiter().GetResult());
+
+        Assert.That(thrown!.FFmpegErrorCode, Is.EqualTo(FFmpegErrorMessageMapper.InvalidDataCode),
+            "The worker must surface AVERROR_INVALIDDATA as a structured error code, not just text.");
+    }
+
+    // Same process-level prerequisites as the existing ReadVideo contract test (worker binary present).
     private static class WorkerProbe
     {
         public static bool WorkerBinaryPresent()
@@ -85,6 +118,21 @@ public class FFmpegReaderProxyOpenContractTests
             string baseDir = AppContext.BaseDirectory;
             return File.Exists(Path.Combine(baseDir, "Beutl.FFmpegWorker.dll"))
                 || File.Exists(Path.Combine(baseDir, "FFmpegWorker", "Beutl.FFmpegWorker.dll"));
+        }
+    }
+
+    // Assert.Ignore throws, but the compiler cannot see that the catch block never falls through, so
+    // a local assigned only in the try stays "unassigned" for definite-assignment analysis.
+    private static IpcConnection GetConnectionOrIgnore()
+    {
+        try
+        {
+            return FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
+        }
+        catch (FFmpegLibrariesNotFoundException ex)
+        {
+            Assert.Ignore($"FFmpeg natives unavailable ({ex.Message}); skipping.");
+            throw; // unreachable: Assert.Ignore throws IgnoreException
         }
     }
 }
