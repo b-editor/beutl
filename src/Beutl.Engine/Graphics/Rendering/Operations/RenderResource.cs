@@ -258,21 +258,25 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         ArgumentNullException.ThrowIfNull(use);
         EnsureCommitted(resource);
 
+        // A lease is a read, and one composable definition can reach the same declared resource twice: a
+        // scope that binds a token and replays an input that binds the same one runs the inner read inside
+        // the outer lease. Refusing that made two definitions uncomposable for sharing a resource, so the
+        // outermost lease owns the state and an inner one just reads through it.
         RenderResourceRegistration slot = resource.Slot;
-        if (slot.State == RenderResourceOwnershipState.LeasedToCallback)
+        RenderResourceOwnershipState returnState = slot.State;
+        bool ownsLease = returnState != RenderResourceOwnershipState.LeasedToCallback;
+        if (ownsLease)
         {
-            throw new InvalidOperationException("A render resource cannot be leased by nested callbacks.");
+            slot.State = RenderResourceOwnershipState.LeasedToCallback;
         }
 
-        RenderResourceOwnershipState returnState = slot.State;
-        slot.State = RenderResourceOwnershipState.LeasedToCallback;
         try
         {
             return use(slot.RawValue);
         }
         finally
         {
-            if (slot.State == RenderResourceOwnershipState.LeasedToCallback)
+            if (ownsLease && slot.State == RenderResourceOwnershipState.LeasedToCallback)
             {
                 slot.State = returnState;
             }

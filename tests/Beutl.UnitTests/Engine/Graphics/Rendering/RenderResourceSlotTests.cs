@@ -35,6 +35,42 @@ public sealed class RenderResourceSlotTests
         Assert.That(reached, Is.EqualTo(new[] { "left", "right" }));
     }
 
+    /// <remarks>
+    /// One composable definition can reach the same declared resource twice: a scope binds a token and
+    /// replays an input that binds the same one, so the inner read runs inside the outer lease. Refusing
+    /// that made two definitions uncomposable merely for sharing a resource.
+    /// </remarks>
+    [Test]
+    public void TheSameRegistrationCanBeReadInsideItsOwnLease()
+    {
+        var payload = new Payload("shared");
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<Payload> token = registry.RegisterBorrowed(payload);
+        registry.Commit(token);
+
+        var slot = new RenderResourceSlot<Payload>();
+        RenderResourceBinding[] bindings = [slot.Bind(token)];
+        var reached = new List<string>();
+        var session = new RenderExecutionSessionToken();
+
+        Assert.That(
+            () => session.RunAndComplete(() =>
+                session.UseResource(
+                    slot,
+                    bindings,
+                    outer =>
+                    {
+                        reached.Add("outer:" + outer.Name);
+                        session.UseResource(
+                            slot,
+                            bindings,
+                            inner => reached.Add("inner:" + inner.Name));
+                    })),
+            Throws.Nothing);
+
+        Assert.That(reached, Is.EqualTo(new[] { "outer:shared", "inner:shared" }));
+    }
+
     [Test]
     public void MissingSlotFailsWithoutFallingBackToAnotherSameTypedBinding()
     {
