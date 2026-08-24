@@ -1,4 +1,6 @@
 ﻿using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Beutl.Graphics.Effects;
 
 namespace Beutl.Graphics.Rendering;
@@ -82,7 +84,17 @@ internal sealed class StructuralPlanCache : IDisposable
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            foreach (int slot in _entries.Keys.Where(slot => slot >= count).ToArray())
+            List<int>? staleSlots = null;
+            foreach (int slot in _entries.Keys)
+            {
+                if (slot >= count)
+                    (staleSlots ??= []).Add(slot);
+            }
+
+            if (staleSlots is null)
+                return;
+
+            foreach (int slot in staleSlots)
                 _entries.Remove(slot);
         }
     }
@@ -165,28 +177,25 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
         for (int index = 0; index < references.Length; index++)
             fragments[index] = StructuralFragmentIdentity.Create(references[index], indexes);
 
-        int[] publicationRoots = graph.PublicationRoots
-            .Select(id => GetFragmentIndex(id, graph))
-            .ToArray();
+        ImmutableArray<RenderFragmentId> roots = graph.PublicationRoots;
+        int[] publicationRoots = roots.Length == 0 ? [] : new int[roots.Length];
+        for (int index = 0; index < roots.Length; index++)
+            publicationRoots[index] = GetFragmentIndex(roots[index], graph);
+
         StructuralCacheBoundaryIdentity[] cacheBoundaries = cacheResolution is null
-            ? graph.CacheCandidates
-                .Select(candidate => new StructuralCacheBoundaryIdentity(
-                    GetFragmentIndex(candidate.FragmentId, graph),
-                    RenderCacheResolutionKind.Bypass))
-                .ToArray()
-            : cacheResolution.Decisions
-                .Where(static decision => decision.Kind is RenderCacheResolutionKind.Hit
-                    or RenderCacheResolutionKind.MissCapture)
-                .Select(decision => new StructuralCacheBoundaryIdentity(
-                    GetFragmentIndex(decision.Candidate.FragmentId, graph),
-                    decision.Kind))
-                .ToArray();
-        StructuralPlanIdentity[] nestedRequests = graph.NestedRequests
-            .Select(nested => Create(
-                nested.Request.Options.PlanIdentity,
-                nested.Graph,
-                shaderBudget))
-            .ToArray();
+            ? CreateBypassBoundaries(graph)
+            : CreateResolvedBoundaries(cacheResolution, graph);
+
+        ImmutableArray<RecordedNestedRenderRequest> nested = graph.NestedRequests;
+        StructuralPlanIdentity[] nestedRequests =
+            nested.Length == 0 ? [] : new StructuralPlanIdentity[nested.Length];
+        for (int index = 0; index < nested.Length; index++)
+        {
+            nestedRequests[index] = Create(
+                nested[index].Request.Options.PlanIdentity,
+                nested[index].Graph,
+                shaderBudget);
+        }
 
         return new StructuralPlanIdentity(
             request,
@@ -225,6 +234,57 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
         return hash.ToHashCode();
     }
 
+    private static StructuralCacheBoundaryIdentity[] CreateBypassBoundaries(RecordedRenderGraph graph)
+    {
+        ImmutableArray<RenderCacheCandidate> candidates = graph.CacheCandidates;
+        if (candidates.Length == 0)
+            return [];
+
+        var boundaries = new StructuralCacheBoundaryIdentity[candidates.Length];
+        for (int index = 0; index < candidates.Length; index++)
+        {
+            boundaries[index] = new StructuralCacheBoundaryIdentity(
+                GetFragmentIndex(candidates[index].FragmentId, graph),
+                RenderCacheResolutionKind.Bypass);
+        }
+
+        return boundaries;
+    }
+
+    private static StructuralCacheBoundaryIdentity[] CreateResolvedBoundaries(
+        RenderCacheResolution cacheResolution,
+        RecordedRenderGraph graph)
+    {
+        ImmutableArray<RenderCacheDecision> decisions = cacheResolution.Decisions;
+        int retained = 0;
+        for (int index = 0; index < decisions.Length; index++)
+        {
+            if (IsBoundary(decisions[index].Kind))
+                retained++;
+        }
+
+        if (retained == 0)
+            return [];
+
+        var boundaries = new StructuralCacheBoundaryIdentity[retained];
+        int write = 0;
+        for (int index = 0; index < decisions.Length; index++)
+        {
+            RenderCacheDecision decision = decisions[index];
+            if (!IsBoundary(decision.Kind))
+                continue;
+
+            boundaries[write++] = new StructuralCacheBoundaryIdentity(
+                GetFragmentIndex(decision.Candidate.FragmentId, graph),
+                decision.Kind);
+        }
+
+        return boundaries;
+
+        static bool IsBoundary(RenderCacheResolutionKind kind)
+            => kind is RenderCacheResolutionKind.Hit or RenderCacheResolutionKind.MissCapture;
+    }
+
     private static int GetFragmentIndex(RenderFragmentId id, RecordedRenderGraph graph)
     {
         if (id.RequestId != graph.RequestId || id.Value <= 0 || id.Value > graph.Fragments.Length)
@@ -247,12 +307,12 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
     private readonly bool _potentiallyWritesTarget;
     private readonly bool _hasOpaqueExternalWork;
     private readonly int[] _inputs;
-    private readonly object[] _components;
+    private readonly Component[] _components;
 
     private StructuralFragmentIdentity(
         RenderFragmentReference reference,
         int[] inputs,
-        object[] components)
+        Component[] components)
     {
         _kind = reference.Kind;
         _cardinality = reference.ValueCardinality;
@@ -271,7 +331,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(indexes);
-        int[] inputs = new int[reference.Inputs.Length];
+        int[] inputs = reference.Inputs.Length == 0 ? [] : new int[reference.Inputs.Length];
         for (int index = 0; index < reference.Inputs.Length; index++)
         {
             if (!indexes.TryGetValue(reference.Inputs[index], out inputs[index]))
@@ -281,47 +341,35 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
             }
         }
 
-        var components = new List<object>();
+        ComponentBuilder components = ComponentBuilder.Rent();
         if (reference.Kind is RenderFragmentKind.Shader or RenderFragmentKind.Opacity
             && reference.Inputs.Length == 1)
         {
-            components.Add(ExecutionIslandPlanner.HasCompatibleMergeScale(
+            components.AddBoolean(ExecutionIslandPlanner.HasCompatibleMergeScale(
                 reference.Inputs[0],
                 reference));
             if (reference.Kind == RenderFragmentKind.Opacity)
             {
-                components.Add(ExecutionIslandPlanner.HasCompatibleOpacityFusionMetadata(
+                components.AddBoolean(ExecutionIslandPlanner.HasCompatibleOpacityFusionMetadata(
                     reference.Inputs[0],
                     reference));
             }
         }
-        AddPayloadComponents(reference, components);
-        return new StructuralFragmentIdentity(reference, inputs, components.ToArray());
+        AddPayloadComponents(reference, ref components);
+        return new StructuralFragmentIdentity(reference, inputs, components.Build());
     }
 
     public bool Equals(StructuralFragmentIdentity? other)
-    {
-        if (other is null
-            || _kind != other._kind
-            || !_cardinality.Equals(other._cardinality)
-            || _contributesValuesToTarget != other._contributesValuesToTarget
-            || _canBeUsedAsValueInput != other._canBeUsedAsValueInput
-            || _hasTargetEffects != other._hasTargetEffects
-            || _potentiallyWritesTarget != other._potentiallyWritesTarget
-            || _hasOpaqueExternalWork != other._hasOpaqueExternalWork
-            || !_inputs.AsSpan().SequenceEqual(other._inputs)
-            || _components.Length != other._components.Length)
-        {
-            return false;
-        }
-
-        for (int index = 0; index < _components.Length; index++)
-        {
-            if (!Equals(_components[index], other._components[index]))
-                return false;
-        }
-        return true;
-    }
+        => other is not null
+           && _kind == other._kind
+           && _cardinality.Equals(other._cardinality)
+           && _contributesValuesToTarget == other._contributesValuesToTarget
+           && _canBeUsedAsValueInput == other._canBeUsedAsValueInput
+           && _hasTargetEffects == other._hasTargetEffects
+           && _potentiallyWritesTarget == other._potentiallyWritesTarget
+           && _hasOpaqueExternalWork == other._hasOpaqueExternalWork
+           && _inputs.AsSpan().SequenceEqual(other._inputs)
+           && _components.AsSpan().SequenceEqual(other._components);
 
     public override bool Equals(object? obj)
         => obj is StructuralFragmentIdentity other && Equals(other);
@@ -338,104 +386,90 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
         hash.Add(_hasOpaqueExternalWork);
         foreach (int input in _inputs)
             hash.Add(input);
-        foreach (object component in _components)
+        foreach (Component component in _components)
             hash.Add(component);
         return hash.ToHashCode();
     }
 
     private static void AddPayloadComponents(
         RenderFragmentReference reference,
-        ICollection<object> components)
+        ref ComponentBuilder components)
     {
         switch (reference.Payload)
         {
             case null:
                 return;
             case OpacityRenderFragmentPayload opacity:
-                components.Add(opacity.FusionDescription.StructuralIdentity);
-                components.Add(opacity.Opacity is >= 0 and <= 1);
+                components.AddReference(opacity.FusionDescription.StructuralIdentity);
+                components.AddBoolean(opacity.Opacity is >= 0 and <= 1);
                 return;
             case BlendRenderFragmentPayload:
                 return;
             case OpacityMaskRenderFragmentPayload mask:
-                AddResourceTypes([mask.Mask], components);
+                AddResourceType(mask.Mask, ref components);
                 return;
             case ShaderRenderFragmentPayload shader:
-                components.Add(shader.Description.StructuralIdentity);
-                AddWorkingScalePolicy(shader.WorkingScalePolicy, components);
+                components.AddReference(shader.Description.StructuralIdentity);
+                AddWorkingScalePolicy(shader.WorkingScalePolicy, ref components);
                 return;
             case GeometryRenderFragmentPayload geometry:
-                components.Add(geometry.Description.StructuralIdentity);
-                AddWorkingScalePolicy(geometry.WorkingScalePolicy, components);
+                components.AddReference(geometry.Description.StructuralIdentity);
+                AddWorkingScalePolicy(geometry.WorkingScalePolicy, ref components);
                 return;
             case LayerRenderFragmentPayload layer:
-                components.Add(layer.Domain.HasValue);
-                components.Add(layer.DomainIsQueryFootprint);
+                components.AddBoolean(layer.Domain.HasValue);
+                components.AddBoolean(layer.DomainIsQueryFootprint);
                 return;
             case TargetLayerScopeRenderFragmentPayload targetLayer:
-                components.Add(targetLayer.Region.Kind != TargetRegionKind.Empty);
+                components.AddBoolean(targetLayer.Region.Kind != TargetRegionKind.Empty);
                 return;
             case OpaqueRenderFragmentPayload opaque:
-                components.Add(opaque.Description.GetStructuralIdentity(opaque.Topology));
-                components.Add(opaque.Description.Bounds.StructuralIdentity);
-                components.Add(opaque.Description.HitTest.StructuralIdentity);
-                components.Add(opaque.Description.Scale.StructuralIdentity);
-                components.Add(opaque.Description.InputDemand.StructuralIdentity);
-                components.Add(opaque.InputReadbacks.Count);
-                foreach (RenderInputReadback inputReadback in opaque.InputReadbacks)
-                {
-                    components.Add(inputReadback.StructuralKind);
-                    components.Add(inputReadback.ValueIndices.Count);
-                    foreach (int valueIndex in inputReadback.ValueIndices)
-                        components.Add(valueIndex);
-                }
-                AddResourceTypes(opaque.Description.Resources, components);
+                AddOpaqueStructuralIdentity(opaque, ref components);
+                components.AddReference(opaque.Description.Bounds.StructuralIdentity);
+                components.AddReference(opaque.Description.HitTest.StructuralIdentity);
+                components.AddReference(opaque.Description.Scale.StructuralIdentity);
+                components.AddReference(opaque.Description.InputDemand.StructuralIdentity);
+                AddInputReadbacks(opaque.InputReadbacks, ref components);
+                AddResourceTypes(opaque.Description.Resources, ref components);
                 return;
             case FilterEffectSegmentRenderFragmentPayload effectItem:
-                AddWorkingScalePolicy(effectItem.WorkingScalePolicy, components);
-                components.Add(effectItem.StreamInputCount);
+                AddWorkingScalePolicy(effectItem.WorkingScalePolicy, ref components);
+                components.AddInt32(effectItem.StreamInputCount);
                 // Whether the segment holds an imperative callback decides why its island ends, and the
                 // boundary reason is part of the plan being cached. Two segments that agree on everything
                 // else would otherwise share a plan whose classification contradicts one of their graphs.
-                components.Add(effectItem.HasImperativeItem);
+                components.AddBoolean(effectItem.HasImperativeItem);
                 return;
             case MaterializedInputRenderFragmentPayload input:
-                components.Add(input.Description.HitTest.StructuralIdentity);
+                components.AddReference(input.Description.HitTest.StructuralIdentity);
                 return;
             case TargetCaptureRenderFragmentPayload capture:
-                AddTargetCaptureComponents(capture.Description, components);
+                AddTargetCaptureComponents(capture.Description, ref components);
                 return;
             case BuiltInBackdropCaptureRenderFragmentPayload capture:
-                AddTargetCaptureComponents(capture.Description, components);
+                AddTargetCaptureComponents(capture.Description, ref components);
                 return;
             case TargetScopeRenderFragmentPayload scope:
-                AddTargetScopeComponents(scope.Description, components);
+                AddTargetScopeComponents(scope.Description, ref components);
                 return;
             case RawTargetScopeRenderFragmentPayload scope:
-                components.Add(scope.Description.DefinitionFingerprint);
-                components.Add(scope.Description.Bounds.StructuralIdentity);
-                components.Add(scope.Description.HitTest.StructuralIdentity);
-                components.Add(scope.Description.Scale.StructuralIdentity);
-                AddResourceTypes(scope.Description.Resources, components);
+                components.AddReference(scope.Description.DefinitionFingerprint);
+                components.AddReference(scope.Description.Bounds.StructuralIdentity);
+                components.AddReference(scope.Description.HitTest.StructuralIdentity);
+                components.AddReference(scope.Description.Scale.StructuralIdentity);
+                AddResourceTypes(scope.Description.Resources, ref components);
                 return;
             case RawTargetCommandRenderFragmentPayload command:
-                components.Add(command.Description.DefinitionFingerprint);
-                components.Add(command.Description.HitTest.StructuralIdentity);
-                AddResourceTypes(command.Description.Resources, components);
+                components.AddReference(command.Description.DefinitionFingerprint);
+                components.AddReference(command.Description.HitTest.StructuralIdentity);
+                AddResourceTypes(command.Description.Resources, ref components);
                 return;
             case TargetCommandRenderFragmentPayload command:
-                components.Add(command.Description.DefinitionFingerprint);
-                components.Add(command.Description.Access);
-                components.Add(command.InputReadbacks.Count);
-                foreach (RenderInputReadback inputReadback in command.InputReadbacks)
-                {
-                    components.Add(inputReadback.StructuralKind);
-                    components.Add(inputReadback.ValueIndices.Count);
-                    foreach (int valueIndex in inputReadback.ValueIndices)
-                        components.Add(valueIndex);
-                }
-                components.Add(command.Description.HitTest.StructuralIdentity);
-                AddResourceTypes(command.Description.Resources, components);
+                components.AddReference(command.Description.DefinitionFingerprint);
+                components.AddEnum(command.Description.Access);
+                AddInputReadbacks(command.InputReadbacks, ref components);
+                components.AddReference(command.Description.HitTest.StructuralIdentity);
+                AddResourceTypes(command.Description.Resources, ref components);
                 return;
             default:
                 throw new InvalidOperationException(
@@ -443,54 +477,192 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
         }
     }
 
+    // Mirrors the members OpaqueRenderDescription.GetStructuralIdentity composes, one component each, so that
+    // the identity carries them without the record struct that call would allocate on every frame.
+    private static void AddOpaqueStructuralIdentity(
+        OpaqueRenderFragmentPayload opaque,
+        ref ComponentBuilder components)
+    {
+        OpaqueRenderDescription description = opaque.Description;
+        components.AddEnum(opaque.Topology);
+        components.AddReference(description.DefinitionFingerprint);
+        components.AddEnum(description.DeviceGridSensitivity);
+        components.AddEnum(description.BackendBoundary);
+        components.AddBoolean(description.HasDirectReplayMaterializationContract);
+        components.AddBoolean(description.DirectReplayAtExactIntegerReduction);
+        components.AddBoolean(description.SupportsDirectDstOut);
+    }
+
+    private static void AddInputReadbacks(
+        IReadOnlyList<RenderInputReadback> readbacks,
+        ref ComponentBuilder components)
+    {
+        components.AddInt32(readbacks.Count);
+        for (int index = 0; index < readbacks.Count; index++)
+        {
+            RenderInputReadback readback = readbacks[index];
+            components.AddInt32(readback.StructuralKind);
+            IReadOnlyList<int> valueIndices = readback.ValueIndices;
+            components.AddInt32(valueIndices.Count);
+            for (int valueIndex = 0; valueIndex < valueIndices.Count; valueIndex++)
+                components.AddInt32(valueIndices[valueIndex]);
+        }
+    }
+
     private static void AddTargetCaptureComponents(
         TargetCaptureDescription description,
-        ICollection<object> components)
+        ref ComponentBuilder components)
     {
-        components.Add(description.HitTest.StructuralIdentity);
-        components.Add(description.Scale.StructuralIdentity);
+        components.AddReference(description.HitTest.StructuralIdentity);
+        components.AddReference(description.Scale.StructuralIdentity);
     }
 
     private static void AddWorkingScalePolicy(
         FilterEffectWorkingScalePolicy? policy,
-        ICollection<object> components)
+        ref ComponentBuilder components)
     {
-        components.Add(policy.HasValue);
+        components.AddBoolean(policy.HasValue);
         if (policy is { } value)
-            components.Add(value.StructuralIdentity);
+            components.AddReference(value.StructuralIdentity);
     }
 
     private static void AddTargetScopeComponents(
         TargetScopeDescription description,
-        ICollection<object> components)
+        ref ComponentBuilder components)
     {
-        components.Add(description.DefinitionFingerprint);
-        components.Add(description.Bounds.StructuralIdentity);
-        components.Add(description.HitTest.StructuralIdentity);
-        components.Add(description.Scale.StructuralIdentity);
-        components.Add(description.IsValueReplayMap);
-        components.Add(description.TransformSpace);
-        components.Add(description.BuiltInBackdropCapturesBackingTarget);
-        AddResourceTypes(description.Resources, components);
+        components.AddReference(description.DefinitionFingerprint);
+        components.AddReference(description.Bounds.StructuralIdentity);
+        components.AddReference(description.HitTest.StructuralIdentity);
+        components.AddReference(description.Scale.StructuralIdentity);
+        components.AddBoolean(description.IsValueReplayMap);
+        components.AddEnum(description.TransformSpace);
+        components.AddBoolean(description.BuiltInBackdropCapturesBackingTarget);
+        AddResourceTypes(description.Resources, ref components);
+    }
+
+    private static void AddResourceType(RenderResource resource, ref ComponentBuilder components)
+    {
+        components.AddInt32(1);
+        components.AddReference(resource.GetType());
     }
 
     private static void AddResourceTypes(
         IReadOnlyList<RenderResource> resources,
-        ICollection<object> components)
+        ref ComponentBuilder components)
     {
-        components.Add(resources.Count);
-        foreach (RenderResource resource in resources)
-            components.Add(resource.GetType());
+        components.AddInt32(resources.Count);
+        for (int index = 0; index < resources.Count; index++)
+            components.AddReference(resources[index].GetType());
     }
 
     private static void AddResourceTypes(
         IReadOnlyList<RenderResourceBinding> resources,
-        ICollection<object> components)
+        ref ComponentBuilder components)
     {
-        components.Add(resources.Count);
-        foreach (RenderResourceBinding binding in resources)
+        components.AddInt32(resources.Count);
+        for (int index = 0; index < resources.Count; index++)
+            components.AddReference(resources[index].Slot.ValueType);
+    }
+
+    /// <summary>
+    /// One component of a fragment identity. A value component keeps its payload off the heap and carries the
+    /// type it came from, so <see langword="false"/>, <c>0</c> and a zero-valued enum stay as distinct from
+    /// one another as separate boxes of them are.
+    /// </summary>
+    private readonly struct Component : IEquatable<Component>
+    {
+        private readonly object? _reference;
+        private readonly long _value;
+        private readonly bool _isValue;
+
+        private Component(object? reference, long value, bool isValue)
         {
-            components.Add(binding.Slot.ValueType);
+            _reference = reference;
+            _value = value;
+            _isValue = isValue;
+        }
+
+        public static Component FromReference(object? value) => new(value, 0L, isValue: false);
+
+        public static Component FromBoolean(bool value) => new(typeof(bool), value ? 1L : 0L, isValue: true);
+
+        public static Component FromInt32(int value) => new(typeof(int), value, isValue: true);
+
+        public static Component FromEnum<TEnum>(TEnum value)
+            where TEnum : unmanaged, Enum
+            => new(typeof(TEnum), ToInt64(value), isValue: true);
+
+        public bool Equals(Component other)
+            => _isValue == other._isValue
+               && _value == other._value
+               && Equals(_reference, other._reference);
+
+        public override bool Equals(object? obj) => obj is Component other && Equals(other);
+
+        public override int GetHashCode() => HashCode.Combine(_isValue, _reference, _value);
+
+        // The read must match the enum's storage width: a wider one would take in bytes that are not part
+        // of the value. Reading each width unsigned still maps distinct members of a type to distinct longs.
+        private static long ToInt64<TEnum>(TEnum value)
+            where TEnum : unmanaged, Enum
+            => Unsafe.SizeOf<TEnum>() switch
+            {
+                1 => Unsafe.As<TEnum, byte>(ref value),
+                2 => Unsafe.As<TEnum, ushort>(ref value),
+                4 => Unsafe.As<TEnum, uint>(ref value),
+                _ => Unsafe.As<TEnum, long>(ref value),
+            };
+    }
+
+    /// <summary>
+    /// Collects one fragment's components into a scratch buffer reused across fragments, then hands back a
+    /// right-sized copy. The buffer is detached for the duration of a build, so a nested build takes its own.
+    /// </summary>
+    private struct ComponentBuilder
+    {
+        private const int InitialCapacity = 16;
+
+        [ThreadStatic]
+        private static Component[]? s_scratch;
+
+        private Component[] _buffer;
+        private int _count;
+
+        private ComponentBuilder(Component[] buffer)
+        {
+            _buffer = buffer;
+            _count = 0;
+        }
+
+        public static ComponentBuilder Rent()
+        {
+            Component[]? scratch = s_scratch;
+            s_scratch = null;
+            return new ComponentBuilder(scratch ?? new Component[InitialCapacity]);
+        }
+
+        public void AddReference(object? value) => Add(Component.FromReference(value));
+
+        public void AddBoolean(bool value) => Add(Component.FromBoolean(value));
+
+        public void AddInt32(int value) => Add(Component.FromInt32(value));
+
+        public void AddEnum<TEnum>(TEnum value)
+            where TEnum : unmanaged, Enum
+            => Add(Component.FromEnum(value));
+
+        public Component[] Build()
+        {
+            Component[] components = _count == 0 ? [] : _buffer.AsSpan(0, _count).ToArray();
+            s_scratch = _buffer;
+            return components;
+        }
+
+        private void Add(Component component)
+        {
+            if (_count == _buffer.Length)
+                Array.Resize(ref _buffer, _buffer.Length * 2);
+            _buffer[_count++] = component;
         }
     }
 }
@@ -517,12 +689,17 @@ internal sealed class StructuralExecutionPlanTemplate
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(graph);
-        IslandTemplate[] islands = plan.Islands
-            .Select(island => IslandTemplate.Create(island, graph))
-            .ToArray();
-        BoundaryTemplate[] boundaries = plan.Boundaries
-            .Select(boundary => BoundaryTemplate.Create(boundary, graph))
-            .ToArray();
+        ImmutableArray<ExecutionIsland> planIslands = plan.Islands;
+        IslandTemplate[] islands = planIslands.Length == 0 ? [] : new IslandTemplate[planIslands.Length];
+        for (int index = 0; index < planIslands.Length; index++)
+            islands[index] = IslandTemplate.Create(planIslands[index], graph);
+
+        ImmutableArray<ExecutionIslandBoundary> planBoundaries = plan.Boundaries;
+        BoundaryTemplate[] boundaries =
+            planBoundaries.Length == 0 ? [] : new BoundaryTemplate[planBoundaries.Length];
+        for (int index = 0; index < planBoundaries.Length; index++)
+            boundaries[index] = BoundaryTemplate.Create(planBoundaries[index], graph);
+
         return new StructuralExecutionPlanTemplate(graph.Fragments.Length, islands, boundaries);
     }
 
@@ -535,16 +712,27 @@ internal sealed class StructuralExecutionPlanTemplate
                 "A cached structural plan cannot bind to a graph with a different fragment count.");
         }
 
-        RenderFragmentReference[] references = graph.Fragments
-            .Select(static fragment => fragment.Payload as RenderFragmentReference
+        RenderFragmentReference[] references =
+            _fragmentCount == 0 ? [] : new RenderFragmentReference[_fragmentCount];
+        for (int index = 0; index < _fragmentCount; index++)
+        {
+            references[index] = graph.Fragments[index].Payload as RenderFragmentReference
                 ?? throw new InvalidOperationException(
-                    "A cached structural plan requires executable semantic fragment references."))
-            .ToArray();
-        ImmutableArray<ExecutionIsland> islands =
-            [.. _islands.Select(template => template.Bind(graph, references))];
-        ImmutableArray<ExecutionIslandBoundary> boundaries =
-            [.. _boundaries.Select(template => template.Bind(graph))];
-        return new ExecutionIslandPlan(islands, boundaries);
+                    "A cached structural plan requires executable semantic fragment references.");
+        }
+
+        ExecutionIsland[] islands = _islands.Length == 0 ? [] : new ExecutionIsland[_islands.Length];
+        for (int index = 0; index < _islands.Length; index++)
+            islands[index] = _islands[index].Bind(graph, references);
+
+        ExecutionIslandBoundary[] boundaries =
+            _boundaries.Length == 0 ? [] : new ExecutionIslandBoundary[_boundaries.Length];
+        for (int index = 0; index < _boundaries.Length; index++)
+            boundaries[index] = _boundaries[index].Bind(graph);
+
+        return new ExecutionIslandPlan(
+            ImmutableCollectionsMarshal.AsImmutableArray(islands),
+            ImmutableCollectionsMarshal.AsImmutableArray(boundaries));
     }
 
     private sealed record IslandTemplate(
@@ -557,22 +745,36 @@ internal sealed class StructuralExecutionPlanTemplate
         public static IslandTemplate Create(
             ExecutionIsland island,
             RecordedRenderGraph graph)
-            => new(
+        {
+            ImmutableArray<RenderFragmentId> islandFragments = island.Fragments;
+            int[] fragments = islandFragments.Length == 0 ? [] : new int[islandFragments.Length];
+            for (int index = 0; index < islandFragments.Length; index++)
+                fragments[index] = GetFragmentIndex(islandFragments[index], graph);
+
+            return new IslandTemplate(
                 island.Id.Value,
                 island.Kind,
-                island.Fragments.Select(id => GetFragmentIndex(id, graph)).ToArray(),
+                fragments,
                 island.PlansGpuPass,
                 island.ShaderRun is { } run ? ShaderRunTemplate.Create(run, graph) : null);
+        }
 
         public ExecutionIsland Bind(
             RecordedRenderGraph graph,
             RenderFragmentReference[] references)
-            => new(
+        {
+            RenderFragmentId[] fragmentIds =
+                Fragments.Length == 0 ? [] : new RenderFragmentId[Fragments.Length];
+            for (int index = 0; index < Fragments.Length; index++)
+                fragmentIds[index] = graph.Fragments[Fragments[index]].Id;
+
+            return new ExecutionIsland(
                 new ExecutionIslandId(Id),
                 Kind,
-                [.. Fragments.Select(index => graph.Fragments[index].Id)],
+                ImmutableCollectionsMarshal.AsImmutableArray(fragmentIds),
                 PlansGpuPass,
                 ShaderRun?.Bind(graph, references));
+        }
     }
 
     private sealed record ShaderRunTemplate(
@@ -586,24 +788,38 @@ internal sealed class StructuralExecutionPlanTemplate
         public static ShaderRunTemplate Create(
             CompiledShaderRun run,
             RecordedRenderGraph graph)
-            => new(
+        {
+            ImmutableArray<CompiledShaderStage> runStages = run.Stages;
+            StageTemplate[] stages = runStages.Length == 0 ? [] : new StageTemplate[runStages.Length];
+            for (int index = 0; index < runStages.Length; index++)
+                stages[index] = StageTemplate.Create(runStages[index], graph);
+
+            return new ShaderRunTemplate(
                 run.Id.Value,
                 GetFragmentIndex(GetId(run.Input), graph),
                 GetFragmentIndex(GetId(run.Output), graph),
-                run.Stages.Select(stage => StageTemplate.Create(stage, graph)).ToArray(),
+                stages,
                 run.Program,
                 run.CoverageSource);
+        }
 
         public CompiledShaderRun Bind(
             RecordedRenderGraph graph,
             RenderFragmentReference[] references)
-            => new(
+        {
+            CompiledShaderStage[] stages =
+                Stages.Length == 0 ? [] : new CompiledShaderStage[Stages.Length];
+            for (int index = 0; index < Stages.Length; index++)
+                stages[index] = Stages[index].Bind(graph, references);
+
+            return new CompiledShaderRun(
                 new CompiledShaderRunId(Id),
                 references[Input],
                 references[Output],
-                [.. Stages.Select(stage => stage.Bind(graph, references))],
+                ImmutableCollectionsMarshal.AsImmutableArray(stages),
                 Program,
                 CoverageSource);
+        }
     }
 
     private sealed record StageTemplate(
