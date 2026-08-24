@@ -6,7 +6,11 @@ namespace Beutl.HeadlessUITests;
 public sealed class AssemblySetUp
 {
     [OneTimeSetUp]
-    public void SetUp() => BeutlHomeIsolation.Begin("beutl-shell-e2e");
+    public void SetUp()
+    {
+        OpenALPreload.EnsureLoaded();
+        BeutlHomeIsolation.Begin("beutl-shell-e2e");
+    }
 
     [OneTimeTearDown]
     public void TearDown() => BeutlHomeIsolation.End();
