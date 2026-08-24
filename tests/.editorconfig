@@ -1,0 +1,10 @@
+# Settings that apply to every test project.
+
+[*.cs]
+
+# BESG003 says a render metadata callback can read state the caller changes between recordings, which
+# matters because one plan key would then stand for two different answers. A fixture builds its graph,
+# records it, and asserts - there is no second recording for the first plan to be replayed against - so
+# the shapes it flags there are the fixture stating its inputs, not the defect. It stays a suggestion so
+# a genuinely suspicious one is still visible.
+dotnet_diagnostic.BESG003.severity = suggestion

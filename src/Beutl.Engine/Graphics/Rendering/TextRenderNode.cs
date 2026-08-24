@@ -69,7 +69,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             outputBounds: bounds,
             hitTest: RenderHitTestContract.FromResource(
                 textResource,
-                (currentText, point) => HitTest(currentText, hasFill, point)),
+                new TextHitTestState(hasFill).HitTest),
             scale: RenderScaleContract.Vector,
             deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
             resources: DeferredOpaqueSource.Resources(
@@ -77,6 +77,17 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
                 textBrushResource,
                 textPenResource),
             rasterOutset: rasterOutset));
+    }
+
+    /// <remarks>
+    /// The contract keys its plan by which callback this is, so the callback must not read anything the
+    /// caller can change afterwards. A method group on this readonly struct hands the delegate a copy
+    /// nothing can reach, which a lambda closing over the local would not.
+    /// </remarks>
+    private readonly record struct TextHitTestState(bool HasFill)
+    {
+        public bool HitTest(FormattedText text, Point point)
+            => TextRenderNode.HitTest(text, HasFill, point);
     }
 
     private static bool HitTest(FormattedText text, bool hasFill, Point point)

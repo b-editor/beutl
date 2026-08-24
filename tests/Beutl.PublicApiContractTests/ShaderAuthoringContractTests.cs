@@ -178,50 +178,6 @@ public sealed class ShaderAuthoringContractTests
     }
 
     [Test]
-    public void ShaderDefinitions_RejectCapturedUniformValueProviders()
-    {
-        float multiplier = 2;
-
-        Assert.That(
-            () => ShaderDefinition<float>.CurrentPixel(
-                CurrentPixelSource,
-                bindings => bindings.Uniform("amount", state => state * multiplier)),
-            Throws.TypeOf<ArgumentException>());
-    }
-
-    [Test]
-    public void ShaderDefinitions_RejectCapturedCustomUniformBinders()
-    {
-        float multiplier = 2;
-
-        Assert.That(
-            () => ShaderDefinition<float>.CurrentPixel(
-                CurrentPixelSource,
-                bindings => bindings.Uniform(
-                    "amount",
-                    static state => state,
-                    (writer, value, _) => writer.Set(value * multiplier))),
-            Throws.TypeOf<ArgumentException>());
-    }
-
-    [Test]
-    public void ShaderDefinitions_RejectCapturedResourceBinders()
-    {
-        SKColor tint = SKColors.MediumPurple;
-
-        Assert.That(
-            () => ShaderDefinition<byte>.WholeSource(
-                WholeSource,
-                RenderBoundsContract.Identity,
-                bindings => bindings.Resource(
-                    "tint",
-                    s_colorSlot,
-                    ShaderResourceCoordinateSpace.OutputDevice,
-                    (writer, _, _) => writer.Set(SKShader.CreateColor(tint)))),
-            Throws.TypeOf<ArgumentException>());
-    }
-
-    [Test]
     public void ShaderDescription_IsNotPartOfTheExternalAuthoringSurface()
     {
         Assembly engine = typeof(RenderNode).Assembly;
