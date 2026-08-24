@@ -48,12 +48,16 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
         _historyManager.Commit(CommandNames.ChangeSceneDuration);
     }
 
+    // Contract: a positive frame rate. Every caller divides by this value (one-frame durations,
+    // time<->frame conversions), so a zero or negative rate persisted by a corrupted or hand-edited
+    // project falls back to the default instead of throwing on every resize / range edit.
     internal static int GetFrameRate(Scene scene)
     {
         Project? project = scene.FindHierarchicalParent<Project>();
         if (project is null) return 30;
         return project.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value)
             && int.TryParse(value, out int rate)
+            && rate > 0
             ? rate
             : 30;
     }

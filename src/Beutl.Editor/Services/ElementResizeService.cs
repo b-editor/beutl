@@ -117,12 +117,15 @@ public sealed class ElementResizeService : IElementResizeService
     {
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
+        // A scene can start after zero; children must not be normalized before the scene timeline
+        // begins. MoveChild separately rejects negative starts, so keep the floor at least zero.
+        TimeSpan startFloor = scene.Start > TimeSpan.Zero ? scene.Start : TimeSpan.Zero;
         var normalized = new ElementResizeRequest[requests.Count];
         for (int i = 0; i < requests.Count; i++)
         {
             ElementResizeRequest req = requests[i];
             ArgumentNullException.ThrowIfNull(req.Element);
-            TimeSpan start = req.NewStart < TimeSpan.Zero ? TimeSpan.Zero : req.NewStart;
+            TimeSpan start = req.NewStart < startFloor ? startFloor : req.NewStart;
             TimeSpan length = req.NewLength < minLength ? minLength : req.NewLength;
             normalized[i] = new ElementResizeRequest(req.Element, start, length, req.ZIndex);
         }

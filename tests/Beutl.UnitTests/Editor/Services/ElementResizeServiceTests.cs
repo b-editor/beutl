@@ -158,6 +158,37 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Resize_NonRipple_StartBeforeNonZeroSceneStart_ClampsToSceneStart()
+    {
+        _scene.Start = TimeSpan.FromSeconds(5);
+        Element element = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
+
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 0)]);
+
+        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(5)),
+            "the service floors the start to the scene timeline start, not to zero");
+    }
+
+    [Test]
+    public void Resize_NonRipple_CorruptProjectFrameRate_FallsBackInsteadOfThrowing()
+    {
+        // Review regression: a persisted zero frame rate used to reach TimeSpan.FromSeconds(1d / rate)
+        // and throw before the clamp could protect the async-void UI path.
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = "0";
+        project.Items.Add(_scene);
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        Assert.DoesNotThrow(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)]));
+
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)),
+            "the fallback frame rate still floors the length to one frame");
+    }
+
+    [Test]
     public void Resize_NullElementInRequest_Throws()
     {
         Assert.Throws<ArgumentNullException>(() =>
