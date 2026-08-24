@@ -1,4 +1,4 @@
-using Beutl.FFmpegIpc;
+﻿using Beutl.FFmpegIpc;
 
 namespace Beutl.UnitTests.FFmpegIpc;
 

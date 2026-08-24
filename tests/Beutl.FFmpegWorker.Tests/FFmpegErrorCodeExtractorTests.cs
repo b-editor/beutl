@@ -1,4 +1,4 @@
-using FFmpeg.AutoGen.Abstractions;
+﻿using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 
 namespace Beutl.FFmpegWorker.Tests;

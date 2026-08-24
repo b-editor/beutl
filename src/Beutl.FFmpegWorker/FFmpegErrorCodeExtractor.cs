@@ -1,4 +1,4 @@
-using FFmpegSharp;
+﻿using FFmpegSharp;
 
 namespace Beutl.FFmpegWorker;
 

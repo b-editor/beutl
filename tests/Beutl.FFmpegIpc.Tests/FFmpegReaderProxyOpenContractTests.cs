@@ -1,4 +1,4 @@
-using Beutl.Extensions.FFmpeg;
+﻿using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
