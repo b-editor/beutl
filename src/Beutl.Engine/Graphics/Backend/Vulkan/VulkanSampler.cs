@@ -6,11 +6,13 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="ISampler"/>.
 /// </summary>
-internal sealed unsafe class VulkanSampler : ISampler
+internal sealed unsafe class VulkanSampler : ISampler, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly Sampler _sampler;
     private bool _disposed;
+
+    public VulkanContext OwnerContext => _context;
 
     public VulkanSampler(
         VulkanContext context,

@@ -6,6 +6,12 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="IDescriptorSet"/>.
 /// </summary>
+/// <remarks>
+/// Every operand is resolved through <see cref="VulkanContext.RequireOwned{TResource}"/> before its handle
+/// reaches <c>vkUpdateDescriptorSets</c>. A Vulkan handle carries no device provenance, so writing one from
+/// another context into this set is undefined behaviour the driver need not diagnose - not merely a
+/// validation message - and a plain cast would let it through.
+/// </remarks>
 internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContextResource
 {
     private readonly VulkanContext _context;
@@ -72,7 +78,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var vulkanBuffer = (VulkanBuffer)buffer;
+        VulkanBuffer vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
 
         var bufferInfo = new DescriptorBufferInfo
         {
@@ -96,22 +102,34 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     }
 
     public void UpdateTexture(int binding, ITexture2D texture, ISampler sampler)
-        => UpdateCombinedImageSampler(binding, ((VulkanTexture2D)texture).ImageViewHandle, sampler);
+        => UpdateCombinedImageSampler(
+            binding,
+            _context.RequireOwned<VulkanTexture2D>(texture, nameof(texture)).ImageViewHandle,
+            sampler);
 
     public void UpdateTextureCube(int binding, ITextureCube texture, ISampler sampler)
-        => UpdateCombinedImageSampler(binding, ((VulkanTextureCube)texture).ImageViewHandle, sampler);
+        => UpdateCombinedImageSampler(
+            binding,
+            _context.RequireOwned<VulkanTextureCube>(texture, nameof(texture)).ImageViewHandle,
+            sampler);
 
     public void UpdateTextureArray(int binding, ITextureArray texture, ISampler sampler)
-        => UpdateCombinedImageSampler(binding, ((VulkanTextureArray)texture).ImageViewHandle, sampler);
+        => UpdateCombinedImageSampler(
+            binding,
+            _context.RequireOwned<VulkanTextureArray>(texture, nameof(texture)).ImageViewHandle,
+            sampler);
 
     public void UpdateTextureCubeArray(int binding, ITextureCubeArray texture, ISampler sampler)
-        => UpdateCombinedImageSampler(binding, ((VulkanTextureCubeArray)texture).ImageViewHandle, sampler);
+        => UpdateCombinedImageSampler(
+            binding,
+            _context.RequireOwned<VulkanTextureCubeArray>(texture, nameof(texture)).ImageViewHandle,
+            sampler);
 
     private void UpdateCombinedImageSampler(int binding, ImageView imageView, ISampler sampler)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var vulkanSampler = (VulkanSampler)sampler;
+        VulkanSampler vulkanSampler = _context.RequireOwned<VulkanSampler>(sampler, nameof(sampler));
 
         var imageInfo = new DescriptorImageInfo
         {

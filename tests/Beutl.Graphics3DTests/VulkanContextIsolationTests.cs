@@ -111,6 +111,72 @@ public sealed class VulkanContextIsolationTests
     /// let a scratch image bound through the core 1.1 or KHR form skip the transparent clear and show
     /// whatever the reused allocation last held.
     /// </remarks>
+    /// <remarks>
+    /// vkUpdateDescriptorSets takes raw handles, so a texture or sampler from another device written into
+    /// this set is undefined behaviour rather than a validation message. A plain cast would let one through
+    /// because the managed type is the same on both contexts.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void AResourceFromAnotherContext_IsRejectedByADescriptorUpdate()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using IGraphicsContext foreign = GraphicsContextFactory.CreateContext();
+            IShaderCompiler compiler = context.CreateShaderCompiler();
+            byte[] vertex = compiler.CompileToSpirv(SampledVertexShader, ShaderStage.Vertex);
+            byte[] fragment = compiler.CompileToSpirv(SampledFragmentShader, ShaderStage.Fragment);
+
+            using IRenderPass3D pass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
+            DescriptorBinding[] bindings =
+                [new(0, Beutl.Graphics.Backend.DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)];
+            using IPipeline3D pipeline = context.CreatePipeline3D(
+                pass,
+                vertex,
+                fragment,
+                bindings,
+                VertexInputDescription.Empty,
+                PipelineOptions.Fullscreen);
+            using IDescriptorSet descriptors = context.CreateDescriptorSet(
+                pipeline,
+                [new Beutl.Graphics.Backend.DescriptorPoolSize(
+                    Beutl.Graphics.Backend.DescriptorType.CombinedImageSampler,
+                    1)]);
+
+            using ITexture2D ownTexture = CreateColorTexture(context);
+            using ISampler ownSampler = context.CreateSampler();
+            using ITexture2D foreignTexture = CreateColorTexture(foreign);
+            using ISampler foreignSampler = foreign.CreateSampler();
+            using IBuffer foreignBuffer = foreign.CreateBuffer(
+                256,
+                BufferUsage.UniformBuffer,
+                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    () => descriptors.UpdateTexture(0, foreignTexture, ownSampler),
+                    Throws.ArgumentException,
+                    "a texture from another device has no valid image view here");
+                Assert.That(
+                    () => descriptors.UpdateTexture(0, ownTexture, foreignSampler),
+                    Throws.ArgumentException,
+                    "a sampler from another device has no valid handle here");
+                Assert.That(
+                    () => descriptors.UpdateBuffer(0, foreignBuffer),
+                    Throws.ArgumentException,
+                    "a buffer from another device has no valid handle here");
+                Assert.That(
+                    () => descriptors.UpdateTexture(0, ownTexture, ownSampler),
+                    Throws.Nothing,
+                    "the control: this context's own resources still write");
+            }
+
+            context.WaitIdle();
+        });
+    }
+
     [Test]
     [Category("GpuPassFusionGpu")]
     public void EveryBindEntryPointTheDeviceExposes_IsIntercepted()
@@ -242,4 +308,29 @@ public sealed class VulkanContextIsolationTests
 
     private static ITexture2D CreateColorTexture(IGraphicsContext context)
         => context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+
+    private const string SampledVertexShader = """
+        #version 450
+
+        layout(location = 0) out vec2 fragCoord;
+
+        void main() {
+            vec2 positions[3] = vec2[](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+            vec2 uvs[3] = vec2[](vec2(0.0, 0.0), vec2(2.0, 0.0), vec2(0.0, 2.0));
+            gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+            fragCoord = uvs[gl_VertexIndex];
+        }
+        """;
+
+    private const string SampledFragmentShader = """
+        #version 450
+
+        layout(location = 0) in vec2 fragCoord;
+        layout(location = 0) out vec4 outColor;
+        layout(binding = 0) uniform sampler2D sourceTexture;
+
+        void main() {
+            outColor = texture(sourceTexture, fragCoord);
+        }
+        """;
 }
