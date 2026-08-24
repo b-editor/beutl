@@ -36,6 +36,16 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                     Func<Rect, Rect> getRequiredInputBounds) => default;
             }
         }
+
+        namespace Beutl.Graphics.Effects
+        {
+            using System;
+
+            public sealed class ShaderDefinitionBuilder<TState>
+            {
+                public void Uniform<T>(string name, Func<TState, T> value) { }
+            }
+        }
         """;
 
     [Test]
@@ -119,6 +129,30 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             diagnostics.Select(static d => d.Id),
             Does.Not.Contain("BESG003"),
             "the caller's own call site is where the rule applies to the caller's callback");
+    }
+
+    /// <remarks>
+    /// The generic builder is what an out-of-tree shader author writes against, and its deferred binder is
+    /// keyed the same way a bounds map is, so the rule has to reach it through the type arguments rather
+    /// than past them.
+    /// </remarks>
+    [Test]
+    public void ACapturingShaderBinder_OnTheGenericBuilder_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics.Effects;
+
+            internal static class Author
+            {
+                public static void Bind(ShaderDefinitionBuilder<float> builder, float multiplier)
+                    => builder.Uniform("amount", state => state * multiplier);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "a binder that reads a value the caller supplies per call is the case this rule exists for");
     }
 
     private static ImmutableArray<Diagnostic> Analyze(string source)

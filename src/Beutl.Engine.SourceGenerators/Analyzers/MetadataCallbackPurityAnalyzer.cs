@@ -36,7 +36,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         "Beutl.Graphics.Rendering.TargetCaptureScaleContract",
 
         // A shader binding's value provider and resource binder are read the same way and keyed the same
-        // way, so the same rule decides them.
+        // way, so the same rule decides them. The generic builder is the one an out-of-tree author writes
+        // against; the non-generic one is what the engine's own calls go through.
+        "Beutl.Graphics.Effects.ShaderDefinitionBuilder",
         "Beutl.Graphics.Effects.ShaderBindingBuilder");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
@@ -58,8 +60,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (method.ContainingType is null
-            || !s_contractTypes.Contains(method.ContainingType.ToDisplayString()))
+        // Name rather than ToDisplayString: a generic builder displays with its type arguments, and the
+        // rule is about the builder, not about what it was constructed with.
+        if (method.ContainingType is not { } containingType
+            || !s_contractTypes.Contains(
+                containingType.ContainingNamespace.ToDisplayString() + "." + containingType.Name))
         {
             return;
         }
@@ -75,7 +80,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(Diagnostic.Create(
                 DiagnosticDescriptors.CapturingMetadataCallback,
                 argument.GetLocation(),
-                method.ContainingType.Name,
+                containingType.Name,
                 method.Name,
                 reason));
         }
