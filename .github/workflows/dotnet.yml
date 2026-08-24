@@ -70,10 +70,14 @@ jobs:
       # way to read back or command the layout Skia holds, which SkiaSharp 3.119 does not expose. Those
       # tests still run in the step above; see TestCategories.KnownVulkanSkiaLayoutInterop and issue #2263,
       # on whose close both TestCategory!= clauses below come out.
+      # No category filter on the unit project: a category has to be remembered, and a GPU test that
+      # forgets one is exactly the test this gate would then not cover. Every test runs instead - the ones
+      # that never reach the render thread only cost their own runtime, and the ones that do are checked.
+      # KnownVulkanSkiaLayoutInterop is the one held-back category (#2263).
       - name: GPU tests under Vulkan validation
         run: |
           dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --no-build -f net10.0 \
-            --filter "(TestCategory=GpuPassFusionGpu|FullyQualifiedName~VulkanValidationGateTests|FullyQualifiedName~GpuGoldenSuiteCanaryTests)&TestCategory!=KnownVulkanSkiaLayoutInterop"
+            --filter "TestCategory!=KnownVulkanSkiaLayoutInterop"
           dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj --no-build -f net10.0 \
             --filter "TestCategory!=KnownVulkanSkiaLayoutInterop"
         env:
