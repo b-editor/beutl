@@ -146,6 +146,50 @@ public sealed class RenderPassTransferScopeTests
         });
     }
 
+    /// <remarks>
+    /// A readback records its image-to-buffer copy on the recording batch and then maps the staging buffer,
+    /// so it is only correct if the synchronous flush in between actually submits that batch. Inside a
+    /// render pass the batch belongs to the pass, and withholding it hands the caller the memory as it was
+    /// before the copy.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void AReadbackInsideARenderPass_SeesWhatWasRecordedBeforeIt()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D probe = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            byte[] opaque = new byte[Width * Height * 4];
+            Array.Fill(opaque, (byte)0xFF);
+            probe.Upload(opaque);
+
+            using ITexture2D color = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            using IRenderPass3D renderPass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
+            using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(renderPass, [color], null);
+
+            renderPass.Begin(framebuffer, [Colors.Transparent]);
+            byte[] insidePass = probe.DownloadPixels();
+            renderPass.End();
+            context.WaitIdle();
+
+            byte[] outsidePass = probe.DownloadPixels();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    outsidePass,
+                    Is.EqualTo(opaque),
+                    "precondition: the probe really does hold what was uploaded");
+                Assert.That(
+                    insidePass,
+                    Is.EqualTo(opaque),
+                    "a readback inside a render pass must return the pixels, not whatever the staging "
+                    + "buffer happened to hold before the copy ran");
+            }
+        });
+    }
+
     [Test]
     [Category("GpuPassFusionGpu")]
     public void APassBodyFailure_ReleasesTheRenderPassScope()
@@ -194,9 +238,14 @@ public sealed class RenderPassTransferScopeTests
         });
     }
 
+    /// <remarks>
+    /// A caller that waits is owed everything it recorded. Withholding the batch because a pass owns it
+    /// leaves a readback mapping memory the copy has not reached, so the flush ends the instance, submits,
+    /// and begins the instance again on the next batch.
+    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void WaitIdleInsideARenderPass_DoesNotSubmitThatPass()
+    public void WaitIdleInsideARenderPass_SubmitsWhatWasRecordedAndResumesThePass()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
@@ -216,13 +265,11 @@ public sealed class RenderPassTransferScopeTests
                 context.WaitIdle();
             }
 
-            // Assert before End: unguarded, the pass's command buffer has already been freed by here,
-            // so End would record into freed memory and take the test host down with it.
             Assert.That(
                 duringPass.Count(static item => item == VulkanCommandPoolEvent.Submission),
-                Is.Zero,
-                "A synchronous flush inside a render pass must not submit the batch that pass is still "
-                + "recording into.");
+                Is.GreaterThan(0),
+                "A synchronous flush inside a render pass must submit what the caller recorded, or a "
+                + "readback maps memory the copy has not reached.");
 
             renderPass.End();
             context.WaitIdle();

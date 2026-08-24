@@ -396,6 +396,10 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         VulkanFramebuffer3D framebuffer = _currentFramebuffer
             ?? throw new InvalidOperationException("A suspended render pass lost the framebuffer it was recording into.");
 
+        // The batch this pass was recording into may have been submitted while it was suspended - that is
+        // what a synchronous flush does - so the instance resumes on whatever batch is recording now.
+        _currentCommandBuffer = _context.GetRecordingCommandBuffer();
+
         var renderPassBeginInfo = new RenderPassBeginInfo
         {
             SType = StructureType.RenderPassBeginInfo,

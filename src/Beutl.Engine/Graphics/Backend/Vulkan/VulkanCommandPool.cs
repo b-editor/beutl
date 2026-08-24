@@ -325,27 +325,38 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         return _recordingCommandBuffer;
     }
 
+    /// <summary>Submits the recording batch and, when asked, waits for everything in flight.</summary>
+    /// <remarks>
+    /// A caller that waits is owed everything it recorded, including work recorded during an open render
+    /// pass - a readback records its copy on the batch and then maps the staging buffer. Withholding the
+    /// batch because a pass owns it would hand that caller the memory as it was before the copy. The
+    /// instance is therefore ended, the batch submitted, and the instance begun again on the next one.
+    /// </remarks>
     public void Flush(bool waitForCompletion)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // A render pass instance owns the recording batch until it ends, so submitting it here would
-        // end and free the command buffer the pass is still recording into - the same buffer a suspended
-        // instance resumes on. Everything recorded during the scope is on that unfinished batch, which a
-        // synchronous caller cannot be owed yet, so waiting on the in-flight submissions is the whole of
-        // what it can be owed.
-        if (_renderPassScopeDepth == 0)
+        IVulkanRenderPassSuspension? owner = _renderPassScopeDepth > 0
+            ? _activeRenderPassOwner
+            : null;
+        bool suspended = owner is not null && owner.TrySuspend();
+        try
         {
             SubmitRecordingCommandBuffer();
-        }
 
-        if (waitForCompletion)
-        {
-            WaitForInFlightSubmissions();
+            if (waitForCompletion)
+            {
+                WaitForInFlightSubmissions();
+            }
+            else
+            {
+                CollectCompletedSubmissions();
+            }
         }
-        else
+        finally
         {
-            CollectCompletedSubmissions();
+            if (suspended)
+                owner!.Resume();
         }
     }
 
