@@ -230,6 +230,17 @@ public sealed class RenderNodeRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(destination);
         ObjectDisposedException.ThrowIf(destination.IsDisposed, destination);
         RenderNodeRenderRequest effectiveRequest = ResolveRequest(requestOptions);
+        // The canvas says what its surface is for; the request says what this call is for. Delivery is the
+        // stricter of the two - it fails on an allocation a preview would drop - so a delivery canvas is
+        // never written by a request that would silently leave content out of it. The working-scale ceiling
+        // below reconciles the pair the same way, by taking the lower of them rather than the request's
+        // alone.
+        if (destination.Intent == RenderIntent.Delivery
+            && effectiveRequest.Intent != RenderIntent.Delivery)
+        {
+            effectiveRequest = effectiveRequest with { Intent = RenderIntent.Delivery };
+        }
+
         ThrowIfInvalidExecutionPurpose(effectiveRequest.Purpose);
 
         bool hasExplicitEmptySelection = effectiveRequest.RequestedRegion is { } requested
@@ -237,7 +248,9 @@ public sealed class RenderNodeRenderer : IDisposable
         float maxWorkingScale = MathF.Min(effectiveRequest.MaxWorkingScale, destination.MaxWorkingScale);
         bool hasInvertibleDestination = TryResolveDestinationTargetDomain(destination, out Rect resolvedTargetDomain);
         Rect? targetDomain = hasInvertibleDestination ? resolvedTargetDomain : null;
-        RenderTargetLeaseSession targets = _targetRegistry.BeginSession(effectiveRequest.Intent, destination._renderTarget);
+        RenderTargetLeaseSession targets = _targetRegistry.BeginSession(
+            effectiveRequest.Intent,
+            destination._renderTarget);
         CompiledRenderRequest? request = null;
         RenderRequestOwner? owner = null;
         RenderNodeCacheLifecycle? cacheLifecycle = null;

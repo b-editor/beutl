@@ -23,6 +23,44 @@ public sealed class DegradedPreviewCachePurityTests
 {
     private static readonly Rect s_bounds = new(0, 0, 32, 24);
 
+    /// <remarks>
+    /// A canvas says what its surface is for. Rendering a preview request onto a delivery canvas would let
+    /// an allocation failure drop content into a surface that ships, so the stricter of the two intents is
+    /// the one the render runs under.
+    /// </remarks>
+    [Test]
+    public void ARequestOnADeliveryCanvas_FailsRatherThanDroppingContent()
+    {
+        var shape = new RectShape();
+        shape.Width.CurrentValue = (float)s_bounds.Width;
+        shape.Height.CurrentValue = (float)s_bounds.Height;
+        shape.Fill.CurrentValue = CreateDrawableBrush();
+        using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
+        using var root = new DrawableRenderNode(resource);
+        using (var context = new GraphicsContext2D(root, s_bounds.Size))
+        {
+            context.Clear();
+            context.DrawDrawable(resource);
+        }
+
+        var factory = new SizedTargetFactory(PixelRect.FromRect(s_bounds, 1).Size);
+        using RenderNodeRenderer renderer = CreateRenderer(root, factory, RenderIntent.Preview);
+        using RenderTarget target = new CpuRenderTarget(
+            PixelRect.FromRect(s_bounds, 1).Width,
+            PixelRect.FromRect(s_bounds, 1).Height);
+        using var delivery = new ImmediateCanvas(
+            target,
+            density: 1,
+            maxWorkingScale: 1,
+            logicalSize: s_bounds.Size,
+            intent: RenderIntent.Delivery);
+
+        Assert.That(
+            () => renderer.Render(delivery),
+            Throws.InvalidOperationException,
+            "A preview request must not be allowed to drop content into a delivery surface.");
+    }
+
     [Test]
     public void APreviewWhoseBrushDroppedItsIntermediate_PublishesNothingToTheNodeCache()
     {

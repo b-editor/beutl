@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-19
 
-**Status**: Delivered
+**Status**: Delivered, with two success criteria narrowed rather than met — see the amendments under FR-043, SC-007 and SC-008. Target pixel parity against the starting commit is not reproducible from this branch alone, and the performance improvement is measurable on demand rather than asserted as a met acceptance criterion.
 
 **Input**: User description: "Restart feature 004 from current main in a new branch and worktree. Make GPU pass fusion a renderer-wide capability rather than a filter-effect-only subsystem. Keep `FilterEffect.ApplyTo(FilterEffectContext, Resource)`, and add the useful Shader and Geometry recording concepts from `EffectGraphBuilder` to the existing `FilterEffectContext`. Use the abandoned branch only as a source of parts and evidence. Make `RenderNode.Process` return `void` and record through `RenderNodeContext` rather than returning executable operations or using a separate plan builder."
 
