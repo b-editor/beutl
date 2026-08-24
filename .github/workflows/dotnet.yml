@@ -37,13 +37,29 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Restore MSBuild project cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/msbuild-project-cache
+          key: msbuild-project-cache-v1-${{ runner.os }}-${{ hashFiles('global.json') }}-${{ github.sha }}
+          restore-keys: |
+            msbuild-project-cache-v1-${{ runner.os }}-${{ hashFiles('global.json') }}-
+
       - run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
       - name: Restore dependencies
-        run: dotnet restore Beutl.slnx
+        run: dotnet restore Beutl.slnx -p:MSBuildCacheEnabled=true
 
       - name: Build
-        run: dotnet build Beutl.slnx --no-restore
+        run: >
+          dotnet msbuild Beutl.slnx
+          /graph
+          /m
+          /reportfileaccesses
+          /p:MSBuildCacheEnabled=true
+          /p:MSBuildCacheLocalCacheRootPath=${{ runner.temp }}/msbuild-project-cache
+          /p:MSBuildCacheLocalCacheSizeInMegabytes=2048
+          /p:MSBuildCacheLogDirectory=${{ runner.temp }}/msbuild-cache-logs
 
       - name: Test
         run: dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
