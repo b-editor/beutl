@@ -52,6 +52,76 @@ public sealed class DrawableBrushFractionalContentExtentTests
         });
     }
 
+    /// <summary>
+    /// A brush whose artwork reaches outside the destination is fitted to the artwork, not to the part of
+    /// it that happens to fall inside.
+    /// </summary>
+    /// <remarks>
+    /// The compilation that asks where the content is used to be handed the destination rectangle as a hard
+    /// target domain. A Layer resolves its bounds against the owning domain, so a child translated past the
+    /// edge was already cropped by the time its extent was read, and Uniform fitted the crop. Here the
+    /// content box is the same as above but a second child sits one content-width to the right, so the true
+    /// extent is twice as wide and fitting it makes the fill half as tall.
+    /// </remarks>
+    [Test]
+    public void DrawableBrushUniformStretch_FitsArtworkReachingOutsideTheDestination()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource host = CreateOverreachingBrushHost();
+            using Bitmap rendered = GoldenImageHarness.RenderAtScale(
+                host, Frame, RenderScale, clearColor: Colors.Transparent);
+
+            PixelRect covered = GetCoveredBounds(rendered);
+
+            float artworkWidth = ContentWidth * 2f;
+            float uniformScale = MathF.Min(HostWidth / artworkWidth, HostHeight / ContentHeight);
+            float expectedHeight = ContentHeight * uniformScale * RenderScale;
+
+            TestContext.WriteLine(
+                $"covered={covered} expected height {expectedHeight:F2} device px "
+                + $"(uniform scale {uniformScale:F5} over artwork width {artworkWidth})");
+
+            Assert.That(
+                covered.Height,
+                Is.EqualTo(expectedHeight).Within(3d),
+                "the fill must be scaled by the artwork's own extent, not by the part inside the "
+                + "destination");
+        });
+    }
+
+    private static Drawable.Resource CreateOverreachingBrushHost()
+    {
+        var near = new RectShape();
+        near.Width.CurrentValue = ContentWidth;
+        near.Height.CurrentValue = ContentHeight;
+        near.Fill.CurrentValue = Brushes.White;
+
+        var far = new RectShape();
+        far.Width.CurrentValue = ContentWidth;
+        far.Height.CurrentValue = ContentHeight;
+        far.Fill.CurrentValue = Brushes.White;
+        far.Transform.CurrentValue = new Beutl.Graphics.Transformation.TranslateTransform(ContentWidth, 0);
+
+        var group = new DrawableGroup();
+        group.Children.Add(near);
+        group.Children.Add(far);
+
+        var brush = new DrawableBrush();
+        brush.Drawable.CurrentValue = group;
+        brush.Stretch.CurrentValue = Stretch.Uniform;
+        brush.TileMode.CurrentValue = TileMode.None;
+
+        var host = new RectShape();
+        host.AlignmentX.CurrentValue = AlignmentX.Center;
+        host.AlignmentY.CurrentValue = AlignmentY.Center;
+        host.Width.CurrentValue = HostWidth;
+        host.Height.CurrentValue = HostHeight;
+        host.Fill.CurrentValue = brush;
+        return host.ToResource(CompositionContext.Default);
+    }
+
     private static Drawable.Resource CreateBrushHost(TileMode tileMode)
     {
         var content = new RectShape();
