@@ -1241,6 +1241,14 @@ public class SourceEffectiveScaleFlowTests
         using RenderNodeRasterization result = renderer.Rasterize();
         float plannedScale = measurement.EffectiveScale.Value;
 
+        // Planning clamps to the engine ceiling so a plan means the same thing wherever it was compiled,
+        // while the site that turns a density into real pixels fits what this device can attach. The two
+        // are the same number only on a device that reaches the ceiling, so the item's density is pinned
+        // against the device budget rather than against the plan.
+        float deviceClamp = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
+            intermediateFootprint,
+            plannedScale);
+
         Assert.Multiple(() =>
         {
             Assert.That(plannedScale, Is.LessThanOrEqualTo(widthOnlyClamp));
@@ -1248,7 +1256,8 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(result.IsEmpty, Is.False);
             Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False);
             Assert.That(observedSourceScale, Is.EqualTo(plannedScale));
-            Assert.That(s_effectItemCustomWorkingScale, Is.EqualTo(plannedScale));
+            Assert.That(deviceClamp, Is.LessThanOrEqualTo(plannedScale));
+            Assert.That(s_effectItemCustomWorkingScale, Is.EqualTo(deviceClamp));
         });
     }
 
