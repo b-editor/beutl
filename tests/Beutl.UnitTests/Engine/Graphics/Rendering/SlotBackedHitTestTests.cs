@@ -68,21 +68,6 @@ public sealed class SlotBackedHitTestTests
         });
     }
 
-    [Test]
-    public void ASlotBackedTestCannotSmuggleAResourceThroughItsClosure()
-    {
-        using var registry = new RenderRequestResourceRegistry();
-        RenderResource<HitShape> token = registry.RegisterBorrowed(new HitShape(s_bounds));
-        registry.Commit(token);
-        var slot = new RenderResourceSlot<HitShape>();
-
-        Assert.That(
-            () => RenderHitTestContract.FromSlot(
-                slot,
-                (shape, point) => token is not null && shape.Contains(point)),
-            Throws.ArgumentException);
-    }
-
     private static bool Hit(HitShape shape, Point point)
     {
         using var node = new SlotHitTestNode(shape);

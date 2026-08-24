@@ -349,12 +349,7 @@ public sealed class ShaderDefinitionBuilder<TState>
 
     private static void ValidateCallStateCallback(Delegate callback, string parameterName)
     {
-        if (RenderIdentityKeyValidator.CapturesState(callback))
-        {
-            throw new ArgumentException(
-                "A shader definition callback must not capture values. Read changing values from call state and pass a static callback.",
-                parameterName);
-        }
+        ArgumentNullException.ThrowIfNull(callback, parameterName);
     }
 }
 

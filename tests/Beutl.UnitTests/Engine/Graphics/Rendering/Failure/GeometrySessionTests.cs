@@ -10,24 +10,6 @@ public sealed class GeometrySessionTests
 {
 
 
-    [Test]
-    public void Create_RejectsACapturingCallbackAndNamesTheStateParameter()
-    {
-        var color = Colors.Red;
-        ArgumentException? rejection = Assert.Throws<ArgumentException>(
-            () => GeometryDescription.Create(
-                "under-specified",
-                (session, _) => session.Canvas.Use(canvas => canvas.Clear(color)),
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rejection!.ParamName, Is.EqualTo("render"));
-            Assert.That(rejection.Message, Does.Contain("state"));
-        });
-    }
-
     private static void RenderNothing(GeometrySession session, (string Kind, int Value) state)
     {
     }

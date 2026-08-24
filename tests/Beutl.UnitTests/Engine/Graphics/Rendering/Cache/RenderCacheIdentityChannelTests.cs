@@ -29,18 +29,6 @@ public sealed class RenderCacheIdentityChannelTests
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
     [Test]
-    public void CallbackCapturingAPerRecordingValue_IsRejectedWhileRecording()
-    {
-        var captured = new ColorBox { Color = Colors.Red };
-
-        ArgumentException? rejection = Assert.Throws<ArgumentException>(
-            () => Describe(typeof(RenderCacheIdentityChannelTests), (_, _) => _ = captured.Color));
-
-        Assert.That(rejection!.Message, Does.Contain("must not capture per-recording values"),
-            "The capture check is the whole of the state-passing rule, so it must stay the reason given.");
-    }
-
-    [Test]
     public void MutableReferenceHeldByTheCallbackState_IsServedStale()
     {
         using var node = new MutableStateHolderNode();

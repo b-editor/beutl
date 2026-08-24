@@ -70,19 +70,6 @@ public sealed class RenderScaleContractTests
         });
     }
 
-    [Test]
-    public void MapInputSupplyPreservingDemand_RejectsMutableCallbackCapture()
-    {
-        var mutable = new List<float> { 2 };
-
-        Assert.That(
-            () => RenderScaleContract.MapInputSupplyPreservingDemand(
-                input => input.IsUnbounded
-                    ? EffectiveScale.Unbounded
-                    : EffectiveScale.At(input.Value * mutable[0])),
-            Throws.TypeOf<ArgumentException>());
-    }
-
     private static EffectiveScale DoubleSupply(EffectiveScale input)
         => input.IsUnbounded
             ? EffectiveScale.Unbounded

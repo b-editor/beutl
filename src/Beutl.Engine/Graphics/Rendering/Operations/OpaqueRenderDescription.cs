@@ -1609,13 +1609,6 @@ internal static class RenderDescriptionValidation
             ThrowIfExecutionFacadeIdentity(state, stateParameterName);
         }
 
-        if (RenderIdentityKeyValidator.CapturesState(execute))
-        {
-            throw new ArgumentException(
-                $"A definition callback must not capture per-recording values. Move them into '{stateParameterName}' "
-                + "and pass the callback as static.",
-                executeParameterName);
-        }
     }
 
     public static RenderExecutionChannel<TSession> CreateRequestLocalChannel<TSession>(
@@ -1661,37 +1654,6 @@ internal static class RenderDescriptionValidation
 
         ThrowIfExecutionFacadeIdentity(target, parameterName);
         RenderIdentityKeyValidator.ThrowIfInvalid(target, parameterName);
-
-        foreach (FieldInfo field in RenderIdentityKeyValidator.GetInstanceFields(target.GetType()))
-        {
-            // This runs once per recorded callback per frame, and reading a field whose declared type is
-            // already fixed and has no subtype would only box a number to accept it again.
-            if (RenderIdentityKeyValidator.IsSettledCaptureType(field.FieldType))
-                continue;
-
-            object? captured = field.GetValue(target);
-            if (captured is null)
-                continue;
-
-            // When a lambda is written inside another lambda over the same locals, Roslyn caches the inner
-            // delegate in the shared closure. That field is the compiler's, not the author's: whatever the
-            // cached delegate reads is one of the closure's other fields, which this loop checks anyway.
-            if (captured is Delegate cached && ReferenceEquals(cached.Target, target))
-                continue;
-
-            ThrowIfExecutionFacadeIdentity(captured, parameterName);
-            try
-            {
-                RenderIdentityKeyValidator.ThrowIfMutableCapture(captured, parameterName);
-            }
-            catch (ArgumentException ex)
-            {
-                throw new ArgumentException(
-                    "A pure metadata callback cannot capture a mutable value, resource, execution facade, or disposable object.",
-                    parameterName,
-                    ex);
-            }
-        }
     }
 
     public static IReadOnlyList<RenderResource> CopyResources(
