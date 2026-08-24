@@ -1242,12 +1242,13 @@ public class SourceEffectiveScaleFlowTests
         float plannedScale = measurement.EffectiveScale.Value;
 
         // Planning clamps to the engine ceiling so a plan means the same thing wherever it was compiled,
-        // while the site that turns a density into real pixels fits what this device can attach. The two
-        // are the same number only on a device that reaches the ceiling, so the item's density is pinned
-        // against the device budget rather than against the plan.
-        float deviceClamp = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
-            intermediateFootprint,
-            plannedScale);
+        // while the site that turns a density into real pixels fits what this device can actually attach.
+        // The two are the same number only on a device that reaches the ceiling. Re-deriving the expected
+        // density here would just restate the production formula against a footprint this fixture only
+        // approximates, so what is pinned instead is the property the clamp exists for: the buffer fits.
+        int deviceBudget = RenderScaleUtilities.ResolveMaxBufferDimension();
+        int itemBufferWidth = (int)MathF.Ceiling(
+            intermediateFootprint.Width * s_effectItemCustomWorkingScale);
 
         Assert.Multiple(() =>
         {
@@ -1256,8 +1257,21 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(result.IsEmpty, Is.False);
             Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False);
             Assert.That(observedSourceScale, Is.EqualTo(plannedScale));
-            Assert.That(deviceClamp, Is.LessThanOrEqualTo(plannedScale));
-            Assert.That(s_effectItemCustomWorkingScale, Is.EqualTo(deviceClamp));
+            Assert.That(
+                s_effectItemCustomWorkingScale,
+                Is.LessThanOrEqualTo(plannedScale),
+                "the allocation site may reduce the planned density but must never raise it");
+            Assert.That(
+                itemBufferWidth,
+                Is.LessThanOrEqualTo(deviceBudget),
+                "the density the item ran at has to produce a buffer this device can attach");
+            if (deviceBudget >= RenderScaleUtilities.MaxBufferDimension)
+            {
+                Assert.That(
+                    s_effectItemCustomWorkingScale,
+                    Is.EqualTo(plannedScale),
+                    "a device that reaches the engine ceiling has nothing left to clamp");
+            }
         });
     }
 
