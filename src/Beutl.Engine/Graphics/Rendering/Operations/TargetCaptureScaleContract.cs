@@ -41,9 +41,12 @@ public readonly struct TargetCaptureScaleContract
     /// <exception cref="ArgumentNullException"><paramref name="resolve"/> is <see langword="null"/>.</exception>
     public static TargetCaptureScaleContract Custom(
         Func<RenderScaleContext, float> resolve)
+#pragma warning disable BESG003 // This method is itself a contract entry point, so the author's own call
+        // to it is where the rule applies to `resolve`. Forwarding it here checks nothing twice.
         => new(
             TargetCaptureScaleContractKind.Declared,
             RenderScaleContract.Custom(resolve));
+#pragma warning restore BESG003
 
     internal bool PreservesTargetSupply
     {

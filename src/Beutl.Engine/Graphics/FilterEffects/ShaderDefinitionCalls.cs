@@ -437,7 +437,10 @@ internal sealed class CustomUniformTemplate<TState, TValue>(
         ShaderBindingBuilder builder,
         TState state,
         IReadOnlyList<RenderResourceBinding> resourceBindings)
+#pragma warning disable BESG003 // `bind` reached this template from the author's own builder call, which
+        // is a contract call and is analyzed there. Replaying it here checks nothing twice.
         => builder.Uniform(name, value(state), bind);
+#pragma warning restore BESG003
 }
 
 internal sealed class ResourceTemplate<TState, TValue>(
@@ -456,6 +459,9 @@ internal sealed class ResourceTemplate<TState, TValue>(
     {
         RenderResourceBinding binding = resourceBindings.FirstOrDefault(item => ReferenceEquals(item.Slot, slot))
             ?? throw new InvalidOperationException("The shader definition slot was not bound for this call.");
+#pragma warning disable BESG003 // Same as the uniform template above: the author's builder call is the
+        // analyzed one.
         builder.Resource(name, (RenderResource<TValue>)binding.Resource, coordinateSpace, bind);
+#pragma warning restore BESG003
     }
 }

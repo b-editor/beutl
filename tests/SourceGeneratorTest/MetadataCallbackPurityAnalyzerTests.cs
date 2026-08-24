@@ -158,8 +158,13 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
+    /// <remarks>
+    /// A forwarded callback is checked nowhere else: the caller hands it to the helper, not to a contract,
+    /// so the caller's own call is not a contract call and is not analyzed. The forwarder is the last place
+    /// that knows a contract is involved.
+    /// </remarks>
     [Test]
-    public void AForwardedParameter_IsNotReported()
+    public void AForwardedParameter_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
             using System;
@@ -175,8 +180,8 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
         Assert.That(
             diagnostics.Select(static d => d.Id),
-            Does.Not.Contain("BESG003"),
-            "the caller's own call site is where the rule applies to the caller's callback");
+            Does.Contain("BESG003"),
+            "nothing else sees that a contract is involved, so this is the last place to say so");
     }
 
     /// <remarks>

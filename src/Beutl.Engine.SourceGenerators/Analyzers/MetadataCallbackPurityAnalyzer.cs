@@ -109,10 +109,12 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     {
                         IMethodSymbol method => DescribeReceiverImpurity(context, method, expression),
 
-                        // A parameter is the caller's callback being forwarded, and the caller's own call
-                        // site is where this rule already applies to it. Flagging the forwarder would only
-                        // move the report away from the code that can act on it.
-                        IParameterSymbol => null,
+                        // A forwarded callback is not checked anywhere else: the caller passes it to this
+                        // helper, not to a contract, so nothing there is analyzed. The forwarder is the
+                        // last place that knows a contract is involved.
+                        IParameterSymbol =>
+                            "the callback arrives as a parameter, so what the caller closed over is not "
+                            + "visible here and the caller's own call is not a contract call",
                         ILocalSymbol =>
                             "the callback comes from a local, so what it closed over is not visible here",
                         IFieldSymbol { IsReadOnly: false } =>
