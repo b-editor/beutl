@@ -126,10 +126,10 @@ public sealed class FilterEffectCompatibilityContractTests
     }
 
     [Test]
-    public void ExistingApplyToEffect_RetainsLegacyMembersAndDeferredExecution()
+    public void ExistingApplyToEffect_RetainsEffectItemMembersAndDeferredExecution()
     {
         var executionOrder = new List<string>();
-        var effect = new LegacyPluginEffect(executionOrder, "single");
+        var effect = new EffectItemPluginEffect(executionOrder, "single");
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds, outputScale: 2, workingScale: 1.5f);
 
@@ -143,11 +143,11 @@ public sealed class FilterEffectCompatibilityContractTests
             Assert.That(context.WorkingScale, Is.EqualTo(1.5f));
             Assert.That(hasWorkingScale, Is.True);
             Assert.That(workingScale, Is.EqualTo(1.5f));
-            // Brightness(1) is an exact identity colour matrix and records no stage, so the legacy
+            // Brightness(1) is an exact identity colour matrix and records no stage, so the effect-item
             // fixture contributes four items rather than five.
             Assert.That(context.CountItems(), Is.EqualTo(4));
             Assert.That(executionOrder, Is.Empty,
-                "ApplyTo must record legacy custom work rather than execute it.");
+                "ApplyTo must record effectItem custom work rather than execute it.");
         });
     }
 
@@ -156,15 +156,15 @@ public sealed class FilterEffectCompatibilityContractTests
     {
         var executionOrder = new List<string>();
         var group = new FilterEffectGroup();
-        group.Children.Add(new LegacyPluginEffect(executionOrder, "first"));
-        group.Children.Add(new LegacyPluginEffect(executionOrder, "second"));
+        group.Children.Add(new EffectItemPluginEffect(executionOrder, "first"));
+        group.Children.Add(new EffectItemPluginEffect(executionOrder, "second"));
 
         using RenderNode unfiltered = new SolidSourceNode(s_bounds, Colors.CornflowerBlue);
         using RenderNode filtered = CreateEffectNode(group, new SolidSourceNode(s_bounds, Colors.CornflowerBlue));
         using RenderNodeRasterization baseline = Rasterize(unfiltered);
 
         Assert.That(executionOrder, Is.Empty,
-            "Constructing and recording the legacy group must not invoke CustomEffect callbacks.");
+            "Constructing and recording the effectItem group must not invoke CustomEffect callbacks.");
 
         using RenderNodeRasterization actual = Rasterize(filtered);
 
@@ -379,14 +379,14 @@ public sealed class FilterEffectCompatibilityContractTests
         Assert.That(
             maximumChannelError,
             Is.LessThanOrEqualTo(0.0025f),
-            "Identity Skia filters may round RGBA16F channels while crossing legacy custom-effect buffers, "
+            "Identity Skia filters may round RGBA16F channels while crossing effectItem custom-effect buffers, "
             + "but must remain within a strict sub-visual-error bound.");
         Assert.That(maximumAlphaError, Is.Zero,
-            "Identity legacy operations must preserve premultiplied alpha exactly.");
+            "Identity effectItem operations must preserve premultiplied alpha exactly.");
     }
 
     [SuppressResourceClassGeneration]
-    private sealed partial class LegacyPluginEffect(List<string> executionOrder, string prefix) : FilterEffect
+    private sealed partial class EffectItemPluginEffect(List<string> executionOrder, string prefix) : FilterEffect
     {
         public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
         {
@@ -394,7 +394,7 @@ public sealed class FilterEffectCompatibilityContractTests
             // feature-004 Shader/Geometry API and therefore exercises source compatibility.
             context.Brightness(1);
             context.CustomEffect(
-                new LegacyMarker(executionOrder, $"{prefix}:after-color"),
+                new EffectItemMarker(executionOrder, $"{prefix}:after-color"),
                 static (marker, callback) =>
                 {
                     Assert.That(callback.Targets, Is.Not.Empty);
@@ -404,7 +404,7 @@ public sealed class FilterEffectCompatibilityContractTests
             context.Blur(Size.Empty);
             context.Transform(Matrix.Identity, BitmapInterpolationMode.Default);
             context.CustomEffect(
-                new LegacyMarker(executionOrder, $"{prefix}:after-skia-transform"),
+                new EffectItemMarker(executionOrder, $"{prefix}:after-skia-transform"),
                 static (marker, callback) =>
                 {
                     Assert.That(callback.Targets, Is.Not.Empty);
@@ -429,7 +429,7 @@ public sealed class FilterEffectCompatibilityContractTests
         }
     }
 
-    private sealed record LegacyMarker(List<string> Order, string Name);
+    private sealed record EffectItemMarker(List<string> Order, string Name);
 
     [SuppressResourceClassGeneration]
     private sealed partial class WorkingScaleProbeEffect(

@@ -94,7 +94,7 @@ public sealed class ColorFilterIslandSplitTests
             }));
 
             // The blur segment is what forces the split, so no custom effect is blamed for it.
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.LegacyCustomEffect));
+            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
 
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().Stages, Has.Length.EqualTo(1));
         }

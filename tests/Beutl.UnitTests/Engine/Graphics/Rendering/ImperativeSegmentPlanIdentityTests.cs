@@ -6,7 +6,7 @@ using Beutl.Graphics.Rendering;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 /// <summary>
-/// Pins that whether a legacy filter segment holds an imperative callback is part of its plan identity.
+/// Pins that whether a effect-item filter segment holds an imperative callback is part of its plan identity.
 /// </summary>
 /// <remarks>
 /// The segment's key carries its working-scale policy and stream-input count. Two segments that agree on

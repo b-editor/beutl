@@ -29,7 +29,7 @@ public partial class SourceVideo : IThumbnailsProvider
     {
         if (baseKey is null)
             return;
-        // Keep invalidating the legacy proxy key too; older in-memory strips may have been saved under
+        // Keep invalidating the effect-item proxy key too; older in-memory strips may have been saved under
         // it before preset-aware partitioning was introduced.
         cacheService.Invalidate(baseKey + ProxyThumbnailCacheKeySuffix);
         foreach (ProxyPreset preset in Enum.GetValues<ProxyPreset>())

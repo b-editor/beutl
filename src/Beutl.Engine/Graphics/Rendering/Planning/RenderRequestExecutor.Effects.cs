@@ -269,16 +269,16 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private IReadOnlyList<MaterializedRenderValue> ExecuteLegacyFilter(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteEffectItem(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget)
             => ExecuteOnDeviceGrid(
                 currentTarget,
-                () => ExecuteLegacyFilterCore(fragment, currentTarget),
+                () => ExecuteEffectItemCore(fragment, currentTarget),
                 normalizeGridPhase: fragment.Payload is FilterEffectSegmentRenderFragmentPayload payload
                                     && payload.HasImperativeItem);
 
-        private IReadOnlyList<MaterializedRenderValue> ExecuteLegacyFilterCore(
+        private IReadOnlyList<MaterializedRenderValue> ExecuteEffectItemCore(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget)
         {
@@ -323,7 +323,7 @@ internal sealed partial class RenderRequestExecutor
                                 input.EffectiveScale,
                                 input.DeviceBounds,
                                 input.DeviceGridOffset,
-                                input.PreserveLegacyRasterPlacement && hasCompleteBacking)
+                                input.PreserveImperativeRasterPlacement && hasCompleteBacking)
                             {
                                 OriginalBounds = new Rect(default, inputBounds.Size),
                                 Bounds = inputBounds,
@@ -356,7 +356,7 @@ internal sealed partial class RenderRequestExecutor
                             if (target.RenderTarget is not { } renderTarget)
                                 continue;
 
-                            MaterializedRenderValue value = MaterializeLegacyTarget(
+                            MaterializedRenderValue value = MaterializeEffectItemTarget(
                                 target,
                                 renderTarget,
                                 target.Bounds);
@@ -373,10 +373,10 @@ internal sealed partial class RenderRequestExecutor
 
                             if (selectedBounds != value.Bounds)
                             {
-                                if (value.PreserveLegacyRasterPlacement
+                                if (value.PreserveImperativeRasterPlacement
                                     || value.RasterBounds.Contains(value.CompleteBounds))
                                 {
-                                    // Preserve a complete backing so later legacy effects can sample
+                                    // Preserve a complete backing so later effect-item effects can sample
                                     // the physical footprint while Bounds remains the selected output.
                                     value.Bounds = selectedBounds;
                                 }
@@ -491,17 +491,17 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private MaterializedRenderValue MaterializeLegacyTarget(
+        private MaterializedRenderValue MaterializeEffectItemTarget(
             EffectTarget target,
             RenderTarget renderTarget,
             Rect completeBounds)
         {
-            if (target.PreserveLegacyRasterPlacement)
+            if (target.PreserveImperativeRasterPlacement)
             {
                 Vector deviceGridOffset = target.DeviceBounds
                     .ToRect(target.Scale.Value)
                     .Position - target.RasterBounds.Position;
-                return CreateOwnedLegacyValue(
+                return CreateOwnedEffectItemValue(
                     target,
                     renderTarget,
                     target.Bounds,
@@ -509,7 +509,7 @@ internal sealed partial class RenderRequestExecutor
                     target.DeviceBounds,
                     deviceGridOffset,
                     completeBounds,
-                    preserveLegacyRasterPlacement: true);
+                    preserveImperativeRasterPlacement: true);
             }
 
             Rect canonicalRasterBounds = target.DeviceBounds
@@ -521,7 +521,7 @@ internal sealed partial class RenderRequestExecutor
             if (target.RasterBounds == canonicalRasterBounds
                 && Contains(target.DeviceBounds, semanticDeviceBounds))
             {
-                return CreateOwnedLegacyValue(
+                return CreateOwnedEffectItemValue(
                     target,
                     renderTarget,
                     target.Bounds,
@@ -575,7 +575,7 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private static MaterializedRenderValue CreateOwnedLegacyValue(
+        private static MaterializedRenderValue CreateOwnedEffectItemValue(
             EffectTarget effectTarget,
             RenderTarget renderTarget,
             Rect bounds,
@@ -583,7 +583,7 @@ internal sealed partial class RenderRequestExecutor
             PixelRect deviceBounds,
             Vector deviceGridOffset,
             Rect? completeBounds = null,
-            bool preserveLegacyRasterPlacement = false)
+            bool preserveImperativeRasterPlacement = false)
         {
             EffectTargetRenderTargetLease? renderTargetLease = effectTarget.TakeRenderTargetLease();
             if (renderTargetLease is null)
@@ -595,7 +595,7 @@ internal sealed partial class RenderRequestExecutor
                     deviceBounds,
                     deviceGridOffset,
                     completeBounds,
-                    preserveLegacyRasterPlacement);
+                    preserveImperativeRasterPlacement);
             }
 
             try
@@ -607,7 +607,7 @@ internal sealed partial class RenderRequestExecutor
                     deviceBounds,
                     deviceGridOffset,
                     completeBounds,
-                    preserveLegacyRasterPlacement);
+                    preserveImperativeRasterPlacement);
             }
             catch
             {

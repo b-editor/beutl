@@ -56,7 +56,7 @@ public readonly struct BrushConstructor(
     /// </summary>
     public float Scale { get; } = scale;
 
-    /// <summary>Working-scale ceiling applied to brush-owned intermediates and scoped legacy nested pulls.</summary>
+    /// <summary>Working-scale ceiling applied to brush-owned intermediates and scoped effect-item nested pulls.</summary>
     public float MaxWorkingScale { get; } = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
 
     /// <summary>

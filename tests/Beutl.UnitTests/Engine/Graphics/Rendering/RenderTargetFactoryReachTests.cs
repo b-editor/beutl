@@ -9,7 +9,7 @@ using SkiaSharp;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 /// <summary>
-/// Pins that every legacy filter-effect path allocates its own surfaces through the caller's
+/// Pins that every effect-item filter-effect path allocates its own surfaces through the caller's
 /// <see cref="IRenderTargetFactory"/> instead of the global allocator.
 /// </summary>
 /// <remarks>
@@ -28,7 +28,7 @@ public sealed class RenderTargetFactoryReachTests
     private static readonly Rect s_bounds = new(0, 0, 8, 6);
 
     [Test]
-    public void LegacyShaderStage_AllocatesThroughTheFactory()
+    public void EffectItemShaderStage_AllocatesThroughTheFactory()
     {
         using EffectTargets targets = CreateSolidTargets(s_bounds);
         using ProgramCache<CachedSkRuntimeEffect> cache = SkRuntimeEffectProgramCache.Create();
@@ -55,7 +55,7 @@ public sealed class RenderTargetFactoryReachTests
     }
 
     [Test]
-    public void LegacyGeometryStage_AllocatesThroughTheFactory()
+    public void EffectItemGeometryStage_AllocatesThroughTheFactory()
     {
         using EffectTargets targets = CreateSolidTargets(s_bounds);
         var factory = new CountingTargetFactory();

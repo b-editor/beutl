@@ -465,7 +465,7 @@ public sealed class RasterFootprintMetadataTests
     }
 
     [Test]
-    public void ResolveTargetDensity_UsesLegacyLocalDimensions()
+    public void ResolveTargetDensity_UsesEffectItemLocalDimensions()
     {
         var sourceBounds = new Rect(0, 0, 1, 1);
         var gridOffset = new Vector(0.5f, 0);

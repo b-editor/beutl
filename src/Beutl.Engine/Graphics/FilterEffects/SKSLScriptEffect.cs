@@ -268,13 +268,13 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
                 }
             }
 
-            if (!SKSLShader.TryCreate(script, out _shader, out string? legacyError))
+            if (!SKSLShader.TryCreate(script, out _shader, out string? effectItemError))
             {
-                SetCompileError(declarativeError ?? legacyError, prevError);
+                SetCompileError(declarativeError ?? effectItemError, prevError);
                 return;
             }
 
-            // A valid legacy program can remain here only when the stricter declarative source or binding contract
+            // A valid effect-item program can remain here only when the stricter declarative source or binding contract
             // could not represent it.
         }
 

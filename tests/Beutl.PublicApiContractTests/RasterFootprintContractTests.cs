@@ -10,7 +10,7 @@ namespace Beutl.PublicApiContractTests;
 public sealed class RasterFootprintContractTests
 {
     [Test]
-    public void LegacyEffectTarget_ExposesImmutableDeviceAndTranslatedRasterFootprints()
+    public void EffectItemEffectTarget_ExposesImmutableDeviceAndTranslatedRasterFootprints()
     {
         const float density = 2;
         var bounds = new Rect(10.25f, 20.25f, 8, 6);
@@ -42,7 +42,7 @@ public sealed class RasterFootprintContractTests
     }
 
     [Test]
-    public void LegacyCustomEffectBufferSize_RemainsLocalToLogicalDimensions()
+    public void CustomEffectItemBufferSize_RemainsLocalToLogicalDimensions()
     {
         const float density = 2;
         var bounds = new Rect(10.25f, 20.25f, 8, 6);
@@ -59,7 +59,7 @@ public sealed class RasterFootprintContractTests
     }
 
     [Test]
-    public void LegacyCustomShaderApi_SeparatesAllocationMappingAndRendering()
+    public void EffectItemCustomShaderApi_SeparatesAllocationMappingAndRendering()
     {
         Type contextType = typeof(CustomFilterEffectContext);
         Type shaderType = typeof(SKSLShader);

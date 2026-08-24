@@ -16,7 +16,7 @@ public sealed class FilterEffectAlphaReadbackTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void SnapshotAlpha_ReadsAlpha8AndMatchesLegacyConversionExactly()
+    public void SnapshotAlpha_ReadsAlpha8AndMatchesEffectItemConversionExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -35,7 +35,7 @@ public sealed class FilterEffectAlphaReadbackTests
                 Assert.That(actual.RowBytes, Is.EqualTo(actual.Width));
                 Assert.That(actual.ByteCount, Is.EqualTo(actual.Width * actual.Height));
             });
-            AssertRowsIdentical(expected, actual, "legacy RgbaF16-to-Alpha8 conversion", "direct Alpha8 readback");
+            AssertRowsIdentical(expected, actual, "effectItem RgbaF16-to-Alpha8 conversion", "direct Alpha8 readback");
         });
     }
 
@@ -64,13 +64,13 @@ public sealed class FilterEffectAlphaReadbackTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void ClippingAutoClip_DirectAlphaReadbackMatchesLegacyBoundsExactly()
+    public void ClippingAutoClip_DirectAlphaReadbackMatchesEffectItemBoundsExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = CreatePatternTarget();
-            using Bitmap expectedAlpha = SnapshotClippingAlphaLegacy(source);
+            using Bitmap expectedAlpha = SnapshotClippingAlphaEffectItem(source);
             using Bitmap actualAlpha = source.SnapshotAlpha();
 
             Thickness expected = FindAutoClipThickness(expectedAlpha);
@@ -82,56 +82,56 @@ public sealed class FilterEffectAlphaReadbackTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void FlatShadow_DirectAlphaReadbackMatchesLegacyContourRenderingExactly()
+    public void FlatShadow_DirectAlphaReadbackMatchesEffectItemContourRenderingExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = CreatePatternTarget();
-            using Bitmap legacySource = source.Snapshot();
+            using Bitmap effectItemSource = source.Snapshot();
             using Bitmap directAlpha = source.SnapshotAlpha();
-            using Bitmap expected = RenderFlatShadowContours(legacySource);
+            using Bitmap expected = RenderFlatShadowContours(effectItemSource);
             using Bitmap actual = RenderFlatShadowContours(directAlpha);
 
-            AssertRowsIdentical(expected, actual, "legacy FlatShadow contours", "direct-alpha FlatShadow contours");
+            AssertRowsIdentical(expected, actual, "effectItem FlatShadow contours", "direct-alpha FlatShadow contours");
         });
     }
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void StrokeEffect_DirectAlphaReadbackMatchesLegacyContourRenderingExactly()
+    public void StrokeEffect_DirectAlphaReadbackMatchesEffectItemContourRenderingExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = CreatePatternTarget();
-            using Bitmap legacySource = source.Snapshot();
+            using Bitmap effectItemSource = source.Snapshot();
             using Bitmap directAlpha = source.SnapshotAlpha();
-            using Bitmap expected = RenderStrokeContours(legacySource);
+            using Bitmap expected = RenderStrokeContours(effectItemSource);
             using Bitmap actual = RenderStrokeContours(directAlpha);
 
-            AssertRowsIdentical(expected, actual, "legacy StrokeEffect contours", "direct-alpha StrokeEffect contours");
+            AssertRowsIdentical(expected, actual, "effectItem StrokeEffect contours", "direct-alpha StrokeEffect contours");
         });
     }
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void PartsSplitEffect_DirectAlphaReadbackMatchesLegacyContourRenderingExactly()
+    public void PartsSplitEffect_DirectAlphaReadbackMatchesEffectItemContourRenderingExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = CreatePatternTarget();
-            using Bitmap legacySource = source.Snapshot();
+            using Bitmap effectItemSource = source.Snapshot();
             using Bitmap directAlpha = source.SnapshotAlpha();
-            using Bitmap expected = RenderSplitContours(legacySource);
+            using Bitmap expected = RenderSplitContours(effectItemSource);
             using Bitmap actual = RenderSplitContours(directAlpha);
 
-            AssertRowsIdentical(expected, actual, "legacy PartsSplitEffect contours", "direct-alpha PartsSplitEffect contours");
+            AssertRowsIdentical(expected, actual, "effectItem PartsSplitEffect contours", "direct-alpha PartsSplitEffect contours");
         });
     }
 
-    private static Bitmap SnapshotClippingAlphaLegacy(RenderTarget target)
+    private static Bitmap SnapshotClippingAlphaEffectItem(RenderTarget target)
     {
         target.Value.Flush(true, true);
         using SKImage image = target.Value.Snapshot();

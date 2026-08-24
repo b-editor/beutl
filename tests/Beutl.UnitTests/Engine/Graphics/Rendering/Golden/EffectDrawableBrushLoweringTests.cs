@@ -81,7 +81,7 @@ public class EffectDrawableBrushLoweringTests
                 effect.ShowDisplacementMap.CurrentValue = true;
                 return effect;
             }));
-        // A drawable map takes the legacy custom-effect path while every other brush takes the shader
+        // A drawable map takes the effect-item custom-effect path while every other brush takes the shader
         // description, so this case pins both the lowering and the equivalence of the two paths.
         yield return new TestCaseData(
             "DisplacementMap-Transform",
@@ -207,7 +207,7 @@ public class EffectDrawableBrushLoweringTests
 
 // RegisterBrush states no ordering requirement: a typed operation authored between the registration and the
 // operation that paints with the handle is lowered as its own fragment, and the handle must still reach the
-// legacy segment behind it.
+// effect-item segment behind it.
 internal sealed partial class TypedOperationBeforeBrushEffect : FilterEffect
 {
     private const string IdentityShader = "half4 apply(half4 color) { return color; }";

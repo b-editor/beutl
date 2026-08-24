@@ -623,7 +623,7 @@ public sealed class FilterEffectContext : IDisposable
     public void Brightness(float amount)
     {
         // Recorded as a CurrentPixel shader stage rather than a Skia color filter so that an adjacent shader
-        // stage can fuse with it instead of splitting the chain at a legacy segment.
+        // stage can fuse with it instead of splitting the chain at a effect-item segment.
         float[] array = s_colorMatPool.Get();
         try
         {
@@ -826,7 +826,7 @@ public sealed class FilterEffectContext : IDisposable
     internal void PrepareStandaloneResourcesForExecution()
         => _resourceState.CommitStandaloneResources();
 
-    internal static FilterEffectContext CreateLegacySegment(
+    internal static FilterEffectContext CreateEffectItemSegment(
         Rect bounds,
         float outputScale,
         float workingScale,

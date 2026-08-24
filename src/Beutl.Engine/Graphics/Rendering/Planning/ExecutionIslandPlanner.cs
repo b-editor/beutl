@@ -620,7 +620,7 @@ internal sealed class ExecutionIslandPlanner
     private static ExecutionIslandBoundaryReason SegmentBoundaryReason(
         FilterEffectSegmentRenderFragmentPayload payload)
         => payload.HasImperativeItem
-            ? ExecutionIslandBoundaryReason.LegacyCustomEffect
+            ? ExecutionIslandBoundaryReason.CustomEffectItem
             : ExecutionIslandBoundaryReason.FilterEffectSegment;
 
     private static bool TryClassifyExecutionIsland(
@@ -666,7 +666,7 @@ internal sealed class ExecutionIslandPlanner
                     ExecutionIslandBoundaryReason.TargetScope, []),
             RenderFragmentKind.RawTargetScope
                 or RenderFragmentKind.RawTargetCommand => new(ExecutionIslandKind.Target,
-                    ExecutionIslandBoundaryReason.LegacyRawCanvas, []),
+                    ExecutionIslandBoundaryReason.RawCanvas, []),
             RenderFragmentKind.TargetCommand
                 when ((TargetCommandRenderFragmentPayload)reference.Payload!).Description.Access
                      == TargetAccess.Readback => new(ExecutionIslandKind.Readback,

@@ -130,7 +130,7 @@ public sealed class LosslessCompositeCoverageTests
         });
     }
 
-    [TestCase(false, TestName = "FractionalTranslationCacheMove_LegacyFilter_MatchesUncached")]
+    [TestCase(false, TestName = "FractionalTranslationCacheMove_EffectItem_MatchesUncached")]
     [TestCase(true, TestName = "FractionalTranslationCacheMove_TypedShader_MatchesUncached")]
     public void FractionalTranslationCacheMove_MatchesUncached(bool typedShader)
     {
@@ -158,7 +158,7 @@ public sealed class LosslessCompositeCoverageTests
             AssertByteIdentical(
                 expected,
                 actual,
-                $"{(typedShader ? "typed shader" : "legacy filter")} after a device-phase cache move");
+                $"{(typedShader ? "typed shader" : "effectItem filter")} after a device-phase cache move");
             Assert.That(
                 cachedRoot.Children[0].Cache.IsCached,
                 Is.False,

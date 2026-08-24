@@ -114,7 +114,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/GraphicsContext2DTests.cs"] = 3,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/HitTestDomainAgreementTests.cs"] = 2,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/ImageSourceRenderNodeTest.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/LegacyFilterTypedSuffixExecutionTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/EffectItemTypedSuffixExecutionTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/NodeCacheScaleTests.cs"] = 3,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/BackdropOrderingTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/MaterializedInputCompositeTests.cs"] = 1,
@@ -247,7 +247,7 @@ public sealed class RenderPipelineMigrationCensusTests
             BuildName("Rasterize", "To", "Render", "Targets"),
             BuildName("Rasterize", "And", "Concat"),
         ];
-        IEnumerable<SourceFinding> findings = s_corpus.Value.FindLegacyRasterizers()
+        IEnumerable<SourceFinding> findings = s_corpus.Value.FindEffectItemRasterizers()
             .Concat(compatibilityNames.SelectMany(s_corpus.Value.FindWord));
 
         AssertNoFindings("Rasterization must return one owned RenderNodeRasterization, not a list or compatibility result.",
@@ -552,7 +552,7 @@ public sealed class RenderPipelineMigrationCensusTests
             }
         }
 
-        public IEnumerable<SourceFinding> FindLegacyRasterizers()
+        public IEnumerable<SourceFinding> FindEffectItemRasterizers()
         {
             foreach (SourceDocument document in Documents)
             {

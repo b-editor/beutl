@@ -206,7 +206,7 @@ internal sealed partial class RenderRequestExecutor
 
         private MaterializedRenderValue NormalizeSemanticShaderInput(MaterializedRenderValue input)
         {
-            if (!input.PreserveLegacyRasterPlacement || CanUseAsSemanticShaderInput(input))
+            if (!input.PreserveImperativeRasterPlacement || CanUseAsSemanticShaderInput(input))
                 return input;
 
             MaterializedRenderValue normalized = CreateNormalizedSemanticShaderInput(
@@ -216,7 +216,7 @@ internal sealed partial class RenderRequestExecutor
                 return normalized;
 
             // Global device-grid alignment can move a locally exact edge by a sub-pixel epsilon.
-            // Keep the legacy exact placement whenever it is sufficient, and add an apron only for
+            // Keep the effect-item exact placement whenever it is sufficient, and add an apron only for
             // the residual case where raster-local pixel rounding still falls outside the image.
             ReleaseUnpublished(normalized);
             return CreateNormalizedSemanticShaderInput(input, addRasterApron: true);
@@ -725,7 +725,7 @@ internal sealed partial class RenderRequestExecutor
             ArgumentNullException.ThrowIfNull(target);
             RenderTarget renderTarget = target.RenderTarget
                 ?? throw new InvalidOperationException(
-                    "A legacy shader program requires a materialized execution destination.");
+                    "A effectItem shader program requires a materialized execution destination.");
             return AcquireStandaloneProgram(renderTarget, source);
         }
 

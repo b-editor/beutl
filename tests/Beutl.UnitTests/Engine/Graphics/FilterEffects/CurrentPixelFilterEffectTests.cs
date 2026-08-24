@@ -231,7 +231,7 @@ public sealed class CurrentPixelFilterEffectTests
     }
 
     [Test]
-    public void Threshold_ZeroStrength_PreservesLegacyPremultipliedLumaSemantics()
+    public void Threshold_ZeroStrength_PreservesEffectItemPremultipliedLumaSemantics()
     {
         var threshold = new Threshold();
         threshold.Strength.CurrentValue = 0;
@@ -355,7 +355,7 @@ public sealed class CurrentPixelFilterEffectTests
     }
 
     [Test]
-    public void KeyEffects_MatchingAndNonMatchingColors_PreserveLegacyMasks()
+    public void KeyEffects_MatchingAndNonMatchingColors_PreserveEffectItemMasks()
     {
         var input = new SKColor(64, 128, 224, 160);
         var matchingColor = new Color(input.Alpha, input.Red, input.Green, input.Blue);

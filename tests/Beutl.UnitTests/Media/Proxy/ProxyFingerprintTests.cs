@@ -135,11 +135,11 @@ public class ProxyFingerprintTests
     }
 
     [Test]
-    public void Deserialize_LegacyWithoutSourcePath_FallsBackToAbsolutePath()
+    public void Deserialize_EffectItemWithoutSourcePath_FallsBackToAbsolutePath()
     {
         var mtime = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
-        var reference = new ProxyFingerprint(CreatePath("legacy.mov"), 123, mtime);
-        string legacyJson = JsonSerializer.Serialize(
+        var reference = new ProxyFingerprint(CreatePath("effectItem.mov"), 123, mtime);
+        string effectItemJson = JsonSerializer.Serialize(
             new
             {
                 absolutePath = reference.AbsolutePath,
@@ -148,7 +148,7 @@ public class ProxyFingerprintTests
             },
             s_jsonOptions);
 
-        var restored = JsonSerializer.Deserialize<ProxyFingerprint>(legacyJson, s_jsonOptions);
+        var restored = JsonSerializer.Deserialize<ProxyFingerprint>(effectItemJson, s_jsonOptions);
 
         Assert.Multiple(() =>
         {

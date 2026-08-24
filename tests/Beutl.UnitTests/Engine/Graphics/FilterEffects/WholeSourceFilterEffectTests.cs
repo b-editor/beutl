@@ -16,7 +16,7 @@ public sealed class WholeSourceFilterEffectTests
     private static readonly Rect s_bounds = new(10, 20, 100, 60);
 
     [TestCaseSource(nameof(MigratedEffects))]
-    public void MigratedEffects_RecordWholeSourceWithoutLegacyBoundary(
+    public void MigratedEffects_RecordWholeSourceWithoutEffectItemBoundary(
         Func<FilterEffect> factory,
         SKShaderTileMode expectedTileMode,
         bool expectedFullInput,
@@ -214,7 +214,7 @@ public sealed class WholeSourceFilterEffectTests
     }
 
     [Test]
-    public void DisplacementMapPreview_RemainsLegacyCustomBoundary()
+    public void DisplacementMapPreview_RemainsEffectItemCustomBoundary()
     {
         var effect = new DisplacementMapEffect
         {

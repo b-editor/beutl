@@ -42,7 +42,7 @@ public class NoMigrationRegressionTests
         var json = CoreSerializer.SerializeToJsonObject(shape);
         string s1 = json.ToJsonString();
 
-        // Current EngineObject format, not the legacy Operation/Children one that ElementMigration handles.
+        // Current EngineObject format, not the effect-item Operation/Children one that ElementMigration handles.
         Assert.That(s1, Does.Not.Contain("\"Operation\""));
         Assert.That(s1, Does.Not.Contain("WorkingScale"));
 

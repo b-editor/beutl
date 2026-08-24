@@ -566,7 +566,7 @@ internal sealed class RegionAnalyzer
                 => ((OpaqueRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(inputBounds),
             RenderFragmentKind.FilterEffectSegment
-                => ResolveLegacyFilterBounds(reference, inputBounds),
+                => ResolveEffectItemBounds(reference, inputBounds),
             RenderFragmentKind.Layer
                 => ResolveLayerBounds(
                     reference,
@@ -584,7 +584,7 @@ internal sealed class RegionAnalyzer
         };
     }
 
-    private static Rect ResolveLegacyFilterBounds(
+    private static Rect ResolveEffectItemBounds(
         RenderFragmentReference reference,
         IReadOnlyList<Rect> inputBounds)
     {
@@ -655,7 +655,7 @@ internal sealed class RegionAnalyzer
                         .Take(payload.StreamInputCount)
                         .Select(static input => input.EffectiveScale)
                         .ToArray();
-                    Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+                    Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
                         inputBounds,
                         payload.BoundsItems,
                         resolvedBounds);
@@ -1045,8 +1045,8 @@ internal sealed class RegionAnalyzer
                 => MapOpaque(reference, outputRequirement, opaque.Description.Bounds),
             TargetCommandRenderFragmentPayload or RawTargetCommandRenderFragmentPayload
                 => FullInputs(reference),
-            FilterEffectSegmentRenderFragmentPayload legacy
-                => MapLegacyFilter(reference, outputRequirement, legacy, targetDomain),
+            FilterEffectSegmentRenderFragmentPayload effectItem
+                => MapEffectItem(reference, outputRequirement, effectItem, targetDomain),
             BlendRenderFragmentPayload blend
                 when BlendModeRenderNode.RequiresFullTargetRegion(blend.BlendMode)
                 => MapDestructiveBlendInput(reference, outputRequirement),
@@ -1195,7 +1195,7 @@ internal sealed class RegionAnalyzer
         return [outputRequirement.Intersect(reference.Inputs[0].Bounds)];
     }
 
-    private static ImmutableArray<RequiredRegion> MapLegacyFilter(
+    private static ImmutableArray<RequiredRegion> MapEffectItem(
         RenderFragmentReference reference,
         RequiredRegion outputRequirement,
         FilterEffectSegmentRenderFragmentPayload payload,
@@ -1208,7 +1208,7 @@ internal sealed class RegionAnalyzer
         }
 
         Rect requestedOutput = outputRequirement.Resolve(ResolveSemanticBounds(reference, targetDomain));
-        if (!LegacyFilterSamplingSupport.TryResolveSampledInput(payload.BoundsItems, requestedOutput, out Rect requested))
+        if (!EffectItemSamplingSupport.TryResolveSampledInput(payload.BoundsItems, requestedOutput, out Rect requested))
             return FullInputs(reference);
 
         var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);

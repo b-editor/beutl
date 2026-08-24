@@ -4,9 +4,9 @@ using Beutl.Graphics.Effects;
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Resolves the input region a recorded legacy filter segment reads to produce a requested output region.
+/// Resolves the input region a recorded effect-item filter segment reads to produce a requested output region.
 /// </summary>
-internal static class LegacyFilterSamplingSupport
+internal static class EffectItemSamplingSupport
 {
     /// <summary>
     /// Maps <paramref name="output"/> backward through every item of the segment.

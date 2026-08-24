@@ -14,7 +14,7 @@ public sealed class SKSLScriptEffectShaderTests
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
     [Test]
-    public void MainScript_RecordsWholeSourceWithoutLegacyBoundary()
+    public void MainScript_RecordsWholeSourceWithoutEffectItemBoundary()
     {
         var effect = new SKSLScriptEffect
         {
@@ -103,7 +103,7 @@ public sealed class SKSLScriptEffectShaderTests
     }
 
     [Test]
-    public void ReservedBindingName_FallsBackToLegacyCustomEffect()
+    public void ReservedBindingName_FallsBackToCustomEffectItem()
     {
         var effect = new SKSLScriptEffect
         {
@@ -134,7 +134,7 @@ public sealed class SKSLScriptEffectShaderTests
     }
 
     [Test]
-    public void IntegerArrayWithoutCanonicalZero_FallsBackToLegacyCustomEffect()
+    public void IntegerArrayWithoutCanonicalZero_FallsBackToCustomEffectItem()
     {
         var effect = new SKSLScriptEffect
         {

@@ -38,7 +38,7 @@ public class CustomTargetClampConsistencyTests
     }
 
     [Test]
-    public void CreateTarget_FractionalBounds_PreservesLegacyLocalBufferPlacement()
+    public void CreateTarget_FractionalBounds_PreservesEffectItemLocalBufferPlacement()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>

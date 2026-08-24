@@ -10,7 +10,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 [TestFixture]
 [NonParallelizable]
-public sealed class LegacyFilterTypedSuffixExecutionTests
+public sealed class EffectItemTypedSuffixExecutionTests
 {
     private const string BlueShader =
         "half4 apply(half4 color) { return half4(0.0, 0.0, color.a, color.a); }";
@@ -23,7 +23,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         Rect observedOutput = default;
         RenderIntent? observedIntent = null;
         RenderRequestPurpose? observedPurpose = null;
-        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
         {
             context.CustomEffect(
                 runtimeBounds,
@@ -71,7 +71,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     [Test]
     public void ShaderAfterUnknownCustomEffect_UsesRendererProgramCacheAcrossFrames()
     {
-        var effect = new LegacySuffixCallbackFilterEffect(static (context, _) =>
+        var effect = new EffectItemSuffixCallbackFilterEffect(static (context, _) =>
         {
             context.CustomEffect(0, static (_, _) => { });
             context.Shader(ShaderDescription.CurrentPixel(BlueShader));
@@ -133,7 +133,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         var translation = new Vector(2.25f, 3.75f);
         Vector observedAmbientGrid = default;
         Vector observedInputGrid = default;
-        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
             context.CustomEffect(
                 0,
                 (_, execution) =>
@@ -159,7 +159,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         Vector replacementGrid = new(float.NaN, float.NaN);
         Vector followingAmbientGrid = default;
         Vector followingInputGrid = new(float.NaN, float.NaN);
-        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
         {
             context.CustomEffect(
                 0,
@@ -264,7 +264,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         Rect mappedBounds = runtimeBounds.Inflate(new Thickness(2));
         Rect selectedBounds = mappedBounds.Inflate(new Thickness(-1));
         Rect observedInput = default;
-        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
         {
             context.CustomEffect(
                 runtimeBounds,
@@ -306,7 +306,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     [Test]
     public void DelayAnimationEffect_ExecutesTypedChildEffect()
     {
-        var child = new LegacySuffixCallbackFilterEffect(static (context, _) =>
+        var child = new EffectItemSuffixCallbackFilterEffect(static (context, _) =>
             context.Shader(ShaderDescription.CurrentPixel(BlueShader)));
         var delay = new DelayAnimationEffect
         {
@@ -333,7 +333,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     {
         var primary = new InvalidOperationException("delay-child-primary");
         var cleanup = new ThrowingDisposable();
-        var child = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var child = new EffectItemSuffixCallbackFilterEffect((context, _) =>
         {
             context.Own(cleanup);
             context.Shader(ShaderDescription.CurrentPixel(BlueShader));
@@ -379,7 +379,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         Rect expandedBounds = new(-5, -3, 30, 16);
         PixelSize observedInternalAllocation = default;
         Rect observedDownstreamInput = default;
-        var expandingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var expandingEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
             context.CustomEffect(
                 0,
                 (_, execution) => execution.ForEach((_, _) =>
@@ -390,7 +390,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                     canvas.Clear(Colors.Magenta);
                     return expanded;
                 })));
-        var downstreamEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var downstreamEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
             context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
@@ -437,12 +437,12 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     }
 
     [Test]
-    public void UnknownCustomEffect_OwningDomainNarrowingKeepsLegacyRasterPlacement()
+    public void UnknownCustomEffect_OwningDomainNarrowingKeepsImperativeRasterPlacement()
     {
         var domain = new Rect(0, 0, 20, 14);
         var expandedBounds = new Rect(-3.5f, -2.25f, 26, 18.5f);
         RenderTarget? retainedAllocation = null;
-        var expandingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var expandingEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
             context.CustomEffect(
                 0,
                 (_, execution) => execution.ForEach((_, _) =>
@@ -501,7 +501,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         Assert.That(
             actual.GetPixelSpan<ushort>().SequenceEqual(expected.GetPixelSpan<ushort>()),
             Is.True,
-            "narrowing a legacy raster-placement value to the owning domain must relabel its bounds "
+            "narrowing a effectItem raster-placement value to the owning domain must relabel its bounds "
             + "instead of re-allocating and re-anchoring its pixels");
     }
 
@@ -513,7 +513,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         Rect observedBounds = default;
         Rect observedRasterBounds = default;
         PixelRect observedDeviceBounds = default;
-        var movingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var movingEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
             context.CustomEffect(
                 movedBounds,
                 static (bounds, execution) =>
@@ -522,7 +522,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                         target.Bounds = bounds;
                 },
                 static (bounds, _) => bounds));
-        var observingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var observingEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
             context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
@@ -574,19 +574,19 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
 
     [TestCase(1)]
     [TestCase(2)]
-    public void FractionalLegacyTarget_ReplaysExactlyLikeDirectPointComposite(int customCount)
+    public void FractionalEffectItemTarget_ReplaysExactlyLikeDirectPointComposite(int customCount)
     {
         var domain = new Rect(0, 0, 20, 14);
-        var legacyBounds = new Rect(2.5f, 1.5f, 9.75f, 7.25f);
-        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var effectItemBounds = new Rect(2.5f, 1.5f, 9.75f, 7.25f);
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
         {
             context.CustomEffect(
-                legacyBounds,
+                effectItemBounds,
                 static (bounds, execution) => execution.ForEach((_, _) =>
                 {
                     EffectTarget output = execution.CreateTarget(bounds);
                     using ImmediateCanvas canvas = execution.Open(output);
-                    DrawLegacyPattern(canvas);
+                    DrawEffectItemPattern(canvas);
                     return output;
                 }),
                 static (bounds, _) => bounds);
@@ -625,16 +625,16 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         }
 
         using var localTarget = new CpuRenderTarget(9, 7);
-        using (var localCanvas = new ImmediateCanvas(localTarget, logicalSize: legacyBounds.Size))
+        using (var localCanvas = new ImmediateCanvas(localTarget, logicalSize: effectItemBounds.Size))
         {
-            DrawLegacyPattern(localCanvas);
+            DrawEffectItemPattern(localCanvas);
         }
 
         using var expectedTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
         using (var expectedCanvas = new ImmediateCanvas(expectedTarget, logicalSize: domain.Size))
         {
             expectedCanvas.Clear();
-            expectedCanvas.DrawRenderTarget(localTarget, legacyBounds.Position);
+            expectedCanvas.DrawRenderTarget(localTarget, effectItemBounds.Position);
         }
 
         using Bitmap actual = actualTarget.Snapshot();
@@ -642,17 +642,17 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         Assert.That(
             actual.GetPixelSpan<ushort>().SequenceEqual(expected.GetPixelSpan<ushort>()),
             Is.True,
-            $"{customCount} legacy CustomEffect boundary/boundaries changed direct point-blit pixels");
+            $"{customCount} effectItem CustomEffect boundary/boundaries changed direct point-blit pixels");
     }
 
     [Test]
-    public void FractionalLegacyInput_RetainsDirectPlacementWhenCallbackMovesBounds()
+    public void FractionalEffectItemInput_RetainsDirectPlacementWhenCallbackMovesBounds()
     {
         var domain = new Rect(0, 0, 20, 14);
         var sourceBounds = new Rect(2.5f, 1.5f, 9.75f, 7.25f);
         var movedBounds = new Rect(5.25f, 3.75f, sourceBounds.Width, sourceBounds.Height);
         RenderTarget? retainedInput = null;
-        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
             context.CustomEffect(
                 movedBounds,
                 (bounds, execution) => execution.ForEach((_, target) =>
@@ -689,7 +689,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         }
 
         using RenderTarget localTarget = retainedInput
-            ?? throw new AssertionException("The legacy callback did not receive a materialized input.");
+            ?? throw new AssertionException("The effectItem callback did not receive a materialized input.");
         Assert.That(localTarget.Width, Is.EqualTo(9));
         Assert.That(localTarget.Height, Is.EqualTo(7));
 
@@ -705,7 +705,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         Assert.That(
             actual.GetPixelSpan<ushort>().SequenceEqual(expected.GetPixelSpan<ushort>()),
             Is.True,
-            "moving retained legacy input pixels must not insert a canonical normalization pass");
+            "moving retained effectItem input pixels must not insert a canonical normalization pass");
     }
 
     [Test]
@@ -715,12 +715,12 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         var bounds = new Rect(0, 0, 12, 10);
         EffectiveScale observedScale = default;
         PixelRect observedDeviceBounds = default;
-        var noOpSkiaEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var noOpSkiaEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
             context.AppendSkiaFilter(
                 0,
                 static (_, _, _) => null,
                 static (_, current) => current));
-        var observingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var observingEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
             context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
@@ -773,7 +773,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     public void SkiaFilterOnAnOffsetOriginalBoundsTarget_FlushesTheWholeBuffer()
     {
         var bounds = new Rect(8, 6, 12, 10);
-        var effect = new LegacySuffixCallbackFilterEffect((context, _) => AppendOpaqueSkiaFilter(context));
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) => AppendOpaqueSkiaFilter(context));
 
         using EffectTargets targets = CreateSolidTargets(bounds, Colors.White);
         Apply(effect, bounds, targets);
@@ -788,7 +788,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     public void SkiaFilterAfterAFallbackShaderStage_FlushesTheWholeBuffer()
     {
         var bounds = new Rect(8, 6, 12, 10);
-        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
         {
             context.CustomEffect(0, static (_, _) => { });
             context.Shader(ShaderDescription.CurrentPixel(
@@ -891,7 +891,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     private static SKColor ReadCenterPixel(Bitmap bitmap)
         => bitmap.SKBitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2);
 
-    private static void DrawLegacyPattern(ImmediateCanvas canvas)
+    private static void DrawEffectItemPattern(ImmediateCanvas canvas)
     {
         canvas.Clear();
         canvas.DrawRectangle(
@@ -986,7 +986,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
 }
 
 [SuppressResourceClassGeneration]
-internal sealed partial class LegacySuffixCallbackFilterEffect(
+internal sealed partial class EffectItemSuffixCallbackFilterEffect(
     Action<FilterEffectContext, FilterEffect.Resource> apply) : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

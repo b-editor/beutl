@@ -650,7 +650,7 @@ internal sealed partial class RenderRequestExecutor
             bool ownsTarget,
             Vector deviceGridOffset = default,
             Rect? completeBounds = null,
-            bool preserveLegacyRasterPlacement = false)
+            bool preserveImperativeRasterPlacement = false)
         {
             ArgumentNullException.ThrowIfNull(target);
             ValidatePhysicalFootprint(
@@ -659,7 +659,7 @@ internal sealed partial class RenderRequestExecutor
                 effectiveScale,
                 deviceBounds,
                 deviceGridOffset,
-                preserveLegacyRasterPlacement);
+                preserveImperativeRasterPlacement);
             Target = target;
             Bounds = bounds;
             CompleteBounds = completeBounds ?? bounds;
@@ -667,7 +667,7 @@ internal sealed partial class RenderRequestExecutor
             DeviceBounds = deviceBounds;
             DeviceGridOffset = deviceGridOffset;
             OwnsTarget = ownsTarget;
-            PreserveLegacyRasterPlacement = preserveLegacyRasterPlacement;
+            PreserveImperativeRasterPlacement = preserveImperativeRasterPlacement;
         }
 
         public MaterializedRenderValue(
@@ -702,7 +702,7 @@ internal sealed partial class RenderRequestExecutor
             PixelRect deviceBounds,
             Vector deviceGridOffset = default,
             Rect? completeBounds = null,
-            bool preserveLegacyRasterPlacement = false)
+            bool preserveImperativeRasterPlacement = false)
         {
             ArgumentNullException.ThrowIfNull(lease);
             ValidatePhysicalFootprint(
@@ -711,7 +711,7 @@ internal sealed partial class RenderRequestExecutor
                 effectiveScale,
                 deviceBounds,
                 deviceGridOffset,
-                preserveLegacyRasterPlacement);
+                preserveImperativeRasterPlacement);
             _effectTargetLease = lease;
             Target = lease.Target;
             Bounds = bounds;
@@ -720,7 +720,7 @@ internal sealed partial class RenderRequestExecutor
             DeviceBounds = deviceBounds;
             DeviceGridOffset = deviceGridOffset;
             OwnsTarget = true;
-            PreserveLegacyRasterPlacement = preserveLegacyRasterPlacement;
+            PreserveImperativeRasterPlacement = preserveImperativeRasterPlacement;
         }
 
         public RenderTarget Target { get; }
@@ -742,7 +742,7 @@ internal sealed partial class RenderRequestExecutor
 
         public bool OwnsTarget { get; }
 
-        public bool PreserveLegacyRasterPlacement { get; }
+        public bool PreserveImperativeRasterPlacement { get; }
 
         public RenderTarget TransferToAcceptedCache()
         {
@@ -773,7 +773,7 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale effectiveScale,
             PixelRect deviceBounds,
             Vector deviceGridOffset,
-            bool preserveLegacyRasterPlacement = false)
+            bool preserveImperativeRasterPlacement = false)
         {
             if (effectiveScale.IsUnbounded)
                 throw new ArgumentException("A materialized value requires a concrete density.", nameof(effectiveScale));
@@ -784,7 +784,7 @@ internal sealed partial class RenderRequestExecutor
                     nameof(deviceBounds));
             }
 
-            if (preserveLegacyRasterPlacement)
+            if (preserveImperativeRasterPlacement)
                 return;
 
             PixelRect semanticDeviceBounds = PixelRect.FromRect(

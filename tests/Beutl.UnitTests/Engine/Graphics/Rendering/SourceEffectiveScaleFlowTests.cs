@@ -19,7 +19,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 public class SourceEffectiveScaleFlowTests
 {
     private static int s_throwingWorkingScaleResolverCalls;
-    private static float s_legacyCustomWorkingScale;
+    private static float s_effectItemCustomWorkingScale;
     private static List<ScaleResolverObservation>? s_scaleResolverObservations;
 
     private static FilterEffectRenderNode MosaicNode()
@@ -495,7 +495,7 @@ public class SourceEffectiveScaleFlowTests
     }
 
     [Test]
-    public void LegacyBufferBudgets_UseLocalOriginsAndIncludeIntermediateMaterializations()
+    public void EffectItemBufferBudgets_UseLocalOriginsAndIncludeIntermediateMaterializations()
     {
         Rect inputBounds = new(100, 20, 100, 10);
         var policy = new FilterEffectWorkingScalePolicy(RenderScaleContract.Custom(
@@ -506,7 +506,7 @@ public class SourceEffectiveScaleFlowTests
             0,
             static (_, input, _) => input,
             static (_, bounds) => bounds.WithWidth(bounds.Width + (bounds.X == 0 ? 20_000 : 0)));
-        Rect[] localOriginFootprints = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+        Rect[] localOriginFootprints = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
                 [inputBounds],
                 localOriginContext.GetOrderedItems(),
                 localOriginContext.Bounds);
@@ -520,7 +520,7 @@ public class SourceEffectiveScaleFlowTests
             0,
             static (_, _) => { },
             static (_, bounds) => bounds.WithWidth(100));
-        Rect[] intermediateFootprints = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+        Rect[] intermediateFootprints = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
                 [inputBounds],
                 intermediateContext.GetOrderedItems(),
                 intermediateContext.Bounds);
@@ -537,7 +537,7 @@ public class SourceEffectiveScaleFlowTests
             0,
             static (_, input, _) => input,
             static (_, bounds) => bounds);
-        Rect[] combinedFootprints = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+        Rect[] combinedFootprints = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
             [firstBounds, secondBounds],
             combinedContext.GetOrderedItems(),
             combinedContext.Bounds);
@@ -554,7 +554,7 @@ public class SourceEffectiveScaleFlowTests
             0,
             static (_, _) => { },
             static (_, bounds) => bounds);
-        Rect[] nonlinearFootprints = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+        Rect[] nonlinearFootprints = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
             [nonlinearFirstBounds, nonlinearSecondBounds],
             nonlinearContext.GetOrderedItems(),
             nonlinearContext.Bounds);
@@ -565,7 +565,7 @@ public class SourceEffectiveScaleFlowTests
             0,
             static (_, _) => { },
             static (_, bounds) => bounds.WithWidth(100));
-        Rect[] immediateCustomFootprints = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+        Rect[] immediateCustomFootprints = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
             [largeInputBounds],
             immediateCustomContext.GetOrderedItems(),
             immediateCustomContext.Bounds);
@@ -576,7 +576,7 @@ public class SourceEffectiveScaleFlowTests
             0,
             static (_, input, _) => input,
             static (_, bounds) => bounds.X == 0 ? bounds.WithX(0.25f) : bounds);
-        Rect[] fractionalOriginFootprints = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+        Rect[] fractionalOriginFootprints = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
             [fractionalInputBounds],
             fractionalOriginContext.GetOrderedItems(),
             fractionalOriginContext.Bounds);
@@ -594,7 +594,7 @@ public class SourceEffectiveScaleFlowTests
             0,
             static (_, _) => { },
             (_, _) => movedSemanticBounds);
-        Rect[] retainedBackingFootprints = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+        Rect[] retainedBackingFootprints = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
             [retainedBackingInputBounds],
             retainedBackingContext.GetOrderedItems(),
             retainedBackingContext.Bounds);
@@ -622,7 +622,7 @@ public class SourceEffectiveScaleFlowTests
             0,
             static (_, input, _) => input,
             static (_, bounds) => bounds.Inflate(new Thickness(3)));
-        Rect[] retainedThenInflatedFootprints = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+        Rect[] retainedThenInflatedFootprints = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
             [retainedThenInflatedInputBounds],
             retainedThenInflatedContext.GetOrderedItems(),
             retainedThenInflatedContext.Bounds);
@@ -644,7 +644,7 @@ public class SourceEffectiveScaleFlowTests
             0,
             static (_, _) => { },
             (_, _) => integerMovedSemanticBounds);
-        Rect[] negativeFractionalFootprints = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+        Rect[] negativeFractionalFootprints = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
             [negativeFractionalInputBounds],
             negativeFractionalContext.GetOrderedItems(),
             negativeFractionalContext.Bounds);
@@ -773,7 +773,7 @@ public class SourceEffectiveScaleFlowTests
     }
 
     [Test]
-    public void LegacyFilter_MaterializesUnboundedInputAtResolvedFragmentScale()
+    public void EffectItem_MaterializesUnboundedInputAtResolvedFragmentScale()
     {
         float observedWorkingScale = 0;
         PixelRect observedDeviceBounds = default;
@@ -1152,7 +1152,7 @@ public class SourceEffectiveScaleFlowTests
     }
 
     [Test]
-    public void CustomWorkingScale_LegacyOperationPreservesSubOutputScale()
+    public void CustomWorkingScale_EffectItemOperationPreservesSubOutputScale()
     {
         float observedWorkingScale = 0;
         PixelRect observedDeviceBounds = default;
@@ -1196,7 +1196,7 @@ public class SourceEffectiveScaleFlowTests
     }
 
     [Test]
-    public void LegacyFilter_PlannedScaleMatchesIntermediateFlushRuntimeScale()
+    public void EffectItem_PlannedScaleMatchesIntermediateFlushRuntimeScale()
     {
         float observedSourceScale = 0;
         Rect bounds = new(100, 20, 100, 10);
@@ -1204,7 +1204,7 @@ public class SourceEffectiveScaleFlowTests
         float widthOnlyClamp = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
             intermediateFootprint,
             2);
-        s_legacyCustomWorkingScale = 0;
+        s_effectItemCustomWorkingScale = 0;
         var effect = new WorkingScaleProbeEffect(context =>
         {
             context.AppendSkiaFilter(
@@ -1213,7 +1213,7 @@ public class SourceEffectiveScaleFlowTests
                 static (_, current) => current.WithWidth(20_000));
             context.CustomEffect(
                 0,
-                RecordAndShrinkLegacyTargets,
+                RecordAndShrinkEffectItemTargets,
                 static (_, current) => current.WithWidth(100));
         });
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
@@ -1248,12 +1248,12 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(result.IsEmpty, Is.False);
             Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False);
             Assert.That(observedSourceScale, Is.EqualTo(plannedScale));
-            Assert.That(s_legacyCustomWorkingScale, Is.EqualTo(plannedScale));
+            Assert.That(s_effectItemCustomWorkingScale, Is.EqualTo(plannedScale));
         });
     }
 
     [Test]
-    public void LegacyFilter_MultiInputClampUsesEachBufferInsteadOfSparseUnion()
+    public void EffectItem_MultiInputClampUsesEachBufferInsteadOfSparseUnion()
     {
         Rect firstBounds = new(0, 0, 100, 100);
         Rect secondBounds = new(100_000, 0, 100, 100);
@@ -1938,9 +1938,9 @@ public class SourceEffectiveScaleFlowTests
         throw new InvalidOperationException("The no-op resolver must remain lazy.");
     }
 
-    private static void RecordAndShrinkLegacyTargets(int _, CustomFilterEffectContext context)
+    private static void RecordAndShrinkEffectItemTargets(int _, CustomFilterEffectContext context)
     {
-        s_legacyCustomWorkingScale = context.WorkingScale;
+        s_effectItemCustomWorkingScale = context.WorkingScale;
         for (int index = 0; index < context.Targets.Count; index++)
         {
             EffectTarget current = context.Targets[index];

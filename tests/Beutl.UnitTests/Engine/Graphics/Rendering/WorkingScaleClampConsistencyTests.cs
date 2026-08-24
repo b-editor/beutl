@@ -224,14 +224,14 @@ public class WorkingScaleClampConsistencyTests
                 Assert.That(actual.RasterBounds, Is.EqualTo(expectedDeviceBounds.ToRect(density)));
                 Assert.That(actual.RenderTarget!.Width, Is.EqualTo(expectedDeviceBounds.Width));
                 Assert.That(actual.RenderTarget.Height, Is.EqualTo(expectedDeviceBounds.Height));
-                Assert.That(actual.PreserveLegacyRasterPlacement, Is.EqualTo(!hasFilter));
+                Assert.That(actual.PreserveImperativeRasterPlacement, Is.EqualTo(!hasFilter));
             });
         });
     }
 
     [TestCase(1f)]
     [TestCase(0.5f)]
-    public void ForcedFlush_CanonicalInput_ReplacesWithLegacyCustomTarget(float density)
+    public void ForcedFlush_CanonicalInput_ReplacesWithEffectItemCustomTarget(float density)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -260,7 +260,7 @@ public class WorkingScaleClampConsistencyTests
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.Not.SameAs(input));
-                Assert.That(actual.PreserveLegacyRasterPlacement, Is.True);
+                Assert.That(actual.PreserveImperativeRasterPlacement, Is.True);
                 Assert.That(actual.Bounds, Is.EqualTo(bounds));
                 Assert.That(actual.Scale, Is.EqualTo(EffectiveScale.At(density)));
                 Assert.That(actual.RenderTarget!.Width, Is.EqualTo(canonical.Width));

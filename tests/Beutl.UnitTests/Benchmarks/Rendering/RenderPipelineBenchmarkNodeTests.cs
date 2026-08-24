@@ -71,8 +71,8 @@ public sealed class RenderPipelineBenchmarkNodeTests
                 typeof(LayerEffect),
                 typeof(Blur),
             }));
-            Assert.That(CompileBoundaryReasons(customEffect), Does.Contain(ExecutionIslandBoundaryReason.LegacyCustomEffect));
-            Assert.That(CompileBoundaryReasons(mixedEffect), Does.Contain(ExecutionIslandBoundaryReason.LegacyCustomEffect));
+            Assert.That(CompileBoundaryReasons(customEffect), Does.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
+            Assert.That(CompileBoundaryReasons(mixedEffect), Does.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
         });
     }
 

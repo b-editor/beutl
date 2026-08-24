@@ -28,12 +28,12 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
     /// </returns>
     /// <remarks>
     /// Override this hook for working-scale customization instead of replacing <see cref="Process"/>. The returned
-    /// contract is folded into the first authored shader, geometry, or legacy operation. Its callback receives one
+    /// contract is folded into the first authored shader, geometry, or effect-item operation. Its callback receives one
     /// surviving branch at a time, with one <see cref="RenderScaleContext.InputSupplies"/> item and that branch's
-    /// isolated effect-input bounds as <see cref="RenderScaleContext.OutputBounds"/>. Legacy multi-input operations
+    /// isolated effect-input bounds as <see cref="RenderScaleContext.OutputBounds"/>. EffectItem multi-input operations
     /// aggregate the densest concrete branch result and fall back to <see cref="RenderScaleContext.OutputScale"/>
     /// only when every branch remains unbounded. Allocation clamping is independent of callback cardinality: it
-    /// covers each branch's local-origin footprint and every intermediate legacy materialization. The forced Flush
+    /// covers each branch's local-origin footprint and every intermediate effect-item materialization. The forced Flush
     /// immediately before a custom callback removes renderer-owned aprons and presents each branch through the
     /// historical dimension-sized local backing. Because that callback may then combine, split, move, or shrink
     /// targets without declaring topology, its results collapse to their union and later footprints conservatively
@@ -138,41 +138,41 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
 
             IReadOnlyList<RenderFragmentHandle> current = effectInputs;
             FilterEffectWorkingScalePolicy? pendingWorkingScalePolicy = resolvedWorkingScalePolicy;
-            var legacyItems = new List<IFEItem>();
-            Rect legacyBounds = default;
-            bool legacyBoundsInitialized = false;
+            var effectItems = new List<IFEItem>();
+            Rect effectItemBounds = default;
+            bool effectItemBoundsInitialized = false;
             bool opaqueTail = false;
 
-            void AppendLegacyItem(IFEItem item, int itemIndex)
+            void AppendEffectItem(IFEItem item, int itemIndex)
             {
-                if (!legacyBoundsInitialized)
+                if (!effectItemBoundsInitialized)
                 {
-                    legacyBounds = CalculateRecordedBoundsHint(context, current);
-                    legacyBoundsInitialized = true;
+                    effectItemBounds = CalculateRecordedBoundsHint(context, current);
+                    effectItemBoundsInitialized = true;
                 }
 
-                legacyItems.Add(item);
+                effectItems.Add(item);
                 // A deferred-bound item resolves at execution time; authoring it against the
                 // provisional hint would freeze the wrong matrix, so the segment stays symbolic.
-                if (!legacyBounds.IsInvalid && item is not IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
-                    legacyBounds = item.TransformBounds(legacyBounds);
-                opaqueTail |= legacyBounds.IsInvalid;
+                if (!effectItemBounds.IsInvalid && item is not IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
+                    effectItemBounds = item.TransformBounds(effectItemBounds);
+                opaqueTail |= effectItemBounds.IsInvalid;
             }
 
-            void FlushLegacyItems()
+            void FlushEffectItems()
             {
-                if (legacyItems.Count == 0 || current.Count == 0)
+                if (effectItems.Count == 0 || current.Count == 0)
                     return;
 
                 Rect segmentInputBounds = CalculateRecordedBoundsHint(context, current);
                 RenderFragmentMetadata[] segmentInputMetadata = current
                     .Select(context.GetRecordedMetadataHint)
                     .ToArray();
-                Rect[] segmentBufferBounds = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+                Rect[] segmentBufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
                         segmentInputMetadata.Select(static item => item.Bounds).ToArray(),
-                        legacyItems,
-                        legacyBounds.IsInvalid ? segmentInputBounds : legacyBounds);
-                FilterEffectContext? segment = FilterEffectContext.CreateLegacySegment(
+                        effectItems,
+                        effectItemBounds.IsInvalid ? segmentInputBounds : effectItemBounds);
+                FilterEffectContext? segment = FilterEffectContext.CreateEffectItemSegment(
                     segmentInputBounds,
                     context.OutputScale,
                     ResolveWorkingScale(
@@ -181,7 +181,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                         outputScale,
                         maxWorkingScale,
                         pendingWorkingScalePolicy),
-                    legacyItems);
+                    effectItems);
                 try
                 {
                     Rect segmentOutputBounds = segment.Bounds;
@@ -197,7 +197,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                             segmentResource,
                             segmentOutputBounds,
                             requiresOwningTargetDomain,
-                            legacyItems,
+                            effectItems,
                             pendingWorkingScalePolicy),
                     ];
                     pendingWorkingScalePolicy = null;
@@ -205,9 +205,9 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                 finally
                 {
                     segment?.Dispose();
-                    legacyItems.Clear();
-                    legacyBounds = default;
-                    legacyBoundsInitialized = false;
+                    effectItems.Clear();
+                    effectItemBounds = default;
+                    effectItemBoundsInitialized = false;
                     opaqueTail = false;
                 }
             }
@@ -218,7 +218,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                 switch (item)
                 {
                     case FEItem_Shader shader when !opaqueTail:
-                        FlushLegacyItems();
+                        FlushEffectItems();
                         current = current
                             .Select(input => context.Shader(
                                 input,
@@ -228,7 +228,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                         pendingWorkingScalePolicy = null;
                         break;
                     case FEItem_Geometry geometry when !opaqueTail:
-                        FlushLegacyItems();
+                        FlushEffectItems();
                         current = current
                             .Select(input => context.Geometry(
                                 input,
@@ -238,12 +238,12 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                         pendingWorkingScalePolicy = null;
                         break;
                     default:
-                        AppendLegacyItem(item, itemIndex);
+                        AppendEffectItem(item, itemIndex);
                         break;
                 }
             }
 
-            FlushLegacyItems();
+            FlushEffectItems();
             context.PublishRange(current);
             recordingContext.TransferResources();
         }

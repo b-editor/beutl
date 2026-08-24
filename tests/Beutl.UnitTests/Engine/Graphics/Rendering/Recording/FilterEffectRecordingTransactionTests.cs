@@ -81,7 +81,7 @@ public sealed class FilterEffectRecordingTransactionTests
     }
 
     [Test]
-    public void ThrowingLegacyTransformAppend_IsAtomic()
+    public void ThrowingEffectItemTransformAppend_IsAtomic()
     {
         using var context = new FilterEffectContext(new Rect(0, 0, 20, 10));
         context.Saturate(0.5f);

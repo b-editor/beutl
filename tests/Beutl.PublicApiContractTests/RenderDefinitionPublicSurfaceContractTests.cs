@@ -20,9 +20,9 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
     }
 
     [Test]
-    public void LegacyDescriptionsAndDescriptionOverloads_AreNotPublic()
+    public void EffectItemDescriptionsAndDescriptionOverloads_AreNotPublic()
     {
-        string[] legacyTypes =
+        string[] effectItemTypes =
         [
             "Beutl.Graphics.Rendering.OpaqueRenderDescription",
             "Beutl.Graphics.Rendering.TargetScopeDescription",
@@ -37,8 +37,8 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
 
         Assert.Multiple(() =>
         {
-            foreach (string legacyType in legacyTypes)
-                Assert.That(exportedTypes, Does.Not.Contain(legacyType), legacyType);
+            foreach (string effectItemType in effectItemTypes)
+                Assert.That(exportedTypes, Does.Not.Contain(effectItemType), effectItemType);
         });
         AssertContextCallSurface(typeof(RenderNodeContext), "OpaqueSource", typeof(OpaqueRenderCall<>));
         AssertContextCallSurface(typeof(RenderNodeContext), "OpaqueMap", typeof(OpaqueRenderCall<>));

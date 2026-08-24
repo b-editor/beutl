@@ -747,7 +747,7 @@ public sealed class RenderNodeContext
 
         RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(effectContext));
         IReadOnlyList<IFEItem> recordedBoundsItems = boundsItems ?? [];
-        Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
+        Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
             references.Select(static item => item.Bounds).ToArray(),
             recordedBoundsItems,
             outputBounds);
@@ -1672,7 +1672,7 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
                 return false;
 
             // ImmutableArray's own enumerator is a struct; Enumerable.Any would box it on a path the
-            // executor walks for every legacy-filter fragment it runs.
+            // executor walks for every effect-item-filter fragment it runs.
             foreach (IFEItem item in BoundsItems)
             {
                 if (item is IFEItem_Custom)

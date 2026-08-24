@@ -506,7 +506,7 @@ internal static class FilterEffectStageFallbackExecutor
         if (result is null)
         {
             string message =
-                $"Legacy typed-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
+                $"EffectItem typed-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
                 + $"w {density}, bounds {bounds}).";
             s_logger.LogWarning(
                 "{Message} Preview drops this target; delivery render fails fast.",
@@ -537,7 +537,7 @@ internal static class FilterEffectStageFallbackExecutor
     }
 
     /// <summary>
-    /// Allocates one legacy stage target, through the caller's lease session when there is one.
+    /// Allocates one effect-item stage target, through the caller's lease session when there is one.
     /// </summary>
     /// <remarks>
     /// A configured <see cref="IRenderTargetFactory"/> is reachable only through the session, and its targets

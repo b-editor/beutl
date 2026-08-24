@@ -339,7 +339,7 @@ public sealed class CustomEffectSynchronizationTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void PublicFilterEffectActivator_RetainsLegacyCanvasAndSourceFlushes()
+    public void PublicFilterEffectActivator_RetainsEffectItemCanvasAndSourceFlushes()
     {
         VulkanTestEnvironment.EnsureAvailable();
         var bounds = new Rect(0, 0, 16, 12);
@@ -379,7 +379,7 @@ public sealed class CustomEffectSynchronizationTests
             {
                 ImmediateCanvasFlushKind.SourceSurface,
                 ImmediateCanvasFlushKind.CanvasClose,
-            }), "The public standalone activator must retain its legacy source and context flushes.");
+            }), "The public standalone activator must retain its effectItem source and context flushes.");
         });
         AssertFlushCounts(
             flushes,

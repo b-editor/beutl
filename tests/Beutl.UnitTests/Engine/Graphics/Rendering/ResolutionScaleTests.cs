@@ -481,7 +481,7 @@ public class ResolutionScaleTests
     [Test]
     public void DeviceBufferSize_MatchesCreateTargetFormula()
     {
-        // Legacy custom effects size local buffers from dimensions, not from rounded global edges.
+        // EffectItem custom effects size local buffers from dimensions, not from rounded global edges.
         Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.7f, 50.2f), 1f),
             Is.EqualTo((100, 50)), "the historical w == 1 path truncates fractional dimensions");
         Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.0f, 50.0f), 2f),

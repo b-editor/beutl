@@ -199,7 +199,7 @@ public sealed class FilterEffectActivator : IDisposable
             _ownedProgramCache ??= SkRuntimeEffectProgramCache.Create();
         RenderTarget destination = target.RenderTarget
             ?? throw new InvalidOperationException(
-                "A legacy shader program requires a materialized execution destination.");
+                "A effectItem shader program requires a materialized execution destination.");
         return SkRuntimeEffectProgramCache.AcquireForDestination(
             cache,
             destination,
@@ -226,7 +226,7 @@ public sealed class FilterEffectActivator : IDisposable
         using var paint = hasFilter ? new SKPaint() : null;
         paint?.ImageFilter = Builder.GetFilter();
 
-        // A forced flush without pending Skia work is the legacy CustomEffect compatibility
+        // A forced flush without pending Skia work is the effect-item CustomEffect compatibility
         // boundary. A forced materialization of a Skia chain must retain its canonical device
         // footprint; otherwise unchanged color effects lose edge coverage at fractional scales.
         bool imperativeSegmentBoundary = force && !hasFilter;
@@ -299,11 +299,11 @@ public sealed class FilterEffectActivator : IDisposable
             float w = WorkingScale;
             if (!hasFilter
                 && imperativeSegmentBoundary
-                && CanReuseLegacyTarget(target, w))
+                && CanReuseEffectItemTarget(target, w))
                 continue;
 
-            bool preserveLegacyRasterPlacement = imperativeSegmentBoundary;
-            Vector allocationGridOffset = preserveLegacyRasterPlacement
+            bool preserveImperativeRasterPlacement = imperativeSegmentBoundary;
+            Vector allocationGridOffset = preserveImperativeRasterPlacement
                 ? _deviceGridOffset ?? default
                 : target.DeviceGridOffset;
             Rect deviceRoundingSource = imperativeSegmentBoundary
@@ -313,7 +313,7 @@ public sealed class FilterEffectActivator : IDisposable
                 deviceRoundingSource.Translate(allocationGridOffset), w);
             PixelRect deviceBounds;
             Vector outputDeviceGridOffset;
-            if (preserveLegacyRasterPlacement)
+            if (preserveImperativeRasterPlacement)
             {
                 (int width, int height) = CustomFilterEffectContext.DeviceBufferSize(
                     target.Bounds,
@@ -330,7 +330,7 @@ public sealed class FilterEffectActivator : IDisposable
                 deviceBounds = canonicalDeviceBounds;
                 outputDeviceGridOffset = target.DeviceGridOffset;
             }
-            if (hasFilter && !preserveLegacyRasterPlacement)
+            if (hasFilter && !preserveImperativeRasterPlacement)
                 VerifyFilteredDeviceBounds(target, deviceBounds, w);
             Rect rasterBounds = deviceBounds
                 .ToRect(w)
@@ -340,7 +340,7 @@ public sealed class FilterEffectActivator : IDisposable
                 w,
                 deviceBounds,
                 outputDeviceGridOffset,
-                preserveLegacyRasterPlacement);
+                preserveImperativeRasterPlacement);
 
             if (newTarget != null)
             {
@@ -414,7 +414,7 @@ public sealed class FilterEffectActivator : IDisposable
         float w,
         PixelRect deviceBounds,
         Vector deviceGridOffset,
-        bool preserveLegacyRasterPlacement)
+        bool preserveImperativeRasterPlacement)
     {
         if (_renderTargetLeaseSession is { HasTargetFactory: true } leaseSession)
         {
@@ -430,7 +430,7 @@ public sealed class FilterEffectActivator : IDisposable
                     EffectiveScale.At(w),
                     deviceBounds,
                     deviceGridOffset,
-                    preserveLegacyRasterPlacement);
+                    preserveImperativeRasterPlacement);
             }
             catch
             {
@@ -448,13 +448,13 @@ public sealed class FilterEffectActivator : IDisposable
                 EffectiveScale.At(w),
                 deviceBounds,
                 deviceGridOffset,
-                preserveLegacyRasterPlacement);
+                preserveImperativeRasterPlacement);
     }
 
     internal void CompletePolicyBoundary(bool materializationRequired)
     {
         // A CustomEffect already consumed the policy through its forced pre-callback Flush.
-        // Re-forcing after the callback would discard backing that legacy code intentionally
+        // Re-forcing after the callback would discard backing that effect-item code intentionally
         // retained while moving or shrinking only Bounds. Pending Skia work still flushes.
         Flush(materializationRequired && !_customEffectBoundaryMaterialized);
     }
@@ -465,7 +465,7 @@ public sealed class FilterEffectActivator : IDisposable
         {
             // A forced no-filter flush is the compatibility boundary for imperative CustomEffect
             // callbacks. Materialize semantic input without exposing a renderer-owned apron;
-            // callback-created targets keep their separate legacy local-buffer contract.
+            // callback-created targets keep their separate effect-item local-buffer contract.
             return new FlushTarget(target.Bounds, target.Bounds);
         }
 
@@ -524,9 +524,9 @@ public sealed class FilterEffectActivator : IDisposable
         }
     }
 
-    private static bool CanReuseLegacyTarget(EffectTarget target, float density)
+    private static bool CanReuseEffectItemTarget(EffectTarget target, float density)
     {
-        if (!target.PreserveLegacyRasterPlacement
+        if (!target.PreserveImperativeRasterPlacement
             || target.Scale.IsUnbounded
             || target.Scale.Value != density
             || target.RenderTarget is not { } renderTarget)

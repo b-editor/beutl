@@ -241,7 +241,7 @@ internal sealed partial class RenderRequestExecutor
             MaterializedRenderValue value,
             ImmediateCanvas destination)
         {
-            if (value.PreserveLegacyRasterPlacement
+            if (value.PreserveImperativeRasterPlacement
                 && value.EffectiveScale.Value == 1f
                 && destination.Density == 1f)
             {
@@ -273,7 +273,7 @@ internal sealed partial class RenderRequestExecutor
             PixelRect deviceBounds,
             Vector deviceGridOffset = default,
             Rect? completeBounds = null,
-            bool preserveLegacyRasterPlacement = false)
+            bool preserveImperativeRasterPlacement = false)
         {
             RenderTarget copy = target.ShallowCopy();
             try
@@ -286,7 +286,7 @@ internal sealed partial class RenderRequestExecutor
                     ownsTarget: true,
                     deviceGridOffset: deviceGridOffset,
                     completeBounds: completeBounds,
-                    preserveLegacyRasterPlacement: preserveLegacyRasterPlacement);
+                    preserveImperativeRasterPlacement: preserveImperativeRasterPlacement);
             }
             catch
             {

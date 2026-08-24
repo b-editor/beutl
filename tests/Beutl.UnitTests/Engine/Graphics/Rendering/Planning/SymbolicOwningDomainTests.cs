@@ -16,7 +16,7 @@ public sealed class SymbolicOwningDomainTests
     private static readonly Rect s_rootDomain = new(0, 0, 100, 60);
 
     [Test]
-    public void UnknownLegacy_UnderTranslation_ResolvesLocalDomainBeforeMappingToRoot()
+    public void UnknownEffectItem_UnderTranslation_ResolvesLocalDomainBeforeMappingToRoot()
     {
         var effect = new SymbolicDomainFilterEffect();
         using TransformRenderNode root = WrapInTranslation(
@@ -24,24 +24,24 @@ public sealed class SymbolicOwningDomainTests
             10);
 
         using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
-        RenderFragmentReference legacy = References(compiled.Graph).Values
+        RenderFragmentReference effectItem = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
         RenderFragmentReference transform = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.TargetScope);
 
         Assert.Multiple(() =>
         {
-            Assert.That(legacy.BoundsRequirement, Is.EqualTo(RenderFragmentBoundsRequirement.OwningTargetDomain));
-            Assert.That(legacy.RecordedBounds, Is.EqualTo(new Rect(-5, 10, 10, 10)));
-            Assert.That(legacy.Bounds, Is.EqualTo(new Rect(-10, 0, 100, 60)));
+            Assert.That(effectItem.BoundsRequirement, Is.EqualTo(RenderFragmentBoundsRequirement.OwningTargetDomain));
+            Assert.That(effectItem.RecordedBounds, Is.EqualTo(new Rect(-5, 10, 10, 10)));
+            Assert.That(effectItem.Bounds, Is.EqualTo(new Rect(-10, 0, 100, 60)));
             Assert.That(transform.Bounds, Is.EqualTo(s_rootDomain));
-            Assert.That(compiled.Regions.GetMetadata(legacy).Bounds, Is.EqualTo(legacy.Bounds));
+            Assert.That(compiled.Regions.GetMetadata(effectItem).Bounds, Is.EqualTo(effectItem.Bounds));
             Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(s_rootDomain));
         });
     }
 
     [Test]
-    public void UnknownLegacy_LargeResolvedDomain_RecomputesDownstreamScaleClamp()
+    public void UnknownEffectItem_LargeResolvedDomain_RecomputesDownstreamScaleClamp()
     {
         var domain = new Rect(0, 0, 10_000, 100);
         var effect = new SymbolicDomainFilterEffect();
@@ -50,7 +50,7 @@ public sealed class SymbolicOwningDomainTests
             0);
 
         using CompiledRenderRequest compiled = Compile(root, domain, outputScale: 2);
-        RenderFragmentReference legacy = References(compiled.Graph).Values
+        RenderFragmentReference effectItem = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
         RenderFragmentReference transform = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.TargetScope);
@@ -58,8 +58,8 @@ public sealed class SymbolicOwningDomainTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(legacy.RecordedEffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
-            Assert.That(legacy.EffectiveScale.Value, Is.EqualTo(expected).Within(1e-6f));
+            Assert.That(effectItem.RecordedEffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
+            Assert.That(effectItem.EffectiveScale.Value, Is.EqualTo(expected).Within(1e-6f));
             Assert.That(transform.EffectiveScale.Value, Is.EqualTo(expected).Within(1e-6f));
             Assert.That(compiled.Regions.GetMetadata(transform).EffectiveScale,
                 Is.EqualTo(transform.EffectiveScale));
@@ -67,7 +67,7 @@ public sealed class SymbolicOwningDomainTests
     }
 
     [Test]
-    public void UnknownLegacy_NoOpUnderTranslation_PreservesPixelsFromLocalNegativeCoordinates()
+    public void UnknownEffectItem_NoOpUnderTranslation_PreservesPixelsFromLocalNegativeCoordinates()
     {
         var effect = new SymbolicDomainFilterEffect();
         using TransformRenderNode root = WrapInTranslation(
@@ -98,7 +98,7 @@ public sealed class SymbolicOwningDomainTests
     }
 
     [Test]
-    public void UnknownLegacy_UnderIntersectClip_ResolvesToClippedLocalDomain()
+    public void UnknownEffectItem_UnderIntersectClip_ResolvesToClippedLocalDomain()
     {
         var clip = new Rect(20, 5, 30, 40);
         var effect = new SymbolicDomainFilterEffect();
@@ -106,40 +106,40 @@ public sealed class SymbolicOwningDomainTests
         root.AddChild(CreateFilter(effect, new Rect(25, 10, 5, 5)));
 
         using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
-        RenderFragmentReference legacy = References(compiled.Graph).Values
+        RenderFragmentReference effectItem = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
         RenderFragmentReference clipped = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.TargetScope);
 
         Assert.Multiple(() =>
         {
-            Assert.That(legacy.Bounds, Is.EqualTo(clip));
+            Assert.That(effectItem.Bounds, Is.EqualTo(clip));
             Assert.That(clipped.Bounds, Is.EqualTo(clip));
             Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(clip));
         });
     }
 
     [Test]
-    public void UnknownLegacy_ExplicitTargetlessDomain_ResolvesDuringMetadata()
+    public void UnknownEffectItem_ExplicitTargetlessDomain_ResolvesDuringMetadata()
     {
         var domain = new Rect(-20, -10, 80, 50);
         var effect = new SymbolicDomainFilterEffect();
         using FilterEffectRenderNode root = CreateFilter(effect, new Rect(5, 6, 20, 12));
 
         using CompiledRenderRequest compiled = Compile(root, domain);
-        RenderFragmentReference legacy = References(compiled.Graph).Values
+        RenderFragmentReference effectItem = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
 
         Assert.Multiple(() =>
         {
-            Assert.That(legacy.Bounds, Is.EqualTo(domain));
+            Assert.That(effectItem.Bounds, Is.EqualTo(domain));
             Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(domain));
             Assert.That(effect.CallbackCount, Is.Zero);
         });
     }
 
     [Test]
-    public void UnknownLegacy_RealDestinationSuppliesOwningDomain()
+    public void UnknownEffectItem_RealDestinationSuppliesOwningDomain()
     {
         var effect = new SymbolicDomainFilterEffect();
         using FilterEffectRenderNode root = CreateFilter(effect, new Rect(5, 6, 20, 12));
@@ -161,7 +161,7 @@ public sealed class SymbolicOwningDomainTests
     }
 
     [Test]
-    public void UnknownLegacy_WithoutOwningDomain_FailsBeforeRuntimeCallback()
+    public void UnknownEffectItem_WithoutOwningDomain_FailsBeforeRuntimeCallback()
     {
         var effect = new SymbolicDomainFilterEffect();
         using FilterEffectRenderNode root = CreateFilter(effect, new Rect(5, 6, 20, 12));
@@ -185,7 +185,7 @@ public sealed class SymbolicOwningDomainTests
     }
 
     [Test]
-    public void UnknownLegacy_InsideFiniteLayer_UsesLayerDomainWithoutRootDomain()
+    public void UnknownEffectItem_InsideFiniteLayer_UsesLayerDomainWithoutRootDomain()
     {
         var domain = new Rect(-20, 5, 40, 30);
         var effect = new SymbolicDomainFilterEffect();
@@ -193,28 +193,28 @@ public sealed class SymbolicOwningDomainTests
         root.AddChild(CreateFilter(effect, new Rect(-10, 10, 5, 5)));
 
         using CompiledRenderRequest compiled = Compile(root, targetDomain: null);
-        RenderFragmentReference legacy = References(compiled.Graph).Values
+        RenderFragmentReference effectItem = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
 
         Assert.Multiple(() =>
         {
-            Assert.That(legacy.Bounds, Is.EqualTo(domain));
+            Assert.That(effectItem.Bounds, Is.EqualTo(domain));
             Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(domain));
             Assert.That(effect.CallbackCount, Is.Zero);
         });
     }
 
     [Test]
-    public void FullTargetCommand_FilterUsesOwningDomainLayerAndRecomputesLegacyBounds()
+    public void FullTargetCommand_FilterUsesOwningDomainLayerAndRecomputesEffectItemBounds()
     {
-        var effect = new FiniteLegacyFilterEffect();
+        var effect = new FiniteEffectItemEffect();
         using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
         root.AddChild(new ClearRenderNode(Colors.White));
 
         using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
         RenderFragmentReference layer = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.Layer);
-        RenderFragmentReference legacy = References(compiled.Graph).Values
+        RenderFragmentReference effectItem = References(compiled.Graph).Values
             .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
         var layerPayload = (LayerRenderFragmentPayload)layer.Payload!;
 
@@ -227,32 +227,32 @@ public sealed class SymbolicOwningDomainTests
             Assert.That(layer.BoundsRequirement,
                 Is.EqualTo(RenderFragmentBoundsRequirement.OwningTargetDomain));
             Assert.That(layer.Bounds, Is.EqualTo(s_rootDomain));
-            Assert.That(legacy.Bounds, Is.EqualTo(s_rootDomain.Inflate(new Thickness(2))));
+            Assert.That(effectItem.Bounds, Is.EqualTo(s_rootDomain.Inflate(new Thickness(2))));
             Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(s_rootDomain));
         });
     }
 
     [Test]
-    public void UnknownLegacy_FiniteLegacyParentRecomputesBoundsAndHitTestFromResolvedInput()
+    public void UnknownEffectItem_FiniteEffectItemParentRecomputesBoundsAndHitTestFromResolvedInput()
     {
         var unknown = new SymbolicDomainFilterEffect();
-        var finite = new FiniteLegacyFilterEffect();
+        var finite = new FiniteEffectItemEffect();
         using FilterEffectRenderNode root = CreateFilter(finite, unknown, new Rect(5, 6, 20, 12));
 
         using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
-        RenderFragmentReference[] legacy = References(compiled.Graph).Values
+        RenderFragmentReference[] effectItem = References(compiled.Graph).Values
             .Where(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment)
             .ToArray();
-        RenderFragmentReference unknownFragment = legacy.Single(static reference =>
+        RenderFragmentReference unknownFragment = effectItem.Single(static reference =>
             reference.BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain);
-        RenderFragmentReference finiteFragment = legacy.Single(static reference =>
+        RenderFragmentReference finiteFragment = effectItem.Single(static reference =>
             reference.BoundsRequirement == RenderFragmentBoundsRequirement.Finite);
         Rect inflatedDomain = s_rootDomain.Inflate(new Thickness(2));
 
         Assert.Multiple(() =>
         {
             Assert.That(finite.ObservedInputBounds.IsInvalid, Is.True,
-                "Legacy authoring must not observe provisional finite bounds from a symbolic input.");
+                "EffectItem authoring must not observe provisional finite bounds from a symbolic input.");
             Assert.That(unknownFragment.Bounds, Is.EqualTo(s_rootDomain));
             Assert.That(finiteFragment.RecordedBounds, Is.EqualTo(new Rect(3, 4, 24, 16)));
             Assert.That(finiteFragment.Bounds, Is.EqualTo(inflatedDomain));
@@ -262,16 +262,16 @@ public sealed class SymbolicOwningDomainTests
     }
 
     [Test]
-    public void UnknownLegacy_KeepsShaderAndGeometrySuffixInOneOpaqueSegment()
+    public void UnknownEffectItem_KeepsShaderAndGeometrySuffixInOneOpaqueSegment()
     {
         var effect = new SymbolicDomainFilterEffect { AppendTypedSuffix = true };
         using FilterEffectRenderNode root = CreateFilter(effect, new Rect(5, 6, 20, 12));
 
         using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
         RenderFragmentReference[] references = References(compiled.Graph).Values.ToArray();
-        RenderFragmentReference legacy = references
+        RenderFragmentReference effectItem = references
             .Single(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment);
-        var payload = (FilterEffectSegmentRenderFragmentPayload)legacy.Payload!;
+        var payload = (FilterEffectSegmentRenderFragmentPayload)effectItem.Payload!;
         IFEItem[] items = payload.Context.Registry.Use(
             payload.Context,
             static context => context.GetOrderedItems().ToArray());
@@ -284,7 +284,7 @@ public sealed class SymbolicOwningDomainTests
             Assert.That(items[0], Is.InstanceOf<IFEItem_Custom>());
             Assert.That(items[1], Is.InstanceOf<FEItem_Shader>());
             Assert.That(items[2], Is.InstanceOf<FEItem_Geometry>());
-            Assert.That(legacy.Bounds, Is.EqualTo(s_rootDomain));
+            Assert.That(effectItem.Bounds, Is.EqualTo(s_rootDomain));
         });
     }
 
@@ -322,10 +322,10 @@ public sealed class SymbolicOwningDomainTests
     }
 
     [Test]
-    public void UnknownLegacy_DerivedFanOutAcrossDifferentDomains_IsRejected()
+    public void UnknownEffectItem_DerivedFanOutAcrossDifferentDomains_IsRejected()
     {
         var effect = new SymbolicDomainFilterEffect();
-        using var root = new UnknownLegacyDerivedFanOutNode(
+        using var root = new UnknownEffectItemDerivedFanOutNode(
             effect,
             new Rect(0, 0, 40, 30),
             new Rect(20, 0, 40, 30));
@@ -509,7 +509,7 @@ public sealed class SymbolicOwningDomainTests
     }
 
     private static FilterEffectRenderNode CreateFilter(
-        FiniteLegacyFilterEffect outerEffect,
+        FiniteEffectItemEffect outerEffect,
         SymbolicDomainFilterEffect innerEffect,
         Rect inputBounds)
     {
@@ -622,14 +622,14 @@ public sealed class SymbolicOwningDomainTests
             => bitmap.Dispose();
     }
 
-    private sealed class UnknownLegacyDerivedFanOutNode : RenderNode
+    private sealed class UnknownEffectItemDerivedFanOutNode : RenderNode
     {
         private const string IdentityShader = "half4 apply(half4 color) { return color; }";
         private readonly FilterEffectRenderNode _filter;
         private readonly Rect _firstDomain;
         private readonly Rect _secondDomain;
 
-        public UnknownLegacyDerivedFanOutNode(
+        public UnknownEffectItemDerivedFanOutNode(
             SymbolicDomainFilterEffect effect,
             Rect firstDomain,
             Rect secondDomain)
@@ -641,9 +641,9 @@ public sealed class SymbolicOwningDomainTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle legacy = context.RecordSubtree(_filter).Single();
+            RenderFragmentHandle effectItem = context.RecordSubtree(_filter).Single();
             RenderFragmentHandle derived = context.Shader(
-                legacy,
+                effectItem,
                 ShaderDescription.CurrentPixel(IdentityShader));
             context.Publish(context.Layer([derived], _firstDomain));
             context.Publish(context.Layer([derived], _secondDomain));
@@ -696,7 +696,7 @@ internal sealed partial class SymbolicDomainFilterEffect : FilterEffect
 }
 
 [SuppressResourceClassGeneration]
-internal sealed partial class FiniteLegacyFilterEffect : FilterEffect
+internal sealed partial class FiniteEffectItemEffect : FilterEffect
 {
     public Rect ObservedInputBounds { get; private set; }
 

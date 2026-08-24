@@ -11,7 +11,7 @@ namespace Beutl.Graphics.Effects;
 
 public abstract partial class DisplacementMapTransform : EngineObject
 {
-    private const string LegacyDrawableMapShaderSource =
+    private const string DrawableMapShaderSource =
         """
         uniform shader src;
         uniform shader uDisplacementMap;
@@ -58,8 +58,8 @@ public abstract partial class DisplacementMapTransform : EngineObject
         }
         """;
 
-    private static readonly Lazy<SKSLShader> s_legacyDrawableMapShader =
-        new(() => SKSLShader.Create(LegacyDrawableMapShaderSource));
+    private static readonly Lazy<SKSLShader> s_drawableMapShader =
+        new(() => SKSLShader.Create(DrawableMapShaderSource));
 
     public partial class Resource
     {
@@ -105,7 +105,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
             (semanticOrigin.Y + context.OutputBounds.Height / 2 + center.Y) * context.WorkingScale));
     }
 
-    private protected static bool TryApplyLegacyDrawableMap(
+    private protected static bool TryApplyDrawableMap(
         FilterEffectContext context,
         Brush.Resource displacementMap,
         GradientSpreadMethod spreadMethod,
@@ -120,7 +120,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
             return false;
 
         context.CustomEffect(
-            new LegacyDrawableMapData(
+            new DrawableMapData(
                 displacementMap,
                 spreadMethod,
                 channel,
@@ -129,7 +129,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
                 vector,
                 angle,
                 center),
-            ApplyLegacyDrawableMap,
+            ApplyDrawableMap,
             static (_, bounds) => bounds);
         return true;
     }
@@ -153,8 +153,8 @@ public abstract partial class DisplacementMapTransform : EngineObject
         return brush as DrawableBrush.Resource;
     }
 
-    private static void ApplyLegacyDrawableMap(
-        LegacyDrawableMapData data,
+    private static void ApplyDrawableMap(
+        DrawableMapData data,
         CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
@@ -187,7 +187,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
                     : displacementMapShaderRaw.WithLocalMatrix(mapMatrix);
                 SKShader displacementMapShader = mappedDisplacementMap ?? displacementMapShaderRaw;
 
-                using SKSLShaderBuilder builder = s_legacyDrawableMapShader.Value.CreateBuilder();
+                using SKSLShaderBuilder builder = s_drawableMapShader.Value.CreateBuilder();
                 builder.Children["uDisplacementMap"] = displacementMapShader;
                 builder.Uniforms["uMode"] = (int)data.Kind;
                 builder.Uniforms["uVector"] = data.Kind == DrawableMapTransformKind.Translate
@@ -204,7 +204,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
                 bool rendered = context.UseMappedInputShader(
                     effectTarget,
                     output,
-                    (Builder: builder, Shader: s_legacyDrawableMapShader.Value, Context: context, Output: output),
+                    (Builder: builder, Shader: s_drawableMapShader.Value, Context: context, Output: output),
                     static (state, mappedSource) =>
                     {
                         state.Builder.Children["src"] = mappedSource;
@@ -239,7 +239,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
                 displacementMap,
                 BlendMode.SrcOver,
                 context.Intent,
-                // A drawable map never reaches this binder: TryApplyLegacyDrawableMap routes it to the
+                // A drawable map never reaches this binder: TryApplyEffectItemDrawableMap routes it to the
                 // custom-effect path, whose canvas carries the request's materializer.
                 drawableBrushMaterializer: null,
                 context.WorkingScale,
@@ -293,7 +293,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
         Rotation,
     }
 
-    private readonly record struct LegacyDrawableMapData(
+    private readonly record struct DrawableMapData(
         Brush.Resource Map,
         GradientSpreadMethod SpreadMethod,
         DisplacementMapChannel Channel,
@@ -356,7 +356,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
-            if (TryApplyLegacyDrawableMap(
+            if (TryApplyDrawableMap(
                     context,
                     displacementMap,
                     spreadMethod,
@@ -449,7 +449,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
-            if (TryApplyLegacyDrawableMap(
+            if (TryApplyDrawableMap(
                     context,
                     displacementMap,
                     spreadMethod,
@@ -546,7 +546,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
-            if (TryApplyLegacyDrawableMap(
+            if (TryApplyDrawableMap(
                     context,
                     displacementMap,
                     spreadMethod,

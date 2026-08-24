@@ -25,7 +25,7 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
         Assert.Multiple(() =>
         {
             Assert.That(Reasons(compiled), Does.Contain(ExecutionIslandBoundaryReason.FilterEffectSegment));
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.LegacyCustomEffect));
+            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
         });
     }
 
@@ -34,7 +34,7 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
     {
         using CompiledRenderRequest compiled = Compile(new StrokeEffect());
 
-        Assert.That(Reasons(compiled), Does.Contain(ExecutionIslandBoundaryReason.LegacyCustomEffect));
+        Assert.That(Reasons(compiled), Does.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
     }
 
     [Test]

@@ -8,10 +8,10 @@ using SkiaSharp;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 [TestFixture]
-public sealed class LegacyFilterRequiredRegionTests
+public sealed class EffectItemRequiredRegionTests
 {
     [Test]
-    public void SubRegionRequest_RestrictsLegacyFilterSourceToBackwardRegion()
+    public void SubRegionRequest_RestrictsEffectItemSourceToBackwardRegion()
     {
         var sourceBounds = new Rect(0, 0, 400, 400);
         var requestedRegion = new Rect(0, 0, 50, 50);

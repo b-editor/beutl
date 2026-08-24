@@ -119,7 +119,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         return EffectiveScale.At(ClampToBufferBudgets(bufferBounds, workingScale));
     }
 
-    internal static Rect[] CalculateLegacyBufferBounds(
+    internal static Rect[] CalculateEffectItemBufferBounds(
         IReadOnlyList<Rect> inputBounds,
         IReadOnlyList<IFEItem> boundsItems,
         Rect fallbackBounds)
@@ -139,10 +139,10 @@ internal readonly record struct FilterEffectWorkingScalePolicy
 
         int branchItemCount = firstCustomIndex >= 0 ? firstCustomIndex : boundsItems.Count;
         Rect preCustomAggregateBounds = default;
-        var preCustomBranchStates = new List<LegacyFootprintState>(inputBounds.Count);
+        var preCustomBranchStates = new List<EffectItemFootprintState>(inputBounds.Count);
         foreach (Rect input in inputBounds)
         {
-            LegacyFootprintState branchState = CollectLegacyFootprints(
+            EffectItemFootprintState branchState = CollectEffectItemFootprints(
                 input,
                 boundsItems,
                 startIndex: 0,
@@ -156,7 +156,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         if (firstCustomIndex >= 0)
         {
             var preCustomRetainedBackingOffsets = new List<Rect>();
-            foreach (LegacyFootprintState branchState in preCustomBranchStates)
+            foreach (EffectItemFootprintState branchState in preCustomBranchStates)
             {
                 foreach (Rect offset in branchState.RetainedBackingOffsets)
                 {
@@ -167,10 +167,10 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                 }
             }
 
-            // A legacy Custom callback can combine or split the complete target list. Collapse from the union of
+            // A effect-item Custom callback can combine or split the complete target list. Collapse from the union of
             // the actual per-target semantic results, not TransformBounds(inputUnion): arbitrary pure mappings need
             // not distribute over Union.
-            CollectLegacyFootprints(
+            CollectEffectItemFootprints(
                 preCustomAggregateBounds,
                 boundsItems,
                 firstCustomIndex,
@@ -182,11 +182,11 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         }
 
         if (result.Count == 0)
-            result.Add(ToLocalLegacyFootprint(fallbackBounds, fallbackBounds));
+            result.Add(ToLocalEffectItemFootprint(fallbackBounds, fallbackBounds));
         return result.ToArray();
     }
 
-    private static LegacyFootprintState CollectLegacyFootprints(
+    private static EffectItemFootprintState CollectEffectItemFootprints(
         Rect initialSemanticBounds,
         IReadOnlyList<IFEItem> boundsItems,
         int startIndex,
@@ -197,7 +197,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         bool skipInitialCustomPreFlush = false)
     {
         Rect semanticBounds = initialSemanticBounds;
-        Rect allocationBounds = ToLocalLegacyFootprint(semanticBounds, fallbackBounds);
+        Rect allocationBounds = ToLocalEffectItemFootprint(semanticBounds, fallbackBounds);
         Rect[] retainedBackingOffsets = initialRetainedBackingOffsets?.ToArray()
             ?? [CreateInitialRetainedBackingOffset(semanticBounds, fallbackBounds)];
         bool hasPendingSkiaWork = false;
@@ -234,7 +234,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                 case IFEItem_Custom:
                     if (!(skipInitialCustomPreFlush && index == startIndex))
                     {
-                        result.Add(NormalizeLegacyAllocationBounds(allocationBounds, fallbackBounds));
+                        result.Add(NormalizeEffectItemAllocationBounds(allocationBounds, fallbackBounds));
                         AddRetainedBackingFootprints(
                             result,
                             semanticBounds,
@@ -243,7 +243,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                     }
                     if (!semanticBounds.IsInvalid)
                         semanticBounds = item.TransformBounds(semanticBounds);
-                    allocationBounds = ToLocalLegacyFootprint(semanticBounds, fallbackBounds);
+                    allocationBounds = ToLocalEffectItemFootprint(semanticBounds, fallbackBounds);
                     result.Add(allocationBounds);
                     AddRetainedBackingFootprints(
                         result,
@@ -256,7 +256,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                 case FEItem_Geometry:
                     if (hasPendingSkiaWork)
                     {
-                        result.Add(NormalizeLegacyAllocationBounds(allocationBounds, fallbackBounds));
+                        result.Add(NormalizeEffectItemAllocationBounds(allocationBounds, fallbackBounds));
                         AddRetainedBackingFootprints(
                             result,
                             semanticBounds,
@@ -265,7 +265,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                     }
                     if (!semanticBounds.IsInvalid)
                         semanticBounds = item.TransformBounds(semanticBounds);
-                    allocationBounds = NormalizeLegacySemanticBounds(semanticBounds, fallbackBounds);
+                    allocationBounds = NormalizeEffectItemSemanticBounds(semanticBounds, fallbackBounds);
                     retainedBackingOffsets =
                         [CreateInitialRetainedBackingOffset(semanticBounds, fallbackBounds)];
                     result.Add(allocationBounds);
@@ -283,7 +283,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                         semanticBounds,
                         item,
                         fallbackBounds);
-                    result.Add(NormalizeLegacyAllocationBounds(allocationBounds, fallbackBounds));
+                    result.Add(NormalizeEffectItemAllocationBounds(allocationBounds, fallbackBounds));
                     AddRetainedBackingFootprints(
                         result,
                         semanticBounds,
@@ -294,8 +294,8 @@ internal readonly record struct FilterEffectWorkingScalePolicy
             }
         }
 
-        Rect normalizedAllocationBounds = NormalizeLegacyAllocationBounds(allocationBounds, fallbackBounds);
-        Rect normalizedSemanticBounds = NormalizeLegacySemanticBounds(semanticBounds, fallbackBounds);
+        Rect normalizedAllocationBounds = NormalizeEffectItemAllocationBounds(allocationBounds, fallbackBounds);
+        Rect normalizedSemanticBounds = NormalizeEffectItemSemanticBounds(semanticBounds, fallbackBounds);
         result.Add(normalizedAllocationBounds);
         result.Add(normalizedSemanticBounds);
         result.Add(new Rect(
@@ -308,14 +308,14 @@ internal readonly record struct FilterEffectWorkingScalePolicy
             normalizedSemanticBounds,
             retainedBackingOffsets,
             fallbackBounds);
-        return new LegacyFootprintState(normalizedSemanticBounds, retainedBackingOffsets);
+        return new EffectItemFootprintState(normalizedSemanticBounds, retainedBackingOffsets);
     }
 
     private static Rect CreateInitialRetainedBackingOffset(
         Rect semanticBounds,
         Rect fallbackBounds)
     {
-        Rect normalizedSemanticBounds = NormalizeLegacySemanticBounds(semanticBounds, fallbackBounds);
+        Rect normalizedSemanticBounds = NormalizeEffectItemSemanticBounds(semanticBounds, fallbackBounds);
         Rect scaleOneRasterBounds = PixelRect.FromRect(normalizedSemanticBounds, 1).ToRect(1);
         return scaleOneRasterBounds.Translate(new Point(
             -normalizedSemanticBounds.X,
@@ -329,8 +329,8 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         IFEItem item,
         Rect fallbackBounds)
     {
-        Rect previous = NormalizeLegacySemanticBounds(previousSemanticBounds, fallbackBounds);
-        Rect current = NormalizeLegacySemanticBounds(semanticBounds, fallbackBounds);
+        Rect previous = NormalizeEffectItemSemanticBounds(previousSemanticBounds, fallbackBounds);
+        Rect current = NormalizeEffectItemSemanticBounds(semanticBounds, fallbackBounds);
         var result = new Rect[retainedBackingOffsets.Count];
         bool deferred = item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true };
         for (int index = 0; index < retainedBackingOffsets.Count; index++)
@@ -341,7 +341,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
             Rect transformed = deferred
                 ? Rect.Invalid
                 : item.TransformBounds(physicalBounds);
-            Rect normalized = NormalizeLegacyAllocationBounds(transformed, fallbackBounds);
+            Rect normalized = NormalizeEffectItemAllocationBounds(transformed, fallbackBounds);
             result[index] = normalized.Translate(new Point(-current.X, -current.Y));
         }
 
@@ -354,25 +354,25 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         IReadOnlyList<Rect> retainedBackingOffsets,
         Rect fallbackBounds)
     {
-        Rect normalizedSemanticBounds = NormalizeLegacySemanticBounds(semanticBounds, fallbackBounds);
+        Rect normalizedSemanticBounds = NormalizeEffectItemSemanticBounds(semanticBounds, fallbackBounds);
         foreach (Rect offset in retainedBackingOffsets)
         {
-            result.Add(NormalizeLegacyAllocationBounds(
+            result.Add(NormalizeEffectItemAllocationBounds(
                 offset.Translate(normalizedSemanticBounds.Position),
                 fallbackBounds));
         }
     }
 
-    private static Rect NormalizeLegacySemanticBounds(Rect bounds, Rect fallbackBounds)
+    private static Rect NormalizeEffectItemSemanticBounds(Rect bounds, Rect fallbackBounds)
         => bounds.IsInvalid ? fallbackBounds : bounds;
 
-    private static Rect ToLocalLegacyFootprint(Rect bounds, Rect fallbackBounds)
+    private static Rect ToLocalEffectItemFootprint(Rect bounds, Rect fallbackBounds)
     {
-        Rect normalized = NormalizeLegacySemanticBounds(bounds, fallbackBounds);
+        Rect normalized = NormalizeEffectItemSemanticBounds(bounds, fallbackBounds);
         return new Rect(default(Point), normalized.Size);
     }
 
-    private static Rect NormalizeLegacyAllocationBounds(Rect bounds, Rect fallbackBounds)
+    private static Rect NormalizeEffectItemAllocationBounds(Rect bounds, Rect fallbackBounds)
         => bounds.IsInvalid ? new Rect(default(Point), fallbackBounds.Size) : bounds;
 
     private static float ClampToBufferBudgets(
@@ -390,7 +390,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         return result;
     }
 
-    private readonly record struct LegacyFootprintState(
+    private readonly record struct EffectItemFootprintState(
         Rect SemanticBounds,
         IReadOnlyList<Rect> RetainedBackingOffsets);
 }

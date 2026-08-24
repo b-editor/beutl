@@ -21,8 +21,8 @@ public sealed class OpaqueSourceCoverageTests
     [TestCase(true)]
     public void MaterializingAnOpaqueSource_KeepsItsAntialiasedCoverage(bool shifted)
     {
-        using Drawable.Resource direct = CreateAliasingProneSource(shifted, legacyIdentityEffect: false);
-        using Drawable.Resource materialized = CreateAliasingProneSource(shifted, legacyIdentityEffect: true);
+        using Drawable.Resource direct = CreateAliasingProneSource(shifted, effectItemIdentityEffect: false);
+        using Drawable.Resource materialized = CreateAliasingProneSource(shifted, effectItemIdentityEffect: true);
 
         using Bitmap expected = RenderProductionSource(direct, density: 1f, useRenderCache: false);
         using Bitmap actual = RenderProductionSource(materialized, density: 1f, useRenderCache: false);
@@ -136,7 +136,7 @@ public sealed class OpaqueSourceCoverageTests
         return target.Snapshot();
     }
 
-    private static Drawable.Resource CreateAliasingProneSource(bool shifted, bool legacyIdentityEffect)
+    private static Drawable.Resource CreateAliasingProneSource(bool shifted, bool effectItemIdentityEffect)
     {
         var shape = new RectShape();
         shape.AlignmentX.CurrentValue = AlignmentX.Center;
@@ -150,7 +150,7 @@ public sealed class OpaqueSourceCoverageTests
         if (shifted)
             transform.Children.Add(new TranslateTransform(0.25f, 0.5f));
         shape.Transform.CurrentValue = transform;
-        if (legacyIdentityEffect)
+        if (effectItemIdentityEffect)
         {
             var effect = new TransformEffect();
             effect.Transform.CurrentValue = new MatrixTransform(Matrix.Identity);

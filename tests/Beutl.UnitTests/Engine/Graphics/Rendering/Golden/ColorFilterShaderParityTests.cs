@@ -88,10 +88,10 @@ public sealed class ColorFilterShaderParityTests
     }
 
     /// <summary>
-    /// The Brightness effect must record one fusable shader stage and no legacy Skia segment.
+    /// The Brightness effect must record one fusable shader stage and no effect-item Skia segment.
     /// </summary>
     [Test]
-    public void Brightness_RecordsOneCurrentPixelStageWithoutALegacyBoundary()
+    public void Brightness_RecordsOneCurrentPixelStageWithoutAEffectItemBoundary()
     {
         using var context = new FilterEffectContext(s_bounds);
 
@@ -190,7 +190,7 @@ public sealed class ColorFilterShaderParityTests
     }
 
     [Test]
-    public void MigratedColorEffects_RecordOneCurrentPixelStageWithoutALegacyBoundary()
+    public void MigratedColorEffects_RecordOneCurrentPixelStageWithoutAEffectItemBoundary()
     {
         AssertRecordsOneCurrentPixelStage(context => context.Saturate(2f));
         AssertRecordsOneCurrentPixelStage(context => context.HueRotate(90f));

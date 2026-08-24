@@ -1755,7 +1755,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (_callbackCapability is not null && !_isReplayingTargetScope)
         {
             throw new InvalidOperationException(
-                "Nested render work, snapshots, and legacy raw callbacks are not available on a guarded callback canvas.");
+                "Nested render work, snapshots, and effectItem raw callbacks are not available on a guarded callback canvas.");
         }
     }
 

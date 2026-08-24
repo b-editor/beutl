@@ -131,7 +131,7 @@ public class CustomFilterEffectContext
 
     /// <summary>
     /// Device-buffer dimensions for a logical <paramref name="bounds"/> at density <paramref name="w"/>.
-    /// The legacy custom-effect contract sizes the local buffer from the logical dimensions only;
+    /// The effect-item custom-effect contract sizes the local buffer from the logical dimensions only;
     /// a fractional logical origin does not add a rounding pixel.
     /// </summary>
     public static (int Width, int Height) DeviceBufferSize(Rect bounds, float w)
@@ -158,7 +158,7 @@ public class CustomFilterEffectContext
 
     /// <summary>
     /// The density <see cref="CreateTarget"/> will allocate for <paramref name="bounds"/>,
-    /// after applying the legacy per-buffer dimension clamp.
+    /// after applying the effect-item per-buffer dimension clamp.
     /// </summary>
     public float ResolveTargetDensity(Rect bounds)
         => RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
@@ -372,7 +372,7 @@ public class CustomFilterEffectContext
 
     /// <summary>
     /// Wraps a caller-created target as a replacement with the source's logical placement,
-    /// density, physical footprint, device-grid alignment, and legacy placement mode.
+    /// density, physical footprint, device-grid alignment, and effect-item placement mode.
     /// </summary>
     /// <remarks>
     /// The returned effect target owns a shallow copy; the caller retains ownership of
@@ -510,10 +510,10 @@ public class CustomFilterEffectContext
         float density,
         PixelRect deviceBounds)
     {
-        Vector legacyGridOffset = deviceBounds
+        Vector effectItemGridOffset = deviceBounds
             .ToRect(density)
             .Position - bounds.Position;
-        EffectTarget? allocated = Allocate(bounds, density, deviceBounds, legacyGridOffset);
+        EffectTarget? allocated = Allocate(bounds, density, deviceBounds, effectItemGridOffset);
         if (allocated != null)
         {
             return allocated;
@@ -567,7 +567,7 @@ public class CustomFilterEffectContext
                     EffectiveScale.At(density),
                     deviceBounds,
                     deviceGridOffset,
-                    preserveLegacyRasterPlacement: true);
+                    preserveImperativeRasterPlacement: true);
             }
             catch
             {
@@ -585,7 +585,7 @@ public class CustomFilterEffectContext
                 EffectiveScale.At(density),
                 deviceBounds,
                 deviceGridOffset,
-                preserveLegacyRasterPlacement: true);
+                preserveImperativeRasterPlacement: true);
     }
 
     /// <summary>

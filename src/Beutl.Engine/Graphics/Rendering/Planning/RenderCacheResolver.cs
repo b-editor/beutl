@@ -460,7 +460,7 @@ internal static class RenderMaterializationDemandResolver
             return fragment.EffectiveScale.Value;
 
         float demand = requestedDemand;
-        // A target command does not provide a caller density. Preserve the legacy
+        // A target command does not provide a caller density. Preserve the effect-item
         // Layer contract by negotiating from its densest concrete child supply.
         if (useSupplyFallback && fragment.Kind == RenderFragmentKind.Layer)
         {

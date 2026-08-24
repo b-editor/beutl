@@ -598,9 +598,9 @@ public sealed class ProxyStore : IProxyStore
         {
         }
 
-        // A legacy single-ProxyEntry sidecar also deserializes as ProxySourceMetadata (Version and
+        // A effect-item single-ProxyEntry sidecar also deserializes as ProxySourceMetadata (Version and
         // Entries take their defaults), so only treat it as a wrapper when it actually carries
-        // entries — otherwise fall through to the legacy ProxyEntry parse so recovery still adopts it.
+        // entries — otherwise fall through to the effect-item ProxyEntry parse so recovery still adopts it.
         if (metadata is { Entries.Count: > 0 })
         {
             if (metadata.Version == ProxySourceMetadata.CurrentVersion)
@@ -615,17 +615,17 @@ public sealed class ProxyStore : IProxyStore
             yield break;
         }
 
-        ProxyEntry? legacyEntry = null;
+        ProxyEntry? effectItemEntry = null;
         try
         {
-            legacyEntry = JsonSerializer.Deserialize<ProxyEntry>(json, s_jsonOptions);
+            effectItemEntry = JsonSerializer.Deserialize<ProxyEntry>(json, s_jsonOptions);
         }
         catch
         {
         }
 
-        if (legacyEntry != null)
-            yield return legacyEntry;
+        if (effectItemEntry != null)
+            yield return effectItemEntry;
     }
 
     // Intentionally holds _lock for the full read-merge-write. Moving the write outside _lock
