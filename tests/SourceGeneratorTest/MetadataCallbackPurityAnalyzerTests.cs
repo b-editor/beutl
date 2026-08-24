@@ -110,6 +110,54 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the delegate's target is a copy of the struct, which nothing can reach afterwards");
     }
 
+    /// <remarks>
+    /// A method group carries no closure, but an instance method's receiver becomes the delegate's target.
+    /// On a reference type that target is the author's own object, so changing a field on it changes what
+    /// the callback answers while its identity stays the method.
+    /// </remarks>
+    [Test]
+    public void AMethodGroupOnAReferenceType_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Provider
+            {
+                public float Inset { get; set; }
+
+                public Rect Map(Rect value) => value;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build(Provider provider)
+                    => RenderBoundsContract.Create(provider.Map, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+    }
+
+    [Test]
+    public void AStaticMethodGroup_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                private static Rect Map(Rect value) => value;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Map, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
+    }
+
     [Test]
     public void AForwardedParameter_IsNotReported()
     {

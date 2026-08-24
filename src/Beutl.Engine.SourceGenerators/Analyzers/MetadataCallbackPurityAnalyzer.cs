@@ -107,10 +107,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                         .GetSymbolInfo(expression, context.CancellationToken).Symbol;
                     return symbol switch
                     {
-                        // A method group carries no closure of its own. When it is an instance method the
-                        // receiver becomes the delegate's target, and for a readonly struct that target is
-                        // a copy nothing can reach afterwards.
-                        IMethodSymbol => null,
+                        IMethodSymbol method => DescribeReceiverImpurity(context, method, expression),
 
                         // A parameter is the caller's callback being forwarded, and the caller's own call
                         // site is where this rule already applies to it. Flagging the forwarder would only
@@ -127,5 +124,34 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             default:
                 return null;
         }
+    }
+
+    /// <remarks>
+    /// A method group carries no closure, but an instance method's receiver becomes the delegate's target.
+    /// A value-typed receiver is boxed at that point, so the delegate holds a copy the author cannot reach
+    /// afterwards; a reference-typed one is the author's own object, and changing a field on it changes
+    /// what the callback answers while its identity stays the method.
+    /// </remarks>
+    private static string? DescribeReceiverImpurity(
+        SyntaxNodeAnalysisContext context,
+        IMethodSymbol method,
+        ExpressionSyntax expression)
+    {
+        if (method.IsStatic)
+            return null;
+
+        if (expression is not MemberAccessExpressionSyntax memberAccess)
+        {
+            // An unqualified instance method is called on `this`, which the enclosing object can change.
+            return "the callback is an instance method, whose receiver can be changed after this call";
+        }
+
+        ITypeSymbol? receiver = context.SemanticModel
+            .GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type;
+        if (receiver is { IsValueType: true })
+            return null;
+
+        return "the callback is an instance method on a reference type, and the delegate keeps that "
+               + "object as its receiver";
     }
 }
