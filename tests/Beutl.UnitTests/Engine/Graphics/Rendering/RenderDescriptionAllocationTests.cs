@@ -21,13 +21,13 @@ public sealed class RenderDescriptionAllocationTests
     // platform-dependent part of the scene - font fallback for its TextBlock - rather than for measurement
     // noise, so a whole-frame regression fails here while per-call regressions are caught by the comparative
     // tests in this fixture.
-    private const long SceneBytesPerFrameCeiling = 256_000;
+    private const long SceneBytesPerFrameCeiling = 233_000;
 
     // The same scene with the render cache warm allocates about 289,800 bytes/frame, leaving about 7%
     // headroom. Each machine reports one deterministic value, but not the same one: a Linux runner and a
     // macOS machine measured 261 bytes apart on the same commit, so the figure is platform-specific rather
     // than a property of the scene, and the spread is far below the headroom either budget keeps.
-    private const long WarmCacheSceneBytesPerFrameCeiling = 311_000;
+    private const long WarmCacheSceneBytesPerFrameCeiling = 289_000;
 
     private static readonly object s_explicitKey = new();
     private static readonly PixelSize s_frameSize = new(240, 160);
