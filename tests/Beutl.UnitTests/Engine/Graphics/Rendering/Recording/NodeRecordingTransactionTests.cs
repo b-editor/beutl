@@ -530,6 +530,155 @@ public sealed class NodeRecordingTransactionTests
         repeated.Dispose();
     }
 
+    // The recording invariants are the diagnostic plugin authors get for a mistake that would otherwise
+    // render nothing, so they run in every configuration and are asserted here without a DEBUG guard.
+    [Test]
+    public void Commit_RejectsAFanOutRestrictedFragmentPublishedTwice()
+    {
+        using var owner = new RenderRequestOwner();
+        using var request = CreateRequest(owner);
+        var host = new RecordingHost(request);
+        var transaction = new NodeRecordingTransaction(host, new object(), []);
+        RenderFragmentHandle command = CreateTargetCommand(transaction, new Rect(0, 0, 10, 10), []);
+
+        transaction.Publish(command);
+        transaction.Publish(command);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => transaction.Commit(),
+                Throws.InvalidOperationException.With.Message.EqualTo(
+                    "A target-effect render fragment cannot be consumed or published more than once."));
+            Assert.That(host.Commits, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Commit_RejectsAFanOutRestrictedFragmentConsumedByTwoPublishedFragments()
+    {
+        using var owner = new RenderRequestOwner();
+        using var request = CreateRequest(owner);
+        var host = new RecordingHost(request);
+        var transaction = new NodeRecordingTransaction(host, new object(), []);
+        var bounds = new Rect(0, 0, 10, 10);
+        RenderFragmentHandle shared = CreateTargetCommand(transaction, bounds, []);
+        RenderFragmentReference sharedReference = transaction.GetReference(shared);
+
+        transaction.Publish(CreateLayer(transaction, bounds, [sharedReference]));
+        transaction.Publish(CreateLayer(transaction, bounds, [sharedReference]));
+
+        Assert.That(
+            () => transaction.Commit(),
+            Throws.InvalidOperationException.With.Message.EqualTo(
+                "A target-effect render fragment cannot be consumed or published more than once."));
+    }
+
+    // The orphan sweep is skipped when no entry shares this transaction's origin, so absorbing one has to
+    // arm it. A stuck-off flag would drop the diagnostic silently, which is the one outcome that must not
+    // happen.
+    [Test]
+    public void Commit_ReportsAnOrphanedTargetEffectAbsorbedFromAChildSharingItsOrigin()
+    {
+        using var owner = new RenderRequestOwner();
+        using var request = CreateRequest(owner);
+        var host = new RecordingHost(request);
+        var origin = new SharedRecordingOrigin();
+        var bounds = new Rect(0, 0, 10, 10);
+        var parent = new NodeRecordingTransaction(host, origin, []);
+        var child = new NodeRecordingTransaction(host, origin, [], parent);
+        RenderFragmentHandle orphan = CreateTargetCommand(child, bounds, []);
+
+        child.Publish(orphan);
+        child.Commit();
+        transactionPublishesSomethingElse(parent, bounds);
+
+        Assert.That(
+            () => parent.Commit(),
+            Throws.InvalidOperationException.With.Message
+                .StartsWith("A recorded target-effect fragment was neither published nor consumed.")
+                .And.Message.Contains($"Fragment kind: {RenderFragmentKind.TargetCommand}")
+                .And.Message.Contains($"recorded by: {typeof(SharedRecordingOrigin).FullName}"));
+
+        static void transactionPublishesSomethingElse(NodeRecordingTransaction transaction, Rect bounds)
+            => transaction.Publish(CreateSource(transaction, bounds));
+    }
+
+    // A sealed transaction hands its ownership set back for reuse. A set that came back still holding its
+    // last tenant's fragments would let the next transaction accept a foreign handle.
+    [Test]
+    public void Commit_ReleasesTheOwnershipSetWithoutLeakingItsFragmentsIntoTheNextTransaction()
+    {
+        using var owner = new RenderRequestOwner();
+        using var request = CreateRequest(owner);
+        var host = new RecordingHost(request);
+        var bounds = new Rect(0, 0, 10, 10);
+
+        var sealedTransaction = new NodeRecordingTransaction(host, new object(), []);
+        RenderFragmentHandle staleHandle = CreateSource(sealedTransaction, bounds);
+        RenderFragmentReference stale = sealedTransaction.GetReference(staleHandle);
+        sealedTransaction.Publish(staleHandle);
+        sealedTransaction.Commit();
+
+        var reusing = new NodeRecordingTransaction(host, new object(), []);
+        RenderFragmentReference own = reusing.GetReference(CreateSource(reusing, bounds));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => reusing.VerifyOwns(stale),
+                Throws.InvalidOperationException.With.Message.EqualTo(
+                    "The render fragment belongs to a different recording transaction."),
+                "A recycled ownership set must not vouch for its previous tenant's fragments.");
+            Assert.That(() => reusing.VerifyOwns(own), Throws.Nothing);
+            Assert.That(
+                () => sealedTransaction.VerifyOwns(stale),
+                Throws.InvalidOperationException.With.Message.EqualTo(
+                    "The render-node recording context and its fragment handles are no longer active."),
+                "A sealed transaction answers ownership questions with its seal, not with a released set.");
+        });
+    }
+
+    private static RenderFragmentHandle CreateTargetCommand(
+        NodeRecordingTransaction transaction,
+        Rect bounds,
+        RenderFragmentReference[] inputs)
+    {
+        return transaction.CreateFragment(
+            RenderFragmentKind.TargetCommand,
+            bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.None,
+            contributesValuesToTarget: false,
+            canBeUsedAsValueInput: false,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            inputs: inputs,
+            payload: null,
+            hitTest: bounds.Contains);
+    }
+
+    private static RenderFragmentHandle CreateLayer(
+        NodeRecordingTransaction transaction,
+        Rect bounds,
+        RenderFragmentReference[] inputs)
+    {
+        return transaction.CreateFragment(
+            RenderFragmentKind.Layer,
+            bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            inputs: inputs,
+            payload: null,
+            hitTest: bounds.Contains);
+    }
+
+    private sealed class SharedRecordingOrigin;
+
     private static RenderRequest CreateRequest(RenderRequestOwner owner)
     {
         return new RenderRequest(CreateOptions(owner));

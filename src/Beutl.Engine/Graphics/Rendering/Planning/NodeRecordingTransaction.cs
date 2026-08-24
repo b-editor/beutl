@@ -4,18 +4,29 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
 {
+    private const int RecycledSetSizeLimit = 1024;
+    private const int OwnedReferencePoolLimit = 32;
+
     private readonly IRenderRequestRecordingHost _host;
     private readonly NodeRecordingTransaction? _parent;
     private readonly object _origin;
-    private readonly HashSet<RenderFragmentReference> _ownedReferences =
-        new(ReferenceEqualityComparer.Instance);
     private readonly List<RecordedRenderFragmentEntry> _fragments = [];
     private readonly List<RenderFragmentReference> _publications = [];
     private readonly List<RenderResource> _resources = [];
     private readonly List<RecordedNestedRenderRequest> _nestedRequests = [];
     private readonly List<BuiltInBackdropBinding> _builtInBackdropBindings = [];
+
+    // Nulled the moment the transaction seals so a recycled set can never answer for a dead transaction.
+    private HashSet<RenderFragmentReference>? _ownedReferences = RentOwnedReferences();
     private HashSet<RenderFragmentReference>? _dropped;
     private bool _cacheDisabled;
+    private bool _hasOwnTargetEffectFragment;
+
+    [ThreadStatic]
+    private static InvariantScratch? t_scratch;
+
+    [ThreadStatic]
+    private static Stack<HashSet<RenderFragmentReference>>? t_ownedReferencePool;
 
     public NodeRecordingTransaction(
         IRenderRequestRecordingHost host,
@@ -32,7 +43,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         foreach (RenderFragmentReference input in inputs)
         {
             ArgumentNullException.ThrowIfNull(input);
-            _ownedReferences.Add(input);
+            OwnedReferences.Add(input);
             facades.Add(new RenderFragmentHandle(this, input));
         }
 
@@ -60,6 +71,10 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
            && (_parent?.IsRenderCacheEnabled ?? _host.IsRenderCacheEnabled);
 
     public NodeRecordingTransactionState State { get; private set; }
+
+    private HashSet<RenderFragmentReference> OwnedReferences
+        => _ownedReferences ?? throw new InvalidOperationException(
+            "The render-node recording context and its fragment handles are no longer active.");
 
     public RenderFragmentHandle CreateFragment(
         RenderFragmentKind kind,
@@ -97,8 +112,9 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
             hitTest,
             boundsRequirement,
             hasDirectSymbolicBoundsDependency);
-        _ownedReferences.Add(reference);
+        OwnedReferences.Add(reference);
         _fragments.Add(new RecordedRenderFragmentEntry(reference, _origin, "RenderNode.Process"));
+        _hasOwnTargetEffectFragment |= IsTargetEffect(kind);
         return new RenderFragmentHandle(this, reference);
     }
 
@@ -322,9 +338,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
     {
         VerifyActive();
         ImmutableArray<RecordedRenderFragmentEntry> fragments = [.. _fragments];
-        HashSet<RenderFragmentReference> reachable = SelectReachableFragments();
-        ValidateNoOrphanedTargetEffects(reachable);
-        ValidatePublicationFanOut(reachable);
+        ValidateRecordedInvariants();
         var commit = new NodeRecordingCommit(
             fragments,
             [.. _publications],
@@ -341,6 +355,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
                 _parent.Absorb(commit);
 
             State = NodeRecordingTransactionState.Committed;
+            ReleaseOwnedReferences();
             return commit.Publications;
         }
         catch (Exception ex)
@@ -361,6 +376,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         }
 
         State = NodeRecordingTransactionState.RolledBack;
+        ReleaseOwnedReferences();
         Request.Options.Owner.RecordPrimaryFailure(primaryFailure);
         for (int index = _resources.Count - 1; index >= 0; index--)
         {
@@ -406,7 +422,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
     public void VerifyOwns(RenderFragmentReference reference)
     {
         VerifyActive();
-        if (!_ownedReferences.Contains(reference))
+        if (_ownedReferences?.Contains(reference) != true)
         {
             throw new InvalidOperationException(
                 "The render fragment belongs to a different recording transaction.");
@@ -420,7 +436,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         var result = new List<RenderFragmentHandle>();
         foreach (RenderFragmentReference reference in references)
         {
-            _ownedReferences.Add(reference);
+            OwnedReferences.Add(reference);
             result.Add(new RenderFragmentHandle(this, reference));
         }
 
@@ -445,24 +461,131 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
             _builtInBackdropBindings.RemoveAll(item => ReferenceEquals(item.Identity, binding.Identity));
             _builtInBackdropBindings.Add(binding);
         }
+
+        // Nothing in the commit type keeps an absorbed entry's origin distinct from this transaction's, so
+        // the orphan-check flag is recomputed from the entries rather than assumed off.
+        if (!_hasOwnTargetEffectFragment)
+        {
+            foreach (RecordedRenderFragmentEntry entry in child.Fragments)
+            {
+                if (ReferenceEquals(entry.Origin, _origin) && IsTargetEffect(entry.Reference.Kind))
+                {
+                    _hasOwnTargetEffectFragment = true;
+                    break;
+                }
+            }
+        }
     }
 
-    private HashSet<RenderFragmentReference> SelectReachableFragments()
+    private void ValidateRecordedInvariants()
     {
-        var reachable = new HashSet<RenderFragmentReference>(
-            _publications,
-            ReferenceEqualityComparer.Instance);
-        for (int index = _fragments.Count - 1; index >= 0; index--)
+        InvariantScratch scratch = RentScratch();
+        try
         {
-            RenderFragmentReference reference = _fragments[index].Reference;
-            if (!reachable.Contains(reference))
-                continue;
+            HashSet<RenderFragmentReference> reachable = scratch.Reachable;
+            HashSet<RenderFragmentReference> fanOutRestricted = scratch.FanOutRestricted;
+            foreach (RenderFragmentReference publication in _publications)
+                reachable.Add(publication);
 
-            foreach (RenderFragmentReference input in reference.Inputs)
-                reachable.Add(input);
+            // A fragment's inputs are already owned when it is created and a child's entries are absorbed at
+            // its commit, so _fragments is in creation order. Nothing recorded earlier can make a later entry
+            // reachable, which is what lets one backward sweep settle reachability and fan-out together.
+            bool fanOutViolation = false;
+            for (int index = _fragments.Count - 1; index >= 0; index--)
+            {
+                RenderFragmentReference reference = _fragments[index].Reference;
+                if (!reachable.Contains(reference))
+                    continue;
+
+                foreach (RenderFragmentReference input in reference.Inputs)
+                {
+                    reachable.Add(input);
+
+                    // Only a fragment barred from fan-out can fail the check, so the rest never enter the set.
+                    if (!input.AllowsFanOut && !fanOutRestricted.Add(input))
+                        fanOutViolation = true;
+                }
+            }
+
+            // The orphan diagnostic keeps precedence over fan-out, so the sweep records rather than throws.
+            if (_hasOwnTargetEffectFragment)
+                ValidateNoOrphanedTargetEffects(reachable);
+
+            foreach (RenderFragmentReference publication in _publications)
+            {
+                if (!publication.AllowsFanOut && !fanOutRestricted.Add(publication))
+                    fanOutViolation = true;
+            }
+
+            if (fanOutViolation)
+            {
+                throw new InvalidOperationException(
+                    "A target-effect render fragment cannot be consumed or published more than once.");
+            }
+        }
+        finally
+        {
+            ReturnScratch(scratch);
+        }
+    }
+
+    // Transactions nest but never overlap their ownership sets: a child rents at construction and returns at
+    // its own commit, all inside the parent's recording.
+    private static HashSet<RenderFragmentReference> RentOwnedReferences()
+    {
+        Stack<HashSet<RenderFragmentReference>>? pool = t_ownedReferencePool;
+        return pool is not null && pool.TryPop(out HashSet<RenderFragmentReference>? owned)
+            ? owned
+            : new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
+    }
+
+    private void ReleaseOwnedReferences()
+    {
+        HashSet<RenderFragmentReference>? owned = _ownedReferences;
+        _ownedReferences = null;
+        if (owned is null || owned.Count > RecycledSetSizeLimit)
+            return;
+
+        owned.Clear();
+        Stack<HashSet<RenderFragmentReference>> pool =
+            t_ownedReferencePool ??= new Stack<HashSet<RenderFragmentReference>>();
+        if (pool.Count < OwnedReferencePoolLimit)
+            pool.Push(owned);
+    }
+
+    private static InvariantScratch RentScratch()
+    {
+        InvariantScratch? scratch = t_scratch;
+        if (scratch is null)
+        {
+            t_scratch = scratch = new InvariantScratch();
+        }
+        else if (scratch.Rented)
+        {
+            // The sweep runs no user code, so an overlapping rent is not expected. Private sets keep the
+            // sharing an allocation win rather than a correctness assumption.
+            return new InvariantScratch { Rented = true };
         }
 
-        return reachable;
+        scratch.Rented = true;
+        return scratch;
+    }
+
+    private static void ReturnScratch(InvariantScratch scratch)
+    {
+        int peak = Math.Max(scratch.Reachable.Count, scratch.FanOutRestricted.Count);
+        scratch.Reachable.Clear();
+        scratch.FanOutRestricted.Clear();
+
+        // Clear keeps the buckets a warm thread already sized, which is the point of pooling. One outsized
+        // commit must not pin that capacity for the life of the thread.
+        if (peak > RecycledSetSizeLimit)
+        {
+            scratch.Reachable.TrimExcess();
+            scratch.FanOutRestricted.TrimExcess();
+        }
+
+        scratch.Rented = false;
     }
 
     // Drop is not transitive and a parent never receives handles to a child's internal fragments.
@@ -506,37 +629,6 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         _publications.Add(reference);
     }
 
-    private void ValidatePublicationFanOut(
-        HashSet<RenderFragmentReference> reachable)
-    {
-        var counts = new Dictionary<RenderFragmentReference, int>(ReferenceEqualityComparer.Instance);
-        foreach (RecordedRenderFragmentEntry entry in _fragments)
-        {
-            if (!reachable.Contains(entry.Reference))
-                continue;
-
-            foreach (RenderFragmentReference input in entry.Reference.Inputs)
-                CountUse(input, counts);
-        }
-
-        foreach (RenderFragmentReference publication in _publications)
-            CountUse(publication, counts);
-    }
-
-    private static void CountUse(
-        RenderFragmentReference reference,
-        Dictionary<RenderFragmentReference, int> counts)
-    {
-        counts.TryGetValue(reference, out int count);
-        count++;
-        counts[reference] = count;
-        if (count > 1 && !reference.AllowsFanOut)
-        {
-            throw new InvalidOperationException(
-                "A target-effect render fragment cannot be consumed or published more than once.");
-        }
-    }
-
     private bool TryGetBuiltInBackdropReference(
         object identity,
         out RenderFragmentReference? reference)
@@ -560,8 +652,18 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
     private RenderFragmentHandle MapReference(RenderFragmentReference reference)
     {
         VerifyActive();
-        _ownedReferences.Add(reference);
+        OwnedReferences.Add(reference);
         return new RenderFragmentHandle(this, reference);
+    }
+
+    private sealed class InvariantScratch
+    {
+        public HashSet<RenderFragmentReference> Reachable { get; } = new(ReferenceEqualityComparer.Instance);
+
+        public HashSet<RenderFragmentReference> FanOutRestricted { get; } =
+            new(ReferenceEqualityComparer.Instance);
+
+        public bool Rented { get; set; }
     }
 }
 
