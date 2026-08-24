@@ -37,29 +37,80 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Restore MSBuild project cache
-        uses: actions/cache@v6
+      - name: Restore .NET build cache
+        id: build-cache
+        uses: actions/cache/restore@v6
         with:
-          path: ${{ runner.temp }}/msbuild-project-cache
-          key: msbuild-project-cache-v1-${{ runner.os }}-${{ hashFiles('global.json') }}-${{ github.sha }}
+          path: |
+            **/obj
+          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-${{ github.event.pull_request.head.sha || github.sha }}
           restore-keys: |
-            msbuild-project-cache-v1-${{ runner.os }}-${{ hashFiles('global.json') }}-
+            dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-
+
+      # Git checks out every source file with a fresh mtime while actions/cache preserves
+      # the original mtimes of obj/. Without correcting this, MSBuild sees every source as
+      # newer than the restored intermediate outputs and recompiles the whole solution.
+      # Make unchanged tracked inputs old, then touch only files changed since the cache's
+      # source commit. Deletions and submodule changes conservatively force a full rebuild.
+      - name: Prepare incremental build timestamps
+        if: steps.build-cache.outputs.cache-matched-key != ''
+        shell: bash
+        env:
+          CACHE_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+
+          CACHED_SHA="${CACHE_KEY##*-}"
+          clear_cache() {
+            echo "Discarding restored obj cache; its source commit cannot be compared safely."
+            find . -type d -name obj -prune -exec rm -rf {} +
+          }
+
+          if [[ ! "$CACHED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            clear_cache
+            exit 0
+          fi
+
+          if ! git cat-file -e "${CACHED_SHA}^{commit}" 2>/dev/null; then
+            if ! git fetch --no-tags --depth=1 origin "$CACHED_SHA"; then
+              clear_cache
+              exit 0
+            fi
+          fi
+
+          OLD_TIMESTAMP='2000-01-01 00:00:00 UTC'
+          git ls-files -z | xargs -0 -r touch -h -d "$OLD_TIMESTAMP"
+          git submodule foreach --recursive \
+            'git ls-files -z | xargs -0 -r touch -h -d "2000-01-01 00:00:00 UTC"'
+
+          if ! git diff --quiet --diff-filter=D "$CACHED_SHA" HEAD -- \
+            || git diff --raw "$CACHED_SHA" HEAD -- | grep -q '160000'; then
+            echo "A tracked file was deleted or a submodule changed; forcing a full rebuild."
+            git ls-files -z | xargs -0 -r touch -h
+            git submodule foreach --recursive 'git ls-files -z | xargs -0 -r touch -h'
+          else
+            while IFS= read -r -d '' file; do
+              if [[ -e "$file" || -L "$file" ]]; then
+                touch -h "$file"
+              fi
+            done < <(git diff --name-only -z --diff-filter=ACMRTUXB "$CACHED_SHA" HEAD --)
+          fi
 
       - run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
       - name: Restore dependencies
-        run: dotnet restore Beutl.slnx -p:MSBuildCacheEnabled=true
+        run: dotnet restore Beutl.slnx
 
       - name: Build
-        run: >
-          dotnet msbuild Beutl.slnx
-          /graph
-          /m
-          /reportfileaccesses
-          /p:MSBuildCacheEnabled=true
-          /p:MSBuildCacheLocalCacheRootPath=${{ runner.temp }}/msbuild-project-cache
-          /p:MSBuildCacheLocalCacheSizeInMegabytes=2048
-          /p:MSBuildCacheLogDirectory=${{ runner.temp }}/msbuild-cache-logs
+        run: dotnet build Beutl.slnx --no-restore
+
+      - name: Save .NET build cache
+        if: steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            **/obj
+          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Test
         run: dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
