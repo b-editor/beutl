@@ -59,7 +59,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private IDisposable? _currentFrameSubscription;
     private readonly object _renderRequestLock = new();
     private CancellationTokenSource? _cts;
-    private bool _isDisposing;
+    private volatile bool _isDisposing;
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
@@ -368,7 +368,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void PublishAudioSnapshot(Pcm<Stereo32BitFloat>? pcm, TimeSpan startTime)
     {
-        if (pcm == null) return;
+        // Skip once disposal began: the ReplaySubject is disposed in DisposeAsync while an audio
+        // backend task (or one abandoned by a Pause() timeout) can still be publishing from its
+        // own thread, which would otherwise escape as an unhandled ObjectDisposedException.
+        if (pcm == null || _isDisposing) return;
 
         // Always publish so the ReplaySubject retains the latest snapshot — a
         // visualizer tab opened after this point can replay it on subscribe.
@@ -639,6 +642,15 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 if (Interlocked.Exchange(ref processing, 1) != 0) return;
                 try
                 {
+                    // Once disposal begins, DisposeAsync tears down the subjects and the editor
+                    // clock subscriptions this callback can reach; bail out before touching them.
+                    // (PlayInternal's own finally restore is separately gated on ownership.)
+                    if (_isDisposing)
+                    {
+                        tcs.TrySetResult(true);
+                        return;
+                    }
+
                     // A Pause() timeout may have disowned this task while it is still blocked in the
                     // WhenAll below; once a newer session has claimed, stop the loop instead of
                     // dequeuing frames or writing shared preview state (PreviewImage / CurrentTime /

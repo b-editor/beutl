@@ -48,7 +48,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         Header = property.DisplayName;
         Description = new ReactivePropertySlim<string?>(property.Description).AddTo(Disposables);
 
-        _currentTime = new Subject<TimeSpan>().DisposeWith(Disposables);
+        // Do NOT register in Disposables: a completed subject tolerates straggler OnNext calls from
+        // the editor-clock bridge (the publisher may still be mid-iteration when disposal runs on
+        // another thread), whereas a disposed one throws ObjectDisposedException. We complete it in
+        // Dispose(bool) below instead.
+        _currentTime = new Subject<TimeSpan>();
         CurrentTime = _currentTime.Publish(TimeSpan.Zero).RefCount();
 
         IObservable<bool> hasAnimation = property is IAnimatablePropertyAdapter anm
@@ -299,11 +303,18 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected virtual void Dispose(bool disposing)
     {
+        // Unsubscribe the editor-clock bridge first, then complete (not dispose) _currentTime.
+        // Completion is the race-safe teardown for a Subject that a publisher on another thread
+        // (playback timer) may still be feeding through a stale snapshot of the observer list:
+        // post-completion OnNext is swallowed instead of escaping as an unhandled
+        // ObjectDisposedException on the ThreadPool.
+        _currentFrameRevoker?.Dispose();
+        _currentFrameRevoker = null;
+        _currentTime.OnCompleted();
+
         Disposables.Dispose();
         _canPaste.Dispose();
         _extensionProvider.Dispose();
-        _currentFrameRevoker?.Dispose();
-        _currentFrameRevoker = null;
         _editViewModel = null!;
         _parentServices = null;
         _element = null;
