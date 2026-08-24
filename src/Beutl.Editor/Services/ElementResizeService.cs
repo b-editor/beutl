@@ -109,23 +109,25 @@ public sealed class ElementResizeService : IElementResizeService
         scene.Duration = sceneEnd - scene.Start;
     }
 
-    // Floors every request into Scene.MoveChild's valid range: start at or after the timeline
-    // start and length at least one frame at the scene rate. Both branches submit through this
-    // boundary, so the floor protects the direct MoveChild writes and the ripple geometry clamps
-    // alike.
+    // Floors every request into Scene.MoveChild's valid range: a non-negative start and a length
+    // of at least one frame at the scene rate. Both branches submit through this boundary, so the
+    // floor protects the direct MoveChild writes and the ripple geometry clamps alike. The start
+    // floor is the timeline origin, not scene.Start: the scene start is the visible/export window,
+    // and elements may legally begin before it (moving the scene start right strands clips), so a
+    // resize must not shift or trim such a clip.
     private static ElementResizeRequest[] NormalizeRequests(Scene scene, IReadOnlyList<ElementResizeRequest> requests)
     {
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
-        // A scene can start after zero; children must not be normalized before the scene timeline
-        // begins. MoveChild separately rejects negative starts, so keep the floor at least zero.
-        TimeSpan startFloor = scene.Start > TimeSpan.Zero ? scene.Start : TimeSpan.Zero;
+        // An absurd persisted rate can round the frame duration below the TimeSpan tick
+        // resolution; keep the floor positive so it can never be bypassed.
+        if (minLength <= TimeSpan.Zero) minLength = TimeSpan.FromTicks(1);
         var normalized = new ElementResizeRequest[requests.Count];
         for (int i = 0; i < requests.Count; i++)
         {
             ElementResizeRequest req = requests[i];
             ArgumentNullException.ThrowIfNull(req.Element);
-            TimeSpan start = req.NewStart < startFloor ? startFloor : req.NewStart;
+            TimeSpan start = req.NewStart < TimeSpan.Zero ? TimeSpan.Zero : req.NewStart;
             TimeSpan length = req.NewLength < minLength ? minLength : req.NewLength;
             normalized[i] = new ElementResizeRequest(req.Element, start, length, req.ZIndex);
         }
@@ -480,6 +482,9 @@ public sealed class ElementResizeService : IElementResizeService
     {
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+        // Mirror NormalizeRequests: below the tick resolution the frame duration rounds to zero,
+        // which would let Roll/Slide shrink a clip to nothing.
+        if (minDuration <= TimeSpan.Zero) minDuration = TimeSpan.FromTicks(1);
 
         if (front.Length < minDuration || back.Length < minDuration)
             return (TimeSpan.Zero, TimeSpan.Zero);

@@ -158,16 +158,22 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void Resize_NonRipple_StartBeforeNonZeroSceneStart_ClampsToSceneStart()
+    public void Resize_NonRipple_StartBeforeNonZeroSceneStart_IsNotShifted()
     {
+        // The scene start is the visible/export window, not the earliest legal element position:
+        // a clip stranded before it (e.g. after the scene start moved right past it) must keep
+        // its start when resized, not be shifted or trimmed into the window.
         _scene.Start = TimeSpan.FromSeconds(5);
-        Element element = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
+        Element element = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(3));
 
         _service.Resize(_scene,
-            [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 0)]);
+            [new ElementResizeRequest(element, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), 0)]);
 
-        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(5)),
-            "the service floors the start to the scene timeline start, not to zero");
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
     }
 
     [Test]
@@ -186,6 +192,38 @@ public class ElementResizeServiceTests
 
         Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)),
             "the fallback frame rate still floors the length to one frame");
+    }
+
+    [Test]
+    public void Resize_NonRipple_AbsurdProjectFrameRate_FloorStaysPositive()
+    {
+        // Above roughly 2e7 the one-frame TimeSpan rounds to zero ticks; the floor must stay
+        // positive so a zero-length request cannot bypass it into Scene.MoveChild.
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = "50000000";
+        project.Items.Add(_scene);
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        Assert.DoesNotThrow(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)]));
+
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_AbsurdProjectFrameRate_KeepsOneTickMinimumDuration()
+    {
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = "50000000";
+        project.Items.Add(_scene);
+        Element front = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), 0);
+
+        (TimeSpan min, _) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(min, Is.EqualTo(TimeSpan.FromTicks(1) - TimeSpan.FromSeconds(2)),
+            "the one-tick minimum duration keeps Roll from shrinking a clip to zero at absurd rates");
     }
 
     [Test]
