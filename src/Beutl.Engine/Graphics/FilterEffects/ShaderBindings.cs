@@ -256,8 +256,7 @@ internal sealed class ShaderBindingBuilder
         ValidateName(name);
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentNullException.ThrowIfNull(bind);
-        if (!Enum.IsDefined(coordinateSpace))
-            throw new ArgumentOutOfRangeException(nameof(coordinateSpace), coordinateSpace, "The coordinate space is invalid.");
+        ThrowIfCoordinateSpaceUndefined(coordinateSpace);
         _resources.Add(new ShaderResourceBinding(
             name,
             resource,
@@ -269,6 +268,61 @@ internal sealed class ShaderBindingBuilder
                 use(value);
                 return true;
             })));
+    }
+
+    /// <summary>Declares a child-shader resource whose binder also receives an author value.</summary>
+    /// <typeparam name="T">The raw request-scoped resource type.</typeparam>
+    /// <typeparam name="TValue">The author value type passed to <paramref name="bind"/>.</typeparam>
+    /// <param name="name">The unique non-null SkSL child-shader declaration name.</param>
+    /// <param name="resource">A non-null resource token registered with the request family.</param>
+    /// <param name="coordinateSpace">How the returned child shader interprets coordinates passed to its <c>eval</c>.</param>
+    /// <param name="value">The author value passed to <paramref name="bind"/> during execution.</param>
+    /// <param name="bind">
+    /// The non-null execution callback, under the same rules as
+    /// <see cref="Resource{T}(string, RenderResource{T}, ShaderResourceCoordinateSpace, Action{ShaderResourceWriter, T, ShaderExecutionContext})"/>.
+    /// </param>
+    /// <remarks>
+    /// <paramref name="value"/> is not part of the binding's structural identity, so a plan compiled for one value
+    /// is replayed for another. The declaring caller is what keys the plan, exactly as it is for a custom uniform.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="name"/>, <paramref name="resource"/>, or <paramref name="bind"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is invalid or duplicated, or an identity is invalid.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="coordinateSpace"/> is not a defined <see cref="ShaderResourceCoordinateSpace"/> value.
+    /// </exception>
+    public void Resource<T, TValue>(
+        string name,
+        RenderResource<T> resource,
+        ShaderResourceCoordinateSpace coordinateSpace,
+        TValue value,
+        Action<ShaderResourceWriter, T, TValue, ShaderExecutionContext> bind)
+        where T : class
+    {
+        ValidateName(name);
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(bind);
+        ThrowIfCoordinateSpaceUndefined(coordinateSpace);
+        _resources.Add(new ShaderResourceBinding(
+            name,
+            resource,
+            coordinateSpace,
+            new ResourceBindingStructuralKey(typeof(T), bind.Method),
+            (writer, raw, context) => bind(writer, (T)raw, value, context),
+            use => resource.Registry.Use(resource, raw =>
+            {
+                use(raw);
+                return true;
+            })));
+    }
+
+    private static void ThrowIfCoordinateSpaceUndefined(ShaderResourceCoordinateSpace coordinateSpace)
+    {
+        if (!Enum.IsDefined(coordinateSpace))
+            throw new ArgumentOutOfRangeException(nameof(coordinateSpace), coordinateSpace, "The coordinate space is invalid.");
     }
 
     internal IReadOnlyList<ShaderUniformBinding> Uniforms => new ReadOnlyCollection<ShaderUniformBinding>(_uniforms);

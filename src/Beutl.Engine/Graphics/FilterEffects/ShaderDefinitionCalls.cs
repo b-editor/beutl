@@ -320,6 +320,40 @@ public sealed class ShaderDefinitionBuilder<TState>
         _resourceSlots.Add(slot);
     }
 
+    /// <summary>Declares a typed child-shader resource slot and an execution binder supplied from the call state.</summary>
+    /// <typeparam name="T">The raw resource type leased to the binder.</typeparam>
+    /// <typeparam name="TValue">The value <paramref name="value"/> reads out of the call state.</typeparam>
+    /// <param name="name">The unique SkSL child-shader declaration name.</param>
+    /// <param name="slot">The declared resource address a call binds to a request-scoped token.</param>
+    /// <param name="coordinateSpace">How the returned child shader interprets coordinates passed to its <c>eval</c>.</param>
+    /// <param name="value">Reads the binder's value out of the call state once per recording.</param>
+    /// <param name="bind">Produces the child shader from the leased resource and that value.</param>
+    /// <remarks>
+    /// Both callbacks must not capture values; use <see langword="static"/> callbacks. <paramref name="value"/> is
+    /// read when the call is made, so the binder sees that recording's value even if the state changes afterwards.
+    /// </remarks>
+    public void Resource<T, TValue>(
+        string name,
+        RenderResourceSlot<T> slot,
+        ShaderResourceCoordinateSpace coordinateSpace,
+        Func<TState, TValue> value,
+        Action<ShaderResourceWriter, T, TValue, ShaderExecutionContext> bind)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(bind);
+        ValidateCallStateCallback(value, nameof(value));
+        ValidateCallStateCallback(bind, nameof(bind));
+        if (!Enum.IsDefined(coordinateSpace))
+            throw new ArgumentOutOfRangeException(nameof(coordinateSpace), coordinateSpace, "The coordinate space is invalid.");
+
+        ValidateName(name);
+        _templates.Add(new StateResourceTemplate<TState, T, TValue>(name, slot, coordinateSpace, value, bind));
+        _shapes.Add(new ShaderBindingShape(name, IsResource: true, coordinateSpace));
+        _resourceSlots.Add(slot);
+    }
+
     internal IReadOnlyList<ShaderBindingTemplate<TState>> Templates => _templates;
 
     internal IReadOnlyList<ShaderBindingShape> Shapes => _shapes;
@@ -365,6 +399,16 @@ internal abstract class ShaderBindingTemplate<TState>
         ShaderBindingBuilder builder,
         TState state,
         IReadOnlyList<RenderResourceBinding> resourceBindings);
+
+    private protected static RenderResource<TResource> ResolveResource<TResource>(
+        IReadOnlyList<RenderResourceBinding> resourceBindings,
+        RenderResourceSlot<TResource> slot)
+        where TResource : class
+    {
+        RenderResourceBinding binding = resourceBindings.FirstOrDefault(item => ReferenceEquals(item.Slot, slot))
+            ?? throw new InvalidOperationException("The shader definition slot was not bound for this call.");
+        return (RenderResource<TResource>)binding.Resource;
+    }
 }
 
 internal sealed class DirectUniformTemplate<TState, TValue>(
@@ -443,25 +487,50 @@ internal sealed class CustomUniformTemplate<TState, TValue>(
 #pragma warning restore BESG003
 }
 
-internal sealed class ResourceTemplate<TState, TValue>(
+internal sealed class ResourceTemplate<TState, TResource>(
     string name,
-    RenderResourceSlot<TValue> slot,
+    RenderResourceSlot<TResource> slot,
     ShaderResourceCoordinateSpace coordinateSpace,
-    Action<ShaderResourceWriter, TValue, ShaderExecutionContext> bind)
+    Action<ShaderResourceWriter, TResource, ShaderExecutionContext> bind)
     : ShaderBindingTemplate<TState>
     where TState : notnull
-    where TValue : class
+    where TResource : class
 {
     internal override void Apply(
         ShaderBindingBuilder builder,
         TState state,
         IReadOnlyList<RenderResourceBinding> resourceBindings)
-    {
-        RenderResourceBinding binding = resourceBindings.FirstOrDefault(item => ReferenceEquals(item.Slot, slot))
-            ?? throw new InvalidOperationException("The shader definition slot was not bound for this call.");
 #pragma warning disable BESG003 // Same as the uniform template above: the author's builder call is the
         // analyzed one.
-        builder.Resource(name, (RenderResource<TValue>)binding.Resource, coordinateSpace, bind);
+        => builder.Resource(
+            name,
+            ResolveResource(resourceBindings, slot),
+            coordinateSpace,
+            bind);
 #pragma warning restore BESG003
-    }
+}
+
+internal sealed class StateResourceTemplate<TState, TResource, TValue>(
+    string name,
+    RenderResourceSlot<TResource> slot,
+    ShaderResourceCoordinateSpace coordinateSpace,
+    Func<TState, TValue> value,
+    Action<ShaderResourceWriter, TResource, TValue, ShaderExecutionContext> bind)
+    : ShaderBindingTemplate<TState>
+    where TState : notnull
+    where TResource : class
+{
+    internal override void Apply(
+        ShaderBindingBuilder builder,
+        TState state,
+        IReadOnlyList<RenderResourceBinding> resourceBindings)
+#pragma warning disable BESG003 // Same as the uniform template above: the author's builder call is the
+        // analyzed one.
+        => builder.Resource(
+            name,
+            ResolveResource(resourceBindings, slot),
+            coordinateSpace,
+            value(state),
+            bind);
+#pragma warning restore BESG003
 }
