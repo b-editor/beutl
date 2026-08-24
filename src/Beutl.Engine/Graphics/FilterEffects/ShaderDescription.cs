@@ -32,13 +32,35 @@ internal sealed class ShaderDescription
         InputDemand = inputDemand;
         Uniforms = new ReadOnlyCollection<ShaderUniformBinding>(builder.Uniforms.ToArray());
         Resources = new ReadOnlyCollection<ShaderResourceBinding>(builder.Resources.ToArray());
-        // Every resource binding is produced by an execution binder; a uniform may or may not be.
-        HasExecutionContextBinder =
-            Resources.Count > 0
-            || Uniforms.Any(static binding => binding.ReadsExecutionContext);
+        // Every resource binding is produced by an execution binder; a uniform may or may not be. Indexed
+        // rather than queried: a description is built once per recording, so an enumerator here is garbage
+        // once a frame.
+        bool hasExecutionContextBinder = Resources.Count > 0;
+        for (int index = 0; !hasExecutionContextBinder && index < Uniforms.Count; index++)
+            hasExecutionContextBinder = Uniforms[index].ReadsExecutionContext;
+        HasExecutionContextBinder = hasExecutionContextBinder;
         SourceTileMode = sourceTileMode;
         spirvLowering?.ValidateForDescription(kind, parsed, Uniforms, Resources);
         SpirvLowering = spirvLowering;
+        var uniformIdentities = new ShaderBindingStructuralIdentity[Uniforms.Count];
+        for (int index = 0; index < uniformIdentities.Length; index++)
+        {
+            ShaderUniformBinding uniform = Uniforms[index];
+            uniformIdentities[index] = new ShaderBindingStructuralIdentity(
+                uniform.Name,
+                uniform.DefinitionFingerprint);
+        }
+
+        var resourceIdentities = new ShaderResourceStructuralIdentity[Resources.Count];
+        for (int index = 0; index < resourceIdentities.Length; index++)
+        {
+            ShaderResourceBinding resource = Resources[index];
+            resourceIdentities[index] = new ShaderResourceStructuralIdentity(
+                resource.Name,
+                resource.CoordinateSpace,
+                resource.DefinitionFingerprint);
+        }
+
         StructuralIdentity = new ShaderDescriptionStructuralIdentity(
             kind,
             parsed.Text,
@@ -46,11 +68,8 @@ internal sealed class ShaderDescription
             bounds.StructuralIdentity,
             inputDemand.StructuralIdentity,
             sourceTileMode,
-            Uniforms.Select(static item => new ShaderBindingStructuralIdentity(item.Name, item.DefinitionFingerprint)).ToArray(),
-            Resources.Select(static item => new ShaderResourceStructuralIdentity(
-                item.Name,
-                item.CoordinateSpace,
-                item.DefinitionFingerprint)).ToArray());
+            uniformIdentities,
+            resourceIdentities);
     }
 
     /// <summary>Gets whether the stage transforms only the current pixel or samples the complete upstream source.</summary>

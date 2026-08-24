@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -117,12 +118,23 @@ public sealed class FilterEffectCrashSafetyTests
            && double.IsFinite(rect.Width)
            && double.IsFinite(rect.Height);
 
-    // The half-initialized state under test is a zero-extent attachment, which is illegal at every device
-    // limit, so the allocation-site density clamp cannot make this one legal.
-    [Category(TestCategories.KnownDeviceBufferLimit)]
+    /// <remarks>
+    /// The half-initialized state is built here, on purpose: a zero-extent attachment is what a caller that
+    /// never finished initializing hands the pipeline, and the point is that it degrades to a no-op instead
+    /// of crashing. Creating that attachment is itself illegal, so with validation on the layer reports it
+    /// and the harness fails the test for an error the test asked for. It is skipped there rather than
+    /// filtered by category, so the gate keeps covering everything a category could be forgotten on.
+    /// </remarks>
     [Test]
     public void PixelSort_half_initialized_gpu_path_degrades_to_noop()
     {
+        if (GraphicsContextFactory.IsVulkanValidationEnabled())
+        {
+            Assert.Ignore(
+                "This test creates a zero-extent attachment on purpose, which validation reports as the "
+                + "error it is; the degrade-to-no-op behaviour is covered without validation.");
+        }
+
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
