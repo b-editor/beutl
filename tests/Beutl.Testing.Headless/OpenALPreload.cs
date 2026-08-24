@@ -19,6 +19,12 @@ public static class OpenALPreload
             return;
         }
 
+        // Headless environments (CI runners, machines without an audio server) have no audio
+        // device, so OpenAL Soft's default backend probing fails with InvalidDevice the moment
+        // the player opens a context. Route it to the software null backend instead: playback
+        // position still advances without hardware, which is all the tests need.
+        Environment.SetEnvironmentVariable("ALSOFT_DRIVERS", "null");
+
         string[] candidates = OperatingSystem.IsMacOS()
             ? ["libopenal.dylib", "openal.dylib"]
             : ["libopenal.so", "libopenal.so.1", "openal.so"];
