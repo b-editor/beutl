@@ -12,39 +12,70 @@ public static class RenderScaleUtilities
     /// </summary>
     /// <remarks>
     /// Planning uses this so a plan means the same thing on every device. What a device can actually attach
-    /// is <see cref="ResolveMaxBufferDimension"/>, which is smaller on some, and a buffer this large is not
+    /// is <see cref="ResolveMaxBufferDimension()"/>, which is smaller on some, and a buffer this large is not
     /// allocatable there - see the note on that method.
     /// </remarks>
     public const int MaxBufferDimension = 16384;
 
-    private static int s_resolvedMaxBufferDimension;
+    // The limit and the context that reported it live in one field, so a reader can never pair one
+    // context's identity with another's answer.
+    private sealed class ResolvedBufferDimension(Backend.IGraphicsContext context, int value)
+    {
+        public Backend.IGraphicsContext Context { get; } = context;
+
+        public int Value { get; } = value;
+    }
+
+    private static ResolvedBufferDimension? s_resolvedMaxBufferDimension;
 
     /// <summary>
-    /// The largest device extent a buffer may have here: the engine's ceiling, or the device's own limit
-    /// when that is smaller.
+    /// The largest device extent a buffer may have here: the engine's ceiling, or the active shared
+    /// context's own limit when that is smaller.
     /// </summary>
     /// <remarks>
     /// An intermediate is drawn into and then sampled, so it has to satisfy the device's framebuffer limit
     /// as well as its image limit, and a device may report either below the engine's ceiling. Clamping to a
     /// fixed number instead asks such a device for an attachment it cannot make, which it reports as
-    /// undefined behaviour rather than a failed allocation. The device's limit does not change while a
-    /// context lives, so it is read once.
+    /// undefined behaviour rather than a failed allocation. A device's limit does not change while its
+    /// context lives, so it is read once per context - but the shared context is replaceable
+    /// (<see cref="Backend.GraphicsContextFactory.Shutdown"/> is public), and answering for the next device
+    /// out of the last one's memo is that same undefined behaviour whenever it can attach less. The memo is
+    /// therefore keyed to the context that answered, so any other context re-reads however it was replaced.
     /// </remarks>
     public static int ResolveMaxBufferDimension()
-    {
-        int resolved = Volatile.Read(ref s_resolvedMaxBufferDimension);
-        if (resolved > 0)
-            return resolved;
+        => ResolveMaxBufferDimension(Backend.GraphicsContextFactory.SharedContext);
 
-        int deviceLimit = Backend.GraphicsContextFactory.SharedContext?.MaxAttachmentDimension ?? 0;
-        resolved = deviceLimit > 0 ? Math.Min(MaxBufferDimension, deviceLimit) : MaxBufferDimension;
+    /// <summary>
+    /// <see cref="ResolveMaxBufferDimension()"/> against a named context rather than the shared one.
+    /// </summary>
+    /// <param name="context">
+    /// The context whose device limit applies, or <see langword="null"/> when there is none.
+    /// </param>
+    internal static int ResolveMaxBufferDimension(Backend.IGraphicsContext? context)
+    {
+        ResolvedBufferDimension? resolved = Volatile.Read(ref s_resolvedMaxBufferDimension);
+        if (resolved is not null && ReferenceEquals(resolved.Context, context))
+            return resolved.Value;
+
+        if (context is null)
+        {
+            // Dropping the memo here stops it outliving the context it describes, and stops a disposed
+            // context being kept alive by it.
+            if (resolved is not null)
+                Volatile.Write(ref s_resolvedMaxBufferDimension, null);
+
+            return MaxBufferDimension;
+        }
 
         // Only remember it once a context has actually answered; before that the ceiling is a placeholder
         // and the next caller should ask again.
-        if (deviceLimit > 0)
-            Volatile.Write(ref s_resolvedMaxBufferDimension, resolved);
+        int deviceLimit = context.MaxAttachmentDimension;
+        if (deviceLimit <= 0)
+            return MaxBufferDimension;
 
-        return resolved;
+        int value = Math.Min(MaxBufferDimension, deviceLimit);
+        Volatile.Write(ref s_resolvedMaxBufferDimension, new ResolvedBufferDimension(context, value));
+        return value;
     }
 
     private const int RasterApronPixels = 2;
@@ -108,7 +139,7 @@ public static class RenderScaleUtilities
     /// <param name="logicalBounds">The logical extents the buffer has to cover.</param>
     /// <param name="workingScale">The density the caller would allocate at.</param>
     /// <param name="maxDimension">
-    /// The budget to fit, or <see langword="null"/> for <see cref="ResolveMaxBufferDimension"/>.
+    /// The budget to fit, or <see langword="null"/> for <see cref="ResolveMaxBufferDimension()"/>.
     /// </param>
     /// <remarks>
     /// This belongs to allocation, not planning: a plan clamped to whichever device compiled it would mean

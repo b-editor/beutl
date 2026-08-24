@@ -1,7 +1,10 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+
+using Moq;
 
 using SkiaSharp;
 
@@ -61,6 +64,42 @@ public sealed class DeviceBufferBudgetTests
                     2f,
                     resolved)));
         });
+    }
+
+    [Test]
+    public void ResolveMaxBufferDimension_AnswersForTheContextItIsAskedAbout()
+    {
+        // GraphicsContextFactory.Shutdown is public, so the context that first answered can be replaced by
+        // one that attaches less - and a limit remembered from the first would then ask that device for an
+        // attachment it cannot make.
+        IGraphicsContext smaller = ContextAttaching(DeviceBudget / 2);
+        IGraphicsContext larger = ContextAttaching(DeviceBudget);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(RenderScaleUtilities.ResolveMaxBufferDimension(larger), Is.EqualTo(DeviceBudget));
+            Assert.That(
+                RenderScaleUtilities.ResolveMaxBufferDimension(smaller),
+                Is.EqualTo(DeviceBudget / 2),
+                "a device that attaches less must not inherit the previous context's limit");
+            Assert.That(
+                RenderScaleUtilities.ResolveMaxBufferDimension(larger),
+                Is.EqualTo(DeviceBudget),
+                "and a device that attaches more must not stay capped by it");
+            Assert.That(
+                RenderScaleUtilities.ResolveMaxBufferDimension(null),
+                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                "with no context the engine ceiling is a placeholder, not a remembered answer");
+        });
+    }
+
+    [Test]
+    public void ResolveMaxBufferDimension_NeverExceedsTheEngineCeiling()
+    {
+        int resolved = RenderScaleUtilities.ResolveMaxBufferDimension(
+            ContextAttaching(RenderScaleUtilities.MaxBufferDimension * 2));
+
+        Assert.That(resolved, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
     }
 
     [Test]
@@ -176,6 +215,13 @@ public sealed class DeviceBufferBudgetTests
                     maxBufferDimension: -1),
                 Throws.InstanceOf<ArgumentOutOfRangeException>());
         });
+    }
+
+    private static IGraphicsContext ContextAttaching(int maxAttachmentDimension)
+    {
+        var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
+        context.SetupGet(c => c.MaxAttachmentDimension).Returns(maxAttachmentDimension);
+        return context.Object;
     }
 
     private sealed class RecordingCpuTargetFactory : IRenderTargetFactory
