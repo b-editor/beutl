@@ -1853,6 +1853,8 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         AddRequestScopedComponents(
             reference,
             requestId,
+            outputScale,
+            maxWorkingScale,
             components);
         EffectiveScale? demand = materializationDemands?.TryGetValue(
             reference,
@@ -1871,6 +1873,8 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
     private static void AddRequestScopedComponents(
         RenderFragmentReference reference,
         RenderRequestId requestId,
+        float outputScale,
+        float maxWorkingScale,
         ICollection<object> components)
     {
         switch (reference.Payload)
@@ -1883,6 +1887,14 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             case RawTargetScopeRenderFragmentPayload:
             case RawTargetCommandRenderFragmentPayload:
                 components.Add(RequestLocalIdentity(reference, requestId, "raw-target"));
+                return;
+            case ShaderRenderFragmentPayload { Description.HasExecutionContextBinder: true }:
+                // The stage's own scale already answers the density it runs at. These two are the request
+                // values a binder can read without either one moving that density, so nothing else in the
+                // identity separates two requests whose binder deliberately paints them differently.
+                components.Add(new RequestScaleRenderCacheIdentity(
+                    BitConverter.SingleToInt32Bits(outputScale),
+                    BitConverter.SingleToInt32Bits(maxWorkingScale)));
                 return;
             default:
                 return;
@@ -1902,5 +1914,13 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         long RequestId,
         long FragmentId,
         string Role);
+
+    /// <remarks>
+    /// The scales are held as bits so two requests are only interchangeable when the binder would read the
+    /// very same value, rather than whichever ones float equality happens to conflate.
+    /// </remarks>
+    private sealed record RequestScaleRenderCacheIdentity(
+        int OutputScaleBits,
+        int MaxWorkingScaleBits);
 
 }

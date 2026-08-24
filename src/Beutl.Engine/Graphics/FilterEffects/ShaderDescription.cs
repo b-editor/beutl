@@ -32,6 +32,10 @@ internal sealed class ShaderDescription
         InputDemand = inputDemand;
         Uniforms = new ReadOnlyCollection<ShaderUniformBinding>(builder.Uniforms.ToArray());
         Resources = new ReadOnlyCollection<ShaderResourceBinding>(builder.Resources.ToArray());
+        // Every resource binding is produced by an execution binder; a uniform may or may not be.
+        HasExecutionContextBinder =
+            Resources.Count > 0
+            || Uniforms.Any(static binding => binding.ReadsExecutionContext);
         SourceTileMode = sourceTileMode;
         spirvLowering?.ValidateForDescription(kind, parsed, Uniforms, Resources);
         SpirvLowering = spirvLowering;
@@ -76,6 +80,19 @@ internal sealed class ShaderDescription
     /// <summary>Gets the sampling mode used outside the implicit <c>src</c> input bounds.</summary>
     /// <remarks>The value is meaningful for <see cref="ShaderDescriptionKind.WholeSource"/> descriptions.</remarks>
     public SKShaderTileMode SourceTileMode { get; }
+
+    /// <summary>
+    /// Gets whether any binding of this stage produces its value through an author-supplied binder that runs
+    /// during execution and receives a <see cref="ShaderExecutionContext"/>.
+    /// </summary>
+    /// <remarks>
+    /// A binder may read request state that the recorded graph does not otherwise express - the request's
+    /// output scale and maximum working scale among it - and turn it into different pixels at bounds,
+    /// coverage, and density a cache identity would otherwise call interchangeable. A stage that reports
+    /// <see langword="true"/> therefore has to carry that request state in its cache identity; a stage whose
+    /// values are all fixed while recording must not, or it would lose its reuse for nothing.
+    /// </remarks>
+    internal bool HasExecutionContextBinder { get; }
 
     /// <summary>Gets the optional engine-authored Vulkan lowering for this stage.</summary>
     internal SpirvShaderLowering? SpirvLowering { get; }
