@@ -250,8 +250,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     private static bool RequiresClippedLayer(Rect bounds, float scale)
     {
         PixelRect footprint = PixelRect.FromRect(bounds, scale);
-        if (footprint.Width > RenderScaleUtilities.ResolveMaxBufferDimension()
-            || footprint.Height > RenderScaleUtilities.ResolveMaxBufferDimension())
+        if (footprint.Width > RenderScaleUtilities.MaxBufferDimension
+            || footprint.Height > RenderScaleUtilities.MaxBufferDimension)
         {
             return true;
         }

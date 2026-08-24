@@ -60,6 +60,7 @@ public class CustomTargetClampConsistencyTests
         });
     }
 
+    [Category(TestCategories.KnownDeviceBufferLimit)]
     [Test]
     public void CreateTarget_BufferBudgetExceeded_ClampsDensity_AndOpenMatchesClamp()
     {

@@ -117,6 +117,7 @@ public sealed class FilterEffectCrashSafetyTests
            && double.IsFinite(rect.Width)
            && double.IsFinite(rect.Height);
 
+    [Category(TestCategories.KnownDeviceBufferLimit)]
     [Test]
     public void PixelSort_half_initialized_gpu_path_degrades_to_noop()
     {

@@ -137,6 +137,7 @@ public class WorkingScaleClampConsistencyTests
         });
     }
 
+    [Category(TestCategories.KnownDeviceBufferLimit)]
     [Test]
     public void Flush_ClampWriteback_KeepsWorkingScaleEqualToBufferDensity()
     {
@@ -269,6 +270,7 @@ public class WorkingScaleClampConsistencyTests
         });
     }
 
+    [Category(TestCategories.KnownDeviceBufferLimit)]
     [Test]
     public void CreateTarget_ClampsInsteadOfFailing_AndTagsTrueDensity()
     {

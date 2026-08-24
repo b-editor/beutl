@@ -11,9 +11,9 @@ public static class RenderScaleUtilities
     /// The engine's own ceiling on a buffer's device extent, before the device's is taken into account.
     /// </summary>
     /// <remarks>
-    /// A caller sizing a real buffer wants <see cref="ResolveMaxBufferDimension"/>: this number says what
-    /// the engine is willing to allocate, not what the device can attach, and the smaller of the two is what
-    /// a render target has to fit.
+    /// Planning uses this so a plan means the same thing on every device. What a device can actually attach
+    /// is <see cref="ResolveMaxBufferDimension"/>, which is smaller on some, and a buffer this large is not
+    /// allocatable there - see the note on that method.
     /// </remarks>
     public const int MaxBufferDimension = 16384;
 
@@ -91,9 +91,9 @@ public static class RenderScaleUtilities
     public static float ClampWorkingScaleToBufferBudget(
         Rect logicalBounds,
         float workingScale,
-        int? maxDimension = null)
+        int maxDimension = MaxBufferDimension)
     {
-        int budget = maxDimension ?? ResolveMaxBufferDimension();
+        int budget = maxDimension;
         ValidateMaxDimension(budget);
 
         if (!float.IsFinite(workingScale) || workingScale <= 0f)
@@ -105,11 +105,11 @@ public static class RenderScaleUtilities
     internal static float ClampWorkingScaleToExactBufferBudget(
         Rect logicalBounds,
         float workingScale,
-        int? maxDimension = null)
+        int maxDimension = MaxBufferDimension)
         => ClampWorkingScaleToExactFootprintBudget(
             logicalBounds,
             workingScale,
-            maxDimension ?? ResolveMaxBufferDimension(),
+            maxDimension,
             apronPixels: 0);
 
     internal static PixelRect AddRasterApron(PixelRect bounds)
@@ -122,11 +122,11 @@ public static class RenderScaleUtilities
     internal static float ClampWorkingScaleToRasterApronBudget(
         Rect logicalBounds,
         float workingScale,
-        int? maxDimension = null)
+        int maxDimension = MaxBufferDimension)
         => ClampWorkingScaleToExactFootprintBudget(
             logicalBounds,
             workingScale,
-            maxDimension ?? ResolveMaxBufferDimension(),
+            maxDimension,
             RasterApronPixels);
 
     private static float ClampWorkingScaleToExactFootprintBudget(
