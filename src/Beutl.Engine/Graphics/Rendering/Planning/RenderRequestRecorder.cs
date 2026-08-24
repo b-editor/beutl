@@ -247,7 +247,18 @@ internal sealed class RenderRecordingFamily
     public IDisposable Enter(RenderNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
-        int cycleStart = _activeNodes.FindIndex(item => ReferenceEquals(item, node));
+        // The stack never holds a node twice - this method is what keeps it so - hence the scan may run
+        // from the top, where a recording cycle closes.
+        int cycleStart = -1;
+        for (int index = _activeNodes.Count - 1; index >= 0; index--)
+        {
+            if (ReferenceEquals(_activeNodes[index], node))
+            {
+                cycleStart = index;
+                break;
+            }
+        }
+
         if (cycleStart >= 0)
         {
             IEnumerable<string> cycle = _activeNodes

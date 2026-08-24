@@ -4,17 +4,23 @@
 /// Prevents a deferred execution callback from launching an unplanned renderer recursively.
 /// Planned nested requests execute through <see cref="RenderRequestExecutor"/> and do not use this guard.
 /// </summary>
+/// <remarks>
+/// The depth is thread-local rather than flowed through <see cref="ExecutionContext"/>: every guarded region
+/// is entered and left on one thread, and an <see cref="AsyncLocal{T}"/> cloned the context map on each write.
+/// A guard entered on one thread must therefore be released on that same thread.
+/// </remarks>
 internal static class RenderExecutionCallbackGuard
 {
-    private static readonly AsyncLocal<int> s_depth = new();
+    [ThreadStatic]
+    private static int t_depth;
 
-    public static IDisposable Enter()
+    public static Scope Enter()
     {
-        s_depth.Value = checked(s_depth.Value + 1);
-        return new Scope();
+        t_depth = checked(t_depth + 1);
+        return new Scope(held: true);
     }
 
-    public static bool IsActive => s_depth.Value > 0;
+    public static bool IsActive => t_depth > 0;
 
     public static void ThrowIfRendererLaunchForbidden()
     {
@@ -26,20 +32,31 @@ internal static class RenderExecutionCallbackGuard
         }
     }
 
-    private sealed class Scope : IDisposable
+    private static void Exit()
     {
-        private bool _disposed;
+        int depth = t_depth;
+        if (depth <= 0)
+            throw new InvalidOperationException("The render execution callback guard is unbalanced.");
+        t_depth = depth - 1;
+    }
+
+    /// <summary>
+    /// Releases one guard depth on first disposal. The struct is mutable, so it must live in a local or in a
+    /// mutable field: disposing a copy releases nothing and leaks the depth.
+    /// </summary>
+    public struct Scope : IDisposable
+    {
+        private bool _held;
+
+        internal Scope(bool held) => _held = held;
 
         public void Dispose()
         {
-            if (_disposed)
+            if (!_held)
                 return;
 
-            _disposed = true;
-            int depth = s_depth.Value;
-            if (depth <= 0)
-                throw new InvalidOperationException("The render execution callback guard is unbalanced.");
-            s_depth.Value = depth - 1;
+            _held = false;
+            Exit();
         }
     }
 }

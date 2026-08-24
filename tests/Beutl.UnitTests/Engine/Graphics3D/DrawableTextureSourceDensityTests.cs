@@ -38,7 +38,7 @@ public class DrawableTextureSourceDensityTests
         var sourceDefinition = new DrawableTextureSource();
         using var source =
             (DrawableTextureSource.Resource)sourceDefinition.ToResource(CompositionContext.Default);
-        using IDisposable callback = RenderExecutionCallbackGuard.Enter();
+        using RenderExecutionCallbackGuard.Scope callback = RenderExecutionCallbackGuard.Enter();
 
         ITexture2D? texture = null;
         Assert.That(

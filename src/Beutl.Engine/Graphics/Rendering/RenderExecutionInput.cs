@@ -342,7 +342,7 @@ internal sealed class RenderExecutionSessionToken
 {
     private readonly Dictionary<object, int> _authorizedResources = new(ReferenceEqualityComparer.Instance);
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
-    private IDisposable? _callbackGuard = RenderExecutionCallbackGuard.Enter();
+    private RenderExecutionCallbackGuard.Scope _callbackGuard = RenderExecutionCallbackGuard.Enter();
     private bool _active = true;
     private ImmediateCanvas? _activeCanvas;
     private RenderCallbackCanvas? _activeFacade;
@@ -368,7 +368,7 @@ internal sealed class RenderExecutionSessionToken
         _activeCanvas = null;
         _activeFacade = null;
         _authorizedResources.Clear();
-        Interlocked.Exchange(ref _callbackGuard, null)?.Dispose();
+        _callbackGuard.Dispose();
         if (hasActiveCanvas)
             throw new InvalidOperationException("An execution canvas is still active.");
     }

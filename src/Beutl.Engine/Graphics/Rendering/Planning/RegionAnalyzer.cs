@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using Beutl.Graphics.Effects;
 
 namespace Beutl.Graphics.Rendering;
@@ -53,6 +54,13 @@ internal sealed class RegionAnalyzer
             ReferenceEqualityComparer.Instance);
         IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> referencesById =
             topologicalOrder.ToDictionary(GetId);
+
+        // Both maps are derived from the immutable dependency plan, so they are invariant across the
+        // propagation passes below.
+        IReadOnlyDictionary<TargetTokenId, TargetDependencyStep> tokenProducers = targetDependencies.Steps
+            .ToDictionary(static step => step.OutputToken);
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> targetScopes = targetDependencies.Scopes
+            .ToDictionary(static scope => scope.Id);
         int remainingPasses = checked(topologicalOrder.Length + targetDependencies.Steps.Length + 1);
         bool changed;
         do
@@ -64,6 +72,8 @@ internal sealed class RegionAnalyzer
                 targetRequirements);
             changed |= PropagateTargetTokenRequirements(
                 targetDependencies,
+                tokenProducers,
+                targetScopes,
                 referencesById,
                 targetRequirements,
                 fragmentRequirements);
@@ -147,14 +157,12 @@ internal sealed class RegionAnalyzer
 
     private static bool PropagateTargetTokenRequirements(
         TargetDependencyPlan plan,
+        IReadOnlyDictionary<TargetTokenId, TargetDependencyStep> producers,
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes,
         IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> referencesById,
         IReadOnlyDictionary<RenderFragmentReference, RequiredRegion> targetRequirements,
         Dictionary<RenderFragmentReference, RequiredRegion> fragmentRequirements)
     {
-        IReadOnlyDictionary<TargetTokenId, TargetDependencyStep> producers = plan.Steps
-            .ToDictionary(static step => step.OutputToken);
-        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes = plan.Scopes
-            .ToDictionary(static scope => scope.Id);
         bool changed = false;
 
         foreach (TargetDependencyStep consumer in plan.Steps)
@@ -353,8 +361,7 @@ internal sealed class RegionAnalyzer
     {
         var result = new Dictionary<RenderFragmentReference, Rect?>(
             ReferenceEqualityComparer.Instance);
-        var visitedDomains = new Dictionary<RenderFragmentReference, HashSet<Rect?>>(
-            ReferenceEqualityComparer.Instance);
+        var visitedDomains = new HashSet<VisitedDomain>(VisitedDomainComparer.Instance);
         foreach (RenderFragmentReference root in roots)
             Visit(root, rootDomain, result, visitedDomains);
 
@@ -403,14 +410,9 @@ internal sealed class RegionAnalyzer
             RenderFragmentReference reference,
             Rect? domain,
             Dictionary<RenderFragmentReference, Rect?> result,
-            Dictionary<RenderFragmentReference, HashSet<Rect?>> visitedDomains)
+            HashSet<VisitedDomain> visitedDomains)
         {
-            if (!visitedDomains.TryGetValue(reference, out HashSet<Rect?>? domains))
-            {
-                domains = [];
-                visitedDomains.Add(reference, domains);
-            }
-            if (!domains.Add(domain))
+            if (!visitedDomains.Add(new VisitedDomain(reference, domain)))
                 return;
 
             if (result.TryGetValue(reference, out Rect? existing))
@@ -445,6 +447,23 @@ internal sealed class RegionAnalyzer
             foreach (RenderFragmentReference input in reference.Inputs)
                 Visit(input, inputDomain, result, visitedDomains);
         }
+    }
+
+    private readonly record struct VisitedDomain(RenderFragmentReference Reference, Rect? Domain);
+
+    /// <summary>
+    /// Pairs a fragment with a domain the traversal already lowered it into. One set for the whole traversal
+    /// replaces the per-fragment set the domain map used to hold.
+    /// </summary>
+    private sealed class VisitedDomainComparer : IEqualityComparer<VisitedDomain>
+    {
+        public static readonly VisitedDomainComparer Instance = new();
+
+        public bool Equals(VisitedDomain x, VisitedDomain y)
+            => ReferenceEquals(x.Reference, y.Reference) && Nullable.Equals(x.Domain, y.Domain);
+
+        public int GetHashCode(VisitedDomain obj)
+            => HashCode.Combine(RuntimeHelpers.GetHashCode(obj.Reference), obj.Domain);
     }
 
     private static ImmutableHashSet<RenderFragmentId> FindBackingTargetBackdropCaptures(

@@ -11,10 +11,15 @@ internal static class RenderNodeCacheHelper
 {
     internal static readonly ILogger _logger = Log.CreateLogger("RenderNodeCache");
 
-    internal static RenderNodeCacheLifecycle BeginLifecycle(RenderNode root)
+    /// <param name="cacheEnabled">
+    /// Whether the request may look up or publish render-node cache entries. When it may not, the lifecycle
+    /// still snapshots the tree - it is what clears <see cref="RenderNode.HasChanges"/> - but skips resolving
+    /// and restamping the dependency signatures, which only a cache read consults.
+    /// </param>
+    internal static RenderNodeCacheLifecycle BeginLifecycle(RenderNode root, bool cacheEnabled = true)
     {
         ArgumentNullException.ThrowIfNull(root);
-        return RenderNodeCacheLifecycle.Create(root);
+        return RenderNodeCacheLifecycle.Create(root, cacheEnabled);
     }
 
     /// <summary>Resets the cache of <paramref name="node"/> and of every node it owns.</summary>
@@ -38,25 +43,28 @@ internal static class RenderNodeCacheHelper
 internal sealed class RenderNodeCacheLifecycle
 {
     private readonly NodeSnapshot[] _nodes;
+    private readonly bool _cacheEnabled;
     private bool _completed;
 
-    private RenderNodeCacheLifecycle(NodeSnapshot[] nodes)
+    private RenderNodeCacheLifecycle(NodeSnapshot[] nodes, bool cacheEnabled)
     {
         _nodes = nodes;
+        _cacheEnabled = cacheEnabled;
     }
 
-    internal static RenderNodeCacheLifecycle Create(RenderNode root)
+    internal static RenderNodeCacheLifecycle Create(RenderNode root, bool cacheEnabled)
     {
         var snapshots = new Dictionary<RenderNode, NodeSnapshot>(ReferenceEqualityComparer.Instance);
         Collect(root, snapshots);
-        ResolveSignatures(snapshots.Values);
+        if (cacheEnabled)
+            ResolveSignatures(snapshots.Values);
 
         var ancestors = new HashSet<NodeSnapshot>();
         foreach (NodeSnapshot snapshot in snapshots.Values)
         {
             // WasDirty alone cannot carry a shared child's change: HasChanges is one flag per node, and
             // whichever root completes first clears it for the others. The signature is root-independent.
-            if (!snapshot.WasDirty && !HasStaleSignature(snapshot))
+            if (!snapshot.WasDirty && !(cacheEnabled && HasStaleSignature(snapshot)))
                 continue;
 
             MarkNodeAndAncestors(snapshot, ancestors);
@@ -70,7 +78,7 @@ internal sealed class RenderNodeCacheLifecycle
             }
         }
 
-        return new RenderNodeCacheLifecycle([.. snapshots.Values]);
+        return new RenderNodeCacheLifecycle([.. snapshots.Values], cacheEnabled);
     }
 
     internal void CompleteSuccessfully(bool advanceWarmup)
@@ -113,7 +121,8 @@ internal sealed class RenderNodeCacheLifecycle
             }
         }
 
-        RestampSignatures();
+        if (_cacheEnabled)
+            RestampSignatures();
 
         if (advanceWarmup)
         {

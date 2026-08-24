@@ -785,16 +785,23 @@ public sealed class RasterFootprintMetadataTests
             () => new ImmediateCanvas(target, density, logicalSize: bounds.Size),
             CallbackCanvasCapability.Draw);
 
-        canvas.Use(guarded => Assert.Multiple(() =>
+        try
         {
-            Assert.That(
-                () => guarded.CanBlitLossless(bounds, deviceBounds.Size),
-                Throws.InstanceOf<InvalidOperationException>()
-                    .With.Message.Contains("render targets are not available"));
-            Assert.That(
-                () => guarded.CanDrawPixelAligned(bounds, density, deviceBounds.Size),
-                Throws.InstanceOf<InvalidOperationException>());
-        }));
+            canvas.Use(guarded => Assert.Multiple(() =>
+            {
+                Assert.That(
+                    () => guarded.CanBlitLossless(bounds, deviceBounds.Size),
+                    Throws.InstanceOf<InvalidOperationException>()
+                        .With.Message.Contains("render targets are not available"));
+                Assert.That(
+                    () => guarded.CanDrawPixelAligned(bounds, density, deviceBounds.Size),
+                    Throws.InstanceOf<InvalidOperationException>());
+            }));
+        }
+        finally
+        {
+            token.Complete();
+        }
     }
 
     private static PixelRect MeasureAlphaBounds(Bitmap bitmap)

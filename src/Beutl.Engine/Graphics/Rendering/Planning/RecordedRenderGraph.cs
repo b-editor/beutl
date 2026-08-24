@@ -51,6 +51,15 @@ internal sealed class RecordedRenderGraphBuilder
     private readonly List<RenderCacheCandidate> _cacheCandidates = [];
     private readonly List<RenderResourceRegistration> _resources = [];
     private readonly List<RecordedNestedRenderRequest> _nestedRequests = [];
+
+    // Append validates one commit at a time and calls no user code, so a nested recording cannot re-enter it
+    // on the same builder: RenderRequestRecorder gives every nested request a builder of its own.
+    private readonly HashSet<RenderFragmentReference> _appendScratchAvailable =
+        new(ReferenceEqualityComparer.Instance);
+
+    private readonly Dictionary<object, RenderProvenanceId> _appendScratchProvenance =
+        new(ReferenceEqualityComparer.Instance);
+
     private bool _built;
 
     public RecordedRenderGraphBuilder(RenderRequestId requestId)
@@ -167,7 +176,8 @@ internal sealed class RecordedRenderGraphBuilder
         EnsureMutable();
         ArgumentNullException.ThrowIfNull(commit);
 
-        var available = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
+        HashSet<RenderFragmentReference> available = _appendScratchAvailable;
+        available.Clear();
         foreach (RecordedRenderFragmentEntry entry in commit.Fragments)
         {
             RenderFragmentReference reference = entry.Reference;
@@ -188,7 +198,8 @@ internal sealed class RecordedRenderGraphBuilder
             available.Add(reference);
         }
 
-        var provenance = new Dictionary<object, RenderProvenanceId>(ReferenceEqualityComparer.Instance);
+        Dictionary<object, RenderProvenanceId> provenance = _appendScratchProvenance;
+        provenance.Clear();
         foreach (RecordedRenderFragmentEntry entry in commit.Fragments)
         {
             if (!provenance.TryGetValue(entry.Origin, out RenderProvenanceId provenanceId))
