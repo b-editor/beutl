@@ -57,11 +57,13 @@ public sealed class DrawableBrushFractionalContentExtentTests
     /// it that happens to fall inside.
     /// </summary>
     /// <remarks>
-    /// The compilation that asks where the content is used to be handed the destination rectangle as a hard
-    /// target domain. A Layer resolves its bounds against the owning domain, so a child translated past the
-    /// edge was already cropped by the time its extent was read, and Uniform fitted the crop. Here the
-    /// content box is the same as above but a second child sits one content-width to the right, so the true
-    /// extent is twice as wide and fitting it makes the fill half as tall.
+    /// The compilation that asks where the content is gets handed the destination rectangle as its target
+    /// domain, which is only safe because a target domain narrows a measurement's OutputBounds alone. The
+    /// extent the brush reads back is QueryBounds, a union that nothing intersects with the domain, so
+    /// passing the destination in does not crop it. This test is what keeps that true: the content box is
+    /// the same as above but a second child sits one content-width to the right, so the true extent is
+    /// twice as wide and fitting it makes the fill half as tall. Were a domain ever to start clipping the
+    /// query footprint, Uniform would fit the visible part instead and this height would come back larger.
     /// </remarks>
     [Test]
     public void DrawableBrushUniformStretch_FitsArtworkReachingOutsideTheDestination()
