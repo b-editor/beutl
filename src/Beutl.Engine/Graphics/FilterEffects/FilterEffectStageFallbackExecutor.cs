@@ -93,7 +93,7 @@ internal static class FilterEffectStageFallbackExecutor
                 [input.Scale],
                 outputScale,
                 maxWorkingScale);
-        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+        density = RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
             outputBounds.Translate(input.DeviceGridOffset),
             density);
         EffectTarget? output = AllocateTarget(
@@ -245,7 +245,7 @@ internal static class FilterEffectStageFallbackExecutor
             [input.Scale],
             outputScale,
             maxWorkingScale);
-        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+        density = RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
             outputBounds.Translate(input.DeviceGridOffset),
             density);
         EffectTarget? output = AllocateTarget(
@@ -355,7 +355,7 @@ internal static class FilterEffectStageFallbackExecutor
         }
 
         Rect physicalBounds = source.RasterBounds.Union(source.Bounds);
-        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+        density = RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
             physicalBounds.Translate(source.DeviceGridOffset),
             density);
         PixelRect physicalDeviceBounds = PixelRect.FromRect(physicalBounds, density);
@@ -468,7 +468,7 @@ internal static class FilterEffectStageFallbackExecutor
 
         if (physicalDeviceBounds is null)
         {
-            density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+            density = RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
                 bounds.Translate(deviceGridOffset),
                 density);
         }

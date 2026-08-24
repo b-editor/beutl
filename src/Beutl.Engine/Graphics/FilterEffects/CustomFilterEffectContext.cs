@@ -14,6 +14,7 @@ public class CustomFilterEffectContext
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
     private readonly bool _useExecutorManagedCanvas;
     private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
+    private readonly int? _maxBufferDimension;
 
     internal CustomFilterEffectContext(
         EffectTargets targets,
@@ -25,13 +26,22 @@ public class CustomFilterEffectContext
         Vector? deviceGridOffset = null,
         DrawableBrushMaterializer? drawableBrushMaterializer = null,
         bool useExecutorManagedCanvas = false,
-        RenderTargetLeaseSession? renderTargetLeaseSession = null)
+        RenderTargetLeaseSession? renderTargetLeaseSession = null,
+        int? maxBufferDimension = null)
     {
         if (!Enum.IsDefined(intent))
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
         if (!Enum.IsDefined(purpose))
             throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "The render request purpose is invalid.");
+        if (maxBufferDimension is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxBufferDimension),
+                maxBufferDimension,
+                "The maximum buffer dimension must be positive.");
+        }
 
+        _maxBufferDimension = maxBufferDimension;
         Targets = targets;
         _deviceGridOffset = deviceGridOffset
             ?? (targets.Count > 0 ? targets[0].DeviceGridOffset : default);
@@ -59,6 +69,16 @@ public class CustomFilterEffectContext
 
     /// <summary>Working-scale ceiling forwarded into canvases from <see cref="Open"/>. <c>+Inf</c> = no ceiling.</summary>
     public float MaxWorkingScale { get; }
+
+    /// <summary>
+    /// Gets the largest device extent an allocation from this context may have, on both axes.
+    /// </summary>
+    /// <remarks>
+    /// Resolved per call rather than in the constructor: a context can outlive the moment the graphics
+    /// context first answers, and until it does the engine ceiling stands in for the device's own limit.
+    /// </remarks>
+    public int MaxBufferDimension
+        => _maxBufferDimension ?? RenderScaleUtilities.ResolveMaxBufferDimension();
 
     /// <summary>
     /// Gets the translation from effect-local coordinates to the composition-device grid used
@@ -161,9 +181,10 @@ public class CustomFilterEffectContext
     /// after applying the effect-item per-buffer dimension clamp.
     /// </summary>
     public float ResolveTargetDensity(Rect bounds)
-        => RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+        => RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
             new Rect(default, bounds.Size),
-            WorkingScale);
+            WorkingScale,
+            MaxBufferDimension);
 
     /// <summary>
     /// Creates a target for the requested logical bounds at the resolved working density.
@@ -181,15 +202,17 @@ public class CustomFilterEffectContext
     private EffectTarget CreateTargetCore(Rect bounds, float requestedDensity)
     {
         float w = requestedDensity;
-        // Re-clamp at allocation site: bounds may exceed what node-level clamps saw.
-        float fit = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+        // Re-clamp at allocation site: bounds may exceed what node-level clamps saw, and planning's budget
+        // is the engine ceiling rather than what this device can attach.
+        float fit = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
             new Rect(default, bounds.Size),
-            w);
+            w,
+            MaxBufferDimension);
         if (fit < w)
         {
             s_logger.LogWarning(
-                "CreateTarget clamped the working scale {From} -> {To} to keep the buffer within the GPU axis limit (bounds {Bounds}). Use the returned target's Scale for output device math, not context.WorkingScale.",
-                w, fit, bounds);
+                "CreateTarget clamped the working scale {From} -> {To} to keep the buffer within the {Limit} px GPU axis limit (bounds {Bounds}). Use the returned target's Scale for output device math, not context.WorkingScale.",
+                w, fit, MaxBufferDimension, bounds);
             w = fit;
         }
 

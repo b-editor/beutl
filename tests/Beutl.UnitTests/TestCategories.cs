@@ -27,16 +27,17 @@ internal static class TestCategories
     public const string KnownVulkanSkiaLayoutInterop = "KnownVulkanSkiaLayoutInterop";
 
     /// <summary>
-    /// A test that deliberately asks for a buffer at the engine's own ceiling, which a device whose
-    /// framebuffer limit is smaller cannot attach.
+    /// A test that asks the backend for an attachment the device cannot make, which Vulkan calls undefined
+    /// rather than a failed allocation.
     /// </summary>
     /// <remarks>
     /// Planning clamps to <c>RenderScaleUtilities.MaxBufferDimension</c> so a plan means the same thing on
-    /// every device, and nothing yet reduces that to what the device reports through
-    /// <c>IGraphicsContext.MaxAttachmentDimension</c> at the point a real target is made. On a device that
-    /// reports less - CI's reports 8192 - these ask for an attachment it cannot create, which Vulkan calls
-    /// undefined rather than a failed allocation. They run normally in the ordinary suite; only the
-    /// validation job skips them.
+    /// every device, and the site that turns a density into real pixels re-clamps to
+    /// <c>RenderScaleUtilities.ResolveMaxBufferDimension</c> - the smaller of that ceiling and what
+    /// <c>IGraphicsContext.MaxAttachmentDimension</c> reports - so an over-ceiling working scale no longer
+    /// reaches a device that reports less (CI's reports 8192). What is left here asks for a zero-extent
+    /// attachment, which is illegal at any device limit and which no clamp rounds up into a legal one. They
+    /// run normally in the ordinary suite; only the validation job skips them.
     /// </remarks>
     public const string KnownDeviceBufferLimit = "KnownDeviceBufferLimit";
 }

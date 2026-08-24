@@ -10,13 +10,17 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class CustomTargetClampConsistencyTests
 {
+    // Below every device the suite runs on, so the clamp fires and the buffer stays allocatable everywhere.
+    private const int TestBufferDimension = 8192;
+
     private static CustomFilterEffectContext Context(float workingScale)
         => new(
             new EffectTargets(),
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary,
             outputScale: 1f,
-            workingScale: workingScale);
+            workingScale: workingScale,
+            maxBufferDimension: TestBufferDimension);
 
     [Test]
     public void CreateTarget_WithinBudget_KeepsWorkingScale_AndOpenMatches()
@@ -60,14 +64,13 @@ public class CustomTargetClampConsistencyTests
         });
     }
 
-    [Category(TestCategories.KnownDeviceBufferLimit)]
     [Test]
     public void CreateTarget_BufferBudgetExceeded_ClampsDensity_AndOpenMatchesClamp()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            // 10000 * 2.0 = 20000 > 16384 limit, so density is clamped.
+            // 10000 * 2.0 = 20000 > the 8192 budget, so density is clamped.
             var bounds = new Rect(0, 0, 10000, 1);
             CustomFilterEffectContext context = Context(workingScale: 2f);
             using EffectTarget target = context.CreateTarget(bounds);
@@ -75,7 +78,10 @@ public class CustomTargetClampConsistencyTests
             Assert.That(target.Scale.IsUnbounded, Is.False);
             Assert.That(target.Scale.Value, Is.LessThan(2f),
                 "CreateTarget did not clamp the density for an over-budget buffer");
-            float expectedFit = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, 2f);
+            float expectedFit = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
+                bounds,
+                2f,
+                TestBufferDimension);
             Assert.That(target.Scale.Value, Is.EqualTo(expectedFit).Within(1e-4));
 
             // Open must tag the canvas with the clamped density.

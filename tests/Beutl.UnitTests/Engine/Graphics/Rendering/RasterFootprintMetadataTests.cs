@@ -485,7 +485,8 @@ public sealed class RasterFootprintMetadataTests
         var context = new CustomFilterEffectContext(
             targets,
             RenderIntent.Preview,
-            RenderRequestPurpose.Frame);
+            RenderRequestPurpose.Frame,
+            maxBufferDimension: RenderScaleUtilities.MaxBufferDimension);
         var requestedBounds = new Rect(
             0,
             0,

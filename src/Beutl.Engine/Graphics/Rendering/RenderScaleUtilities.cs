@@ -102,6 +102,29 @@ public static class RenderScaleUtilities
         return FitScaleToDeviceFootprint(logicalBounds, workingScale, budget, apronPixels: 0);
     }
 
+    /// <summary>
+    /// <see cref="ClampWorkingScaleToBufferBudget"/> against what the device can actually attach.
+    /// </summary>
+    /// <param name="logicalBounds">The logical extents the buffer has to cover.</param>
+    /// <param name="workingScale">The density the caller would allocate at.</param>
+    /// <param name="maxDimension">
+    /// The budget to fit, or <see langword="null"/> for <see cref="ResolveMaxBufferDimension"/>.
+    /// </param>
+    /// <remarks>
+    /// This belongs to allocation, not planning: a plan clamped to whichever device compiled it would mean
+    /// something else on the next one, so planning keeps <see cref="MaxBufferDimension"/> and the site that
+    /// turns a density into real pixels re-clamps here. That site reports the density it allocated at, so
+    /// the buffer and the density read back from it stay the same number.
+    /// </remarks>
+    public static float ClampWorkingScaleToDeviceBufferBudget(
+        Rect logicalBounds,
+        float workingScale,
+        int? maxDimension = null)
+        => ClampWorkingScaleToBufferBudget(
+            logicalBounds,
+            workingScale,
+            maxDimension ?? ResolveMaxBufferDimension());
+
     internal static float ClampWorkingScaleToExactBufferBudget(
         Rect logicalBounds,
         float workingScale,
@@ -111,6 +134,16 @@ public static class RenderScaleUtilities
             workingScale,
             maxDimension,
             apronPixels: 0);
+
+    /// <inheritdoc cref="ClampWorkingScaleToDeviceBufferBudget"/>
+    internal static float ClampWorkingScaleToExactDeviceBufferBudget(
+        Rect logicalBounds,
+        float workingScale,
+        int? maxDimension = null)
+        => ClampWorkingScaleToExactBufferBudget(
+            logicalBounds,
+            workingScale,
+            maxDimension ?? ResolveMaxBufferDimension());
 
     internal static PixelRect AddRasterApron(PixelRect bounds)
         => new(

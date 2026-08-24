@@ -15,6 +15,9 @@ public class WorkingScaleClampConsistencyTests
     // 4000 logical px × w 8 = 32000 px > MaxBufferDimension (16384) → the clamp must fire.
     private static readonly Rect s_pathologicalBounds = new(0, 0, 4000, 10);
 
+    // Below every device the suite runs on, so the clamp fires and the buffer stays allocatable everywhere.
+    private const int TestBufferDimension = 8192;
+
     [Test]
     public void ExactClamp_NegativeOriginPreservesDensityWhenDeviceFootprintFits()
     {
@@ -36,7 +39,8 @@ public class WorkingScaleClampConsistencyTests
             targets,
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary,
-            workingScale: 1);
+            workingScale: 1,
+            maxBufferDimension: RenderScaleUtilities.MaxBufferDimension);
 
         Assert.Multiple(() =>
         {
@@ -137,7 +141,6 @@ public class WorkingScaleClampConsistencyTests
         });
     }
 
-    [Category(TestCategories.KnownDeviceBufferLimit)]
     [Test]
     public void Flush_ClampWriteback_KeepsWorkingScaleEqualToBufferDensity()
     {
@@ -157,18 +160,22 @@ public class WorkingScaleClampConsistencyTests
                 RenderRequestPurpose.Auxiliary,
                 outputScale: 1f,
                 workingScale: 8f,
-                maxWorkingScale: 8f);
+                maxWorkingScale: 8f,
+                maxBufferDimension: TestBufferDimension);
 
             activator.Flush();
 
-            float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(s_pathologicalBounds, 8f);
+            float expected = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
+                s_pathologicalBounds,
+                8f,
+                TestBufferDimension);
             Assert.That(expected, Is.LessThan(8f), "the fixture must actually trigger the clamp");
             Assert.That(activator.WorkingScale, Is.EqualTo(expected));
             Assert.That(activator.CurrentTargets, Has.Count.EqualTo(1));
             Assert.That(activator.CurrentTargets[0].Scale.Value, Is.EqualTo(activator.WorkingScale),
                 "the flushed buffer's density and the activator's WorkingScale must agree");
             Assert.That(activator.CurrentTargets[0].RenderTarget!.Width,
-                Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+                Is.LessThanOrEqualTo(TestBufferDimension));
         });
     }
 
@@ -270,7 +277,6 @@ public class WorkingScaleClampConsistencyTests
         });
     }
 
-    [Category(TestCategories.KnownDeviceBufferLimit)]
     [Test]
     public void CreateTarget_ClampsInsteadOfFailing_AndTagsTrueDensity()
     {
@@ -283,15 +289,19 @@ public class WorkingScaleClampConsistencyTests
                 RenderIntent.Delivery,
                 RenderRequestPurpose.Auxiliary,
                 outputScale: 1f,
-                workingScale: 8f);
+                workingScale: 8f,
+                maxBufferDimension: TestBufferDimension);
 
             using EffectTarget target = context.CreateTarget(s_pathologicalBounds);
 
             Assert.That(target.IsEmpty, Is.False,
                 "an oversized request must degrade density, not return an empty target");
-            float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(s_pathologicalBounds, 8f);
+            float expected = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
+                s_pathologicalBounds,
+                8f,
+                TestBufferDimension);
             Assert.That(target.Scale.Value, Is.EqualTo(expected));
-            Assert.That(target.RenderTarget!.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(target.RenderTarget!.Width, Is.LessThanOrEqualTo(TestBufferDimension));
         });
     }
 

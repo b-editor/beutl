@@ -117,6 +117,8 @@ public sealed class FilterEffectCrashSafetyTests
            && double.IsFinite(rect.Width)
            && double.IsFinite(rect.Height);
 
+    // The half-initialized state under test is a zero-extent attachment, which is illegal at every device
+    // limit, so the allocation-site density clamp cannot make this one legal.
     [Category(TestCategories.KnownDeviceBufferLimit)]
     [Test]
     public void PixelSort_half_initialized_gpu_path_degrades_to_noop()
