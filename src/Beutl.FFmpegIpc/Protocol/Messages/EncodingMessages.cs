@@ -92,4 +92,7 @@ public sealed class EncodeCompleteMessage
 {
     public bool Success { get; set; }
     public string? Error { get; set; }
+
+    // FFmpeg の AVERROR コード (負値)。エンコード失敗が非 FFmpeg 由来の場合は null。
+    public int? FFmpegErrorCode { get; set; }
 }

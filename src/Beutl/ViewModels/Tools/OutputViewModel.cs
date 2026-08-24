@@ -6,6 +6,7 @@ using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.FFmpegIpc;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
@@ -384,8 +385,22 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError(MessageStrings.OutputException, ex.Message);
-            _logger.LogError(ex, "An exception occurred during the encoding process.");
+            ProgressText.Value = ex.Message;
+            string userMessage = ex is FFmpegWorkerException ffmpegEx
+                ? FFmpegErrorMessageMapper.Translate(ffmpegEx.FFmpegErrorCode, ffmpegEx.Message) ?? ex.Message
+                : ex.Message;
+            NotificationService.ShowError(MessageStrings.OutputException, userMessage);
+            if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
+            {
+                // 通知用に翻訳した後も、診断ログには機械可読な AVERROR コードを残す。
+                _logger.LogError(
+                    ex, "An exception occurred during the encoding process. FFmpegErrorCode={FFmpegErrorCode}",
+                    ffmpegErrorCode);
+            }
+            else
+            {
+                _logger.LogError(ex, "An exception occurred during the encoding process.");
+            }
         }
         finally
         {

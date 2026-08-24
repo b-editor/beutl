@@ -267,7 +267,8 @@ public sealed class IpcConnection : IDisposable
                     ?? throw new IOException("Connection closed while waiting for response.");
 
                 if (response.Error != null)
-                    throw new FFmpegWorkerException(response.Error, response.ErrorStackTrace);
+                    throw new FFmpegWorkerException(
+                        response.Error, response.ErrorStackTrace, response.ErrorCode);
 
                 // CancelEncode is an out-of-band control message, not a reply to this request: during an
                 // active encode the host injects it with a fresh id while the worker is blocked here awaiting
@@ -305,7 +306,8 @@ public sealed class IpcConnection : IDisposable
         var response = await SendAndReceiveAsync(request, ct).ConfigureAwait(false);
 
         if (response.Type == MessageType.Error)
-            throw new FFmpegWorkerException(response.Error ?? "Unknown error", response.ErrorStackTrace);
+            throw new FFmpegWorkerException(
+                response.Error ?? "Unknown error", response.ErrorStackTrace, response.ErrorCode);
 
         if (response.Type != responseType)
             throw new InvalidOperationException(
@@ -364,7 +366,8 @@ public sealed class IpcConnection : IDisposable
             var response = await tcs.Task.ConfigureAwait(false);
 
             if (response.Error != null)
-                throw new FFmpegWorkerException(response.Error, response.ErrorStackTrace);
+                throw new FFmpegWorkerException(
+                    response.Error, response.ErrorStackTrace, response.ErrorCode);
 
             return response;
         }
