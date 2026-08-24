@@ -1,12 +1,8 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <MSBuildCachePackageVersion>0.1.328-preview</MSBuildCachePackageVersion>
-    <MSBuildCacheEnabled Condition="'$(MSBuildCacheEnabled)' == ''">false</MSBuildCacheEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <GlobalPackageReference Include="Microsoft.MSBuildCache.Local" Version="$(MSBuildCachePackageVersion)" Condition="'$(MSBuildCacheEnabled)' == 'true'" />
-    <GlobalPackageReference Include="Microsoft.MSBuildCache.SharedCompilation" Version="$(MSBuildCachePackageVersion)" Condition="'$(MSBuildCacheEnabled)' == 'true'" />
     <PackageVersion Include="Aigamo.ResXGenerator" Version="4.4.0" />
     <PackageVersion Include="AsyncImageLoader.Avalonia" Version="3.7.0" />
     <PackageVersion Include="Avalonia" Version="11.3.17" />
