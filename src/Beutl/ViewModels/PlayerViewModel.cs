@@ -366,11 +366,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     IObservable<AudioFrameSnapshot> IPreviewPlayer.AudioFramePushed => _audioFramePushed;
 
-    private void PublishAudioSnapshot(Pcm<Stereo32BitFloat>? pcm, TimeSpan startTime)
+    internal void PublishAudioSnapshot(Pcm<Stereo32BitFloat>? pcm, TimeSpan startTime)
     {
-        // Skip once disposal began: the ReplaySubject is disposed in DisposeAsync while an audio
-        // backend task (or one abandoned by a Pause() timeout) can still be publishing from its
-        // own thread, which would otherwise escape as an unhandled ObjectDisposedException.
+        // Skip once disposal began: an audio backend task (or one abandoned by a Pause() timeout)
+        // can still reach this method while DisposeAsync is tearing the player down.
         if (pcm == null || _isDisposing) return;
 
         // Always publish so the ReplaySubject retains the latest snapshot — a
@@ -379,6 +378,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         int channels = pcm.NumChannels;
         var interleaved = new float[samples * channels];
         MemoryMarshal.Cast<Stereo32BitFloat, float>(pcm.DataSpan).CopyTo(interleaved);
+        // The _isDisposing check above is only a snapshot: a publisher that read it as false
+        // (e.g. while still copying the PCM) can land here after disposal began. Teardown
+        // therefore completes the subject instead of disposing it, so a straggler OnNext is
+        // dropped silently by Rx instead of throwing ObjectDisposedException.
         _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, pcm.SampleRate, channels, startTime));
     }
 
@@ -2056,7 +2059,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
         AfterRendered.Dispose();
-        _audioFramePushed.Dispose();
+        // Complete (not dispose): an audio task abandoned by a Pause() timeout can still be
+        // publishing while we tear down here, and ReplaySubject.OnNext throws
+        // ObjectDisposedException on a disposed subject but is a no-op after OnCompleted.
+        _audioFramePushed.OnCompleted();
         BeginEditTimecodeRequested.Dispose();
         PreviewInvalidated = null;
         Scene = null!;

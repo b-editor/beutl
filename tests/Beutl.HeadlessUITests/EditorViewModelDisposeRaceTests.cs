@@ -107,17 +107,23 @@ public class EditorViewModelDisposeRaceTests
                 viewModel.Accept(new ServiceVisitor(editor, clock));
                 viewModel.Dispose();
             }
-
-            if (observedStack.Task.IsCompleted)
-            {
-                string stack = await observedStack.Task;
-                Assert.Fail($"a clock write landed on the disposed subject (dispose-order race):\n{stack}");
-            }
         }
         finally
         {
             await stop.CancelAsync();
-            await Task.WhenAny(writer, Task.Delay(TimeSpan.FromSeconds(5)));
+            // Await the writer so an unexpected fault fails this test deterministically, and a
+            // teardown that hangs fails with a timeout instead of leaking the writer into later
+            // tests.
+            await writer.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        // Assert only after the writer has fully drained: an ObjectDisposedException recorded by
+        // the very last Dispose() iteration — or while the writer was being cancelled — must
+        // still fail the test.
+        if (observedStack.Task.IsCompleted)
+        {
+            string stack = await observedStack.Task;
+            Assert.Fail($"a clock write landed on the disposed subject (dispose-order race):\n{stack}");
         }
     }
 }
