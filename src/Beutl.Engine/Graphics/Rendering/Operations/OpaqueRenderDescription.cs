@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using System.Reflection;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
 
@@ -219,7 +218,7 @@ internal sealed class OpaqueRenderDescription
             valueCardinality,
             scale,
             deviceGridSensitivity,
-            execute.Method,
+            execute,
             inputReadbacks,
             resources);
 
@@ -247,7 +246,7 @@ internal sealed class OpaqueRenderDescription
             valueCardinality,
             scale,
             deviceGridSensitivity,
-            execute.Method,
+            execute,
             inputReadbacks,
             resources);
 
@@ -295,9 +294,10 @@ internal sealed class OpaqueRenderDescription
     /// recorded paint plan, neither of which can be part of a persistent identity, so the declared identity is
     /// hand-verified against what the helper draws with. Nothing outside the engine can reach this shape.
     /// </remarks>
-    internal static OpaqueRenderDescription CreateEngineSource(
-        Action<OpaqueRenderSession> execute,
-        Action<EngineDirectRenderSession>? directReplay,
+    internal static OpaqueRenderDescription CreateEngineSource<TState>(
+        TState state,
+        Action<OpaqueRenderSession, TState> execute,
+        Action<EngineDirectRenderSession, TState>? directReplay,
         OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
@@ -305,6 +305,7 @@ internal sealed class OpaqueRenderDescription
         bool directReplayAtExactIntegerReduction = false,
         bool supportsDirectDstOut = true,
         IEnumerable<RenderResource>? resources = null)
+        where TState : notnull
     {
         ArgumentNullException.ThrowIfNull(execute);
         ArgumentNullException.ThrowIfNull(bounds);
@@ -313,12 +314,19 @@ internal sealed class OpaqueRenderDescription
         ThrowIfUndefined(deviceGridSensitivity);
         object definitionFingerprint = new EngineOpaqueDefinition(
             RenderBackendBoundary.None,
-            execute.Method,
-            directReplay?.Method,
+            execute,
+            directReplay,
             directReplayAtExactIntegerReduction);
+        Action<EngineDirectRenderSession>? boundDirectReplay = directReplay is null
+            ? null
+            : new EngineDirectSourceBinding<TState>(state, directReplay).Replay;
 
         return new OpaqueRenderDescription(
-            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
+            RenderDescriptionValidation.CreateStateChannel(
+                state,
+                execute,
+                nameof(state),
+                nameof(execute)),
             bounds,
             hitTest,
             RenderValueCardinality.Single,
@@ -329,7 +337,7 @@ internal sealed class OpaqueRenderDescription
             Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
             BindInternalResources(resources),
             RenderBackendBoundary.None,
-            directReplay,
+            boundDirectReplay,
             supportsDirectDstOut && directReplay is not null,
             hasDirectReplayMaterializationContract:
                 directReplay is not null && scale.DeclaresNoSupplyDensity,
@@ -337,15 +345,17 @@ internal sealed class OpaqueRenderDescription
                 directReplay is not null && directReplayAtExactIntegerReduction);
     }
 
-    internal static OpaqueRenderDescription CreateBackendBoundary(
+    internal static OpaqueRenderDescription CreateBackendBoundary<TState>(
         RenderBackendBoundary backendBoundary,
-        Action<OpaqueRenderSession> execute,
+        TState state,
+        Action<OpaqueRenderSession, TState> execute,
         OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
         IEnumerable<RenderResource>? resources = null)
+        where TState : notnull
     {
         if (backendBoundary == RenderBackendBoundary.None || !Enum.IsDefined(backendBoundary))
             throw new ArgumentOutOfRangeException(nameof(backendBoundary));
@@ -357,12 +367,16 @@ internal sealed class OpaqueRenderDescription
         ThrowIfUndefined(deviceGridSensitivity);
         object definitionFingerprint = new EngineOpaqueDefinition(
             backendBoundary,
-            execute.Method,
-            DirectReplayMethod: null,
+            execute,
+            DirectReplay: null,
             DirectReplayAtExactIntegerReduction: false);
 
         return new OpaqueRenderDescription(
-            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
+            RenderDescriptionValidation.CreateStateChannel(
+                state,
+                execute,
+                nameof(state),
+                nameof(execute)),
             bounds,
             hitTest,
             valueCardinality,
@@ -375,6 +389,14 @@ internal sealed class OpaqueRenderDescription
             backendBoundary,
             directReplay: null,
             supportsDirectDstOut: false);
+    }
+
+    /// <summary>Binds an engine source's direct-replay callback to one recording's state.</summary>
+    private sealed class EngineDirectSourceBinding<TState>(
+        TState state,
+        Action<EngineDirectRenderSession, TState> directReplay)
+    {
+        public void Replay(EngineDirectRenderSession session) => directReplay(session, state);
     }
 
     private static void ThrowIfUndefined(RenderDeviceGridSensitivity deviceGridSensitivity)
@@ -481,15 +503,17 @@ public sealed class OpaqueRenderBoundsContract
     private OpaqueRenderBoundsContract(
         OpaqueRenderBoundsKind kind,
         Func<IReadOnlyList<Rect>, Rect> transformBounds,
-        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? getRequiredInputBounds)
+        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? getRequiredInputBounds,
+        object? forwardIdentity = null,
+        object? backwardIdentity = null)
     {
         Kind = kind;
         _transformBounds = transformBounds;
         _getRequiredInputBounds = getRequiredInputBounds;
         StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(
             kind,
-            transformBounds.Method,
-            getRequiredInputBounds?.Method,
+            forwardIdentity ?? transformBounds,
+            backwardIdentity ?? getRequiredInputBounds,
             null);
     }
 
@@ -563,6 +587,65 @@ public sealed class OpaqueRenderBoundsContract
             OpaqueRenderBoundsKind.FullInputs,
             transformBounds,
             null);
+    }
+
+    /// <summary>
+    /// Creates a combining bounds contract whose mappings read call-owned state instead of closing over it.
+    /// </summary>
+    /// <typeparam name="TState">The immutable state the mappings read.</typeparam>
+    /// <param name="state">The per-recording values the mappings need, which are request data.</param>
+    /// <param name="transformBounds">A pure forward mapping, declared <see langword="static"/>.</param>
+    /// <param name="getRequiredInputBounds">A pure backward mapping, declared the same way.</param>
+    public static OpaqueRenderBoundsContract Combine<TState>(
+        TState state,
+        Func<TState, IReadOnlyList<Rect>, Rect> transformBounds,
+        Func<TState, Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>> getRequiredInputBounds)
+    {
+        ArgumentNullException.ThrowIfNull(transformBounds);
+        ArgumentNullException.ThrowIfNull(getRequiredInputBounds);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(transformBounds, nameof(transformBounds));
+        RenderDescriptionValidation.ValidatePureMetadataCallback(
+            getRequiredInputBounds,
+            nameof(getRequiredInputBounds));
+        var binding = new CombineBoundsMapping<TState>(state, transformBounds, getRequiredInputBounds);
+        return new OpaqueRenderBoundsContract(
+            OpaqueRenderBoundsKind.Combine,
+            binding.TransformBounds,
+            binding.GetRequiredInputBounds,
+            transformBounds,
+            getRequiredInputBounds);
+    }
+
+    /// <summary>
+    /// Creates a full-inputs bounds contract whose forward mapping reads call-owned state.
+    /// </summary>
+    /// <typeparam name="TState">The immutable state the mapping reads.</typeparam>
+    /// <param name="state">The per-recording values the mapping needs, which are request data.</param>
+    /// <param name="transformBounds">A pure forward mapping, declared <see langword="static"/>.</param>
+    public static OpaqueRenderBoundsContract FullInputs<TState>(
+        TState state,
+        Func<TState, IReadOnlyList<Rect>, Rect> transformBounds)
+    {
+        ArgumentNullException.ThrowIfNull(transformBounds);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(transformBounds, nameof(transformBounds));
+        var binding = new CombineBoundsMapping<TState>(state, transformBounds, null);
+        return new OpaqueRenderBoundsContract(
+            OpaqueRenderBoundsKind.FullInputs,
+            binding.TransformBounds,
+            null,
+            transformBounds);
+    }
+
+    /// <summary>Holds one recording's state so the combining mappings themselves stay static.</summary>
+    private sealed class CombineBoundsMapping<TState>(
+        TState state,
+        Func<TState, IReadOnlyList<Rect>, Rect> transformBounds,
+        Func<TState, Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? getRequiredInputBounds)
+    {
+        public Rect TransformBounds(IReadOnlyList<Rect> inputs) => transformBounds(state, inputs);
+
+        public IReadOnlyList<Rect> GetRequiredInputBounds(Rect output, IReadOnlyList<Rect> inputs)
+            => getRequiredInputBounds!(state, output, inputs);
     }
 
     internal OpaqueRenderBoundsKind Kind { get; }
@@ -728,7 +811,29 @@ public readonly struct RenderHitTestContract
     {
         ArgumentNullException.ThrowIfNull(hitTest);
         RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
-        return new RenderHitTestContract(hitTest, hitTest.Method);
+        return new RenderHitTestContract(hitTest, hitTest);
+    }
+
+    /// <summary>
+    /// Creates a hit test that reads call-owned state instead of closing over it.
+    /// </summary>
+    /// <typeparam name="TState">The immutable state the test reads.</typeparam>
+    /// <param name="state">
+    /// The per-recording values the test needs. They are request data, not plan identity: a recording that
+    /// changes only this reruns the compiled plan rather than compiling a second one.
+    /// </param>
+    /// <param name="hitTest">
+    /// The pure test. Declare it <see langword="static"/>; the plan is keyed by which callback it is, and only
+    /// a static callback is the same delegate on every frame.
+    /// </param>
+    public static RenderHitTestContract Custom<TState>(
+        TState state,
+        Func<TState, RenderHitTestContext, Point, bool> hitTest)
+    {
+        ArgumentNullException.ThrowIfNull(hitTest);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
+        var binding = new HitTestBinding<TState>(state, hitTest);
+        return new RenderHitTestContract(binding.HitTest, hitTest);
     }
 
     /// <summary>
@@ -751,7 +856,7 @@ public readonly struct RenderHitTestContract
         RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
         return new RenderHitTestContract(
             (context, point) => context.UseResource(slot, value => hitTest(value, point)),
-            hitTest.Method);
+            hitTest);
     }
 
     /// <summary>
@@ -774,7 +879,7 @@ public readonly struct RenderHitTestContract
         RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
         return new RenderHitTestContract(
             (context, point) => context.UseResource(slot, value => hitTest(value, context, point)),
-            hitTest.Method);
+            hitTest);
     }
 
     internal static RenderHitTestContract FromResource<T>(
@@ -786,7 +891,7 @@ public readonly struct RenderHitTestContract
         ArgumentNullException.ThrowIfNull(hitTest);
         return new RenderHitTestContract(
             (_, point) => resource.Registry.Use(resource, value => hitTest(value, point)),
-            hitTest.Method);
+            hitTest);
     }
 
     internal static RenderHitTestContract FromResource<T>(
@@ -800,7 +905,39 @@ public readonly struct RenderHitTestContract
             (context, point) => resource.Registry.Use(
                 resource,
                 value => hitTest(value, context, point)),
-            hitTest.Method);
+            hitTest);
+    }
+
+    internal static RenderHitTestContract FromResource<T, TState>(
+        RenderResource<T> resource,
+        TState state,
+        Func<T, TState, Point, bool> hitTest)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(hitTest);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
+        var binding = new ResourceHitTestBinding<T, TState>(resource, state, hitTest);
+        return new RenderHitTestContract(binding.HitTest, hitTest);
+    }
+
+    /// <summary>Holds one recording's state so the test itself stays static.</summary>
+    private sealed class HitTestBinding<TState>(
+        TState state,
+        Func<TState, RenderHitTestContext, Point, bool> hitTest)
+    {
+        public bool HitTest(RenderHitTestContext context, Point point) => hitTest(state, context, point);
+    }
+
+    /// <summary>Holds one recording's resource and state so the test itself stays static.</summary>
+    private sealed class ResourceHitTestBinding<T, TState>(
+        RenderResource<T> resource,
+        TState state,
+        Func<T, TState, Point, bool> hitTest)
+        where T : class
+    {
+        public bool HitTest(RenderHitTestContext context, Point point)
+            => resource.Registry.Use(resource, value => hitTest(value, state, point));
     }
 
     internal RenderHitTestContractKind Kind => _kind;
@@ -1018,8 +1155,8 @@ public readonly struct RenderScaleContract
             map,
             mapOutputDemandToInput,
             new RenderScaleBidirectionalMappingStructuralIdentity(
-                map.Method,
-                mapOutputDemandToInput.Method));
+                map,
+                mapOutputDemandToInput));
     }
 
     /// <summary>
@@ -1045,7 +1182,23 @@ public readonly struct RenderScaleContract
     {
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
-        return new RenderScaleContract(map, map.Method);
+        return new RenderScaleContract(map, map);
+    }
+
+    /// <summary>
+    /// Maps input supply with a forward map that reads call-owned state instead of closing over it.
+    /// </summary>
+    /// <typeparam name="TState">The immutable state the map reads.</typeparam>
+    /// <param name="state">The per-recording values the map needs, which are request data.</param>
+    /// <param name="map">A pure forward supply map, declared <see langword="static"/>.</param>
+    public static RenderScaleContract MapInputSupplyPreservingDemand<TState>(
+        TState state,
+        Func<TState, EffectiveScale, EffectiveScale> map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
+        var binding = new ScaleMapping<TState>(state, map, null);
+        return new RenderScaleContract(binding.MapSupply, map);
     }
 
     /// <summary>
@@ -1069,7 +1222,67 @@ public readonly struct RenderScaleContract
     {
         ArgumentNullException.ThrowIfNull(resolve);
         RenderDescriptionValidation.ValidatePureMetadataCallback(resolve, nameof(resolve));
-        return new RenderScaleContract(resolve, resolve.Method);
+        return new RenderScaleContract(resolve, resolve);
+    }
+
+    /// <summary>
+    /// Maps input supply and backward demand with callbacks that read call-owned state.
+    /// </summary>
+    /// <typeparam name="TState">The immutable state the maps read.</typeparam>
+    /// <param name="state">The per-recording values the maps need, which are request data.</param>
+    /// <param name="map">A pure forward supply map, declared <see langword="static"/>.</param>
+    /// <param name="mapOutputDemandToInput">A pure backward demand map, declared the same way.</param>
+    public static RenderScaleContract MapInputSupply<TState>(
+        TState state,
+        Func<TState, EffectiveScale, EffectiveScale> map,
+        Func<TState, EffectiveScale, EffectiveScale> mapOutputDemandToInput)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        ArgumentNullException.ThrowIfNull(mapOutputDemandToInput);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
+        RenderDescriptionValidation.ValidatePureMetadataCallback(
+            mapOutputDemandToInput,
+            nameof(mapOutputDemandToInput));
+        var binding = new ScaleMapping<TState>(state, map, mapOutputDemandToInput);
+        return new RenderScaleContract(
+            binding.MapSupply,
+            binding.MapDemand,
+            new RenderScaleBidirectionalMappingStructuralIdentity(map, mapOutputDemandToInput));
+    }
+
+    /// <summary>
+    /// Resolves this operation's supply density from a resolver that reads call-owned state.
+    /// </summary>
+    /// <typeparam name="TState">The immutable state the resolver reads.</typeparam>
+    /// <param name="state">The per-recording values the resolver needs, which are request data.</param>
+    /// <param name="resolve">A pure resolver, declared <see langword="static"/>.</param>
+    public static RenderScaleContract Custom<TState>(
+        TState state,
+        Func<TState, RenderScaleContext, float> resolve)
+    {
+        ArgumentNullException.ThrowIfNull(resolve);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(resolve, nameof(resolve));
+        var binding = new ScaleResolver<TState>(state, resolve);
+        return new RenderScaleContract(binding.Resolve, resolve);
+    }
+
+    /// <summary>Holds one recording's state so the density maps themselves stay static.</summary>
+    private sealed class ScaleMapping<TState>(
+        TState state,
+        Func<TState, EffectiveScale, EffectiveScale> map,
+        Func<TState, EffectiveScale, EffectiveScale>? mapOutputDemandToInput)
+    {
+        public EffectiveScale MapSupply(EffectiveScale supply) => map(state, supply);
+
+        public EffectiveScale MapDemand(EffectiveScale demand) => mapOutputDemandToInput!(state, demand);
+    }
+
+    /// <summary>Holds one recording's state so the resolver itself stays static.</summary>
+    private sealed class ScaleResolver<TState>(
+        TState state,
+        Func<TState, RenderScaleContext, float> resolve)
+    {
+        public float Resolve(RenderScaleContext context) => resolve(state, context);
     }
 
     internal RenderScaleContractKind Kind => _kind;
@@ -1553,8 +1766,8 @@ internal readonly record struct RenderScaleContractStructuralIdentity(
     object CallbackIdentity);
 
 internal readonly record struct RenderScaleBidirectionalMappingStructuralIdentity(
-    MethodInfo SupplyMethod,
-    MethodInfo DemandMethod);
+    Delegate SupplyMap,
+    Delegate DemandMap);
 
 internal readonly record struct OpaqueRenderStructuralIdentity(
     OpaqueRenderTopology Topology,
@@ -1567,8 +1780,8 @@ internal readonly record struct OpaqueRenderStructuralIdentity(
 
 internal sealed record EngineOpaqueDefinition(
     RenderBackendBoundary BackendBoundary,
-    MethodInfo ExecuteMethod,
-    MethodInfo? DirectReplayMethod,
+    Delegate Execute,
+    Delegate? DirectReplay,
     bool DirectReplayAtExactIntegerReduction);
 
 internal static class RenderDescriptionValidation

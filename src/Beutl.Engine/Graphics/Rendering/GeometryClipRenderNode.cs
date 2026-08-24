@@ -60,8 +60,9 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
                     }
                 })),
             RenderBoundsContract.Create(
-                boundsMetadata.TransformBounds,
-                boundsMetadata.GetRequiredInputBounds),
+                boundsMetadata,
+                static (state, value) => state.TransformBounds(value),
+                static (state, value) => state.GetRequiredInputBounds(value)),
             RenderHitTestContract.FromResource(
                 hitTestResource,
                 static (state, hitTest, point) => state.HitTest(hitTest, point)),

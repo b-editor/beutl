@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-
-namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering;
 
 /// <summary>
 /// The channel through which a description's per-frame values reach its deferred execution callback.
@@ -20,9 +18,6 @@ internal readonly struct RenderExecutionChannel<TSession>
         _execute = execute;
         _binding = binding;
     }
-
-    /// <summary>Gets the callback method used to derive an internal definition fingerprint.</summary>
-    internal MethodInfo Method => _execute is not null ? _execute.Method : Binding.Method;
 
     private RenderExecutionBinding<TSession> Binding
         => _binding ?? throw new InvalidOperationException("The execution channel has no state binding.");
@@ -47,8 +42,6 @@ internal readonly struct RenderExecutionChannel<TSession>
 
 internal abstract class RenderExecutionBinding<TSession>
 {
-    internal abstract MethodInfo Method { get; }
-
     internal abstract void Invoke(TSession session);
 }
 
@@ -70,8 +63,6 @@ internal sealed class StateRenderExecutionBinding<TSession, TState> : RenderExec
         _state = state;
         _execute = execute;
     }
-
-    internal override MethodInfo Method => _execute.Method;
 
     internal override void Invoke(TSession session) => _execute(session, _state);
 }

@@ -43,7 +43,7 @@ public readonly struct RenderInputDemandContract
     {
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
-        return new RenderInputDemandContract((_, demand) => map(demand), map.Method);
+        return new RenderInputDemandContract((_, demand) => map(demand), map);
     }
 
     /// <summary>
@@ -66,7 +66,39 @@ public readonly struct RenderInputDemandContract
     {
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
-        return new RenderInputDemandContract(map, map.Method);
+        return new RenderInputDemandContract(map, map);
+    }
+
+    /// <summary>
+    /// Creates a contract whose demand mapping reads call-owned state instead of closing over it.
+    /// </summary>
+    /// <typeparam name="TState">The immutable state the mapping reads.</typeparam>
+    /// <param name="state">The per-recording values the mapping needs, which are request data.</param>
+    /// <param name="map">A pure demand mapping, declared <see langword="static"/>.</param>
+    public static RenderInputDemandContract MapOutputDemandToInput<TState>(
+        TState state,
+        Func<TState, EffectiveScale, EffectiveScale> map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
+        var binding = new DemandMapping<TState>(state, map);
+        return new RenderInputDemandContract(binding.Map, map);
+    }
+
+    /// <summary>
+    /// Creates a per-input contract whose demand mapping reads call-owned state instead of closing over it.
+    /// </summary>
+    /// <typeparam name="TState">The immutable state the mapping reads.</typeparam>
+    /// <param name="state">The per-recording values the mapping needs, which are request data.</param>
+    /// <param name="map">A pure per-input demand mapping, declared <see langword="static"/>.</param>
+    public static RenderInputDemandContract MapOutputDemandPerInput<TState>(
+        TState state,
+        Func<TState, int, EffectiveScale, EffectiveScale> map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
+        var binding = new PerInputDemandMapping<TState>(state, map);
+        return new RenderInputDemandContract(binding.Map, map);
     }
 
     internal bool IsUnchanged => _map is null;
@@ -88,5 +120,21 @@ public readonly struct RenderInputDemandContract
         }
 
         return EffectiveScale.At(mapped.Value);
+    }
+
+    /// <summary>Holds one recording's state so the mapping itself stays static.</summary>
+    private sealed class DemandMapping<TState>(
+        TState state,
+        Func<TState, EffectiveScale, EffectiveScale> map)
+    {
+        public EffectiveScale Map(int inputIndex, EffectiveScale demand) => map(state, demand);
+    }
+
+    /// <summary>Holds one recording's state so the per-input mapping itself stays static.</summary>
+    private sealed class PerInputDemandMapping<TState>(
+        TState state,
+        Func<TState, int, EffectiveScale, EffectiveScale> map)
+    {
+        public EffectiveScale Map(int inputIndex, EffectiveScale demand) => map(state, inputIndex, demand);
     }
 }

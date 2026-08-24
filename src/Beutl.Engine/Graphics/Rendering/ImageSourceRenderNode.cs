@@ -61,7 +61,9 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             fill: fill,
             pen: pen,
             outputBounds: bounds,
-            hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
+            hitTest: RenderHitTestContract.Custom(
+                hitTestState,
+                static (state, context, point) => state.Evaluate(context, point)),
             scale: RenderScaleContract.Custom(static _ => 1f),
             directReplayAtExactIntegerReduction: true,
             resources: [sourceResource]));

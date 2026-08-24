@@ -43,9 +43,12 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
                 }
             }),
             RenderBoundsContract.Create(
-                metadata.TransformBounds,
-                metadata.GetRequiredInputBounds),
-            RenderHitTestContract.Custom(metadata.HitTest),
+                metadata,
+                static (state, value) => state.TransformBounds(value),
+                static (state, value) => state.GetRequiredInputBounds(value)),
+            RenderHitTestContract.Custom(
+                metadata,
+                static (state, context, point) => state.HitTest(context, point)),
             RenderScaleContract.PreserveInputSupply,
             deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
             deviceGridMapping: RenderDeviceGridMapping.Preserved);

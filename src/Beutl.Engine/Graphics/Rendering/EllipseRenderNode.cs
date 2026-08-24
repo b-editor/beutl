@@ -55,7 +55,9 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
             fill: fill,
             pen: pen,
             outputBounds: bounds,
-            hitTest: RenderHitTestContract.Custom(hitTestState.HitTest),
+            hitTest: RenderHitTestContract.Custom(
+                hitTestState,
+                static (state, context, point) => state.HitTest(context, point)),
             scale: RenderScaleContract.Vector));
     }
 
@@ -66,11 +68,6 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
         StrokeAlignment StrokeAlignment,
         float Thickness)
     {
-        /// <remarks>
-        /// The contract keys its plan by which callback this is, so the callback must not read anything the
-        /// caller can change afterwards. A method group on this readonly struct hands the delegate a copy
-        /// nothing can reach, which a lambda closing over the local would not.
-        /// </remarks>
         public bool HitTest(RenderHitTestContext context, Point point) => HitTest(point);
 
         public bool HitTest(Point point)

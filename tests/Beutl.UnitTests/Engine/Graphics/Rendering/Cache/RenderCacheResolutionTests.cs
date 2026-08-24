@@ -1406,7 +1406,8 @@ public sealed class RenderCacheResolutionTests
         RenderScaleContract? scaleContract = null)
     {
         TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
-            static session => session.Canvas.Use(_ => session.ReplayInput()),
+            key,
+            static (session, replayKey) => session.Canvas.Use(_ => session.ReplayInput()),
             boundsContract ?? RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
             scaleContract ?? RenderScaleContract.PreserveInputSupply,

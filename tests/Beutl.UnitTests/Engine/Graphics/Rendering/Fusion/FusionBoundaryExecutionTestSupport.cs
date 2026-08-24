@@ -129,7 +129,8 @@ internal sealed class FusionBoundaryRuntimeNode(
 
         return OpaqueRenderDescription.CreateBackendBoundary(
             backendBoundary,
-            CopySingleInput,
+            backendBoundary,
+            static (session, _) => CopySingleInput(session),
             OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
             cardinality,

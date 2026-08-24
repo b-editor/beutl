@@ -75,8 +75,12 @@ public sealed class VideoSourceRenderNode(
             fill: fill,
             pen: pen,
             outputBounds: bounds,
-            hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
-            scale: RenderScaleContract.Custom(new VideoScaleResolver(supplyDensity).Resolve),
+            hitTest: RenderHitTestContract.Custom(
+                hitTestState,
+                static (state, context, point) => state.Evaluate(context, point)),
+            scale: RenderScaleContract.Custom(
+                supplyDensity,
+                static (density, _) => density),
             resources: [sourceResource]));
     }
 
@@ -102,10 +106,5 @@ public sealed class VideoSourceRenderNode(
         }
 
         public bool Evaluate(RenderHitTestContext _, Point point) => HitTest(point);
-    }
-
-    private readonly record struct VideoScaleResolver(float SupplyDensity)
-    {
-        public float Resolve(RenderScaleContext _) => SupplyDensity;
     }
 }

@@ -102,8 +102,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         ];
         OpaqueRenderDescription description = OpaqueRenderDescription.CreateBackendBoundary(
             RenderBackendBoundary.Graphics3D,
-            execute: session => session.UseResource(
-                sceneToken,
+            state: sceneToken,
+            execute: static (session, token) => session.UseResource(
+                token,
                 current => Render(session, current)),
             bounds: OpaqueRenderBoundsContract.Source(bounds),
             hitTest: RenderHitTestContract.OutputBounds,

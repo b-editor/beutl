@@ -168,7 +168,8 @@ public sealed class ValueReplaySafetyTests
 
     private static TargetScopeDescription CreateIdentityValueReplayDescription(string key)
         => TargetScopeDescription.CreateValueReplayMap(
-            session => session.Canvas.Use(_ => session.ReplayInput()),
+            key,
+            static (session, replayKey) => session.Canvas.Use(_ => session.ReplayInput()),
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
             RenderScaleContract.PreserveInputSupply,

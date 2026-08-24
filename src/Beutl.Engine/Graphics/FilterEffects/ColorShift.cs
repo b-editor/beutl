@@ -60,8 +60,9 @@ public partial class ColorShift : FilterEffect
             r.BlueOffset,
             r.AlphaOffset);
         RenderBoundsContract bounds = RenderBoundsContract.Create(
-            boundsState.TransformBounds,
-            boundsState.GetRequiredInputBounds);
+            boundsState,
+            static (state, bounds) => state.TransformBounds(bounds),
+            static (state, bounds) => state.GetRequiredInputBounds(bounds));
 
         context.Shader(ShaderDescription.WholeSource(
             ShaderSource,

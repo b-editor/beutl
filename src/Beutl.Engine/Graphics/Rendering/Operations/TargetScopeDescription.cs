@@ -151,7 +151,7 @@ internal sealed class TargetScopeDescription
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
-            execute.Method,
+            execute,
             resources,
             isValueReplayMap: false,
             transformSpace,
@@ -181,7 +181,7 @@ internal sealed class TargetScopeDescription
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
-            execute.Method,
+            execute,
             resources,
             isValueReplayMap: false,
             transformSpace,
@@ -195,8 +195,9 @@ internal sealed class TargetScopeDescription
     /// restricted to allocation-free target state plus exactly one replay, which only an in-engine author can
     /// guarantee. Public <see cref="Create"/> therefore always produces a materializing boundary.
     /// </remarks>
-    internal static TargetScopeDescription CreateValueReplayMap(
-        Action<TargetScopeSession> execute,
+    internal static TargetScopeDescription CreateValueReplayMap<TState>(
+        TState state,
+        Action<TargetScopeSession, TState> execute,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
@@ -204,14 +205,19 @@ internal sealed class TargetScopeDescription
         RenderDeviceGridMapping deviceGridMapping,
         bool builtInBackdropCapturesBackingTarget = false,
         IEnumerable<RenderResourceBinding>? resources = null)
+        where TState : notnull
         => CreateCore(
-            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
+            RenderDescriptionValidation.CreateStateChannel(
+                state,
+                execute,
+                nameof(state),
+                nameof(execute)),
             bounds,
             hitTest,
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
-            new EngineValueReplayMapDefinition(execute.Method),
+            new EngineValueReplayMapDefinition(execute),
             resources,
             isValueReplayMap: true,
             // A value replay map is lowered into the value graph, which only holds together when the
@@ -343,7 +349,7 @@ public sealed class TargetScopeSession
     }
 }
 
-internal sealed record EngineValueReplayMapDefinition(System.Reflection.MethodInfo ExecuteMethod);
+internal sealed record EngineValueReplayMapDefinition(Delegate Execute);
 
 internal sealed class RawTargetScopeDescription
 {
@@ -396,7 +402,7 @@ internal sealed class RawTargetScopeDescription
             bounds,
             hitTest,
             scale,
-            execute.Method,
+            execute,
             resources);
 
     internal static RawTargetScopeDescription CreateCore(
@@ -557,7 +563,7 @@ internal sealed class RawTargetCommandDescription
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             queryBounds,
             hitTest,
-            execute.Method,
+            execute,
             resources);
 
     internal static RawTargetCommandDescription CreateCore(

@@ -8,12 +8,13 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace SourceGeneratorTest;
 
 /// <summary>
-/// Pins that a render metadata callback which can read changing state is reported where it is written.
+/// Pins that a render metadata callback which is not a stable, state-free delegate is reported where it is
+/// written.
 /// </summary>
 /// <remarks>
 /// The engine used to walk the delegate's closure while recording to catch this. Recording is the render
 /// path and does no reflection now, so this rule is the whole of what enforces it, and it has to hold on
-/// both sides: the shapes that are pure must stay silent, or authors will suppress it.
+/// both sides: a stable, state-free delegate must stay silent, or authors will suppress it.
 /// </remarks>
 [TestFixture]
 public sealed class MetadataCallbackPurityAnalyzerTests
@@ -34,6 +35,11 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                 public static RenderBoundsContract Create(
                     Func<Rect, Rect> transformBounds,
                     Func<Rect, Rect> getRequiredInputBounds) => default;
+
+                public static RenderBoundsContract Create<TState>(
+                    TState state,
+                    Func<TState, Rect, Rect> transformBounds,
+                    Func<TState, Rect, Rect> getRequiredInputBounds) => default;
             }
         }
 
@@ -85,8 +91,13 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
+    /// <remarks>
+    /// The delegate's target is a box the conversion allocates, so the same method group produces a
+    /// reference-unequal delegate every time it is written. The plan key is the delegate, so this shape keys
+    /// each frame differently and no compiled plan is ever reused.
+    /// </remarks>
     [Test]
-    public void AMethodGroupOnAReadonlyStruct_IsNotReported()
+    public void AMethodGroupOnAReadonlyStruct_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
             using Beutl.Graphics;
@@ -106,8 +117,8 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
         Assert.That(
             diagnostics.Select(static d => d.Id),
-            Does.Not.Contain("BESG003"),
-            "the delegate's target is a copy of the struct, which nothing can reach afterwards");
+            Does.Contain("BESG003"),
+            "boxing the receiver makes a fresh delegate each conversion, so the plan key never repeats");
     }
 
     /// <remarks>
@@ -137,6 +148,35 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             """);
 
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// This is the shape the diagnostic tells authors to move to, so it has to be accepted: the callbacks are
+    /// static and cached, and the values they read arrive as call state the contract does not key on.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaOnTheStatePassingOverload_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal readonly record struct Metadata(float Inset)
+            {
+                public Rect Map(Rect value) => value;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build(float inset)
+                    => RenderBoundsContract.Create(
+                        new Metadata(inset),
+                        static (state, value) => state.Map(value),
+                        static (state, value) => state.Map(value));
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
     [Test]

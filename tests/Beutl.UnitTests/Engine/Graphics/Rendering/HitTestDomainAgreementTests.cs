@@ -134,7 +134,8 @@ public sealed class HitTestDomainAgreementTests
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateEngineSource(
-                execute: static session =>
+                state: s_inputBounds,
+                execute: static (session, _) =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
                     output.Canvas.Use(static canvas => canvas.Clear(Colors.White));

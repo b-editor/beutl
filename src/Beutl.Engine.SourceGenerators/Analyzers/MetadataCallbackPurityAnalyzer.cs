@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Beutl.Engine.SourceGenerators.Analyzers;
 
 /// <summary>
-/// Reports a callback that can read changing state passed to a render metadata contract.
+/// Reports a callback passed to a render metadata contract that is not a stable, state-free delegate.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,6 +21,11 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 /// The engine used to walk the delegate's closure at recording time to catch this. Recording is the render
 /// path, so that walk is gone; this says the same thing at compile time, before the frame that would have
 /// paid for it.
+/// </para>
+/// <para>
+/// The plan key is the delegate itself, so the callback also has to be the same delegate on every frame.
+/// Only a static lambda and a static method group are: the compiler caches those in a singleton field, while
+/// any conversion that needs a receiver builds a new delegate each time.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -129,10 +134,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     }
 
     /// <remarks>
-    /// A method group carries no closure, but an instance method's receiver becomes the delegate's target.
-    /// A value-typed receiver is boxed at that point, so the delegate holds a copy the author cannot reach
-    /// afterwards; a reference-typed one is the author's own object, and changing a field on it changes
-    /// what the callback answers while its identity stays the method.
+    /// A method group carries no closure, but an instance method's receiver becomes the delegate's target,
+    /// and the target is half the delegate's identity. A reference-typed receiver is the author's own object,
+    /// so changing a field on it changes what the callback answers; a value-typed one is boxed afresh at every
+    /// conversion, so the delegate is a different instance on every frame and no plan is ever reused.
     /// </remarks>
     private static string? DescribeReceiverImpurity(
         SyntaxNodeAnalysisContext context,
@@ -150,10 +155,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
         ITypeSymbol? receiver = context.SemanticModel
             .GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type;
-        if (receiver is { IsValueType: true })
-            return null;
-
-        return "the callback is an instance method on a reference type, and the delegate keeps that "
-               + "object as its receiver";
+        return receiver is { IsValueType: true }
+            ? "the callback is an instance method on a value type, so every conversion boxes a fresh "
+              + "receiver and the delegate is a different instance on every frame"
+            : "the callback is an instance method on a reference type, and the delegate keeps that "
+              + "object as its receiver";
     }
 }

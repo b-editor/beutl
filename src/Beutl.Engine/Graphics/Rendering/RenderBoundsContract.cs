@@ -68,6 +68,62 @@ public readonly struct RenderBoundsContract
             RenderBoundsStructuralIdentity.CreateFullInput(transformBounds));
     }
 
+    /// <summary>
+    /// Creates a bounds contract whose mappings read call-owned state instead of closing over it.
+    /// </summary>
+    /// <typeparam name="TState">The immutable state the mappings read.</typeparam>
+    /// <param name="state">
+    /// The per-recording values the mappings need. They are request data, not plan identity: a recording that
+    /// changes only this reruns the compiled plan rather than compiling a second one.
+    /// </param>
+    /// <param name="transformBounds">
+    /// A pure forward mapping. Declare it <see langword="static"/>; the plan is keyed by which callback it is,
+    /// and only a static callback is the same delegate on every frame.
+    /// </param>
+    /// <param name="getRequiredInputBounds">A pure backward mapping, declared the same way.</param>
+    public static RenderBoundsContract Create<TState>(
+        TState state,
+        Func<TState, Rect, Rect> transformBounds,
+        Func<TState, Rect, Rect> getRequiredInputBounds)
+    {
+        ArgumentNullException.ThrowIfNull(transformBounds);
+        ArgumentNullException.ThrowIfNull(getRequiredInputBounds);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(
+            transformBounds,
+            nameof(transformBounds));
+        RenderDescriptionValidation.ValidatePureMetadataCallback(
+            getRequiredInputBounds,
+            nameof(getRequiredInputBounds));
+        var binding = new BoundsMapping<TState>(state, transformBounds, getRequiredInputBounds);
+        return new RenderBoundsContract(
+            binding.TransformBounds,
+            binding.GetRequiredInputBounds,
+            requiresFullInput: false,
+            RenderBoundsStructuralIdentity.Create(transformBounds, getRequiredInputBounds));
+    }
+
+    /// <summary>
+    /// Creates a full-input bounds contract whose forward mapping reads call-owned state.
+    /// </summary>
+    /// <typeparam name="TState">The immutable state the mapping reads.</typeparam>
+    /// <param name="state">The per-recording values the mapping needs, which are request data.</param>
+    /// <param name="transformBounds">A pure forward mapping, declared <see langword="static"/>.</param>
+    public static RenderBoundsContract CreateFullInput<TState>(
+        TState state,
+        Func<TState, Rect, Rect> transformBounds)
+    {
+        ArgumentNullException.ThrowIfNull(transformBounds);
+        RenderDescriptionValidation.ValidatePureMetadataCallback(
+            transformBounds,
+            nameof(transformBounds));
+        var binding = new BoundsMapping<TState>(state, transformBounds, transformBounds);
+        return new RenderBoundsContract(
+            binding.TransformBounds,
+            IdentityMap,
+            requiresFullInput: true,
+            RenderBoundsStructuralIdentity.CreateFullInput(transformBounds));
+    }
+
     public Rect TransformBounds(Rect inputBounds)
     {
         ThrowIfNotInitialized();
@@ -115,12 +171,23 @@ public readonly struct RenderBoundsContract
     }
 
     private static Rect IdentityMap(Rect value) => value;
+
+    /// <summary>Holds one recording's state so the mappings themselves stay static.</summary>
+    private sealed class BoundsMapping<TState>(
+        TState state,
+        Func<TState, Rect, Rect> transformBounds,
+        Func<TState, Rect, Rect> getRequiredInputBounds)
+    {
+        public Rect TransformBounds(Rect value) => transformBounds(state, value);
+
+        public Rect GetRequiredInputBounds(Rect value) => getRequiredInputBounds(state, value);
+    }
 }
 
 internal readonly record struct RenderBoundsStructuralIdentity(
     RenderBoundsContractKind Kind,
-    object? ForwardMethod,
-    object? BackwardMethod)
+    object? ForwardMap,
+    object? BackwardMap)
 {
     public static RenderBoundsStructuralIdentity Identity { get; } =
         new(RenderBoundsContractKind.Identity, null, null);
@@ -129,16 +196,12 @@ internal readonly record struct RenderBoundsStructuralIdentity(
         new(RenderBoundsContractKind.FullInput, null, null);
 
     public static RenderBoundsStructuralIdentity Create(
-        Func<Rect, Rect> transformBounds,
-        Func<Rect, Rect> getRequiredInputBounds)
-        => new(
-            RenderBoundsContractKind.Custom,
-            transformBounds.Method,
-            getRequiredInputBounds.Method);
+        Delegate transformBounds,
+        Delegate getRequiredInputBounds)
+        => new(RenderBoundsContractKind.Custom, transformBounds, getRequiredInputBounds);
 
-    public static RenderBoundsStructuralIdentity CreateFullInput(
-        Func<Rect, Rect> transformBounds)
-        => new(RenderBoundsContractKind.CustomFullInput, transformBounds.Method, null);
+    public static RenderBoundsStructuralIdentity CreateFullInput(Delegate transformBounds)
+        => new(RenderBoundsContractKind.CustomFullInput, transformBounds, null);
 }
 
 internal enum RenderBoundsContractKind : byte

@@ -85,7 +85,7 @@ internal sealed class TargetCommandDescription
             hitTest,
             access,
             inputReadbacks,
-            execute.Method,
+            execute,
             inputDemand,
             resources);
 
@@ -113,7 +113,7 @@ internal sealed class TargetCommandDescription
             hitTest,
             access,
             inputReadbacks,
-            execute.Method,
+            execute,
             inputDemand,
             resources);
 

@@ -48,6 +48,20 @@ public readonly struct TargetCaptureScaleContract
             RenderScaleContract.Custom(resolve));
 #pragma warning restore BESG003
 
+    /// <summary>Creates a capture density contract whose resolver reads call-owned state.</summary>
+    /// <typeparam name="TState">The immutable state the resolver reads.</typeparam>
+    /// <param name="state">The per-recording values the resolver needs, which are request data.</param>
+    /// <param name="resolve">A pure resolver, declared <see langword="static"/>.</param>
+    /// <returns>A validated target-capture scale contract.</returns>
+    public static TargetCaptureScaleContract Custom<TState>(
+        TState state,
+        Func<TState, RenderScaleContext, float> resolve)
+#pragma warning disable BESG003 // Same forwarding as the stateless overload above.
+        => new(
+            TargetCaptureScaleContractKind.Declared,
+            RenderScaleContract.Custom(state, resolve));
+#pragma warning restore BESG003
+
     internal bool PreservesTargetSupply
     {
         get

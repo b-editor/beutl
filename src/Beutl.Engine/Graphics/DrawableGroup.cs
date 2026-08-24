@@ -318,18 +318,24 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                 context.TargetDomain);
             RenderBoundsContract boundsContract = hasInverse
                 ? RenderBoundsContract.Create(
-                    metadataState.TransformBounds,
-                    metadataState.GetRequiredInputBounds)
+                    metadataState,
+                    static (state, value) => state.TransformBounds(value),
+                    static (state, value) => state.GetRequiredInputBounds(value))
                 : RenderBoundsContract.CreateFullInput(
-                    metadataState.TransformBounds);
+                    metadataState,
+                    static (state, value) => state.TransformBounds(value));
             var scaleMapper = new TransformScaleMapper(transform);
             TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
-                execute: session => ExecuteTransform(session, transform),
+                state: transform,
+                execute: ExecuteTransform,
                 bounds: boundsContract,
-                hitTest: RenderHitTestContract.Custom(metadataState.HitTest),
+                hitTest: RenderHitTestContract.Custom(
+                    metadataState,
+                    static (state, context, point) => state.HitTest(context, point)),
                 scale: RenderScaleContract.MapInputSupply(
-                    scaleMapper.MapSupply,
-                    scaleMapper.MapDemand),
+                    scaleMapper,
+                    static (mapper, supply) => mapper.MapSupply(supply),
+                    static (mapper, demand) => mapper.MapDemand(demand)),
                 deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
                 deviceGridMapping: transform.IsIdentity
                     ? RenderDeviceGridMapping.Preserved

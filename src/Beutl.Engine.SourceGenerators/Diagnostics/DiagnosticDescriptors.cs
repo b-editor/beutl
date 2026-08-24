@@ -22,11 +22,11 @@ public static class DiagnosticDescriptors
 
     public static readonly DiagnosticDescriptor CapturingMetadataCallback = new(
         id: "BESG003",
-        title: "Render metadata callback can read changing state",
+        title: "Render metadata callback is not a stable, state-free delegate",
         messageFormat:
             "'{0}.{1}' keys its compiled plan by which callback this is, not by what the callback closed "
-            + "over, so {2}. Declare the lambda static and pass changing values through the state-passing "
-            + "overload, or use a method group on a readonly struct that carries them.",
+            + "over, so {2}. Declare the callback static and carry changing values through the "
+            + "state-passing overload or a bound render resource.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);

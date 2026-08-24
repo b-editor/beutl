@@ -257,14 +257,15 @@ public class NodeCacheScaleTests
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
-                execute: session =>
+                state: (Probe: _probe, Bounds: bounds),
+                execute: static (session, state) =>
                 {
-                    _probe.Record();
-                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                    state.Probe.Record();
+                    using OpaqueRenderOutput output = session.CreateOutput(state.Bounds);
                     output.Canvas.Use(static canvas => canvas.Clear());
                     session.Publish(output);
                 },
-                directReplay: static session => session.Canvas.Clear(),
+                directReplay: static (session, _) => session.Canvas.Clear(),
                 bounds: OpaqueRenderBoundsContract.Source(bounds),
                 hitTest: RenderHitTestContract.OutputBounds,
                 scale: RenderScaleContract.Vector,
@@ -302,7 +303,8 @@ public class NodeCacheScaleTests
                 bounds,
                 [s_probeSlot.Bind(probeResource)]));
             TargetScopeDescription replayDescription = TargetScopeDescription.CreateValueReplayMap(
-                static session => session.Canvas.Use(_ => session.ReplayInput()),
+                bounds,
+                static (session, replayBounds) => session.Canvas.Use(_ => session.ReplayInput()),
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
                 RenderScaleContract.PreserveInputSupply,

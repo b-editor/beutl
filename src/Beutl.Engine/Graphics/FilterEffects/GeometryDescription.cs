@@ -108,7 +108,7 @@ internal sealed class GeometryDescription
                 nameof(render)),
             bounds,
             hitTest,
-            render.Method,
+            render,
             requiresReadback,
             inputDemand,
             resources);
@@ -131,7 +131,7 @@ internal sealed class GeometryDescription
             RenderDescriptionValidation.CreateRequestLocalChannel(render, nameof(render)),
             bounds,
             hitTest,
-            render.Method,
+            render,
             requiresReadback,
             inputDemand,
             resources);

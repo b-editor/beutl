@@ -73,7 +73,7 @@ public sealed class GeometryDefinition<TState>
                 nameof(_render)),
             _bounds,
             _hitTest,
-            definitionFingerprint: _render.Method,
+            definitionFingerprint: _render,
             requiresReadback: _requiresReadback,
             inputDemand: _inputDemand,
             resources: RenderDescriptionValidation.ValidateResourceBindings(

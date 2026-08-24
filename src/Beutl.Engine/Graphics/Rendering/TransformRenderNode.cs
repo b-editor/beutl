@@ -41,15 +41,20 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             context.TargetDomain);
         RenderBoundsContract bounds = transform.HasInverse
             ? RenderBoundsContract.Create(
-                metadataState.TransformBounds,
-                metadataState.GetRequiredInputBounds)
+                metadataState,
+                static (state, value) => state.TransformBounds(value),
+                static (state, value) => state.GetRequiredInputBounds(value))
             : RenderBoundsContract.CreateFullInput(
-                metadataState.TransformBounds);
-        RenderHitTestContract hitTest = RenderHitTestContract.Custom(metadataState.HitTest);
+                metadataState,
+                static (state, value) => state.TransformBounds(value));
+        RenderHitTestContract hitTest = RenderHitTestContract.Custom(
+            metadataState,
+            static (state, context, point) => state.HitTest(context, point));
         var scaleMapper = new TransformScaleMapper(transform);
         RenderScaleContract scale = RenderScaleContract.MapInputSupply(
-            scaleMapper.MapSupply,
-            scaleMapper.MapDemand);
+            scaleMapper,
+            static (mapper, supply) => mapper.MapSupply(supply),
+            static (mapper, demand) => mapper.MapDemand(demand));
         // Set discards the ambient transform for the canvas base transform, so it moves the input even when
         // the matrix is identity.
         RenderDeviceGridMapping gridMapping =
@@ -62,7 +67,8 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
         if (transformOperator == TransformOperator.Prepend)
         {
             TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
-                session => ExecuteTransform(session, (transform, transformOperator)),
+                (transform, transformOperator),
+                ExecuteTransform,
                 bounds,
                 hitTest,
                 scale,

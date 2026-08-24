@@ -554,11 +554,16 @@ public sealed class RenderNodeContext
             declaredResources
                 .DistinctBy(static resource => resource.SlotIdentity)
                 .ToArray());
+        // Both callbacks are static, so the description's identity is the pair of definitions rather than
+        // this frame's helper instance, which a method group over `source` would have made it.
+        Action<EngineDirectRenderSession, PlainPaintedSource<TState>>? directReplay =
+            ContainsDrawableBrush(fill, pen)
+                ? null
+                : static (session, source) => source.ExecuteDirect(session);
         OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
-            execute: source.Execute,
-            directReplay: !ContainsDrawableBrush(fill, pen)
-                ? source.ExecuteDirect
-                : null,
+            state: source,
+            execute: static (session, source) => source.Execute(session),
+            directReplay: directReplay,
             bounds: OpaqueRenderBoundsContract.Source(outputBounds, rasterOutset),
             hitTest: hitTest,
             scale: scale,
