@@ -17,6 +17,17 @@ public interface IGraphicsContext : IDisposable
     bool Supports3DRendering { get; }
 
     /// <summary>
+    /// Gets the largest square this device can both sample and attach, in pixels.
+    /// </summary>
+    /// <remarks>
+    /// An intermediate render target is drawn into and then sampled, so it has to satisfy the device's
+    /// framebuffer limit as well as its image limit, and those are not the same number. Working density is
+    /// reduced to keep a buffer inside this; a fixed ceiling would ask a smaller device for an attachment it
+    /// cannot make.
+    /// </remarks>
+    int MaxAttachmentDimension { get; }
+
+    /// <summary>
     /// Creates a 2D texture.
     /// </summary>
     /// <param name="width">The width of the texture.</param>

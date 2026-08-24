@@ -7,7 +7,45 @@ namespace Beutl.Graphics.Rendering;
 /// </summary>
 public static class RenderScaleUtilities
 {
+    /// <summary>
+    /// The engine's own ceiling on a buffer's device extent, before the device's is taken into account.
+    /// </summary>
+    /// <remarks>
+    /// A caller sizing a real buffer wants <see cref="ResolveMaxBufferDimension"/>: this number says what
+    /// the engine is willing to allocate, not what the device can attach, and the smaller of the two is what
+    /// a render target has to fit.
+    /// </remarks>
     public const int MaxBufferDimension = 16384;
+
+    private static int s_resolvedMaxBufferDimension;
+
+    /// <summary>
+    /// The largest device extent a buffer may have here: the engine's ceiling, or the device's own limit
+    /// when that is smaller.
+    /// </summary>
+    /// <remarks>
+    /// An intermediate is drawn into and then sampled, so it has to satisfy the device's framebuffer limit
+    /// as well as its image limit, and a device may report either below the engine's ceiling. Clamping to a
+    /// fixed number instead asks such a device for an attachment it cannot make, which it reports as
+    /// undefined behaviour rather than a failed allocation. The device's limit does not change while a
+    /// context lives, so it is read once.
+    /// </remarks>
+    public static int ResolveMaxBufferDimension()
+    {
+        int resolved = Volatile.Read(ref s_resolvedMaxBufferDimension);
+        if (resolved > 0)
+            return resolved;
+
+        int deviceLimit = Backend.GraphicsContextFactory.SharedContext?.MaxAttachmentDimension ?? 0;
+        resolved = deviceLimit > 0 ? Math.Min(MaxBufferDimension, deviceLimit) : MaxBufferDimension;
+
+        // Only remember it once a context has actually answered; before that the ceiling is a placeholder
+        // and the next caller should ask again.
+        if (deviceLimit > 0)
+            Volatile.Write(ref s_resolvedMaxBufferDimension, resolved);
+
+        return resolved;
+    }
 
     private const int RasterApronPixels = 2;
 
@@ -53,24 +91,25 @@ public static class RenderScaleUtilities
     public static float ClampWorkingScaleToBufferBudget(
         Rect logicalBounds,
         float workingScale,
-        int maxDimension = MaxBufferDimension)
+        int? maxDimension = null)
     {
-        ValidateMaxDimension(maxDimension);
+        int budget = maxDimension ?? ResolveMaxBufferDimension();
+        ValidateMaxDimension(budget);
 
         if (!float.IsFinite(workingScale) || workingScale <= 0f)
             return workingScale;
 
-        return FitScaleToDeviceFootprint(logicalBounds, workingScale, maxDimension, apronPixels: 0);
+        return FitScaleToDeviceFootprint(logicalBounds, workingScale, budget, apronPixels: 0);
     }
 
     internal static float ClampWorkingScaleToExactBufferBudget(
         Rect logicalBounds,
         float workingScale,
-        int maxDimension = MaxBufferDimension)
+        int? maxDimension = null)
         => ClampWorkingScaleToExactFootprintBudget(
             logicalBounds,
             workingScale,
-            maxDimension,
+            maxDimension ?? ResolveMaxBufferDimension(),
             apronPixels: 0);
 
     internal static PixelRect AddRasterApron(PixelRect bounds)
@@ -83,11 +122,11 @@ public static class RenderScaleUtilities
     internal static float ClampWorkingScaleToRasterApronBudget(
         Rect logicalBounds,
         float workingScale,
-        int maxDimension = MaxBufferDimension)
+        int? maxDimension = null)
         => ClampWorkingScaleToExactFootprintBudget(
             logicalBounds,
             workingScale,
-            maxDimension,
+            maxDimension ?? ResolveMaxBufferDimension(),
             RasterApronPixels);
 
     private static float ClampWorkingScaleToExactFootprintBudget(

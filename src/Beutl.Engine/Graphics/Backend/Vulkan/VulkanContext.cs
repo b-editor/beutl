@@ -379,6 +379,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public bool Supports3DRendering => true;
 
+    public int MaxAttachmentDimension => _vulkanDevice.MaxAttachmentDimension;
+
     internal static IDisposable ObserveTextureAllocations(Action<TextureFormat> observer)
     {
         ArgumentNullException.ThrowIfNull(observer);

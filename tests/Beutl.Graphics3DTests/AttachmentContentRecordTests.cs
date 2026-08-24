@@ -17,6 +17,40 @@ public sealed class AttachmentContentRecordTests
     private const int Width = 16;
     private const int Height = 8;
 
+    /// <remarks>
+    /// A device can report a framebuffer limit below the engine's own ceiling - CI's does - and an
+    /// intermediate is attached as well as sampled, so clamping working density to a fixed number asks such
+    /// a device for an attachment it cannot make. Vulkan calls that undefined rather than a failed
+    /// allocation, so nothing downstream would report it.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void TheBufferBudget_DoesNotExceedWhatTheDeviceCanAttach()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            int budget = Beutl.Graphics.Rendering.RenderScaleUtilities.ResolveMaxBufferDimension();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    context.MaxAttachmentDimension,
+                    Is.GreaterThan(0),
+                    "precondition: the device has to report what it can attach");
+                Assert.That(
+                    budget,
+                    Is.LessThanOrEqualTo(context.MaxAttachmentDimension),
+                    "the budget decides how large a render target may be, so it cannot exceed the device");
+                Assert.That(
+                    budget,
+                    Is.LessThanOrEqualTo(
+                        Beutl.Graphics.Rendering.RenderScaleUtilities.MaxBufferDimension),
+                    "nor the engine's own ceiling");
+            }
+        });
+    }
+
     [Test]
     [Category("GpuPassFusionGpu")]
     public void UsingAClearedTextureAsAnAttachment_StopsItReportingTransparentContents()

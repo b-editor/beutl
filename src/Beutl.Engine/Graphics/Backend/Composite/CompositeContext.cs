@@ -37,6 +37,8 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public bool Supports3DRendering => Vulkan.Supports3DRendering;
 
+    public int MaxAttachmentDimension => Vulkan.MaxAttachmentDimension;
+
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
         if (Metal != null && !format.IsDepthFormat())

@@ -1171,8 +1171,8 @@ internal sealed class RenderCacheResolver
             return CandidateEvaluation.Bypass(RenderCacheBypassReason.NotMaterializable);
         if (reference.Kind == RenderFragmentKind.MaterializedInput
             && reference.Payload is MaterializedInputRenderFragmentPayload input
-            && (input.Description.DeviceBounds.Width > RenderScaleUtilities.MaxBufferDimension
-                || input.Description.DeviceBounds.Height > RenderScaleUtilities.MaxBufferDimension))
+            && (input.Description.DeviceBounds.Width > RenderScaleUtilities.ResolveMaxBufferDimension()
+                || input.Description.DeviceBounds.Height > RenderScaleUtilities.ResolveMaxBufferDimension()))
         {
             return CandidateEvaluation.Bypass(
                 RenderCacheBypassReason.ExternalInputExceedsBufferBudget);

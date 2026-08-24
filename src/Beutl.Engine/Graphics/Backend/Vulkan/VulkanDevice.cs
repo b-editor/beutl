@@ -34,7 +34,17 @@ internal sealed unsafe class VulkanDevice : IDisposable
         _vk.GetPhysicalDeviceProperties(_physicalDevice, &properties);
         var deviceName = Marshal.PtrToStringAnsi((IntPtr)properties.DeviceName);
         s_logger.LogInformation("Using GPU: {DeviceName}", deviceName);
+
+        // An intermediate is sampled and drawn into, so it has to satisfy both the image limit and the
+        // framebuffer one. These are not the same number: a device can sample an image wider than it can
+        // attach, and attaching is what a render target is for.
+        MaxAttachmentDimension = (int)Math.Min(
+            properties.Limits.MaxImageDimension2D,
+            Math.Min(properties.Limits.MaxFramebufferWidth, properties.Limits.MaxFramebufferHeight));
     }
+
+    /// <summary>Gets the largest square this device can both sample and attach.</summary>
+    public int MaxAttachmentDimension { get; }
 
     public Vk Vk => _vk;
 
