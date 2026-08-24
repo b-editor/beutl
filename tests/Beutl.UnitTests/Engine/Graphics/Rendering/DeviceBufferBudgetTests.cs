@@ -169,6 +169,10 @@ public sealed class DeviceBufferBudgetTests
                     builder,
                     RenderIntent.Delivery,
                     RenderRequestPurpose.Auxiliary,
+                    outputScale: 1f,
+                    workingScale: 1f,
+                    maxWorkingScale: float.PositiveInfinity,
+                    deviceGridOffset: default,
                     maxBufferDimension: -1),
                 Throws.InstanceOf<ArgumentOutOfRangeException>());
         });

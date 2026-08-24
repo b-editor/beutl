@@ -161,6 +161,7 @@ public class WorkingScaleClampConsistencyTests
                 outputScale: 1f,
                 workingScale: 8f,
                 maxWorkingScale: 8f,
+                deviceGridOffset: default,
                 maxBufferDimension: TestBufferDimension);
 
             activator.Flush();

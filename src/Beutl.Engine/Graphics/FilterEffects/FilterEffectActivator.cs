@@ -31,8 +31,7 @@ public sealed class FilterEffectActivator : IDisposable
         float outputScale = 1f,
         float workingScale = 1f,
         float maxWorkingScale = float.PositiveInfinity,
-        DrawableBrushMaterializer? drawableBrushMaterializer = null,
-        int? maxBufferDimension = null)
+        DrawableBrushMaterializer? drawableBrushMaterializer = null)
         : this(
             targets,
             builder,
@@ -47,7 +46,7 @@ public sealed class FilterEffectActivator : IDisposable
             drawableBrushMaterializer,
             useExecutorManagedCanvas: false,
             renderTargetLeaseSession: null,
-            maxBufferDimension)
+            maxBufferDimension: null)
     {
     }
 
