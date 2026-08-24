@@ -150,9 +150,32 @@ internal static class RenderIdentityKeyValidator
     private static readonly ConcurrentDictionary<Type, FieldInfo[]> s_instanceFields = new();
 
     internal static FieldInfo[] GetInstanceFields(Type type)
-        => s_instanceFields.GetOrAdd(
-            type,
-            static key => key.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        => s_instanceFields.GetOrAdd(type, static key => CollectInstanceFields(key));
+
+    /// <remarks>
+    /// <see cref="Type.GetFields(BindingFlags)"/> does not return a private field a base type declares, so a
+    /// sealed object whose changing state lives in its base would reach this walk with nothing to check and
+    /// be accepted. Each level is asked for what it declares instead.
+    /// </remarks>
+    private static FieldInfo[] CollectInstanceFields(Type type)
+    {
+        List<FieldInfo>? fields = null;
+        for (Type? current = type; current is not null && current != typeof(object); current = current.BaseType)
+        {
+            FieldInfo[] declared = current.GetFields(
+                BindingFlags.Instance
+                | BindingFlags.Public
+                | BindingFlags.NonPublic
+                | BindingFlags.DeclaredOnly);
+            if (declared.Length == 0)
+                continue;
+
+            fields ??= [];
+            fields.AddRange(declared);
+        }
+
+        return fields is null ? [] : [.. fields];
+    }
 
     private static readonly ConcurrentDictionary<Type, bool> s_fixedLeaf = new();
 

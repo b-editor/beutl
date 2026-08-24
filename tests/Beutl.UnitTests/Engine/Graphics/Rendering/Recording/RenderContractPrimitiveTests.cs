@@ -195,6 +195,21 @@ public sealed class RenderContractPrimitiveTests
     }
 
     /// <remarks>
+    /// A field a base type declares privately is not returned by asking the derived type for its fields, so
+    /// an object whose changing state lives one level up would reach the walk with nothing to check.
+    /// </remarks>
+    [Test]
+    public void RenderBoundsContract_RejectsACaptureWhoseStateLivesInItsBase()
+    {
+        var derived = new DerivedBox();
+        derived.Set(new Rect(0, 0, 4, 4));
+
+        Assert.That(
+            () => RenderBoundsContract.Create(_ => derived.Value, static value => value),
+            Throws.TypeOf<ArgumentException>());
+    }
+
+    /// <remarks>
     /// A ReadOnlyMemory is a read-only view, not an immutable value: the array it ordinarily wraps stays in
     /// the author's hands and can be written after the callback is recorded.
     /// </remarks>
@@ -288,6 +303,17 @@ public sealed class RenderContractPrimitiveTests
     {
         public Rect Value;
     }
+
+    private class BoxBase
+    {
+        private Rect _value;
+
+        public Rect Value => _value;
+
+        public void Set(Rect value) => _value = value;
+    }
+
+    private sealed class DerivedBox : BoxBase;
 
     private sealed class FixedBox(MutableBox inner)
     {
