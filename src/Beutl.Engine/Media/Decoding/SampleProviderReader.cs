@@ -36,7 +36,7 @@ public static class SampleProviderReader
 
         // ToStereo() yields 2 floats per frame, so the provider's element count maps to frames via /2.
         float[] buffer = new float[length * 2];
-        int frames = provider.Read(buffer, 0, buffer.Length) / 2;
+        int frames = provider.Read(buffer.AsSpan()) / 2;
         if (frames <= 0)
             return Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(sampleRate, 0));
 

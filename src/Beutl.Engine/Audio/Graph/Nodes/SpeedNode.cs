@@ -443,13 +443,11 @@ public sealed class SpeedNode : AudioNode
         // stream never jumps between chunks. Advances the cursor by what was actually produced (short
         // only at end-of-source) and returns that count.
         private int Read(
-            float[] buffer,
-            int interleavedOffset,
-            int count,
+            Span<float> buffer,
             AudioProcessContext context,
             bool draining)
         {
-            if (count <= 0)
+            if (buffer.IsEmpty)
                 return 0;
 
             // Derive each sub-range from the exact sample cursor to avoid repeated samples at fractional rates.
@@ -465,7 +463,7 @@ public sealed class SpeedNode : AudioNode
             TimeSpan sourceStart = TimeSpan.FromTicks(sourceStartTicks);
             var range = new TimeRange(
                 sourceStart,
-                AudioProcessContext.GetDurationForSampleCount(count, _sampleRate));
+                AudioProcessContext.GetDurationForSampleCount(buffer.Length / _channels, _sampleRate));
             var subContext = new AudioProcessContext(
                 range,
                 _sampleRate,
@@ -480,15 +478,15 @@ public sealed class SpeedNode : AudioNode
                 : _speedNode.Inputs[0].Process(subContext);
             var leftData = result.GetChannelData(0);
             var rightData = result.GetChannelData(1);
-            int samplesToRead = Math.Min(count, result.SampleCount);
+            int samplesToRead = Math.Min(buffer.Length / _channels, result.SampleCount);
             for (int i = 0; i < samplesToRead; i++)
             {
-                buffer[interleavedOffset + i * _channels] = leftData[i];
-                buffer[interleavedOffset + i * _channels + 1] = rightData[i];
+                buffer[i * _channels] = leftData[i];
+                buffer[i * _channels + 1] = rightData[i];
             }
 
             _srcReadPos += samplesToRead;
-            return samplesToRead;
+            return samplesToRead * _channels;
         }
 
         public AudioBuffer ProcessBuffer(
@@ -529,10 +527,17 @@ public sealed class SpeedNode : AudioNode
                 int framesDone = 0;
                 while (framesDone < expectedOut)
                 {
-                    int want = _rs.ResamplePrepare(expectedOut - framesDone, _channels, out float[] inBuf, out int inOff);
-                    int got = Read(inBuf, inOff, want, context, draining);
+                    int want = _rs.ResamplePrepare(
+                        expectedOut - framesDone,
+                        _channels,
+                        out Span<float> inBuf);
+                    int got = Read(inBuf[..(want * _channels)], context, draining) / _channels;
 
-                    int made = _rs.ResampleOut(dst, framesDone * _channels, got, expectedOut - framesDone, _channels);
+                    int made = _rs.ResampleOut(
+                        dst.AsSpan(framesDone * _channels, (expectedOut - framesDone) * _channels),
+                        got,
+                        expectedOut - framesDone,
+                        _channels);
 
                     // No output and no input means the source is exhausted; the tail-fill below pads the
                     // rest. (got > 0 with made == 0 just means the resampler needs more lookahead.)
@@ -590,10 +595,14 @@ public sealed class SpeedNode : AudioNode
                     double vAvg = sumSpeed / framesThis;
                     ConfigureVariableResampling(vAvg);
 
-                    int want = _rs.ResamplePrepare(framesThis, _channels, out float[] inBuf, out int inOff);
-                    int got = Read(inBuf, inOff, want, context, draining);
+                    int want = _rs.ResamplePrepare(framesThis, _channels, out Span<float> inBuf);
+                    int got = Read(inBuf[..(want * _channels)], context, draining) / _channels;
 
-                    int made = _rs.ResampleOut(dst, framesDone * _channels, got, framesThis, _channels);
+                    int made = _rs.ResampleOut(
+                        dst.AsSpan(framesDone * _channels, framesThis * _channels),
+                        got,
+                        framesThis,
+                        _channels);
 
                     if (made == 0 && got == 0)
                         break;
