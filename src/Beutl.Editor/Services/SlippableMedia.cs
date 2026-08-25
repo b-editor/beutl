@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -17,11 +18,16 @@ internal static class SlippableMedia
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
     {
-        public Target(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan? consumedDuration = null)
+        public Target(
+            IProperty<TimeSpan> offset,
+            TimeSpan? total,
+            TimeSpan? consumedDuration = null,
+            TimeSpan? timelineRoom = null)
         {
             Offset = offset;
             Total = total;
             ConsumedDuration = consumedDuration;
+            TimelineRoom = timelineRoom;
         }
 
         public IProperty<TimeSpan> Offset { get; }
@@ -29,6 +35,8 @@ internal static class SlippableMedia
         public TimeSpan? Total { get; }
 
         public TimeSpan? ConsumedDuration { get; }
+
+        public TimeSpan? TimelineRoom { get; }
 
         public TimeSpan Current
         {
@@ -102,9 +110,25 @@ internal static class SlippableMedia
         TimeSpan? total = resource.Source is { } source && source.Duration > TimeSpan.Zero
             ? source.Duration
             : null;
-        TimeSpan consumedDuration = video.CalculateVideoDuration(video.TimeRange.Start, elementLength, resource);
+        TimeSpan clockStart = GetVideoClockStart(video);
+        TimeSpan consumedDuration = video.CalculateVideoDuration(clockStart, elementLength, resource);
         if (consumedDuration < TimeSpan.Zero) consumedDuration = TimeSpan.Zero;
-        return new Target(video.OffsetPosition, total, consumedDuration);
+        TimeSpan? timelineRoom = null;
+        if (total is { } sourceDuration)
+        {
+            TimeSpan sourceRoom = sourceDuration - video.OffsetPosition.CurrentValue - consumedDuration;
+            if (sourceRoom < TimeSpan.Zero) sourceRoom = TimeSpan.Zero;
+            timelineRoom = video.CalculateTimelineDuration(clockStart + elementLength, sourceRoom, resource);
+        }
+
+        return new Target(video.OffsetPosition, total, consumedDuration, timelineRoom);
+    }
+
+    private static TimeSpan GetVideoClockStart(SourceVideo video)
+    {
+        return video.Speed.Animation is KeyFrameAnimation<float> { UseGlobalClock: true }
+            ? video.TimeRange.Start
+            : TimeSpan.Zero;
     }
 
     private static Target CreateSoundTarget(SourceSound sound)
@@ -178,7 +202,8 @@ internal static class SlippableMedia
         {
             if (target.Total is not { } total) continue;
 
-            TimeSpan available = total - target.Current - (target.ConsumedDuration ?? elementLength);
+            TimeSpan available = target.TimelineRoom
+                ?? (total - target.Current - elementLength);
             if (available < TimeSpan.Zero) available = TimeSpan.Zero;
             if (available < room) room = available;
         }

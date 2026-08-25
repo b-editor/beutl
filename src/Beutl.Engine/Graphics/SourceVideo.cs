@@ -60,7 +60,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         }
     }
 
-    public TimeSpan CalculateVideoTime(TimeSpan timeSpan, Resource resource)
+    private TimeSpan CalculateVideoTime(TimeSpan timeSpan, Resource resource)
     {
         var anm = Speed.Animation;
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
@@ -75,14 +75,68 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         return resource._speedIntegrator.Integrate(timeSpan, keyFrameAnimation);
     }
 
+    /// <summary>
+    /// Calculates the source-time consumption for an interval in the speed animation's clock.
+    /// For local-clock animations, <paramref name="start"/> is local elapsed time; for
+    /// global-clock animations, it is the absolute timeline time.
+    /// </summary>
     public TimeSpan CalculateVideoDuration(TimeSpan start, TimeSpan duration, Resource resource)
     {
-        if (Speed.Animation is KeyFrameAnimation<float> { UseGlobalClock: true })
+        if (Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 })
         {
             return CalculateVideoTime(start + duration, resource) - CalculateVideoTime(start, resource);
         }
 
         return CalculateVideoTime(duration, resource);
+    }
+
+    /// <summary>
+    /// Calculates how much timeline time can consume the specified source duration.
+    /// The start uses the same speed-animation clock as <see cref="CalculateVideoDuration"/>.
+    /// </summary>
+    public TimeSpan CalculateTimelineDuration(TimeSpan start, TimeSpan sourceDuration, Resource resource)
+    {
+        if (sourceDuration <= TimeSpan.Zero) return TimeSpan.Zero;
+
+        if (Speed.Animation is not KeyFrameAnimation<float> { KeyFrames.Count: > 0 })
+        {
+            double speed = resource.Speed / 100.0;
+            if (speed <= 0) return TimeSpan.MaxValue;
+
+            double ticks = sourceDuration.Ticks / speed;
+            return ticks >= TimeSpan.MaxValue.Ticks
+                ? TimeSpan.MaxValue
+                : TimeSpan.FromTicks((long)ticks);
+        }
+
+        TimeSpan high = sourceDuration;
+        TimeSpan consumed = CalculateVideoDuration(start, high, resource);
+        for (int i = 0; consumed < sourceDuration && high < TimeSpan.MaxValue; i++)
+        {
+            long nextTicks = high.Ticks > TimeSpan.MaxValue.Ticks / 2
+                ? TimeSpan.MaxValue.Ticks
+                : high.Ticks * 2;
+            if (nextTicks == high.Ticks) break;
+
+            high = TimeSpan.FromTicks(nextTicks);
+            consumed = CalculateVideoDuration(start, high, resource);
+            if (i == 20) break;
+        }
+
+        if (consumed < sourceDuration) return TimeSpan.MaxValue;
+
+        TimeSpan low = TimeSpan.Zero;
+        for (int i = 0; i < 50; i++)
+        {
+            long middleTicks = low.Ticks + (high.Ticks - low.Ticks) / 2;
+            TimeSpan middle = TimeSpan.FromTicks(middleTicks);
+            if (CalculateVideoDuration(start, middle, resource) <= sourceDuration)
+                low = middle;
+            else
+                high = middle;
+        }
+
+        return low;
     }
 
     public TimeSpan? CalculateOriginalTime(Resource resource)
