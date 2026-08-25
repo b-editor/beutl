@@ -115,8 +115,8 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputViewModel_translates_a_known_ffmpeg_error_when_encoding_fails()
     {
-        GpuTestGate.EnsureAvailable();
         await ResetProjectAsync();
+        GpuTestGate.EnsureAvailable();
         EditViewModel editor = await OpenEditorWithRectangle("exportfailure");
 
         using var output = new OutputViewModel(editor);
