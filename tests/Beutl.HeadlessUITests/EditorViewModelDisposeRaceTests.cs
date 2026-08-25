@@ -11,14 +11,7 @@ using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
-// Reproduces the telemetry crash: a playback-loop timer callback (ThreadPool) reached a disposed
-// System.Reactive.Subjects.Subject<T>.OnNext through the editor-clock subscription that
-// BaseEditorViewModel bridges onto its private Subject<TimeSpan> (_currentTime). Even with the
-// clock subscription disposed first, ReactivePropertySlim keeps iterating its observer list while a
-// writer thread is already inside the setter, so the bridge can still land on the subject after
-// teardown ran on another thread. BaseEditorViewModel therefore completes (not disposes) the
-// subject: post-completion OnNext is swallowed, whereas a disposed one escapes as an unhandled
-// ObjectDisposedException on the ThreadPool -> process crash.
+// Regression coverage for the editor-clock disposal race.
 [TestFixture]
 public class EditorViewModelDisposeRaceTests
 {
@@ -43,7 +36,7 @@ public class EditorViewModelDisposeRaceTests
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
     }
 
-    // Minimal visitor injecting the editor-session services Accept() resolves.
+    // Supplies the services accepted by the editor property context.
     private sealed class ServiceVisitor(EditViewModel editViewModel, IEditorClock clock)
         : IPropertyEditorContextVisitor, IServiceProvider
     {
@@ -73,7 +66,7 @@ public class EditorViewModelDisposeRaceTests
 
         var adapter = new CorePropertyAdapter<TimeSpan>(Scene.DurationProperty, editor.Scene);
 
-        // A background thread hammering the clock stands in for the playback-loop timer callback.
+        // Simulate a playback timer writing from a background thread.
         using var stop = new CancellationTokenSource();
         var observedDisposedWrite = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -88,8 +81,7 @@ public class EditorViewModelDisposeRaceTests
                 }
                 catch (ObjectDisposedException ex)
                 {
-                    // The window this test covers: the write landed after the subject was disposed
-                    // but before the clock subscription was torn down.
+                    // This is the race that caused the production crash.
                     observedStack.TrySetResult(ex.StackTrace ?? string.Empty);
                     observedDisposedWrite.TrySetResult(true);
                     return;
@@ -111,15 +103,11 @@ public class EditorViewModelDisposeRaceTests
         finally
         {
             await stop.CancelAsync();
-            // Await the writer so an unexpected fault fails this test deterministically, and a
-            // teardown that hangs fails with a timeout instead of leaking the writer into later
-            // tests.
+            // Drain the writer before the test ends.
             await writer.WaitAsync(TimeSpan.FromSeconds(5));
         }
 
-        // Assert only after the writer has fully drained: an ObjectDisposedException recorded by
-        // the very last Dispose() iteration — or while the writer was being cancelled — must
-        // still fail the test.
+        // Check after the writer has stopped.
         if (observedStack.Task.IsCompleted)
         {
             string stack = await observedStack.Task;

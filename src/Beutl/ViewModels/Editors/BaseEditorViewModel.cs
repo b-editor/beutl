@@ -48,10 +48,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         Header = property.DisplayName;
         Description = new ReactivePropertySlim<string?>(property.Description).AddTo(Disposables);
 
-        // Do NOT register in Disposables: a completed subject tolerates straggler OnNext calls from
-        // the editor-clock bridge (the publisher may still be mid-iteration when disposal runs on
-        // another thread), whereas a disposed one throws ObjectDisposedException. We complete it in
-        // Dispose(bool) below instead.
+        // Complete during disposal so stale clock writes are ignored.
         _currentTime = new Subject<TimeSpan>();
         CurrentTime = _currentTime.Publish(TimeSpan.Zero).RefCount();
 
@@ -303,11 +300,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected virtual void Dispose(bool disposing)
     {
-        // Unsubscribe the editor-clock bridge first, then complete (not dispose) _currentTime.
-        // Completion is the race-safe teardown for a Subject that a publisher on another thread
-        // (playback timer) may still be feeding through a stale snapshot of the observer list:
-        // post-completion OnNext is swallowed instead of escaping as an unhandled
-        // ObjectDisposedException on the ThreadPool.
+        // Stop new clock writes before completing the subject.
         _currentFrameRevoker?.Dispose();
         _currentFrameRevoker = null;
         _currentTime.OnCompleted();

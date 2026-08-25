@@ -368,8 +368,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     internal void PublishAudioSnapshot(Pcm<Stereo32BitFloat>? pcm, TimeSpan startTime)
     {
-        // Skip once disposal began: an audio backend task (or one abandoned by a Pause() timeout)
-        // can still reach this method while DisposeAsync is tearing the player down.
+        // An abandoned audio task may still publish after disposal begins.
         if (pcm == null || _isDisposing) return;
 
         // Always publish so the ReplaySubject retains the latest snapshot — a
@@ -378,10 +377,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         int channels = pcm.NumChannels;
         var interleaved = new float[samples * channels];
         MemoryMarshal.Cast<Stereo32BitFloat, float>(pcm.DataSpan).CopyTo(interleaved);
-        // The _isDisposing check above is only a snapshot: a publisher that read it as false
-        // (e.g. while still copying the PCM) can land here after disposal began. Teardown
-        // therefore completes the subject instead of disposing it, so a straggler OnNext is
-        // dropped silently by Rx instead of throwing ObjectDisposedException.
+        // Teardown completes the subject so a racing publish is ignored.
         _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, pcm.SampleRate, channels, startTime));
     }
 
@@ -645,9 +641,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 if (Interlocked.Exchange(ref processing, 1) != 0) return;
                 try
                 {
-                    // Once disposal begins, DisposeAsync tears down the subjects and the editor
-                    // clock subscriptions this callback can reach; bail out before touching them.
-                    // (PlayInternal's own finally restore is separately gated on ownership.)
+                    // Do not let a timer callback touch state after disposal.
                     if (_isDisposing)
                     {
                         tcs.TrySetResult(true);
@@ -2059,9 +2053,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
         AfterRendered.Dispose();
-        // Complete (not dispose): an audio task abandoned by a Pause() timeout can still be
-        // publishing while we tear down here, and ReplaySubject.OnNext throws
-        // ObjectDisposedException on a disposed subject but is a no-op after OnCompleted.
+        // Complete so an abandoned audio task can finish without throwing.
         _audioFramePushed.OnCompleted();
         BeginEditTimecodeRequested.Dispose();
         PreviewInvalidated = null;

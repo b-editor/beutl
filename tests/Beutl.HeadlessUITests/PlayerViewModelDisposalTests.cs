@@ -14,9 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.HeadlessUITests;
 
-// Regression tests for the abandoned-playback-task disposal race: a Pause() timeout can leave an
-// audio backend task running while the player is disposed, and that task can still publish audio
-// snapshots after teardown began.
+// Regression coverage for abandoned playback tasks.
 [TestFixture]
 public class PlayerViewModelDisposalTests
 {
@@ -60,19 +58,15 @@ public class PlayerViewModelDisposalTests
         EditViewModel editor = await OpenEditorForNewScene("player-dispose");
         PlayerViewModel player = editor.Player;
 
-        // The normal editor-close path disposes the player (the same path ResetShellAsync uses).
+        // Use the normal editor-close path.
         await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!);
         HeadlessTestHelpers.Settle();
 
-        // An audio backend task abandoned by a Pause() timeout can still reach
-        // PublishAudioSnapshot after disposal; it must not throw on the torn-down player.
+        // A delayed audio task may still call this after disposal.
         using var pcm = new Pcm<Stereo32BitFloat>(44100, 64);
         Assert.DoesNotThrow(() => player.PublishAudioSnapshot(pcm, TimeSpan.Zero));
 
-        // Teardown must complete (not dispose) the audio-frame subject: a straggler OnNext that
-        // slipped past the _isDisposing snapshot is dropped silently by Rx, whereas OnNext on a
-        // disposed ReplaySubject throws ObjectDisposedException. A fresh subscriber to a
-        // completed subject observes OnCompleted immediately; a disposed one would throw here.
+        // A fresh subscriber should observe completion after disposal.
         bool completed = false;
         ((IPreviewPlayer)player).AudioFramePushed.Subscribe(_ => { }, () => completed = true);
         Assert.That(completed, Is.True,
@@ -95,8 +89,7 @@ public class PlayerViewModelDisposalTests
         void OnPreviewInvalidated(object? sender, EventArgs e) => frameApplied.TrySetResult(true);
         player.PreviewInvalidated += OnPreviewInvalidated;
 
-        // Capture notifications so an audio/render backend failure stopping playback early
-        // surfaces as a readable test failure rather than an opaque IsPlaying mismatch.
+        // Capture backend errors for diagnostics.
         var notifications = new CaptureNotificationHandler();
         INotificationServiceHandler previousHandler = NotificationService.Handler;
         NotificationService.Handler = notifications;
@@ -105,9 +98,7 @@ public class PlayerViewModelDisposalTests
         {
             player.Play();
 
-            // The playback timer ticks once the loop applies frames. Wait for the first preview
-            // frame and for the playhead to advance so the disposal below genuinely races an
-            // active timer callback.
+            // Wait until playback has advanced before disposing the editor.
             await frameApplied.Task.WaitAsync(TimeSpan.FromSeconds(10));
             bool clockAdvanced = await WaitUntilAsync(
                 () => clock.CurrentTime.Value > TimeSpan.Zero, TimeSpan.FromSeconds(5));
@@ -117,10 +108,7 @@ public class PlayerViewModelDisposalTests
             Assert.That(player.IsPlaying.Value, Is.True,
                 $"playback must still be running before the mid-playback disposal; {Diagnostics()}");
 
-            // Close the editor tab while the playback timer is active — the same teardown path
-            // ResetShellAsync uses. Without the disposal-aware shutdown, a timer/audio callback
-            // firing during teardown would hit a torn-down subject and crash the process with an
-            // unhandled ObjectDisposedException.
+            // Dispose while the playback timer is active.
             await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!);
             HeadlessTestHelpers.Settle();
 
