@@ -49,7 +49,21 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         // way, so the same rule decides them. The generic builder is the one an out-of-tree author writes
         // against; the non-generic one is what the engine's own calls go through.
         "Beutl.Graphics.Effects.ShaderDefinitionBuilder",
-        "Beutl.Graphics.Effects.ShaderBindingBuilder");
+        "Beutl.Graphics.Effects.ShaderBindingBuilder",
+
+        // A definition builder retains its execution callback and the description is fingerprinted by that
+        // delegate, so it is keyed and re-run on the same terms a metadata callback is. Each of these
+        // already carries a state-passing parameter, which is where a per-recording value belongs.
+        //
+        // ShaderDefinition is deliberately absent: its factories take a binding-declaration action that is
+        // invoked once while the definition is built and never retained, and the callbacks it registers
+        // reach the rule through ShaderDefinitionBuilder above.
+        "Beutl.Graphics.Rendering.OpaqueRenderDefinition",
+        "Beutl.Graphics.Rendering.TargetScopeDefinition",
+        "Beutl.Graphics.Rendering.TargetCommandDefinition",
+        "Beutl.Graphics.Rendering.RawTargetScopeDefinition",
+        "Beutl.Graphics.Rendering.RawTargetCommandDefinition",
+        "Beutl.Graphics.Effects.GeometryDefinition");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
         ImmutableArray.Create(
@@ -86,21 +100,152 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             if (!IsDelegateArgument(context, argument))
                 continue;
 
-            ExpressionSyntax callback = Unwrap(argument.Expression);
+            Location location = argument.GetLocation();
+            (ExpressionSyntax callback, SemanticModel model, string? unresolved) =
+                ResolveCallback(context, Unwrap(argument.Expression));
 
-            if (DescribeImpurity(context, callback) is { } reason)
+            if ((unresolved ?? DescribeImpurity(context, model, callback)) is { } reason)
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     DiagnosticDescriptors.CapturingMetadataCallback,
-                    argument.GetLocation(),
+                    location,
                     containingType.Name,
                     method.Name,
                     reason));
             }
 
-            ReportUnprovenStaticStateReads(context, containingType, method, callback);
+            ReportUnprovenStaticStateReads(context, model, containingType, method, callback, location);
         }
     }
+
+    /// <summary>
+    /// Follows a member that only names a delegate - a readonly field, a get-only property - to the
+    /// expression that decides which delegate it holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// readonly fixes the reference, which is what the plan key needs, and says nothing about the delegate
+    /// the field holds: the closure it carries and the state it reads are decided by whatever built it. So
+    /// the member is only a name for the callback, and the rules apply to what it was given.
+    /// </para>
+    /// <para>
+    /// A member this rule cannot read the source of is reported, on the same ground the getter rule already
+    /// stands on: not being able to look proves nothing, and silence has to mean the rule looked.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// The delegate expression to classify and the model that binds it, or why the member could not be
+    /// followed.
+    /// </returns>
+    private static (ExpressionSyntax Callback, SemanticModel Model, string? Unresolved) ResolveCallback(
+        SyntaxNodeAnalysisContext context,
+        ExpressionSyntax expression)
+    {
+        SemanticModel model = context.SemanticModel;
+        HashSet<ISymbol> visited = new(SymbolEqualityComparer.Default);
+
+        while (expression is IdentifierNameSyntax or MemberAccessExpressionSyntax)
+        {
+            ISymbol? symbol = model.GetSymbolInfo(expression, context.CancellationToken).Symbol;
+            ExpressionSyntax? source;
+
+            switch (symbol)
+            {
+                case IFieldSymbol { IsReadOnly: true } field:
+                    if (!visited.Add(field))
+                        return (expression, model, CyclicCallback);
+
+                    source = GetFieldInitializer(context, field);
+                    if (source is null)
+                        return (expression, model, DescribeUnreadableField(field));
+                    break;
+
+                case IPropertySymbol property:
+                    if (property.SetMethod is not null)
+                    {
+                        return (expression, model, "the callback comes from a property with a setter, so "
+                            + "the delegate the call sees is whatever was last assigned to it");
+                    }
+
+                    if (!visited.Add(property))
+                        return (expression, model, CyclicCallback);
+
+                    source = GetGetterResult(context, property);
+                    if (source is null)
+                        return (expression, model, DescribeUnreadableProperty(property));
+                    break;
+
+                // Everything else is classified where it stands: a non-readonly field, a local, a
+                // parameter, and a method group each have their own answer in DescribeImpurity.
+                default:
+                    return (expression, model, null);
+            }
+
+            model = GetSemanticModel(context, source.SyntaxTree);
+            expression = Unwrap(source);
+        }
+
+        return (expression, model, null);
+    }
+
+    /// <remarks>
+    /// Two members may name each other, which the compiler allows and which would otherwise walk for ever.
+    /// </remarks>
+    private const string CyclicCallback =
+        "the callback comes from a member that resolves back to itself, so what delegate it ends up "
+        + "holding cannot be determined";
+
+    private static ExpressionSyntax? GetFieldInitializer(
+        SyntaxNodeAnalysisContext context,
+        IFieldSymbol field)
+    {
+        foreach (SyntaxReference declaration in field.DeclaringSyntaxReferences)
+        {
+            if (declaration.GetSyntax(context.CancellationToken)
+                is VariableDeclaratorSyntax { Initializer.Value: { } value })
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    /// <remarks>
+    /// A getter that runs more than one expression is not reduced to the delegate it returns, so it takes
+    /// the same answer a getter with no source takes. This reuses the shape the static-state rule already
+    /// trusts to stand for a getter's whole result.
+    /// </remarks>
+    private static ExpressionSyntax? GetGetterResult(
+        SyntaxNodeAnalysisContext context,
+        IPropertySymbol property)
+    {
+        foreach (SyntaxReference declaration in property.DeclaringSyntaxReferences)
+        {
+            if (declaration.GetSyntax(context.CancellationToken) is PropertyDeclarationSyntax syntax
+                && GetInvariantCandidate(syntax) is { } value)
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static string DescribeUnreadableField(IFieldSymbol field)
+        => field.DeclaringSyntaxReferences.IsEmpty
+            ? "the callback comes from a readonly field compiled into another assembly, so what its "
+              + "initialiser gave the delegate cannot be seen, and readonly only fixes the reference"
+            : "the callback comes from a readonly field with no initialiser, so the delegate is built in a "
+              + "constructor, where it can close over that constructor's arguments";
+
+    private static string DescribeUnreadableProperty(IPropertySymbol property)
+        => property.DeclaringSyntaxReferences.IsEmpty
+            ? "the callback comes from a get-only property compiled into another assembly, so what its "
+              + "getter returns cannot be seen, and having no setter says only that this declaration does "
+              + "not write it"
+            : "the callback comes from a get-only property whose getter is not a single returned expression "
+              + "this rule can read, so which delegate it hands back cannot be determined";
 
     /// <summary>
     /// Strips the syntax an author can write around a callback without changing which delegate arrives.
@@ -147,7 +292,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             is { TypeKind: TypeKind.Delegate };
 
     /// <returns>Why the callback can read changing state, or <see langword="null"/> when it cannot.</returns>
-    private static string? DescribeImpurity(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
+    private static string? DescribeImpurity(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        ExpressionSyntax expression)
     {
         switch (expression)
         {
@@ -159,11 +307,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
             case IdentifierNameSyntax or MemberAccessExpressionSyntax:
                 {
-                    ISymbol? symbol = context.SemanticModel
-                        .GetSymbolInfo(expression, context.CancellationToken).Symbol;
+                    ISymbol? symbol = model.GetSymbolInfo(expression, context.CancellationToken).Symbol;
                     return symbol switch
                     {
-                        IMethodSymbol method => DescribeReceiverImpurity(context, method, expression),
+                        IMethodSymbol method => DescribeReceiverImpurity(context, model, method, expression),
 
                         // A forwarded callback is not checked anywhere else: the caller passes it to this
                         // helper, not to a contract, so nothing there is analyzed. The forwarder is the
@@ -204,6 +351,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static string? DescribeReceiverImpurity(
         SyntaxNodeAnalysisContext context,
+        SemanticModel model,
         IMethodSymbol method,
         ExpressionSyntax expression)
     {
@@ -216,7 +364,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return "the callback is an instance method, whose receiver can be changed after this call";
         }
 
-        ITypeSymbol? receiver = context.SemanticModel
+        ITypeSymbol? receiver = model
             .GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type;
         return receiver is { IsValueType: true }
             ? "the callback is an instance method on a value type, so every conversion boxes a fresh "
@@ -234,9 +382,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static void ReportUnprovenStaticStateReads(
         SyntaxNodeAnalysisContext context,
+        SemanticModel model,
         INamedTypeSymbol containingType,
         IMethodSymbol method,
-        ExpressionSyntax callback)
+        ExpressionSyntax callback,
+        Location callSite)
     {
         if (callback is not AnonymousFunctionExpressionSyntax { Body: { } body })
             return;
@@ -247,13 +397,20 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             if (IsInsideNameOf(name))
                 continue;
 
-            ISymbol? symbol = context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol;
+            ISymbol? symbol = model.GetSymbolInfo(name, context.CancellationToken).Symbol;
             if (DescribeUnprovenStaticState(context, symbol) is not (string kind, string reason))
                 continue;
 
+            // A callback reached through a readonly field can be written in another file, and a syntax
+            // node action may only report where it was asked to look. The call is where the author
+            // chose this callback, so it is the location that survives.
+            Location location = name.SyntaxTree == context.Node.SyntaxTree
+                ? name.GetLocation()
+                : callSite;
+
             context.ReportDiagnostic(Diagnostic.Create(
                 DiagnosticDescriptors.StaticStateMetadataCallback,
-                name.GetLocation(),
+                location,
                 containingType.Name,
                 method.Name,
                 kind,

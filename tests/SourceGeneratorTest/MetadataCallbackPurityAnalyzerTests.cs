@@ -1,9 +1,11 @@
 ﻿using System.Collections.Immutable;
+using System.IO;
 using Beutl.Engine.SourceGenerators.Analyzers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Emit;
 
 namespace SourceGeneratorTest;
 
@@ -19,6 +21,12 @@ namespace SourceGeneratorTest;
 [TestFixture]
 public sealed class MetadataCallbackPurityAnalyzerTests
 {
+    private static readonly MetadataReference[] FrameworkReferences = AppDomain.CurrentDomain
+        .GetAssemblies()
+        .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+        .Select(static a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
+        .ToArray();
+
     private const string ContractStubs = """
         namespace Beutl.Graphics
         {
@@ -41,15 +49,70 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                     Func<TState, Rect, Rect> transformBounds,
                     Func<TState, Rect, Rect> getRequiredInputBounds) => default;
             }
+
+            public sealed class OpaqueRenderSession { }
+
+            public sealed class TargetScopeSession { }
+
+            public sealed class TargetCommandSession { }
+
+            public sealed class RawTargetScopeSession { }
+
+            public sealed class RawTargetCommandSession { }
+
+            public sealed class OpaqueRenderDefinition<TState>
+            {
+                public static OpaqueRenderDefinition<TState> Create(
+                    Action<OpaqueRenderSession, TState> execute,
+                    RenderBoundsContract bounds) => null!;
+            }
+
+            public sealed class TargetScopeDefinition<TState>
+            {
+                public static TargetScopeDefinition<TState> Create(
+                    Action<TargetScopeSession, TState> execute,
+                    RenderBoundsContract bounds) => null!;
+            }
+
+            public sealed class TargetCommandDefinition<TState>
+            {
+                public static TargetCommandDefinition<TState> Create(
+                    Action<TargetCommandSession, TState> execute,
+                    RenderBoundsContract bounds) => null!;
+            }
+
+            public sealed class RawTargetScopeDefinition<TState>
+            {
+                public static RawTargetScopeDefinition<TState> Create(
+                    Action<RawTargetScopeSession, TState> execute,
+                    RenderBoundsContract bounds) => null!;
+            }
+
+            public sealed class RawTargetCommandDefinition<TState>
+            {
+                public static RawTargetCommandDefinition<TState> Create(
+                    Action<RawTargetCommandSession, TState> execute,
+                    RenderBoundsContract bounds) => null!;
+            }
         }
 
         namespace Beutl.Graphics.Effects
         {
             using System;
+            using Beutl.Graphics.Rendering;
 
             public sealed class ShaderDefinitionBuilder<TState>
             {
                 public void Uniform<T>(string name, Func<TState, T> value) { }
+            }
+
+            public sealed class GeometrySession { }
+
+            public sealed class GeometryDefinition<TState>
+            {
+                public static GeometryDefinition<TState> Create(
+                    Action<GeometrySession, TState> render,
+                    RenderBoundsContract bounds) => null!;
             }
         }
         """;
@@ -572,6 +635,449 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
+    /// <remarks>
+    /// readonly fixes the reference the plan key needs and says nothing about the delegate the field holds.
+    /// A field assigned in a constructor is where that gap shows: the delegate is built from the
+    /// constructor's arguments, and the runtime validator accepts an ordinary closure target.
+    /// </remarks>
+    [Test]
+    public void ACapturingLambdaAssignedToAReadonlyField_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Author
+            {
+                private readonly Func<Rect, Rect> _map;
+
+                public Author(Rect size) => _map = _ => size;
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(_map, static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "the delegate is built in a constructor, where it closes over that constructor's arguments");
+    }
+
+    /// <remarks>
+    /// The field is only a name for the lambda, so the lambda answers for the same rule an argument lambda
+    /// does. Accepting it because the field is readonly would let the whole rule be sidestepped by moving
+    /// the callback one declaration away from the call.
+    /// </remarks>
+    [Test]
+    public void ANonStaticLambdaInAReadonlyFieldInitialiser_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                private static readonly Func<Rect, Rect> s_map = value => value;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(s_map, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// An instance method group keeps its receiver as the delegate's target, and the field being readonly
+    /// says nothing about that receiver, so a field on it still changes what the callback answers.
+    /// </remarks>
+    [Test]
+    public void AnInstanceMethodGroupInAReadonlyFieldInitialiser_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Provider
+            {
+                public float Inset { get; set; }
+
+                public Rect Map(Rect value) => value;
+            }
+
+            internal static class Author
+            {
+                private static readonly Func<Rect, Rect> s_map = new Provider().Map;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(s_map, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// A readonly field holding a static lambda clears the capture rule and reaches static state exactly as
+    /// a static lambda written at the call does, so BESG004 has to follow the callback into the field.
+    /// </remarks>
+    [Test]
+    public void AReadonlyFieldHoldingAStaticLambdaOverMutableStaticState_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                private static readonly Func<Rect, Rect> s_map = static value =>
+                    new Rect(value.X + Settings.Offset, value.Y, value.Width, value.Height);
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(s_map, static value => value);
+            }
+            """);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Not.Contain("BESG003"),
+                "the lambda is static, so the capture rule is right to stay silent; this is a separate failure");
+        });
+    }
+
+    /// <remarks>
+    /// A field compiled into another assembly carries no initialiser this rule can read, and readonly proves
+    /// only that the reference is fixed. Not being able to look is the reporting side, as it already is for
+    /// a get-only property whose getter has no source.
+    /// </remarks>
+    [Test]
+    public void AReadonlyFieldFromAReferencedAssembly_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            using System;
+            using Beutl.Graphics;
+
+            namespace External
+            {
+                public static class Callbacks
+                {
+                    public static readonly Func<Rect, Rect> Map = static value => value;
+                }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using External;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Callbacks.Map, static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "a field whose initialiser is not in this compilation proves nothing about what it holds");
+    }
+
+    /// <remarks>
+    /// This is the shape the diagnostic leaves an author with: one delegate cached in a readonly field, built
+    /// from a static lambda that reads nothing that can change. Rejecting it would make the rule unusable.
+    /// </remarks>
+    [Test]
+    public void AReadonlyFieldHoldingAStaticLambdaOverConstants_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public const float Inset = 1f;
+            }
+
+            internal static class Author
+            {
+                private static readonly Func<Rect, Rect> s_map = static value =>
+                    new Rect(value.X + Settings.Inset, value.Y, value.Width, value.Height);
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(s_map, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A property is the same "cannot prove it" shape a readonly field is: it names a delegate without
+    /// saying what that delegate carries. Here the getter hands back a lambda that closes over the
+    /// receiver, so the callback answers differently once a field on that receiver changes.
+    /// </remarks>
+    [Test]
+    public void ACapturingLambdaBehindAGetOnlyProperty_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Provider
+            {
+                private readonly Rect _size;
+
+                public Provider(Rect size) => _size = size;
+
+                public Func<Rect, Rect> Map => _ => _size;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build(Provider provider)
+                    => RenderBoundsContract.Create(provider.Map, static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "the getter returns a lambda that is not static, so what it closed over decides the answer");
+    }
+
+    /// <remarks>
+    /// The getter clearing the capture rule leaves the static-state rule to decide, exactly as it does for a
+    /// static lambda written at the call or held in a readonly field.
+    /// </remarks>
+    [Test]
+    public void AGetOnlyPropertyReturningAStaticLambdaOverMutableStaticState_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Provider
+            {
+                public static Func<Rect, Rect> Map => static value =>
+                    new Rect(value.X + Settings.Offset, value.Y, value.Width, value.Height);
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Provider.Map, static value => value);
+            }
+            """);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Not.Contain("BESG003"),
+                "the lambda is static, so the capture rule is right to stay silent; this is a separate failure");
+        });
+    }
+
+    /// <remarks>
+    /// A setter means the delegate the call sees is whatever was last assigned, which nothing in the
+    /// declaration pins. Having no setter is what makes a getter worth reading at all.
+    /// </remarks>
+    [Test]
+    public void ASettableDelegateProperty_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Provider
+            {
+                public static Func<Rect, Rect> Map { get; set; } = static value => value;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Provider.Map, static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "an assignable property says nothing about which delegate reaches the contract");
+    }
+
+    /// <remarks>
+    /// A getter compiled into another assembly cannot be read, and having no setter says only that this
+    /// declaration does not write it. Not being able to look is the reporting side here too.
+    /// </remarks>
+    [Test]
+    public void AGetOnlyDelegatePropertyFromAReferencedAssembly_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            using System;
+            using Beutl.Graphics;
+
+            namespace External
+            {
+                public static class Callbacks
+                {
+                    public static Func<Rect, Rect> Map => static value => value;
+                }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using External;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Callbacks.Map, static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "a getter with no source proves nothing about the delegate it returns");
+    }
+
+    /// <remarks>
+    /// This is what stops the property arm becoming a blanket reject, which authors would suppress wholesale
+    /// and lose both rules with it: the getter can only ever hand back one static lambda, and that lambda
+    /// reads nothing that can change.
+    /// </remarks>
+    [Test]
+    public void AGetOnlyPropertyReturningAStaticLambdaOverConstants_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public const float Inset = 1f;
+            }
+
+            internal static class Provider
+            {
+                public static Func<Rect, Rect> Map => static value =>
+                    new Rect(value.X + Settings.Inset, value.Y, value.Width, value.Height);
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Provider.Map, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A definition builder's execution callback is retained on the definition and is what the description is
+    /// fingerprinted by, so it is keyed and re-run on exactly the terms a metadata callback is. Nothing else
+    /// checks it: the runtime validator null-checks the callback and never looks inside it.
+    /// </remarks>
+    [TestCase("OpaqueRenderDefinition", "OpaqueRenderSession")]
+    [TestCase("TargetScopeDefinition", "TargetScopeSession")]
+    [TestCase("TargetCommandDefinition", "TargetCommandSession")]
+    [TestCase("RawTargetScopeDefinition", "RawTargetScopeSession")]
+    [TestCase("RawTargetCommandDefinition", "RawTargetCommandSession")]
+    [TestCase("GeometryDefinition", "GeometrySession")]
+    public void ACapturingExecutionCallbackOnADefinitionBuilder_IsReported(string definition, string session)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeDefinitionCallback(
+            definition,
+            session,
+            "(session, state) => Use(session, state + inset)");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "a callback that reads a value the caller supplies per recording is what the state parameter is for");
+    }
+
+    /// <remarks>
+    /// These builders already carry a state-passing parameter, so the shape the diagnostic asks for is the
+    /// one they were designed around and must stay silent.
+    /// </remarks>
+    [TestCase("OpaqueRenderDefinition", "OpaqueRenderSession")]
+    [TestCase("TargetScopeDefinition", "TargetScopeSession")]
+    [TestCase("TargetCommandDefinition", "TargetCommandSession")]
+    [TestCase("RawTargetScopeDefinition", "RawTargetScopeSession")]
+    [TestCase("RawTargetCommandDefinition", "RawTargetCommandSession")]
+    [TestCase("GeometryDefinition", "GeometrySession")]
+    public void AStaticExecutionCallbackTakingItsValuesThroughState_IsNotReported(
+        string definition,
+        string session)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeDefinitionCallback(
+            definition,
+            session,
+            "static (session, state) => Use(session, state)");
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// The bounds argument is there so the cases prove the rule reaches the delegate parameter alone: a
+    /// definition's Create takes metadata and planner traits beside its callback, and none of those carry a
+    /// closure to report.
+    /// </remarks>
+    private static ImmutableArray<Diagnostic> AnalyzeDefinitionCallback(
+        string definition,
+        string session,
+        string callback)
+        => Analyze($$"""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using Beutl.Graphics.Effects;
+
+            internal static class Author
+            {
+                public static void Build(float inset)
+                    => {{definition}}<float>.Create(
+                        {{callback}},
+                        RenderBoundsContract.Create(static value => value, static value => value));
+
+                private static void Use({{session}} session, float value)
+                {
+                }
+            }
+            """);
+
     private static ImmutableArray<Diagnostic> AnalyzeCallbackReading(string members, string read)
         => Analyze($$"""
             using Beutl.Graphics;
@@ -593,18 +1099,44 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             }
             """);
 
-    private static ImmutableArray<Diagnostic> Analyze(string source)
+    /// <summary>
+    /// Compiles the contract stubs and <paramref name="librarySource"/> into an assembly, then analyzes
+    /// <paramref name="source"/> against it rather than against the stubs as source.
+    /// </summary>
+    /// <remarks>
+    /// A member whose source the rule cannot read is a case the rule decides on its own terms, and the only
+    /// way to produce one is to compile it somewhere else first.
+    /// </remarks>
+    private static ImmutableArray<Diagnostic> AnalyzeWithLibrary(string librarySource, string source)
+    {
+        CSharpCompilation library = CSharpCompilation.Create(
+            "AnalyzerTestLibrary",
+            [
+                CSharpSyntaxTree.ParseText(ContractStubs),
+                CSharpSyntaxTree.ParseText(librarySource),
+            ],
+            FrameworkReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var image = new MemoryStream();
+        EmitResult emit = library.Emit(image);
+        Assert.That(
+            emit.Diagnostics.Where(static d => d.Severity == DiagnosticSeverity.Error),
+            Is.Empty,
+            "the referenced assembly must compile, or the assertions below prove nothing");
+
+        image.Position = 0;
+        return Analyze(source, MetadataReference.CreateFromStream(image));
+    }
+
+    private static ImmutableArray<Diagnostic> Analyze(string source, MetadataReference? library = null)
     {
         CSharpCompilation compilation = CSharpCompilation.Create(
             "AnalyzerTest",
-            [
-                CSharpSyntaxTree.ParseText(ContractStubs),
-                CSharpSyntaxTree.ParseText(source),
-            ],
-            AppDomain.CurrentDomain.GetAssemblies()
-                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(static a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
-                .ToArray(),
+            library is null
+                ? [CSharpSyntaxTree.ParseText(ContractStubs), CSharpSyntaxTree.ParseText(source)]
+                : [CSharpSyntaxTree.ParseText(source)],
+            library is null ? FrameworkReferences : [.. FrameworkReferences, library],
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         // A source that does not bind produces no analyzer diagnostics, which would let a "stays accepted"

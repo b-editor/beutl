@@ -15,6 +15,11 @@ public sealed class DeclaredResourceAddressingContractTests
     private static readonly RenderResourceSlot<Payload> s_rightSlot = new();
     private static readonly RenderResourceSlot<Payload> s_unboundSlot = new();
     private static readonly RenderResourceSlot<Payload> s_missingSlot = new();
+
+    // Read once here rather than inside the callback: Colors.Red is a get-only property whose getter this
+    // compilation cannot see, so a callback naming it is not shown to answer the same way twice.
+    private static readonly Color s_fill = Colors.Red;
+
     private static readonly OpaqueRenderDefinition<byte> s_twoPayloadDefinition =
         OpaqueRenderDefinition<byte>.Create(
             static (session, _) => session.UseResource(s_leftSlot, left =>
@@ -23,7 +28,7 @@ public sealed class DeclaredResourceAddressingContractTests
                     left.Touch();
                     right.Touch();
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
+                    output.Canvas.Use(static canvas => canvas.Clear(s_fill));
                     session.Publish(output);
                 })),
             OpaqueRenderBoundsContract.Source(s_bounds),

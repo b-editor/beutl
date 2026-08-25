@@ -32,6 +32,10 @@ public sealed class ShaderRequestScaleIdentityTests
 
     private static readonly RenderResourceSlot<ExecutionProbe> s_probeSlot = new();
 
+    // Read once here rather than inside the callback: Colors.White is a get-only property whose getter
+    // this compilation cannot see, so a callback naming it is not shown to answer the same way twice.
+    private static readonly Color s_fill = Colors.White;
+
     private static readonly ShaderDefinition<float> s_binderShader =
         ShaderDefinition<float>.CurrentPixel(
             ShaderSource,
@@ -167,7 +171,7 @@ public sealed class ShaderRequestScaleIdentityTests
                 {
                     probe.Record();
                     using OpaqueRenderOutput output = session.CreateOutput(bounds);
-                    output.Canvas.Use(canvas => canvas.Clear(Colors.White));
+                    output.Canvas.Use(canvas => canvas.Clear(s_fill));
                     session.Publish(output);
                 }),
                 OpaqueRenderBoundsContract.Source(s_bounds),

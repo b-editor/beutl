@@ -9,13 +9,18 @@ public sealed class CapturedResourceBorrowContractTests
 {
     private static readonly Rect s_bounds = new(0, 0, 4, 3);
     private static readonly RenderResourceSlot<BorrowedPayload> s_payloadSlot = new();
+
+    // Read once here rather than inside the callback: Colors.White is a get-only property whose getter
+    // this compilation cannot see, so a callback naming it is not shown to answer the same way twice.
+    private static readonly Color s_fill = Colors.White;
+
     private static readonly OpaqueRenderDefinition<byte> s_definition =
         OpaqueRenderDefinition<byte>.Create(
             static (session, _) => session.UseResource(s_payloadSlot, payload =>
             {
                 payload.Uses++;
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
+                output.Canvas.Use(static canvas => canvas.Clear(s_fill));
                 session.Publish(output);
             }),
             OpaqueRenderBoundsContract.Source(s_bounds),
