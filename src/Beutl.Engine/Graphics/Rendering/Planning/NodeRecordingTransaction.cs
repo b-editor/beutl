@@ -365,6 +365,65 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         }
     }
 
+    /// <summary>Releases what an abandoned recording registered, without failing the request.</summary>
+    /// <remarks>
+    /// <see cref="Rollback"/> is the failure path: it reports a primary failure and the request dies with it.
+    /// A cross-check probe recording is discarded on the success path instead, so it needs the cleanup
+    /// without the verdict. The fragments it recorded stay readable, having never reached the graph.
+    /// </remarks>
+    internal void Abandon()
+    {
+        if (State != NodeRecordingTransactionState.Active)
+            return;
+
+        State = NodeRecordingTransactionState.RolledBack;
+        ReleaseOwnedReferences();
+        List<Exception>? failures = null;
+        for (int index = _resources.Count - 1; index >= 0; index--)
+        {
+            try
+            {
+                RenderResource resource = _resources[index];
+                if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
+                    Request.Options.Owner.ResourceRegistry.Rollback(resource);
+                else
+                    Request.Options.Owner.ResourceRegistry.Release(resource);
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+            }
+        }
+
+        for (int index = _nestedRequests.Count - 1; index >= 0; index--)
+        {
+            try
+            {
+                _nestedRequests[index].Request.Dispose();
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+            }
+        }
+
+        _resources.Clear();
+        _nestedRequests.Clear();
+        if (failures is not null)
+        {
+            throw new AggregateException(
+                "An abandoned render-node recording failed to release its resources.",
+                failures);
+        }
+    }
+
+    /// <summary>The fragments this transaction has recorded so far, in creation order.</summary>
+    /// <remarks>Read by the recording cross-check; the list is this transaction's own and must not be edited.</remarks>
+    internal IReadOnlyList<RecordedRenderFragmentEntry> RecordedFragments => _fragments;
+
+    /// <summary>The fragments this transaction has published so far, in publication order.</summary>
+    internal IReadOnlyList<RenderFragmentReference> RecordedPublications => _publications;
+
     public void Rollback(Exception primaryFailure)
     {
         ArgumentNullException.ThrowIfNull(primaryFailure);

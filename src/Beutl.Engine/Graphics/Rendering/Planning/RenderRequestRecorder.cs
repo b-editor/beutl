@@ -10,6 +10,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
     private readonly RecordedRenderGraphBuilder _builder;
     private readonly List<PendingRenderCacheCandidate> _pendingCacheCandidates = [];
     private readonly HashSet<RenderNode> _cacheCandidateNodes = new(ReferenceEqualityComparer.Instance);
+    private int _crossCheckProbeDepth;
     private bool _recorded;
 
     public RenderRequestRecorder(RenderRequest request)
@@ -146,7 +147,14 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
             var context = new RenderNodeContext(transaction);
             try
             {
+#if DEBUG
+                RecordedNodeShape? crossCheckBaseline =
+                    RenderRecordingCrossCheck.CaptureBaseline(this, node, inputs);
+#endif
                 node.Process(context);
+#if DEBUG
+                RenderRecordingCrossCheck.Verify(node, crossCheckBaseline, inputs, transaction);
+#endif
                 bool canCache = transaction.IsRenderCacheEnabled
                                 && node.Cache.CanCapture
                                 && !node.HasChanges
@@ -174,10 +182,46 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         return new ActiveNodeScope(Request.Options.Owner.RecordingFamily.Enter(node));
     }
 
+    /// <summary>Whether this recorder is inside a cross-check probe recording.</summary>
+    internal bool IsCapturingCrossCheckBaseline => _crossCheckProbeDepth > 0;
+
+    /// <summary>
+    /// Records <paramref name="node"/> into a transaction that never reaches the graph, and describes what it
+    /// produced.
+    /// </summary>
+    /// <remarks>
+    /// The probe transaction has no parent, so its own commits and those of anything it records below it stay
+    /// inside it and are released together. <see cref="RenderNode.PrepareForRequest"/> is deliberately not
+    /// called again: it runs once per request, and the contract under test is what a second
+    /// <see cref="RenderNode.Process(RenderNodeContext)"/> alone produces.
+    /// </remarks>
+    internal RecordedNodeShape CaptureCrossCheckBaseline(
+        RenderNode node,
+        IReadOnlyList<RenderFragmentReference> inputs)
+    {
+        _crossCheckProbeDepth++;
+        var transaction = new NodeRecordingTransaction(this, node, inputs, parent: null);
+        try
+        {
+            node.Process(new RenderNodeContext(transaction));
+            return RecordedNodeShape.Capture(inputs, transaction);
+        }
+        finally
+        {
+            transaction.Abandon();
+            _crossCheckProbeDepth--;
+        }
+    }
+
     private void QueueCacheCandidates(
         RenderNode node,
         IReadOnlyList<RenderFragmentReference> outputs)
     {
+        // A probe recording is discarded, so the candidate it would offer names a fragment the graph never
+        // received - and claiming the node here would deny the real recording its one candidate.
+        if (_crossCheckProbeDepth > 0)
+            return;
+
         // RenderNodeCache owns one atomic output set. Multiple independently published fragments would
         // require a compound candidate identity and are conservatively left uncached for now.
         if (outputs.Count != 1)

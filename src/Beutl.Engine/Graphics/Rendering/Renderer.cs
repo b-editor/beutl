@@ -907,7 +907,25 @@ internal sealed class CompleteTargetRenderNode : RenderNode
         RenderNode[] roots = [_first, .. remaining];
         if (roots.Any(static root => root is null))
             throw new ArgumentException("A complete-target root sequence cannot contain null nodes.", nameof(remaining));
+        if (HasSameRoots(roots))
+            return;
+
         _roots = roots;
+        HasChanges = true;
+    }
+
+    private bool HasSameRoots(RenderNode[] roots)
+    {
+        if (_roots.Length != roots.Length)
+            return false;
+
+        for (int index = 0; index < roots.Length; index++)
+        {
+            if (!ReferenceEquals(_roots[index], roots[index]))
+                return false;
+        }
+
+        return true;
     }
 
     public override ReadOnlySpan<RenderNode> ChildNodes => _roots;
