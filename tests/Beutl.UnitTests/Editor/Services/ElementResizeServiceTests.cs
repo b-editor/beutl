@@ -582,27 +582,29 @@ public class ElementResizeServiceTests
         });
     }
 
-    [Test]
-    public void Roll_PositiveDelta_SpeedAdjustsFrontSourceTail()
+    [TestCase(50f, 2d, 4d)]
+    [TestCase(200f, 1d, 0.5d)]
+    public void Roll_PositiveDelta_SpeedAdjustsFrontSourceTail(
+        float speed, double frontLength, double expectedDelta)
     {
         var frontSource = new VideoSource();
         frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
-        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(frontLength));
         front.Objects.Add(new SourceVideo
         {
             Source = { CurrentValue = frontSource },
-            Speed = { CurrentValue = 50f },
+            Speed = { CurrentValue = speed },
         });
-        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
+        Element back = AddElement(TimeSpan.FromSeconds(frontLength), TimeSpan.FromSeconds(10));
 
         bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(4)));
-            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
-            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(8)));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(frontLength + expectedDelta)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(frontLength + expectedDelta)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(10 - expectedDelta)));
         });
     }
 
@@ -1009,22 +1011,24 @@ public class ElementResizeServiceTests
         Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1)));
     }
 
-    [Test]
-    public void GetTrimDeltaBounds_SourceBackedFront_SpeedAdjustsSourceTail()
+    [TestCase(50f, 2d, 4d)]
+    [TestCase(200f, 1d, 0.5d)]
+    public void GetTrimDeltaBounds_SourceBackedFront_SpeedAdjustsSourceTail(
+        float speed, double frontLength, double expectedMax)
     {
         var frontSource = new VideoSource();
         frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
-        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(frontLength));
         front.Objects.Add(new SourceVideo
         {
             Source = { CurrentValue = frontSource },
-            Speed = { CurrentValue = 50f },
+            Speed = { CurrentValue = speed },
         });
-        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
+        Element back = AddElement(TimeSpan.FromSeconds(frontLength), TimeSpan.FromSeconds(10));
 
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
-        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(expectedMax)));
     }
 
     [Test]

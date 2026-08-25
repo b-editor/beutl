@@ -117,6 +117,35 @@ public class SourceVideoSpeedTest
     }
 
     [Test]
+    public void CalculateVideoDuration_LocalClockAnimation_UsesIntervalStart()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(15) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan consumed = _sourceVideo.CalculateVideoDuration(
+            TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), _sourceVideoResource);
+
+        Assert.That(consumed.TotalSeconds, Is.EqualTo(1.3667).Within(0.05));
+    }
+
+    [TestCase(50f, 4d)]
+    [TestCase(200f, 1d)]
+    public void CalculateTimelineDuration_StaticSpeedInvertsSourceDuration(float speed, double expected)
+    {
+        _sourceVideo!.Speed.CurrentValue = speed;
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), _sourceVideoResource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(expected)));
+    }
+
+    [Test]
     public void CalculateVideoTime_WithLinearSpeedAnimation_ShouldInterpolateSmoothly()
     {
         // Arrange: 0秒で速度100、2秒で速度200の線形アニメーション
