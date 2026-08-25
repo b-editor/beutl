@@ -39,11 +39,11 @@ jobs:
 
       - name: Restore .NET build cache
         id: build-cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             **/obj
-          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-${{ github.event.pull_request.head.sha || github.sha }}
+          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-${{ github.sha }}
           restore-keys: |
             dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-
 
@@ -106,11 +106,11 @@ jobs:
 
       - name: Save .NET build cache
         if: steps.build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             **/obj
-          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-${{ github.event.pull_request.head.sha || github.sha }}
+          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-${{ github.sha }}
 
       - name: Test
         run: dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
