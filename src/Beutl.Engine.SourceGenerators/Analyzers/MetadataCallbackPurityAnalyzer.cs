@@ -27,6 +27,11 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 /// Only a static lambda and a static method group are: the compiler caches those in a singleton field, while
 /// any conversion that needs a receiver builds a new delegate each time.
 /// </para>
+/// <para>
+/// A static lambda clears that bar and still fails the first one when it reads static state, so that is a
+/// second rule (BESG004) rather than a second reason on the first: the failure and the fix differ, and two
+/// ids let an author suppress one without losing the other.
+/// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
@@ -47,7 +52,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         "Beutl.Graphics.Effects.ShaderBindingBuilder");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
-        ImmutableArray.Create(DiagnosticDescriptors.CapturingMetadataCallback);
+        ImmutableArray.Create(
+            DiagnosticDescriptors.CapturingMetadataCallback,
+            DiagnosticDescriptors.StaticStateMetadataCallback);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -79,15 +86,59 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             if (!IsDelegateArgument(context, argument))
                 continue;
 
-            if (DescribeImpurity(context, argument.Expression) is not { } reason)
-                continue;
+            ExpressionSyntax callback = Unwrap(argument.Expression);
 
-            context.ReportDiagnostic(Diagnostic.Create(
-                DiagnosticDescriptors.CapturingMetadataCallback,
-                argument.GetLocation(),
-                containingType.Name,
-                method.Name,
-                reason));
+            if (DescribeImpurity(context, callback) is { } reason)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    DiagnosticDescriptors.CapturingMetadataCallback,
+                    argument.GetLocation(),
+                    containingType.Name,
+                    method.Name,
+                    reason));
+            }
+
+            ReportMutableStaticStateReads(context, containingType, method, callback);
+        }
+    }
+
+    /// <summary>
+    /// Strips the syntax an author can write around a callback without changing which delegate arrives.
+    /// </summary>
+    /// <remarks>
+    /// Each of these forms leaves the same delegate value underneath, so classifying the expression as
+    /// written would let a capturing callback past on nothing but how it was spelled.
+    /// </remarks>
+    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
+    {
+        while (true)
+        {
+            switch (expression)
+            {
+                case ParenthesizedExpressionSyntax parenthesized:
+                    expression = parenthesized.Expression;
+                    break;
+
+                case CastExpressionSyntax cast:
+                    expression = cast.Expression;
+                    break;
+
+                case CheckedExpressionSyntax @checked:
+                    expression = @checked.Expression;
+                    break;
+
+                case PostfixUnaryExpressionSyntax suppression
+                    when suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression):
+                    expression = suppression.Operand;
+                    break;
+
+                case BinaryExpressionSyntax cast when cast.IsKind(SyntaxKind.AsExpression):
+                    expression = cast.Left;
+                    break;
+
+                default:
+                    return expression;
+            }
         }
     }
 
@@ -128,8 +179,20 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     };
                 }
 
-            default:
+            // A callback that is neither delegate-typed state nor a delegate at all carries nothing to
+            // read and no identity to key a plan by, so there is nothing for either rule to say.
+            case LiteralExpressionSyntax literal
+                when literal.IsKind(SyntaxKind.NullLiteralExpression)
+                    || literal.IsKind(SyntaxKind.DefaultLiteralExpression):
+            case DefaultExpressionSyntax:
                 return null;
+
+            // Reporting an unhandled shape rather than accepting it is what keeps silence meaningful: an
+            // author reads no diagnostic as "the rule looked at this", not as "the rule ran out of cases".
+            default:
+                return $"the callback is written as a {expression.Kind()}, which this rule cannot trace to "
+                    + "a delegate it can classify, and an unclassified callback is reported rather than "
+                    + "assumed stable";
         }
     }
 
@@ -160,5 +223,60 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
               + "receiver and the delegate is a different instance on every frame"
             : "the callback is an instance method on a reference type, and the delegate keeps that "
               + "object as its receiver";
+    }
+
+    /// <remarks>
+    /// A static lambda satisfies the capture rule and can still read static state, which changes the answer
+    /// without changing the delegate. Only what the body names is visible here; a static method it calls can
+    /// read anything, and that is the bound this rule is documented to stop at rather than paper over.
+    /// </remarks>
+    private static void ReportMutableStaticStateReads(
+        SyntaxNodeAnalysisContext context,
+        INamedTypeSymbol containingType,
+        IMethodSymbol method,
+        ExpressionSyntax callback)
+    {
+        if (callback is not AnonymousFunctionExpressionSyntax { Body: { } body })
+            return;
+
+        foreach (SimpleNameSyntax name in body.DescendantNodesAndSelf().OfType<SimpleNameSyntax>())
+        {
+            // A nameof argument names a member without reading it.
+            if (IsInsideNameOf(name))
+                continue;
+
+            ISymbol? symbol = context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol;
+            if (DescribeMutableStaticState(symbol) is not { } kind)
+                continue;
+
+            context.ReportDiagnostic(Diagnostic.Create(
+                DiagnosticDescriptors.StaticStateMetadataCallback,
+                name.GetLocation(),
+                containingType.Name,
+                method.Name,
+                kind,
+                symbol!.ToDisplayString(SymbolDisplayFormat.CSharpShortErrorMessageFormat)));
+        }
+    }
+
+    private static string? DescribeMutableStaticState(ISymbol? symbol) => symbol switch
+    {
+        IFieldSymbol { IsStatic: true, IsConst: false, IsReadOnly: false } => "field",
+        IPropertySymbol { IsStatic: true, SetMethod: not null } => "property",
+        _ => null,
+    };
+
+    private static bool IsInsideNameOf(SyntaxNode node)
+    {
+        for (SyntaxNode? current = node; current is not null; current = current.Parent)
+        {
+            if (current is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } })
+                return true;
+
+            if (current is AnonymousFunctionExpressionSyntax)
+                return false;
+        }
+
+        return false;
     }
 }

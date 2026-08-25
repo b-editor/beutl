@@ -441,14 +441,14 @@ public sealed class ShaderAndAllocationFailureTests
                     {
                         VerifyRetainedWriter = () =>
                         {
-                            using SKShader retained = SKShader.CreateColor(SKColors.White);
+                            using SKShader retained = SKShader.CreateColor(StableColors.White);
                             writer.Set(retained);
                         };
                         if (failurePoint == RuntimeBindingFailure.MissingResource)
                             return;
 
-                        writer.Set(SKShader.CreateColor(SKColors.White));
-                        using SKShader duplicate = SKShader.CreateColor(SKColors.Black);
+                        writer.Set(SKShader.CreateColor(StableColors.White));
+                        using SKShader duplicate = SKShader.CreateColor(StableColors.Black);
                         writer.Set(duplicate);
                     }));
         }

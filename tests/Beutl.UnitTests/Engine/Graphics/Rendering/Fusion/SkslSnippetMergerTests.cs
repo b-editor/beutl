@@ -131,7 +131,7 @@ public sealed class SkslSnippetMergerTests
                     "lookup",
                     lookup,
                     ShaderResourceCoordinateSpace.Value,
-                    static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White)));
+                    static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White)));
             });
 
         SkslMergedProgram first = SkslSnippetMerger.Merge([new(description)]);
@@ -548,7 +548,7 @@ public sealed class SkslSnippetMergerTests
                 name,
                 resource,
                 ShaderResourceCoordinateSpace.Value,
-                static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White))));
+                static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White))));
     }
 
     private static ShaderDescription ResourceShader(
@@ -573,7 +573,7 @@ public sealed class SkslSnippetMergerTests
                         names[index],
                         resources[index],
                         ShaderResourceCoordinateSpace.Value,
-                        static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White)));
+                        static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White)));
                 }
             });
     }

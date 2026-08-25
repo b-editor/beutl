@@ -698,7 +698,7 @@ public sealed class FusionBoundaryTests
                         resources[index],
                         ShaderResourceCoordinateSpace.Value,
                         static (writer, _, _) => writer.Set(
-                            SkiaSharp.SKShader.CreateColor(SkiaSharp.SKColors.White)));
+                            SkiaSharp.SKShader.CreateColor(StableColors.White)));
                 }
             });
     }

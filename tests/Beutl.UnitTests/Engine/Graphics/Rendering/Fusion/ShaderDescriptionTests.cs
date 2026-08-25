@@ -127,7 +127,7 @@ public sealed class ShaderDescriptionTests
                     "lut",
                     resource,
                     ShaderResourceCoordinateSpace.Value,
-                    static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White)));
+                    static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White)));
             });
 
         Assert.Multiple(() =>
@@ -275,7 +275,7 @@ public sealed class ShaderDescriptionTests
                     "src",
                     resource,
                     ShaderResourceCoordinateSpace.Value,
-                    static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White)))));
+                    static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White)))));
 
         Assert.Multiple(() =>
         {
@@ -354,7 +354,7 @@ public sealed class ShaderDescriptionTests
                 "lut",
                 token,
                 ShaderResourceCoordinateSpace.Value,
-                static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White))));
+                static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White))));
         Assert.That(current.Resources.Single().CoordinateSpace, Is.EqualTo(ShaderResourceCoordinateSpace.Value));
 
         Assert.That(
@@ -364,7 +364,7 @@ public sealed class ShaderDescriptionTests
                     "lut",
                     token,
                     ShaderResourceCoordinateSpace.OutputDevice,
-                    static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White)))),
+                    static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White)))),
             Throws.TypeOf<ArgumentException>());
         Assert.That(
             () => ShaderDescription.CurrentPixel(
@@ -373,7 +373,7 @@ public sealed class ShaderDescriptionTests
                     "value",
                     token,
                     ShaderResourceCoordinateSpace.Value,
-                    static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White)))),
+                    static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White)))),
             Throws.TypeOf<ArgumentException>());
     }
 

@@ -30,4 +30,23 @@ public static class DiagnosticDescriptors
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor StaticStateMetadataCallback = new(
+        id: "BESG004",
+        title: "Render metadata callback reads mutable static state",
+        messageFormat:
+            "'{0}.{1}' keys its compiled plan by which callback this is, not by what the callback reads, "
+            + "so the callback has to answer the same way every time it runs; this one reads the mutable "
+            + "static {2} '{3}'. Carry the value through the state-passing overload or a bound render "
+            + "resource, or make '{3}' immutable. This check only sees what the callback body names "
+            + "itself, so it staying silent is not proof that the callback is state-free.",
+        category: "Beutl.Engine.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        description:
+            "Proving a callback state-free in general is not possible, and this rule does not try. It reads "
+            + "only the static fields and properties the callback body names directly. A static method the "
+            + "body calls, a member reached through a static readonly instance, and mutation of the object "
+            + "a static readonly field holds are all invisible to it. Treat silence as the absence of the "
+            + "shape authors usually write, not as a purity proof.");
 }

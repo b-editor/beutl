@@ -248,6 +248,254 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a binder that reads a value the caller supplies per call is the case this rule exists for");
     }
 
+    /// <remarks>
+    /// A cast is still a delegate argument, and the delegate underneath it is the ordinary capturing one the
+    /// runtime validator accepts. Classifying the expression as written rather than the delegate underneath
+    /// let this shape through silently.
+    /// </remarks>
+    [Test]
+    public void AForwardedParameterBehindACast_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build(Func<Rect, Rect> map)
+                    => RenderBoundsContract.Create((Func<Rect, Rect>)map, static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "a cast does not change which delegate is handed to the contract");
+    }
+
+    [Test]
+    public void AForwardedParameterInParentheses_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build(Func<Rect, Rect> map)
+                    => RenderBoundsContract.Create((map), static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+    }
+
+    [Test]
+    public void AForwardedParameterBehindANullSuppression_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build(Func<Rect, Rect>? map)
+                    => RenderBoundsContract.Create(map!, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+    }
+
+    [Test]
+    public void ACapturingLambdaBehindACast_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build(Rect size)
+                    => RenderBoundsContract.Create((Func<Rect, Rect>)(_ => size), static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// Unwrapping must not turn the rule into a blanket reject: the shape the diagnostic recommends still has
+    /// to survive being written behind a cast.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaBehindACast_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        (Func<Rect, Rect>)(static value => value),
+                        ((static value => value)));
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// An expression the rule cannot classify is reported rather than waved through: silence has to mean the
+    /// rule looked at the delegate, not that it ran out of cases.
+    /// </remarks>
+    [Test]
+    public void AnUnrecognisedDelegateExpression_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                private static Func<Rect, Rect> Factory() => static value => value;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Factory(), static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "the rule cannot see what the factory returns, so it must not assume the delegate is stable");
+    }
+
+    /// <remarks>
+    /// A null callback carries no state and no identity, so reporting it would be the rule complaining about
+    /// something other than purity. The contract rejects it at run time on its own.
+    /// </remarks>
+    [Test]
+    public void ANullCallback_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(null!, default(Func<Rect, Rect>)!);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// A static lambda cannot reach a local, a parameter, or this, so BESG003 is right to stay silent - but
+    /// static state is still reachable, and changing it makes one structural identity stand for two answers.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAMutableStaticField_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(value.X + Settings.Offset, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Not.Contain("BESG003"),
+                "the lambda is static, so the capture rule is right to stay silent; this is a separate failure");
+        });
+    }
+
+    [Test]
+    public void AStaticLambdaReadingASettableStaticProperty_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset { get; set; }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(value.X + Settings.Offset, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
+    }
+
+    /// <remarks>
+    /// Static state that cannot be reassigned answers the same way on every frame, so the rule must not reject
+    /// it. Without this, BESG004 would push authors to suppress it instead of reading it.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingImmutableStaticState_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public const float Inset = 1f;
+
+                public static readonly float Margin = 2f;
+
+                public static float Padding { get; } = 3f;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + Settings.Inset + Settings.Margin + Settings.Padding,
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
     private static ImmutableArray<Diagnostic> Analyze(string source)
     {
         CSharpCompilation compilation = CSharpCompilation.Create(
@@ -261,6 +509,13 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                 .Select(static a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
                 .ToArray(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        // A source that does not bind produces no analyzer diagnostics, which would let a "stays accepted"
+        // case pass without the analyzer ever having looked at it.
+        Assert.That(
+            compilation.GetDiagnostics().Where(static d => d.Severity == DiagnosticSeverity.Error),
+            Is.Empty,
+            "the test source must compile, or the assertions below prove nothing");
 
         return compilation
             .WithAnalyzers([new MetadataCallbackPurityAnalyzer()])
