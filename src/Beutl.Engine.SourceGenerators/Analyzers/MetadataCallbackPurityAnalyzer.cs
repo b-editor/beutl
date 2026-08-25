@@ -98,7 +98,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     reason));
             }
 
-            ReportMutableStaticStateReads(context, containingType, method, callback);
+            ReportUnprovenStaticStateReads(context, containingType, method, callback);
         }
     }
 
@@ -229,8 +229,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// A static lambda satisfies the capture rule and can still read static state, which changes the answer
     /// without changing the delegate. Only what the body names is visible here; a static method it calls can
     /// read anything, and that is the bound this rule is documented to stop at rather than paper over.
+    /// Within that bound the burden runs the other way: a read is reported unless the member is proven to
+    /// answer the same way twice, because a callback reading state nobody can pin down is the hazard.
     /// </remarks>
-    private static void ReportMutableStaticStateReads(
+    private static void ReportUnprovenStaticStateReads(
         SyntaxNodeAnalysisContext context,
         INamedTypeSymbol containingType,
         IMethodSymbol method,
@@ -246,7 +248,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 continue;
 
             ISymbol? symbol = context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol;
-            if (DescribeMutableStaticState(symbol) is not { } kind)
+            if (DescribeUnprovenStaticState(context, symbol) is not (string kind, string reason))
                 continue;
 
             context.ReportDiagnostic(Diagnostic.Create(
@@ -255,16 +257,160 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 containingType.Name,
                 method.Name,
                 kind,
-                symbol!.ToDisplayString(SymbolDisplayFormat.CSharpShortErrorMessageFormat)));
+                symbol!.ToDisplayString(SymbolDisplayFormat.CSharpShortErrorMessageFormat),
+                reason));
         }
     }
 
-    private static string? DescribeMutableStaticState(ISymbol? symbol) => symbol switch
+    /// <returns>
+    /// What kind of static member this is and why it is not proven to answer the same way twice, or
+    /// <see langword="null"/> when the read is proven stable.
+    /// </returns>
+    private static (string Kind, string Reason)? DescribeUnprovenStaticState(
+        SyntaxNodeAnalysisContext context,
+        ISymbol? symbol)
     {
-        IFieldSymbol { IsStatic: true, IsConst: false, IsReadOnly: false } => "field",
-        IPropertySymbol { IsStatic: true, SetMethod: not null } => "property",
-        _ => null,
+        return symbol switch
+        {
+            IFieldSymbol { IsStatic: true, IsConst: false, IsReadOnly: false } =>
+                ("field", "a static field that is neither const nor readonly can be assigned between two "
+                    + "recordings while the plan key stays the same"),
+
+            IPropertySymbol { IsStatic: true } property => DescribeUnprovenGetter(context, property),
+
+            _ => null,
+        };
+    }
+
+    /// <remarks>
+    /// Having no setter says only that this declaration does not write the property; it does not say the
+    /// getter answers the same way twice, because a get-only getter is free to compute its result from
+    /// anything. So the getter itself has to prove the value, and a getter this rule cannot read - one
+    /// whose source is not in the compilation - proves nothing and is reported.
+    /// </remarks>
+    private static (string Kind, string Reason)? DescribeUnprovenGetter(
+        SyntaxNodeAnalysisContext context,
+        IPropertySymbol property)
+    {
+        if (property.SetMethod is not null)
+            return ("property", "its setter can change what it answers");
+
+        ImmutableArray<SyntaxReference> declarations = property.DeclaringSyntaxReferences;
+        if (declarations.IsEmpty)
+        {
+            return ("property", "its getter has no source in this compilation, so what the getter reads "
+                + "cannot be seen, and having no setter is not on its own evidence that it answers the "
+                + "same way twice");
+        }
+
+        foreach (SyntaxReference declaration in declarations)
+        {
+            if (declaration.GetSyntax(context.CancellationToken) is PropertyDeclarationSyntax syntax
+                && GetInvariantCandidate(syntax) is { } value
+                && IsProvenConstant(context, value))
+            {
+                return null;
+            }
+        }
+
+        return ("property", "its getter is not a shape this rule can prove yields the same value on every "
+            + "read, and having no setter is not on its own evidence that it does");
+    }
+
+    /// <returns>
+    /// The single expression the getter can ever answer with, or <see langword="null"/> when the getter runs
+    /// enough code that no one expression stands for its result.
+    /// </returns>
+    private static ExpressionSyntax? GetInvariantCandidate(PropertyDeclarationSyntax syntax)
+    {
+        if (syntax.ExpressionBody is { } propertyBody)
+            return propertyBody.Expression;
+
+        AccessorDeclarationSyntax? getter = syntax.AccessorList?.Accessors
+            .FirstOrDefault(static accessor => accessor.IsKind(SyntaxKind.GetAccessorDeclaration));
+        if (getter is null)
+            return null;
+
+        if (getter.ExpressionBody is { } getterBody)
+            return getterBody.Expression;
+
+        if (getter.Body is { Statements.Count: 1 } block
+            && block.Statements[0] is ReturnStatementSyntax { Expression: { } returned })
+        {
+            return returned;
+        }
+
+        // An auto-implemented get-only getter reads a backing field only the initialiser and the static
+        // constructor can write, so the initialiser is the whole of what the getter can be shown to answer.
+        return getter.Body is null ? syntax.Initializer?.Value : null;
+    }
+
+    /// <remarks>
+    /// A static readonly field is accepted on the same terms the field rule accepts one directly, so routing
+    /// the read through a property does not make it stricter. That carries the field rule's limit with it:
+    /// mutation of the object such a field holds stays invisible, which is why the type has to be one whose
+    /// instances cannot be mutated at all.
+    /// </remarks>
+    private static bool IsProvenConstant(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
+    {
+        SemanticModel model = GetSemanticModel(context, expression.SyntaxTree);
+
+        // Covers a literal, a const, an enum member, and any expression the compiler folds out of them.
+        if (model.GetConstantValue(expression, context.CancellationToken).HasValue)
+            return true;
+
+        ExpressionSyntax value = Unwrap(expression);
+
+        // default on a struct is not a constant value to the compiler and is still the same value each read.
+        if (value is DefaultExpressionSyntax
+            || (value is LiteralExpressionSyntax literal
+                && literal.IsKind(SyntaxKind.DefaultLiteralExpression)))
+        {
+            return true;
+        }
+
+        return model.GetSymbolInfo(value, context.CancellationToken).Symbol
+                is IFieldSymbol { IsStatic: true, IsReadOnly: true } field
+            && IsImmutableType(field.Type);
+    }
+
+    private static bool IsImmutableType(ITypeSymbol type) => type switch
+    {
+        { TypeKind: TypeKind.Enum } => true,
+
+        // A readonly struct has no instance member that can write it, so a readonly field holding one keeps
+        // the value it was given; a struct without the modifier can be written through an instance method.
+        { IsValueType: true, IsReadOnly: true } => true,
+
+        // The framework types with no mutable state at all. Anything else is reported, including a sealed
+        // type an author considers immutable, because nothing in the symbol says so.
+        {
+            SpecialType: SpecialType.System_Boolean or SpecialType.System_Char or SpecialType.System_SByte
+                or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16
+                or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64
+                or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double
+                or SpecialType.System_Decimal or SpecialType.System_String or SpecialType.System_IntPtr
+                or SpecialType.System_UIntPtr or SpecialType.System_DateTime
+        } => true,
+
+        _ => false,
     };
+
+    /// <remarks>
+    /// The property whose getter decides this is routinely declared in another file, and the context's model
+    /// only covers the tree the callback is written in. RS1030 warns because a second model costs memory;
+    /// this reaches for one only for a static property a metadata callback names, which is rare enough that
+    /// the alternative - reporting every property declared elsewhere - would cost far more.
+    /// </remarks>
+    private static SemanticModel GetSemanticModel(SyntaxNodeAnalysisContext context, SyntaxTree tree)
+    {
+        if (tree == context.SemanticModel.SyntaxTree)
+            return context.SemanticModel;
+
+#pragma warning disable RS1030
+        return context.SemanticModel.Compilation.GetSemanticModel(tree);
+#pragma warning restore RS1030
+    }
 
     private static bool IsInsideNameOf(SyntaxNode node)
     {

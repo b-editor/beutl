@@ -33,22 +33,30 @@ public static class DiagnosticDescriptors
 
     public static readonly DiagnosticDescriptor StaticStateMetadataCallback = new(
         id: "BESG004",
-        title: "Render metadata callback reads mutable static state",
+        title: "Render metadata callback reads static state that is not proven constant",
         messageFormat:
             "'{0}.{1}' keys its compiled plan by which callback this is, not by what the callback reads, "
-            + "so the callback has to answer the same way every time it runs; this one reads the mutable "
-            + "static {2} '{3}'. Carry the value through the state-passing overload or a bound render "
-            + "resource, or make '{3}' immutable. This check only sees what the callback body names "
-            + "itself, so it staying silent is not proof that the callback is state-free.",
+            + "so the callback has to answer the same way every time it runs; this one reads the static "
+            + "{2} '{3}', and {4}. Carry the value through the state-passing overload or a bound render "
+            + "resource, or make '{3}' yield the same value on every read. This check only sees what the "
+            + "callback body names itself, so it staying silent is not proof that the callback is "
+            + "state-free.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         description:
             "Proving a callback state-free in general is not possible, and this rule does not try. It reads "
-            + "only the static fields and properties the callback body names directly. A static method the "
-            + "body calls, a member reached through a static readonly instance, and mutation of the object "
-            + "a static readonly field holds are all invisible to it. Treat silence as the absence of the "
-            + "shape authors usually write, not as a purity proof.");
+            + "only the static fields and properties the callback body names directly. A static field is "
+            + "accepted when it is const or readonly. A static property is accepted only when its getter is "
+            + "proven to yield the same value on every read: an expression-bodied getter, a getter whose "
+            + "body is a single return, or the initialiser of a get-only auto-property, whose expression is "
+            + "a compile-time constant, an enum member, default, or a static readonly field of an immutable "
+            + "type. Every other getter is reported, including one whose source is not available here, "
+            + "because a metadata callback reading external mutable static state is the hazard this rule "
+            + "exists for; having no setter is not on its own evidence that a getter answers the same way "
+            + "twice. A static method the body calls, a member reached through a static readonly instance, "
+            + "and mutation of the object a static readonly field holds are all still invisible to it. Treat "
+            + "silence as the absence of the shape authors usually write, not as a purity proof.");
 
     public static readonly DiagnosticDescriptor UnmarkedRenderNodeMutation = new(
         id: "BESG005",

@@ -482,7 +482,9 @@ public sealed class RenderNodeAuthoringContractTests
                 {
                     Assert.Multiple(() =>
                     {
-                        Assert.That(scaleContext.InputSupplies, Is.Empty);
+                        // Is.Empty is a get-only static property NUnit ships as metadata, so BESG004 cannot
+                        // read its getter and reports it; Is.EqualTo is a method and states the same thing.
+                        Assert.That(scaleContext.InputSupplies.Count, Is.EqualTo(0));
                         Assert.That(scaleContext.OutputBounds, Is.EqualTo(new Rect(0, 0, 100, 80)));
                         Assert.That(scaleContext.OutputScale, Is.EqualTo(1.5f));
                         Assert.That(scaleContext.MaxWorkingScale, Is.EqualTo(4));

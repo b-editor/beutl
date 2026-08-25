@@ -496,6 +496,103 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
+    /// <remarks>
+    /// The getter is where a get-only property either proves itself or does not. This one reads a field
+    /// anything can assign, so the property answers differently on the next frame while the delegate the
+    /// plan is keyed by stays the same - the exact failure BESG004 exists to name.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAGetOnlyPropertyOverMutableState_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            "public static float CurrentOffset;\n\n    public static float Offset => CurrentOffset;",
+            "value.X + Settings.Offset");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Contain("BESG004"),
+                "having no setter says nothing about what the getter reads");
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Not.Contain("BESG003"),
+                "the lambda is static, so the capture rule is right to stay silent");
+        });
+    }
+
+    [Test]
+    public void AStaticLambdaReadingAGetOnlyPropertyThatCallsAMethod_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            "public static float Compute() => 1f;\n\n    public static float Offset => Compute();",
+            "value.X + Settings.Offset");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "what the called method reads is exactly what this rule is documented not to see");
+    }
+
+    /// <remarks>
+    /// A property compiled into a referenced assembly carries no getter this rule can read, and
+    /// <see cref="Environment.TickCount"/> is what that hides: get-only, and a different value every read.
+    /// Not being able to look is the reporting side, or the rule would wave through every framework
+    /// property an author happens to name.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAGetOnlyPropertyWithNoSource_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            "public static float Unused;",
+            "value.X + System.Environment.TickCount");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a getter with no source proves nothing, so it must not be assumed constant");
+    }
+
+    /// <remarks>
+    /// These are what stop BESG004 becoming a blanket reject on get-only properties, which authors would
+    /// suppress wholesale and lose the rule with it. Each getter can answer only one value, so the plan a
+    /// callback reading it compiles to stays correct.
+    /// </remarks>
+    [TestCase("public static float Value => 4f;", "value.X + Settings.Value")]
+    [TestCase("public const float Inset = 1f;\n\n    public static float Value => Inset;", "value.X + Settings.Value")]
+    [TestCase("public static Alignment Value => Alignment.Center;", "value.X + (float)Settings.Value")]
+    [TestCase("private static readonly float s_margin = 2f;\n\n    public static float Value => s_margin;", "value.X + Settings.Value")]
+    [TestCase("public static float Value { get { return 5f; } }", "value.X + Settings.Value")]
+    [TestCase("public static float Value { get; } = 6f;", "value.X + Settings.Value")]
+    [TestCase("public static float Value => default;", "value.X + Settings.Value")]
+    public void AStaticLambdaReadingAProvenConstantGetter_IsNotReported(string members, string read)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(members, read);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    private static ImmutableArray<Diagnostic> AnalyzeCallbackReading(string members, string read)
+        => Analyze($$"""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal enum Alignment { Start, Center }
+
+            internal static class Settings
+            {
+                {{members}}
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect({{read}}, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
     private static ImmutableArray<Diagnostic> Analyze(string source)
     {
         CSharpCompilation compilation = CSharpCompilation.Create(
