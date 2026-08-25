@@ -138,6 +138,8 @@ internal interface IRenderFragmentHandleOwner
 
 internal sealed class RenderFragmentReference
 {
+    private readonly Func<Point, bool>? _recordedHitTest;
+    private readonly bool _hasDirectSymbolicBoundsDependency;
     private Func<Point, bool> _hitTest;
 
     public RenderFragmentReference(
@@ -154,6 +156,37 @@ internal sealed class RenderFragmentReference
         Func<Point, bool>? hitTest,
         RenderFragmentBoundsRequirement boundsRequirement = RenderFragmentBoundsRequirement.Finite,
         bool hasDirectSymbolicBoundsDependency = false)
+        : this(
+            kind,
+            bounds,
+            effectiveScale,
+            valueCardinality,
+            contributesValuesToTarget,
+            canBeUsedAsValueInput,
+            hasTargetEffects,
+            hasOpaqueExternalWork,
+            inputs is null ? [] : [.. inputs],
+            payload,
+            hitTest,
+            boundsRequirement,
+            hasDirectSymbolicBoundsDependency)
+    {
+    }
+
+    private RenderFragmentReference(
+        RenderFragmentKind kind,
+        Rect bounds,
+        EffectiveScale effectiveScale,
+        RenderValueCardinality valueCardinality,
+        bool contributesValuesToTarget,
+        bool canBeUsedAsValueInput,
+        bool hasTargetEffects,
+        bool hasOpaqueExternalWork,
+        ImmutableArray<RenderFragmentReference> inputs,
+        object? payload,
+        Func<Point, bool>? hitTest,
+        RenderFragmentBoundsRequirement boundsRequirement,
+        bool hasDirectSymbolicBoundsDependency)
     {
         valueCardinality.ThrowIfUninitialized(nameof(valueCardinality));
         if (!Enum.IsDefined(boundsRequirement))
@@ -176,7 +209,7 @@ internal sealed class RenderFragmentReference
         CanBeUsedAsValueInput = canBeUsedAsValueInput;
         HasTargetEffects = hasTargetEffects;
         HasOpaqueExternalWork = hasOpaqueExternalWork;
-        Inputs = inputs is null ? [] : [.. inputs];
+        Inputs = inputs;
         SupportsIndependentOutputDensities = payload is OpaqueRenderFragmentPayload
             || (kind == RenderFragmentKind.ContributeValues
                 && Inputs.Length == 1
@@ -191,8 +224,23 @@ internal sealed class RenderFragmentReference
         Payload = payload;
         PotentiallyWritesTarget = ComputePotentiallyWritesTarget();
         HasSymbolicTargetWrite = ComputeHasSymbolicTargetWrite();
+        _hasDirectSymbolicBoundsDependency = hasDirectSymbolicBoundsDependency;
+        _recordedHitTest = hitTest;
         _hitTest = hitTest ?? (static _ => false);
+        RecordingFingerprint = ComputeRecordingFingerprint();
     }
+
+    /// <summary>
+    /// A digest of everything a consumer can read from this fragment while recording, including its inputs'
+    /// own digests.
+    /// </summary>
+    /// <remarks>
+    /// A consumer reaches a fragment through <see cref="RenderFragmentHandle"/>, which exposes recording
+    /// metadata and nothing of the payload, so two fragments that agree here are interchangeable to whoever
+    /// records above them. It is what lets a reused recording be rebased onto a different request's
+    /// fragments: the inputs it is replayed over must digest to what it was recorded over.
+    /// </remarks>
+    internal long RecordingFingerprint { get; }
 
     public RenderFragmentKind Kind { get; }
 
@@ -275,6 +323,92 @@ internal sealed class RenderFragmentReference
         EffectiveScale = effectiveScale;
         if (hitTest is not null)
             _hitTest = hitTest;
+    }
+
+    /// <summary>Recreates this fragment for another request, over <paramref name="inputs"/>.</summary>
+    /// <remarks>
+    /// The clone carries the values this fragment was recorded with, not the ones metadata resolution later
+    /// wrote into it: a fragment is rebased before any request resolves it, and reproducing a resolved value
+    /// would hand the new request a bound the previous one settled. Everything the constructor derives from
+    /// the inputs is derived again from the ones given here, so a clone made over no inputs at all is a
+    /// faithful template for one made over real ones.
+    /// </remarks>
+    internal RenderFragmentReference CloneForReplay(ImmutableArray<RenderFragmentReference> inputs)
+        => new(
+            Kind,
+            RecordedBounds,
+            RecordedEffectiveScale,
+            ValueCardinality,
+            ContributesValuesToTarget,
+            CanBeUsedAsValueInput,
+            HasTargetEffects,
+            HasOpaqueExternalWork,
+            inputs,
+            Payload,
+            _recordedHitTest,
+            BoundsRequirement,
+            _hasDirectSymbolicBoundsDependency);
+
+    private long ComputeRecordingFingerprint()
+    {
+        unchecked
+        {
+            ulong hash = 14695981039346656037UL;
+            hash = Mix(hash, (ulong)(byte)Kind);
+            hash = Mix(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.X));
+            hash = Mix(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Y));
+            hash = Mix(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Width));
+            hash = Mix(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Height));
+            hash = Mix(
+                hash,
+                RecordedEffectiveScale.IsUnbounded
+                    ? ulong.MaxValue
+                    : (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedEffectiveScale.Value));
+            hash = Mix(hash, (ulong)(byte)BoundsRequirement);
+            hash = Mix(hash, (ulong)(uint)ValueCardinality.Minimum);
+            hash = Mix(
+                hash,
+                ValueCardinality.Maximum is { } maximum ? (ulong)(uint)maximum : ulong.MaxValue);
+            hash = Mix(hash, PackRecordingFlags());
+            hash = Mix(
+                hash,
+                Payload is null ? 0UL : (ulong)Payload.GetType().TypeHandle.Value.ToInt64());
+            hash = Mix(hash, (ulong)(uint)Inputs.Length);
+            foreach (RenderFragmentReference input in Inputs)
+                hash = Mix(hash, (ulong)input.RecordingFingerprint);
+            return (long)hash;
+        }
+    }
+
+    private ulong PackRecordingFlags()
+    {
+        ulong flags = 0;
+        if (ContributesValuesToTarget) flags |= 1UL << 0;
+        if (CanBeUsedAsValueInput) flags |= 1UL << 1;
+        if (HasTargetEffects) flags |= 1UL << 2;
+        if (HasOpaqueExternalWork) flags |= 1UL << 3;
+        if (HasConcreteRecordingMetadata) flags |= 1UL << 4;
+        if (HasSymbolicBoundsDependency) flags |= 1UL << 5;
+        if (SupportsIndependentOutputDensities) flags |= 1UL << 6;
+        if (PotentiallyWritesTarget) flags |= 1UL << 7;
+        if (HasSymbolicTargetWrite) flags |= 1UL << 8;
+        if (_hasDirectSymbolicBoundsDependency) flags |= 1UL << 9;
+        return flags;
+    }
+
+    private static ulong Mix(ulong hash, ulong value)
+    {
+        unchecked
+        {
+            const ulong Prime = 1099511628211UL;
+            for (int shift = 0; shift < 64; shift += 8)
+            {
+                hash ^= (value >> shift) & 0xFF;
+                hash *= Prime;
+            }
+
+            return hash;
+        }
     }
 
     private bool ComputeHasSymbolicTargetWrite()

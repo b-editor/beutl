@@ -39,7 +39,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         Request.TransitionTo(RenderRequestState.Recording);
         try
         {
-            IReadOnlyList<RenderFragmentReference> outputs = RecordSubtreeCore(root, parent: null);
+            IReadOnlyList<RenderFragmentReference> outputs = RecordSubtreeCore(root, parent: null).Outputs;
             CommitCacheCandidates();
             foreach (RenderFragmentReference output in outputs)
             {
@@ -69,9 +69,15 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(inputs);
-        return subtree
+
+        // These fragments land in the caller's commit, so the caller's recording repeats only if this one
+        // does. A node reached with explicit inputs is not walked, and nothing here can tell whether those
+        // inputs repeat what it was recorded over, so only an input-free one is offered its own cache.
+        NodeRecording recording = subtree
             ? RecordSubtreeCore(node, parent)
-            : InvokeNode(node, inputs, parent, guardAlreadyHeld: false);
+            : InvokeNode(node, inputs, inputs.Count == 0, parent, guardAlreadyHeld: false);
+        parent.MarkAbsorbedRecording(recording.RepeatsPreviousRecording);
+        return recording.Outputs;
     }
 
     public void Commit(NodeRecordingCommit commit)
@@ -106,27 +112,31 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         }
     }
 
-    private IReadOnlyList<RenderFragmentReference> RecordSubtreeCore(
+    private NodeRecording RecordSubtreeCore(
         RenderNode node,
         NodeRecordingTransaction? parent)
     {
         using ActiveNodeScope scope = EnterNode(node);
         node.PrepareForRequest(new RenderNodePreparation(Request.Options));
         var inputs = new List<RenderFragmentReference>();
+        bool inputsRepeat = true;
         if (node is ContainerRenderNode container)
         {
             foreach (RenderNode child in container.Children)
             {
-                inputs.AddRange(RecordSubtreeCore(child, parent));
+                NodeRecording childRecording = RecordSubtreeCore(child, parent);
+                inputs.AddRange(childRecording.Outputs);
+                inputsRepeat &= childRecording.RepeatsPreviousRecording;
             }
         }
 
-        return InvokeNode(node, inputs, parent, guardAlreadyHeld: true);
+        return InvokeNode(node, inputs, inputsRepeat, parent, guardAlreadyHeld: true);
     }
 
-    private IReadOnlyList<RenderFragmentReference> InvokeNode(
+    private NodeRecording InvokeNode(
         RenderNode node,
         IReadOnlyList<RenderFragmentReference> inputs,
+        bool inputsRepeatPreviousRecording,
         NodeRecordingTransaction? parent,
         bool guardAlreadyHeld)
     {
@@ -144,17 +154,44 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         try
         {
             var transaction = new NodeRecordingTransaction(this, node, inputs, parent);
-            var context = new RenderNodeContext(transaction);
             try
             {
+                RenderNodeRecordingKey key = RenderNodeRecordingKey.Create(
+                    Request.Options,
+                    transaction.IsRenderCacheEnabled);
+                RenderNodeRecordingSnapshot? snapshot =
+                    _crossCheckProbeDepth > 0 ? null : node.RecordingSnapshot;
+
+                // What a skip path needs and nothing more: the node reports no change, the request agrees
+                // with the one the recording was made for, and the fragments it is replayed over digest to
+                // the ones it was recorded over. Whether the recording is actually reused is a separate
+                // question - it repeats either way, which is what the node above needs to know.
+                bool repeats = !node.HasChanges
+                               && inputsRepeatPreviousRecording
+                               && snapshot is not null
+                               && snapshot.Matches(key, inputs);
+
+                if (repeats && snapshot!.IsReplayable && !RenderRecordingCrossCheck.IsEnabled)
+                {
+                    transaction.ReplayRecording(snapshot, inputs);
+                }
+                else
+                {
+                    var context = new RenderNodeContext(transaction);
 #if DEBUG
-                RecordedNodeShape? crossCheckBaseline =
-                    RenderRecordingCrossCheck.CaptureBaseline(this, node, inputs);
+                    RecordedNodeShape? crossCheckBaseline = RenderRecordingCrossCheck.CaptureBaseline(
+                        this,
+                        node,
+                        inputs,
+                        repeats ? snapshot : null);
 #endif
-                node.Process(context);
+                    node.Process(context);
 #if DEBUG
-                RenderRecordingCrossCheck.Verify(node, crossCheckBaseline, inputs, transaction);
+                    RenderRecordingCrossCheck.Verify(node, crossCheckBaseline, inputs, transaction);
 #endif
+                }
+
+                repeats &= transaction.AbsorbedRecordingsRepeat;
                 bool canCache = transaction.IsRenderCacheEnabled
                                 && node.Cache.CanCapture
                                 && !node.HasChanges
@@ -162,7 +199,9 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
                 ImmutableArray<RenderFragmentReference> outputs = transaction.Commit();
                 if (canCache)
                     QueueCacheCandidates(node, outputs);
-                return outputs;
+                if (_crossCheckProbeDepth == 0)
+                    RetainRecording(key, node, inputs, transaction, snapshot, repeats);
+                return new NodeRecording(outputs, repeats);
             }
             catch (Exception ex)
             {
@@ -175,6 +214,26 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         {
             scope.Dispose();
         }
+    }
+
+    private void RetainRecording(
+        in RenderNodeRecordingKey key,
+        RenderNode node,
+        IReadOnlyList<RenderFragmentReference> inputs,
+        NodeRecordingTransaction transaction,
+        RenderNodeRecordingSnapshot? previous,
+        bool repeats)
+    {
+        // A repeat re-recorded under the cross-check produces the very fragments the retained snapshot
+        // already holds, so keeping it costs nothing and describing it again would allocate on every frame.
+        RenderNodeRecordingSnapshot snapshot = repeats && previous is not null
+            ? previous
+            : RenderNodeRecordingCache.Capture(key, node, inputs, transaction);
+
+        if (RenderRecordingCrossCheck.IsEnabled)
+            snapshot.Shape = RecordedNodeShape.Capture(inputs, transaction);
+
+        node.RecordingSnapshot = snapshot;
     }
 
     private ActiveNodeScope EnterNode(RenderNode node)
@@ -260,6 +319,16 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
             _builder.AddCacheCandidate(fragmentId, candidate.Identity, candidate.Cache);
         }
         _pendingCacheCandidates.Clear();
+    }
+
+    /// <summary>What one node recorded, and whether it is what the node recorded for the previous request.</summary>
+    private readonly struct NodeRecording(
+        ImmutableArray<RenderFragmentReference> outputs,
+        bool repeatsPreviousRecording)
+    {
+        public ImmutableArray<RenderFragmentReference> Outputs { get; } = outputs;
+
+        public bool RepeatsPreviousRecording { get; } = repeatsPreviousRecording;
     }
 
     private readonly struct ActiveNodeScope : IDisposable

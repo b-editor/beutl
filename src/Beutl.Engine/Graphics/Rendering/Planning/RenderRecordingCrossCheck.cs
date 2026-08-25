@@ -17,9 +17,11 @@ namespace Beutl.Graphics.Rendering;
 /// catches what static analysis cannot follow, at the cost of running the node twice.
 /// </para>
 /// <para>
-/// The baseline - what a skip path would have reused - is supplied by the caller, so a later change that
-/// caches recorded fragments plugs in by passing <see cref="RecordedNodeShape.Capture(IReadOnlyList{RenderFragmentReference}, IReadOnlyList{RecordedRenderFragmentEntry}, IReadOnlyList{RenderFragmentReference})"/>
-/// over its cached fragments instead of the re-record this uses today. Nothing else about the mechanism moves.
+/// The baseline - what a skip path would have reused - is the shape the recording cache retained for the node,
+/// so what is verified is the artifact that would actually have been replayed rather than a second opinion
+/// about it. While this is on, a node the cache would have skipped is recorded anyway: there has to be a fresh
+/// recording for the retained one to be compared against. A node with no retained shape - its first request,
+/// or one the cache refuses - falls back to a probe re-record, which needs no history.
 /// </para>
 /// <para>
 /// This costs a second <see cref="RenderNode.Process(RenderNodeContext)"/> call per node per request, so it is
@@ -60,12 +62,13 @@ internal static class RenderRecordingCrossCheck
     public static RecordedNodeShape? CaptureBaseline(
         RenderRequestRecorder recorder,
         RenderNode node,
-        IReadOnlyList<RenderFragmentReference> inputs)
+        IReadOnlyList<RenderFragmentReference> inputs,
+        RenderNodeRecordingSnapshot? reusable)
     {
         if (!IsEnabled || node.HasChanges || recorder.IsCapturingCrossCheckBaseline)
             return null;
 
-        return recorder.CaptureCrossCheckBaseline(node, inputs);
+        return reusable?.Shape ?? recorder.CaptureCrossCheckBaseline(node, inputs);
     }
 
     /// <summary>Fails the request when the node's fresh recording differs from <paramref name="baseline"/>.</summary>
@@ -100,20 +103,39 @@ internal static class RenderRecordingCrossCheck
 /// recorded.
 /// </summary>
 /// <remarks>
-/// This compares recorded fragment metadata, the graph the fragments form, and each payload's type. It does
-/// not compare payload contents: a payload carries author callbacks and state whose equality is undefined, so
-/// reading it would trade a silent stale frame for a spurious failed one. A node whose drift changes only a
-/// payload value - a color, a matrix inside a command - therefore passes here; BESG005 is the net for that
-/// half, since such a value reaches the payload from a field the node assigns.
+/// <para>
+/// This compares recorded fragment metadata, the graph the fragments form, each payload's type, and each
+/// payload's <see cref="StructuralFragmentIdentity"/> - the same parameter-independent identity the plan cache
+/// rebinds a compiled plan on, which reaches into the payload as far as content is defined there: a shader's
+/// or geometry's description fingerprint, a bounds, hit-test, scale or input-demand contract, an opaque
+/// description's replay contract, the resource types a description declares.
+/// </para>
+/// <para>
+/// It still does not compare a payload's per-call values. Those are deliberately outside structural identity -
+/// they are what the plan cache varies while holding one plan - and a callback's captured state has no defined
+/// equality, so reading it would trade a silent stale frame for a spurious failed one. A node whose drift
+/// changes only such a value - the opacity inside an opacity payload, the state bound to a target command -
+/// therefore passes here; <see cref="RenderNode.HasChanges"/> remains the only signal for that half, as it is
+/// for output reuse, and BESG005 is the static net for it since such a value reaches the payload from a field
+/// the node assigns.
+/// </para>
 /// </remarks>
 internal readonly struct RecordedNodeShape
 {
+    private readonly int _inputCount;
     private readonly ImmutableArray<string> _fragments;
+    private readonly ImmutableArray<StructuralFragmentIdentity> _identities;
     private readonly ImmutableArray<string> _publications;
 
-    private RecordedNodeShape(ImmutableArray<string> fragments, ImmutableArray<string> publications)
+    private RecordedNodeShape(
+        int inputCount,
+        ImmutableArray<string> fragments,
+        ImmutableArray<StructuralFragmentIdentity> identities,
+        ImmutableArray<string> publications)
     {
+        _inputCount = inputCount;
         _fragments = fragments;
+        _identities = identities;
         _publications = publications;
     }
 
@@ -138,25 +160,61 @@ internal readonly struct RecordedNodeShape
         ArgumentNullException.ThrowIfNull(publications);
 
         var labels = new Dictionary<RenderFragmentReference, string>(ReferenceEqualityComparer.Instance);
+        var slots = new Dictionary<RenderFragmentReference, int>(ReferenceEqualityComparer.Instance);
         for (int index = 0; index < inputs.Count; index++)
+        {
             labels[inputs[index]] = "in" + index.ToString(CultureInfo.InvariantCulture);
+            slots[inputs[index]] = -index - 1;
+        }
+
         for (int index = 0; index < fragments.Count; index++)
+        {
             labels[fragments[index].Reference] = "#" + index.ToString(CultureInfo.InvariantCulture);
+            slots[fragments[index].Reference] = index;
+        }
+
+        // A fragment reached from outside this recording is a different instance in every request, so it is
+        // numbered by where it first appears rather than by identity - two recordings agree only when they
+        // reach the same count of them in the same order.
+        int outer = inputs.Count;
+        foreach (RecordedRenderFragmentEntry entry in fragments)
+        {
+            foreach (RenderFragmentReference input in entry.Reference.Inputs)
+            {
+                if (!slots.ContainsKey(input))
+                    slots[input] = -(++outer);
+            }
+        }
 
         var described = ImmutableArray.CreateBuilder<string>(fragments.Count);
+        var identities = ImmutableArray.CreateBuilder<StructuralFragmentIdentity>(fragments.Count);
         foreach (RecordedRenderFragmentEntry entry in fragments)
+        {
             described.Add(Describe(entry, labels));
+            identities.Add(StructuralFragmentIdentity.Create(entry.Reference, slots));
+        }
 
         var publicationLabels = ImmutableArray.CreateBuilder<string>(publications.Count);
         foreach (RenderFragmentReference publication in publications)
             publicationLabels.Add(Label(publication, labels));
 
-        return new RecordedNodeShape(described.ToImmutable(), publicationLabels.ToImmutable());
+        return new RecordedNodeShape(
+            inputs.Count,
+            described.ToImmutable(),
+            identities.ToImmutable(),
+            publicationLabels.ToImmutable());
     }
 
     /// <summary>Reports the first way <paramref name="other"/> differs from this recording.</summary>
     public bool TryDescribeDifference(in RecordedNodeShape other, out string? difference)
     {
+        if (_inputCount != other._inputCount)
+        {
+            difference = $"the first recording was made over {_inputCount} input(s) and the second over "
+                + $"{other._inputCount}.";
+            return true;
+        }
+
         if (_fragments.Length != other._fragments.Length)
         {
             difference = $"the first recording produced {_fragments.Length} fragment(s) and the second "
@@ -171,6 +229,16 @@ internal readonly struct RecordedNodeShape
                 difference = $"fragment {index} was recorded as{Environment.NewLine}"
                     + $"  first:  {_fragments[index]}{Environment.NewLine}"
                     + $"  second: {other._fragments[index]}";
+                return true;
+            }
+        }
+
+        for (int index = 0; index < _identities.Length; index++)
+        {
+            if (!_identities[index].Equals(other._identities[index]))
+            {
+                difference = $"fragment {index} kept its recorded metadata but its payload's structural "
+                    + $"identity changed. It was recorded as {_fragments[index]}.";
                 return true;
             }
         }

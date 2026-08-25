@@ -493,19 +493,57 @@ public sealed class StructuralAndProgramCacheTests
             cachePolicy: RenderCacheOptions.Disabled,
             fusionMode: fusionMode));
 
+    // Every settable member here reaches what Process records, so each one raises HasChanges: a recording is
+    // reused for a node that reports none, and a value that only reaches an execution callback is still part
+    // of the recording that would be reused.
     private sealed class ParameterShaderNode : RenderNode
     {
-        public Rect Bounds { get; set; } = new(2, 3, 12, 8);
+        private Rect _bounds = new(2, 3, 12, 8);
+        private float _value = 0.25f;
+        private int _structuralVariant;
+        private bool _useCustomBinder;
+        private object _binderStructuralKey = "binder-v1";
 
-        public float Value { get; set; } = 0.25f;
+        public Rect Bounds
+        {
+            get => _bounds;
+            set => SetRecordedField(ref _bounds, value);
+        }
 
-        public int StructuralVariant { get; set; }
+        public float Value
+        {
+            get => _value;
+            set => SetRecordedField(ref _value, value);
+        }
 
-        public bool UseCustomBinder { get; set; }
+        public int StructuralVariant
+        {
+            get => _structuralVariant;
+            set => SetRecordedField(ref _structuralVariant, value);
+        }
 
-        public object BinderStructuralKey { get; set; } = "binder-v1";
+        public bool UseCustomBinder
+        {
+            get => _useCustomBinder;
+            set => SetRecordedField(ref _useCustomBinder, value);
+        }
+
+        public object BinderStructuralKey
+        {
+            get => _binderStructuralKey;
+            set => SetRecordedField(ref _binderStructuralKey, value);
+        }
 
         public ShaderDescription? LastDescription { get; private set; }
+
+        private void SetRecordedField<T>(ref T field, T value)
+        {
+            if (EqualityComparer<T>.Default.Equals(field, value))
+                return;
+
+            field = value;
+            HasChanges = true;
+        }
 
         public override void Process(RenderNodeContext context)
         {
@@ -555,7 +593,20 @@ public sealed class StructuralAndProgramCacheTests
 
     private sealed class MutableTargetLayerScopeNode : RenderNode
     {
-        public TargetRegion Region { get; set; } = TargetRegion.Empty;
+        private TargetRegion _region = TargetRegion.Empty;
+
+        public TargetRegion Region
+        {
+            get => _region;
+            set
+            {
+                if (_region.Equals(value))
+                    return;
+
+                _region = value;
+                HasChanges = true;
+            }
+        }
 
         public override void Process(RenderNodeContext context)
             => context.Publish(context.TargetLayerScope([], Region));
@@ -564,8 +615,20 @@ public sealed class StructuralAndProgramCacheTests
     private sealed class MutableTargetCommandReadbackNode : RenderNode
     {
         private static readonly Rect s_bounds = new(0, 0, 8, 8);
+        private bool _readFirstInput = true;
 
-        public bool ReadFirstInput { get; set; } = true;
+        public bool ReadFirstInput
+        {
+            get => _readFirstInput;
+            set
+            {
+                if (_readFirstInput == value)
+                    return;
+
+                _readFirstInput = value;
+                HasChanges = true;
+            }
+        }
 
         public int[] SnapshotCounts { get; } = new int[2];
 
@@ -603,7 +666,20 @@ public sealed class StructuralAndProgramCacheTests
 
     private sealed class ExecutableParameterShaderNode(RenderTarget source) : RenderNode
     {
-        public float Value { get; set; }
+        private float _value;
+
+        public float Value
+        {
+            get => _value;
+            set
+            {
+                if (_value.Equals(value))
+                    return;
+
+                _value = value;
+                HasChanges = true;
+            }
+        }
 
         public override void Process(RenderNodeContext context)
         {

@@ -426,6 +426,95 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     /// <summary>The fragments this transaction has published so far, in publication order.</summary>
     internal IReadOnlyList<RenderFragmentReference> RecordedPublications => _publications;
 
+    /// <summary>The fragments this transaction abandoned, or <see langword="null"/> when it abandoned none.</summary>
+    internal IReadOnlyCollection<RenderFragmentReference>? RecordedDropped => _dropped;
+
+    internal int RecordedResourceCount => _resources.Count;
+
+    internal int RecordedNestedRequestCount => _nestedRequests.Count;
+
+    internal int RecordedBuiltInBackdropBindingCount => _builtInBackdropBindings.Count;
+
+    /// <summary>Whether this recording called <see cref="DisableRenderCache"/> on itself.</summary>
+    internal bool IsRenderCacheDisabledHere => _cacheDisabled;
+
+    /// <summary>Whether every recording this one absorbed repeated what its node recorded last request.</summary>
+    /// <remarks>
+    /// A node that records another node through <see cref="RecordNode"/> absorbs that node's fragments into
+    /// its own commit, so its recording changes when the absorbed one does - however still its own
+    /// <see cref="RenderNode.HasChanges"/> reads.
+    /// </remarks>
+    internal bool AbsorbedRecordingsRepeat { get; private set; } = true;
+
+    /// <summary>How many other nodes this recording drove.</summary>
+    internal int AbsorbedRecordingCount { get; private set; }
+
+    internal void MarkAbsorbedRecording(bool repeatsPreviousRecording)
+    {
+        AbsorbedRecordingCount++;
+        AbsorbedRecordingsRepeat &= repeatsPreviousRecording;
+    }
+
+    /// <summary>Records the fragments of <paramref name="snapshot"/> again, over the current inputs.</summary>
+    /// <remarks>
+    /// The caller has established that a fresh <see cref="RenderNode.Process(RenderNodeContext)"/> would
+    /// record exactly this. Every fragment is recreated rather than reused: a recorded fragment carries the
+    /// graph identity of the request that committed it, and metadata resolution writes resolved bounds into
+    /// it, so one instance cannot belong to two requests.
+    /// </remarks>
+    internal void ReplayRecording(
+        RenderNodeRecordingSnapshot snapshot,
+        IReadOnlyList<RenderFragmentReference> inputs)
+    {
+        VerifyActive();
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ReplayedRenderFragment[] fragments = snapshot.Fragments
+            ?? throw new InvalidOperationException("The recording snapshot cannot be replayed.");
+
+        _cacheDisabled |= snapshot.DisabledRenderCache;
+        RenderFragmentReference[] replayed = fragments.Length == 0
+            ? []
+            : new RenderFragmentReference[fragments.Length];
+        for (int index = 0; index < fragments.Length; index++)
+        {
+            ReplayedRenderFragment fragment = fragments[index];
+            int[] slots = fragment.InputSlots;
+            ImmutableArray<RenderFragmentReference> fragmentInputs;
+            if (slots.Length == 0)
+            {
+                fragmentInputs = [];
+            }
+            else
+            {
+                var builder = ImmutableArray.CreateBuilder<RenderFragmentReference>(slots.Length);
+                foreach (int slot in slots)
+                    builder.Add(ResolveSlot(slot, replayed, inputs));
+                fragmentInputs = builder.MoveToImmutable();
+            }
+
+            RenderFragmentReference reference = fragment.Template.CloneForReplay(fragmentInputs);
+            replayed[index] = reference;
+            OwnedReferences.Add(reference);
+            _fragments.Add(new RecordedRenderFragmentEntry(reference, fragment.Origin, fragment.Role));
+            _hasOwnTargetEffectFragment |= IsTargetEffect(reference.Kind);
+        }
+
+        foreach (int slot in snapshot.DroppedSlots ?? [])
+        {
+            (_dropped ??= new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance))
+                .Add(ResolveSlot(slot, replayed, inputs));
+        }
+
+        foreach (int slot in snapshot.PublicationSlots ?? [])
+            _publications.Add(ResolveSlot(slot, replayed, inputs));
+    }
+
+    private static RenderFragmentReference ResolveSlot(
+        int slot,
+        RenderFragmentReference[] replayed,
+        IReadOnlyList<RenderFragmentReference> inputs)
+        => slot >= 0 ? replayed[slot] : inputs[-slot - 1];
+
     public void Rollback(Exception primaryFailure)
     {
         ArgumentNullException.ThrowIfNull(primaryFailure);

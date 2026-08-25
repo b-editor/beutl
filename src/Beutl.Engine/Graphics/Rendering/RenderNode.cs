@@ -51,6 +51,14 @@ public abstract class RenderNode : IDisposable
 
     internal RenderNodeCache Cache { get; }
 
+    /// <summary>What this node recorded for the previous request, when that recording can stand for another.</summary>
+    /// <remarks>
+    /// One slot, not a table keyed by request: a node records once for the request it is walked in, and a
+    /// second request that disagrees with <see cref="RenderNodeRecordingKey"/> replaces the entry rather than
+    /// competing with it.
+    /// </remarks>
+    internal RenderNodeRecordingSnapshot? RecordingSnapshot { get; set; }
+
     public abstract void Process(RenderNodeContext context);
 
     /// <summary>Prepares this node for one request, before its children are recorded.</summary>
@@ -72,6 +80,7 @@ public abstract class RenderNode : IDisposable
         {
             OnDispose(true);
             Cache.Dispose();
+            RecordingSnapshot = null;
             IsDisposed = true;
             GC.SuppressFinalize(this);
         }

@@ -682,6 +682,11 @@ public sealed class RendererWideRecordingTests
     }
 
 
+    /// <remarks>
+    /// The count under test is how many requests reach a node, which is what a lazy bound short-circuits.
+    /// Whether the node processes again for such a request is a separate question the recording cache
+    /// answers, so it is counted separately here.
+    /// </remarks>
     [Test]
     public void ProductionRenderer_LazilyCachesBoundariesForCurrentFrame()
     {
@@ -712,36 +717,39 @@ public sealed class RendererWideRecordingTests
             var expectedBounds = new Rect(0, 0, 8, 8);
 
             renderer.Render(frame);
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 1, 1 }));
             Assert.That(state.RecordCalls, Is.EqualTo(new[] { 1, 1 }));
 
             Assert.That(renderer.GetBoundary(first), Is.EqualTo(expectedBounds));
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 1 }));
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 2, 1 }));
             Assert.That(renderer.GetBoundary(first), Is.EqualTo(expectedBounds));
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 1 }),
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 2, 1 }),
                 "A repeated single-drawable query must reuse the current-frame bounds.");
 
             Assert.That(renderer.GetBoundaries(0), Is.EqualTo(new[] { expectedBounds, expectedBounds }));
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 2 }));
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 2, 2 }));
             Assert.That(renderer.GetBoundaries(0), Is.EqualTo(new[] { expectedBounds, expectedBounds }));
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 2 }),
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 2, 2 }),
                 "A repeated layer query must reuse every current-frame bound.");
 
             renderer.UpdateFrame(frame);
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 2 }));
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 2, 2 }));
             Assert.That(renderer.GetBoundaries(0), Is.EqualTo(new[] { expectedBounds, expectedBounds }));
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 3, 3 }),
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 3, 3 }),
                 "Updating the current frame must invalidate every lazy bound.");
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 2 }),
+                "The bound is measured again from a recording that repeats, so nothing is processed again.");
 
             renderer.Render(frame);
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 4, 4 }));
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 4, 4 }));
             Assert.That(renderer.GetBoundary(first), Is.EqualTo(expectedBounds));
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 5, 4 }),
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 5, 4 }),
                 "A successful render must invalidate every lazy bound.");
             Assert.That(renderer.GetBoundary(first), Is.EqualTo(expectedBounds));
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 5, 4 }));
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 5, 4 }));
 
             Assert.That(renderer.RecalculateBoundaries(0), Is.EqualTo(new[] { expectedBounds, expectedBounds }));
-            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 6, 5 }),
+            Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 6, 5 }),
                 "Forced recalculation must record every matching drawable even when one bound is cached.");
             Assert.That(state.ExecutionOrder, Is.EqualTo(new[] { 0, 1, 0, 1 }));
 
@@ -750,7 +758,7 @@ public sealed class RendererWideRecordingTests
             {
                 Assert.That(renderer.GetBoundaries(0), Is.Empty);
                 Assert.That(renderer.GetBoundary(first), Is.Null);
-                Assert.That(state.RecordCalls, Is.EqualTo(new[] { 6, 5 }),
+                Assert.That(state.PrepareCalls, Is.EqualTo(new[] { 6, 5 }),
                     "Clearing caches must not measure disposed current-frame entries.");
             });
         });
@@ -1251,6 +1259,9 @@ internal sealed class RendererWideTreeState(int count)
 
     public int[] RecordCalls { get; } = new int[count];
 
+    /// <summary>How many requests reached each node, whether or not it recorded again for them.</summary>
+    public int[] PrepareCalls { get; } = new int[count];
+
     public int[] FrameRecordCalls { get; } = new int[count];
 
     public List<int> ExecutionOrder { get; } = [];
@@ -1292,6 +1303,9 @@ internal sealed class ProductionTreeProbeNode(
     int index,
     RendererWideTreeState state) : RenderNode
 {
+    public override void PrepareForRequest(RenderNodePreparation preparation)
+        => state.PrepareCalls[index]++;
+
     public override void Process(RenderNodeContext context)
     {
         int completedBuildCount = state.BuildCalls[index];
