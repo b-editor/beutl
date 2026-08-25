@@ -85,8 +85,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
         result = vk.BindImageMemory(device, _image, _memory, 0);
         if (result != Result.Success)
         {
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw new InvalidOperationException($"Failed to bind cube map image memory: {result}");
         }
 
@@ -111,8 +111,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
         result = vk.CreateImageView(device, &cubeViewInfo, null, &cubeView);
         if (result != Result.Success)
         {
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw new InvalidOperationException($"Failed to create Vulkan cube map image view: {result}");
         }
         _imageView = cubeView;
@@ -146,8 +146,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
                     vk.DestroyImageView(device, _faceViews[j], null);
                 }
                 vk.DestroyImageView(device, _imageView, null);
-                vk.FreeMemory(device, _memory, null);
                 vk.DestroyImage(device, _image, null);
+                vk.FreeMemory(device, _memory, null);
                 throw new InvalidOperationException($"Failed to create Vulkan cube face image view {i}: {result}");
             }
             _faceViews[i] = faceView;
@@ -170,8 +170,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
             for (int i = 0; i < _faceViews.Length; i++)
                 vk.DestroyImageView(device, _faceViews[i], null);
             vk.DestroyImageView(device, _imageView, null);
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw;
         }
 

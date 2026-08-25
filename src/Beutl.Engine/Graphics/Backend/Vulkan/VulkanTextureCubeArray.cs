@@ -104,8 +104,8 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
         result = vk.BindImageMemory(device, _image, _memory, 0);
         if (result != Result.Success)
         {
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw new InvalidOperationException($"Failed to bind cube map array image memory: {result}");
         }
 
@@ -130,8 +130,8 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
         result = vk.CreateImageView(device, &cubeArrayViewInfo, null, &cubeArrayView);
         if (result != Result.Success)
         {
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw new InvalidOperationException($"Failed to create Vulkan cube map array image view: {result}");
         }
         _imageView = cubeArrayView;
@@ -167,8 +167,8 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
                     // Clean up previously created views
                     CleanupFaceViews(arrIdx, faceIdx, vk, device);
                     vk.DestroyImageView(device, _imageView, null);
-                    vk.FreeMemory(device, _memory, null);
                     vk.DestroyImage(device, _image, null);
+                    vk.FreeMemory(device, _memory, null);
                     throw new InvalidOperationException($"Failed to create Vulkan cube array face image view [{arrIdx},{faceIdx}]: {result}");
                 }
                 _faceViews[arrIdx, faceIdx] = faceView;
@@ -192,8 +192,8 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
         {
             CleanupFaceViews(arraySize - 1, 6, vk, device);
             vk.DestroyImageView(device, _imageView, null);
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw;
         }
 

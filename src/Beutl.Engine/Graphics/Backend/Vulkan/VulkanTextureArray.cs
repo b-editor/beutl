@@ -94,8 +94,8 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
         result = vk.BindImageMemory(device, _image, _memory, 0);
         if (result != Result.Success)
         {
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw new InvalidOperationException($"Failed to bind texture array image memory: {result}");
         }
 
@@ -120,8 +120,8 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
         result = vk.CreateImageView(device, &arrayViewInfo, null, &arrayView);
         if (result != Result.Success)
         {
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw new InvalidOperationException($"Failed to create Vulkan texture array image view: {result}");
         }
         _imageView = arrayView;
@@ -155,8 +155,8 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
                     vk.DestroyImageView(device, _layerViews[j], null);
                 }
                 vk.DestroyImageView(device, _imageView, null);
-                vk.FreeMemory(device, _memory, null);
                 vk.DestroyImage(device, _image, null);
+                vk.FreeMemory(device, _memory, null);
                 throw new InvalidOperationException($"Failed to create Vulkan texture array layer image view {i}: {result}");
             }
             _layerViews[i] = layerView;
@@ -185,8 +185,8 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
             for (uint i = 0; i < _arraySize; i++)
                 vk.DestroyImageView(device, _layerViews[i], null);
             vk.DestroyImageView(device, _imageView, null);
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw;
         }
 

@@ -104,8 +104,8 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         result = vk.BindImageMemory(device, _image, _memory, 0);
         if (result != Result.Success)
         {
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw new InvalidOperationException($"Failed to bind image memory: {result}");
         }
 
@@ -130,8 +130,8 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         result = vk.CreateImageView(device, &viewInfo, null, &imageView);
         if (result != Result.Success)
         {
-            vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
+            vk.FreeMemory(device, _memory, null);
             throw new InvalidOperationException($"Failed to create Vulkan image view: {result}");
         }
 
