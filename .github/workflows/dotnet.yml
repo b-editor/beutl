@@ -83,8 +83,8 @@ jobs:
           git submodule foreach --recursive \
             'git ls-files -z | xargs -0 -r touch -h -d "2000-01-01 00:00:00 UTC"'
 
-          if ! git diff --quiet --diff-filter=D "$CACHED_SHA" HEAD -- \
-            || git diff --raw "$CACHED_SHA" HEAD -- | awk '/160000/ { found = 1 } END { exit !found }'; then
+          if ! git diff --quiet --no-renames --diff-filter=D "$CACHED_SHA" HEAD -- \
+            || git diff --raw "$CACHED_SHA" HEAD -- | awk '$1 == ":160000" || $2 == "160000" { found = 1 } END { exit !found }'; then
             echo "A tracked file was deleted or a submodule changed; forcing a full rebuild."
             git ls-files -z | xargs -0 -r touch -h
             git submodule foreach --recursive 'git ls-files -z | xargs -0 -r touch -h'
