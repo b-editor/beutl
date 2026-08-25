@@ -188,6 +188,28 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SourceVideo_AtMediaEnd_RemainsBounded()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 60)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(2) },
+        };
+        element.Objects.Add(video);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
     public void Slip_SourceSound_ShiftsOffsetPositionAndCommits()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
