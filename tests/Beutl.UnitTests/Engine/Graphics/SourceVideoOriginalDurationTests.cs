@@ -6,11 +6,8 @@ using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
-// Telemetry regression: SourceVideo.TryGetOriginalDuration used to return true with a
-// non-positive duration when OffsetPosition had reached or passed the media end, and "change to
-// original duration" then fed that value into the resize pipeline, crashing Scene.MoveChild with
-// ArgumentOutOfRangeException('length'). The provider contract is a positive duration or false,
-// matching the SourceSound guard.
+// Regression: TryGetOriginalDuration must return false (not a non-positive duration) once the
+// offset reaches/passes the media end — matching the SourceSound positive guard.
 [TestFixture]
 public class SourceVideoOriginalDurationTests
 {

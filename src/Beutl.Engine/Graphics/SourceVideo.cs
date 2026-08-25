@@ -39,9 +39,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     {
         using var resource = ToResource(CompositionContext.Default);
         var ts = CalculateOriginalTime((Resource)resource);
-        // An in-point advanced past the media end (offset >= original time) leaves nothing to
-        // restore; report no original duration instead of a non-positive one, matching the
-        // SourceSound guard that only accepts a positive duration.
+        // Offset past the media end leaves nothing to restore; match SourceSound's positive guard.
         if (ts.HasValue && ts.Value - OffsetPosition.CurrentValue > TimeSpan.Zero)
         {
             timeSpan = ts.Value - OffsetPosition.CurrentValue;

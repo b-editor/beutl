@@ -25,12 +25,8 @@ public sealed class ElementResizeService : IElementResizeService
         requests = requests.Where(r => !scene.IsElementLocked(r.Element)).ToArray();
         if (requests.Count == 0) return;
 
-        // Clamp rather than throw, matching the ripple geometry clamps below: UI callers run on
-        // async-void pointer paths, and frame rounding at submission can dip below the preview
-        // floor (an original duration shorter than one frame, a pixel width that rounds to zero).
-        // Before this normalization the non-ripple branch handed such values straight to
-        // Scene.MoveChild, whose ArgumentOutOfRangeException escaped the async-void handler and
-        // terminated the app.
+        // Normalize before MoveChild: UI submit paths can round below one frame, and the exception
+        // escapes the async-void handler.
         requests = NormalizeRequests(scene, requests);
 
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
@@ -109,18 +105,14 @@ public sealed class ElementResizeService : IElementResizeService
         scene.Duration = sceneEnd - scene.Start;
     }
 
-    // Floors every request into Scene.MoveChild's valid range: a non-negative start and a length
-    // of at least one frame at the scene rate. Both branches submit through this boundary, so the
-    // floor protects the direct MoveChild writes and the ripple geometry clamps alike. The start
-    // floor is the timeline origin, not scene.Start: the scene start is the visible/export window,
-    // and elements may legally begin before it (moving the scene start right strands clips), so a
-    // resize must not shift or trim such a clip.
+    // Floors each request into MoveChild's valid range: non-negative start, length >= 1 frame.
+    // Start floors to the timeline origin, not scene.Start — clips may legally sit before the
+    // scene window.
     private static ElementResizeRequest[] NormalizeRequests(Scene scene, IReadOnlyList<ElementResizeRequest> requests)
     {
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
-        // An absurd persisted rate can round the frame duration below the TimeSpan tick
-        // resolution; keep the floor positive so it can never be bypassed.
+        // A huge rate can round below the tick resolution; keep the floor positive.
         if (minLength <= TimeSpan.Zero) minLength = TimeSpan.FromTicks(1);
         var normalized = new ElementResizeRequest[requests.Count];
         for (int i = 0; i < requests.Count; i++)
@@ -482,8 +474,7 @@ public sealed class ElementResizeService : IElementResizeService
     {
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
-        // Mirror NormalizeRequests: below the tick resolution the frame duration rounds to zero,
-        // which would let Roll/Slide shrink a clip to nothing.
+        // Below the tick resolution the floor rounds to zero.
         if (minDuration <= TimeSpan.Zero) minDuration = TimeSpan.FromTicks(1);
 
         if (front.Length < minDuration || back.Length < minDuration)

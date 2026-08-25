@@ -17,13 +17,9 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
-// Regression tests for the telemetry crash "ArgumentOutOfRangeException (Parameter 'length')" in
-// Beutl.Services.UnhandledExceptionHandler (2.0.0-preview.3 / preview.6). "Change to original
-// duration" on a clip whose media duration is shorter than one frame floored the new length to
-// zero, and the pointer-release resize could submit a pixel width that rounds to zero frames;
-// ElementResizeService.Resize handed both straight to Scene.MoveChild, whose exception escaped
-// the async-void handler via Task.ThrowAsync and terminated the app. The service boundary now
-// floors every request to one frame, so both flows clamp instead of crashing.
+// Regression for the telemetry ArgumentOutOfRangeException('length') crash: sub-frame original
+// durations and zero-pixel resizes used to reach Scene.MoveChild and escape the async-void handler.
+// The service now floors every request to one frame.
 [TestFixture]
 public class SubFrameResizeClampTests
 {
