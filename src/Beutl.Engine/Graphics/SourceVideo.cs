@@ -60,11 +60,11 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         }
     }
 
-    private TimeSpan CalculateVideoTime(TimeSpan timeSpan, Resource resource)
+    public TimeSpan CalculateVideoTime(TimeSpan timeSpan, Resource resource)
     {
         var anm = Speed.Animation;
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
-            return timeSpan;
+            return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
 
         if (keyFrameAnimation.KeyFrames.Count == 0)
         {
@@ -73,6 +73,16 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
 
         resource._speedIntegrator.EnsureCache(anm);
         return resource._speedIntegrator.Integrate(timeSpan, keyFrameAnimation);
+    }
+
+    public TimeSpan CalculateVideoDuration(TimeSpan start, TimeSpan duration, Resource resource)
+    {
+        if (Speed.Animation is KeyFrameAnimation<float> { UseGlobalClock: true })
+        {
+            return CalculateVideoTime(start + duration, resource) - CalculateVideoTime(start, resource);
+        }
+
+        return CalculateVideoTime(duration, resource);
     }
 
     public TimeSpan? CalculateOriginalTime(Resource resource)

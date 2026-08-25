@@ -583,6 +583,30 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Roll_PositiveDelta_SpeedAdjustsFrontSourceTail()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        front.Objects.Add(new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            Speed = { CurrentValue = 50f },
+        });
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
+
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(8)));
+        });
+    }
+
+    [Test]
     public void Roll_PositiveDelta_ClampDisabled_ExtendsPastFrontSource()
     {
         // With ClampResizeToOriginalLength off, Roll must not clamp the front out-point to its
@@ -983,6 +1007,24 @@ public class ElementResizeServiceTests
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_SourceBackedFront_SpeedAdjustsSourceTail()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        front.Objects.Add(new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            Speed = { CurrentValue = 50f },
+        });
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(2)));
     }
 
     [Test]
