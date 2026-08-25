@@ -17,15 +17,18 @@ internal static class SlippableMedia
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
     {
-        public Target(IProperty<TimeSpan> offset, TimeSpan? total)
+        public Target(IProperty<TimeSpan> offset, TimeSpan? total, TimeSpan? consumedDuration = null)
         {
             Offset = offset;
             Total = total;
+            ConsumedDuration = consumedDuration;
         }
 
         public IProperty<TimeSpan> Offset { get; }
 
         public TimeSpan? Total { get; }
+
+        public TimeSpan? ConsumedDuration { get; }
 
         public TimeSpan Current
         {
@@ -46,7 +49,7 @@ internal static class SlippableMedia
         var visited = new HashSet<object>();
         foreach (EngineObject obj in element.Objects)
         {
-            CollectFrom(obj, targets, visited);
+            CollectFrom(obj, targets, visited, element.Length);
         }
 
         return targets;
@@ -55,14 +58,15 @@ internal static class SlippableMedia
     // The visited set makes each node contribute once: a media object reachable through
     // several paths (e.g. one SourceVideo shared by two DrawablePresenter.Targets) must not
     // receive the shared delta once per path, and a presenter cycle must not recurse forever.
-    private static void CollectFrom(object obj, List<Target> targets, HashSet<object> visited)
+    private static void CollectFrom(
+        object obj, List<Target> targets, HashSet<object> visited, TimeSpan elementLength)
     {
         if (!visited.Add(obj)) return;
 
         switch (obj)
         {
             case SourceVideo video:
-                targets.Add(CreateVideoTarget(video));
+                targets.Add(CreateVideoTarget(video, elementLength));
                 break;
             case SourceSound sound:
                 targets.Add(CreateSoundTarget(sound));
@@ -72,33 +76,35 @@ internal static class SlippableMedia
                 break;
             case SoundGroup soundGroup:
                 foreach (Sound child in soundGroup.Children)
-                    CollectFrom(child, targets, visited);
+                    CollectFrom(child, targets, visited, elementLength);
                 break;
             case DrawableGroup drawableGroup:
                 foreach (Drawable child in drawableGroup.Children)
-                    CollectFrom(child, targets, visited);
+                    CollectFrom(child, targets, visited, elementLength);
                 break;
             case DrawableDecorator decorator:
                 foreach (Drawable child in decorator.Children)
-                    CollectFrom(child, targets, visited);
+                    CollectFrom(child, targets, visited, elementLength);
                 break;
             // DrawablePresenter / DrawableTimeController render the drawable in Target
             // rather than a Children list, so a wrapped SourceVideo is only reachable here.
             case IPresenter<Drawable> presenter:
                 if (presenter.Target.CurrentValue is { } presented)
-                    CollectFrom(presented, targets, visited);
+                    CollectFrom(presented, targets, visited, elementLength);
                 break;
         }
     }
 
-    private static Target CreateVideoTarget(SourceVideo video)
+    private static Target CreateVideoTarget(SourceVideo video, TimeSpan elementLength)
     {
-        // Slip offsets are in source time, so use the loaded media's absolute duration directly.
-        using var resource = video.Source.CurrentValue?.ToResource(CompositionContext.Default);
-        TimeSpan? total = resource != null && resource.Duration > TimeSpan.Zero
-            ? resource.Duration
+        // Slip offsets and media bounds use source time, including speed conversion.
+        using var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default);
+        TimeSpan? total = resource.Source is { } source && source.Duration > TimeSpan.Zero
+            ? source.Duration
             : null;
-        return new Target(video.OffsetPosition, total);
+        TimeSpan consumedDuration = video.CalculateVideoDuration(video.TimeRange.Start, elementLength, resource);
+        if (consumedDuration < TimeSpan.Zero) consumedDuration = TimeSpan.Zero;
+        return new Target(video.OffsetPosition, total, consumedDuration);
     }
 
     private static Target CreateSoundTarget(SourceSound sound)
@@ -118,7 +124,7 @@ internal static class SlippableMedia
     }
 
     // The largest-magnitude delta (in the requested direction) that every stream can apply
-    // without leaving [0, Total - elementLength]. Applying one shared delta keeps linked
+    // without leaving [0, Total - consumed duration]. Applying one shared delta keeps linked
     // streams (e.g. a video + audio pair) in sync even when one hits its source boundary first.
     public static TimeSpan ClampSharedDelta(IReadOnlyList<Target> targets, TimeSpan delta, TimeSpan elementLength)
     {
@@ -140,7 +146,7 @@ internal static class SlippableMedia
     {
         if (target.Total is not { } total) return long.MaxValue;
 
-        TimeSpan maxOffset = total - elementLength;
+        TimeSpan maxOffset = total - (target.ConsumedDuration ?? elementLength);
         if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
         return Math.Max(0L, (maxOffset - target.Current).Ticks);
     }
@@ -172,7 +178,7 @@ internal static class SlippableMedia
         {
             if (target.Total is not { } total) continue;
 
-            TimeSpan available = total - target.Current - elementLength;
+            TimeSpan available = total - target.Current - (target.ConsumedDuration ?? elementLength);
             if (available < TimeSpan.Zero) available = TimeSpan.Zero;
             if (available < room) room = available;
         }

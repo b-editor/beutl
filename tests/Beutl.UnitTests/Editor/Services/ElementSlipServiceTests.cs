@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
@@ -206,6 +207,54 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.False);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [TestCase(50f, 2d, true)]
+    [TestCase(200f, 0d, false)]
+    public void Slip_SourceVideo_SpeedAdjustsSourceBounds(float speed, double expectedDelta, bool expectedApplied)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            Speed = { CurrentValue = speed },
+        };
+        element.Objects.Add(video);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.EqualTo(expectedApplied));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
+        });
+    }
+
+    [Test]
+    public void Slip_SourceVideo_AnimatedSpeedAdjustsSourceBounds()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(10), Value = 50f });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            Speed = { Animation = speed },
+        };
+        element.Objects.Add(video);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromTicks(1)));
         });
     }
 
