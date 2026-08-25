@@ -6,6 +6,26 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed class RegionAnalyzer
 {
+    /// <summary>
+    /// Resolves forward metadata and measures the request, without deriving any region requirement.
+    /// </summary>
+    /// <remarks>
+    /// Resolving forward metadata mutates the symbolic fragment bounds that target-scope lowering reads, so a
+    /// caller that goes on to compile must re-lower and call <see cref="Analyze"/>. Requirements derived here
+    /// would come from the pre-mutation dependency plan and be discarded, so this entry point does not spend
+    /// the propagation that produces them.
+    /// </remarks>
+    public RenderNodeMeasurement ResolveMeasurement(
+        RenderRequestOptions options,
+        IReadOnlyList<RenderFragmentReference> roots,
+        TargetDependencyPlan? targetDependencies = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(roots);
+
+        return ResolveMetadataPass(options, roots, targetDependencies).Measurement;
+    }
+
     public RegionAnalysis Analyze(
         RenderRequestOptions options,
         IReadOnlyList<RenderFragmentReference> roots,
@@ -14,22 +34,13 @@ internal sealed class RegionAnalyzer
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(roots);
 
-        targetDependencies ??= TargetDependencyLowerer.Lower(
-            roots.ToImmutableArray(),
-            options.TargetDomain);
-
-        ImmutableArray<RenderFragmentReference> topologicalOrder = GetTopologicalOrder(roots);
-        ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures =
-            FindBackingTargetBackdropCaptures(topologicalOrder, targetDependencies);
-        IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains =
-            ResolveTargetDomains(
-                roots,
-                options.TargetDomain,
-                targetDependencies,
-                backingTargetBackdropCaptures);
-        ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata =
-            ResolveForwardMetadata(topologicalOrder, targetDomains, options);
-        RenderNodeMeasurement measurement = Measure(options, roots);
+        MetadataPass pass = ResolveMetadataPass(options, roots, targetDependencies);
+        targetDependencies = pass.TargetDependencies;
+        ImmutableArray<RenderFragmentReference> topologicalOrder = pass.TopologicalOrder;
+        ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures = pass.BackingTargetBackdropCaptures;
+        IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains = pass.TargetDomains;
+        ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata = pass.Metadata;
+        RenderNodeMeasurement measurement = pass.Measurement;
         Rect finalCommitBounds = options.RequestedRegion switch
         {
             { Width: 0 } empty => empty,
@@ -113,6 +124,43 @@ internal sealed class RegionAnalyzer
             metadata,
             backingTargetBackdropCaptures);
     }
+
+    private static MetadataPass ResolveMetadataPass(
+        RenderRequestOptions options,
+        IReadOnlyList<RenderFragmentReference> roots,
+        TargetDependencyPlan? targetDependencies)
+    {
+        targetDependencies ??= TargetDependencyLowerer.Lower(
+            roots.ToImmutableArray(),
+            options.TargetDomain);
+
+        ImmutableArray<RenderFragmentReference> topologicalOrder = GetTopologicalOrder(roots);
+        ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures =
+            FindBackingTargetBackdropCaptures(topologicalOrder, targetDependencies);
+        IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains =
+            ResolveTargetDomains(
+                roots,
+                options.TargetDomain,
+                targetDependencies,
+                backingTargetBackdropCaptures);
+        ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata =
+            ResolveForwardMetadata(topologicalOrder, targetDomains, options);
+        return new MetadataPass(
+            targetDependencies,
+            topologicalOrder,
+            backingTargetBackdropCaptures,
+            targetDomains,
+            metadata,
+            Measure(options, roots));
+    }
+
+    private readonly record struct MetadataPass(
+        TargetDependencyPlan TargetDependencies,
+        ImmutableArray<RenderFragmentReference> TopologicalOrder,
+        ImmutableHashSet<RenderFragmentId> BackingTargetBackdropCaptures,
+        IReadOnlyDictionary<RenderFragmentReference, Rect?> TargetDomains,
+        ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> Metadata,
+        RenderNodeMeasurement Measurement);
 
     private static bool PropagateValueRequirements(
         ImmutableArray<RenderFragmentReference> topologicalOrder,

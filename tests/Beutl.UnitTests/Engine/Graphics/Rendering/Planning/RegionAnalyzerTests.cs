@@ -249,6 +249,43 @@ public sealed class RegionAnalyzerTests
         });
     }
 
+    /// <remarks>
+    /// Compilation re-lowers target scopes from the fragment bounds that metadata resolution wrote, so the
+    /// measurement-only entry point has to leave the graph in exactly the state a full analysis would.
+    /// </remarks>
+    [Test]
+    public void ResolveMeasurement_MatchesAFullAnalysisOnBothItsResultAndItsResolvedMetadata()
+    {
+        RenderRequestOptions options = Options(
+            targetDomain: new Rect(0, 0, 200, 160),
+            requestedRegion: new Rect(10, 10, 40, 40));
+
+        RegionAnalysis analyzed = new RegionAnalyzer().Analyze(options, [BuildRoot()]);
+        RenderFragmentReference measuredRoot = BuildRoot();
+        RenderNodeMeasurement measured = new RegionAnalyzer().ResolveMeasurement(options, [measuredRoot]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(measured, Is.EqualTo(analyzed.Measurement));
+            Assert.That(measuredRoot.Bounds, Is.EqualTo(analyzed.GetMetadata(measuredRoot).Bounds));
+            Assert.That(
+                measuredRoot.EffectiveScale,
+                Is.EqualTo(analyzed.GetMetadata(measuredRoot).EffectiveScale));
+        });
+
+        static RenderFragmentReference BuildRoot()
+        {
+            var graph = new FragmentGraph();
+            RenderFragmentReference source = graph.Source(
+                new Rect(10, 10, 100, 100),
+                EffectiveScale.At(2));
+            RenderBoundsContract grow = RenderBoundsContract.Create(
+                static input => input.Inflate(new Thickness(5)),
+                static requested => requested.Inflate(new Thickness(5)));
+            return graph.Map(source, grow);
+        }
+    }
+
     private static RenderRequestOptions Options(
         Rect? targetDomain = null,
         Rect? requestedRegion = null)

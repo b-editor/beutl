@@ -9,6 +9,12 @@ internal sealed class RenderRequestCompiler
     private readonly RenderCacheResolutionContext? _renderCacheContext;
     private readonly IRenderCacheLookup? _renderCacheLookup;
 
+    /// <summary>
+    /// Counts the full <see cref="RegionAnalyzer.Analyze"/> runs this compiler drove, so a test can pin how
+    /// many region analyses one request pays for.
+    /// </summary>
+    internal int RegionAnalysisCount { get; private set; }
+
     public RenderRequestCompiler(
         StructuralPlanCache? structuralPlanCache = null,
         RenderCacheResolutionContext? renderCacheContext = null,
@@ -146,8 +152,7 @@ internal sealed class RenderRequestCompiler
             roots,
             request.Options.TargetDomain);
         RenderNodeMeasurement measurement = new RegionAnalyzer()
-            .Analyze(request.Options, roots, targetDependencies)
-            .Measurement;
+            .ResolveMeasurement(request.Options, roots, targetDependencies);
         request.TransitionTo(RenderRequestState.MetadataResolved);
         measurements.Add(request, measurement);
     }
@@ -170,8 +175,7 @@ internal sealed class RenderRequestCompiler
                     roots,
                     nested.Request.Options.TargetDomain);
                 measurements[nested.Request] = new RegionAnalyzer()
-                    .Analyze(nested.Request.Options, roots, targetDependencies)
-                    .Measurement;
+                    .ResolveMeasurement(nested.Request.Options, roots, targetDependencies);
             }
             else
             {
@@ -230,6 +234,7 @@ internal sealed class RenderRequestCompiler
         TargetDependencyPlan targetDependencies = TargetDependencyLowerer.Lower(
             roots,
             request.Options.TargetDomain);
+        RegionAnalysisCount++;
         RegionAnalysis regions = new RegionAnalyzer().Analyze(
             request.Options,
             roots,
