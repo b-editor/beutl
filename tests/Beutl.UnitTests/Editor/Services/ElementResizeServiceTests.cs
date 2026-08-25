@@ -122,9 +122,7 @@ public class ElementResizeServiceTests
     [Test]
     public void Resize_NonRipple_ZeroLength_ClampsToOneFrameInsteadOfThrowing()
     {
-        // Telemetry regression: "change to original duration" floored a sub-frame original
-        // duration to zero and the non-ripple branch handed it to Scene.MoveChild, whose
-        // ArgumentOutOfRangeException escaped the async-void UI handler and crashed the app.
+        // Regression: a sub-frame original duration floored to zero crashed MoveChild.
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
@@ -160,9 +158,7 @@ public class ElementResizeServiceTests
     [Test]
     public void Resize_NonRipple_StartBeforeNonZeroSceneStart_IsNotShifted()
     {
-        // The scene start is the visible/export window, not the earliest legal element position:
-        // a clip stranded before it (e.g. after the scene start moved right past it) must keep
-        // its start when resized, not be shifted or trimmed into the window.
+        // scene.Start is the window, not the legal floor; a stranded clip keeps its start.
         _scene.Start = TimeSpan.FromSeconds(5);
         Element element = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(3));
 
@@ -179,8 +175,7 @@ public class ElementResizeServiceTests
     [Test]
     public void Resize_NonRipple_CorruptProjectFrameRate_FallsBackInsteadOfThrowing()
     {
-        // Review regression: a persisted zero frame rate used to reach TimeSpan.FromSeconds(1d / rate)
-        // and throw before the clamp could protect the async-void UI path.
+        // Regression: a zero persisted rate threw on 1d / rate before the clamp ran.
         var project = new Project();
         project.Variables[ProjectVariableKeys.FrameRate] = "0";
         project.Items.Add(_scene);
@@ -197,8 +192,7 @@ public class ElementResizeServiceTests
     [Test]
     public void Resize_NonRipple_AbsurdProjectFrameRate_FloorStaysPositive()
     {
-        // Above roughly 2e7 the one-frame TimeSpan rounds to zero ticks; the floor must stay
-        // positive so a zero-length request cannot bypass it into Scene.MoveChild.
+        // Above ~2e7 the one-frame TimeSpan rounds to zero ticks.
         var project = new Project();
         project.Variables[ProjectVariableKeys.FrameRate] = "50000000";
         project.Items.Add(_scene);
