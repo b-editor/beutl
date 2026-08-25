@@ -68,9 +68,69 @@ public sealed class SlotBackedHitTestTests
         });
     }
 
-    private static bool Hit(HitShape shape, Point point)
+    // The handle a call returns is only alive inside the Process that recorded it, and nothing commits a
+    // resource before that Process returns. A recording-time hit test over a bound resource therefore has
+    // to read a registration that is still pending, or it has no moment at which it can run at all.
+    [Test]
+    public void ACallReadsTheResourceItJustBoundWhileItIsStillRecording()
     {
-        using var node = new SlotHitTestNode(shape);
+        var shape = new HitShape(new Rect(0, 0, 40, 40));
+        using var node = new RecordingTimeHitTestNode(shape);
+
+        bool afterRecording = HitTest(node, new Point(20, 20));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Concrete, Is.True, "the fragment answered from concrete recording metadata");
+            Assert.That(node.HitInside, Is.True, "recording-time answer inside the shape");
+            Assert.That(node.HitOutside, Is.False, "recording-time answer outside the shape");
+            Assert.That(afterRecording, Is.True, "the committed answer agrees with the recording-time one");
+        });
+    }
+
+    // A nested recording seals into the one that absorbed it without committing its resources, so the
+    // absorbing recording is the one whose rollback would now discard them - and the one that may read them.
+    [Test]
+    public void AnAbsorbingRecordingReadsTheResourceItsChildRegistered()
+    {
+        var shape = new HitShape(new Rect(0, 0, 40, 40));
+        using var child = new RecordingTimeHitTestNode(shape);
+        using var parent = new AbsorbingHitTestNode(child);
+
+        HitTest(parent, new Point(20, 20));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(parent.Concrete, Is.True);
+            Assert.That(parent.HitInside, Is.True, "the parent reads the child's still-pending resource");
+            Assert.That(parent.HitOutside, Is.False);
+        });
+    }
+
+    // Reading a pending registration takes and returns the lease like any other read, so the recording it
+    // belongs to can still roll the registration back afterwards.
+    [Test]
+    public void ARecordingTimeReadLeavesTheFailingRecordingFreeToRollBack()
+    {
+        var shape = new HitShape(new Rect(0, 0, 40, 40));
+        using var node = new FailingRecordingTimeHitTestNode(shape);
+
+        Assert.That(() => HitTest(node, new Point(20, 20)), Throws.InvalidOperationException);
+
+        RenderResource<HitShape> token = node.Token!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.HitInside, Is.True, "the read succeeded while the recording was still alive");
+            Assert.That(
+                token.RegistrationState,
+                Is.EqualTo(RenderResourceRegistrationState.Released),
+                "the rollback still reached the resource the hit test had read");
+            Assert.That(token.OwnershipState, Is.EqualTo(RenderResourceOwnershipState.ReleasedToken));
+        });
+    }
+
+    private static bool HitTest(RenderNode node, Point point)
+    {
         using var renderer = new RenderNodeRenderer(
             node,
             new RenderNodeRendererOptions
@@ -84,9 +144,87 @@ public sealed class SlotBackedHitTestTests
         return renderer.HitTest(point);
     }
 
+    private static bool Hit(HitShape shape, Point point)
+    {
+        using var node = new SlotHitTestNode(shape);
+        return HitTest(node, point);
+    }
+
     private sealed class HitShape(Rect bounds)
     {
         public bool Contains(Point point) => bounds.Contains(point);
+    }
+
+    private class RecordingTimeHitTestNode(HitShape shape) : RenderNode
+    {
+        private static readonly RenderResourceSlot<HitShape> s_shapeSlot = new();
+
+        private static readonly OpaqueRenderDefinition<Rect> s_definition =
+            OpaqueRenderDefinition<Rect>.Create(
+                static (session, bounds) =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                    output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.FromSlot(
+                    s_shapeSlot,
+                    static (shape, point) => shape.Contains(point)),
+                RenderValueCardinality.Single,
+                RenderScaleContract.Vector,
+                resources: [s_shapeSlot]);
+
+        public bool Concrete { get; private set; }
+
+        public bool HitInside { get; private set; }
+
+        public bool HitOutside { get; private set; }
+
+        public RenderResource<HitShape>? Token { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderResource<HitShape> token = context.Borrow(shape);
+            Token = token;
+            RenderFragmentHandle handle = context.OpaqueSource(
+                s_definition.Call(s_bounds, [s_shapeSlot.Bind(token)]));
+            Concrete = handle.TryHitTest(new Point(20, 20), out bool inside);
+            HitInside = inside;
+            handle.TryHitTest(new Point(80, 80), out bool outside);
+            HitOutside = outside;
+            context.Publish(handle);
+            AfterRecording(context);
+        }
+
+        protected virtual void AfterRecording(RenderNodeContext context)
+        {
+        }
+    }
+
+    private sealed class FailingRecordingTimeHitTestNode(HitShape shape) : RecordingTimeHitTestNode(shape)
+    {
+        protected override void AfterRecording(RenderNodeContext context)
+            => throw new InvalidOperationException("The recording failed after the hit test.");
+    }
+
+    private sealed class AbsorbingHitTestNode(RenderNode child) : RenderNode
+    {
+        public bool Concrete { get; private set; }
+
+        public bool HitInside { get; private set; }
+
+        public bool HitOutside { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle handle = context.RecordNode(child, []).Single();
+            Concrete = handle.TryHitTest(new Point(20, 20), out bool inside);
+            HitInside = inside;
+            handle.TryHitTest(new Point(80, 80), out bool outside);
+            HitOutside = outside;
+            context.Publish(handle);
+        }
     }
 
     private sealed class SlotHitTestNode(HitShape shape) : RenderNode

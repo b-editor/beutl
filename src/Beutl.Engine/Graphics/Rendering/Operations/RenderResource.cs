@@ -85,6 +85,18 @@ public sealed class RenderResourceBinding
 }
 
 /// <summary>
+/// A recording whose rollback also discards the pending resource registrations it owns.
+/// </summary>
+/// <remarks>
+/// A pending registration is readable only while the recording that owns it is still in flight: only then
+/// does a rollback of the registration take the reader's own recorded work with it.
+/// </remarks>
+internal interface IRenderResourceRecordingScope
+{
+    bool IsRecording { get; }
+}
+
+/// <summary>
 /// Identifies a request-scoped resource without exposing its raw value.
 /// </summary>
 public abstract class RenderResource
@@ -109,6 +121,14 @@ public abstract class RenderResource
     internal RenderResourceOwnershipState OwnershipState => _slot?.State ?? _terminalState;
 
     internal RenderResourceRegistrationState RegistrationState { get; set; }
+
+    /// <summary>Gets or sets the recording that owns this registration while it is pending.</summary>
+    /// <remarks>
+    /// Ownership follows the registration: a nested recording that seals hands its still-pending
+    /// registrations to the recording that absorbed them, so the scope is always the one whose rollback
+    /// would discard them.
+    /// </remarks>
+    internal IRenderResourceRecordingScope? RecordingScope { get; set; }
 
     internal void Detach(RenderResourceOwnershipState terminalState)
     {
@@ -154,7 +174,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
     private readonly List<RenderResourceRegistration> _slots = [];
     private bool _disposed;
 
-    public RenderResource<T> RegisterOwned<T>(T value)
+    public RenderResource<T> RegisterOwned<T>(T value, IRenderResourceRecordingScope? scope = null)
         where T : class, IDisposable
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -183,10 +203,10 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
             value,
             RenderResourceOwnershipMode.Owned);
         _ownedTombstones.Add(value, OwnedResourceTombstone.Instance);
-        return CreateToken<T>(slot);
+        return CreateToken<T>(slot, scope);
     }
 
-    public RenderResource<T> RegisterBorrowed<T>(T value)
+    public RenderResource<T> RegisterBorrowed<T>(T value, IRenderResourceRecordingScope? scope = null)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -210,7 +230,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         RenderResourceRegistration created = CreateSlot(
             value,
             RenderResourceOwnershipMode.Borrowed);
-        RenderResource<T> createdToken = CreateToken<T>(created);
+        RenderResource<T> createdToken = CreateToken<T>(created, scope);
         MarkBorrowed(value);
         return createdToken;
     }
@@ -224,6 +244,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         }
 
         resource.RegistrationState = RenderResourceRegistrationState.Committed;
+        resource.RecordingScope = null;
         resource.Slot.PendingRegistrations--;
         resource.Slot.CommittedRegistrations++;
         resource.Slot.UpdateStableState();
@@ -256,7 +277,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
     {
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentNullException.ThrowIfNull(use);
-        EnsureCommitted(resource);
+        EnsureReadable(resource);
 
         // A lease is a read, and one composable definition can reach the same declared resource twice: a
         // scope that binds a token and replays an input that binds the same one runs the inner read inside
@@ -369,12 +390,15 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         return slot;
     }
 
-    private RenderResource<T> CreateToken<T>(RenderResourceRegistration slot)
+    private RenderResource<T> CreateToken<T>(
+        RenderResourceRegistration slot,
+        IRenderResourceRecordingScope? scope)
         where T : class
     {
         var token = new RenderResource<T>(this, slot)
         {
             RegistrationState = RenderResourceRegistrationState.Pending,
+            RecordingScope = scope,
         };
         slot.PendingRegistrations++;
         slot.Tokens.Add(token);
@@ -401,6 +425,23 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         }
     }
 
+    // Reading is weaker than mutating: a recording has to be able to evaluate what it just registered -
+    // a recording-time hit test over a bound resource - and nothing commits before the recording ends.
+    // A pending registration can still be rolled back, so only the recording that owns it may read it;
+    // for anyone else, and for everyone once that recording has ended, a commit is still required.
+    private void EnsureReadable(RenderResource resource)
+    {
+        EnsureRegistered(resource);
+        if (resource.RegistrationState == RenderResourceRegistrationState.Committed
+            || (resource.RegistrationState == RenderResourceRegistrationState.Pending
+                && resource.RecordingScope?.IsRecording == true))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException("The resource is not committed to this request.");
+    }
+
     private void ReleaseCore(RenderResource resource)
     {
         RenderResourceRegistration slot = resource.Slot;
@@ -423,6 +464,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         }
 
         resource.RegistrationState = RenderResourceRegistrationState.Released;
+        resource.RecordingScope = null;
         if (slot.PendingRegistrations == 0 && slot.CommittedRegistrations == 0)
         {
             RemoveSlot(slot);
@@ -467,6 +509,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         foreach (RenderResource token in slot.Tokens)
         {
             token.RegistrationState = RenderResourceRegistrationState.Released;
+            token.RecordingScope = null;
             token.Detach(slot.State);
         }
 

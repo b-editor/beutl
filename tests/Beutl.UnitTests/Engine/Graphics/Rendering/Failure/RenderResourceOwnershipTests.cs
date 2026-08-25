@@ -126,6 +126,122 @@ public sealed class RenderResourceOwnershipTests
     }
 
 
+    // A pending registration can still be rolled back, so it stays unreadable from everywhere except the
+    // recording that owns it - the only reader whose own work a rollback would discard as well.
+    [Test]
+    public void PendingResource_IsReadableOnlyFromTheRecordingThatOwnsIt()
+    {
+        var owner = new RecordingScopeStub();
+        var other = new RecordingScopeStub();
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<TrackedDisposable> resource =
+            registry.RegisterBorrowed(new TrackedDisposable(), owner);
+        RenderResource<TrackedDisposable> unscoped = registry.RegisterBorrowed(new TrackedDisposable());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Read(registry, resource), Is.True, "the owning recording reads its own registration");
+            Assert.That(
+                () => Read(registry, unscoped),
+                Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not committed"),
+                "a registration no recording owns is unreadable while pending");
+        });
+
+        owner.IsRecording = false;
+        other.IsRecording = true;
+
+        Assert.That(
+            () => Read(registry, resource),
+            Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not committed"),
+            "another recording cannot read it, and neither can the owner once it has ended");
+
+        registry.Commit(resource);
+        Assert.That(Read(registry, resource), Is.True, "a committed registration is readable regardless");
+    }
+
+    [Test]
+    public void PendingResource_IsUnreadableOnceItsRegistrationRollsBack()
+    {
+        var owner = new RecordingScopeStub();
+        var value = new TrackedDisposable();
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<TrackedDisposable> resource = registry.RegisterOwned(value, owner);
+
+        Assert.That(Read(registry, resource), Is.True);
+
+        registry.Rollback(resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(value.DisposeCount, Is.EqualTo(1), "the read did not keep the rollback from running");
+            Assert.That(
+                () => Read(registry, resource),
+                Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not committed"),
+                "the recording is still live, but the registration it rolled back is gone");
+        });
+    }
+
+    // Reading is the only thing a pending registration allows. Taking the raw value out of the request is a
+    // mutation, and a rollback would have to undo it, so it still requires a committed registration.
+    [Test]
+    public void PendingResource_StillRefusesToTransferOwnership()
+    {
+        var owner = new RecordingScopeStub();
+        var value = new TrackedDisposable();
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<TrackedDisposable> resource = registry.RegisterOwned(value, owner);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Read(registry, resource), Is.True);
+            Assert.That(
+                () => registry.TransferOwned(resource),
+                Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not committed"));
+        });
+    }
+
+    // One composable definition can reach the same declared resource twice: the outer lease owns the slot
+    // state and the inner one reads through it. A pending read has to compose the same way and hand the
+    // slot back to its pending state, or the recording could no longer roll the registration back.
+    [Test]
+    public void PendingResource_ReadsReentrantlyAndReturnsItsLease()
+    {
+        var owner = new RecordingScopeStub();
+        var value = new TrackedDisposable();
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<TrackedDisposable> resource = registry.RegisterBorrowed(value, owner);
+
+        RenderResourceOwnershipState innerState = registry.Use(
+            resource,
+            _ => registry.Use(resource, _ => resource.OwnershipState));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(innerState, Is.EqualTo(RenderResourceOwnershipState.LeasedToCallback));
+            Assert.That(
+                resource.OwnershipState,
+                Is.EqualTo(RenderResourceOwnershipState.BorrowedPending),
+                "the outermost lease returned the slot to the pending state it borrowed it from");
+        });
+
+        registry.Rollback(resource);
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Released));
+            Assert.That(value.DisposeCount, Is.Zero, "a borrowed resource is never disposed by the request");
+        });
+    }
+
+    private static bool Read(
+        RenderRequestResourceRegistry registry,
+        RenderResource<TrackedDisposable> resource)
+        => registry.Use(resource, static value => value is not null);
+
+    private sealed class RecordingScopeStub : IRenderResourceRecordingScope
+    {
+        public bool IsRecording { get; set; } = true;
+    }
+
     private sealed class TrackedDisposable : IDisposable
     {
         public int DisposeCount { get; private set; }

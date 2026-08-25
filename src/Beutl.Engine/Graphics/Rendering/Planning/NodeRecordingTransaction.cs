@@ -2,7 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
-internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
+internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRenderResourceRecordingScope
 {
     private const int RecycledSetSizeLimit = 1024;
     private const int OwnedReferencePoolLimit = 32;
@@ -71,6 +71,8 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
            && (_parent?.IsRenderCacheEnabled ?? _host.IsRenderCacheEnabled);
 
     public NodeRecordingTransactionState State { get; private set; }
+
+    public bool IsRecording => State == NodeRecordingTransactionState.Active;
 
     private HashSet<RenderFragmentReference> OwnedReferences
         => _ownedReferences ?? throw new InvalidOperationException(
@@ -178,7 +180,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         where T : class, IDisposable
     {
         VerifyActive();
-        RenderResource<T> token = Request.Options.Owner.ResourceRegistry.RegisterOwned(resource);
+        RenderResource<T> token = Request.Options.Owner.ResourceRegistry.RegisterOwned(resource, this);
         _resources.Add(token);
         return token;
     }
@@ -187,7 +189,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         where T : class
     {
         VerifyActive();
-        RenderResource<T> token = Request.Options.Owner.ResourceRegistry.RegisterBorrowed(resource);
+        RenderResource<T> token = Request.Options.Owner.ResourceRegistry.RegisterBorrowed(resource, this);
         _resources.Add(token);
         return token;
     }
@@ -506,6 +508,14 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
     {
         VerifyActive();
         _fragments.AddRange(child.Fragments);
+        foreach (RenderResource resource in child.Resources)
+        {
+            // The child has sealed, so a registration it never got committed answers to this transaction's
+            // rollback from here on - and stays readable for the rest of this recording.
+            if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
+                resource.RecordingScope = this;
+        }
+
         _resources.AddRange(child.Resources);
         _nestedRequests.AddRange(child.NestedRequests);
         if (!child.Dropped.IsEmpty)
