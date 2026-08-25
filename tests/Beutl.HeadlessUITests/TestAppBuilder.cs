@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Headless;
 using Beutl.HeadlessUITests;
+using Beutl.Testing.Headless;
 
 [assembly: AvaloniaTestApplication(typeof(TestAppBuilder))]
 
@@ -14,8 +15,11 @@ namespace Beutl.HeadlessUITests;
 
 public static class TestAppBuilder
 {
-    public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<TestApp>()
+    public static AppBuilder BuildAvaloniaApp()
+    {
+        OpenALPreload.EnsureLoaded();
+        return AppBuilder.Configure<TestApp>()
             .UseSkia()
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
+    }
 }

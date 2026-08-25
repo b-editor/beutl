@@ -3,8 +3,11 @@
 namespace Beutl.Testing.Headless;
 
 // Preload the bundled OpenAL library for Silk.NET on non-Windows test hosts.
-public static class OpenALPreload
+public static partial class OpenALPreload
 {
+    [LibraryImport("libc", EntryPoint = "setenv", StringMarshalling = StringMarshalling.Utf8)]
+    private static partial int SetEnvironmentVariable(string name, string value, int overwrite);
+
     public static void EnsureLoaded()
     {
         if (OperatingSystem.IsWindows())
@@ -13,8 +16,7 @@ public static class OpenALPreload
             return;
         }
 
-        // Use the null backend when no audio device is available.
-        Environment.SetEnvironmentVariable("ALSOFT_DRIVERS", "null");
+        SetEnvironmentVariable("ALSOFT_DRIVERS", "null", 1);
 
         string[] candidates = OperatingSystem.IsMacOS()
             ? ["libopenal.dylib", "openal.dylib"]
