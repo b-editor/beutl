@@ -1,6 +1,4 @@
-﻿using System.Globalization;
-
-namespace Beutl.FFmpegIpc;
+﻿namespace Beutl.FFmpegIpc;
 
 /// <summary>Known categories for FFmpeg failures.</summary>
 public enum FFmpegErrorKind
@@ -58,32 +56,5 @@ public static class FFmpegErrorMessageMapper
         }
 
         return null;
-    }
-
-    /// <summary>Returns a readable description for a known failure, or null.</summary>
-    public static string? Translate(int? errorCode, string? message, string? format = null)
-    {
-        if (TryClassify(errorCode, message) is not { } kind)
-            return null;
-
-        string description = kind switch
-        {
-            FFmpegErrorKind.InvalidData =>
-                "The input file appears corrupt, incomplete, or still being written. " +
-                "Re-export or restore the file and try again.",
-            FFmpegErrorKind.DecoderNotFound =>
-                "No decoder was found for this codec in the bundled FFmpeg build.",
-            FFmpegErrorKind.DemuxerNotFound =>
-                "The container format is not supported by the bundled FFmpeg build.",
-            FFmpegErrorKind.ProtocolNotFound =>
-                "The stream protocol is not supported by the bundled FFmpeg build.",
-            FFmpegErrorKind.StreamNotFound =>
-                "No suitable stream was found in the input.",
-            _ => throw new InvalidOperationException($"Unknown FFmpegErrorKind: {kind}"),
-        };
-
-        return format != null
-            ? string.Format(CultureInfo.CurrentCulture, format, description)
-            : description;
     }
 }
