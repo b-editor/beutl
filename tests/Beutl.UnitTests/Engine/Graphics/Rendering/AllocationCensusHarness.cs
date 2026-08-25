@@ -1,4 +1,5 @@
-﻿using Beutl.Composition;
+﻿using System.Collections.Immutable;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -524,6 +525,569 @@ public sealed class AllocationCensusHarness
                 Visit(children[index]);
 
             current.HasChanges = false;
+        }
+    }
+
+    // ==== Temporary instrumentation: what the render-node recording cache actually serves ====
+
+    private enum RecordingOutcome
+    {
+        /// <summary>Replayed: the node's Process was not called.</summary>
+        Skipped,
+
+        /// <summary>Re-recorded although its own recording repeated, because the cache refuses to store it.</summary>
+        RefusedRepeat,
+
+        /// <summary>Re-recorded, refused, and its recording did not repeat.</summary>
+        RefusedFresh,
+
+        /// <summary>Re-recorded although the retained recording was replayable: the gate rejected reuse.</summary>
+        RejectedReplayable,
+
+        /// <summary>Not reached this frame.</summary>
+        NotVisited,
+    }
+
+    private static readonly string[] OutcomeNames =
+        ["SKIPPED", "REFUSED(repeat)", "REFUSED(fresh)", "REJECTED(replayable)", "not visited"];
+
+    [Test]
+    [NonParallelizable]
+    public void RecordingCacheEffect()
+    {
+        string report = RenderThread.Dispatcher.Invoke(static () =>
+            MeasureRecordingCacheEffect(warmCache: false)
+            + "\n\n"
+            + MeasureRecordingCacheEffect(warmCache: true));
+        TestContext.Out.WriteLine(report);
+    }
+
+    private static string MeasureRecordingCacheEffect(bool warmCache)
+    {
+        Drawable.Resource[] resources = CreateSceneResources();
+        var lines = new List<string>
+        {
+            $"=== RECORDING-CACHE EFFECT ({(warmCache ? "render cache ACTIVE" : "render cache DISABLED")}), "
+            + $"{Frames} frames ===",
+        };
+        try
+        {
+            using var root = new DrawableRenderNode(resources[0]);
+            RecordScene(root, resources);
+
+            var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            using var structuralPlanCache = new StructuralPlanCache();
+            using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
+            using ProgramCache<GLSLFilterPipeline> spirvProgramCache = SpirvShaderProgramCache.Create();
+            var revalidated = new HashSet<RenderNode>(ReferenceEqualityComparer.Instance);
+            RenderCacheOptions cacheOptions =
+                warmCache ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled;
+
+            void Frame(long[]? totals)
+            {
+                if (warmCache)
+                    IncrementRenderCounts(root, revalidated);
+                RunOneFrame(root, registry, structuralPlanCache, programCache, spirvProgramCache,
+                    cacheOptions, warmCache, totals);
+            }
+
+            try
+            {
+                for (int frame = 0; frame < WarmupFrames; frame++)
+                    Frame(null);
+
+                var nodes = new List<RenderNode>();
+                CollectNodes(root, nodes, new HashSet<RenderNode>(ReferenceEqualityComparer.Instance));
+
+                // Visit detection: a node that has no retained recording before the frame and one after it
+                // was reached. This also re-records everything, so the next frames restart from cold.
+                foreach (RenderNode node in nodes)
+                    node.RecordingSnapshot = null;
+                Frame(null);
+                var visited = new HashSet<RenderNode>(ReferenceEqualityComparer.Instance);
+                foreach (RenderNode node in nodes)
+                {
+                    if (node.RecordingSnapshot is not null)
+                        visited.Add(node);
+                }
+
+                for (int frame = 0; frame < WarmupFrames; frame++)
+                    Frame(null);
+
+                // Steady-state classification.
+                var tally = new Dictionary<string, int[]>(StringComparer.Ordinal);
+                var before = new RenderNodeRecordingSnapshot?[nodes.Count];
+                for (int frame = 0; frame < Frames; frame++)
+                {
+                    for (int index = 0; index < nodes.Count; index++)
+                        before[index] = nodes[index].RecordingSnapshot;
+
+                    Frame(null);
+
+                    for (int index = 0; index < nodes.Count; index++)
+                    {
+                        RenderNodeRecordingSnapshot? after = nodes[index].RecordingSnapshot;
+                        RecordingOutcome outcome = Classify(before[index], after, visited.Contains(nodes[index]));
+                        string name = nodes[index].GetType().Name;
+                        if (!tally.TryGetValue(name, out int[]? counts))
+                            tally[name] = counts = new int[OutcomeNames.Length];
+                        counts[(int)outcome]++;
+                    }
+                }
+
+                lines.Add($"  nodes in tree: {nodes.Count}, reached per frame: {visited.Count}");
+                lines.Add(string.Empty);
+                lines.Add($"  {"node type",-34} {"SKIP",6} {"REF-rep",8} {"REF-new",8} {"REJECT",7} {"n/v",5}");
+                var totalsByOutcome = new int[OutcomeNames.Length];
+                foreach ((string name, int[] counts) in tally.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+                {
+                    for (int index = 0; index < counts.Length; index++)
+                        totalsByOutcome[index] += counts[index];
+                    lines.Add($"  {name,-34} {counts[0] / (double)Frames,6:F2} {counts[1] / (double)Frames,8:F2} "
+                              + $"{counts[2] / (double)Frames,8:F2} {counts[3] / (double)Frames,7:F2} "
+                              + $"{counts[4] / (double)Frames,5:F2}");
+                }
+
+                lines.Add($"  {"TOTAL visits/frame",-34} {totalsByOutcome[0] / (double)Frames,6:F2} "
+                          + $"{totalsByOutcome[1] / (double)Frames,8:F2} {totalsByOutcome[2] / (double)Frames,8:F2} "
+                          + $"{totalsByOutcome[3] / (double)Frames,7:F2} {totalsByOutcome[4] / (double)Frames,5:F2}");
+
+                int recorded = totalsByOutcome[1] + totalsByOutcome[2] + totalsByOutcome[3];
+                double hitRate = recorded + totalsByOutcome[0] == 0
+                    ? 0
+                    : 100.0 * totalsByOutcome[0] / (recorded + totalsByOutcome[0]);
+                lines.Add($"  hit rate: {hitRate:F1}% of reached visits skip Process");
+
+                // What the served nodes replay, and what that replay costs.
+                var served = new List<RenderNodeRecordingSnapshot>();
+                int replayedFragments = 0;
+                foreach (RenderNode node in nodes)
+                {
+                    RenderNodeRecordingSnapshot? snapshot = node.RecordingSnapshot;
+                    if (snapshot is { IsReplayable: true, Fragments: { } fragments })
+                    {
+                        served.Add(snapshot);
+                        replayedFragments += fragments.Length;
+                    }
+                }
+
+                long replayCost = MeasureReplayCost(served, 2000);
+                lines.Add(string.Empty);
+                lines.Add($"  replayable snapshots: {served.Count}, fragments replayed/frame: {replayedFragments}");
+                lines.Add($"  replay clone cost (mirrors ReplayRecording's allocating body): "
+                          + $"{replayCost:N0} B/frame");
+
+                // RECORD-phase ablations.
+                long recordCached = MeasureRecordPhase(Frame, nodes, AblationMode.None);
+                long recordNoReuse = MeasureRecordPhase(Frame, nodes, AblationMode.ClearAll);
+                long recordNoServe = MeasureRecordPhase(Frame, nodes, AblationMode.ClearReplayable);
+                lines.Add(string.Empty);
+                lines.Add($"  RECORD, cache serving              : {recordCached,10:N0} B/frame");
+                lines.Add($"  RECORD, every snapshot cleared     : {recordNoReuse,10:N0} B/frame");
+                lines.Add($"  RECORD, replayable snapshots clear : {recordNoServe,10:N0} B/frame");
+                lines.Add($"  delivered saving (cleared - served): {recordNoReuse - recordCached,10:N0} B/frame");
+            }
+            finally
+            {
+                registry.Dispose();
+            }
+        }
+        finally
+        {
+            foreach (Drawable.Resource resource in resources)
+                resource.Dispose();
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    private enum AblationMode
+    {
+        None,
+        ClearAll,
+        ClearReplayable,
+    }
+
+    private static long MeasureRecordPhase(Action<long[]?> frame, List<RenderNode> nodes, AblationMode mode)
+    {
+        void Clear()
+        {
+            if (mode == AblationMode.None)
+                return;
+            foreach (RenderNode node in nodes)
+            {
+                if (mode == AblationMode.ClearAll || node.RecordingSnapshot is { IsReplayable: true })
+                    node.RecordingSnapshot = null;
+            }
+        }
+
+        for (int index = 0; index < WarmupFrames; index++)
+        {
+            Clear();
+            frame(null);
+        }
+
+        var totals = new long[PhaseNames.Length];
+        for (int index = 0; index < Frames; index++)
+        {
+            Clear();
+            frame(totals);
+        }
+
+        return totals[3] / Frames;
+    }
+
+    /// <summary>
+    /// Mirrors the allocating body of <c>NodeRecordingTransaction.ReplayRecording</c>: the clone array, one
+    /// input array per fragment, and one fragment clone. The set adds and list adds it also performs are left
+    /// out because the recording path performs them too.
+    /// </summary>
+    private static long MeasureReplayCost(List<RenderNodeRecordingSnapshot> served, int iterations)
+    {
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int iteration = 0; iteration < iterations; iteration++)
+        {
+            foreach (RenderNodeRecordingSnapshot snapshot in served)
+            {
+                ReplayedRenderFragment[] fragments = snapshot.Fragments!;
+                RenderFragmentReference[] replayed = fragments.Length == 0
+                    ? []
+                    : new RenderFragmentReference[fragments.Length];
+                for (int index = 0; index < fragments.Length; index++)
+                {
+                    ReplayedRenderFragment fragment = fragments[index];
+                    int[] slots = fragment.InputSlots;
+                    ImmutableArray<RenderFragmentReference> inputs;
+                    if (slots.Length == 0)
+                    {
+                        inputs = [];
+                    }
+                    else
+                    {
+                        var builder = ImmutableArray.CreateBuilder<RenderFragmentReference>(slots.Length);
+                        for (int slot = 0; slot < slots.Length; slot++)
+                            builder.Add(fragment.Template);
+                        inputs = builder.MoveToImmutable();
+                    }
+
+                    replayed[index] = fragment.Template.CloneForReplay(inputs);
+                }
+            }
+        }
+
+        long after = GC.GetAllocatedBytesForCurrentThread();
+        return (after - before) / iterations;
+    }
+
+    private static RecordingOutcome Classify(
+        RenderNodeRecordingSnapshot? before,
+        RenderNodeRecordingSnapshot? after,
+        bool reached)
+    {
+        if (!reached || after is null)
+            return RecordingOutcome.NotVisited;
+
+        bool retained = ReferenceEquals(before, after);
+        if (after.IsReplayable)
+            return retained ? RecordingOutcome.Skipped : RecordingOutcome.RejectedReplayable;
+
+        return retained ? RecordingOutcome.RefusedRepeat : RecordingOutcome.RefusedFresh;
+    }
+
+    private static void CollectNodes(RenderNode node, List<RenderNode> into, HashSet<RenderNode> seen)
+    {
+        if (node.IsDisposed || !seen.Add(node))
+            return;
+
+        into.Add(node);
+        ReadOnlySpan<RenderNode> children = node.ChildNodes;
+        for (int index = 0; index < children.Length; index++)
+            CollectNodes(children[index], into, seen);
+    }
+
+    /// <summary>
+    /// Wraps the representative scene in N pure wrapper nodes, which every frame after the warmup skips, and
+    /// reports what the RECORD phase still pays for them. The slope over N is the cost of one skipped visit.
+    /// </summary>
+    [Test]
+    [NonParallelizable]
+    public void SkippedVisitMarginalCost()
+    {
+        string report = RenderThread.Dispatcher.Invoke(static () =>
+        {
+            var lines = new List<string>
+            {
+                "=== MARGINAL COST OF ONE WRAPPER VISIT (representative scene + N wrappers, "
+                + "render cache DISABLED) ===",
+                $"  {"wrapper",-22} {"N",4} {"RECORD served",14} {"RECORD forced",14} "
+                + $"{"saved by skip",14} {"skipped",8}",
+            };
+            foreach (bool useTransform in new[] { false, true })
+            {
+                foreach (int depth in new[] { 0, 8, 16, 32 })
+                    lines.Add(MeasureWrapperDepth(useTransform, depth));
+            }
+
+            return string.Join('\n', lines);
+        });
+        TestContext.Out.WriteLine(report);
+    }
+
+    private static string MeasureWrapperDepth(bool useTransform, int depth)
+    {
+        Drawable.Resource[] resources = CreateSceneResources();
+        try
+        {
+            using var scene = new DrawableRenderNode(resources[0]);
+            RecordScene(scene, resources);
+
+            RenderNode top = scene;
+            for (int index = 0; index < depth; index++)
+            {
+                ContainerRenderNode wrapper = useTransform
+                    ? new TransformRenderNode(Matrix.Identity, TransformOperator.Prepend)
+                    : new ContainerRenderNode();
+                wrapper.AddChild(top);
+                top = wrapper;
+            }
+
+            var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            using var structuralPlanCache = new StructuralPlanCache();
+            using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
+            using ProgramCache<GLSLFilterPipeline> spirvProgramCache = SpirvShaderProgramCache.Create();
+            try
+            {
+                void Frame(long[]? totals) => RunOneFrame(top, registry, structuralPlanCache, programCache,
+                    spirvProgramCache, RenderCacheOptions.Disabled, false, totals);
+
+                var nodes = new List<RenderNode>();
+                CollectNodes(top, nodes, new HashSet<RenderNode>(ReferenceEqualityComparer.Instance));
+
+                long served = MeasureRecordPhase(Frame, nodes, AblationMode.None);
+
+                int skipped = 0;
+                foreach (RenderNode node in nodes)
+                {
+                    if (node.RecordingSnapshot is { IsReplayable: true })
+                        skipped++;
+                }
+
+                long forced = MeasureRecordPhase(Frame, nodes, AblationMode.ClearAll);
+                string name = useTransform ? "TransformRenderNode" : "ContainerRenderNode";
+                return $"  {name,-22} {depth,4} {served,14:N0} {forced,14:N0} {forced - served,14:N0} "
+                       + $"{skipped,8}";
+            }
+            finally
+            {
+                registry.Dispose();
+                if (!ReferenceEquals(top, scene))
+                    top.Dispose();
+            }
+        }
+        finally
+        {
+            foreach (Drawable.Resource resource in resources)
+                resource.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Marks one leaf changed every frame and reports what that costs the nodes above it. The leaf re-records
+    /// the same fragments, so every ancestor's input digests still match what it was recorded over; only the
+    /// "every recording below it repeated" rule can reject them.
+    /// </summary>
+    [Test]
+    [NonParallelizable]
+    public void GateOverRejection()
+    {
+        string report = RenderThread.Dispatcher.Invoke(static () =>
+        {
+            var lines = new List<string> { "=== GATE OVER-REJECTION (render cache DISABLED) ===" };
+            lines.Add(MeasureDirtyLeaf(dirtyLeaf: false));
+            lines.Add(MeasureDirtyLeaf(dirtyLeaf: true));
+            return string.Join('\n', lines);
+        });
+        TestContext.Out.WriteLine(report);
+    }
+
+    private static string MeasureDirtyLeaf(bool dirtyLeaf)
+    {
+        Drawable.Resource[] resources = CreateSceneResources();
+        try
+        {
+            using var root = new DrawableRenderNode(resources[0]);
+            RecordScene(root, resources);
+
+            var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            using var structuralPlanCache = new StructuralPlanCache();
+            using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
+            using ProgramCache<GLSLFilterPipeline> spirvProgramCache = SpirvShaderProgramCache.Create();
+            try
+            {
+                var nodes = new List<RenderNode>();
+                CollectNodes(root, nodes, new HashSet<RenderNode>(ReferenceEqualityComparer.Instance));
+                RenderNode? leaf = nodes.FirstOrDefault(node => node is GeometryRenderNode);
+                if (leaf is null)
+                    return "  no GeometryRenderNode found";
+
+                void Frame(long[]? totals)
+                {
+                    if (dirtyLeaf)
+                        leaf.HasChanges = true;
+                    RunOneFrame(root, registry, structuralPlanCache, programCache, spirvProgramCache,
+                        RenderCacheOptions.Disabled, false, totals);
+                }
+
+                for (int frame = 0; frame < WarmupFrames; frame++)
+                    Frame(null);
+
+                int skipped = 0, rejected = 0, refused = 0, sameDigests = 0;
+                var before = new RenderNodeRecordingSnapshot?[nodes.Count];
+                var rejectedTypes = new Dictionary<string, int>(StringComparer.Ordinal);
+                for (int frame = 0; frame < Frames; frame++)
+                {
+                    for (int index = 0; index < nodes.Count; index++)
+                        before[index] = nodes[index].RecordingSnapshot;
+
+                    Frame(null);
+
+                    for (int index = 0; index < nodes.Count; index++)
+                    {
+                        RenderNodeRecordingSnapshot? after = nodes[index].RecordingSnapshot;
+                        switch (Classify(before[index], after, true))
+                        {
+                            case RecordingOutcome.Skipped:
+                                skipped++;
+                                break;
+                            case RecordingOutcome.RejectedReplayable:
+                                rejected++;
+                                string name = nodes[index].GetType().Name;
+                                if (before[index] is { } previous
+                                    && after is not null
+                                    && previous.InputFingerprints.AsSpan()
+                                        .SequenceEqual(after.InputFingerprints))
+                                {
+                                    sameDigests++;
+                                }
+
+                                rejectedTypes[name] = rejectedTypes.GetValueOrDefault(name) + 1;
+                                break;
+                            default:
+                                refused++;
+                                break;
+                        }
+                    }
+                }
+
+                var totals = new long[PhaseNames.Length];
+                for (int frame = 0; frame < Frames; frame++)
+                    Frame(totals);
+
+                string detail = rejectedTypes.Count == 0
+                    ? "none"
+                    : string.Join(", ", rejectedTypes
+                        .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                        .Select(pair => $"{pair.Key}x{pair.Value / Frames}"));
+                return $"  one leaf dirty={dirtyLeaf,-5} skip/frame={skipped / (double)Frames,6:F2} "
+                       + $"sameDigests/frame={sameDigests / (double)Frames,5:F2} "
+                       + $"reject/frame={rejected / (double)Frames,6:F2} "
+                       + $"refused/frame={refused / (double)Frames,5:F2} "
+                       + $"RECORD={totals[3] / Frames,8:N0} B/frame\n"
+                       + $"      rejected-but-replayable: {detail}";
+            }
+            finally
+            {
+                registry.Dispose();
+            }
+        }
+        finally
+        {
+            foreach (Drawable.Resource resource in resources)
+                resource.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Reports the RECORD phase for scene variants, so the share carried by each resource-binding leaf's
+    /// subtree can be read off the differences.
+    /// </summary>
+    [Test]
+    [NonParallelizable]
+    public void RefusedLeafShare()
+    {
+        string report = RenderThread.Dispatcher.Invoke(static () =>
+        {
+            var lines = new List<string>
+            {
+                "=== RECORD BY SCENE VARIANT (render cache DISABLED) ===",
+                $"  {"variant",-28} {"nodes",6} {"skip",5} {"refused",8} {"RECORD",10}",
+            };
+            lines.Add(MeasureVariant("all three drawables", 0b111));
+            lines.Add(MeasureVariant("no text", 0b011));
+            lines.Add(MeasureVariant("no ellipse+effect", 0b101));
+            lines.Add(MeasureVariant("background rect only", 0b001));
+            lines.Add(MeasureVariant("empty (clear only)", 0b000));
+            return string.Join('\n', lines);
+        });
+        TestContext.Out.WriteLine(report);
+    }
+
+    private static string MeasureVariant(string label, int mask)
+    {
+        Drawable.Resource[] all = CreateSceneResources();
+        var kept = new List<Drawable.Resource>();
+        for (int index = 0; index < all.Length; index++)
+        {
+            if ((mask & (1 << index)) != 0)
+                kept.Add(all[index]);
+        }
+
+        try
+        {
+            using var root = new DrawableRenderNode(all[0]);
+            using (var context = new GraphicsContext2D(root, s_frameSize.ToSize(1)))
+            {
+                context.Clear();
+                foreach (Drawable.Resource resource in kept)
+                    context.DrawDrawable(resource);
+            }
+
+            var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            using var structuralPlanCache = new StructuralPlanCache();
+            using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
+            using ProgramCache<GLSLFilterPipeline> spirvProgramCache = SpirvShaderProgramCache.Create();
+            try
+            {
+                void Frame(long[]? totals) => RunOneFrame(root, registry, structuralPlanCache, programCache,
+                    spirvProgramCache, RenderCacheOptions.Disabled, false, totals);
+
+                var nodes = new List<RenderNode>();
+                CollectNodes(root, nodes, new HashSet<RenderNode>(ReferenceEqualityComparer.Instance));
+                long record = MeasureRecordPhase(Frame, nodes, AblationMode.None);
+
+                int skipped = 0, refused = 0;
+                foreach (RenderNode node in nodes)
+                {
+                    if (node.RecordingSnapshot is { } snapshot)
+                    {
+                        if (snapshot.IsReplayable)
+                            skipped++;
+                        else
+                            refused++;
+                    }
+                }
+
+                return $"  {label,-28} {nodes.Count,6} {skipped,5} {refused,8} {record,10:N0}";
+            }
+            finally
+            {
+                registry.Dispose();
+            }
+        }
+        finally
+        {
+            foreach (Drawable.Resource resource in all)
+                resource.Dispose();
         }
     }
 
