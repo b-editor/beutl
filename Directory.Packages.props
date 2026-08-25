@@ -66,7 +66,7 @@
     <PackageVersion Include="NuGet.Resolver" Version="7.9.0" />
     <PackageVersion Include="Nuke.Common" Version="10.1.0" />
     <PackageVersion Include="NUnit" Version="4.6.1" />
-    <PackageVersion Include="NUnit3TestAdapter" Version="6.2.0" />
+    <PackageVersion Include="NUnit3TestAdapter" Version="6.3.0" />
     <PackageVersion Include="OpenTelemetry" Version="1.18.0" />
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
     <PackageVersion Include="ReactiveProperty" Version="9.9.0" />
