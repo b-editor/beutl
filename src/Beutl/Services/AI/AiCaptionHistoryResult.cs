@@ -107,6 +107,13 @@ internal static class AiCaptionHistoryResultParser
         {
             return false;
         }
+        // 時刻の付いていない翻訳。行だけを渡して訳したものがこれで、字幕として
+        // どこに置くかは決まっていない——読めないものとして拒むと、支払い済みの
+        // 結果を取りに行く道がここで閉じる。並び順のまま、仮の時刻で受け取って、
+        // 置き場所は画面で直してもらう。
+        if (!AnySegmentHasContext(segments))
+            return TryParseUntimedTranslation(segments, jobId, targetLanguage, out result);
+
         var groups = new Dictionary<string, TranslationGroup>(StringComparer.Ordinal);
         int sequence = 0;
         foreach (JsonElement segment in segments.EnumerateArray())
@@ -165,6 +172,57 @@ internal static class AiCaptionHistoryResultParser
             jobId,
             parsed.ToArray(),
             targetLanguage);
+        return true;
+    }
+
+    private static bool AnySegmentHasContext(JsonElement segments)
+    {
+        foreach (JsonElement segment in segments.EnumerateArray())
+        {
+            if (segment.ValueKind == JsonValueKind.Object
+                && segment.TryGetProperty("context", out JsonElement context)
+                && context.ValueKind == JsonValueKind.Object)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // 仮の時刻は 1 行 1 秒。0 幅にすると画面で掴めず、重ねると順番が読めない。
+    private static readonly TimeSpan s_untimedSegmentDuration = TimeSpan.FromSeconds(1);
+
+    private static bool TryParseUntimedTranslation(
+        JsonElement segments,
+        AiJobId jobId,
+        string targetLanguage,
+        out AiCaptionHistoryResult? result)
+    {
+        result = null;
+        var parsed = new List<AiTranscriptionSegment>(segments.GetArrayLength());
+        int index = 0;
+        foreach (JsonElement segment in segments.EnumerateArray())
+        {
+            if (segment.ValueKind != JsonValueKind.Object
+                || !TryGetString(segment, "text", out string? text)
+                || string.IsNullOrWhiteSpace(text)
+                || text.Length > MaximumTextLength)
+            {
+                return false;
+            }
+
+            double start = index * s_untimedSegmentDuration.TotalSeconds;
+            parsed.Add(new AiTranscriptionSegment
+            {
+                Start = start,
+                End = start + s_untimedSegmentDuration.TotalSeconds,
+                Text = text,
+            });
+            index++;
+        }
+
+        result = new AiCaptionHistoryResult(jobId, parsed.ToArray(), targetLanguage);
         return true;
     }
 
