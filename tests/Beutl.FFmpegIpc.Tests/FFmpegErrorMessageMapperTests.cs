@@ -1,6 +1,4 @@
-﻿using Beutl.FFmpegIpc;
-
-namespace Beutl.UnitTests.FFmpegIpc;
+﻿namespace Beutl.FFmpegIpc.Tests;
 
 [TestFixture]
 public sealed class FFmpegErrorMessageMapperTests

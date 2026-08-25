@@ -1,7 +1,11 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
+using Beutl.FFmpegIpc;
 using Beutl.Graphics.Shapes;
+using Beutl.Language;
+using Beutl.Media.Encoding;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -101,6 +105,89 @@ public class ExportTests
         // and CanEncode stays false (SelectedEncoder is still null).
         Assert.That(output.Encoders, Is.Empty);
         Assert.That(output.CanEncode.Value, Is.False);
+    }
+
+    // Drives the real StartEncode failure path with a fake encoder whose controller throws a known
+    // FFmpegWorkerException. This sidesteps the three native-FFmpeg blockers documented below (no
+    // settings-editor codec enumeration, no worker process, no IPC), so the catch block that
+    // translates the AVERROR code into a localized message is exercised end to end. Scene rendering
+    // still runs ahead of the controller, hence the GPU gate like PreviewRenderTests.
+    [AvaloniaTest]
+    public async Task OutputViewModel_translates_a_known_ffmpeg_error_when_encoding_fails()
+    {
+        GpuTestGate.EnsureAvailable();
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("exportfailure");
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(NewWorkspace("exportfailure"), "out.mp4");
+        output.SelectedEncoder.Value = ThrowingMp4EncoderExtension.Instance;
+        HeadlessTestHelpers.Settle();
+
+        var recorder = new RecordingNotificationHandler();
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        NotificationService.Handler = recorder;
+        try
+        {
+            await output.StartEncode();
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler;
+        }
+
+        // The known AVERROR_INVALIDDATA code must surface as the localized description in BOTH the
+        // persistent progress text and the error notification — never as the raw numeric error.
+        string expected = MessageStrings.FFmpegErrorInvalidData;
+        Assert.That(output.ProgressText.Value, Is.EqualTo(expected));
+        Assert.That(
+            recorder.ErrorMessages,
+            Does.Contain(expected),
+            "The error notification must carry the translated message.");
+    }
+
+    private sealed class ThrowingMp4EncoderExtension : ControllableEncodingExtension
+    {
+        public static ThrowingMp4EncoderExtension Instance { get; } = new();
+
+        public override IEnumerable<string> SupportExtensions()
+        {
+            yield return ".mp4";
+        }
+
+        public override EncodingController CreateController(string file) => new ThrowingController(file);
+    }
+
+    private sealed class ThrowingController(string outputFile) : EncodingController(outputFile)
+    {
+        public override VideoEncoderSettings VideoSettings { get; } = new();
+
+        public override AudioEncoderSettings AudioSettings { get; } = new();
+
+        public override ValueTask Encode(
+            IFrameProvider frameProvider,
+            ISampleProvider sampleProvider,
+            CancellationToken cancellationToken)
+        {
+            // Reproduce the telemetry signature: the worker reports AVERROR_INVALIDDATA for a
+            // corrupt / still-being-written input.
+            return ValueTask.FromException(new FFmpegWorkerException(
+                "FFmpeg error [-1094995529] Invalid data found when processing input",
+                ffmpegErrorCode: FFmpegErrorMessageMapper.InvalidDataCode));
+        }
+    }
+
+    private sealed class RecordingNotificationHandler : INotificationServiceHandler
+    {
+        private readonly List<string> _errorMessages = [];
+
+        public IReadOnlyList<string> ErrorMessages => _errorMessages;
+
+        public void Show(Notification notification)
+        {
+            if (notification.Type == NotificationType.Error)
+                _errorMessages.Add(notification.Message);
+        }
     }
 
     // B2 (b) — selecting a real FFmpeg encoder and running the full export is BLOCKED headless, so

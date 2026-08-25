@@ -2,7 +2,7 @@
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Transport;
 
-namespace Beutl.UnitTests.FFmpegIpc;
+namespace Beutl.FFmpegIpc.Tests;
 
 [TestFixture]
 public sealed class IpcMessageErrorCodeTests

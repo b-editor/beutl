@@ -17,8 +17,6 @@
     <InternalsVisibleTo Include="Beutl.FFmpegIpc.Tests" />
     <!-- The GPL worker constructs the internal providers; it reaches them via IVT, not public API. -->
     <InternalsVisibleTo Include="Beutl.FFmpegWorker" />
-    <!-- Unit tests pin the source-generated JSON contract for the IpcMessage error envelope. -->
-    <InternalsVisibleTo Include="Beutl.UnitTests" />
   </ItemGroup>
 
 </Project>
