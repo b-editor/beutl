@@ -130,6 +130,31 @@ public sealed class PerspectiveBoundsTests
             () => s_local.TransformToAABB(Compose(Perspective(0.05f)), nearPlane));
     }
 
+    [Test]
+    public void NonFiniteNearPlane_IsRejectedWhateverTheMatrixHolds()
+    {
+        // The float.NaN constant carries the sign bit, so a sign test happens to reject that one value;
+        // a NaN arithmetic produces need not, and neither it nor infinity is ever reached by a divisor.
+        float unsignedNaN = BitConverter.UInt32BitsToSingle(0x7FC00000u);
+        Matrix crossing = Compose(Perspective(0.05f));
+        Matrix nonCrossing = Compose(Perspective(0.010f));
+        Matrix affine = Matrix.CreateScale(2, 2) * Matrix.CreateTranslation(10, 10);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(float.IsNegative(unsignedNaN), Is.False,
+                "the fixture must be a NaN that a sign test lets through");
+
+            foreach (Matrix matrix in new[] { crossing, nonCrossing, affine })
+            {
+                Assert.Throws<ArgumentOutOfRangeException>(
+                    () => s_local.TransformToAABB(matrix, float.PositiveInfinity));
+                Assert.Throws<ArgumentOutOfRangeException>(
+                    () => s_local.TransformToAABB(matrix, unsignedNaN));
+            }
+        });
+    }
+
     // Only what DefaultNearPlane promises to cover, which is less than the rasterizer draws.
     // PerspectiveNearPlaneResidualTests samples down to Rect.RasterizerNearPlane and pins the difference.
     private static IEnumerable<Point> SampleFrontHalf(Matrix matrix)

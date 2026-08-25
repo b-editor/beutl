@@ -478,27 +478,6 @@ public readonly struct Rect
     }
 
     /// <summary>
-    /// Returns an axis-aligned bounding box of this rectangle transformed by <paramref name="matrix"/>,
-    /// with the part behind the matrix's camera plane clipped away first.
-    /// </summary>
-    /// <param name="matrix">The transform.</param>
-    /// <param name="nearPlane">
-    /// The smallest homogeneous divisor kept. It is what makes the answer finite: a point whose divisor
-    /// approaches zero escapes to infinity, so a plane-crossing rectangle has no finite bounding box at
-    /// all. Lowering it widens the box without bound; raising it starts cutting geometry that would
-    /// still be drawn, which <see cref="DefaultNearPlane"/> already does by design.
-    /// On an inverted matrix it is a <b>far</b> cutoff in source space rather than a near one, because
-    /// the inverse divisor is the reciprocal of the forward one: it drops source content further from
-    /// the eye than <c>1 / nearPlane</c> times the projection depth, reachable only where the rectangle's
-    /// half-extent exceeds <c>(1 / nearPlane - 1)</c> times that depth.
-    /// </param>
-    /// <returns>
-    /// The bounding box, or <see cref="Empty"/> when no part of the rectangle reaches the near plane —
-    /// which, at <see cref="DefaultNearPlane"/>, does not mean the rasterizer draws none of it.
-    /// Identical to the plain mapped-corner box whenever the rectangle does not cross the camera
-    /// plane, which is every case those corners already answer exactly.
-    /// </returns>
-    /// <summary>
     /// Maps this rectangle through <paramref name="matrix"/> covering every pixel the rasterizer can draw,
     /// then keeps whatever of that box either reaches <paramref name="deliveredTo"/> or would have been
     /// declared at <see cref="DefaultNearPlane"/>.
@@ -527,9 +506,45 @@ public readonly struct Rect
         return TransformToAABB(matrix, RasterizerNearPlane).Intersect(pragmatic.Union(delivered));
     }
 
+    /// <summary>
+    /// Returns an axis-aligned bounding box of this rectangle transformed by <paramref name="matrix"/>,
+    /// with the part behind the matrix's camera plane clipped away first.
+    /// </summary>
+    /// <param name="matrix">The transform.</param>
+    /// <param name="nearPlane">
+    /// The smallest homogeneous divisor kept; a finite positive number. It is what makes the answer
+    /// finite: a point whose divisor approaches zero escapes to infinity, so a plane-crossing rectangle
+    /// has no finite bounding box at all. Lowering it widens the box without bound; raising it starts
+    /// cutting geometry that would still be drawn, which <see cref="DefaultNearPlane"/> already does by
+    /// design.
+    /// On an inverted matrix it is a <b>far</b> cutoff in source space rather than a near one, because
+    /// the inverse divisor is the reciprocal of the forward one: it drops source content further from
+    /// the eye than <c>1 / nearPlane</c> times the projection depth, reachable only where the rectangle's
+    /// half-extent exceeds <c>(1 / nearPlane - 1)</c> times that depth.
+    /// </param>
+    /// <returns>
+    /// The bounding box, or <see cref="Empty"/> when no part of the rectangle reaches the near plane —
+    /// which, at <see cref="DefaultNearPlane"/>, does not mean the rasterizer draws none of it.
+    /// Identical to the plain mapped-corner box whenever the rectangle does not cross the camera
+    /// plane, which is every case those corners already answer exactly.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="nearPlane"/> is not finite and positive. Infinity and NaN are not wider or
+    /// narrower cutoffs but unreachable ones — no divisor compares above them, so a plane-crossing
+    /// rectangle would answer <see cref="Empty"/> and silently delete content that is drawn. The
+    /// argument is checked before the matrix is examined, so an affine matrix, which never consults the
+    /// plane, rejects exactly what a perspective one rejects.
+    /// </exception>
     public Rect TransformToAABB(Matrix matrix, float nearPlane = DefaultNearPlane)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(nearPlane);
+        // A sign test cannot carry this on its own: only some NaNs have the sign bit that
+        // ArgumentOutOfRangeException.ThrowIfNegativeOrZero reads.
+        if (!float.IsFinite(nearPlane) || nearPlane <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(nearPlane), nearPlane, "The near plane must be finite and positive.");
+        }
+
         if (!matrix.ContainsPerspective())
             return TransformToMappedCornerAABB(matrix);
 
