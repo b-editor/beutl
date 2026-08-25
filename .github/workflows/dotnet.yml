@@ -37,15 +37,19 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Resolve .NET SDK version
+        id: dotnet-sdk
+        run: echo "version=$(dotnet --version)" >> "$GITHUB_OUTPUT"
+
       - name: Restore .NET build cache
         id: build-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             **/obj
-          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-${{ github.sha }}
+          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-${{ github.sha }}
           restore-keys: |
-            dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-
+            dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-
 
       # Git checks out every source file with a fresh mtime while actions/cache preserves
       # the original mtimes of obj/. Without correcting this, MSBuild sees every source as
@@ -110,7 +114,7 @@ jobs:
         with:
           path: |
             **/obj
-          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json') }}-${{ github.sha }}
+          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-${{ github.sha }}
 
       - name: Test
         run: dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
