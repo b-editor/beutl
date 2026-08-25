@@ -93,6 +93,6 @@ public sealed class EncodeCompleteMessage
     public bool Success { get; set; }
     public string? Error { get; set; }
 
-    // The FFmpeg AVERROR code (negative). Null when the encoding failure was not an FFmpeg error.
+    // FFmpeg AVERROR code, if available.
     public int? FFmpegErrorCode { get; set; }
 }

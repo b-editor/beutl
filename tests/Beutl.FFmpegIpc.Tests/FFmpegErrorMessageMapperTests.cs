@@ -3,8 +3,7 @@
 [TestFixture]
 public sealed class FFmpegErrorMessageMapperTests
 {
-    // Telemetry signature from the v2.0.0-preview.6 crash reports: a truncated / headerless mp4
-    // (moov atom not found) surfaces as AVERROR_INVALIDDATA with this exact message.
+    // Signature: truncated MP4 without a moov atom.
     private const string InvalidDataMessage =
         "FFmpeg error [-1094995529] Invalid data found when processing input";
 
@@ -16,15 +15,14 @@ public sealed class FFmpegErrorMessageMapperTests
 
         Assert.That(translated, Is.Not.Null);
         Assert.That(translated, Does.Contain("corrupt").Or.Contains("incomplete"));
-        // The raw numeric code must not leak into the user-facing message.
+        // The numeric code must not leak into user-facing text.
         Assert.That(translated, Does.Not.Contain("-1094995529"));
     }
 
     [Test]
     public void Translate_InvalidDataTextWithoutCode_TranslatesViaMessageMatch()
     {
-        // Paths that do not carry FFmpegErrorCode (e.g. EncodeComplete) must still translate
-        // by matching the known message text.
+        // Legacy paths may provide only the message.
 
         string? translated = FFmpegErrorMessageMapper.Translate(null, InvalidDataMessage);
 
@@ -39,7 +37,7 @@ public sealed class FFmpegErrorMessageMapperTests
         Assert.That(FFmpegErrorMessageMapper.Translate(-1, null), Is.Null);
         Assert.That(
             FFmpegErrorMessageMapper.Translate(FFmpegErrorMessageMapper.ProtocolNotFoundCode, null),
-            Is.Not.Null); // known code alone translates
+            Is.Not.Null);
     }
 
     [Test]

@@ -8,14 +8,7 @@ using Beutl.Media.Decoding;
 
 namespace Beutl.FFmpegIpc.Tests;
 
-/// <summary>
-/// Process-level reproduction of the reported telemetry signature: opening an mp4 file without a
-/// moov atom (truncated / still-being-written video) must make the worker fail with
-/// <c>AVERROR_INVALIDDATA</c> (<c>FFmpeg error [-1094995529]</c>), and the host-side
-/// <see cref="FFmpegDecoderInfo.Open"/> must swallow that into a null reader rather than crash.
-/// With <see cref="Beutl.FFmpegIpc.FFmpegErrorMessageMapper"/> the failure becomes a user-facing
-/// "file is corrupt/incomplete" message instead of the raw numeric code.
-/// </summary>
+/// <summary>Reproduces opening an MP4 without a moov atom.</summary>
 [TestFixture, NonParallelizable]
 public class FFmpegReaderProxyOpenContractTests
 {
@@ -26,8 +19,7 @@ public class FFmpegReaderProxyOpenContractTests
     {
         _moovMissingPath = Path.Combine(
             Path.GetTempPath(), $"beutl-ffmpeg-moovmissing-{Guid.NewGuid():N}.mp4");
-        // An ftyp box only (no moov): the minimal layout that makes FFmpeg's mov demuxer fail
-        // with "moov atom not found" / AVERROR_INVALIDDATA.
+        // ftyp only; no moov atom.
         File.WriteAllBytes(_moovMissingPath,
         [
             0x00, 0x00, 0x00, 0x18, (byte)'f', (byte)'t', (byte)'y', (byte)'p',
@@ -47,7 +39,7 @@ public class FFmpegReaderProxyOpenContractTests
         }
         catch (Exception)
         {
-            // Best-effort cleanup of the temp fixture; a leftover file must not fail the run.
+            // Best-effort cleanup.
         }
     }
 
@@ -97,10 +89,7 @@ public class FFmpegReaderProxyOpenContractTests
             StreamsToLoad = (int)MediaMode.Video,
         };
 
-        // Assert the worker contract directly: FFmpegDecoderInfo.Open swallows every exception into
-        // a null reader, so its fallback test alone cannot distinguish the expected AVERROR from an
-        // IPC failure or any other exception. Exercise the OpenFile IPC operation and require the
-        // AVERROR_INVALIDDATA code on the surfaced FFmpegWorkerException.
+        // Check the worker error code before FFmpegDecoderInfo swallows the exception.
         var thrown = Assert.Throws<FFmpegWorkerException>(() =>
             connection.RequestAsync<OpenFileRequest, OpenFileResponse>(
                 MessageType.OpenFile, MessageType.OpenFileResult, request)
@@ -110,7 +99,6 @@ public class FFmpegReaderProxyOpenContractTests
             "The worker must surface AVERROR_INVALIDDATA as a structured error code, not just text.");
     }
 
-    // Same process-level prerequisites as the existing ReadVideo contract test (worker binary present).
     private static class WorkerProbe
     {
         public static bool WorkerBinaryPresent()
@@ -121,8 +109,6 @@ public class FFmpegReaderProxyOpenContractTests
         }
     }
 
-    // Assert.Ignore throws, but the compiler cannot see that the catch block never falls through, so
-    // a local assigned only in the try stays "unassigned" for definite-assignment analysis.
     private static IpcConnection GetConnectionOrIgnore()
     {
         try
@@ -132,7 +118,7 @@ public class FFmpegReaderProxyOpenContractTests
         catch (FFmpegLibrariesNotFoundException ex)
         {
             Assert.Ignore($"FFmpeg natives unavailable ({ex.Message}); skipping.");
-            throw; // unreachable: Assert.Ignore throws IgnoreException
+            throw; // Assert.Ignore always throws.
         }
     }
 }

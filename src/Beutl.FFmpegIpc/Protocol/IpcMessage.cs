@@ -21,7 +21,7 @@ public sealed class IpcMessage
     [JsonPropertyName("errorStack")]
     public string? ErrorStackTrace { get; set; }
 
-    // The FFmpeg AVERROR code (negative). Null for non-FFmpeg errors.
+    // FFmpeg AVERROR code, if available.
     [JsonPropertyName("errorCode")]
     public int? ErrorCode { get; set; }
 
@@ -93,7 +93,7 @@ public sealed class IpcMessage
 [JsonSerializable(typeof(QueryAudioFormatsResponse))]
 // Supporting types
 [JsonSerializable(typeof(Dictionary<string, string>))]
-// Error envelope primitives (scalar properties do not force generation for nullables of value types)
+// Nullable error code
 [JsonSerializable(typeof(int?))]
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,

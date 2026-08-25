@@ -6,12 +6,10 @@ namespace Beutl.FFmpegWorker.Tests;
 [TestFixture]
 public sealed class FFmpegErrorCodeExtractorTests
 {
-    // Telemetry signature from the v2.0.0-preview.6 crash reports: a truncated / headerless mp4
-    // (moov atom not found) surfaces as AVERROR_INVALIDDATA.
+    // Signature: truncated MP4 without a moov atom.
     private const int InvalidDataCode = -1094995529;
 
-    // The FFmpegException(error) constructor builds its message through av_strerror, which needs
-    // the FFmpeg natives. Like EncodingCancellationTests, self-skip when they cannot be loaded.
+    // Skip native-dependent checks when FFmpeg is unavailable.
     private static bool RequireFFmpeg()
     {
         try
@@ -22,7 +20,7 @@ public sealed class FFmpegErrorCodeExtractorTests
         catch (Exception)
         {
             Assert.Ignore("FFmpeg shared libraries unavailable; skipping the native-dependent assertion.");
-            return false; // unreachable, Assert.Ignore throws
+            return false; // Assert.Ignore always throws.
         }
     }
 
@@ -32,8 +30,7 @@ public sealed class FFmpegErrorCodeExtractorTests
         if (!RequireFFmpeg())
             return;
 
-        // Use FFmpegException(error), exactly like ThrowIfError does on real paths such as
-        // MediaDemuxer.Open.
+        // Match the constructor used by ThrowIfError.
         var ex = new FFmpegException(InvalidDataCode);
 
         Assert.That(FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(ex), Is.EqualTo(InvalidDataCode));
@@ -62,8 +59,7 @@ public sealed class FFmpegErrorCodeExtractorTests
     [Test]
     public void TryGetFFmpegErrorCode_PlainStringFFmpegException_ReturnsNull()
     {
-        // The plain-string constructor carries no code (it is not produced by ThrowIfError).
-        // This is native-independent, so it can be verified regardless of native availability.
+        // The string constructor has no error code.
         Assert.That(
             FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(new FFmpegException("manual message")),
             Is.Null);

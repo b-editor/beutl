@@ -107,11 +107,7 @@ public class ExportTests
         Assert.That(output.CanEncode.Value, Is.False);
     }
 
-    // Drives the real StartEncode failure path with a fake encoder whose controller throws a known
-    // FFmpegWorkerException. This sidesteps the three native-FFmpeg blockers documented below (no
-    // settings-editor codec enumeration, no worker process, no IPC), so the catch block that
-    // translates the AVERROR code into a localized message is exercised end to end. Scene rendering
-    // still runs ahead of the controller, hence the GPU gate like PreviewRenderTests.
+    // Exercise the export failure path with a fake FFmpeg error.
     [AvaloniaTest]
     public async Task OutputViewModel_translates_a_known_ffmpeg_error_when_encoding_fails()
     {
@@ -136,8 +132,7 @@ public class ExportTests
             NotificationService.Handler = previousHandler;
         }
 
-        // The known AVERROR_INVALIDDATA code must surface as the localized description in BOTH the
-        // persistent progress text and the error notification — never as the raw numeric error.
+        // Progress and notifications must use the translated message.
         string expected = MessageStrings.FFmpegErrorInvalidData;
         Assert.That(output.ProgressText.Value, Is.EqualTo(expected));
         Assert.That(
@@ -169,8 +164,7 @@ public class ExportTests
             ISampleProvider sampleProvider,
             CancellationToken cancellationToken)
         {
-            // Reproduce the telemetry signature: the worker reports AVERROR_INVALIDDATA for a
-            // corrupt / still-being-written input.
+            // Simulate AVERROR_INVALIDDATA from a corrupt input.
             return ValueTask.FromException(new FFmpegWorkerException(
                 "FFmpeg error [-1094995529] Invalid data found when processing input",
                 ffmpegErrorCode: FFmpegErrorMessageMapper.InvalidDataCode));

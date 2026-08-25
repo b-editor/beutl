@@ -24,9 +24,7 @@ public sealed class IpcMessageErrorCodeTests
     [Test]
     public async Task CreateError_WithErrorCode_RoundTripsThroughSourceGeneratedSerializer()
     {
-        // MessageSerializer (production wire path) serializes via IpcJsonContext, whose source
-        // generator must emit the nullable ErrorCode scalar; a reflection fallback would fail
-        // under trimming/AOT. Verify the actual wire round-trip, not just the default serializer.
+        // Use the production wire serializer.
         var msg = IpcMessage.CreateError(9, "boom", "stack", errorCode: -1094995529);
 
         var stream = new MemoryStream();
@@ -41,7 +39,7 @@ public sealed class IpcMessageErrorCodeTests
     [Test]
     public void CreateError_WithoutErrorCode_KeepsErrorCodeNull()
     {
-        // Backward compatibility: existing two/three-argument calls keep ErrorCode == null.
+        // Existing calls leave ErrorCode null.
         var msg = IpcMessage.CreateError(1, "plain error");
 
         Assert.That(msg.ErrorCode, Is.Null);

@@ -385,8 +385,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         catch (Exception ex)
         {
-            // Classify known FFmpeg failures into a localized user-facing description; the raw
-            // exception message (with its numeric AVERROR code) stays in diagnostics only.
+            // Translate known FFmpeg failures for users.
             string userMessage = ex.Message;
             if (ex is FFmpegWorkerException ffmpegEx
                 && FFmpegErrorMessageMapper.TryClassify(ffmpegEx.FFmpegErrorCode, ffmpegEx.Message) is { } ffmpegErrorKind)
@@ -402,14 +401,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 };
             }
 
-            // Assign the translated text to the persistent progress text too: the Output tool keeps
-            // showing ProgressText after a failure, so it must not retain the raw AVERROR either.
+            // Keep the translated message visible after failure.
             ProgressText.Value = userMessage;
             NotificationService.ShowError(MessageStrings.OutputException, userMessage);
             if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
             {
-                // Keep the machine-readable AVERROR code in the diagnostic log after the user-facing
-                // translation so telemetry can still group failures by code.
+                // Keep the code for diagnostics.
                 _logger.LogError(
                     ex, "An exception occurred during the encoding process. FFmpegErrorCode={FFmpegErrorCode}",
                     ffmpegErrorCode);
