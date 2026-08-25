@@ -40,6 +40,7 @@ public static class FrameNumberHelper
     {
         return project?.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value) == true
             && int.TryParse(value, out int rate)
+            && rate > 0
             ? rate
             : 30;
     }

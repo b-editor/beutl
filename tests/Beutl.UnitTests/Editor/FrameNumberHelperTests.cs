@@ -30,6 +30,26 @@ public class FrameNumberHelperTests
         Assert.That(FrameNumberHelper.ToDouble(resource, fallback: 42d), Is.EqualTo(42d));
     }
 
+    [TestCase("0")]
+    [TestCase("-5")]
+    [TestCase("not-a-number")]
+    public void GetFrameRate_InvalidOrNonPositiveProjectRate_ReturnsDefault(string value)
+    {
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = value;
+
+        Assert.That(project.GetFrameRate(), Is.EqualTo(30));
+    }
+
+    [Test]
+    public void GetFrameRate_PositiveProjectRate_ReturnsProjectRate()
+    {
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = "60";
+
+        Assert.That(project.GetFrameRate(), Is.EqualTo(60));
+    }
+
     private static IEnumerable<object?> NonNumericResources()
     {
         yield return null;

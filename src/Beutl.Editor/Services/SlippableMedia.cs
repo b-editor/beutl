@@ -1,4 +1,5 @@
 ﻿using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
@@ -92,10 +93,10 @@ internal static class SlippableMedia
 
     private static Target CreateVideoTarget(SourceVideo video)
     {
-        // SourceVideo.TryGetOriginalDuration returns the duration remaining from the current
-        // offset, so the absolute source length is current + remaining.
-        TimeSpan? total = video.TryGetOriginalDuration(out TimeSpan remaining)
-            ? video.OffsetPosition.CurrentValue + remaining
+        // Slip offsets are in source time, so use the loaded media's absolute duration directly.
+        using var resource = video.Source.CurrentValue?.ToResource(CompositionContext.Default);
+        TimeSpan? total = resource != null && resource.Duration > TimeSpan.Zero
+            ? resource.Duration
             : null;
         return new Target(video.OffsetPosition, total);
     }
