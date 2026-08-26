@@ -19,6 +19,7 @@ internal static class SlippableMedia
     private readonly record struct TimeContext(
         TimeRange Range,
         TimeRange ReachableRange,
+        TimeSpan FrameDuration,
         Func<TimeSpan, TimeSpan>? TimelineDurationFromTarget,
         bool HasUnboundedTail,
         bool IsReversed,
@@ -163,9 +164,15 @@ internal static class SlippableMedia
         TimeSpan maximumDuration = TimeSpan.MaxValue - element.Start;
         if (reachableDuration > maximumDuration)
             reachableDuration = maximumDuration;
+        Scene? scene = element.FindHierarchicalParent<Scene>();
+        int frameRate = scene is null ? 30 : SceneTimeRangeService.GetFrameRate(scene);
+        TimeSpan frameDuration = TimeSpan.FromSeconds(1d / frameRate);
+        if (frameDuration <= TimeSpan.Zero)
+            frameDuration = TimeSpan.FromTicks(1);
         var context = new TimeContext(
             element.Range,
             new TimeRange(element.Start, reachableDuration),
+            frameDuration,
             null,
             false,
             false,
@@ -299,6 +306,11 @@ internal static class SlippableMedia
                         var mappedContext = new TimeContext(
                             mapped,
                             mappedReachable,
+                            GetMappedFrameDuration(
+                                timeMappingPresenter,
+                                state,
+                                controlled,
+                                context.FrameDuration),
                             mapper,
                             hasUnboundedTail,
                             isReversed,
@@ -333,6 +345,7 @@ internal static class SlippableMedia
                         var presentedContext = new TimeContext(
                             state.Range,
                             state.ReachableRange,
+                            context.FrameDuration,
                             mapper,
                             state.IgnoreTail || context.HasUnboundedTail,
                             context.IsReversed,
@@ -629,6 +642,25 @@ internal static class SlippableMedia
     {
         double ticks = Math.Abs((double)second.Ticks - first.Ticks);
         return TimeSpan.FromTicks((long)Math.Min(TimeSpan.MaxValue.Ticks, ticks));
+    }
+
+    private static TimeSpan GetMappedFrameDuration(
+        ITimeMappingPresenter presenter,
+        TimeMappingTargetState state,
+        CoreObject target,
+        TimeSpan parentFrameDuration)
+    {
+        // Preserve the target-time distance between adjacent timeline samples through nested
+        // time mappings so leaf video bounds can mirror SourceVideo's frame rounding.
+        TimeRange basis = state.Range.IsEmpty ? state.ReachableRange : state.Range;
+        if (basis.IsEmpty || parentFrameDuration <= TimeSpan.Zero)
+            return TimeSpan.Zero;
+
+        TimeSpan duration = parentFrameDuration < basis.Duration
+            ? parentFrameDuration
+            : basis.Duration;
+        TimeSpan start = state.Range.IsEmpty ? basis.Start : basis.End - duration;
+        return presenter.CalculateTargetTimeRange(new TimeRange(start, duration), target).Duration;
     }
 
     private static TimeSpan AddDurationSaturated(TimeSpan left, TimeSpan right)
@@ -1135,11 +1167,25 @@ internal static class SlippableMedia
             {
                 long roundedTicks = Math.Max(1L, (long)Math.Round(frameTicks));
                 TimeSpan frameDuration = TimeSpan.FromTicks(roundedTicks);
-                if (consumedDuration < frameDuration)
+                long roundingTicks = Math.Max(1L, (long)Math.Floor(frameTicks / 2) + 1);
+                TimeSpan roundingHeadroom = TimeSpan.FromTicks(roundingTicks);
+                // OnDraw rounds to the nearest source frame. Reserve whatever portion of the
+                // strict half-frame threshold is not already covered by the final sample gap.
+                TimeSpan finalSampleConsumption = GetFinalSampleConsumption(video, context, resource);
+                TimeSpan requiredRoundingHeadroom = roundingHeadroom > finalSampleConsumption
+                    ? roundingHeadroom - finalSampleConsumption
+                    : TimeSpan.Zero;
+                TimeSpan readableFrameHeadroom = consumedDuration < frameDuration
+                    ? frameDuration - consumedDuration
+                    : TimeSpan.Zero;
+                TimeSpan additionalHeadroom = requiredRoundingHeadroom >= readableFrameHeadroom
+                    ? requiredRoundingHeadroom
+                    : readableFrameHeadroom;
+                if (additionalHeadroom > TimeSpan.Zero)
                 {
                     minimumSourceReservation = AddDurationSaturated(
                         sourceEndPosition,
-                        frameDuration - consumedDuration);
+                        additionalHeadroom);
                 }
             }
         }
@@ -1195,6 +1241,34 @@ internal static class SlippableMedia
         return duration > TimeSpan.Zero
             ? video.CalculateVideoDuration(clockStart, duration, resource)
             : TimeSpan.Zero;
+    }
+
+    private static TimeSpan GetFinalSampleConsumption(
+        SourceVideo video,
+        TimeContext context,
+        SourceVideo.Resource resource)
+    {
+        TimeSpan duration = context.FrameDuration;
+        TimeSpan start;
+        if (context.Range.IsEmpty)
+        {
+            start = context.Range.Start;
+        }
+        else
+        {
+            if (duration > context.Range.Duration)
+                duration = context.Range.Duration;
+            start = context.Range.End - duration;
+        }
+
+        if (duration <= TimeSpan.Zero)
+            return TimeSpan.Zero;
+
+        TimeSpan consumed = video.CalculateVideoDuration(
+            GetVideoClockStartAt(video, start),
+            duration,
+            resource);
+        return consumed > TimeSpan.Zero ? consumed : TimeSpan.Zero;
     }
 
     private static TimeSpan GetMaximumSourcePosition(

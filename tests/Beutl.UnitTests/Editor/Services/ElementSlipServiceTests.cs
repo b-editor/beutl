@@ -429,7 +429,9 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.EqualTo(expectedApplied));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
+            Assert.That(
+                video.OffsetPosition.CurrentValue,
+                Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)).Within(TimeSpan.FromTicks(1)));
         });
     }
 
@@ -1764,6 +1766,35 @@ public class ElementSlipServiceTests
             Assert.That(
                 video.OffsetPosition.CurrentValue,
                 Is.EqualTo(shortResource.Duration - frameDuration).Within(TimeSpan.FromTicks(1)));
+        });
+    }
+
+    [Test]
+    public void Slip_SlowMotionVideoReservesFrameRoundingHeadroom()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            Speed = { CurrentValue = 40f },
+        };
+        element.Objects.Add(video);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        TimeSpan lastTimelineSample = element.Length - TimeSpan.FromSeconds(1d / 30);
+        double lastSourceSeconds = video.OffsetPosition.CurrentValue.TotalSeconds
+            + lastTimelineSample.TotalSeconds * 0.4;
+        int requestedFrame = (int)Math.Round(
+            lastSourceSeconds * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(requestedFrame, Is.LessThan(90));
         });
     }
 

@@ -5,6 +5,7 @@ using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -42,6 +43,34 @@ public class ElementResizeServiceTests
 
     private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
+
+    private static IReadOnlyList<PresenterTargetState> CreatePresenterTargetStates(
+        TimeRange range,
+        CoreObject? initialTarget,
+        params (TimeSpan Time, CoreObject? Target)[] transitions)
+    {
+        var states = new List<PresenterTargetState>();
+        CoreObject? current = initialTarget;
+        TimeSpan cursor = range.Start;
+        foreach ((TimeSpan time, CoreObject? target) in transitions.OrderBy(x => x.Time))
+        {
+            if (time <= range.Start)
+            {
+                current = target;
+                continue;
+            }
+
+            if (time >= range.End)
+                break;
+
+            states.Add(new PresenterTargetState(new TimeRange(cursor, time - cursor), current));
+            cursor = time;
+            current = target;
+        }
+
+        states.Add(new PresenterTargetState(new TimeRange(cursor, range.End - cursor), current));
+        return states;
+    }
 
     [Test]
     public void Constructor_NullHistoryManager_Throws()
@@ -2258,6 +2287,40 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Roll_FutureFrontSourceSharedWithBack_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3));
+        var currentVideo = new SourceVideo();
+        var sharedVideo = new SourceVideo();
+        var presenter = new TestSourceVideoTimeMappingPresenter
+        {
+            Target = { CurrentValue = currentVideo },
+            TargetStateResolver = range => CreatePresenterTargetStates(
+                range,
+                currentVideo,
+                (TimeSpan.FromSeconds(2), sharedVideo)),
+        };
+        front.Objects.Add(presenter);
+        back.Objects.Add(sharedVideo);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(
+            _scene,
+            [new ElementTrimPair(front, back)],
+            TimeSpan.FromSeconds(1.5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(sharedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Roll_OneInvalidPair_RejectsWholeOperation()
     {
         Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
@@ -2449,6 +2512,42 @@ public class ElementResizeServiceTests
             Assert.That(applied, Is.False);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
             Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slide_FutureFrontSourceSharedWithBack_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element middle = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        var currentVideo = new SourceVideo();
+        var sharedVideo = new SourceVideo();
+        var presenter = new TestSourceVideoTimeMappingPresenter
+        {
+            Target = { CurrentValue = currentVideo },
+            TargetStateResolver = range => CreatePresenterTargetStates(
+                range,
+                currentVideo,
+                (TimeSpan.FromSeconds(2), sharedVideo)),
+        };
+        front.Objects.Add(presenter);
+        back.Objects.Add(sharedVideo);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(
+            _scene,
+            [new ElementSlideLane(front, [middle], back)],
+            TimeSpan.FromSeconds(1.5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(sharedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
