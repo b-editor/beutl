@@ -1,4 +1,6 @@
-﻿using Beutl.Animation.Easings;
+﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Animation;
 
@@ -80,6 +82,118 @@ public class EasingOutputRangeTests
             Assert.That(easeOut.TryGetOutputRange(out float easeOutMinimum, out _), Is.True);
             Assert.That(easeOut.Ease(0f), Is.GreaterThanOrEqualTo(easeOutMinimum));
         });
+    }
+
+    [Test]
+    public void BackEaseOut_PartialRangeExcludesLaterOvershoot()
+    {
+        var easing = new BackEaseOut();
+
+        Assert.That(
+            easing.TryGetOutputRange(0f, 0.1f, out float minimum, out float maximum),
+            Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(minimum, Is.LessThanOrEqualTo(easing.Ease(0f)));
+            Assert.That(maximum, Is.GreaterThanOrEqualTo(easing.Ease(0.1f)));
+            Assert.That(maximum, Is.LessThan(1f));
+        });
+    }
+
+    [Test]
+    public void BackEasings_PartialRangesContainDenseSamples()
+    {
+        Easing[] easings = [new BackEaseIn(), new BackEaseOut(), new BackEaseInOut()];
+        var random = new Random(42);
+
+        foreach (Easing easing in easings)
+        {
+            for (int rangeIndex = 0; rangeIndex < 100; rangeIndex++)
+            {
+                float first = random.NextSingle();
+                float second = random.NextSingle();
+                float start = Math.Min(first, second);
+                float end = Math.Max(first, second);
+                Assert.That(
+                    easing.TryGetOutputRange(start, end, out float minimum, out float maximum),
+                    Is.True);
+
+                for (int sampleIndex = 0; sampleIndex <= 100; sampleIndex++)
+                {
+                    float progress = start + (end - start) * sampleIndex / 100f;
+                    Assert.That(
+                        easing.Ease(progress),
+                        Is.InRange(minimum, maximum),
+                        $"{easing.GetType().Name} at progress {progress} in [{start}, {end}]");
+                }
+            }
+        }
+    }
+
+    [Test]
+    public void PartialRange_SingletonUsesExactFiniteValue()
+    {
+        var easing = new BackEaseOut();
+
+        Assert.That(easing.TryGetOutputRange(0.25f, 0.25f, out float minimum, out float maximum), Is.True);
+        Assert.That(minimum, Is.EqualTo(easing.Ease(0.25f)));
+        Assert.That(maximum, Is.EqualTo(minimum));
+    }
+
+    [Test]
+    public void PartialRange_InvalidProgressThrows()
+    {
+        var easing = new BackEaseOut();
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => easing.TryGetOutputRange(-0.1f, 1f, out _, out _));
+            Assert.Throws<ArgumentOutOfRangeException>(() => easing.TryGetOutputRange(0f, float.NaN, out _, out _));
+            Assert.Throws<ArgumentException>(() => easing.TryGetOutputRange(0.75f, 0.25f, out _, out _));
+        });
+    }
+
+    [Test]
+    public void KeyFrameAnimation_PartialClockRangeExcludesLaterOvershoot()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 0f,
+            Easing = new BackEaseOut(),
+        });
+
+        Assert.That(
+            animation.TryGetOutputRange(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromMilliseconds(100)),
+                out float minimum,
+                out float maximum),
+            Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(minimum, Is.GreaterThan(0));
+            Assert.That(maximum, Is.GreaterThanOrEqualTo(100));
+        });
+    }
+
+    [Test]
+    public void KeyFrameAnimation_PartialClockRangeIgnoresInvalidFutureState()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = float.NaN });
+
+        Assert.That(
+            animation.TryGetOutputRange(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromMilliseconds(500)),
+                out float minimum,
+                out float maximum),
+            Is.True);
+        Assert.That(minimum, Is.EqualTo(100f));
+        Assert.That(maximum, Is.EqualTo(100f));
     }
 
     [Test]

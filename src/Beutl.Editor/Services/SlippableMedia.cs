@@ -1328,51 +1328,12 @@ internal static class SlippableMedia
         TimeSpan secondClock = GetVideoClockStartAt(video, range.End);
         TimeSpan rangeStart = firstClock <= secondClock ? firstClock : secondClock;
         TimeSpan rangeEnd = firstClock >= secondClock ? firstClock : secondClock;
-        float startSpeed = animation.Interpolate(rangeStart);
-        if (rangeStart == rangeEnd)
-            return !float.IsFinite(startSpeed) || startSpeed < 0;
-
-        float endSpeed = animation.Interpolate(rangeEnd);
-        if (!float.IsFinite(startSpeed)
-            || !float.IsFinite(endSpeed)
-            || startSpeed < 0
-            || endSpeed < 0
-            || animation.KeyFrames[0] is not KeyFrame<float> first)
-        {
-            return true;
-        }
-
-        var previous = first;
-        for (int i = 1; i < animation.KeyFrames.Count; i++)
-        {
-            if (animation.KeyFrames[i] is not KeyFrame<float> next)
-                return true;
-
-            if (!float.IsFinite(previous.Value) || !float.IsFinite(next.Value))
-                return true;
-
-            if (rangeEnd > previous.KeyTime && rangeStart < next.KeyTime)
-            {
-                if (!next.Easing.TryGetOutputRange(out float easingMinimum, out float easingMaximum)
-                    || !float.IsFinite(easingMinimum)
-                    || !float.IsFinite(easingMaximum)
-                    || easingMinimum > easingMaximum)
-                {
-                    return true;
-                }
-
-                float delta = next.Value - previous.Value;
-                float intervalMinimum = delta >= 0
-                    ? previous.Value + easingMinimum * delta
-                    : previous.Value + easingMaximum * delta;
-                if (!float.IsFinite(intervalMinimum) || intervalMinimum < 0)
-                    return true;
-            }
-
-            previous = next;
-        }
-
-        return false;
+        return !animation.TryGetOutputRange(
+                new TimeRange(rangeStart, rangeEnd - rangeStart),
+                out float minimum,
+                out _)
+            || !float.IsFinite(minimum)
+            || minimum < 0;
     }
 
     private static TimeSpan NormalizeLoopPosition(TimeSpan value, TimeSpan duration)
@@ -1599,7 +1560,7 @@ internal static class SlippableMedia
         if (targets is TargetCollection { IsComplete: false }) return TimeSpan.Zero;
         if (delta == TimeSpan.Zero || targets.Count == 0) return TimeSpan.Zero;
 
-        long magnitude = Math.Abs(delta.Ticks);
+        long magnitude = delta.Ticks == long.MinValue ? long.MaxValue : Math.Abs(delta.Ticks);
         bool found = false;
         foreach (Target target in targets)
         {

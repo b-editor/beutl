@@ -902,6 +902,9 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
             if (!CanKeepTraversalDirection(timeRange, targetDrawable, resource, reverse))
                 return false;
 
+            if (HasStationaryTail(timeRange, targetDrawable, resource, reverse))
+                return true;
+
             return CalculateTargetTimeRange(timeRange, targetDrawable, resource) == targetDrawable.TimeRange;
         }
 
@@ -914,12 +917,47 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         return targetAtTail <= targetDrawable.TimeRange.Start;
     }
 
+    private bool HasStationaryTail(
+        TimeRange timeRange,
+        Drawable targetDrawable,
+        Resource resource,
+        bool reverse)
+    {
+        TimeSpan tail = reverse ? timeRange.Start : timeRange.End;
+        if (Speed.Animation is KeyFrameAnimation<float> animation)
+        {
+            if (animation.KeyFrames.Count == 0)
+                return resource.Speed == 0;
+
+            TimeSpan clock = CalculateSpeedClockTime(tail, resource, targetDrawable, animation);
+            if (reverse && clock <= TimeSpan.Zero)
+                return true;
+
+            TimeSpan lastKeyTime = animation.KeyFrames[^1].KeyTime;
+            TimeSpan first = reverse ? TimeSpan.Zero : clock;
+            TimeSpan last = reverse
+                ? clock
+                : lastKeyTime >= clock ? lastKeyTime : clock;
+            return animation.TryGetOutputRange(
+                    new TimeRange(first, last - first),
+                    out float minimum,
+                    out float maximum)
+                && minimum == 0
+                && maximum == 0;
+        }
+
+        return Speed.Animation == null && resource.Speed == 0;
+    }
+
     private bool CanKeepTraversalDirection(
         TimeRange timeRange,
         Drawable targetDrawable,
         Resource resource,
         bool reverse)
     {
+        if (Speed.HasExpression)
+            return false;
+
         if (Speed.Animation is KeyFrameAnimation<float> animation)
         {
             if (animation.KeyFrames.Count == 0)
@@ -945,45 +983,17 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         if (reverse && clock == TimeSpan.Zero)
             return false;
 
-        float current = animation.Interpolate(clock);
-        if (!float.IsFinite(current) || current < 0)
-            return true;
-        if (animation.KeyFrames[0] is not KeyFrame<float> first)
-            return true;
-
-        var previous = first;
-        for (int i = 1; i < animation.KeyFrames.Count; i++)
-        {
-            if (animation.KeyFrames[i] is not KeyFrame<float> next)
-                return true;
-
-            bool overlapsSuffix = reverse
-                ? previous.KeyTime < clock && next.KeyTime > TimeSpan.Zero
-                : next.KeyTime > clock;
-            if (overlapsSuffix)
-            {
-                if (!float.IsFinite(previous.Value)
-                    || !float.IsFinite(next.Value)
-                    || !next.Easing.TryGetOutputRange(out float easingMinimum, out float easingMaximum)
-                    || !float.IsFinite(easingMinimum)
-                    || !float.IsFinite(easingMaximum)
-                    || easingMinimum > easingMaximum)
-                {
-                    return true;
-                }
-
-                float delta = next.Value - previous.Value;
-                float intervalMinimum = delta >= 0
-                    ? previous.Value + easingMinimum * delta
-                    : previous.Value + easingMaximum * delta;
-                if (!float.IsFinite(intervalMinimum) || intervalMinimum < 0)
-                    return true;
-            }
-
-            previous = next;
-        }
-
-        return false;
+        TimeSpan first = reverse ? TimeSpan.Zero : clock;
+        TimeSpan lastKeyTime = animation.KeyFrames[^1].KeyTime;
+        TimeSpan last = reverse
+            ? clock
+            : lastKeyTime >= clock ? lastKeyTime : clock;
+        return !animation.TryGetOutputRange(
+                new TimeRange(first, last - first),
+                out float minimum,
+                out _)
+            || !float.IsFinite(minimum)
+            || minimum < 0;
     }
 
     /// <summary>
@@ -1055,51 +1065,12 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
             timeRange.End, resource, targetDrawable, animation);
         TimeSpan rangeStart = firstClock <= secondClock ? firstClock : secondClock;
         TimeSpan rangeEnd = firstClock >= secondClock ? firstClock : secondClock;
-        float startSpeed = animation.Interpolate(rangeStart);
-        if (rangeStart == rangeEnd)
-            return !float.IsFinite(startSpeed) || startSpeed < 0;
-
-        float endSpeed = animation.Interpolate(rangeEnd);
-        if (!float.IsFinite(startSpeed)
-            || !float.IsFinite(endSpeed)
-            || startSpeed < 0
-            || endSpeed < 0
-            || animation.KeyFrames[0] is not KeyFrame<float> first)
-        {
-            return true;
-        }
-
-        var previous = first;
-        for (int i = 1; i < animation.KeyFrames.Count; i++)
-        {
-            if (animation.KeyFrames[i] is not KeyFrame<float> next)
-                return true;
-
-            if (!float.IsFinite(previous.Value) || !float.IsFinite(next.Value))
-                return true;
-
-            if (rangeEnd > previous.KeyTime && rangeStart < next.KeyTime)
-            {
-                if (!next.Easing.TryGetOutputRange(out float easingMinimum, out float easingMaximum)
-                    || !float.IsFinite(easingMinimum)
-                    || !float.IsFinite(easingMaximum)
-                    || easingMinimum > easingMaximum)
-                {
-                    return true;
-                }
-
-                float delta = next.Value - previous.Value;
-                float intervalMinimum = delta >= 0
-                    ? previous.Value + easingMinimum * delta
-                    : previous.Value + easingMaximum * delta;
-                if (!float.IsFinite(intervalMinimum) || intervalMinimum < 0)
-                    return true;
-            }
-
-            previous = next;
-        }
-
-        return false;
+        return !animation.TryGetOutputRange(
+                new TimeRange(rangeStart, rangeEnd - rangeStart),
+                out float minimum,
+                out _)
+            || !float.IsFinite(minimum)
+            || minimum < 0;
     }
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
