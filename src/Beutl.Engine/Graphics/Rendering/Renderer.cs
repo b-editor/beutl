@@ -203,7 +203,7 @@ public class Renderer : IRenderer
 
     private Entry RenderDrawable(Drawable.Resource resource)
     {
-        var drawable = resource.GetOriginal();
+        var drawable = resource.RequireOriginal();
         Entry entry;
         bool shouldRender;
 
@@ -341,7 +341,7 @@ public class Renderer : IRenderer
             if (obj is not Drawable.Resource drawableResource)
                 continue;
 
-            var drawable = drawableResource.GetOriginal();
+            var drawable = drawableResource.RequireOriginal();
             Entry entry;
             bool shouldRender;
 
@@ -400,7 +400,7 @@ public class Renderer : IRenderer
 
     public Rect[] GetBoundaries(int zIndex)
     {
-        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e => e.Bounds)];
+        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.RequireOriginal().ZIndex == zIndex).Select(e => e.Bounds)];
     }
 
     public Rect? GetBoundary(Drawable drawable)
@@ -434,7 +434,7 @@ public class Renderer : IRenderer
 
     public Rect[] RecalculateBoundaries(int zIndex)
     {
-        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
+        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.RequireOriginal().ZIndex == zIndex).Select(e =>
         {
             var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
             var ops = processor.PullToRoot();

@@ -125,7 +125,7 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = RequireOriginal();
 
             // UseGlobalClock=false のアニメーションに対して、
             // Element.Start 分のオフセットを適用して再評価

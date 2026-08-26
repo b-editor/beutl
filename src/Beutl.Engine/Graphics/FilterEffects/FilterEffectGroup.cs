@@ -19,7 +19,7 @@ public sealed partial class FilterEffectGroup : FilterEffect
         var r = (Resource)resource;
         foreach (FilterEffect.Resource item in r.Children)
         {
-            item.GetOriginal().ApplyTo(context, item);
+            item.RequireOriginal().ApplyTo(context, item);
         }
     }
 }

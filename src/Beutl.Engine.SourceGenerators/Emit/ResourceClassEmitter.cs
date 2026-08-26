@@ -149,9 +149,14 @@ public static class ResourceClassEmitter
 
     private static void EmitGetOriginal(StringBuilder sb, string innerIndent, string currentTypeDisplay)
     {
-        sb.Append(innerIndent).AppendLine($"public new {currentTypeDisplay} GetOriginal()");
+        sb.Append(innerIndent).AppendLine($"public new {currentTypeDisplay}? GetOriginal()");
         sb.Append(innerIndent).AppendLine("{");
-        sb.Append(innerIndent).AppendLine($"    return ({currentTypeDisplay})base.GetOriginal();");
+        sb.Append(innerIndent).AppendLine($"    return ({currentTypeDisplay}?)base.GetOriginal();");
+        sb.Append(innerIndent).AppendLine("}");
+        sb.AppendLine();
+        sb.Append(innerIndent).AppendLine($"public new {currentTypeDisplay} RequireOriginal()");
+        sb.Append(innerIndent).AppendLine("{");
+        sb.Append(innerIndent).AppendLine($"    return ({currentTypeDisplay})base.RequireOriginal();");
         sb.Append(innerIndent).AppendLine("}");
     }
 
@@ -163,7 +168,7 @@ public static class ResourceClassEmitter
             sb.Append(innerIndent).AppendLine("public override void BindNodePortValues()");
             sb.Append(innerIndent).AppendLine("{");
             sb.Append(innerIndent).AppendLine("    base.BindNodePortValues();");
-            sb.Append(innerIndent).AppendLine("    var node = GetOriginal();");
+            sb.Append(innerIndent).AppendLine("    var node = RequireOriginal();");
 
             for (int i = 0; i < info.NodePortProperties.Length; i++)
             {
