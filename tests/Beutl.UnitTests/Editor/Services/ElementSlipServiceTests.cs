@@ -234,6 +234,29 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SourceVideo_ZeroConsumptionReservesLastSourceFrame()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            Speed = { CurrentValue = 0f },
+        };
+        element.Objects.Add(video);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+        TimeSpan frameDuration = TimeSpan.FromSeconds(1d / 30);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3) - frameDuration));
+        });
+    }
+
+    [Test]
     public void Slip_SourceVideo_AnimatedSpeedAdjustsSourceBounds()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

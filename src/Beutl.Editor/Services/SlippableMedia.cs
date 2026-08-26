@@ -29,12 +29,14 @@ internal static class SlippableMedia
             IProperty<TimeSpan> offset,
             TimeSpan? total,
             TimeSpan? consumedDuration = null,
-            TimeSpan? timelineRoom = null)
+            TimeSpan? timelineRoom = null,
+            TimeSpan? zeroConsumptionPadding = null)
         {
             Offset = offset;
             Total = total;
             ConsumedDuration = consumedDuration;
             TimelineRoom = timelineRoom;
+            ZeroConsumptionPadding = zeroConsumptionPadding;
         }
 
         public IProperty<TimeSpan> Offset { get; }
@@ -44,6 +46,8 @@ internal static class SlippableMedia
         public TimeSpan? ConsumedDuration { get; private set; }
 
         public TimeSpan? TimelineRoom { get; private set; }
+
+        public TimeSpan? ZeroConsumptionPadding { get; private set; }
 
         public TimeSpan Current
         {
@@ -70,6 +74,13 @@ internal static class SlippableMedia
                 TimelineRoom = TimelineRoom is { } currentRoom
                     ? TimeSpan.FromTicks(Math.Min(currentRoom.Ticks, room.Ticks))
                     : room;
+            }
+
+            if (other.ZeroConsumptionPadding is { } padding)
+            {
+                ZeroConsumptionPadding = ZeroConsumptionPadding is { } currentPadding
+                    ? TimeSpan.FromTicks(Math.Max(currentPadding.Ticks, padding.Ticks))
+                    : padding;
             }
         }
     }
@@ -138,17 +149,18 @@ internal static class SlippableMedia
                         Func<TimeSpan, TimeSpan> mapper = duration =>
                         {
                             TimeSpan parentDuration = controller.CalculateTimelineDuration(
-                                currentTime, duration, controlled, resource);
+                                currentTime,
+                                duration,
+                                controlled,
+                                resource,
+                                reverse: context.IsReversed);
                             return context.TimelineDurationFromTarget?.Invoke(parentDuration) ?? parentDuration;
                         };
                         bool isReversed = context.IsReversed ^ resource.Reverse;
-                        bool hasUnboundedTail = isReversed ? resource.HoldFirstFrame : resource.HoldLastFrame;
                         var mappedContext = new TimeContext(
                             mapped,
                             mapper,
-                            context.HasUnboundedTail
-                                || resource.Loop
-                                || hasUnboundedTail,
+                            context.HasUnboundedTail,
                             isReversed);
                         CollectFrom(controlled, targets, active, mappedContext);
                     }
@@ -185,11 +197,25 @@ internal static class SlippableMedia
     {
         // Slip offsets and media bounds use source time, including speed conversion.
         using var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default);
-        TimeSpan? total = resource.Source is { } source && source.Duration > TimeSpan.Zero
-            ? source.Duration
+        TimeSpan? total = resource.Source is { } mediaSource && mediaSource.Duration > TimeSpan.Zero
+            ? mediaSource.Duration
             : null;
         TimeSpan consumedDuration = GetConsumedDuration(video, context.Range, resource);
         if (consumedDuration < TimeSpan.Zero) consumedDuration = TimeSpan.Zero;
+        TimeSpan? zeroConsumptionPadding = null;
+        if (resource.Source is { } source
+            && source.FrameRate.Numerator > 0
+            && source.FrameRate.Denominator > 0)
+        {
+            double frameTicks = TimeSpan.TicksPerSecond
+                * source.FrameRate.Denominator
+                / (double)source.FrameRate.Numerator;
+            if (frameTicks > 0)
+            {
+                long roundedTicks = Math.Max(1L, (long)Math.Round(frameTicks));
+                zeroConsumptionPadding = TimeSpan.FromTicks(roundedTicks);
+            }
+        }
         TimeSpan? timelineRoom = null;
         if (total is { } sourceDuration)
         {
@@ -213,7 +239,12 @@ internal static class SlippableMedia
             }
         }
 
-        return new Target(video.OffsetPosition, total, consumedDuration, timelineRoom);
+        return new Target(
+            video.OffsetPosition,
+            total,
+            consumedDuration,
+            timelineRoom,
+            zeroConsumptionPadding);
     }
 
     private static TimeSpan GetConsumedDuration(
@@ -272,7 +303,11 @@ internal static class SlippableMedia
     {
         if (target.Total is not { } total) return long.MaxValue;
 
-        TimeSpan maxOffset = total - (target.ConsumedDuration ?? elementLength);
+        TimeSpan consumed = target.ConsumedDuration ?? elementLength;
+        TimeSpan padding = target.ConsumedDuration == TimeSpan.Zero
+            ? target.ZeroConsumptionPadding ?? TimeSpan.Zero
+            : TimeSpan.Zero;
+        TimeSpan maxOffset = total - consumed - padding;
         if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
         return Math.Max(0L, (maxOffset - target.Current).Ticks);
     }

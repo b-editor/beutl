@@ -178,6 +178,22 @@ public class SourceVideoSpeedTest
     }
 
     [Test]
+    public void CalculateTimelineDuration_TinyPositiveTerminalSpeed_CompletesBounded()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 0.001f, KeyTime = TimeSpan.FromSeconds(1) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.Zero, TimeSpan.FromSeconds(10), _sourceVideoResource);
+
+        Assert.That(result, Is.GreaterThan(TimeSpan.FromHours(1)));
+    }
+
+    [Test]
     public void CalculateVideoTime_WithLinearSpeedAnimation_ShouldInterpolateSmoothly()
     {
         // Arrange: 0秒で速度100、2秒で速度200の線形アニメーション
