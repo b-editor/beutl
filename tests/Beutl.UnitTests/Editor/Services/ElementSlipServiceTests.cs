@@ -1568,6 +1568,40 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Collect_FutureTimeMappingTraitsUseReachableStateRange()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var video = new SourceVideo();
+        var presenter = new TestTimeMappingPresenter
+        {
+            TargetStateResolver = range => CreatePresenterTargetStates(
+                range,
+                null,
+                (TimeSpan.FromSeconds(1), video)),
+            ReverseSelector = range => !range.IsEmpty,
+            UnboundedTailSelector = range => !range.IsEmpty,
+        };
+        element.Objects.Add(presenter);
+
+        SlippableMedia.TargetCollection targets = SlippableMedia.Collect(
+            element,
+            TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(targets.IsComplete, Is.True);
+            Assert.That(presenter.ObservedReverseRanges, Has.None.Matches<TimeRange>(range => range.IsEmpty));
+            Assert.That(presenter.ObservedUnboundedTailRanges, Has.None.Matches<TimeRange>(range => range.IsEmpty));
+            Assert.That(
+                presenter.ObservedReverseRanges,
+                Does.Contain(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2))));
+            Assert.That(
+                presenter.ObservedUnboundedTailRanges,
+                Does.Contain(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2))));
+        });
+    }
+
+    [Test]
     public void Collect_ReversedEmptyBoundaryQueriesNegativePrecedingTick()
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.Zero);
@@ -1689,6 +1723,47 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void Slip_AnimatedSourceIncludesExactKeyframeBoundaryValue()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var shortSource = new VideoSource();
+        shortSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 30)));
+        var longSource = new VideoSource();
+        longSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var sourceAnimation = new KeyFrameAnimation<VideoSource?>();
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = shortSource,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = longSource,
+        });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = shortSource, Animation = sourceAnimation },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        element.Objects.Add(video);
+        using var shortResource = (VideoSource.Resource)shortSource.ToResource(CompositionContext.Default);
+        TimeSpan frameDuration = TimeSpan.FromSeconds(1d / 30);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(
+                video.OffsetPosition.CurrentValue,
+                Is.EqualTo(shortResource.Duration - frameDuration).Within(TimeSpan.FromTicks(1)));
         });
     }
 
@@ -2399,7 +2474,13 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
 
     public bool ReportsUnboundedTail { get; set; }
 
+    public Func<TimeRange, bool>? UnboundedTailSelector { get; set; }
+
     public Func<TimeRange, bool>? ReverseSelector { get; set; }
+
+    public List<TimeRange> ObservedReverseRanges { get; } = [];
+
+    public List<TimeRange> ObservedUnboundedTailRanges { get; } = [];
 
     public int TimelineDurationCallCount { get; private set; }
 
@@ -2436,7 +2517,10 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
         bool reverse = false) => ReportsCompleteTimeMapping;
 
     public bool IsReversed(TimeRange timeRange, Drawable target)
-        => ReverseSelector?.Invoke(timeRange) ?? false;
+    {
+        ObservedReverseRanges.Add(timeRange);
+        return ReverseSelector?.Invoke(timeRange) ?? false;
+    }
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable target)
         => CollapseMappedRange
@@ -2446,7 +2530,10 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
             : new(MappedStart, timeRange.Duration);
 
     public bool HasUnboundedTail(TimeRange timeRange, Drawable target, bool reverse = false)
-        => ReportsUnboundedTail;
+    {
+        ObservedUnboundedTailRanges.Add(timeRange);
+        return UnboundedTailSelector?.Invoke(timeRange) ?? ReportsUnboundedTail;
+    }
 
     public TimeSpan CalculateTimelineDuration(
         TimeSpan start,
@@ -2547,6 +2634,10 @@ internal sealed partial class TestSourceSoundTimeMappingPresenter : Drawable, IT
 
     public TimeSpan TargetOffset { get; set; }
 
+    public bool CollapseMappedRange { get; set; }
+
+    public bool ReportsUnboundedTail { get; set; }
+
     public bool CanProvideCompleteTimeMapping(
         TimeRange timeRange,
         SourceSound target,
@@ -2557,10 +2648,12 @@ internal sealed partial class TestSourceSoundTimeMappingPresenter : Drawable, IT
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, SourceSound target)
         => new(
             timeRange.Start + TargetOffset,
-            TimeSpan.FromTicks((long)(timeRange.Duration.Ticks * Scale)));
+            CollapseMappedRange
+                ? TimeSpan.Zero
+                : TimeSpan.FromTicks((long)(timeRange.Duration.Ticks * Scale)));
 
     public bool HasUnboundedTail(TimeRange timeRange, SourceSound target, bool reverse = false)
-        => false;
+        => ReportsUnboundedTail;
 
     public TimeSpan CalculateTimelineDuration(
         TimeSpan start,
