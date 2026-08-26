@@ -316,6 +316,7 @@ public sealed class RecordingBufferPoolingTests
         return new RenderNodeRecordingSnapshot(
             RenderNodeRecordingKey.Create(CreateOptions(null), transactionCacheEnabled: false),
             inputFingerprints: [],
+            inputIdentities: [],
             hitTestReads: [],
             fragments:
             [

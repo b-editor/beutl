@@ -85,6 +85,7 @@ internal sealed class RenderNodeRecordingSnapshot
     public RenderNodeRecordingSnapshot(
         RenderNodeRecordingKey key,
         long[] inputFingerprints,
+        RenderFragmentRecordingIdentity[] inputIdentities,
         ReplayedHitTestRead[] hitTestReads,
         ReplayedRenderFragment[]? fragments,
         int[]? publicationSlots,
@@ -93,6 +94,7 @@ internal sealed class RenderNodeRecordingSnapshot
     {
         Key = key;
         InputFingerprints = inputFingerprints;
+        InputIdentities = inputIdentities;
         HitTestReads = hitTestReads;
         Fragments = fragments;
         PublicationSlots = publicationSlots;
@@ -103,6 +105,9 @@ internal sealed class RenderNodeRecordingSnapshot
     public RenderNodeRecordingKey Key { get; }
 
     public long[] InputFingerprints { get; }
+
+    /// <summary>The exact structure of each input, for settling a fingerprint match.</summary>
+    public RenderFragmentRecordingIdentity[] InputIdentities { get; }
 
     /// <summary>The hit-test answers the recording branched on, which the fingerprints cannot report.</summary>
     public ReplayedHitTestRead[] HitTestReads { get; }
@@ -136,6 +141,14 @@ internal sealed class RenderNodeRecordingSnapshot
         for (int index = 0; index < InputFingerprints.Length; index++)
         {
             if (InputFingerprints[index] != inputs[index].RecordingFingerprint)
+                return false;
+        }
+
+        // The digests agree, which is a reject that did not fire rather than a verdict: FR-033 requires the
+        // comparison to hold under a collision, and one fingerprint stands for a whole input cone.
+        for (int index = 0; index < InputIdentities.Length; index++)
+        {
+            if (!InputIdentities[index].Matches(inputs[index]))
                 return false;
         }
 
@@ -198,8 +211,13 @@ internal static class RenderNodeRecordingCache
         NodeRecordingTransaction transaction)
     {
         long[] inputFingerprints = inputs.Count == 0 ? [] : new long[inputs.Count];
+        RenderFragmentRecordingIdentity[] inputIdentities =
+            inputs.Count == 0 ? [] : new RenderFragmentRecordingIdentity[inputs.Count];
         for (int index = 0; index < inputs.Count; index++)
+        {
             inputFingerprints[index] = inputs[index].RecordingFingerprint;
+            inputIdentities[index] = inputs[index].RecordingIdentity;
+        }
 
         ReplayedHitTestRead[] hitTestReads = [];
         bool everyHitTestReadCanBeAskedAgain = transaction.RecordedHitTestReads is not { Count: > 0 } reads
@@ -211,7 +229,7 @@ internal static class RenderNodeRecordingCache
             || transaction.RecordedBuiltInBackdropBindingCount != 0
             || transaction.AbsorbedRecordingCount != 0)
         {
-            return Refuse(in key, inputFingerprints, hitTestReads);
+            return Refuse(in key, inputFingerprints, inputIdentities, hitTestReads);
         }
 
         IReadOnlyList<RecordedRenderFragmentEntry> entries = transaction.RecordedFragments;
@@ -226,7 +244,7 @@ internal static class RenderNodeRecordingCache
         {
             RecordedRenderFragmentEntry entry = entries[index];
             if (!ReferenceEquals(entry.Origin, node))
-                return Refuse(in key, inputFingerprints, hitTestReads);
+                return Refuse(in key, inputFingerprints, inputIdentities, hitTestReads);
 
             RenderFragmentReference reference = entry.Reference;
             ImmutableArray<RenderFragmentReference> referenceInputs = reference.Inputs;
@@ -234,7 +252,7 @@ internal static class RenderNodeRecordingCache
             for (int inputIndex = 0; inputIndex < referenceInputs.Length; inputIndex++)
             {
                 if (!slots.TryGetValue(referenceInputs[inputIndex], out int slot))
-                    return Refuse(in key, inputFingerprints, hitTestReads);
+                    return Refuse(in key, inputFingerprints, inputIdentities, hitTestReads);
                 inputSlots[inputIndex] = slot;
             }
 
@@ -253,7 +271,7 @@ internal static class RenderNodeRecordingCache
         for (int index = 0; index < publications.Count; index++)
         {
             if (!slots.TryGetValue(publications[index], out int slot))
-                return Refuse(in key, inputFingerprints, hitTestReads);
+                return Refuse(in key, inputFingerprints, inputIdentities, hitTestReads);
             publicationSlots[index] = slot;
         }
 
@@ -266,7 +284,7 @@ internal static class RenderNodeRecordingCache
             foreach (RenderFragmentReference reference in dropped)
             {
                 if (!slots.TryGetValue(reference, out int slot))
-                    return Refuse(in key, inputFingerprints, hitTestReads);
+                    return Refuse(in key, inputFingerprints, inputIdentities, hitTestReads);
                 droppedSlots[write++] = slot;
             }
         }
@@ -274,6 +292,7 @@ internal static class RenderNodeRecordingCache
         return new RenderNodeRecordingSnapshot(
             key,
             inputFingerprints,
+            inputIdentities,
             hitTestReads,
             fragments,
             publicationSlots,
@@ -284,8 +303,9 @@ internal static class RenderNodeRecordingCache
     private static RenderNodeRecordingSnapshot Refuse(
         in RenderNodeRecordingKey key,
         long[] inputFingerprints,
+        RenderFragmentRecordingIdentity[] inputIdentities,
         ReplayedHitTestRead[] hitTestReads)
-        => new(key, inputFingerprints, hitTestReads, null, null, null);
+        => new(key, inputFingerprints, inputIdentities, hitTestReads, null, null, null);
 
     /// <summary>
     /// States each hit test the recording read over an input slot, or reports one that cannot be asked again.
