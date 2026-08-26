@@ -935,7 +935,7 @@ internal static class SlippableMedia
             }
         }
         TimeSpan sourceEndPosition = GetMaximumSourcePosition(video, context.Range, resource);
-        TimeSpan? timelineRoom = null;
+        TimeSpan? timelineRoom = timelineRoomOverride;
         TimeSpan? forwardOffsetLimit = null;
         if (total is { } sourceDuration)
         {
@@ -946,23 +946,20 @@ internal static class SlippableMedia
             TimeSpan maxOffset = sourceDuration - reservation;
             if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
             forwardOffsetLimit = maxOffset;
-            if (timelineRoomOverride is { } mappedTimelineRoom)
-            {
-                timelineRoom = mappedTimelineRoom;
-            }
-            else if (context.HasUnboundedTail
+            if (timelineRoomOverride is null
+                && (context.HasUnboundedTail
                 || resource.IsLoop
-                    && video.OffsetPosition.CurrentValue == TimeSpan.Zero)
+                    && video.OffsetPosition.CurrentValue == TimeSpan.Zero))
             {
                 timelineRoom = TimeSpan.MaxValue;
             }
-            else if (context.IsReversed)
+            else if (timelineRoomOverride is null && context.IsReversed)
             {
                 TimeSpan targetRoom = context.Range.Start - video.TimeRange.Start;
                 if (targetRoom < TimeSpan.Zero) targetRoom = TimeSpan.Zero;
                 timelineRoom = context.TimelineDurationFromTarget?.Invoke(targetRoom) ?? targetRoom;
             }
-            else
+            else if (timelineRoomOverride is null)
             {
                 TimeSpan targetRoom = video.CalculateTimelineDuration(
                     GetVideoClockStartAt(video, context.Range.End), sourceRoom, resource);
@@ -994,11 +991,10 @@ internal static class SlippableMedia
     private static TimeSpan GetMaximumSourcePosition(
         SourceVideo video, TimeRange range, SourceVideo.Resource resource)
     {
-        if (!resource.IsLoop
-            && resource.Source is { } mediaSource
+        if (resource.Source is { } mediaSource
             && mediaSource.Duration > TimeSpan.Zero
-            && (CrossesSourcePositionZero(video, range, resource)
-                || SpeedMayRunBackward(video, range)))
+            && (SpeedMayRunBackward(video, range)
+                || !resource.IsLoop && CrossesSourcePositionZero(video, range, resource)))
         {
             return mediaSource.Duration;
         }
@@ -1319,10 +1315,20 @@ internal static class SlippableMedia
         TimeSpan room = maximumRoom;
         foreach (Target target in targets)
         {
-            if (target.Total is not { } total) continue;
+            TimeSpan available;
+            if (target.TimelineRoom is { } timelineRoom)
+            {
+                available = timelineRoom;
+            }
+            else if (target.Total is { } total)
+            {
+                available = total - target.Current - elementLength;
+            }
+            else
+            {
+                continue;
+            }
 
-            TimeSpan available = target.TimelineRoom
-                ?? (total - target.Current - elementLength);
             if (available < TimeSpan.Zero) available = TimeSpan.Zero;
             if (available < room) room = available;
         }

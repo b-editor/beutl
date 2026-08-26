@@ -1544,6 +1544,70 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void GetTrimDeltaBounds_HoldLastAtExclusiveTargetEndRemainsFinite()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldLastFrame = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(controller.HasUnboundedTail(front.Range, video), Is.False);
+            Assert.That(max, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_FutureSourceAfterNullActiveRangeConstrainsTail()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var sourceAnimation = new KeyFrameAnimation<VideoSource?>();
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = null,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(2),
+            Value = source,
+        });
+        var video = new SourceVideo
+        {
+            Source = { Animation = sourceAnimation },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(video);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_TimeControllerLoopBoundsFiniteSourcePrefix()
     {
         var frontSource = new VideoSource();

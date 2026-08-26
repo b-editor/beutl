@@ -296,7 +296,7 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
             return TimeSpan.MaxValue;
 
-        bool heldAtTail = IsHeldAtTail(resource, reverse)
+        bool heldAtTail = IsValidHeldTail(resource, reverse)
             && CanKeepTraversalDirection(resource);
         if (resource.Loop || heldAtTail)
         {
@@ -387,11 +387,9 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         return CalculateTimelineDuration(start, targetDuration, targetDrawable, resource, reverse);
     }
 
-    private static bool IsHeldAtTail(Resource resource, bool reverse)
+    private static bool IsValidHeldTail(Resource resource, bool reverse)
     {
-        return (reverse ^ resource.Reverse)
-            ? resource.HoldFirstFrame
-            : resource.HoldLastFrame;
+        return (reverse ^ resource.Reverse) && resource.HoldFirstFrame;
     }
 
     private TimeSpan CalculateTargetBoundary(
@@ -846,15 +844,12 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
             return CalculateTargetTimeRange(timeRange, targetDrawable, resource) == targetDrawable.TimeRange;
         }
 
-        if (!IsHeldAtTail(resource, reverse) || !CanKeepTraversalDirection(resource))
+        if (!IsValidHeldTail(resource, reverse) || !CanKeepTraversalDirection(resource))
             return false;
 
         TimeSpan tail = reverse ? timeRange.Start : timeRange.End;
         TimeSpan targetAtTail = CalculateTargetTime(tail, resource, targetDrawable);
-        bool outputReversed = reverse ^ resource.Reverse;
-        return outputReversed
-            ? targetAtTail <= targetDrawable.TimeRange.Start
-            : targetAtTail >= targetDrawable.TimeRange.End;
+        return targetAtTail <= targetDrawable.TimeRange.Start;
     }
 
     private bool CanKeepTraversalDirection(Resource resource)

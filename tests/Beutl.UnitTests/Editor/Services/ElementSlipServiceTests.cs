@@ -1078,6 +1078,45 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_LoopedVideoSpeedEasingInteriorReversalFailsClosed()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 30)));
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 10f,
+            Easing = new BackEaseOut(),
+        });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsLoop = { CurrentValue = true },
+            OffsetPosition = { CurrentValue = TimeSpan.FromMilliseconds(880) },
+            Speed = { Animation = speed },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+        };
+        element.Objects.Add(video);
+
+        bool applied = _service.Slip(
+            _scene,
+            [element],
+            TimeSpan.FromMilliseconds(10));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(
+                video.OffsetPosition.CurrentValue,
+                Is.EqualTo(TimeSpan.FromMilliseconds(880)));
+        });
+    }
+
+    [Test]
     public void ResizeBounds_FuturePresenterTargetConstrainsTailAfterKeyframe()
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(4));
