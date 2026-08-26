@@ -16,6 +16,15 @@ internal sealed class RenderTargetPoolOptions
 
     public int MaximumIdleRequests { get; init; } = 120;
 
+    /// <summary>
+    /// The largest device extent this pool will attach, or <see langword="null"/> for the active device's.
+    /// </summary>
+    /// <remarks>
+    /// Naming one lets a test pin a limit below every device it runs on, so the refusal is observable without
+    /// depending on the machine's GPU.
+    /// </remarks>
+    public int? MaxBufferDimension { get; init; }
+
     internal Action<RenderTargetPoolRegistrationStage>? AfterTargetRegistrationStep { get; init; }
 
     internal Action? BeforeLeaseRegistration { get; init; }
@@ -107,11 +116,14 @@ internal sealed class RenderTargetPool : IDisposable
             throw new ArgumentOutOfRangeException(nameof(options), "The retained-byte limit cannot be negative.");
         if (options.MaximumIdleRequests < 0)
             throw new ArgumentOutOfRangeException(nameof(options), "The idle-request limit cannot be negative.");
+        if (options.MaxBufferDimension is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options), "The maximum buffer dimension must be positive.");
         _factory = factory;
         _options = new RenderTargetPoolOptions
         {
             MaximumRetainedBytes = options.MaximumRetainedBytes,
             MaximumIdleRequests = options.MaximumIdleRequests,
+            MaxBufferDimension = options.MaxBufferDimension,
             AfterTargetRegistrationStep = options.AfterTargetRegistrationStep,
             BeforeLeaseRegistration = options.BeforeLeaseRegistration,
         };
@@ -233,11 +245,31 @@ internal sealed class RenderTargetPool : IDisposable
     {
         if (TryAcquire(request, deviceSize, out PooledRenderTargetLease? lease))
             return lease;
-        throw CreateAllocationFailure(deviceSize);
+        throw ExceedsBufferBudget(deviceSize, out int maxDimension)
+            ? CreateAllocationFailure(deviceSize, maxDimension)
+            : CreateAllocationFailure(deviceSize);
     }
 
-    internal static InvalidOperationException CreateAllocationFailure(PixelSize deviceSize)
-        => new($"The render-target factory could not allocate {deviceSize.Width}x{deviceSize.Height} pixels.");
+    internal static InvalidOperationException CreateAllocationFailure(
+        PixelSize deviceSize,
+        int? maxDimension = null)
+        => new(maxDimension is { } budget
+            ? $"A {deviceSize.Width}x{deviceSize.Height} pixel render target exceeds the {budget} pixels "
+              + "this device can attach."
+            : $"The render-target factory could not allocate {deviceSize.Width}x{deviceSize.Height} pixels.");
+
+    /// <summary>
+    /// Whether <paramref name="deviceSize"/> is past what this pool's device can attach, reporting the budget
+    /// it was measured against.
+    /// </summary>
+    /// <remarks>
+    /// A caller consults this only to describe a refusal; <see cref="TryAcquire"/> applies it itself.
+    /// </remarks>
+    internal bool ExceedsBufferBudget(PixelSize deviceSize, out int maxDimension)
+    {
+        maxDimension = _options.MaxBufferDimension ?? RenderScaleUtilities.ResolveMaxBufferDimension();
+        return !RenderScaleUtilities.FitsBufferBudget(deviceSize, maxDimension);
+    }
 
     /// <summary>Leases an exact-size target, reporting <see langword="false"/> only when the allocator declines.</summary>
     /// <remarks>Every other failure — a stale slot, a contract-violating factory return — still throws.</remarks>
@@ -261,6 +293,16 @@ internal sealed class RenderTargetPool : IDisposable
                 nameof(deviceSize),
                 deviceSize,
                 "A pooled render target requires a positive device size.");
+        }
+
+        // Planning clamps a density to the engine's fixed ceiling so a plan means the same thing on every
+        // device, which leaves a request past a smaller device's limit reaching here. Handing that to the
+        // backend asks for an attachment it cannot make - undefined behaviour rather than a failed
+        // allocation - so it declines instead, and the caller's own degradation contract takes over.
+        if (ExceedsBufferBudget(deviceSize, out _))
+        {
+            lease = null;
+            return false;
         }
 
         if (TryTakeAvailable(deviceSize, out TargetSlot? slot))

@@ -78,6 +78,25 @@ public static class RenderScaleUtilities
         return value;
     }
 
+    /// <summary>
+    /// Whether an allocation of <paramref name="deviceSize"/> fits what the device can attach.
+    /// </summary>
+    /// <param name="deviceSize">The device extents an allocation would ask for.</param>
+    /// <param name="maxDimension">
+    /// The budget to fit, or <see langword="null"/> for <see cref="ResolveMaxBufferDimension()"/>.
+    /// </param>
+    /// <remarks>
+    /// A caller that owns its density reduces it with <see cref="ClampWorkingScaleToDeviceBufferBudget"/>
+    /// instead. This is for the ones that cannot - a pool sees pixels rather than a density, and the executor
+    /// has to keep the density its plan and its cache entries were keyed on.
+    /// </remarks>
+    public static bool FitsBufferBudget(PixelSize deviceSize, int? maxDimension = null)
+    {
+        int budget = maxDimension ?? ResolveMaxBufferDimension();
+        ValidateMaxDimension(budget);
+        return deviceSize.Width <= budget && deviceSize.Height <= budget;
+    }
+
     private const int RasterApronPixels = 2;
 
     public static float SanitizeMaxWorkingScale(float maxWorkingScale)
@@ -143,9 +162,16 @@ public static class RenderScaleUtilities
     /// </param>
     /// <remarks>
     /// This belongs to allocation, not planning: a plan clamped to whichever device compiled it would mean
-    /// something else on the next one, so planning keeps <see cref="MaxBufferDimension"/> and the site that
-    /// turns a density into real pixels re-clamps here. That site reports the density it allocated at, so
-    /// the buffer and the density read back from it stay the same number.
+    /// something else on the next one, so planning keeps <see cref="MaxBufferDimension"/> and an allocation
+    /// site whose density is its own re-clamps here. Such a site reports the density it allocated at, so the
+    /// buffer and the density read back from it stay the same number.
+    /// <para>
+    /// A site whose density is the plan's cannot re-clamp: the render cache keys an entry on the planned
+    /// materialization density and rejects a payload recorded at any other, so lowering the density there
+    /// turns a cacheable fragment into a failed capture. Those sites keep the planned density and let the
+    /// allocation refuse instead - see <see cref="FitsBufferBudget"/>, which degrades a preview and fails a
+    /// delivery render through the lease session's existing contract.
+    /// </para>
     /// </remarks>
     public static float ClampWorkingScaleToDeviceBufferBudget(
         Rect logicalBounds,

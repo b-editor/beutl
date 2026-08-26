@@ -21,10 +21,16 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
     private RenderTargetLeaseSession? _activeSession;
     private bool _disposed;
 
-    public RenderTargetLeaseRegistry(IRenderTargetFactory? factory)
+    /// <param name="factory">The caller's allocator, or <see langword="null"/> for the engine's own.</param>
+    /// <param name="maxBufferDimension">
+    /// The largest device extent to attach, or <see langword="null"/> for the active device's.
+    /// </param>
+    public RenderTargetLeaseRegistry(IRenderTargetFactory? factory, int? maxBufferDimension = null)
     {
         HasTargetFactory = factory is not null;
-        _pool = new RenderTargetPool(factory);
+        _pool = new RenderTargetPool(
+            factory,
+            new RenderTargetPoolOptions { MaxBufferDimension = maxBufferDimension });
     }
 
     public RenderTargetPoolStatistics Statistics => _pool.Statistics;
@@ -103,7 +109,7 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
 
     internal RenderTargetLease Acquire(RenderTargetLeaseSession session, PixelSize deviceSize)
         => TryAcquire(session, deviceSize)
-           ?? throw RenderTargetPool.CreateAllocationFailure(deviceSize);
+           ?? throw CreateAllocationFailure(deviceSize);
 
     /// <summary>
     /// Leases an intermediate target, returning <see langword="null"/> when a
@@ -123,7 +129,7 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
                 deviceSize.Width,
                 deviceSize.Height);
             if (session.Intent == RenderIntent.Delivery)
-                throw RenderTargetPool.CreateAllocationFailure(deviceSize);
+                throw CreateAllocationFailure(deviceSize);
             return null;
         }
 
@@ -131,6 +137,14 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
         session.Register(lease);
         return lease;
     }
+
+    /// <summary>
+    /// Describes a refused allocation, naming the device limit when that is what refused it.
+    /// </summary>
+    private InvalidOperationException CreateAllocationFailure(PixelSize deviceSize)
+        => _pool.ExceedsBufferBudget(deviceSize, out int maxDimension)
+            ? RenderTargetPool.CreateAllocationFailure(deviceSize, maxDimension)
+            : RenderTargetPool.CreateAllocationFailure(deviceSize);
 
     internal void Release(RenderTargetLease lease)
     {

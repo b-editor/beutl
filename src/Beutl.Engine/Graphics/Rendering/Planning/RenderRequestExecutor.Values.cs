@@ -109,6 +109,12 @@ internal sealed partial class RenderRequestExecutor
             if (scale.IsUnbounded)
                 throw new InvalidOperationException("An allocated render value requires a concrete density.");
             Vector gridOffset = deviceGridOffset ?? _activeDeviceGridOffset;
+            // The density stays the plan's here even where the device attaches less than the engine ceiling
+            // the plan was clamped to. The render cache keys an entry on the planned materialization density
+            // and refuses a payload recorded at any other, so re-clamping to the device would turn every
+            // cacheable fragment on such a device into a failed capture. An over-budget footprint is instead
+            // declined by the pool, which reaches the caller as the preview drop or the delivery failure the
+            // lease session already defines.
             PixelRect semanticDeviceBounds = PixelRect.FromRect(
                 bounds.Translate(gridOffset),
                 scale.Value);

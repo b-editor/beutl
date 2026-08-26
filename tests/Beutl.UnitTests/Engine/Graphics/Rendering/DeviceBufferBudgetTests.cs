@@ -2,6 +2,7 @@
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
 using Moq;
@@ -26,6 +27,10 @@ public sealed class DeviceBufferBudgetTests
     // 10000 px at w 2 is 20000 device px: over both the engine ceiling and the named budget, and clamped to
     // a different density by each.
     private static readonly Rect s_overBudgetBounds = new(0, 0, 10000, 1);
+
+    // Over the named budget and under the engine ceiling, so planning leaves the density alone at output
+    // scale 1 and only the device budget can refuse the buffer.
+    private static readonly Rect s_overBudgetDomain = new(0, 0, 10000, 8);
 
     [Test]
     public void ClampToDeviceBudget_FitsTheNamedBudgetRatherThanTheEngineCeiling()
@@ -218,11 +223,138 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
+    [Test]
+    public void FitsBufferBudget_MeasuresBothAxesAgainstTheNamedBudget()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RenderScaleUtilities.FitsBufferBudget(new PixelSize(DeviceBudget, DeviceBudget), DeviceBudget), Is.True);
+            Assert.That(RenderScaleUtilities.FitsBufferBudget(new PixelSize(DeviceBudget + 1, 1), DeviceBudget), Is.False);
+            Assert.That(RenderScaleUtilities.FitsBufferBudget(new PixelSize(1, DeviceBudget + 1), DeviceBudget), Is.False);
+            Assert.That(
+                RenderScaleUtilities.FitsBufferBudget(new PixelSize(RenderScaleUtilities.MaxBufferDimension, 1)),
+                Is.EqualTo(RenderScaleUtilities.ResolveMaxBufferDimension() >= RenderScaleUtilities.MaxBufferDimension),
+                "without a named budget the active device's limit decides");
+            Assert.That(
+                () => RenderScaleUtilities.FitsBufferBudget(new PixelSize(1, 1), 0),
+                Throws.InstanceOf<ArgumentOutOfRangeException>());
+        });
+    }
+
+    [Test]
+    public void AnOverBudgetLease_IsDeclinedBeforeItReachesTheAllocator()
+    {
+        var factory = new RecordingCpuTargetFactory();
+        using var registry = new RenderTargetLeaseRegistry(factory, maxBufferDimension: DeviceBudget);
+        using RenderTargetLeaseSession preview = registry.BeginSession(RenderIntent.Preview);
+
+        var overBudget = new PixelSize(DeviceBudget + 1, 1);
+        RenderTargetLease? declined = preview.TryAcquire(overBudget);
+        using RenderTargetLease atBudget = preview.Acquire(new PixelSize(DeviceBudget, 1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(declined, Is.Null, "a preview drops the target it cannot attach");
+            Assert.That(
+                () => preview.Acquire(overBudget),
+                Throws.InstanceOf<InvalidOperationException>()
+                    .With.Message.Contains(DeviceBudget.ToString()));
+            Assert.That(atBudget.Target.Width, Is.EqualTo(DeviceBudget));
+            Assert.That(
+                factory.Requests,
+                Has.None.Matches<PixelSize>(size => size.Width > DeviceBudget || size.Height > DeviceBudget),
+                "an attachment the device cannot make must never reach the allocator");
+        });
+    }
+
+    [Test]
+    public void AnOverBudgetLease_FailsADeliveryRenderNamingTheLimit()
+    {
+        var factory = new RecordingCpuTargetFactory();
+        using var registry = new RenderTargetLeaseRegistry(factory, maxBufferDimension: DeviceBudget);
+        using RenderTargetLeaseSession delivery = registry.BeginSession(RenderIntent.Delivery);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => delivery.TryAcquire(new PixelSize(1, DeviceBudget + 1)),
+                Throws.InstanceOf<InvalidOperationException>()
+                    .With.Message.Contains(DeviceBudget.ToString()),
+                "a delivery render never degrades");
+            Assert.That(factory.Requests, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void AnOverBudgetMaterialization_NeverAsksForAnAttachmentTheDeviceCannotMake()
+    {
+        using var node = new OverBudgetSourceNode();
+        var factory = new RecordingCpuTargetFactory();
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            targetDomain: s_overBudgetDomain,
+            requestedRegion: s_overBudgetDomain,
+            outputScale: 1,
+            maxWorkingScale: 1,
+            cachePolicy: RenderCacheOptions.Disabled));
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+        using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
+        using RenderTarget destination = new CpuRenderTarget(new PixelSize(8, 8));
+        using var canvas = new ImmediateCanvas(destination);
+        using var registry = new RenderTargetLeaseRegistry(factory, maxBufferDimension: DeviceBudget);
+        using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview, destination);
+
+        InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
+            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                node.ExecuteCalls,
+                Is.GreaterThan(0),
+                "the fixture must reach the materialization the budget then refuses");
+            Assert.That(
+                refusal!.Message,
+                Does.Contain(DeviceBudget.ToString()),
+                "a materialization this device cannot attach is refused, not silently attached");
+            Assert.That(
+                factory.Requests,
+                Has.None.Matches<PixelSize>(size => size.Width > DeviceBudget || size.Height > DeviceBudget),
+                "an ordinary materialization must not ask for an over-budget attachment");
+            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+        });
+    }
+
     private static IGraphicsContext ContextAttaching(int maxAttachmentDimension)
     {
         var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
         context.SetupGet(c => c.MaxAttachmentDimension).Returns(maxAttachmentDimension);
         return context.Object;
+    }
+
+    private sealed class OverBudgetSourceNode : RenderNode
+    {
+        private static readonly OpaqueRenderDefinition<Action<OpaqueRenderSession>> s_definition =
+            OpaqueRenderDefinition<Action<OpaqueRenderSession>>.Create(
+                static (session, execute) => execute(session),
+                OpaqueRenderBoundsContract.Source(s_overBudgetDomain),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale);
+
+        public int ExecuteCalls { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.OpaqueSource(s_definition.Call(session =>
+            {
+                ExecuteCalls++;
+                using OpaqueRenderOutput output = session.CreateOutput(s_overBudgetDomain);
+                output.Canvas.Use(canvas => canvas.Clear(Color.FromArgb(255, 100, 149, 237)));
+                session.Publish(output);
+            })));
+        }
     }
 
     private sealed class RecordingCpuTargetFactory : IRenderTargetFactory
