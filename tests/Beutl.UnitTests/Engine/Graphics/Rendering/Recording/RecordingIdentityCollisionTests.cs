@@ -41,7 +41,7 @@ public sealed class RecordingIdentityCollisionTests
         long recordedOver = parent.RecordingSnapshot!.InputFingerprints.Single();
         Assert.That(parent.ProcessCalls, Is.EqualTo(1), "an unchanged subtree must still be served");
 
-        child.HasChanges = true;
+        child.MarkChanged();
         child.Region = second;
         Record(parent);
 
@@ -79,7 +79,7 @@ public sealed class RecordingIdentityCollisionTests
         using (RenderRecordingCrossCheck.Enable())
         {
             Record(parent);
-            child.HasChanges = true;
+            child.MarkChanged();
             child.Region = second;
 
             Assert.That(() => Record(parent), Throws.Nothing);

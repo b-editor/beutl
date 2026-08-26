@@ -200,7 +200,7 @@ public sealed class RenderPipelineMigrationCensusTests
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
             AssertAllOverridesAreMapped(overrides);
             AssertBaselineInventory("production", 31, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 232, s_testOverrideBaseline, overrides);
+            AssertBaselineInventory("test", 233, s_testOverrideBaseline, overrides);
         }
     }
 

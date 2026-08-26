@@ -159,7 +159,7 @@ public sealed class RecordingGateFingerprintTests
         });
 
         long[] recordedOver = parent.RecordingSnapshot!.InputFingerprints.ToArray();
-        child.HasChanges = true;
+        child.MarkChanged();
         child.HitRegion = Rect.Empty;
         RecordedRenderGraph missing = Record(parent);
 
@@ -191,7 +191,7 @@ public sealed class RecordingGateFingerprintTests
 
         Record(parent);
         Record(parent);
-        child.HasChanges = true;
+        child.MarkChanged();
         child.HitRegion = s_bounds.Inflate(10);
         Record(parent);
 
@@ -213,7 +213,7 @@ public sealed class RecordingGateFingerprintTests
         Record(driver);
         Assert.That(wrapper.ProcessCalls, Is.EqualTo(1), "an unchanged input serves the wrapper");
 
-        source.HasChanges = true;
+        source.MarkChanged();
         source.HitRegion = Rect.Empty;
         RecordedRenderGraph missing = Record(driver);
 
@@ -246,7 +246,7 @@ public sealed class RecordingGateFingerprintTests
         using (RenderRecordingCrossCheck.Enable())
         {
             Record(parent);
-            child.HasChanges = true;
+            child.MarkChanged();
             child.HitRegion = Rect.Empty;
 
             Assert.That(() => Record(parent), Throws.Nothing);
