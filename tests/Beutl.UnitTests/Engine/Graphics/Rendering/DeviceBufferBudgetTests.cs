@@ -287,28 +287,30 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
+    /// <remarks>
+    /// The materialization is not one the plan marked droppable under allocation pressure. A device-budget
+    /// refusal is not pressure - no allocator this session can reach will ever attach the buffer - so the
+    /// render intent decides it, and a preview gives up the contribution rather than failing the frame.
+    /// Completing at all is what proves the drop was recorded rather than swallowed: the island holding the
+    /// refused materialization is skipped and is not region-empty, and the execution ledger accepts a
+    /// skipped island only once PreviewAllocationDropObserved is set - the same flag that keeps
+    /// StageCacheCaptures and the backdrop publication from carrying the incomplete frame forward.
+    /// </remarks>
     [Test]
-    public void AnOverBudgetMaterialization_NeverAsksForAnAttachmentTheDeviceCannotMake()
+    public void AnOverBudgetMaterialization_DropsThePreviewContribution_WithoutAskingTheAllocator()
     {
         using var node = new OverBudgetSourceNode();
         var factory = new RecordingCpuTargetFactory();
-        using var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            targetDomain: s_overBudgetDomain,
-            requestedRegion: s_overBudgetDomain,
-            outputScale: 1,
-            maxWorkingScale: 1,
-            cachePolicy: RenderCacheOptions.Disabled));
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
+        using RenderRequest request = CreateOverBudgetRequest(RenderIntent.Preview);
+        using CompiledRenderRequest compiled = CompileOverBudgetRequest(request, node);
         using RenderTarget destination = new CpuRenderTarget(new PixelSize(8, 8));
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var registry = new RenderTargetLeaseRegistry(factory, maxBufferDimension: DeviceBudget);
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview, destination);
 
-        InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
-            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+        Assert.DoesNotThrow(
+            () => new RenderRequestExecutor(targets).Execute(compiled, canvas),
+            "a preview drops the contribution, and records the drop so the frame is not treated as whole");
 
         Assert.Multiple(() =>
         {
@@ -317,13 +319,37 @@ public sealed class DeviceBufferBudgetTests
                 Is.GreaterThan(0),
                 "the fixture must reach the materialization the budget then refuses");
             Assert.That(
-                refusal!.Message,
-                Does.Contain(DeviceBudget.ToString()),
-                "a materialization this device cannot attach is refused, not silently attached");
-            Assert.That(
                 factory.Requests,
                 Has.None.Matches<PixelSize>(size => size.Width > DeviceBudget || size.Height > DeviceBudget),
                 "an ordinary materialization must not ask for an over-budget attachment");
+            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void AnOverBudgetMaterialization_StillFailsADeliveryRenderNamingTheLimit()
+    {
+        using var node = new OverBudgetSourceNode();
+        var factory = new RecordingCpuTargetFactory();
+        using RenderRequest request = CreateOverBudgetRequest(RenderIntent.Delivery);
+        using CompiledRenderRequest compiled = CompileOverBudgetRequest(request, node);
+        using RenderTarget destination = new CpuRenderTarget(new PixelSize(8, 8));
+        using var canvas = new ImmediateCanvas(destination);
+        using var registry = new RenderTargetLeaseRegistry(factory, maxBufferDimension: DeviceBudget);
+        using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Delivery, destination);
+
+        InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
+            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                refusal!.Message,
+                Does.Contain(DeviceBudget.ToString()),
+                "an export must fail rather than deliver a frame missing the content it could not attach");
+            Assert.That(
+                factory.Requests,
+                Has.None.Matches<PixelSize>(size => size.Width > DeviceBudget || size.Height > DeviceBudget));
             Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
         });
     }
@@ -513,6 +539,18 @@ public sealed class DeviceBufferBudgetTests
             && reference.Kind == RenderFragmentKind.FilterEffectSegment
             && !FilterEffectSegmentDirectReplaySupport.CanMaterialize(reference))];
     }
+    private static RenderRequest CreateOverBudgetRequest(RenderIntent intent)
+        => new(new RenderRequestOptions(
+            intent,
+            RenderRequestPurpose.Frame,
+            targetDomain: s_overBudgetDomain,
+            requestedRegion: s_overBudgetDomain,
+            outputScale: 1,
+            maxWorkingScale: 1,
+            cachePolicy: RenderCacheOptions.Disabled));
+
+    private static CompiledRenderRequest CompileOverBudgetRequest(RenderRequest request, RenderNode node)
+        => new RenderRequestCompiler().Compile(request, new RenderRequestRecorder(request).Record(node));
 
     private static IGraphicsContext ContextAttaching(int maxAttachmentDimension)
     {

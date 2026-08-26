@@ -264,7 +264,8 @@ internal sealed class RenderTargetPool : IDisposable
     /// the budget it was measured against.
     /// </summary>
     /// <remarks>
-    /// A caller consults this only to describe a refusal; <see cref="TryAcquire"/> applies it itself.
+    /// A caller consults this to describe a refusal, or to tell one apart from an allocator that merely
+    /// declined this time; <see cref="TryAcquire"/> applies it itself.
     /// </remarks>
     internal bool ExceedsBufferBudget(
         RenderTargetPoolRequest request,

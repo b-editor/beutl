@@ -113,6 +113,19 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
            ?? throw CreateAllocationFailure(session, deviceSize);
 
     /// <summary>
+    /// Whether no allocator this session can reach will ever attach <paramref name="deviceSize"/>.
+    /// </summary>
+    /// <remarks>
+    /// Distinguishes the device's own limit from a momentary decline: a caller that must not degrade under
+    /// allocation pressure still has nothing to wait for once this reports <see langword="true"/>.
+    /// </remarks>
+    internal bool ExceedsBufferBudget(RenderTargetLeaseSession session, PixelSize deviceSize)
+    {
+        VerifyActive(session);
+        return _pool.ExceedsBufferBudget(session.Request, deviceSize, out _);
+    }
+
+    /// <summary>
     /// Leases an intermediate target, returning <see langword="null"/> when a
     /// <see cref="RenderIntent.Preview"/> session may drop the caller's contribution instead.
     /// </summary>
@@ -316,6 +329,13 @@ internal sealed class RenderTargetLeaseSession : IDisposable
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         return _registry.TryAcquire(this, deviceSize, clearContents);
+    }
+
+    /// <inheritdoc cref="RenderTargetLeaseRegistry.ExceedsBufferBudget"/>
+    public bool ExceedsBufferBudget(PixelSize deviceSize)
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        return _registry.ExceedsBufferBudget(this, deviceSize);
     }
 
     public void Dispose()
