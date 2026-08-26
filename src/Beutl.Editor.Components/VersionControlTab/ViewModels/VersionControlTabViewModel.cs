@@ -2292,19 +2292,37 @@ public sealed record VersionControlDiffLineViewModel(
     public static IReadOnlyList<VersionControlDiffLineViewModel> Parse(string diff)
     {
         ArgumentNullException.ThrowIfNull(diff);
-        return diff.Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Split('\n')
-            .Select(line => new VersionControlDiffLineViewModel(line, GetKind(line)))
-            .ToArray();
+        bool inHunk = false;
+        var lines = new List<VersionControlDiffLineViewModel>();
+        foreach (string line in diff.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            if (line.StartsWith("diff ", StringComparison.Ordinal))
+            {
+                inHunk = false;
+            }
+            else if (line.StartsWith("@@", StringComparison.Ordinal))
+            {
+                inHunk = true;
+            }
+
+            lines.Add(new VersionControlDiffLineViewModel(line, GetKind(line, inHunk)));
+        }
+
+        return lines.ToArray();
     }
 
-    private static VersionControlDiffLineKind GetKind(string line)
+    private static VersionControlDiffLineKind GetKind(string line, bool inHunk)
     {
-        if (line.StartsWith("+++", StringComparison.Ordinal)
-            || line.StartsWith("---", StringComparison.Ordinal)
-            || line.StartsWith("@@", StringComparison.Ordinal)
+        if (line.StartsWith("@@", StringComparison.Ordinal)
             || line.StartsWith("diff ", StringComparison.Ordinal)
             || line.StartsWith("index ", StringComparison.Ordinal))
+        {
+            return VersionControlDiffLineKind.Header;
+        }
+
+        if (!inHunk
+            && (line.StartsWith("+++ ", StringComparison.Ordinal)
+                || line.StartsWith("--- ", StringComparison.Ordinal)))
         {
             return VersionControlDiffLineKind.Header;
         }

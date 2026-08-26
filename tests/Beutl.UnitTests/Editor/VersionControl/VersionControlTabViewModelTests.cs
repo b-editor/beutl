@@ -1068,6 +1068,32 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public void Diff_parser_distinguishes_file_headers_from_signed_hunk_content()
+    {
+        IReadOnlyList<VersionControlDiffLineViewModel> lines =
+            VersionControlDiffLineViewModel.Parse(
+                "diff --git a/project.bep b/project.bep\n"
+                + "index 123..456 100644\n"
+                + "--- a/project.bep\n"
+                + "+++ b/project.bep\n"
+                + "@@ -1,4 +1,4 @@\n"
+                + "++++value\n"
+                + "----value\n"
+                + "+++ value\n"
+                + "--- value\n");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lines[2].Kind, Is.EqualTo(VersionControlDiffLineKind.Header));
+            Assert.That(lines[3].Kind, Is.EqualTo(VersionControlDiffLineKind.Header));
+            Assert.That(lines[5].Kind, Is.EqualTo(VersionControlDiffLineKind.Added));
+            Assert.That(lines[6].Kind, Is.EqualTo(VersionControlDiffLineKind.Removed));
+            Assert.That(lines[7].Kind, Is.EqualTo(VersionControlDiffLineKind.Added));
+            Assert.That(lines[8].Kind, Is.EqualTo(VersionControlDiffLineKind.Removed));
+        });
+    }
+
+    [Test]
     public async Task Selecting_another_commit_swallows_the_previous_selection_cancellation()
     {
         CommitInfo firstCommit = CreateCommit(1, SnapshotKind.Save);
