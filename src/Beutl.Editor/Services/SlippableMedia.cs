@@ -214,8 +214,7 @@ internal static class SlippableMedia
         TimeSpan consumedDuration = GetConsumedDuration(video, context.Range, resource);
         if (consumedDuration < TimeSpan.Zero) consumedDuration = TimeSpan.Zero;
         TimeSpan? zeroConsumptionPadding = null;
-        if (consumedDuration == TimeSpan.Zero
-            && resource.Source is { } source
+        if (resource.Source is { } source
             && source.FrameRate.Numerator > 0
             && source.FrameRate.Denominator > 0)
         {
@@ -225,7 +224,9 @@ internal static class SlippableMedia
             if (frameTicks > 0)
             {
                 long roundedTicks = Math.Max(1L, (long)Math.Round(frameTicks));
-                zeroConsumptionPadding = TimeSpan.FromTicks(roundedTicks);
+                TimeSpan frameDuration = TimeSpan.FromTicks(roundedTicks);
+                if (consumedDuration < frameDuration)
+                    zeroConsumptionPadding = frameDuration;
             }
         }
         TimeSpan sourceEndPosition = GetMaximumSourcePosition(video, context.Range, resource);
@@ -276,7 +277,41 @@ internal static class SlippableMedia
     {
         TimeSpan start = GetSourcePositionAt(video, range.Start, resource);
         TimeSpan end = GetSourcePositionAt(video, range.End, resource);
+
+        if (resource.IsLoop
+            && resource.Source is { } source
+            && source.Duration > TimeSpan.Zero)
+        {
+            TimeSpan distance = TimeSpan.FromTicks(
+                (long)Math.Min(
+                    TimeSpan.MaxValue.Ticks,
+                    Math.Abs((double)end.Ticks - start.Ticks)));
+            if (distance >= source.Duration
+                || GetLoopCycle(start, source.Duration) != GetLoopCycle(end, source.Duration))
+            {
+                return source.Duration;
+            }
+
+            TimeSpan normalizedStart = NormalizeLoopPosition(start, source.Duration);
+            TimeSpan normalizedEnd = NormalizeLoopPosition(end, source.Duration);
+            return normalizedStart >= normalizedEnd ? normalizedStart : normalizedEnd;
+        }
+
         return start >= end ? start : end;
+    }
+
+    private static TimeSpan NormalizeLoopPosition(TimeSpan value, TimeSpan duration)
+    {
+        long ticks = value.Ticks % duration.Ticks;
+        if (ticks < 0)
+            ticks += duration.Ticks;
+        return TimeSpan.FromTicks(ticks);
+    }
+
+    private static long GetLoopCycle(TimeSpan value, TimeSpan duration)
+    {
+        long cycle = Math.DivRem(value.Ticks, duration.Ticks, out long remainder);
+        return remainder < 0 ? cycle - 1 : cycle;
     }
 
     private static TimeSpan GetSourcePositionAt(
