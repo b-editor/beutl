@@ -141,6 +141,7 @@ public sealed class SlotBackedHitTestTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 1f,
                     CacheOptions = RenderCacheOptions.Disabled,
                 },

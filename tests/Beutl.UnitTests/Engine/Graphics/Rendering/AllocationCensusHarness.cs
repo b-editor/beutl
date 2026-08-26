@@ -301,6 +301,7 @@ public sealed class AllocationCensusHarness
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 TargetDomain = new Rect(default, s_frameSize.ToSize(1)),
                 CacheOptions = warmCache ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled,
                 Purpose = RenderRequestPurpose.Frame,

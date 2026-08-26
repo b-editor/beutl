@@ -404,6 +404,7 @@ public class ResolutionScaleTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = bad,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -423,6 +424,7 @@ public class ResolutionScaleTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 1,
                     MaxWorkingScale = bad,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
@@ -449,6 +451,7 @@ public class ResolutionScaleTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 1,
                     MaxWorkingScale = bad,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
@@ -469,6 +472,7 @@ public class ResolutionScaleTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = bad,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -507,6 +511,7 @@ public class ResolutionScaleTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });

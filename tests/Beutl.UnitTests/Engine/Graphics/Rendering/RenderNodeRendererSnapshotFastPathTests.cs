@@ -155,6 +155,7 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 TargetDomain = targetDomain,
                 RequestedRegion = requestedRegion,
                 OutputScale = 1,

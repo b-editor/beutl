@@ -118,6 +118,7 @@ public class FilterEffectRenderNodeTest
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -141,6 +142,7 @@ public class FilterEffectRenderNodeTest
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = fusionMode,
                     Purpose = RenderRequestPurpose.Frame,

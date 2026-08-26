@@ -27,6 +27,7 @@ public sealed class EffectItemRequiredRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     RequestedRegion = requestedRegion,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -57,6 +58,7 @@ public sealed class EffectItemRequiredRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     RequestedRegion = requestedRegion,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -293,6 +295,7 @@ public sealed class EffectItemRequiredRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     RequestedRegion = requestedRegion,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },

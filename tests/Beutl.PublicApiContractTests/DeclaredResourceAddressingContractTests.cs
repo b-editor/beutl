@@ -208,6 +208,7 @@ public sealed class DeclaredResourceAddressingContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = cacheOptions,
                     Purpose = RenderRequestPurpose.Frame,

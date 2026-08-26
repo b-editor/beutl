@@ -217,6 +217,7 @@ public sealed class FilterEffectCompatibilityContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = targetDomain,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -269,6 +270,7 @@ public sealed class FilterEffectCompatibilityContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
@@ -309,6 +311,7 @@ public sealed class FilterEffectCompatibilityContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 2,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -342,6 +345,7 @@ public sealed class FilterEffectCompatibilityContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 2,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },

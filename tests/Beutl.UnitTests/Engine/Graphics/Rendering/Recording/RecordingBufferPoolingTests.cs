@@ -206,6 +206,7 @@ public sealed class RecordingBufferPoolingTests
                 {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
+                        Intent = RenderIntent.Preview,
                         TargetDomain = new Rect(default, s_frameSize.ToSize(1)),
                         CacheOptions = RenderCacheOptions.Enabled,
                         Purpose = RenderRequestPurpose.Frame,

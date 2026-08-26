@@ -185,6 +185,7 @@ public sealed class GeometryAuthoringContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = outputScale,
                     MaxWorkingScale = maxWorkingScale,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

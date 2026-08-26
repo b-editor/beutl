@@ -52,6 +52,7 @@ public sealed class HitTestDomainAgreementTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 1f,
                     CacheOptions = RenderCacheOptions.Disabled,
                 },
@@ -80,6 +81,7 @@ public sealed class HitTestDomainAgreementTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 1f,
                     TargetDomain = ScopedCommandNode.CommandBounds,
                     CacheOptions = RenderCacheOptions.Disabled,
@@ -103,6 +105,7 @@ public sealed class HitTestDomainAgreementTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 1f,
                     TargetDomain = s_targetDomain,
                     CacheOptions = RenderCacheOptions.Disabled,

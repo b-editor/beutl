@@ -60,6 +60,7 @@ public class ClearRenderNodeTest
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 100, 100),
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },

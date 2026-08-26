@@ -213,7 +213,12 @@ public sealed class ShaderAuthoringContractTests
 
     private static RenderNodeMeasurement Measure(RenderNode node)
     {
-        using var renderer = new RenderNodeRenderer(node);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
+            });
         return renderer.Measure();
     }
 
@@ -225,6 +230,7 @@ public sealed class ShaderAuthoringContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),

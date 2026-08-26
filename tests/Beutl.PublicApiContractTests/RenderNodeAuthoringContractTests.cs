@@ -744,6 +744,7 @@ public sealed class RenderNodeAuthoringContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = targetDomain,
                     OutputScale = outputScale,
                     MaxWorkingScale = maxWorkingScale,

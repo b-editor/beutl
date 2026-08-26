@@ -25,6 +25,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                     Purpose = RenderRequestPurpose.Frame,
@@ -60,6 +61,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     MaxWorkingScale = 4,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
@@ -97,6 +99,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     MaxWorkingScale = 4,
                     CacheOptions = new RenderCacheOptions(
@@ -140,6 +143,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     Purpose = RenderRequestPurpose.Frame,

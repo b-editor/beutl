@@ -277,6 +277,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = fullDomain,
                     RequestedRegion = fullDomain,
                     OutputScale = 1,
@@ -318,6 +319,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,

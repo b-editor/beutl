@@ -431,6 +431,7 @@ public sealed class CustomEffectSynchronizationTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_targetDomain,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
@@ -447,6 +448,7 @@ public sealed class CustomEffectSynchronizationTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_targetDomain,
                     OutputScale = 1,
                     MaxWorkingScale = 1,

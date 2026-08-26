@@ -166,6 +166,7 @@ public sealed class RenderDescriptionAllocationTests
                 {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
+                        Intent = RenderIntent.Preview,
                         TargetDomain = new Rect(default, s_frameSize.ToSize(1)),
                         CacheOptions = warmCache
                             ? RenderCacheOptions.Enabled

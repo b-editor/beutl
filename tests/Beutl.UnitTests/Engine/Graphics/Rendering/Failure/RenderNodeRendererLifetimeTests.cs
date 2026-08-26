@@ -25,6 +25,7 @@ public sealed class RenderNodeRendererLifetimeTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = bounds,
                     RequestedRegion = emptySelection,
                     OutputScale = 2,
@@ -66,6 +67,7 @@ public sealed class RenderNodeRendererLifetimeTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = bounds,
                     RequestedRegion = new Rect(x, y, width, height),
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
@@ -102,6 +104,7 @@ public sealed class RenderNodeRendererLifetimeTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
@@ -162,6 +165,7 @@ public sealed class RenderNodeRendererLifetimeTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,

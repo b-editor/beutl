@@ -171,6 +171,7 @@ public sealed class RecordingAndPlanningFailureTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     RequestedRegion = new Rect(2, 2, 2, 2),
                     OutputScale = 1,

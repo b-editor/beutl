@@ -147,6 +147,7 @@ public sealed class WholeSourceFragmentOriginTests
                 {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
+                        Intent = RenderIntent.Preview,
                         TargetDomain = new Rect(0, 0, frameExtent, frameExtent),
                         OutputScale = 1,
                         MaxWorkingScale = 1,

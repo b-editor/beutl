@@ -124,6 +124,7 @@ public sealed class WholeSourceHeadFusionParityTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = RenderCacheOptions.Disabled,
                     FusionMode = fusionMode,
@@ -182,6 +183,7 @@ public sealed class WholeSourceHeadFusionParityTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = canvasBounds,
                     CacheOptions = RenderCacheOptions.Disabled,
                     FusionMode = fusionMode,

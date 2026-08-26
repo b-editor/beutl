@@ -67,6 +67,7 @@ public sealed class RenderNodeRendererContractTests
                 {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
+                        Intent = RenderIntent.Preview,
                         MaxWorkingScale = invalid,
                     },
                 });
@@ -79,6 +80,7 @@ public sealed class RenderNodeRendererContractTests
                    {
                        DefaultRequest = new RenderNodeRenderRequest
                        {
+                           Intent = RenderIntent.Preview,
                            MaxWorkingScale = float.PositiveInfinity,
                        },
                    }))
@@ -95,6 +97,7 @@ public sealed class RenderNodeRendererContractTests
                     {
                         DefaultRequest = new RenderNodeRenderRequest
                         {
+                            Intent = RenderIntent.Preview,
                             TargetDomain = Rect.Empty,
                         },
                     }),
@@ -106,6 +109,7 @@ public sealed class RenderNodeRendererContractTests
                     {
                         DefaultRequest = new RenderNodeRenderRequest
                         {
+                            Intent = RenderIntent.Preview,
                             TargetDomain = new Rect(float.NaN, 0, 1, 1),
                         },
                     }),
@@ -117,6 +121,7 @@ public sealed class RenderNodeRendererContractTests
                     {
                         DefaultRequest = new RenderNodeRenderRequest
                         {
+                            Intent = RenderIntent.Preview,
                             RequestedRegion = new Rect(0, 0, float.PositiveInfinity, 1),
                         },
                     }),
@@ -139,6 +144,7 @@ public sealed class RenderNodeRendererContractTests
                     {
                         DefaultRequest = new RenderNodeRenderRequest
                         {
+                            Intent = RenderIntent.Preview,
                             Purpose = (RenderRequestPurpose)12345,
                         },
                     }),
@@ -163,7 +169,8 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
-                DefaultRequest = new RenderNodeRenderRequest { CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled },
+                DefaultRequest = new RenderNodeRenderRequest {
+            Intent = RenderIntent.Preview, CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled },
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize(
@@ -182,10 +189,16 @@ public sealed class RenderNodeRendererContractTests
     public void Rasterize_RejectsMetadataOnlyRequestPurposes(RenderRequestPurpose purpose)
     {
         using var root = new DelegateNode(static _ => { });
-        using var renderer = new RenderNodeRenderer(root);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
+            });
 
         Assert.That(
-            () => renderer.Rasterize(new RenderNodeRenderRequest { Purpose = purpose }),
+            () => renderer.Rasterize(new RenderNodeRenderRequest {
+            Intent = RenderIntent.Preview, Purpose = purpose }),
             Throws.TypeOf<ArgumentOutOfRangeException>()
                 .With.Property("ParamName").EqualTo("purpose"));
     }
@@ -199,7 +212,8 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
-                DefaultRequest = new RenderNodeRenderRequest { CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled },
+                DefaultRequest = new RenderNodeRenderRequest {
+                Intent = RenderIntent.Preview, CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled },
                 TargetFactory = factory,
             });
         RenderNodeRenderRequest leftRequest = renderer.Options.DefaultRequest with
@@ -387,6 +401,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
@@ -433,6 +448,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
@@ -479,6 +495,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
@@ -517,6 +534,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     RequestedRegion = new Rect(30, 40, width, height),
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -588,6 +606,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 2,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -636,6 +655,7 @@ public sealed class RenderNodeRendererContractTests
                    {
                        DefaultRequest = new RenderNodeRenderRequest
                        {
+                       Intent = RenderIntent.Preview,
                        },
                        TargetFactory = factory,
                    }))
@@ -663,6 +683,7 @@ public sealed class RenderNodeRendererContractTests
                    {
                        DefaultRequest = new RenderNodeRenderRequest
                        {
+                           Intent = RenderIntent.Preview,
                            RequestedRegion = emptySelection,
                        },
                        TargetFactory = factory,
@@ -702,6 +723,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
@@ -730,6 +752,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
@@ -761,6 +784,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
@@ -792,6 +816,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
@@ -810,7 +835,12 @@ public sealed class RenderNodeRendererContractTests
     public void Dispose_IsIdempotentRejectsLaterCallsAndDoesNotDisposeRootOrDestination()
     {
         using var root = new DelegateNode(static _ => { });
-        var renderer = new RenderNodeRenderer(root);
+        var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
+            });
         using var target = new TrackingRenderTarget(new PixelSize(2, 2));
         using var destination = new ImmediateCanvas(target);
 
@@ -869,6 +899,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(100, 200, 10, 20),
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -915,6 +946,7 @@ public sealed class RenderNodeRendererContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = targetDomain,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },

@@ -759,6 +759,7 @@ public sealed class DirectSkiaFilterReplayTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = outputDensity,
                     MaxWorkingScale = maxWorkingDensity,
                     TargetDomain = targetDomain,

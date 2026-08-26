@@ -74,6 +74,7 @@ public sealed class DrawBackdropRenderNodeTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_domain,
                     CacheOptions = RenderCacheOptions.Disabled,
                 },

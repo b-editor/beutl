@@ -21,6 +21,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = outputScale,
                     MaxWorkingScale = 2,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
@@ -65,6 +66,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
@@ -94,7 +96,12 @@ public sealed class RenderNodeRendererDeviceBoundsTests
         using var root = new DomainProbeNode(context => observedDomain = context.TargetDomain);
         using var target = new DeviceBoundsRenderTarget(deviceSize);
         using var canvas = new ImmediateCanvas(target, density: 2, logicalSize: logicalSize);
-        using var renderer = new RenderNodeRenderer(root);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
+            });
 
         using (canvas.PushDeviceSpace())
             renderer.Render(canvas);

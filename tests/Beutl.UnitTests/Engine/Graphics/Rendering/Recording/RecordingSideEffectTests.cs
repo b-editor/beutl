@@ -85,6 +85,7 @@ public sealed class RecordingSideEffectTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 TargetDomain = DeferredShapeProbeNode.Bounds,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },

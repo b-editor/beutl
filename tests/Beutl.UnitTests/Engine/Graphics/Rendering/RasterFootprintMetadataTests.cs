@@ -311,6 +311,7 @@ public sealed class RasterFootprintMetadataTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = logicalBounds,
                     OutputScale = density,
                     MaxWorkingScale = density,

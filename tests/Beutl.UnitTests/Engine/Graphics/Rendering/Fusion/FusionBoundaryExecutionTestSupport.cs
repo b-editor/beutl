@@ -288,6 +288,7 @@ internal static class FusionBoundaryExecutionTestSupport
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,

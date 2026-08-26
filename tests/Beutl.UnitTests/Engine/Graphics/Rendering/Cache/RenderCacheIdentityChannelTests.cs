@@ -97,6 +97,7 @@ public sealed class RenderCacheIdentityChannelTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = RenderCacheOptions.Enabled,
                     Purpose = RenderRequestPurpose.Frame,

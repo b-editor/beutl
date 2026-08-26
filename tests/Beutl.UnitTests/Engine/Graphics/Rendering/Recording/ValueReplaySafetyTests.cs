@@ -139,6 +139,7 @@ public sealed class ValueReplaySafetyTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 1,
                     MaxWorkingScale = 8,
                     CacheOptions = RenderCacheOptions.Disabled,

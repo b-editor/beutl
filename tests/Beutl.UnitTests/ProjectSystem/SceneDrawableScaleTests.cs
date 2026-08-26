@@ -182,6 +182,7 @@ public class SceneDrawableScaleTests
                     {
                         DefaultRequest = new RenderNodeRenderRequest
                         {
+                            Intent = RenderIntent.Preview,
                             TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
                             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                         },
@@ -461,6 +462,7 @@ public class SceneDrawableScaleTests
                 {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
+                        Intent = RenderIntent.Preview,
                         TargetDomain = new Rect(default, inner.FrameSize.ToSize(1)),
                         OutputScale = 1,
                         CacheOptions = RenderCacheOptions.Disabled,
@@ -472,6 +474,7 @@ public class SceneDrawableScaleTests
 
             renderer.Measure(new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 TargetDomain = new Rect(default, inner.FrameSize.ToSize(1)),
                 OutputScale = 2,
                 CacheOptions = RenderCacheOptions.Disabled,

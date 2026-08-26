@@ -36,7 +36,12 @@ public partial class PreviewNode : GraphNode
                 // owner for graphs whose Full target access cannot resolve without one.
                 try
                 {
-                    using var renderer = new RenderNodeRenderer(renderNode);
+                    using var renderer = new RenderNodeRenderer(
+                        renderNode,
+                        new RenderNodeRendererOptions
+                        {
+                            DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
+                        });
                     using RenderNodeRasterization rasterization = renderer.Rasterize();
                     node.ReplacePreview(rasterization.Bitmap?.Clone());
                 }
@@ -46,6 +51,7 @@ public partial class PreviewNode : GraphNode
                     {
                         DefaultRequest = new RenderNodeRenderRequest
                         {
+                            Intent = RenderIntent.Preview,
                             TargetDomain = domain,
                         },
                     });

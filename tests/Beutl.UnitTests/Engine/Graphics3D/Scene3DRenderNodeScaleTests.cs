@@ -43,6 +43,7 @@ public class Scene3DRenderNodeScaleTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 2,
                     MaxWorkingScale = 0.5f,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

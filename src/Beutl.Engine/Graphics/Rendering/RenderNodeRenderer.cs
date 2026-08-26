@@ -10,7 +10,12 @@ namespace Beutl.Graphics.Rendering;
 public sealed record RenderNodeRenderRequest
 {
     /// <summary>Gets the intent that selects allocation-failure behavior.</summary>
-    public RenderIntent Intent { get; init; } = RenderIntent.Preview;
+    /// <remarks>
+    /// Stated rather than defaulted: <see cref="RenderNodeRenderer.Rasterize"/> has no destination canvas to
+    /// promote a delivery intent from, so an implicit <see cref="RenderIntent.Preview"/> would silently give a
+    /// delivery caller a frame whose unallocatable intermediates were dropped instead of reported.
+    /// </remarks>
+    public required RenderIntent Intent { get; init; }
 
     /// <summary>Gets the optional finite logical domain for target-less root target accesses.</summary>
     /// <remarks>
@@ -59,7 +64,8 @@ public sealed record RenderNodeRenderRequest
 public sealed class RenderNodeRendererOptions
 {
     /// <summary>Gets the complete default request copied and sanitized for the renderer lifetime.</summary>
-    public RenderNodeRenderRequest DefaultRequest { get; init; } = new();
+    /// <remarks>Stated rather than synthesized, so the renderer never invents a request the caller did not write.</remarks>
+    public required RenderNodeRenderRequest DefaultRequest { get; init; }
 
     /// <summary>Gets the optional caller-owned factory for renderer-owned intermediate targets.</summary>
     /// <remarks><see langword="null"/> selects the engine's current-backend RGBA16F allocator.</remarks>
@@ -148,20 +154,21 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <summary>Creates a renderer for a caller-owned root node.</summary>
     /// <param name="root">The non-null caller-owned root recorded for every request.</param>
     /// <param name="options">
-    /// Renderer ownership options and a default request copied for the renderer lifetime, or
-    /// <see langword="null"/> to use defaults.
+    /// The non-null renderer ownership options and default request copied for the renderer lifetime.
     /// </param>
-    /// <exception cref="ArgumentNullException"><paramref name="root"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="root"/> or <paramref name="options"/> is <see langword="null"/>.
+    /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// The configured render intent or request purpose is not defined.
     /// </exception>
     /// <exception cref="ArgumentException">
     /// A configured target domain or requested region is not finite, or the target domain is empty.
     /// </exception>
-    public RenderNodeRenderer(RenderNode root, RenderNodeRendererOptions? options = null)
+    public RenderNodeRenderer(RenderNode root, RenderNodeRendererOptions options)
     {
         ArgumentNullException.ThrowIfNull(root);
-        options ??= new RenderNodeRendererOptions();
+        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.DefaultRequest);
 
         Root = root;

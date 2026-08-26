@@ -198,6 +198,7 @@ public class NodeCacheScaleTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = targetDomain ?? s_bounds,
                     RequestedRegion = requestedRegion,
                     OutputScale = outputScale,

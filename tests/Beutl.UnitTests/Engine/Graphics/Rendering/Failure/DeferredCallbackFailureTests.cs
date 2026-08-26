@@ -308,6 +308,7 @@ public sealed class DeferredCallbackFailureTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,

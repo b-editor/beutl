@@ -81,6 +81,7 @@ public class TextBlockSubpixelPlacementTests
                 {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
+                        Intent = RenderIntent.Preview,
                         CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     },
                 });

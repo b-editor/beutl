@@ -123,6 +123,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
@@ -336,6 +337,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = domain,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -797,6 +799,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     TargetDomain = bounds,
                 },
@@ -829,6 +832,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     OutputScale = 1,
                     MaxWorkingScale = maxWorkingScale,
@@ -863,6 +867,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     OutputScale = 1,
                     TargetDomain = bounds,
@@ -902,6 +907,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                     OutputScale = requestedDensity,
                     MaxWorkingScale = requestedDensity,
@@ -947,6 +953,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = new RenderCacheOptions(
                         true,
                         new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1)),
@@ -994,6 +1001,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                     OutputScale = 1,
                     MaxWorkingScale = 4,
@@ -1041,6 +1049,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                     OutputScale = 1,
                     MaxWorkingScale = 4,
@@ -1084,6 +1093,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                     OutputScale = 1,
                     MaxWorkingScale = 4,
@@ -1126,6 +1136,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = new RenderCacheOptions(
                         true,
                         new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1)),
@@ -1176,6 +1187,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     OutputScale = 1,
                     TargetDomain = bounds,
@@ -1230,6 +1242,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     OutputScale = 1,
                     TargetDomain = bounds,
@@ -1302,6 +1315,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     RequestedRegion = firstBounds,
                     MaxWorkingScale = 4,
@@ -1413,6 +1427,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -1625,6 +1640,7 @@ public class SourceEffectiveScaleFlowTests
                    {
                        DefaultRequest = new RenderNodeRenderRequest
                        {
+                           Intent = RenderIntent.Preview,
                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                            TargetDomain = targetDomain,
                        },
@@ -1669,6 +1685,7 @@ public class SourceEffectiveScaleFlowTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     OutputScale = 1,
                     MaxWorkingScale = 4,
@@ -2066,6 +2083,7 @@ public class SourceEffectiveScaleFlowTests
                 {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
+                        Intent = RenderIntent.Preview,
                         CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     },
                 });
@@ -2230,6 +2248,7 @@ internal static class ScaleRecordingTestHelper
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = outputScale,
                     MaxWorkingScale = maxWorkingScale,
                     TargetDomain = targetDomain,

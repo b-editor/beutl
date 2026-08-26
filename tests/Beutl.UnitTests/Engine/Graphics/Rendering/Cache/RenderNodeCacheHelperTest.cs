@@ -285,6 +285,7 @@ public class RenderNodeCacheHelperTest
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 100, 100),
                     CacheOptions = new RenderCacheOptions(
                         useRenderCache,

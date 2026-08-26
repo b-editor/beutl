@@ -28,6 +28,7 @@ public sealed class StructuralAndProgramCacheTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 8, 8),
                     OutputScale = 1,
                     MaxWorkingScale = 1,
@@ -231,7 +232,12 @@ public sealed class StructuralAndProgramCacheTests
     public void Renderer_PersistsStructuralCacheAcrossRequests()
     {
         using var node = new EmptyNode();
-        using var renderer = new RenderNodeRenderer(node);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
+            });
 
         using (renderer.Rasterize())
         {
@@ -257,6 +263,7 @@ public sealed class StructuralAndProgramCacheTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 8, 8),
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },

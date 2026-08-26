@@ -430,6 +430,7 @@ public class RenderNodeRendererExceptionSafetyTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 OutputScale = 1,
                 MaxWorkingScale = float.PositiveInfinity,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

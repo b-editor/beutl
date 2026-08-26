@@ -89,6 +89,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = bounds,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -413,6 +414,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = domain,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -472,6 +474,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = domain,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
@@ -548,6 +551,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 24, 20),
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     OutputScale = 1,
@@ -610,6 +614,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = domain,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
@@ -674,6 +679,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = domain,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
@@ -746,6 +752,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = bounds,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     OutputScale = 1,
@@ -919,6 +926,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 32, 24),
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     OutputScale = 1,

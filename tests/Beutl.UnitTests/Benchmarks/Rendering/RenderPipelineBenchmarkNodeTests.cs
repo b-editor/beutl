@@ -195,6 +195,7 @@ public sealed class RenderPipelineBenchmarkNodeTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 64, 48),
                     OutputScale = 1,
                     MaxWorkingScale = 1,

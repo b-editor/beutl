@@ -53,6 +53,7 @@ public sealed class TargetCaptureValueWrapperTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = FusionMode.Disabled,
@@ -87,6 +88,7 @@ public sealed class TargetCaptureValueWrapperTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = FusionMode.Disabled,

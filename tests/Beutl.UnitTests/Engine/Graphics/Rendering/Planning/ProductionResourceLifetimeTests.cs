@@ -34,6 +34,7 @@ public sealed class ProductionResourceLifetimeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 TargetDomain = s_bounds,
                 OutputScale = 1,
                 MaxWorkingScale = 1,

@@ -76,6 +76,7 @@ public sealed class GpuPassFusionScaleRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = completeBounds,
                     RequestedRegion = requestedRegion,
                     OutputScale = 1,
@@ -113,6 +114,7 @@ public sealed class GpuPassFusionScaleRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 200, 300),
                     RequestedRegion = new Rect(100, 200, 25, 20),
                     OutputScale = 1,
@@ -143,6 +145,7 @@ public sealed class GpuPassFusionScaleRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 40, 40),
                     RequestedRegion = requestedRegion,
                     OutputScale = 1,
@@ -187,6 +190,7 @@ public sealed class GpuPassFusionScaleRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 40, 40),
                     RequestedRegion = requestedRegion,
                     OutputScale = 2,
@@ -234,6 +238,7 @@ public sealed class GpuPassFusionScaleRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, 40, 40),
                     RequestedRegion = requestedRegion,
                     OutputScale = 2,
@@ -280,6 +285,7 @@ public sealed class GpuPassFusionScaleRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     RequestedRegion = requestedRegion,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -321,6 +327,7 @@ public sealed class GpuPassFusionScaleRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     RequestedRegion = requestedRegion,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -431,6 +438,7 @@ public sealed class GpuPassFusionScaleRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     RequestedRegion = requestedRegion,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
@@ -454,6 +462,7 @@ public sealed class GpuPassFusionScaleRegionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_domain,
                     OutputScale = 1,
                     MaxWorkingScale = 2,
@@ -596,6 +605,7 @@ public sealed class GpuPassFusionScaleRegionTests
                 {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
+                        Intent = RenderIntent.Preview,
                         TargetDomain = new Rect(0, 0, width, height),
                         OutputScale = 1,
                         MaxWorkingScale = 2,

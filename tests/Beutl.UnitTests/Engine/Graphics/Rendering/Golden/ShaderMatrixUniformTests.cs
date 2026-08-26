@@ -96,6 +96,7 @@ public class ShaderMatrixUniformTests
                 {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
+                        Intent = RenderIntent.Preview,
                         TargetDomain = new Rect(0, 0, Width, Height),
                         OutputScale = 1,
                         MaxWorkingScale = 1,

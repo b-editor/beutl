@@ -291,6 +291,7 @@ public sealed class ColorFilterIslandSplitTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = RenderCacheOptions.Disabled,
                     FusionMode = fusionMode,

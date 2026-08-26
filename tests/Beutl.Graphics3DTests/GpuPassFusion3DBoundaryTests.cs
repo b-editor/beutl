@@ -60,6 +60,7 @@ public sealed class GpuPassFusion3DBoundaryTests
                 {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
+                        Intent = RenderIntent.Preview,
                         TargetDomain = new Rect(0, 0, 32, 24),
                         OutputScale = 1,
                         MaxWorkingScale = 1,
@@ -124,6 +125,7 @@ public sealed class GpuPassFusion3DBoundaryTests
                        {
                            DefaultRequest = new RenderNodeRenderRequest
                            {
+                               Intent = RenderIntent.Preview,
                                TargetDomain = new Rect(0, 0, 32, 24),
                                OutputScale = 1,
                                MaxWorkingScale = 1,

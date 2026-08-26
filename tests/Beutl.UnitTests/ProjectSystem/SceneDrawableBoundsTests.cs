@@ -108,6 +108,7 @@ public class SceneDrawableBoundsTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
                     CacheOptions = RenderCacheOptions.Disabled,
                 },

@@ -83,6 +83,7 @@ public sealed class DeclaredPlannerTraitContractTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                     Purpose = RenderRequestPurpose.Frame,
@@ -142,7 +143,8 @@ public sealed class DeclaredPlannerTraitContractTests
             node,
             new RenderNodeRendererOptions
             {
-                DefaultRequest = new RenderNodeRenderRequest { TargetDomain = s_bounds },
+                DefaultRequest = new RenderNodeRenderRequest {
+            Intent = RenderIntent.Preview, TargetDomain = s_bounds },
             });
         return renderer.Measure();
     }

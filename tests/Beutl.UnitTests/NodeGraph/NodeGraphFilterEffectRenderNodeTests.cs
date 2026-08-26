@@ -152,6 +152,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -187,6 +188,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -241,6 +243,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -285,6 +288,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -318,6 +322,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -362,6 +367,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -421,6 +427,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -464,6 +471,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -569,6 +577,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = RenderCacheOptions.Disabled,
             },
         });
@@ -605,6 +614,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = RenderCacheOptions.Disabled,
             },
         });
@@ -647,6 +657,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 TargetDomain = new Rect(0, 0, 64, 48),
                 CacheOptions = RenderCacheOptions.Disabled,
             },
@@ -690,6 +701,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 TargetDomain = new Rect(0, 0, 64, 48),
                 CacheOptions = RenderCacheOptions.Disabled,
             },
@@ -752,6 +764,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 TargetDomain = new Rect(0, 0, 200, 200),
                 CacheOptions = RenderCacheOptions.Disabled,
             },
@@ -798,6 +811,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 TargetDomain = new Rect(0, 0, 64, 48),
                 CacheOptions = RenderCacheOptions.Disabled,
             },
@@ -848,6 +862,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = RenderCacheOptions.Disabled,
             },
         });
@@ -889,6 +904,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 TargetDomain = new Rect(0, 0, 64, 48),
                 CacheOptions = RenderCacheOptions.Disabled,
             },
@@ -924,6 +940,7 @@ public class NodeGraphFilterEffectRenderNodeTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
@@ -983,6 +1000,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -1133,6 +1151,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
@@ -1252,6 +1271,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = RenderCacheOptions.Disabled,
             },
         });
@@ -1280,6 +1300,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
+                Intent = RenderIntent.Preview,
                 CacheOptions = RenderCacheOptions.Disabled,
             },
         });

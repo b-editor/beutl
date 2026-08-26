@@ -197,6 +197,7 @@ public sealed class RenderCacheResolutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                 },
@@ -1503,6 +1504,7 @@ public sealed class RenderCacheResolutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,

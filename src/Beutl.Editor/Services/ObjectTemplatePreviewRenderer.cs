@@ -201,6 +201,7 @@ public static class ObjectTemplatePreviewRenderer
                     {
                         DefaultRequest = new RenderNodeRenderRequest
                         {
+                            Intent = RenderIntent.Preview,
                             OutputScale = scale,
                             MaxWorkingScale = scale * 2f,
                             CacheOptions = RenderCacheOptions.Disabled,
@@ -248,6 +249,7 @@ public static class ObjectTemplatePreviewRenderer
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = targetDomain,
                     CacheOptions = RenderCacheOptions.Disabled,
                 },

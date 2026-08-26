@@ -64,6 +64,7 @@ public sealed class RawSessionSlotResourceTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_domain,
                     CacheOptions = RenderCacheOptions.Disabled,
                     Purpose = RenderRequestPurpose.Frame,

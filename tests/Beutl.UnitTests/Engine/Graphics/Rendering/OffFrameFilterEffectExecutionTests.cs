@@ -148,6 +148,7 @@ public sealed class OffFrameFilterEffectExecutionTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_frame,
                     RequestedRegion = s_frame,
                     OutputScale = 1,

@@ -100,6 +100,7 @@ public class MaxWorkingScaleSanitizationTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 1,
                     MaxWorkingScale = maxWorkingScale,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
@@ -119,6 +120,7 @@ public class MaxWorkingScaleSanitizationTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     OutputScale = 1,
                     MaxWorkingScale = 3,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

@@ -1,7 +1,11 @@
 ﻿using System.Reflection;
+using System.Runtime.CompilerServices;
+using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -19,6 +23,8 @@ namespace Beutl.PublicApiContractTests;
 [TestFixture]
 public sealed class DeliveryIntentDeclarationContractTests
 {
+    private static readonly Rect s_domain = new(0, 0, 100, 100);
+
     [Test]
     public void TheRendererConstructor_RequiresAnExplicitIntent()
     {
@@ -55,6 +61,117 @@ public sealed class DeliveryIntentDeclarationContractTests
             drawableBrushMaterializer: null);
 
         Assert.That(constructor.Intent, Is.EqualTo(RenderIntent.Delivery));
+    }
+
+    [Test]
+    public void TheRendererRequest_RequiresAnExplicitIntent()
+    {
+        PropertyInfo intent = RequireProperty(typeof(RenderNodeRenderRequest), nameof(RenderNodeRenderRequest.Intent));
+
+        Assert.That(intent.GetCustomAttribute<RequiredMemberAttribute>(), Is.Not.Null);
+    }
+
+    [Test]
+    public void TheRendererOptions_RequireACompleteDefaultRequest()
+    {
+        PropertyInfo defaultRequest = RequireProperty(
+            typeof(RenderNodeRendererOptions),
+            nameof(RenderNodeRendererOptions.DefaultRequest));
+
+        Assert.That(defaultRequest.GetCustomAttribute<RequiredMemberAttribute>(), Is.Not.Null);
+    }
+
+    [Test]
+    public void TheRenderNodeRendererConstructor_RequiresStatedOptions()
+    {
+        ParameterInfo options = RequireParameter(typeof(RenderNodeRenderer), "options");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(options.HasDefaultValue, Is.False);
+            Assert.That(
+                typeof(RenderNodeRenderer).GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+                    .Any(static constructor => constructor.GetParameters()
+                        .All(static parameter => parameter.Name == "root" || parameter.HasDefaultValue)),
+                Is.False,
+                "no public constructor may be reached with a root alone, which would synthesize a Preview request");
+        });
+    }
+
+    // Rasterize has no destination canvas to promote the intent from, so the request it was handed is the
+    // only thing that can carry Delivery into execution: a delivery rasterization fails on an intermediate a
+    // preview would have dropped.
+    [Test]
+    public void AnExplicitDeliveryIntent_SurvivesToRasterize()
+    {
+        using FilterEffect.Resource resource = CreateStrokeEffectResource();
+        using FilterEffectRenderNode previewNode = CreateScene(resource);
+        using var previewRenderer = new RenderNodeRenderer(previewNode, CreateOptions(RenderIntent.Preview));
+        using RenderNodeRasterization dropped = previewRenderer.Rasterize();
+
+        using FilterEffectRenderNode deliveryNode = CreateScene(resource);
+        using var deliveryRenderer = new RenderNodeRenderer(deliveryNode, CreateOptions(RenderIntent.Delivery));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dropped.Bitmap, Is.Not.Null, "a preview drops the intermediate and still ships a frame");
+            Assert.That(
+                () =>
+                {
+                    using RenderNodeRasterization unexpected = deliveryRenderer.Rasterize();
+                },
+                Throws.InvalidOperationException);
+        });
+    }
+
+    private static RenderNodeRendererOptions CreateOptions(RenderIntent intent)
+        => new()
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                Intent = intent,
+                TargetDomain = s_domain,
+                OutputScale = 1,
+                MaxWorkingScale = intent == RenderIntent.Delivery ? float.PositiveInfinity : 2,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                Purpose = RenderRequestPurpose.Frame,
+            },
+            TargetFactory = new FailSecondTargetFactory(),
+        };
+
+    private static FilterEffect.Resource CreateStrokeEffectResource()
+    {
+        var pen = new Pen
+        {
+            Thickness = { CurrentValue = 9 },
+            Brush = { CurrentValue = Brushes.OrangeRed },
+        };
+        var effect = new StrokeEffect
+        {
+            Pen = { CurrentValue = pen },
+        };
+        return effect.ToResource(CompositionContext.Default);
+    }
+
+    private static FilterEffectRenderNode CreateScene(FilterEffect.Resource resource)
+    {
+        var node = new FilterEffectRenderNode(resource);
+        node.AddChild(new EllipseRenderNode(s_domain, Brushes.Resource.White, null));
+        return node;
+    }
+
+    private static PropertyInfo RequireProperty(Type type, string name)
+        => type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance)
+           ?? throw new InvalidOperationException($"{type.Name} declares no public '{name}'.");
+
+    private sealed class FailSecondTargetFactory : IRenderTargetFactory
+    {
+        private int _createCalls;
+
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+            => _createCalls++ == 1
+                ? null
+                : RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
     }
 
     private static ParameterInfo RequireParameter(Type type, string name)

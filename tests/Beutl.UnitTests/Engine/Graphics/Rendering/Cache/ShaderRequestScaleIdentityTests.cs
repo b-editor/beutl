@@ -122,6 +122,7 @@ public sealed class ShaderRequestScaleIdentityTests
     {
         using RenderNodeRasterization rasterization = renderer.Rasterize(new RenderNodeRenderRequest
         {
+            Intent = RenderIntent.Preview,
             TargetDomain = s_bounds,
             CacheOptions = RenderCacheOptions.Enabled,
             Purpose = RenderRequestPurpose.Frame,
@@ -139,6 +140,7 @@ public sealed class ShaderRequestScaleIdentityTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = RenderIntent.Preview,
                     TargetDomain = s_bounds,
                     CacheOptions = RenderCacheOptions.Enabled,
                     Purpose = RenderRequestPurpose.Frame,
