@@ -1432,6 +1432,30 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void GetTrimDeltaBounds_FutureLoopStatePreservesUnboundedTail()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var loopAnimation = new KeyFrameAnimation<bool>();
+        loopAnimation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = false });
+        loopAnimation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(5), Value = true });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsLoop = { CurrentValue = false, Animation = loopAnimation },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        front.Objects.Add(video);
+        Element back = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - minDuration));
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_CustomPresenterCanReportUnboundedTail()
     {
         var source = new VideoSource();

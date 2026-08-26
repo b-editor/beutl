@@ -38,11 +38,24 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     public bool TryGetOriginalDuration(out TimeSpan timeSpan)
     {
         using var resource = ToResource(CompositionContext.Default);
-        var ts = CalculateOriginalTime((Resource)resource);
-        // Offset past the media end leaves nothing to restore; match SourceSound's positive guard.
-        if (ts.HasValue && ts.Value - OffsetPosition.CurrentValue > TimeSpan.Zero)
+        Resource sourceResource = (Resource)resource;
+        if (sourceResource.Source is not { } source)
         {
-            timeSpan = ts.Value - OffsetPosition.CurrentValue;
+            timeSpan = TimeSpan.Zero;
+            return false;
+        }
+
+        TimeSpan remainingSourceDuration = source.Duration - OffsetPosition.CurrentValue;
+        if (remainingSourceDuration <= TimeSpan.Zero)
+        {
+            timeSpan = TimeSpan.Zero;
+            return false;
+        }
+
+        var ts = CalculateOriginalTime(sourceResource, remainingSourceDuration);
+        if (ts is { } duration && duration > TimeSpan.Zero)
+        {
+            timeSpan = duration;
             return true;
         }
         else
@@ -244,7 +257,12 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     {
         if (resource.Source == null) return null;
 
-        var duration = resource.Source.Duration;
+        return CalculateOriginalTime(resource, resource.Source.Duration);
+    }
+
+    private TimeSpan? CalculateOriginalTime(Resource resource, TimeSpan duration)
+    {
+        if (resource.Source == null) return null;
 
         var anm = Speed.Animation;
 

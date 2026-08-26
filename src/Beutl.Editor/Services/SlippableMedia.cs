@@ -31,7 +31,8 @@ internal static class SlippableMedia
             TimeSpan? consumedDuration = null,
             TimeSpan? timelineRoom = null,
             TimeSpan? zeroConsumptionPadding = null,
-            TimeSpan? sourceEndPosition = null)
+            TimeSpan? sourceEndPosition = null,
+            TimeSpan? forwardOffsetLimit = null)
         {
             Offset = offset;
             Total = total;
@@ -39,6 +40,7 @@ internal static class SlippableMedia
             TimelineRoom = timelineRoom;
             ZeroConsumptionPadding = zeroConsumptionPadding;
             SourceEndPosition = sourceEndPosition;
+            ForwardOffsetLimit = forwardOffsetLimit;
         }
 
         public IProperty<TimeSpan> Offset { get; }
@@ -52,6 +54,8 @@ internal static class SlippableMedia
         public TimeSpan? ZeroConsumptionPadding { get; private set; }
 
         public TimeSpan? SourceEndPosition { get; private set; }
+
+        public TimeSpan? ForwardOffsetLimit { get; private set; }
 
         public TimeSpan Current
         {
@@ -92,6 +96,13 @@ internal static class SlippableMedia
                 SourceEndPosition = SourceEndPosition is { } currentSourceEndPosition
                     ? TimeSpan.FromTicks(Math.Max(currentSourceEndPosition.Ticks, sourceEndPosition.Ticks))
                     : sourceEndPosition;
+            }
+
+            if (other.ForwardOffsetLimit is { } forwardOffsetLimit)
+            {
+                ForwardOffsetLimit = ForwardOffsetLimit is { } currentForwardOffsetLimit
+                    ? TimeSpan.FromTicks(Math.Min(currentForwardOffsetLimit.Ticks, forwardOffsetLimit.Ticks))
+                    : forwardOffsetLimit;
             }
         }
     }
@@ -173,7 +184,10 @@ internal static class SlippableMedia
                         };
                         bool isReversed = context.IsReversed ^ timeMappingPresenter.IsReversed;
                         bool hasUnboundedTail = context.HasUnboundedTail
-                            || timeMappingPresenter.HasUnboundedTail(context.Range, controlled);
+                            || timeMappingPresenter.HasUnboundedTail(
+                                context.Range,
+                                controlled,
+                                reverse: context.IsReversed);
 
                         var mappedContext = new TimeContext(
                             mapped,
@@ -213,11 +227,12 @@ internal static class SlippableMedia
 
     private static IEnumerable<Target> CreateVideoTargets(SourceVideo video, TimeContext context)
     {
+        TimeSpan? timelineRoom = CalculateVideoTimelineRoom(video, context);
         foreach (TimeRange range in GetVideoStateRanges(video, context.Range))
         {
             TimeSpan sampleTime = range.Start + TimeSpan.FromTicks(range.Duration.Ticks / 2);
             using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
-            yield return CreateVideoTarget(video, context with { Range = range }, resource);
+            yield return CreateVideoTarget(video, context with { Range = range }, resource, timelineRoom);
         }
     }
 
@@ -230,8 +245,11 @@ internal static class SlippableMedia
         }
 
         var boundaries = new List<TimeSpan> { range.Start, range.End };
-        AddAnimationBoundaries(video.Source.Animation, video, range, boundaries);
-        AddAnimationBoundaries(video.IsLoop.Animation, video, range, boundaries);
+        foreach (TimeSpan time in GetAnimationTimes(video))
+        {
+            if (time > range.Start && time < range.End)
+                boundaries.Add(time);
+        }
         boundaries.Sort();
 
         for (int i = 1; i < boundaries.Count; i++)
@@ -243,11 +261,18 @@ internal static class SlippableMedia
         }
     }
 
-    private static void AddAnimationBoundaries(
+    private static List<TimeSpan> GetAnimationTimes(SourceVideo video)
+    {
+        var times = new HashSet<TimeSpan>();
+        AddAnimationTimes(video.Source.Animation, video, times);
+        AddAnimationTimes(video.IsLoop.Animation, video, times);
+        return [.. times.Order()];
+    }
+
+    private static void AddAnimationTimes(
         IAnimation? animation,
         SourceVideo video,
-        TimeRange range,
-        List<TimeSpan> boundaries)
+        HashSet<TimeSpan> times)
     {
         if (animation is not KeyFrameAnimation keyFrameAnimation)
             return;
@@ -257,15 +282,92 @@ internal static class SlippableMedia
             TimeSpan time = keyFrameAnimation.UseGlobalClock
                 ? keyFrame.KeyTime
                 : video.TimeRange.Start + keyFrame.KeyTime;
-            if (time > range.Start && time < range.End)
-                boundaries.Add(time);
+            times.Add(time);
         }
+    }
+
+    private static TimeSpan? CalculateVideoTimelineRoom(SourceVideo video, TimeContext context)
+    {
+        if (context.HasUnboundedTail)
+            return TimeSpan.MaxValue;
+
+        if (context.IsReversed)
+            return null;
+
+        TimeSpan cursor = context.Range.End;
+        TimeSpan accumulated = TimeSpan.Zero;
+        TimeSpan[] futureTimes = GetAnimationTimes(video)
+            .Where(time => time >= cursor)
+            .ToArray();
+        int nextIndex = 0;
+
+        while (true)
+        {
+            TimeSpan? next = nextIndex < futureTimes.Length ? futureTimes[nextIndex] : null;
+            if (next is { } nextTime && nextTime <= cursor)
+            {
+                nextIndex++;
+                continue;
+            }
+
+            TimeSpan sampleTime = next is { } sampleBoundary
+                ? cursor + TimeSpan.FromTicks((sampleBoundary - cursor).Ticks / 2)
+                : cursor;
+            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
+            if (resource.Source is not { } source || source.Duration <= TimeSpan.Zero)
+                return TimeSpan.MaxValue;
+
+            TimeSpan sourcePosition = GetSourcePositionAt(video, cursor, resource);
+            if (resource.IsLoop && video.OffsetPosition.CurrentValue == TimeSpan.Zero)
+            {
+                if (next is not { } boundary)
+                    return MapTimelineDuration(context, accumulated, TimeSpan.MaxValue);
+
+                accumulated += boundary - cursor;
+                cursor = boundary;
+                nextIndex++;
+                continue;
+            }
+
+            TimeSpan sourceRoom = source.Duration - video.OffsetPosition.CurrentValue - sourcePosition;
+            if (sourceRoom <= TimeSpan.Zero)
+                return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+
+            TimeSpan timelineRoom = video.CalculateTimelineDuration(
+                GetVideoClockStartAt(video, cursor),
+                sourceRoom,
+                resource);
+            if (timelineRoom == TimeSpan.MaxValue)
+                return MapTimelineDuration(context, accumulated, TimeSpan.MaxValue);
+
+            if (next is not { } nextBoundary || timelineRoom <= nextBoundary - cursor)
+            {
+                return MapTimelineDuration(context, accumulated, timelineRoom);
+            }
+
+            accumulated += nextBoundary - cursor;
+            cursor = nextBoundary;
+            nextIndex++;
+        }
+    }
+
+    private static TimeSpan MapTimelineDuration(TimeContext context, TimeSpan prefix, TimeSpan tail)
+    {
+        if (prefix == TimeSpan.MaxValue || tail == TimeSpan.MaxValue)
+            return TimeSpan.MaxValue;
+
+        long ticks = prefix.Ticks >= TimeSpan.MaxValue.Ticks - tail.Ticks
+            ? TimeSpan.MaxValue.Ticks
+            : prefix.Ticks + tail.Ticks;
+        TimeSpan duration = TimeSpan.FromTicks(ticks);
+        return context.TimelineDurationFromTarget?.Invoke(duration) ?? duration;
     }
 
     private static Target CreateVideoTarget(
         SourceVideo video,
         TimeContext context,
-        SourceVideo.Resource resource)
+        SourceVideo.Resource resource,
+        TimeSpan? timelineRoomOverride)
     {
         // Slip offsets and media bounds use source time, including speed conversion.
         TimeSpan? total = resource.Source is { } mediaSource && mediaSource.Duration > TimeSpan.Zero
@@ -291,11 +393,21 @@ internal static class SlippableMedia
         }
         TimeSpan sourceEndPosition = GetMaximumSourcePosition(video, context.Range, resource);
         TimeSpan? timelineRoom = null;
+        TimeSpan? forwardOffsetLimit = null;
         if (total is { } sourceDuration)
         {
             TimeSpan sourceRoom = sourceDuration - video.OffsetPosition.CurrentValue - sourceEndPosition;
             if (sourceRoom < TimeSpan.Zero) sourceRoom = TimeSpan.Zero;
-            if (context.HasUnboundedTail
+            TimeSpan padding = zeroConsumptionPadding ?? TimeSpan.Zero;
+            TimeSpan reservation = sourceEndPosition >= padding ? sourceEndPosition : padding;
+            TimeSpan maxOffset = sourceDuration - reservation;
+            if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
+            forwardOffsetLimit = maxOffset;
+            if (timelineRoomOverride is { } mappedTimelineRoom)
+            {
+                timelineRoom = mappedTimelineRoom;
+            }
+            else if (context.HasUnboundedTail
                 || resource.IsLoop
                     && video.OffsetPosition.CurrentValue == TimeSpan.Zero)
             {
@@ -321,7 +433,8 @@ internal static class SlippableMedia
             consumedDuration,
             timelineRoom,
             zeroConsumptionPadding,
-            sourceEndPosition);
+            sourceEndPosition,
+            forwardOffsetLimit);
     }
 
     private static TimeSpan GetConsumedDuration(
@@ -465,6 +578,9 @@ internal static class SlippableMedia
     private static long ForwardHeadroom(Target target, TimeSpan elementLength)
     {
         if (target.Total is not { } total) return long.MaxValue;
+
+        if (target.ForwardOffsetLimit is { } forwardOffsetLimit)
+            return Math.Max(0L, (forwardOffsetLimit - target.Current).Ticks);
 
         TimeSpan sourcePosition = target.SourceEndPosition
             ?? target.ConsumedDuration
