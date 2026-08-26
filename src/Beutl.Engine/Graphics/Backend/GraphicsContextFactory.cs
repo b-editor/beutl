@@ -176,19 +176,66 @@ public class GraphicsContextFactory
 
     public static void Shutdown()
     {
-        RenderThread.Dispatcher.Invoke(() =>
+        RenderThread.Dispatcher.Invoke(static () =>
         {
-            GpuResourceReclaimQueue.FlushAndDrain();
-            SharedContext?.Dispose();
-            SharedContext = null;
-
-            if (s_vulkanInstance != null)
+            // The flush speaks for a device that may already be abandoned or lost, so its failure has to
+            // reach the caller. What it must not decide is whether graphics are released: a context left
+            // installed is handed straight back by the next GetOrCreateShared, and both RenderTargetPool's
+            // retained slots and the buffer-dimension memo are only invalidated by the context changing.
+            try
             {
-                s_vulkanInstance.Dispose();
-                s_vulkanInstance = null;
+                GpuResourceReclaimQueue.FlushAndDrain();
             }
-
-            s_selectedPhysicalDevice = null;
+            finally
+            {
+                ReleaseInstalledGraphics();
+            }
         });
     }
+
+    /// <summary>Clears the installed graphics state before destroying it, so a failure cannot strand it.</summary>
+    private static void ReleaseInstalledGraphics()
+    {
+        IGraphicsContext? context = SharedContext;
+        VulkanInstance? vulkanInstance = s_vulkanInstance;
+        SharedContext = null;
+        s_vulkanInstance = null;
+        s_selectedPhysicalDevice = null;
+
+        try
+        {
+            context?.Dispose();
+        }
+        finally
+        {
+            vulkanInstance?.Dispose();
+        }
+    }
+
+    /// <summary>Installs <paramref name="replacement"/> in place of the live state, reporting what it replaced.</summary>
+    /// <remarks>
+    /// <see cref="Shutdown"/> destroys state the whole process shares, so the only way to exercise it without
+    /// taking the device out from under every other caller is to stand in for that state, tear the stand-in
+    /// down, and put the real state back.
+    /// </remarks>
+    internal static InstalledGraphics ExchangeInstalledGraphics(InstalledGraphics replacement)
+    {
+        var previous = new InstalledGraphics(
+            SharedContext,
+            s_vulkanInstance,
+            s_selectedPhysicalDevice,
+            s_failedToInitialize);
+        SharedContext = replacement.SharedContext;
+        s_vulkanInstance = replacement.VulkanInstance;
+        s_selectedPhysicalDevice = replacement.PhysicalDevice;
+        s_failedToInitialize = replacement.FailedToInitialize;
+        return previous;
+    }
 }
+
+/// <summary>The process-wide graphics state <see cref="GraphicsContextFactory.Shutdown"/> tears down.</summary>
+internal readonly record struct InstalledGraphics(
+    IGraphicsContext? SharedContext,
+    VulkanInstance? VulkanInstance,
+    VulkanPhysicalDeviceInfo? PhysicalDevice,
+    bool FailedToInitialize);
