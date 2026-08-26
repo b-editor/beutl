@@ -60,6 +60,12 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
             : 30;
     }
 
+    private static TimeSpan GetFrameDuration(Scene scene)
+    {
+        TimeSpan frame = TimeSpan.FromSeconds(1d / GetFrameRate(scene));
+        return frame > TimeSpan.Zero ? frame : TimeSpan.FromTicks(1);
+    }
+
     /// <summary>
     /// One-shot start update (keyboard / menu path). Setting start past the
     /// current end shifts the end forward one frame and snaps start to the old
@@ -67,8 +73,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// </summary>
     private static void ApplyStart(Scene scene, TimeSpan newStart, TimeSpan referenceStart, TimeSpan referenceDuration)
     {
-        int rate = GetFrameRate(scene);
-        TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan frame = GetFrameDuration(scene);
         TimeSpan sceneEnd = referenceStart + referenceDuration;
 
         if (newStart > sceneEnd)
@@ -101,8 +106,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// </summary>
     private static void ApplyEnd(Scene scene, TimeSpan newEnd)
     {
-        int rate = GetFrameRate(scene);
-        TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan frame = GetFrameDuration(scene);
 
         if (newEnd < scene.Start)
         {
@@ -127,8 +131,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// </summary>
     private static void ApplyStartDrag(Scene scene, TimeSpan newStart, TimeSpan initialStart, TimeSpan initialDuration)
     {
-        int rate = GetFrameRate(scene);
-        TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan frame = GetFrameDuration(scene);
         TimeSpan sceneEnd = initialStart + initialDuration;
 
         if (newStart < TimeSpan.Zero) newStart = TimeSpan.Zero;
@@ -146,8 +149,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// </summary>
     private static void ApplyEndDrag(Scene scene, TimeSpan pointerTime)
     {
-        int rate = GetFrameRate(scene);
-        TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan frame = GetFrameDuration(scene);
 
         TimeSpan duration = pointerTime - scene.Start;
         if (duration < frame) duration = frame;
