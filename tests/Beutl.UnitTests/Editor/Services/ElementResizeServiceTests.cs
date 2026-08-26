@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
@@ -1297,6 +1298,117 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void CalculateTimelineDuration_IncludesHeldFirstLeadIn()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldFirstFrame = { CurrentValue = true },
+            OffsetPosition = { CurrentValue = -TimeSpan.FromSeconds(1) },
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(3),
+            TimeSpan.FromSeconds(10),
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(4)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void HasUnboundedTail_IgnoresUnsafeSpeedBeforeHeldSuffix()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 10f,
+            Easing = new BackEaseOut(),
+        });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 100f });
+        var controller = new DrawableTimeController
+        {
+            Reverse = { CurrentValue = true },
+            HoldFirstFrame = { CurrentValue = true },
+            Speed = { Animation = speed },
+            Target = { CurrentValue = video },
+        };
+        TimeRange heldSuffix = new(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                controller.CanProvideCompleteTimeMapping(
+                    new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                    video),
+                Is.False);
+            Assert.That(controller.HasUnboundedTail(heldSuffix, video), Is.True);
+        });
+    }
+
+    [Test]
+    public void HasUnboundedTail_ReverseTraversalStopsSpeedCheckAtClockOrigin()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = -TimeSpan.FromSeconds(2), Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = -TimeSpan.FromSeconds(1),
+            Value = 10f,
+            Easing = new BackEaseOut(),
+        });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        var controller = new DrawableTimeController
+        {
+            HoldFirstFrame = { CurrentValue = true },
+            Speed = { Animation = speed },
+            Target = { CurrentValue = video },
+        };
+        TimeRange heldPrefix = new(-TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+
+        Assert.That(controller.HasUnboundedTail(heldPrefix, video, reverse: true), Is.True);
+    }
+
+    [Test]
+    public void HasUnboundedTail_EmptySpeedAnimationUsesStaticSpeedForHeldTail()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldFirstFrame = { CurrentValue = true },
+            Speed =
+            {
+                CurrentValue = 100f,
+                Animation = new KeyFrameAnimation<float>(),
+            },
+            Target = { CurrentValue = video },
+        };
+
+        TimeRange heldSuffix = new(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1));
+
+        Assert.That(controller.HasUnboundedTail(heldSuffix, video, reverse: true), Is.True);
+    }
+
+    [Test]
     public void CalculateTimelineDuration_DistantTerminalKeyframeDoesNotIntegrateUnusedPrefix()
     {
         var video = new SourceVideo
@@ -1721,8 +1833,87 @@ public class ElementResizeServiceTests
         var presenter = new TestTimeMappingPresenter
         {
             MappedStart = TimeSpan.FromSeconds(2),
+            CollapseMappedRange = true,
             ReportsUnboundedTail = true,
             Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(presenter);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - minDuration));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_CustomUnboundedTailAtExclusiveSourceEndRemainsFinite()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(3),
+            CollapseMappedRange = true,
+            ReportsUnboundedTail = true,
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(presenter);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_CustomUnboundedSoundTailRespectsPhysicalSourceEnd()
+    {
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3)));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = source },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(1) },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestSourceSoundTimeMappingPresenter
+        {
+            ReportsUnboundedTail = true,
+            Target = { CurrentValue = sound },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(presenter);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_CustomStationarySoundTailWithinSourceIsUnbounded()
+    {
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3)));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestSourceSoundTimeMappingPresenter
+        {
+            CollapseMappedRange = true,
+            ReportsUnboundedTail = true,
+            TargetOffset = TimeSpan.FromSeconds(2),
+            Target = { CurrentValue = sound },
         };
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
         front.Objects.Add(presenter);

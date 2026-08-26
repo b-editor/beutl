@@ -288,11 +288,11 @@ internal static class SlippableMedia
                             return context.TimelineDurationFromTarget?.Invoke(totalDuration) ?? totalDuration;
                         };
                         bool isReversed = context.IsReversed
-                            ^ timeMappingPresenter.IsReversed(state.Range, controlled);
+                            ^ timeMappingPresenter.IsReversed(state.ReachableRange, controlled);
                         bool hasUnboundedTail = state.IgnoreTail
                             || context.HasUnboundedTail
                             || timeMappingPresenter.HasUnboundedTail(
-                                state.Range,
+                                state.ReachableRange,
                                 controlled,
                                 reverse: context.IsReversed);
 
@@ -662,6 +662,24 @@ internal static class SlippableMedia
             using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
             yield return CreateVideoTarget(video, context with { Range = range }, resource, timelineRoom);
         }
+
+        var boundaries = new HashSet<TimeSpan> { context.Range.Start };
+        foreach (TimeSpan time in GetAnimationTimes(video))
+        {
+            if (context.Range.IsEmpty ? time == context.Range.Start : context.Range.Contains(time))
+                boundaries.Add(time);
+        }
+
+        foreach (TimeSpan boundary in boundaries)
+        {
+            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(boundary));
+            var boundaryRange = new TimeRange(boundary, TimeSpan.Zero);
+            yield return CreateVideoTarget(
+                video,
+                context with { Range = boundaryRange },
+                resource,
+                timelineRoom);
+        }
     }
 
     private static IEnumerable<TimeRange> GetVideoStateRanges(SourceVideo video, TimeRange range)
@@ -716,16 +734,17 @@ internal static class SlippableMedia
 
     private static TimeSpan? CalculateVideoTimelineRoom(SourceVideo video, TimeContext context)
     {
-        if (context.HasUnboundedTail)
-            return TimeSpan.MaxValue;
-
         if (context.IsReversed)
             return CalculateReversedVideoTimelineRoom(video, context);
 
         TimeSpan cursor = context.Range.End;
         TimeSpan horizon = context.ReachableRange.End;
         if (horizon <= cursor)
-            return MapTimelineDuration(context, TimeSpan.Zero, TimeSpan.Zero);
+        {
+            return context.HasUnboundedTail && IsVideoRangeReadable(video, context.ReachableRange)
+                ? TimeSpan.MaxValue
+                : MapTimelineDuration(context, TimeSpan.Zero, TimeSpan.Zero);
+        }
 
         TimeSpan accumulated = TimeSpan.Zero;
         TimeSpan[] futureTimes = GetAnimationTimes(video)
@@ -745,7 +764,7 @@ internal static class SlippableMedia
             {
                 accumulated = AddDurationSaturated(accumulated, stateDuration);
                 if (boundary == horizon)
-                    return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+                    return CompleteVideoTimelineRoom(context, accumulated);
 
                 cursor = boundary;
                 nextIndex++;
@@ -764,7 +783,7 @@ internal static class SlippableMedia
             {
                 accumulated = AddDurationSaturated(accumulated, stateDuration);
                 if (boundary == horizon)
-                    return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+                    return CompleteVideoTimelineRoom(context, accumulated);
 
                 cursor = boundary;
                 nextIndex++;
@@ -799,7 +818,7 @@ internal static class SlippableMedia
             {
                 accumulated = AddDurationSaturated(accumulated, stateDuration);
                 if (boundary == horizon)
-                    return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+                    return CompleteVideoTimelineRoom(context, accumulated);
 
                 cursor = boundary;
                 nextIndex++;
@@ -823,7 +842,7 @@ internal static class SlippableMedia
             return MapTimelineDuration(context, accumulated, timelineRoom);
         }
 
-        return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+        return CompleteVideoTimelineRoom(context, accumulated);
     }
 
     private static TimeSpan? CalculateReversedVideoTimelineRoom(SourceVideo video, TimeContext context)
@@ -831,7 +850,11 @@ internal static class SlippableMedia
         TimeSpan cursor = context.Range.Start;
         TimeSpan horizon = context.ReachableRange.Start;
         if (horizon >= cursor)
-            return MapTimelineDuration(context, TimeSpan.Zero, TimeSpan.Zero);
+        {
+            return context.HasUnboundedTail && IsVideoRangeReadable(video, context.ReachableRange)
+                ? TimeSpan.MaxValue
+                : MapTimelineDuration(context, TimeSpan.Zero, TimeSpan.Zero);
+        }
 
         TimeSpan accumulated = TimeSpan.Zero;
         TimeSpan[] earlierTimes = GetAnimationTimes(video)
@@ -913,13 +936,77 @@ internal static class SlippableMedia
 
             accumulated = AddDurationSaturated(accumulated, stateDuration);
             if (boundary == horizon)
-                return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+                return CompleteVideoTimelineRoom(context, accumulated);
 
             cursor = boundary;
             nextIndex++;
         }
 
-        return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+        return CompleteVideoTimelineRoom(context, accumulated);
+    }
+
+    private static TimeSpan CompleteVideoTimelineRoom(TimeContext context, TimeSpan duration)
+    {
+        return context.HasUnboundedTail
+            ? TimeSpan.MaxValue
+            : MapTimelineDuration(context, duration, TimeSpan.Zero);
+    }
+
+    private static bool IsVideoRangeReadable(SourceVideo video, TimeRange range)
+    {
+        foreach (TimeRange stateRange in GetVideoStateRanges(video, range))
+        {
+            TimeSpan sampleTime = stateRange.IsEmpty
+                ? stateRange.Start
+                : stateRange.Start + TimeSpan.FromTicks(stateRange.Duration.Ticks / 2);
+            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
+            if (!IsVideoStateRangeReadable(video, stateRange, resource))
+                return false;
+        }
+
+        foreach (TimeSpan boundary in GetAnimationTimes(video))
+        {
+            if (!range.Contains(boundary))
+                continue;
+
+            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(boundary));
+            if (!IsVideoStateRangeReadable(
+                    video,
+                    new TimeRange(boundary, TimeSpan.Zero),
+                    resource))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsVideoStateRangeReadable(
+        SourceVideo video,
+        TimeRange range,
+        SourceVideo.Resource resource)
+    {
+        if (resource.Source is not { } source || source.Duration <= TimeSpan.Zero)
+            return true;
+        if (SpeedMayRunBackward(video, range))
+            return false;
+
+        TimeSpan sourcePosition = GetSourcePositionAt(video, range.Start, resource);
+        if (resource.IsLoop)
+            sourcePosition = NormalizeLoopPosition(sourcePosition, source.Duration);
+
+        double renderedStartTicks = video.OffsetPosition.CurrentValue.Ticks
+            + (double)sourcePosition.Ticks;
+        if (renderedStartTicks < 0 || renderedStartTicks >= source.Duration.Ticks)
+            return false;
+        if (range.IsEmpty || resource.IsLoop && video.OffsetPosition.CurrentValue == TimeSpan.Zero)
+            return true;
+
+        TimeSpan sourceEndPosition = GetMaximumSourcePosition(video, range, resource);
+        double renderedEndTicks = video.OffsetPosition.CurrentValue.Ticks
+            + (double)sourceEndPosition.Ticks;
+        return renderedEndTicks <= source.Duration.Ticks;
     }
 
     private static TimeSpan FindEarliestVideoConsumption(
@@ -1070,9 +1157,8 @@ internal static class SlippableMedia
             if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
             forwardOffsetLimit = maxOffset;
             if (timelineRoomOverride is null
-                && (context.HasUnboundedTail
-                || resource.IsLoop
-                    && video.OffsetPosition.CurrentValue == TimeSpan.Zero))
+                && resource.IsLoop
+                && video.OffsetPosition.CurrentValue == TimeSpan.Zero)
             {
                 timelineRoom = TimeSpan.MaxValue;
             }
@@ -1324,9 +1410,26 @@ internal static class SlippableMedia
             if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
             forwardOffsetLimit = maxOffset;
 
-            if (context.HasUnboundedTail || speedScale == 0)
+            if (context.HasUnboundedTail
+                && IsSoundRangeReadable(
+                    sound,
+                    offset.CurrentValue,
+                    speedScale,
+                    sourceDuration,
+                    context.ReachableRange))
             {
                 timelineRoom = TimeSpan.MaxValue;
+            }
+            else if (speedScale == 0)
+            {
+                timelineRoom = IsSoundRangeReadable(
+                        sound,
+                        offset.CurrentValue,
+                        speedScale,
+                        sourceDuration,
+                        context.Range)
+                    ? TimeSpan.MaxValue
+                    : TimeSpan.Zero;
             }
             else if (context.IsReversed)
             {
@@ -1361,6 +1464,26 @@ internal static class SlippableMedia
             sourceEndPosition: sourceEndPosition,
             forwardOffsetLimit: forwardOffsetLimit,
             affectsOffset: context.AffectsOffset);
+    }
+
+    private static bool IsSoundRangeReadable(
+        Sound sound,
+        TimeSpan offset,
+        double speedScale,
+        TimeSpan sourceDuration,
+        TimeRange range)
+    {
+        TimeSpan sourceStart = GetSoundSourcePosition(range.Start, sound.TimeRange.Start, speedScale);
+        TimeSpan sourceEnd = GetSoundSourcePosition(range.End, sound.TimeRange.Start, speedScale);
+        double renderedStartTicks = offset.Ticks + (double)sourceStart.Ticks;
+        double renderedEndTicks = offset.Ticks + (double)sourceEnd.Ticks;
+        double minimumTicks = Math.Min(renderedStartTicks, renderedEndTicks);
+        double maximumTicks = Math.Max(renderedStartTicks, renderedEndTicks);
+        return minimumTicks >= 0
+            && renderedStartTicks < sourceDuration.Ticks
+            && (range.IsEmpty
+                ? maximumTicks < sourceDuration.Ticks
+                : maximumTicks <= sourceDuration.Ticks);
     }
 
     private static TimeSpan GetReadableSampleDuration(int sampleRate)
