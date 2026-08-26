@@ -31,12 +31,20 @@ public sealed class VersionControlTabViewModel : IToolContext
     private readonly ReactivePropertySlim<VersionControlPrimaryAction> _primaryAction;
     private readonly ReactiveCommandSlim _disabledPrimaryActionCommand;
     private readonly ReactivePropertySlim<bool> _isPrimaryActionEnabled;
+    private readonly ReactivePropertySlim<bool> _isConfiguringRemote;
     private ICommand? _observedPrimaryActionCommand;
     private IProjectVersionControlService? _service;
     private IRepositoryLockRecoveryService? _lockRecoveryService;
     private CancellationTokenSource? _serviceBindingCancellation;
     private CancellationTokenSource? _selectionCancellation;
     private CancellationTokenSource? _remoteOperationCancellation;
+    private int _remoteOperationUserCancellation;
+    private int _remoteOperationGeneration;
+    private RemoteMutationLease? _remoteMutationOwner;
+    private TaskCompletionSource _remoteOperationCompletion =
+        CompletedCompletion();
+    private TaskCompletionSource _configureRemoteCompletion =
+        CompletedCompletion();
     private int _serviceRevision;
     private int _statusRefreshRevision;
     private int _pendingRecoveryQueryRevision;
@@ -50,6 +58,14 @@ public sealed class VersionControlTabViewModel : IToolContext
     private bool _hasMoreHistory;
     private bool _hasUncommittedChanges;
     private bool _disposed;
+
+    private static TaskCompletionSource CompletedCompletion()
+    {
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        completion.TrySetResult();
+        return completion;
+    }
 
     public VersionControlTabViewModel(
         ToolTabExtension extension,
@@ -149,6 +165,8 @@ public sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         IsRemoteOperationRunning = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
+        _isConfiguringRemote = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
         IsNestedRepository = new ReactivePropertySlim<bool>(
                 service?.Repository?.IsNestedInForeignRepo == true)
             .DisposeWith(_disposables);
@@ -195,7 +213,9 @@ public sealed class VersionControlTabViewModel : IToolContext
         IObservable<bool> canMutate = IsTracked.CombineLatest(
             HasBlockingGuidance,
             IsRemoteOperationRunning,
-            static (tracked, blocked, isRunning) => tracked && !blocked && !isRunning);
+            _isConfiguringRemote,
+            static (tracked, blocked, isRunning, isConfiguring) =>
+                tracked && !blocked && !isRunning && !isConfiguring);
         CommitCommand = new AsyncReactiveCommand(
                 canMutate.CombineLatest(
                     CommitMessage.Select(static message => !string.IsNullOrWhiteSpace(message)),
@@ -245,7 +265,7 @@ public sealed class VersionControlTabViewModel : IToolContext
             .WithSubscribe(InvokePrimaryAction)
             .DisposeWith(_disposables);
         RequestBranchNameAsync = static _ => Task.FromResult<string?>(null);
-        RequestRemoteUrlAsync = static _ => Task.FromResult<string?>(null);
+        RequestRemoteUrlAsync = static (_, _) => Task.FromResult<string?>(null);
         ShowRemoteResultAsync = ShowRemoteResultNotificationAsync;
         RequestEnableVersionControlAsync = static () => Task.CompletedTask;
         LaunchUriAsync = static _ => Task.FromResult(false);
@@ -369,7 +389,7 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public Func<CommitInfo, Task<string?>> RequestBranchNameAsync { get; set; }
 
-    public Func<string?, Task<string?>> RequestRemoteUrlAsync { get; set; }
+    public Func<string?, CancellationToken, Task<string?>> RequestRemoteUrlAsync { get; set; }
 
     public Func<RemoteOpResult, Task> ShowRemoteResultAsync { get; set; }
 
@@ -487,18 +507,60 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public async Task SetRemoteAsync()
     {
-        await ConfigureRemoteAsync();
+        RemoteMutationLease? lease = TryAcquireRemoteMutation();
+        if (lease is not null)
+        {
+            try
+            {
+                await ConfigureRemoteAsync(lease);
+            }
+            finally
+            {
+                lease.Release();
+            }
+        }
     }
 
     public async Task PublishBranchAsync()
     {
-        if (await ConfigureRemoteAsync())
+        RemoteMutationLease? lease = TryAcquireRemoteMutation();
+        if (lease is null)
         {
-            await PushAsync();
+            return;
+        }
+
+        TaskCompletionSource publishCompletion = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        _remoteOperationCompletion = publishCompletion;
+        try
+        {
+            if (await ConfigureRemoteAsync(lease))
+            {
+                await RunRemoteOperationAsync(
+                    (progress, cancellationToken) => _versionControlCoordinator!.PushAsync(
+                        progress,
+                        cancellationToken),
+                    Strings.VersionControl_Pushing,
+                    lease,
+                    publishCompletion);
+            }
+        }
+        finally
+        {
+            publishCompletion.TrySetResult();
+            lease.Release();
         }
     }
 
-    private async Task<bool> ConfigureRemoteAsync()
+    private RemoteMutationLease? TryAcquireRemoteMutation()
+    {
+        var lease = new RemoteMutationLease(this);
+        return Interlocked.CompareExchange(ref _remoteMutationOwner, lease, null) is null
+            ? lease
+            : null;
+    }
+
+    private async Task<bool> ConfigureRemoteAsync(RemoteMutationLease lease)
     {
         IProjectVersionControlCoordinator? coordinator = _versionControlCoordinator;
         IProjectVersionControlService? service = _service;
@@ -527,28 +589,78 @@ public sealed class VersionControlTabViewModel : IToolContext
             return false;
         }
 
-        string? remoteUrl = await RequestRemoteUrlAsync(
-            HasRemote.Value ? RemoteUrl.Value : null);
-        if (!IsCurrentService(service, revision, cancellationToken)
-            || string.IsNullOrWhiteSpace(remoteUrl))
+        TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _configureRemoteCompletion = completion;
+        _isConfiguringRemote.Value = true;
+        try
+        {
+            string? remoteUrl = await RequestRemoteUrlAsync(
+                HasRemote.Value ? RemoteUrl.Value : null,
+                cancellationToken);
+            if (!IsCurrentService(service, revision, cancellationToken)
+                || string.IsNullOrWhiteSpace(remoteUrl))
+            {
+                return false;
+            }
+
+            string normalizedUrl = remoteUrl.Trim();
+            await coordinator.SetRemoteAsync(normalizedUrl, cancellationToken);
+            if (!IsCurrentService(service, revision, cancellationToken))
+            {
+                return false;
+            }
+
+            await RefreshRemotesAsync(
+                service,
+                cancellationToken,
+                serviceRevision: revision,
+                freshness: () => IsCurrentService(service, revision, cancellationToken));
+            if (!IsCurrentService(service, revision, cancellationToken))
+            {
+                return false;
+            }
+
+            RemoteUrl.Value = normalizedUrl;
+            HasRemote.Value = true;
+            StatusMessage.Value = Strings.VersionControl_RemoteConnected;
+            return true;
+        }
+        catch (ArgumentException ex)
+        {
+            if (IsCurrentService(service, revision, cancellationToken))
+            {
+                NotificationService.ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
+            }
+            return false;
+        }
+        catch (OperationCanceledException)
         {
             return false;
         }
-
-        string normalizedUrl = remoteUrl.Trim();
-        await coordinator.SetRemoteAsync(
-            normalizedUrl,
-            cancellationToken);
-        if (!IsCurrentService(service, revision, cancellationToken))
+        catch (ObjectDisposedException) when (!IsCurrentService(service, revision, cancellationToken))
         {
             return false;
         }
-
-        await RefreshRemotesAsync();
-        RemoteUrl.Value = normalizedUrl;
-        HasRemote.Value = true;
-        StatusMessage.Value = Strings.VersionControl_RemoteConnected;
-        return true;
+        catch (Exception ex)
+        {
+            if (IsCurrentService(service, revision, cancellationToken))
+            {
+                _logger.LogError(ex, "Failed to configure the remote.");
+                NotificationService.ShowError(
+                    Strings.VersionControl_ErrorTitle,
+                    MessageStrings.OperationFailed);
+            }
+            return false;
+        }
+        finally
+        {
+            completion.TrySetResult();
+            if (!_disposed
+                && ReferenceEquals(completion, _configureRemoteCompletion))
+            {
+                _isConfiguringRemote.Value = false;
+            }
+        }
     }
 
     public Task PushAsync()
@@ -557,8 +669,12 @@ public sealed class VersionControlTabViewModel : IToolContext
             (progress, cancellationToken) => _versionControlCoordinator!.PushAsync(
                 progress,
                 cancellationToken),
-            Strings.VersionControl_Pushing);
+            Strings.VersionControl_Pushing,
+            lease: null);
     }
+
+    internal Task RemoteOperationCompletion => _remoteOperationCompletion.Task;
+    internal Task ConfigureRemoteCompletion => _configureRemoteCompletion.Task;
 
     public Task PullAsync()
     {
@@ -696,8 +812,7 @@ public sealed class VersionControlTabViewModel : IToolContext
 
         _selectionCancellation?.Cancel();
         _selectionCancellation?.Dispose();
-        _remoteOperationCancellation?.Cancel();
-        _remoteOperationCancellation?.Dispose();
+        TryCancel(Volatile.Read(ref _remoteOperationCancellation));
         if (_observedPrimaryActionCommand is not null)
         {
             _observedPrimaryActionCommand.CanExecuteChanged -=
@@ -920,7 +1035,7 @@ public sealed class VersionControlTabViewModel : IToolContext
         _selectionCancellation?.Cancel();
         _selectionCancellation?.Dispose();
         _selectionCancellation = null;
-        _remoteOperationCancellation?.Cancel();
+        TryCancel(Volatile.Read(ref _remoteOperationCancellation));
 
         foreach (VersionControlCommitViewModel commit in Commits)
         {
@@ -1362,14 +1477,20 @@ public sealed class VersionControlTabViewModel : IToolContext
     private async Task RefreshRemotesAsync(
         IProjectVersionControlService service,
         CancellationToken cancellationToken,
-        int? statusRefreshRevision = null)
+        int? statusRefreshRevision = null,
+        int? serviceRevision = null,
+        Func<bool>? freshness = null)
     {
         RemoteInfo? remote = (await service.GetRemotesAsync(cancellationToken))
             .FirstOrDefault();
         if (cancellationToken.IsCancellationRequested
             || !ReferenceEquals(service, _service)
+            || serviceRevision is { } bindingRevision
+            && bindingRevision != Volatile.Read(ref _serviceRevision)
             || statusRefreshRevision is { } revision
-            && !IsCurrentStatusRefresh(service, revision, cancellationToken))
+            && !IsCurrentStatusRefresh(service, revision, cancellationToken)
+            || freshness is not null
+            && !freshness())
         {
             return;
         }
@@ -1660,49 +1781,285 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     private async Task RunRemoteOperationAsync(
         Func<IProgress<string>, CancellationToken, Task<RemoteOpResult>> operation,
-        string initialProgress)
+        string initialProgress,
+        RemoteMutationLease? lease = null,
+        TaskCompletionSource? completionOverride = null)
     {
-        if (_versionControlCoordinator is null || IsRemoteOperationRunning.Value)
+        if (_versionControlCoordinator is null
+            || _service is null
+            || _disposed)
         {
             return;
         }
 
-        _remoteOperationCancellation?.Dispose();
-        _remoteOperationCancellation = new CancellationTokenSource();
+        bool ownsMutation = lease is null;
+        RemoteMutationLease? operationLease = lease ?? TryAcquireRemoteMutation();
+        if (operationLease is null)
+        {
+            return;
+        }
+
+        CancellationTokenSource operationCancellation = new();
+        IProjectVersionControlService operationService = _service;
+        int operationRevision = _serviceRevision;
+        int operationGeneration = Interlocked.Increment(ref _remoteOperationGeneration);
+        TaskCompletionSource operationCompletion = completionOverride ?? new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        if (completionOverride is null)
+        {
+            _remoteOperationCompletion = operationCompletion;
+        }
+        bool operationFinished = false;
+        CancellationTokenSource? previous = Interlocked.Exchange(
+            ref _remoteOperationCancellation,
+            operationCancellation);
+        previous?.Dispose();
+        Volatile.Write(ref _remoteOperationUserCancellation, 0);
         IsRemoteOperationRunning.Value = true;
         RemoteProgress.Value = initialProgress;
+        CancellationToken serviceBindingToken;
+        try
+        {
+            serviceBindingToken = _serviceBindingCancellation?.Token
+                ?? CancellationToken.None;
+        }
+        catch (ObjectDisposedException)
+        {
+            serviceBindingToken = new CancellationToken(canceled: true);
+        }
+        bool IsCurrentOperation() =>
+            !operationFinished
+            && operationGeneration == Volatile.Read(ref _remoteOperationGeneration)
+            && ReferenceEquals(
+                operationCancellation,
+                Volatile.Read(ref _remoteOperationCancellation))
+            && !operationCancellation.IsCancellationRequested
+            && operationService is not null
+            && IsCurrentService(operationService, operationRevision, serviceBindingToken);
+        bool IsCurrentOperationForCancellation() =>
+            operationGeneration == Volatile.Read(ref _remoteOperationGeneration)
+            && ReferenceEquals(
+                operationCancellation,
+                Volatile.Read(ref _remoteOperationCancellation))
+            && operationService is not null
+            && IsCurrentServiceIgnoringCancellation(
+                operationService,
+                operationRevision,
+                serviceBindingToken);
         var progress = new CallbackProgress<string>(value =>
-            _postToUi(() => RemoteProgress.Value = value));
+        {
+            if (IsCurrentOperation())
+            {
+                _postToUi(() =>
+                {
+                    if (IsCurrentOperation())
+                    {
+                        RemoteProgress.Value = value;
+                    }
+                });
+            }
+        });
         try
         {
             RemoteOpResult result = await operation(
                 progress,
-                _remoteOperationCancellation.Token);
+                operationCancellation.Token);
+            if (!IsCurrentOperation())
+            {
+                return;
+            }
             if (result is RemoteOpResult.Success)
             {
+                await RefreshRemotesAsync(
+                    operationService,
+                    operationCancellation.Token,
+                    serviceRevision: operationRevision,
+                    freshness: IsCurrentOperation);
+                if (!IsCurrentOperation())
+                {
+                    if (operationCancellation.IsCancellationRequested
+                        && Volatile.Read(ref _remoteOperationUserCancellation) != 0
+                        && IsCurrentOperationForCancellation())
+                    {
+                        StatusMessage.Value = Strings.VersionControl_RemoteOperationCanceled;
+                    }
+                    return;
+                }
                 StatusMessage.Value = Strings.VersionControl_RemoteOperationSucceeded;
-                await RefreshRemotesAsync();
             }
             else if (result is not RemoteOpResult.Failed { Stderr.Length: 0 })
             {
-                await ShowRemoteResultAsync(result);
+                await DispatchRemoteResultAsync(
+                    result,
+                    IsCurrentOperation,
+                    operationCancellation.Token);
             }
         }
-        catch (OperationCanceledException) when (_remoteOperationCancellation.IsCancellationRequested)
+        catch (VersionControlConflictedException ex)
         {
-            StatusMessage.Value = Strings.VersionControl_RemoteOperationCanceled;
+            if (!IsCurrentOperation())
+            {
+                return;
+            }
+            StatusMessage.Value = ex.Guidance;
+            NotificationService.ShowError(Strings.VersionControl_ErrorTitle, ex.Guidance);
+        }
+        catch (OperationCanceledException) when (operationCancellation.IsCancellationRequested)
+        {
+            if (Volatile.Read(ref _remoteOperationUserCancellation) != 0)
+            {
+                if (IsCurrentOperationForCancellation())
+                {
+                    StatusMessage.Value = Strings.VersionControl_RemoteOperationCanceled;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (serviceBindingToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (!IsCurrentOperation())
+            {
+                return;
+            }
+            _logger.LogError(ex, "The remote operation command failed.");
+            NotificationService.ShowError(
+                Strings.VersionControl_ErrorTitle,
+                MessageStrings.OperationFailed);
         }
         finally
         {
-            IsRemoteOperationRunning.Value = false;
-            _remoteOperationCancellation.Dispose();
-            _remoteOperationCancellation = null;
+            bool isCurrentOperation = ReferenceEquals(
+                operationCancellation,
+                Volatile.Read(ref _remoteOperationCancellation));
+            operationFinished = true;
+            if (isCurrentOperation)
+            {
+                if (!_disposed)
+                {
+                    IsRemoteOperationRunning.Value = false;
+                }
+                Interlocked.CompareExchange(
+                    ref _remoteOperationCancellation,
+                    null,
+                    operationCancellation);
+            }
+            operationCancellation.Dispose();
+            operationCompletion.TrySetResult();
+            if (ownsMutation)
+            {
+                operationLease.Release();
+            }
         }
     }
 
     private void CancelRemoteOperation()
     {
-        _remoteOperationCancellation?.Cancel();
+        Volatile.Write(ref _remoteOperationUserCancellation, 1);
+        TryCancel(Volatile.Read(ref _remoteOperationCancellation));
+    }
+
+    private Task DispatchRemoteResultAsync(
+        RemoteOpResult result,
+        Func<bool> isCurrentOperation,
+        CancellationToken cancellationToken)
+    {
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationTokenRegistration registration = default;
+        try
+        {
+            registration = cancellationToken.Register(
+                static state =>
+                {
+                    ((TaskCompletionSource)state!).TrySetCanceled();
+                },
+                completion);
+            _postToUi(() => _ = DispatchRemoteResultCoreAsync(
+                result,
+                isCurrentOperation,
+                completion,
+                cancellationToken));
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+
+        return AwaitDispatchCompletionAsync(completion.Task, registration);
+    }
+
+    private static async Task AwaitDispatchCompletionAsync(
+        Task completion,
+        CancellationTokenRegistration registration)
+    {
+        try
+        {
+            await completion;
+        }
+        finally
+        {
+            registration.Dispose();
+        }
+    }
+
+    private async Task DispatchRemoteResultCoreAsync(
+        RemoteOpResult result,
+        Func<bool> isCurrentOperation,
+        TaskCompletionSource completion,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!completion.Task.IsCompleted
+                && !cancellationToken.IsCancellationRequested
+                && isCurrentOperation())
+            {
+                await ShowRemoteResultAsync(result);
+            }
+
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+    }
+
+    private static void TryCancel(CancellationTokenSource? cancellation)
+    {
+        try
+        {
+            cancellation?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private sealed class RemoteMutationLease(VersionControlTabViewModel owner)
+    {
+        private int _released;
+
+        public void Release()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                Interlocked.CompareExchange(ref owner._remoteMutationOwner, null, this);
+            }
+        }
+    }
+
+    private bool IsCurrentServiceIgnoringCancellation(
+        IProjectVersionControlService service,
+        int revision,
+        CancellationToken cancellationToken)
+    {
+        return !_disposed
+               && !cancellationToken.IsCancellationRequested
+               && revision == _serviceRevision
+               && ReferenceEquals(service, _service);
     }
 
     private static void PostToUiThread(Action action)

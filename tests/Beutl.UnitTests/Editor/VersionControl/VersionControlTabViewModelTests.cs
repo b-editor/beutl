@@ -1699,6 +1699,388 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Remote_result_notification_is_suppressed_after_service_rebind()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IProjectVersionControlService> replacement = CreateServiceMock();
+        var queuedUiActions = new List<Action>();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteOpResult.Offline());
+        int notificationCalls = 0;
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            source,
+            coordinator.Object,
+            queuedUiActions.Add)
+        {
+            ShowRemoteResultAsync = _ =>
+            {
+                Interlocked.Increment(ref notificationCalls);
+                return Task.CompletedTask;
+            },
+        };
+        await viewModel.Initialization;
+
+        Task push = viewModel.PushAsync();
+        Assert.That(queuedUiActions, Has.Count.EqualTo(1));
+        source.Value = replacement.Object;
+        Assert.That(queuedUiActions, Has.Count.EqualTo(2));
+        queuedUiActions[1]();
+        await viewModel.Initialization;
+        await push;
+        queuedUiActions[0]();
+
+        Assert.That(notificationCalls, Is.Zero);
+    }
+
+    [Test]
+    public async Task Remote_result_notification_dispatch_is_canceled_on_dispose()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var queuedUiActions = new List<Action>();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteOpResult.Offline());
+        int notificationCalls = 0;
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            CreateServiceSource(service.Object),
+            coordinator.Object,
+            queuedUiActions.Add)
+        {
+            ShowRemoteResultAsync = _ =>
+            {
+                Interlocked.Increment(ref notificationCalls);
+                return Task.CompletedTask;
+            },
+        };
+        await viewModel.Initialization;
+
+        Task push = viewModel.PushAsync();
+        Assert.That(queuedUiActions, Has.Count.EqualTo(1));
+        viewModel.Dispose();
+        await push.WaitAsync(TimeSpan.FromSeconds(2));
+        await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        queuedUiActions[0]();
+
+        Assert.That(notificationCalls, Is.Zero);
+    }
+
+    [Test]
+    public async Task Current_remote_result_notification_is_invoked_once()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var queuedUiActions = new List<Action>();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteOpResult.Offline());
+        int notificationCalls = 0;
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            CreateServiceSource(service.Object),
+            coordinator.Object,
+            queuedUiActions.Add)
+        {
+            ShowRemoteResultAsync = _ =>
+            {
+                Interlocked.Increment(ref notificationCalls);
+                return Task.CompletedTask;
+            },
+        };
+        await viewModel.Initialization;
+
+        Task push = viewModel.PushAsync();
+        Assert.That(queuedUiActions, Has.Count.EqualTo(1));
+        queuedUiActions[0]();
+        await push;
+
+        Assert.That(notificationCalls, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Remote_push_ignores_progress_queued_by_a_completed_operation()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var queuedUiActions = new List<Action>();
+        var fourActionsQueued = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        IProgress<string>? firstProgress = null;
+        var secondStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseSecond = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<IProgress<string>, CancellationToken>(async (progress, _) =>
+            {
+                if (firstProgress is null)
+                {
+                    firstProgress = progress;
+                    progress.Report("old");
+                }
+                else
+                {
+                    progress.Report("new");
+                    secondStarted.TrySetResult();
+                    await releaseSecond.Task;
+                }
+
+                return new RemoteOpResult.Offline();
+            });
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            CreateServiceSource(service.Object),
+            coordinator.Object,
+            action =>
+            {
+                queuedUiActions.Add(action);
+                if (queuedUiActions.Count == 4)
+                {
+                    fourActionsQueued.TrySetResult();
+                }
+            });
+        await viewModel.Initialization;
+
+        Task firstPush = viewModel.PushAsync();
+        Assert.That(queuedUiActions, Has.Count.EqualTo(2));
+        queuedUiActions[1]();
+        await firstPush;
+        Task secondPush = viewModel.PushAsync();
+        await secondStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.That(queuedUiActions, Has.Count.EqualTo(3));
+        queuedUiActions[2]();
+        releaseSecond.TrySetResult();
+        await fourActionsQueued.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        queuedUiActions[3]();
+        await secondPush;
+        queuedUiActions[0]();
+
+        Assert.That(viewModel.RemoteProgress.Value, Is.EqualTo("new"));
+    }
+
+    [Test]
+    public async Task Push_command_contains_conflict_fault_and_reenables()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new VersionControlConflictedException(Strings.VersionControl_ConflictGuidance));
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+
+        viewModel.PushCommand.Execute(null);
+        await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        await WaitForCommandReadyAsync(viewModel.PushCommand);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.VersionControl_ConflictGuidance));
+            Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
+            Assert.That(viewModel.PushCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Pull_command_contains_unexpected_fault_and_reenables()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PullAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("backend fault"));
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+
+        viewModel.PullCommand.Execute(null);
+        await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        await WaitForCommandReadyAsync(viewModel.PullCommand);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
+            Assert.That(viewModel.PullCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Push_command_contains_post_success_refresh_fault_and_reenables()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.SetupSequence(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")])
+            .ThrowsAsync(new InvalidOperationException("refresh fault"));
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteOpResult.Success());
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+
+        viewModel.PushCommand.Execute(null);
+        await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        await WaitForCommandReadyAsync(viewModel.PushCommand);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
+            Assert.That(viewModel.PushCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Push_cancel_during_success_refresh_does_not_publish_success()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var refreshStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRefresh = new TaskCompletionSource<IReadOnlyList<RemoteInfo>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        service.SetupSequence(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")])
+            .Returns(() =>
+            {
+                refreshStarted.TrySetResult();
+                return releaseRefresh.Task;
+            });
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteOpResult.Success());
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+
+        viewModel.PushCommand.Execute(null);
+        await refreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        viewModel.CancelRemoteOperationCommand.Execute();
+        releaseRefresh.TrySetResult([]);
+        await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        await WaitForCommandReadyAsync(viewModel.PushCommand);
+
+        Assert.That(viewModel.StatusMessage.Value,
+            Is.EqualTo(Strings.VersionControl_RemoteOperationCanceled));
+    }
+
+    [Test]
+    public async Task Push_cancel_then_service_rebind_does_not_publish_stale_canceled_status()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IProjectVersionControlService> replacement = CreateServiceMock();
+        var refreshStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRefresh = new TaskCompletionSource<IReadOnlyList<RemoteInfo>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        service.SetupSequence(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")])
+            .Returns(() =>
+            {
+                refreshStarted.TrySetResult();
+                return releaseRefresh.Task;
+            });
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteOpResult.Success());
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            source,
+            coordinator.Object,
+            action => action());
+        await viewModel.Initialization;
+
+        viewModel.PushCommand.Execute(null);
+        await refreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        viewModel.CancelRemoteOperationCommand.Execute();
+        source.Value = replacement.Object;
+        await viewModel.Initialization;
+        releaseRefresh.TrySetResult([]);
+        await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.That(
+            viewModel.StatusMessage.Value,
+            Is.Not.EqualTo(Strings.VersionControl_RemoteOperationCanceled));
+    }
+
+    [Test]
+    public async Task Push_command_ignores_success_from_a_rebound_service()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IProjectVersionControlService> replacement = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                started.TrySetResult();
+                await release.Task;
+                return new RemoteOpResult.Success();
+            });
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(), source,
+            coordinator.Object, action => action());
+        await viewModel.Initialization;
+
+        viewModel.PushCommand.Execute(null);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        source.Value = replacement.Object;
+        await viewModel.Initialization;
+        release.TrySetResult();
+        await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.That(viewModel.StatusMessage.Value, Is.Not.EqualTo(Strings.VersionControl_RemoteOperationSucceeded));
+    }
+
+    [Test]
+    public async Task Publish_branch_command_contains_push_fault_and_reenables()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("push fault"));
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        viewModel.RequestRemoteUrlAsync = (_, _) =>
+            Task.FromResult<string?>("https://example.invalid/repo.git");
+        await viewModel.Initialization;
+
+        viewModel.PublishBranchCommand.Execute(null);
+        await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        await WaitForCommandReadyAsync(viewModel.PushCommand);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
+            Assert.That(viewModel.PushCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
     public async Task Set_remote_prompt_prefills_the_current_url_and_updates_origin()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -1709,7 +2091,7 @@ public class VersionControlTabViewModelTests
             service.Object,
             coordinator.Object);
         string? prefilledUrl = null;
-        viewModel.RequestRemoteUrlAsync = currentUrl =>
+        viewModel.RequestRemoteUrlAsync = (currentUrl, _) =>
         {
             prefilledUrl = currentUrl;
             return Task.FromResult<string?>(" https://example.invalid/new.git ");
@@ -1733,6 +2115,110 @@ public class VersionControlTabViewModelTests
             Times.Once);
     }
 
+    [Test]
+    public async Task Configure_remote_serializes_duplicate_and_remote_operation_requests()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var promptStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePrompt = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        int setRemoteCalls = 0;
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((_, _) =>
+            {
+                Interlocked.Increment(ref setRemoteCalls);
+                return Task.CompletedTask;
+            });
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            CreateServiceSource(service.Object),
+            coordinator.Object,
+            action => action());
+        viewModel.RequestRemoteUrlAsync = (_, _) =>
+        {
+            promptStarted.TrySetResult();
+            return releasePrompt.Task;
+        };
+        await viewModel.Initialization;
+
+        Task first = viewModel.SetRemoteAsync();
+        await promptStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Task duplicate = viewModel.SetRemoteAsync();
+        Task blockedPush = viewModel.PushAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.False);
+            Assert.That(viewModel.PushCommand.CanExecute(), Is.False);
+            Assert.That(blockedPush.IsCompleted, Is.True);
+        });
+
+        releasePrompt.TrySetResult("https://example.invalid/new.git");
+        await first.WaitAsync(TimeSpan.FromSeconds(2));
+        await duplicate.WaitAsync(TimeSpan.FromSeconds(2));
+        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.That(setRemoteCalls, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Publish_branch_holds_mutation_lease_through_push()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var refreshStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRefresh = new TaskCompletionSource<IReadOnlyList<RemoteInfo>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        service.SetupSequence(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([])
+            .Returns(() =>
+            {
+                refreshStarted.TrySetResult();
+                return releaseRefresh.Task;
+            });
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteOpResult.Success());
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        viewModel.RequestRemoteUrlAsync = (_, _) =>
+            Task.FromResult<string?>("https://example.invalid/new.git");
+        await viewModel.Initialization;
+
+        Task publish = viewModel.PublishBranchAsync();
+        await refreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Task duplicateConfigure = viewModel.SetRemoteAsync();
+        Task duplicatePush = viewModel.PushAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplicateConfigure.IsCompleted, Is.True);
+            Assert.That(duplicatePush.IsCompleted, Is.True);
+        });
+
+        releaseRefresh.TrySetResult([]);
+        await publish.WaitAsync(TimeSpan.FromSeconds(2));
+        await duplicateConfigure;
+        await duplicatePush;
+        coordinator.Verify(
+            x => x.SetRemoteAsync(
+                "https://example.invalid/new.git",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        coordinator.Verify(
+            x => x.PushAsync(
+                It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     [TestCase("https://user:secret@example.invalid/repository.git")]
     [TestCase("https://user@example.invalid/repository.git")]
     [TestCase("https://example.invalid/repository.git?access_token=secret")]
@@ -1748,7 +2234,7 @@ public class VersionControlTabViewModelTests
             service.Object,
             coordinator.Object);
         string? prefilledUrl = "not requested";
-        viewModel.RequestRemoteUrlAsync = currentUrl =>
+        viewModel.RequestRemoteUrlAsync = (currentUrl, _) =>
         {
             prefilledUrl = currentUrl;
             return Task.FromResult<string?>(null);
@@ -1782,7 +2268,7 @@ public class VersionControlTabViewModelTests
             service.Object,
             coordinator.Object);
         string? prefilledUrl = null;
-        viewModel.RequestRemoteUrlAsync = currentUrl =>
+        viewModel.RequestRemoteUrlAsync = (currentUrl, _) =>
         {
             prefilledUrl = currentUrl;
             return Task.FromResult<string?>(null);
@@ -1825,7 +2311,7 @@ public class VersionControlTabViewModelTests
             coordinator.Object,
             action => action())
         {
-            RequestRemoteUrlAsync = _ =>
+            RequestRemoteUrlAsync = (_, _) =>
             {
                 promptStarted.TrySetResult();
                 return promptCompletion.Task;
@@ -1861,6 +2347,206 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Set_remote_cancels_prompt_on_dispose_and_completes_operation()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        var promptStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var promptCanceled = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var prompt = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        viewModel.RequestRemoteUrlAsync = (_, cancellationToken) =>
+        {
+            promptStarted.TrySetResult();
+            cancellationToken.Register(() =>
+            {
+                promptCanceled.TrySetResult();
+                prompt.TrySetCanceled(cancellationToken);
+            });
+            return prompt.Task;
+        };
+        await viewModel.Initialization;
+
+        Task configure = viewModel.SetRemoteAsync();
+        await promptStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        viewModel.Dispose();
+
+        await promptCanceled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await configure.WaitAsync(TimeSpan.FromSeconds(2));
+        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        coordinator.Verify(
+            x => x.SetRemoteAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Test]
+    public async Task Set_remote_cancels_prompt_on_rebind_and_releases_mutation_for_replacement()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IProjectVersionControlService> replacement = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        var promptStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var promptCanceled = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var prompt = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int promptCount = 0;
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            source,
+            coordinator.Object,
+            action => action())
+        {
+            RequestRemoteUrlAsync = (_, cancellationToken) =>
+            {
+                if (Interlocked.Increment(ref promptCount) > 1)
+                {
+                    return Task.FromResult<string?>(
+                        "https://example.invalid/replacement.git");
+                }
+
+                promptStarted.TrySetResult();
+                cancellationToken.Register(() =>
+                {
+                    promptCanceled.TrySetResult();
+                    prompt.TrySetCanceled(cancellationToken);
+                });
+                return prompt.Task;
+            },
+        };
+        await viewModel.Initialization;
+
+        Task configure = viewModel.SetRemoteAsync();
+        await promptStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        source.Value = replacement.Object;
+        await viewModel.Initialization;
+        await promptCanceled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await configure.WaitAsync(TimeSpan.FromSeconds(2));
+        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await viewModel.SetRemoteAsync();
+
+        coordinator.Verify(
+            x => x.SetRemoteAsync(
+                "https://example.invalid/replacement.git",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task Set_remote_keeps_replacement_blocked_until_canceled_prompt_unwinds()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IProjectVersionControlService> replacement = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        var promptStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationObserved = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePrompt = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            source,
+            coordinator.Object,
+            action => action())
+        {
+            RequestRemoteUrlAsync = (_, cancellationToken) =>
+            {
+                promptStarted.TrySetResult();
+                cancellationToken.Register(() => cancellationObserved.TrySetResult());
+                return releasePrompt.Task;
+            },
+        };
+        await viewModel.Initialization;
+
+        Task configure = viewModel.SetRemoteAsync();
+        await promptStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        source.Value = replacement.Object;
+        await viewModel.Initialization;
+        await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Task blockedReplacement = viewModel.SetRemoteAsync();
+        Assert.That(blockedReplacement.IsCompleted, Is.True);
+        coordinator.Verify(
+            x => x.SetRemoteAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        releasePrompt.TrySetResult(null);
+        await configure.WaitAsync(TimeSpan.FromSeconds(2));
+        await viewModel.SetRemoteAsync();
+        coordinator.Verify(
+            x => x.SetRemoteAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Test]
+    public async Task Set_remote_suppresses_stale_validation_fault_after_service_rebind()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IProjectVersionControlService> replacement = CreateServiceMock();
+        var setRemoteStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var setRemoteCompletion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                setRemoteStarted.TrySetResult();
+                await setRemoteCompletion.Task;
+            });
+        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            source,
+            coordinator.Object,
+            action => action());
+        viewModel.RequestRemoteUrlAsync = (_, _) =>
+            Task.FromResult<string?>("https://example.invalid/new.git");
+        await viewModel.Initialization;
+
+        Task configure = viewModel.SetRemoteAsync();
+        await setRemoteStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        source.Value = replacement.Object;
+        await viewModel.Initialization;
+        setRemoteCompletion.TrySetException(new ArgumentException("stale validation"));
+        await configure.WaitAsync(TimeSpan.FromSeconds(2));
+        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.RemoteUrl.Value, Is.Empty);
+            Assert.That(viewModel.HasRemote.Value, Is.False);
+            Assert.That(viewModel.StatusMessage.Value,
+                Is.Not.EqualTo(Strings.VersionControl_RemoteConnected));
+        });
+    }
+
+    [Test]
     public async Task Publish_branch_sets_the_remote_then_pushes()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -1873,7 +2559,7 @@ public class VersionControlTabViewModelTests
             service.Object,
             coordinator.Object);
         string? prefilledUrl = "not requested";
-        viewModel.RequestRemoteUrlAsync = currentUrl =>
+        viewModel.RequestRemoteUrlAsync = (currentUrl, _) =>
         {
             prefilledUrl = currentUrl;
             return Task.FromResult<string?>("https://example.invalid/new.git");
@@ -1964,6 +2650,142 @@ public class VersionControlTabViewModelTests
             Assert.That(viewModel.StatusMessage.Value,
                 Is.EqualTo(Strings.VersionControl_RemoteOperationCanceled));
         });
+    }
+
+    [TestCase("https://user:secret@example.invalid/repository.git")]
+    [TestCase("https://example.invalid/repository.git?access_token=secret")]
+    public async Task Set_remote_command_handles_invalid_urls_without_faulting(string remoteUrl)
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        var invoked = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((_, _) =>
+            {
+                invoked.TrySetResult();
+                return Task.FromException(new ArgumentException(
+                    "Remote URLs must not embed credentials."));
+            });
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        viewModel.RequestRemoteUrlAsync = (_, _) => Task.FromResult<string?>(remoteUrl);
+        await viewModel.Initialization;
+
+        viewModel.SetRemoteCommand.Execute();
+        await invoked.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        await WaitForCommandReadyAsync(viewModel.SetRemoteCommand);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRemote.Value, Is.False);
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Set_remote_command_handles_refresh_failure_without_publishing_stale_state()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.SetupSequence(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([])
+            .ThrowsAsync(new InvalidOperationException("refresh failed"));
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        var setRemoteInvoked = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((_, _) =>
+            {
+                setRemoteInvoked.TrySetResult();
+                return Task.CompletedTask;
+            });
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        viewModel.RequestRemoteUrlAsync = (_, _) =>
+            Task.FromResult<string?>("https://example.invalid/new.git");
+        await viewModel.Initialization;
+
+        viewModel.SetRemoteCommand.Execute();
+        await setRemoteInvoked.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        await WaitForCommandReadyAsync(viewModel.SetRemoteCommand);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRemote.Value, Is.False);
+            Assert.That(viewModel.RemoteUrl.Value, Is.Empty);
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Set_remote_command_ignores_refresh_after_service_rebind()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IProjectVersionControlService> replacement = CreateServiceMock();
+        var refreshStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var refreshCompletion = new TaskCompletionSource<IReadOnlyList<RemoteInfo>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        service.SetupSequence(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([])
+            .Returns(() =>
+            {
+                refreshStarted.TrySetResult();
+                return refreshCompletion.Task;
+            });
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            serviceSource,
+            coordinator.Object,
+            action => action());
+        viewModel.RequestRemoteUrlAsync = (_, _) =>
+            Task.FromResult<string?>("https://example.invalid/new.git");
+        await viewModel.Initialization;
+
+        viewModel.SetRemoteCommand.Execute();
+        await refreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        serviceSource.Value = replacement.Object;
+        await viewModel.Initialization;
+        refreshCompletion.TrySetCanceled();
+        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+        await WaitForCommandReadyAsync(viewModel.SetRemoteCommand);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.RemoteUrl.Value, Is.Empty);
+            Assert.That(viewModel.HasRemote.Value, Is.False);
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
+        });
+    }
+
+    private static async Task WaitForCommandReadyAsync(AsyncReactiveCommand command)
+    {
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        while (!command.CanExecute())
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                Assert.Fail("The command did not become executable after the operation completed.");
+            }
+
+            await Task.Delay(10);
+        }
     }
 
     private static VersionControlTabViewModel CreateViewModel(

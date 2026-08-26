@@ -142,13 +142,16 @@ public sealed partial class VersionControlTabView : UserControl
             $"restore-{commit.ShortSha}");
     }
 
-    private Task<string?> RequestRemoteUrlAsync(string? currentRemoteUrl)
+    private Task<string?> RequestRemoteUrlAsync(
+        string? currentRemoteUrl,
+        CancellationToken cancellationToken)
     {
         PrimaryActionSplitButton.Flyout?.Hide();
         return PromptFlyout.ShowTextInputAsync(
             PrimaryActionSplitButton,
             Strings.VersionControl_SetRemoteTitle,
             Strings.VersionControl_RemoteUrl,
-            currentRemoteUrl);
+            currentRemoteUrl,
+            cancellationToken);
     }
 }

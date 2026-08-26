@@ -83,7 +83,8 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
         Control anchor,
         string title,
         string watermark,
-        string? initialText)
+        string? initialText,
+        CancellationToken cancellationToken = default)
     {
         ResetPendingRequest();
         ConfigureContent(title);
@@ -95,7 +96,8 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
 
         bool confirmed = await ShowAsync(
             anchor,
-            () => !string.IsNullOrWhiteSpace(PrimaryTextBox.Text));
+            () => !string.IsNullOrWhiteSpace(PrimaryTextBox.Text),
+            cancellationToken);
         return confirmed ? PrimaryTextBox.Text : null;
     }
 

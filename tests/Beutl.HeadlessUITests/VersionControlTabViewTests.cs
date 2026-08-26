@@ -457,7 +457,9 @@ public class VersionControlTabViewTests
             });
 
             Task<string?> remoteUrlTask =
-                viewModel.RequestRemoteUrlAsync("https://example.invalid/old.git");
+                viewModel.RequestRemoteUrlAsync(
+                    "https://example.invalid/old.git",
+                    CancellationToken.None);
             HeadlessTestHelpers.Render();
 
             VersionControlPickerFlyout tabPrompt = view.PromptFlyout;
@@ -962,6 +964,47 @@ public class VersionControlTabViewTests
                 Strings.VersionControl_IdentityEmail,
                 "Headless User",
                 "headless@example.invalid",
+                cancellation.Token);
+            HeadlessTestHelpers.Render();
+
+            Assert.That(flyout.IsOpen, Is.True);
+
+            await Dispatcher.UIThread.InvokeAsync(cancellation.Cancel);
+            Assert.That(flyout.IsOpen, Is.False);
+            Assert.That(
+                async () => await request,
+                Throws.InstanceOf<OperationCanceledException>());
+        }
+        finally
+        {
+            if (flyout.IsOpen)
+            {
+                flyout.Hide();
+            }
+
+            window.Close();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Remote_url_prompt_cancellation_closes_flyout_and_cancels_request()
+    {
+        await TestReset.ResetShellAsync();
+        var window = new Window { Width = 420, Height = 240 };
+        var anchor = new Button { Content = "Remote" };
+        var flyout = new VersionControlPickerFlyout();
+        window.Content = anchor;
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            using var cancellation = new CancellationTokenSource();
+            Task<string?> request = flyout.ShowTextInputAsync(
+                anchor,
+                Strings.VersionControl_SetRemoteTitle,
+                Strings.VersionControl_RemoteUrl,
+                "https://example.invalid/old.git",
                 cancellation.Token);
             HeadlessTestHelpers.Render();
 
