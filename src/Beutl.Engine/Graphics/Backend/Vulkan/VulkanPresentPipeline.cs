@@ -141,13 +141,24 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         _vk = vk;
         _device = device;
 
-        CreateRenderPass(swapchainFormat);
-        CreateDescriptorSetLayout();
-        CreatePipelineLayout();
-        CreatePipeline(extent);
-        CreateSampler();
-        CreateDescriptorPool();
-        CreateFramebuffers(swapchainImageViews, extent);
+        // Seven device objects, any of which can be rejected. A constructor that throws leaves no instance
+        // for anyone to dispose, so the ones already created have to go back here or they survive until the
+        // device does.
+        try
+        {
+            CreateRenderPass(swapchainFormat);
+            CreateDescriptorSetLayout();
+            CreatePipelineLayout();
+            CreatePipeline(extent);
+            CreateSampler();
+            CreateDescriptorPool();
+            CreateFramebuffers(swapchainImageViews, extent);
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
     }
 
     public RenderPass RenderPassHandle => _renderPass;
@@ -330,12 +341,14 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         var vertSpirv = compiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
         var fragSpirv = compiler.CompileToSpirv(FragmentShaderSource, ShaderStage.Fragment);
 
-        var vertModule = CreateShaderModule(vertSpirv);
-        var fragModule = CreateShaderModule(fragSpirv);
-
+        ShaderModule vertModule = default;
+        ShaderModule fragModule = default;
+        nint entryPoint = 0;
         try
         {
-            var entryPoint = (byte*)Marshal.StringToHGlobalAnsi("main");
+            vertModule = CreateShaderModule(vertSpirv);
+            fragModule = CreateShaderModule(fragSpirv);
+            entryPoint = Marshal.StringToHGlobalAnsi("main");
 
             var shaderStages = stackalloc PipelineShaderStageCreateInfo[2];
             shaderStages[0] = new PipelineShaderStageCreateInfo
@@ -343,14 +356,14 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 SType = StructureType.PipelineShaderStageCreateInfo,
                 Stage = ShaderStageFlags.VertexBit,
                 Module = vertModule,
-                PName = entryPoint
+                PName = (byte*)entryPoint
             };
             shaderStages[1] = new PipelineShaderStageCreateInfo
             {
                 SType = StructureType.PipelineShaderStageCreateInfo,
                 Stage = ShaderStageFlags.FragmentBit,
                 Module = fragModule,
-                PName = entryPoint
+                PName = (byte*)entryPoint
             };
 
             var vertexInputInfo = new PipelineVertexInputStateCreateInfo
@@ -455,13 +468,15 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 throw new InvalidOperationException($"Failed to create graphics pipeline: {result}");
 
             _pipeline = pipeline;
-
-            Marshal.FreeHGlobal((IntPtr)entryPoint);
         }
         finally
         {
-            _vk.DestroyShaderModule(_device, vertModule, null);
-            _vk.DestroyShaderModule(_device, fragModule, null);
+            if (entryPoint != 0)
+                Marshal.FreeHGlobal(entryPoint);
+            if (fragModule.Handle != 0)
+                _vk.DestroyShaderModule(_device, fragModule, null);
+            if (vertModule.Handle != 0)
+                _vk.DestroyShaderModule(_device, vertModule, null);
         }
 
         s_logger.LogDebug("Created present pipeline with tone mapping shaders");
@@ -573,6 +588,10 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         _framebuffers = [];
     }
 
+    /// <remarks>
+    /// Also the release path for a constructor that threw, so every handle is checked before it is
+    /// destroyed: a partially built pipeline leaves the later ones at their default, unset value.
+    /// </remarks>
     public void Dispose()
     {
         if (_disposed)

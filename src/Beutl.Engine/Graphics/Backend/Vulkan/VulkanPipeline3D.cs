@@ -49,67 +49,76 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         var vk = context.Vk;
         var device = context.Device;
 
-        // Create shader modules
-        _vertexShader = CreateShaderModule(vk, device, vertexShaderSpirv);
-        _fragmentShader = CreateShaderModule(vk, device, fragmentShaderSpirv);
-
-        // Create descriptor set layout
-        fixed (DescriptorSetLayoutBinding* bindingsPtr = descriptorBindings)
+        // A constructor that throws leaves no instance for anyone to dispose, so every device object made
+        // before the failure has to go back here or it survives until the context does. The whole sequence
+        // is inside the try because any step of it can fail: a rejected pipeline is the last one, but the
+        // shader modules and the two layouts are already on the device by then.
+        try
         {
-            var layoutInfo = new DescriptorSetLayoutCreateInfo
+            // Create shader modules
+            _vertexShader = CreateShaderModule(vk, device, vertexShaderSpirv);
+            _fragmentShader = CreateShaderModule(vk, device, fragmentShaderSpirv);
+
+            // Create descriptor set layout
+            fixed (DescriptorSetLayoutBinding* bindingsPtr = descriptorBindings)
             {
-                SType = StructureType.DescriptorSetLayoutCreateInfo,
-                BindingCount = (uint)descriptorBindings.Length,
-                PBindings = bindingsPtr
+                var layoutInfo = new DescriptorSetLayoutCreateInfo
+                {
+                    SType = StructureType.DescriptorSetLayoutCreateInfo,
+                    BindingCount = (uint)descriptorBindings.Length,
+                    PBindings = bindingsPtr
+                };
+
+                DescriptorSetLayout descriptorLayout;
+                var result = vk.CreateDescriptorSetLayout(device, &layoutInfo, null, &descriptorLayout);
+                if (result != Result.Success)
+                {
+                    throw new InvalidOperationException($"Failed to create descriptor set layout: {result}");
+                }
+                _descriptorSetLayout = descriptorLayout;
+            }
+
+            // One range covering both stages over the 128 bytes Vulkan guarantees. Because the range spans
+            // both stages, every vkCmdPushConstants against this layout must name both: the spec requires
+            // the update to cover all stages of every range it overlaps.
+            var pushConstantRange = new PushConstantRange
+            {
+                StageFlags = PushConstantStages,
+                Offset = 0,
+                Size = MaxPushConstantsSize
             };
 
-            DescriptorSetLayout descriptorLayout;
-            var result = vk.CreateDescriptorSetLayout(device, &layoutInfo, null, &descriptorLayout);
-            if (result != Result.Success)
+            var layouts = stackalloc DescriptorSetLayout[] { _descriptorSetLayout };
+            var pipelineLayoutInfo = new PipelineLayoutCreateInfo
             {
-                CleanupShaderModules(vk, device);
-                throw new InvalidOperationException($"Failed to create descriptor set layout: {result}");
+                SType = StructureType.PipelineLayoutCreateInfo,
+                SetLayoutCount = 1,
+                PSetLayouts = layouts,
+                PushConstantRangeCount = 1,
+                PPushConstantRanges = &pushConstantRange
+            };
+
+            PipelineLayout pipelineLayout;
+            var layoutResult = vk.CreatePipelineLayout(device, &pipelineLayoutInfo, null, &pipelineLayout);
+            if (layoutResult != Result.Success)
+            {
+                throw new InvalidOperationException($"Failed to create pipeline layout: {layoutResult}");
             }
-            _descriptorSetLayout = descriptorLayout;
+            _pipelineLayout = pipelineLayout;
+
+            // Create graphics pipeline
+            _pipeline = CreateGraphicsPipeline(
+                vk, device, renderPass, vertexInputDescription, colorAttachmentCount,
+                hasDepthAttachment, depthTestEnabled, depthWriteEnabled, cullMode, frontFace,
+                blendEnabled, srcColorBlendFactor, dstColorBlendFactor,
+                srcAlphaBlendFactor, dstAlphaBlendFactor, colorBlendOp, alphaBlendOp,
+                specializationConstants);
         }
-
-        // One range covering both stages over the 128 bytes Vulkan guarantees. Because the range spans both
-        // stages, every vkCmdPushConstants against this layout must name both: the spec requires the update
-        // to cover all stages of every range it overlaps.
-        var pushConstantRange = new PushConstantRange
+        catch
         {
-            StageFlags = PushConstantStages,
-            Offset = 0,
-            Size = MaxPushConstantsSize
-        };
-
-        var layouts = stackalloc DescriptorSetLayout[] { _descriptorSetLayout };
-        var pipelineLayoutInfo = new PipelineLayoutCreateInfo
-        {
-            SType = StructureType.PipelineLayoutCreateInfo,
-            SetLayoutCount = 1,
-            PSetLayouts = layouts,
-            PushConstantRangeCount = 1,
-            PPushConstantRanges = &pushConstantRange
-        };
-
-        PipelineLayout pipelineLayout;
-        var layoutResult = vk.CreatePipelineLayout(device, &pipelineLayoutInfo, null, &pipelineLayout);
-        if (layoutResult != Result.Success)
-        {
-            vk.DestroyDescriptorSetLayout(device, _descriptorSetLayout, null);
-            CleanupShaderModules(vk, device);
-            throw new InvalidOperationException($"Failed to create pipeline layout: {layoutResult}");
+            Dispose();
+            throw;
         }
-        _pipelineLayout = pipelineLayout;
-
-        // Create graphics pipeline
-        _pipeline = CreateGraphicsPipeline(
-            vk, device, renderPass, vertexInputDescription, colorAttachmentCount,
-            hasDepthAttachment, depthTestEnabled, depthWriteEnabled, cullMode, frontFace,
-            blendEnabled, srcColorBlendFactor, dstColorBlendFactor,
-            srcAlphaBlendFactor, dstAlphaBlendFactor, colorBlendOp, alphaBlendOp,
-            specializationConstants);
     }
 
     /// <summary>The stages the pipeline layout's push-constant range covers.</summary>
@@ -374,20 +383,16 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         }
     }
 
-    private void CleanupShaderModules(Vk vk, Device device)
-    {
-        if (_vertexShader.Handle != 0)
-            vk.DestroyShaderModule(device, _vertexShader, null);
-        if (_fragmentShader.Handle != 0)
-            vk.DestroyShaderModule(device, _fragmentShader, null);
-    }
-
     public void Bind()
     {
         // Binding is done through command buffer
         // This method is kept for interface compatibility
     }
 
+    /// <remarks>
+    /// Also the release path for a constructor that threw, so every handle is checked before it is
+    /// destroyed: a partially built pipeline leaves the later ones at their default, unset value.
+    /// </remarks>
     public void Dispose()
     {
         if (_disposed) return;
