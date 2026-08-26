@@ -106,7 +106,6 @@ public class VersionControlSaveTests
         bool oldAutoCommitOnSave = config.AutoCommitOnSave;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
         bool oldUseLfs = config.UseLfsWhenAvailable;
-
         try
         {
             config.GitExecutablePath = gitPath;
@@ -804,6 +803,119 @@ public class VersionControlSaveTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Close_save_waits_for_project_directory_read_lease()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        BlockingSaveCommands? blocking = null;
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = true;
+            config.UseLfsWhenAvailable = false;
+            string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "version-control-close-read-lease");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "close-read", location))!;
+            Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                project, _ => Task.FromResult<GitIdentity?>(new("Beutl Test", "beutl@example.invalid"))), Is.True);
+
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            blocking = new BlockingSaveCommands();
+            var blockingItem = new Scene
+            {
+                Uri = new Uri(Path.Combine(projectRoot, "close-blocking.scene")),
+            };
+            TestShell.Editor.TabItems.Add(new EditorTabItem(
+                new FailedSaveEditorContext(blockingItem, blocking)));
+            HeadlessTestHelpers.Settle();
+
+            using IDisposable read = (await TestShell.Editor.TryBeginProjectDirectoryReadAsync(CancellationToken.None))!;
+            Task close = TestShell.Project.CloseProject();
+            try
+            {
+                Task completed = await Task.WhenAny(close, Task.Delay(TimeSpan.FromSeconds(2)));
+                HeadlessTestHelpers.Settle();
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(completed, Is.Not.SameAs(close));
+                    Assert.That(blocking.SaveEntered, Is.False);
+                });
+            }
+            finally
+            {
+                read.Dispose();
+            }
+
+            await WaitUntilSaveEnteredAsync(blocking);
+            Assert.That(blocking.SaveOnUiThread, Is.True);
+            blocking.Release();
+            await close.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+        }
+        finally
+        {
+            blocking?.Release();
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Initialization_identity_prompt_resaves_edits_made_while_prompt_is_open()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.UseLfsWhenAvailable = false;
+            string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "version-control-identity-freshness");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "identity-freshness", location))!;
+            var promptEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releasePrompt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task<bool> initialization = TestShell.VersionControl.InitializeCurrentProjectAsync(
+                project,
+                async _ =>
+                {
+                    promptEntered.SetResult();
+                    await releasePrompt.Task;
+                    return new GitIdentity("Beutl Test", "beutl@example.invalid");
+                });
+            await promptEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            project.Variables["identity-race"] = "edited-during-prompt";
+            releasePrompt.SetResult();
+            Assert.That(await initialization, Is.True);
+
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            string projectName = Path.GetFileName(project.Uri.LocalPath);
+            string committed = await RunGitAsync(gitPath, projectRoot, "show", $"HEAD:{projectName}");
+            Assert.That(committed, Does.Contain("edited-during-prompt"));
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
     private static string ProbeGitOrIgnore()
     {
         var startInfo = new ProcessStartInfo("git")
@@ -917,9 +1029,12 @@ public class VersionControlSaveTests
 
         public bool SaveEntered { get; private set; }
 
+        public bool SaveOnUiThread { get; private set; }
+
         public async ValueTask<bool> OnSave()
         {
             SaveEntered = true;
+            SaveOnUiThread = Avalonia.Threading.Dispatcher.UIThread.CheckAccess();
             return await _release.Task;
         }
 

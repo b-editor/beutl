@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
@@ -295,6 +296,19 @@ public sealed class EditorService : IOutputOperationLeaseProvider
     }
 
     internal async Task<bool> SaveProjectFilesAsync(
+        Project project,
+        CancellationToken cancellationToken)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            return await Dispatcher.UIThread.InvokeAsync(
+                () => SaveProjectFilesCoreAsync(project, cancellationToken));
+        }
+
+        return await SaveProjectFilesCoreAsync(project, cancellationToken);
+    }
+
+    private async Task<bool> SaveProjectFilesCoreAsync(
         Project project,
         CancellationToken cancellationToken)
     {

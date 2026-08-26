@@ -359,6 +359,19 @@ public sealed class VersionControlCoordinator :
                 }
 
                 operationCancellation.ThrowIfCancellationRequested();
+                // The editor remains live while the identity prompt is open. Re-save under the
+                // worktree mutation reservation (which excludes directory readers and all other
+                // writers) so edits made during the prompt are included in the retry's initial
+                // revision rather than committing stale disk state.
+                if (!await TrySaveOpenProjectAsync(expectedProject, operationCancellation))
+                {
+                    PublishNotification(() =>
+                        NotificationService.ShowWarning(
+                            Strings.VersionControl,
+                            MessageStrings.OperationFailed));
+                    return false;
+                }
+
                 await service.InitializeAsync(
                     options with { Identity = identity },
                     operationCancellation);
@@ -443,18 +456,36 @@ public sealed class VersionControlCoordinator :
         AdvanceProjectServiceEpoch();
 
         bool completionRegistered = false;
+        IDisposable? editorSuspension = null;
         try
         {
+            if (_config.AutoCommitOnClose
+                && GetOwnedBackend()?.Repository is not null
+                && _projectService.CurrentProject.Value is not null)
+            {
+                editorSuspension = await SuspendEditorsAsync(cancellationToken);
+            }
+
             lock (_stateGate)
             {
                 _preparedCloseBarriers.Add(closeContext, closeBarrier);
             }
 
             closeContext.RegisterCompletion(
-                projectClosed => CompletePreparedCloseBarrierAsync(
-                    closeContext,
-                    closeBarrier,
-                    projectClosed));
+                async projectClosed =>
+                {
+                    try
+                    {
+                        await ReleaseEditorSuspensionAsync(editorSuspension);
+                    }
+                    finally
+                    {
+                        await CompletePreparedCloseBarrierAsync(
+                            closeContext,
+                            closeBarrier,
+                            projectClosed);
+                    }
+                });
             completionRegistered = true;
         }
         finally
@@ -466,11 +497,47 @@ public sealed class VersionControlCoordinator :
                     _preparedCloseBarriers.Remove(closeContext);
                 }
 
-                await closeBarrier.CompleteAsync(projectClosed: false).ConfigureAwait(false);
+                try
+                {
+                    await ReleaseEditorSuspensionAsync(editorSuspension);
+                }
+                finally
+                {
+                    await closeBarrier.CompleteAsync(projectClosed: false).ConfigureAwait(false);
+                }
             }
         }
 
         await TrySaveForCloseSnapshotAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IDisposable> SuspendEditorsAsync(CancellationToken cancellationToken)
+    {
+        if (_dispatcher.CheckAccess())
+        {
+            return _editorService.SuspendEditors();
+        }
+
+        return await _dispatcher.InvokeAsync(
+            () => _editorService.SuspendEditors(),
+            DispatcherPriority.Normal,
+            cancellationToken);
+    }
+
+    private async Task ReleaseEditorSuspensionAsync(IDisposable? suspension)
+    {
+        if (suspension is null)
+        {
+            return;
+        }
+
+        if (_dispatcher.CheckAccess())
+        {
+            suspension.Dispose();
+            return;
+        }
+
+        await _dispatcher.InvokeAsync(suspension.Dispose);
     }
 
     // The close snapshot runs from ClosingFinalizing, by which point the editor host has disposed
@@ -486,6 +553,8 @@ public sealed class VersionControlCoordinator :
 
         // Aborting the close is the only way to keep the edits: continuing would dispose the tabs
         // and let the close snapshot record the half-saved project as the version to come back to.
+        using IProjectFileWriteLease closeWrite =
+            await _editorService.BeginProjectFileWriteAsync(cancellationToken).ConfigureAwait(false);
         if (!await TrySaveOpenProjectAsync(project, cancellationToken).ConfigureAwait(false))
         {
             PublishNotification(() =>
