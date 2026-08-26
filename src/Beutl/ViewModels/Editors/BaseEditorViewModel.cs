@@ -48,7 +48,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         Header = property.DisplayName;
         Description = new ReactivePropertySlim<string?>(property.Description).AddTo(Disposables);
 
-        _currentTime = new Subject<TimeSpan>().DisposeWith(Disposables);
+        // Complete during disposal so stale clock writes are ignored.
+        _currentTime = new Subject<TimeSpan>();
         CurrentTime = _currentTime.Publish(TimeSpan.Zero).RefCount();
 
         IObservable<bool> hasAnimation = property is IAnimatablePropertyAdapter anm
@@ -299,11 +300,14 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected virtual void Dispose(bool disposing)
     {
+        // Stop new clock writes before completing the subject.
+        _currentFrameRevoker?.Dispose();
+        _currentFrameRevoker = null;
+        _currentTime.OnCompleted();
+
         Disposables.Dispose();
         _canPaste.Dispose();
         _extensionProvider.Dispose();
-        _currentFrameRevoker?.Dispose();
-        _currentFrameRevoker = null;
         _editViewModel = null!;
         _parentServices = null;
         _element = null;
