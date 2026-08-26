@@ -16,10 +16,17 @@ namespace Beutl.Editor.Services;
 // across every stream" clamping, so it lives here rather than being duplicated per service.
 internal static class SlippableMedia
 {
+    // A target-duration inverse can land on a quantized presenter step. Keep the actual mapped
+    // endpoint as well as the preceding rendered sample so video bounds can detect that jump.
+    private readonly record struct MappedSampleTimes(TimeSpan Previous, TimeSpan End);
+
+    private readonly record struct VideoSourceLimitEvaluation(bool Reached, bool Exceeded);
+
     private readonly record struct TimeContext(
         TimeRange Range,
         TimeRange ReachableRange,
         TimeSpan FrameDuration,
+        Func<TimeSpan, MappedSampleTimes> SampleTimesAtEnd,
         Func<TimeSpan, TimeSpan>? TimelineDurationFromTarget,
         bool HasUnboundedTail,
         bool IsReversed,
@@ -173,6 +180,7 @@ internal static class SlippableMedia
             element.Range,
             new TimeRange(element.Start, reachableDuration),
             frameDuration,
+            end => new MappedSampleTimes(GetPreviousRootSampleTime(end, frameDuration), end),
             null,
             false,
             false,
@@ -311,6 +319,13 @@ internal static class SlippableMedia
                                 state,
                                 controlled,
                                 context.FrameDuration),
+                            CreateMappedSampleTimesAtEnd(
+                                timeMappingPresenter,
+                                state,
+                                controlled,
+                                mapped,
+                                context,
+                                isReversed),
                             mapper,
                             hasUnboundedTail,
                             isReversed,
@@ -346,6 +361,7 @@ internal static class SlippableMedia
                             state.Range,
                             state.ReachableRange,
                             context.FrameDuration,
+                            context.SampleTimesAtEnd,
                             mapper,
                             state.IgnoreTail || context.HasUnboundedTail,
                             context.IsReversed,
@@ -665,6 +681,126 @@ internal static class SlippableMedia
         return presenter.CalculateTargetTimeRange(new TimeRange(start, duration), target).Duration;
     }
 
+    private static Func<TimeSpan, MappedSampleTimes> CreateMappedSampleTimesAtEnd(
+        ITimeMappingPresenter presenter,
+        TimeMappingTargetState state,
+        CoreObject target,
+        TimeRange mapped,
+        TimeContext parentContext,
+        bool isReversed)
+    {
+        TimeSpan parentOrigin = parentContext.IsReversed ? state.Range.Start : state.Range.End;
+        TimeSpan targetOrigin = isReversed ? mapped.Start : mapped.End;
+        TimeSpan parentBoundary = parentContext.IsReversed
+            ? state.ReachableRange.Start
+            : state.ReachableRange.End;
+        TimeSpan maximumParentDuration = GetDurationBetween(parentOrigin, parentBoundary);
+
+        return targetEnd =>
+        {
+            // First invert the requested target endpoint into this presenter's parent timeline,
+            // then remap the parent's adjacent root samples. Repeating this at every layer keeps
+            // the final source-time gap endpoint-dependent through nested non-uniform mappings.
+            TimeSpan targetDuration = GetDurationBetween(targetOrigin, targetEnd);
+            TimeSpan parentDuration = presenter.CalculateTimelineDuration(
+                parentOrigin,
+                targetDuration,
+                maximumParentDuration,
+                target,
+                reverse: parentContext.IsReversed);
+            if (parentDuration == TimeSpan.MaxValue
+                || parentDuration > maximumParentDuration
+                || !TryMoveTime(
+                    parentOrigin,
+                    parentDuration,
+                    parentContext.IsReversed,
+                    out TimeSpan parentEnd))
+            {
+                return new MappedSampleTimes(targetEnd, targetEnd);
+            }
+
+            MappedSampleTimes parentSamples = parentContext.SampleTimesAtEnd(parentEnd);
+            if (parentSamples.Previous < state.ReachableRange.Start
+                || parentSamples.Previous > state.ReachableRange.End
+                || parentSamples.End < state.ReachableRange.Start
+                || parentSamples.End > state.ReachableRange.End)
+            {
+                return new MappedSampleTimes(targetEnd, targetEnd);
+            }
+
+            return TryMapSampleTime(
+                    presenter,
+                    target,
+                    parentOrigin,
+                    targetOrigin,
+                    parentSamples.Previous,
+                    isReversed,
+                    out TimeSpan targetPrevious)
+                && TryMapSampleTime(
+                    presenter,
+                    target,
+                    parentOrigin,
+                    targetOrigin,
+                    parentSamples.End,
+                    isReversed,
+                    out TimeSpan mappedTargetEnd)
+                    ? new MappedSampleTimes(targetPrevious, mappedTargetEnd)
+                    : new MappedSampleTimes(targetEnd, targetEnd);
+        };
+    }
+
+    private static bool TryMapSampleTime(
+        ITimeMappingPresenter presenter,
+        CoreObject target,
+        TimeSpan parentOrigin,
+        TimeSpan targetOrigin,
+        TimeSpan parentTime,
+        bool reverse,
+        out TimeSpan targetTime)
+    {
+        TimeSpan rangeStart = parentTime < parentOrigin ? parentTime : parentOrigin;
+        TimeSpan parentDuration = GetDurationBetween(parentOrigin, parentTime);
+        TimeRange mapped = presenter.CalculateTargetTimeRange(
+            new TimeRange(rangeStart, parentDuration),
+            target);
+        return TryMoveTime(targetOrigin, mapped.Duration, reverse, out targetTime);
+    }
+
+    private static TimeSpan GetPreviousRootSampleTime(TimeSpan end, TimeSpan frameDuration)
+    {
+        return end.Ticks < TimeSpan.MinValue.Ticks + frameDuration.Ticks
+            ? TimeSpan.MinValue
+            : end - frameDuration;
+    }
+
+    private static bool TryMoveTime(
+        TimeSpan origin,
+        TimeSpan duration,
+        bool reverse,
+        out TimeSpan result)
+    {
+        if (reverse)
+        {
+            if (origin.Ticks < TimeSpan.MinValue.Ticks + duration.Ticks)
+            {
+                result = default;
+                return false;
+            }
+
+            result = origin - duration;
+            return true;
+        }
+
+        if (origin.Ticks > TimeSpan.MaxValue.Ticks - duration.Ticks)
+        {
+            result = default;
+            return false;
+        }
+
+        result = origin + duration;
+        return true;
+    }
+
     private static TimeSpan AddDurationSaturated(TimeSpan left, TimeSpan right)
     {
         return left.Ticks >= TimeSpan.MaxValue.Ticks - right.Ticks
@@ -779,6 +915,14 @@ internal static class SlippableMedia
                 ? TimeSpan.MaxValue
                 : MapTimelineDuration(context, TimeSpan.Zero, TimeSpan.Zero);
         }
+        if (context.HasUnboundedTail
+            && context.ReachableRange == video.TimeRange
+            && IsVideoRangeReadable(video, context.ReachableRange))
+        {
+            // A presenter loop that already covers the complete readable target repeats it after
+            // this horizon; the source endpoint inside one cycle is not a finite media tail.
+            return TimeSpan.MaxValue;
+        }
 
         TimeSpan accumulated = TimeSpan.Zero;
         TimeSpan[] futureTimes = GetAnimationTimes(video)
@@ -842,24 +986,19 @@ internal static class SlippableMedia
             if (sourceRoom <= TimeSpan.Zero)
                 return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
 
-            TimeSpan consumedToBoundary = video.CalculateVideoDuration(
-                GetVideoClockStartAt(video, cursor),
-                stateDuration,
-                resource);
-            if (consumedToBoundary < TimeSpan.Zero)
-                return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
-
+            TimeSpan clockStart = GetVideoClockStartAt(video, cursor);
             TimeSpan roundingHeadroom = GetVideoFrameRoundingHeadroom(source);
-            TimeSpan requiredRoundingHeadroom = GetRequiredVideoFrameRoundingHeadroom(
+            VideoSourceLimitEvaluation boundaryEvaluation = EvaluateVideoSourceLimit(
                 video,
+                clockStart,
+                sourceRoom,
+                cursor,
+                stateDuration,
                 boundary,
-                context.FrameDuration,
                 resource,
+                context.SampleTimesAtEnd,
                 roundingHeadroom);
-            if (!ReachesVideoSourceLimit(
-                    consumedToBoundary,
-                    requiredRoundingHeadroom,
-                    sourceRoom))
+            if (!boundaryEvaluation.Reached)
             {
                 accumulated = AddDurationSaturated(accumulated, stateDuration);
                 if (boundary == horizon)
@@ -869,16 +1008,26 @@ internal static class SlippableMedia
                 nextIndex++;
                 continue;
             }
+            if (boundary == horizon
+                && context.HasUnboundedTail
+                && !boundaryEvaluation.Exceeded)
+            {
+                return CompleteVideoTimelineRoom(
+                    context,
+                    AddDurationSaturated(accumulated, stateDuration));
+            }
 
             TimeSpan timelineRoom = FindEarliestVideoConsumption(
                 video,
-                GetVideoClockStartAt(video, cursor),
+                clockStart,
                 sourceRoom,
                 stateDuration,
                 resource,
                 cursor,
-                context.FrameDuration,
-                roundingHeadroom);
+                boundary,
+                context.SampleTimesAtEnd,
+                roundingHeadroom,
+                boundary < horizon);
             if (timelineRoom == stateDuration && boundary < horizon)
             {
                 accumulated = AddDurationSaturated(accumulated, stateDuration);
@@ -1064,8 +1213,10 @@ internal static class SlippableMedia
         TimeSpan maximumTimelineDuration,
         SourceVideo.Resource resource,
         TimeSpan timelineStart,
-        TimeSpan frameDuration,
-        TimeSpan roundingHeadroom)
+        TimeSpan stateEnd,
+        Func<TimeSpan, MappedSampleTimes> sampleTimesAtEnd,
+        TimeSpan roundingHeadroom,
+        bool allowStateBoundary)
     {
         long low = 0;
         long high = maximumTimelineDuration.Ticks;
@@ -1073,23 +1224,91 @@ internal static class SlippableMedia
         {
             long middle = low + (high - low) / 2;
             TimeSpan timelineDuration = TimeSpan.FromTicks(middle);
-            TimeSpan consumed = video.CalculateVideoDuration(
-                clockStart,
-                timelineDuration,
-                resource);
-            TimeSpan requiredRoundingHeadroom = GetRequiredVideoFrameRoundingHeadroom(
+            VideoSourceLimitEvaluation evaluation = EvaluateVideoSourceLimit(
                 video,
-                timelineStart + timelineDuration,
-                frameDuration,
+                clockStart,
+                sourceDuration,
+                timelineStart,
+                timelineDuration,
+                stateEnd,
                 resource,
+                sampleTimesAtEnd,
                 roundingHeadroom);
-            if (ReachesVideoSourceLimit(consumed, requiredRoundingHeadroom, sourceDuration))
+            if (evaluation.Reached)
                 high = middle;
             else
                 low = middle + 1;
         }
 
+        if (high > 0
+            && !(allowStateBoundary && high == maximumTimelineDuration.Ticks)
+            && EvaluateVideoSourceLimit(
+                video,
+                clockStart,
+                sourceDuration,
+                timelineStart,
+                TimeSpan.FromTicks(high),
+                stateEnd,
+                resource,
+                sampleTimesAtEnd,
+                roundingHeadroom).Exceeded)
+        {
+            // The first reached value is normally the safe inclusive boundary. At a quantized
+            // presenter jump it can overshoot that boundary, so retain the preceding target tick.
+            high--;
+        }
+
         return TimeSpan.FromTicks(high);
+    }
+
+    private static VideoSourceLimitEvaluation EvaluateVideoSourceLimit(
+        SourceVideo video,
+        TimeSpan clockStart,
+        TimeSpan sourceDuration,
+        TimeSpan timelineStart,
+        TimeSpan timelineDuration,
+        TimeSpan stateEnd,
+        SourceVideo.Resource resource,
+        Func<TimeSpan, MappedSampleTimes> sampleTimesAtEnd,
+        TimeSpan roundingHeadroom)
+    {
+        TimeSpan requestedEnd = timelineStart + timelineDuration;
+        MappedSampleTimes samples = sampleTimesAtEnd(requestedEnd);
+        if (samples.End < timelineStart
+            || samples.End > stateEnd
+            || samples.Previous > samples.End)
+        {
+            return new VideoSourceLimitEvaluation(true, true);
+        }
+
+        TimeSpan endpointConsumed = video.CalculateVideoDuration(
+            clockStart,
+            samples.End - timelineStart,
+            resource);
+        if (endpointConsumed < TimeSpan.Zero)
+            return new VideoSourceLimitEvaluation(true, true);
+
+        TimeSpan previousConsumed = samples.Previous <= timelineStart
+            ? TimeSpan.Zero
+            : video.CalculateVideoDuration(
+                clockStart,
+                samples.Previous - timelineStart,
+                resource);
+        if (previousConsumed < TimeSpan.Zero)
+            return new VideoSourceLimitEvaluation(true, true);
+
+        bool endpointReached = endpointConsumed >= sourceDuration;
+        bool roundingReached = ReachesVideoSourceLimit(
+            previousConsumed,
+            roundingHeadroom,
+            sourceDuration);
+        bool endpointExceeded = endpointConsumed > sourceDuration;
+        bool roundingExceeded = previousConsumed >= sourceDuration
+            ? previousConsumed > sourceDuration || roundingHeadroom > TimeSpan.Zero
+            : roundingHeadroom > sourceDuration - previousConsumed;
+        return new VideoSourceLimitEvaluation(
+            endpointReached || roundingReached,
+            endpointExceeded || roundingExceeded);
     }
 
     private static bool ReachesVideoSourceLimit(
@@ -1303,43 +1522,6 @@ internal static class SlippableMedia
             duration,
             resource);
         return consumed > TimeSpan.Zero ? consumed : TimeSpan.Zero;
-    }
-
-    private static TimeSpan GetSampleConsumptionEndingAt(
-        SourceVideo video,
-        TimeSpan end,
-        TimeSpan frameDuration,
-        SourceVideo.Resource resource)
-    {
-        if (frameDuration <= TimeSpan.Zero)
-            return TimeSpan.Zero;
-
-        TimeSpan duration = end.Ticks < TimeSpan.MinValue.Ticks + frameDuration.Ticks
-            ? TimeSpan.FromTicks(end.Ticks - TimeSpan.MinValue.Ticks)
-            : frameDuration;
-        TimeSpan start = end - duration;
-        TimeSpan consumed = video.CalculateVideoDuration(
-            GetVideoClockStartAt(video, start),
-            duration,
-            resource);
-        return consumed > TimeSpan.Zero ? consumed : TimeSpan.Zero;
-    }
-
-    private static TimeSpan GetRequiredVideoFrameRoundingHeadroom(
-        SourceVideo video,
-        TimeSpan end,
-        TimeSpan frameDuration,
-        SourceVideo.Resource resource,
-        TimeSpan roundingHeadroom)
-    {
-        TimeSpan finalSampleConsumption = GetSampleConsumptionEndingAt(
-            video,
-            end,
-            frameDuration,
-            resource);
-        return roundingHeadroom > finalSampleConsumption
-            ? roundingHeadroom - finalSampleConsumption
-            : TimeSpan.Zero;
     }
 
     private static double GetVideoFrameTicks(VideoSource.Resource source)

@@ -1261,6 +1261,54 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void GetTrimDeltaBounds_TimeControllerRecomputesFutureSampleGap()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 60)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1.1),
+            Value = 10f,
+            Easing = new HoldEasing(),
+        });
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(20));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        TimeSpan extendedEnd = front.Range.End + max;
+        TimeSpan lastTimelineSample = extendedEnd - TimeSpan.FromSeconds(1d / 30);
+        TimeSpan targetSample = controller.CalculateTargetTimeRange(
+            new TimeRange(lastTimelineSample, TimeSpan.Zero),
+            video).Start;
+        int requestedFrame = (int)Math.Round(
+            targetSample.TotalSeconds * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.GreaterThan(TimeSpan.FromSeconds(8)));
+            Assert.That(requestedFrame, Is.LessThan(60));
+        });
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_TimeControllerReverseKeepsRemainingTargetRoom()
     {
         var frontSource = new VideoSource();
@@ -1762,7 +1810,19 @@ public class ElementResizeServiceTests
 
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
-        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(0.38)).Within(TimeSpan.FromMilliseconds(20)));
+        TimeSpan extendedEnd = front.Range.End + max;
+        TimeSpan lastTimelineSample = extendedEnd - TimeSpan.FromSeconds(1d / 30);
+        TimeSpan targetSample = controller.CalculateTargetTimeRange(
+            new TimeRange(lastTimelineSample, TimeSpan.Zero),
+            video).Start;
+        int requestedFrame = (int)Math.Round(
+            (targetSample - video.TimeRange.Start).TotalSeconds * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(0.32)).Within(TimeSpan.FromMilliseconds(20)));
+            Assert.That(requestedFrame, Is.LessThan(15));
+        });
     }
 
     [Test]
