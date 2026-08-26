@@ -1537,7 +1537,10 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(controller.TryGetTargetStates(front.Range, out _), Is.False);
+            Assert.That(controller.TryGetTargetStates(front.Range, out var states), Is.True);
+            Assert.That(states, Has.Count.EqualTo(1));
+            Assert.That(states[0].Target, Is.SameAs(video));
+            Assert.That(controller.CanProvideCompleteTimeMapping(front.Range, video), Is.False);
             Assert.That(controller.HasUnboundedTail(front.Range, video), Is.False);
             Assert.That(max, Is.EqualTo(TimeSpan.Zero));
         });

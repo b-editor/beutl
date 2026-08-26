@@ -57,23 +57,7 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
             return true;
         }
 
-        if (Target.HasExpression
-            || Target.Animation != null
-            || OffsetPosition.HasExpression
-            || OffsetPosition.Animation != null
-            || HasUnsupportedSpeedState()
-            || AdjustTimeRange.HasExpression
-            || AdjustTimeRange.Animation != null
-            || FrameRate.HasExpression
-            || FrameRate.Animation != null
-            || Loop.HasExpression
-            || Loop.Animation != null
-            || Reverse.HasExpression
-            || Reverse.Animation != null
-            || HoldFirstFrame.HasExpression
-            || HoldFirstFrame.Animation != null
-            || HoldLastFrame.HasExpression
-            || HoldLastFrame.Animation != null)
+        if (Target.HasExpression || Target.Animation != null)
         {
             states = [];
             return false;
@@ -81,6 +65,31 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
 
         states = [new PresenterTargetState(compositionRange, Target.CurrentValue)];
         return true;
+    }
+
+    /// <inheritdoc />
+    public bool CanProvideCompleteTimeMapping(
+        TimeRange timeRange,
+        Drawable target,
+        bool reverse = false)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+
+        return !OffsetPosition.HasExpression
+            && OffsetPosition.Animation == null
+            && !HasUnsupportedSpeedState()
+            && !AdjustTimeRange.HasExpression
+            && AdjustTimeRange.Animation == null
+            && !FrameRate.HasExpression
+            && FrameRate.Animation == null
+            && !Loop.HasExpression
+            && Loop.Animation == null
+            && !Reverse.HasExpression
+            && Reverse.Animation == null
+            && !HoldFirstFrame.HasExpression
+            && HoldFirstFrame.Animation == null
+            && !HoldLastFrame.HasExpression
+            && HoldLastFrame.Animation == null;
     }
 
     private bool HasUnsupportedSpeedState()

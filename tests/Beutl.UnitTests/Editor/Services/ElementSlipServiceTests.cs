@@ -302,6 +302,38 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SourceVideoBehindPresenterAcceptsNegativeMappedRange()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var nested = new DrawablePresenter
+        {
+            Target = { CurrentValue = video },
+        };
+        var controller = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(-2),
+            Target = { CurrentValue = nested },
+        };
+        element.Objects.Add(controller);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
     public void Slip_SourceVideo_NegativeToPositiveMappedRangeReservesSourceTail()
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
@@ -1006,6 +1038,10 @@ public class ElementSlipServiceTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(controller.TryGetTargetStates(element.Range, out var states), Is.True);
+            Assert.That(states, Has.Count.EqualTo(1));
+            Assert.That(states[0].Target, Is.SameAs(video));
+            Assert.That(controller.CanProvideCompleteTimeMapping(element.Range, video), Is.False);
             Assert.That(applied, Is.False);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
         });
@@ -1240,6 +1276,57 @@ public class ElementSlipServiceTests
             Assert.That(targets, Is.Not.Null);
             Assert.That(targets!.IsComplete, Is.True);
             Assert.That(targets, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void Collect_ReversedEmptyBoundaryQueriesNegativePrecedingTick()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.Zero);
+        var video = new SourceVideo();
+        var nested = new TestSourceVideoTimeMappingPresenter
+        {
+            Target = { CurrentValue = video },
+        };
+        var outer = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.Zero,
+            CollapseMappedRange = true,
+            ReverseSelector = _ => true,
+            Target = { CurrentValue = nested },
+        };
+        element.Objects.Add(outer);
+
+        SlippableMedia.TargetCollection targets = SlippableMedia.Collect(element);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(targets.IsComplete, Is.True);
+            Assert.That(targets, Has.Count.EqualTo(1));
+            Assert.That(
+                nested.ObservedTargetStateRanges,
+                Does.Contain(new TimeRange(-TimeSpan.FromTicks(1), TimeSpan.FromTicks(1))));
+        });
+    }
+
+    [Test]
+    public void Collect_CustomIncompleteTimeMappingFailsClosed()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var video = new SourceVideo();
+        var presenter = new TestTimeMappingPresenter
+        {
+            ReportsCompleteTimeMapping = false,
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        SlippableMedia.TargetCollection targets = SlippableMedia.Collect(element);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(targets.IsComplete, Is.False);
+            Assert.That(targets, Is.Empty);
         });
     }
 
@@ -1928,6 +2015,10 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
 
     public bool MapRangeBackward { get; set; }
 
+    public bool CollapseMappedRange { get; set; }
+
+    public bool ReportsCompleteTimeMapping { get; set; } = true;
+
     public bool ThrowOnUnboundedDuration { get; set; }
 
     public bool ReportsUnboundedTail { get; set; }
@@ -1963,11 +2054,18 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
         return true;
     }
 
+    public bool CanProvideCompleteTimeMapping(
+        TimeRange timeRange,
+        Drawable target,
+        bool reverse = false) => ReportsCompleteTimeMapping;
+
     public bool IsReversed(TimeRange timeRange, Drawable target)
         => ReverseSelector?.Invoke(timeRange) ?? false;
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable target)
-        => MapRangeBackward
+        => CollapseMappedRange
+            ? new(MappedStart, TimeSpan.Zero)
+            : MapRangeBackward
             ? new(MappedStart - timeRange.Duration, timeRange.Duration)
             : new(MappedStart, timeRange.Duration);
 
@@ -2031,6 +2129,11 @@ internal sealed partial class TestSourceVideoTimeMappingPresenter : Drawable, IT
         return true;
     }
 
+    public bool CanProvideCompleteTimeMapping(
+        TimeRange timeRange,
+        SourceVideo target,
+        bool reverse = false) => true;
+
     public bool IsReversed(TimeRange timeRange, SourceVideo target) => false;
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, SourceVideo target)
@@ -2061,6 +2164,11 @@ internal sealed partial class TestSourceSoundTimeMappingPresenter : Drawable, IT
     public double Scale { get; set; } = 1;
 
     public TimeSpan TargetOffset { get; set; }
+
+    public bool CanProvideCompleteTimeMapping(
+        TimeRange timeRange,
+        SourceSound target,
+        bool reverse = false) => true;
 
     public bool IsReversed(TimeRange timeRange, SourceSound target) => false;
 

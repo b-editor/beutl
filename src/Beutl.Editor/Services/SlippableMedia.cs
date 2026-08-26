@@ -244,6 +244,15 @@ internal static class SlippableMedia
                     foreach (TimeMappingTargetState state in mappedStates)
                     {
                         CoreObject controlled = state.Target;
+                        if (!timeMappingPresenter.CanProvideCompleteTimeMapping(
+                                state.ReachableRange,
+                                controlled,
+                                context.IsReversed))
+                        {
+                            isComplete = false;
+                            break;
+                        }
+
                         TimeRange mapped = timeMappingPresenter.CalculateTargetTimeRange(state.Range, controlled);
                         TimeRange mappedReachable = timeMappingPresenter.CalculateTargetTimeRange(
                             state.ReachableRange,
@@ -453,13 +462,13 @@ internal static class SlippableMedia
         if (!reachable.IsEmpty)
         {
             queryRange = reachable;
-            return reachable.Start >= TimeSpan.Zero && reachable.End > TimeSpan.Zero;
+            return TryGetRangeEnd(reachable, out _);
         }
 
         TimeSpan point = context.Range.Start;
         if (context.IsReversed)
         {
-            if (point <= TimeSpan.Zero)
+            if (point == TimeSpan.MinValue)
             {
                 queryRange = default;
                 return false;
@@ -469,7 +478,7 @@ internal static class SlippableMedia
             return true;
         }
 
-        if (point < TimeSpan.Zero || point >= TimeSpan.MaxValue)
+        if (point == TimeSpan.MaxValue)
         {
             queryRange = default;
             return false;

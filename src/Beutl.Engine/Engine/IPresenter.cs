@@ -33,8 +33,9 @@ public interface ITargetStatePresenter : IPresenter
     /// <summary>
     /// Tries to describe every target state in <paramref name="compositionRange"/>. On success,
     /// <paramref name="states"/> must be a sorted, non-overlapping partition of the requested
-    /// range using half-open intervals. Implementations must return <see langword="false"/> when
-    /// they cannot prove that the partition is complete, such as for an arbitrary expression.
+    /// range using half-open intervals. The requested range may contain negative composition
+    /// time. Implementations must return <see langword="false"/> when they cannot prove that the
+    /// partition is complete, such as for an arbitrary expression.
     /// Every non-null target must be assignable to <see cref="IPresenter.TargetType"/>.
     /// </summary>
     bool TryGetTargetStates(
@@ -78,6 +79,16 @@ public interface ITargetStatePresenter<T> : IPresenter<T>, ITargetStatePresenter
 public interface ITimeMappingPresenter : ITargetStatePresenter
 {
     /// <summary>
+    /// Gets whether the presenter can completely describe its time mapping over the requested
+    /// composition-time interval. Implementations must return <see langword="false"/> when a
+    /// mapping property cannot be evaluated conservatively, such as for an arbitrary expression.
+    /// </summary>
+    bool CanProvideCompleteTimeMapping(
+        TimeRange timeRange,
+        CoreObject target,
+        bool reverse = false);
+
+    /// <summary>
     /// Maps a presenter-time interval to the target-time interval it evaluates.
     /// </summary>
     TimeRange CalculateTargetTimeRange(TimeRange timeRange, CoreObject target);
@@ -112,6 +123,12 @@ public interface ITimeMappingPresenter : ITargetStatePresenter
 public interface ITimeMappingPresenter<T> : ITargetStatePresenter<T>, ITimeMappingPresenter
     where T : CoreObject
 {
+    bool ITimeMappingPresenter.CanProvideCompleteTimeMapping(
+        TimeRange timeRange,
+        CoreObject target,
+        bool reverse)
+        => CanProvideCompleteTimeMapping(timeRange, (T)target, reverse);
+
     TimeRange ITimeMappingPresenter.CalculateTargetTimeRange(TimeRange timeRange, CoreObject target)
         => CalculateTargetTimeRange(timeRange, (T)target);
 
@@ -130,6 +147,15 @@ public interface ITimeMappingPresenter<T> : ITargetStatePresenter<T>, ITimeMappi
 
     bool ITimeMappingPresenter.IsReversed(TimeRange timeRange, CoreObject target)
         => IsReversed(timeRange, (T)target);
+
+    /// <summary>
+    /// Gets whether the presenter can completely describe its time mapping over the requested
+    /// composition-time interval.
+    /// </summary>
+    bool CanProvideCompleteTimeMapping(
+        TimeRange timeRange,
+        T target,
+        bool reverse = false);
 
     /// <summary>
     /// Maps a presenter-time interval to the target-time interval it evaluates.
