@@ -212,6 +212,27 @@ public class SourceVideoSpeedTest
     }
 
     [Test]
+    public void CalculateTimelineDuration_IncrementalProbeHandlesRapidSpeedChange()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 0.00001f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.FromSeconds(1) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.FromDays(365) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.Zero, TimeSpan.FromSeconds(1), _sourceVideoResource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.GreaterThan(TimeSpan.FromSeconds(1)));
+            Assert.That(result, Is.LessThan(TimeSpan.FromSeconds(3)));
+        });
+    }
+
+    [Test]
     public void CalculateTimelineDuration_NegativeStartSaturatesUpperBound()
     {
         var animation = new KeyFrameAnimation<float>();

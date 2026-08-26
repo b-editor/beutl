@@ -650,6 +650,68 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_AnimatedSourceUsesTightestActiveSourceBound()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(6));
+        var longSource = new VideoSource();
+        longSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var shortSource = new VideoSource();
+        shortSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 240)));
+        var sourceAnimation = new KeyFrameAnimation<VideoSource?>();
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = longSource,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(5),
+            Value = shortSource,
+        });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = longSource, Animation = sourceAnimation },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        element.Objects.Add(video);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(4));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void ResizeBounds_AnimatedLoopUsesLoopStateAtMappedInterval()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var loopAnimation = new KeyFrameAnimation<bool>();
+        loopAnimation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = false });
+        loopAnimation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(0.1), Value = true });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsLoop = { CurrentValue = false, Animation = loopAnimation },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        element.Objects.Add(video);
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(10));
+        var resizeService = new ElementResizeService(_history);
+
+        (TimeSpan _, TimeSpan max) = resizeService.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(element, back)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - minDuration));
+    }
+
+    [Test]
     public void Slip_NestedTimeMappingPresenter_PropagatesUnboundedDuration()
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
@@ -1076,12 +1138,17 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
 
     public bool ThrowOnUnboundedDuration { get; set; }
 
+    public bool ReportsUnboundedTail { get; set; }
+
     public int TimelineDurationCallCount { get; private set; }
 
     public bool IsReversed => false;
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable target)
         => new(MappedStart, timeRange.Duration);
+
+    public bool HasUnboundedTail(TimeRange timeRange, Drawable target)
+        => ReportsUnboundedTail;
 
     public TimeSpan CalculateTimelineDuration(
         TimeSpan start,
