@@ -30,14 +30,15 @@ public sealed class ElementSlipService : IElementSlipService
         // after the drag began, so the press-time IsEditable gate is not enough. Disqualified
         // members are dropped rather than blocking the rest of the group.
         var seen = new HashSet<Element>();
-        var applicable = new List<(List<SlippableMedia.Target> Targets, TimeSpan Length)>();
+        var applicable = new List<(SlippableMedia.TargetCollection Targets, TimeSpan Length)>();
         foreach (Element element in elements)
         {
             if (!seen.Add(element)) continue;
             if (!scene.Children.Contains(element)) continue;
             if (scene.IsElementLocked(element)) continue;
 
-            List<SlippableMedia.Target> targets = SlippableMedia.Collect(element);
+            SlippableMedia.TargetCollection targets = SlippableMedia.Collect(element);
+            if (!targets.IsComplete) return false;
             if (targets.Count == 0) continue;
 
             applicable.Add((targets, element.Length));
@@ -48,14 +49,14 @@ public sealed class ElementSlipService : IElementSlipService
         // Chained clamping: each element can only shrink the magnitude, so the final value is
         // the delta every stream of every element can absorb — grouped linked media stay in sync.
         TimeSpan effective = delta;
-        foreach ((List<SlippableMedia.Target> targets, TimeSpan length) in applicable)
+        foreach ((SlippableMedia.TargetCollection targets, TimeSpan length) in applicable)
         {
             effective = SlippableMedia.ClampSharedDelta(targets, effective, length);
             if (effective == TimeSpan.Zero) return false;
         }
 
         var applied = new HashSet<IProperty<TimeSpan>>();
-        foreach ((List<SlippableMedia.Target> targets, _) in applicable)
+        foreach ((SlippableMedia.TargetCollection targets, _) in applicable)
         {
             SlippableMedia.ApplyOffsetDelta(targets, effective, applied);
         }

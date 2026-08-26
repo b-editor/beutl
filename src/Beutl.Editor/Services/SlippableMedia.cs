@@ -30,6 +30,28 @@ internal static class SlippableMedia
         bool IgnoreTail,
         bool AffectsOffset);
 
+    internal sealed class TargetCollection : IReadOnlyList<Target>
+    {
+        private readonly List<Target> _targets;
+
+        public TargetCollection(List<Target> targets, bool isComplete)
+        {
+            _targets = targets;
+            IsComplete = isComplete;
+        }
+
+        public bool IsComplete { get; }
+
+        public int Count => _targets.Count;
+
+        public Target this[int index] => _targets[index];
+
+        public IEnumerator<Target> GetEnumerator() => _targets.GetEnumerator();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+            => GetEnumerator();
+    }
+
     // A single source-backed media stream whose OffsetPosition can be slipped.
     // Total is the absolute source duration (null when the stream has no bounded source).
     internal sealed class Target
@@ -126,17 +148,18 @@ internal static class SlippableMedia
     // and re-enabling it does not reveal a desynced or out-of-range offset. The same
     // reasoning keeps disabled streams in the clamp bounds — a delta that would push a
     // disabled stream outside its source is refused, not applied desynced.
-    public static List<Target> Collect(Element element)
+    public static TargetCollection Collect(Element element)
     {
         var targets = new List<Target>();
         var active = new HashSet<object>(ReferenceEqualityComparer.Instance);
         var context = new TimeContext(element.Range, null, false, false, true);
+        bool isComplete = true;
         foreach (EngineObject obj in element.Objects)
         {
-            CollectFrom(obj, targets, active, context);
+            CollectFrom(obj, targets, active, context, ref isComplete);
         }
 
-        return targets;
+        return new TargetCollection(targets, isComplete);
     }
 
     // The active set prevents cycles while still allowing a shared media object to contribute
@@ -145,7 +168,8 @@ internal static class SlippableMedia
         object obj,
         List<Target> targets,
         HashSet<object> active,
-        TimeContext context)
+        TimeContext context,
+        ref bool isComplete)
     {
         if (!active.Add(obj)) return;
 
@@ -165,19 +189,24 @@ internal static class SlippableMedia
                     break;
                 case SoundGroup soundGroup:
                     foreach (Sound child in soundGroup.Children)
-                        CollectFrom(child, targets, active, context);
+                        CollectFrom(child, targets, active, context, ref isComplete);
                     break;
                 case DrawableGroup drawableGroup:
                     foreach (Drawable child in drawableGroup.Children)
-                        CollectFrom(child, targets, active, context);
+                        CollectFrom(child, targets, active, context, ref isComplete);
                     break;
                 case DrawableDecorator decorator:
                     foreach (Drawable child in decorator.Children)
-                        CollectFrom(child, targets, active, context);
+                        CollectFrom(child, targets, active, context, ref isComplete);
                     break;
                 case ITimeMappingPresenter timeMappingPresenter:
-                    foreach (TimeMappingTargetState state in GetTimeMappingTargetStates(
-                        timeMappingPresenter, context))
+                    if (!TryGetPresenterTargetStates(timeMappingPresenter, context, out var mappedStates))
+                    {
+                        isComplete = false;
+                        break;
+                    }
+
+                    foreach (TimeMappingTargetState state in mappedStates)
                     {
                         CoreObject controlled = state.Target;
                         TimeRange mapped = timeMappingPresenter.CalculateTargetTimeRange(state.Range, controlled);
@@ -221,14 +250,53 @@ internal static class SlippableMedia
                             hasUnboundedTail,
                             isReversed,
                             state.AffectsOffset);
-                        CollectFrom(controlled, targets, active, mappedContext);
+                        CollectFrom(controlled, targets, active, mappedContext, ref isComplete);
                     }
                     break;
-                // DrawablePresenter / DrawableTimeController render the drawable in Target
-                // rather than a Children list, so a wrapped SourceVideo is only reachable here.
+                case ITargetStatePresenter targetStatePresenter:
+                    if (!TryGetPresenterTargetStates(targetStatePresenter, context, out var identityStates))
+                    {
+                        isComplete = false;
+                        break;
+                    }
+
+                    foreach (TimeMappingTargetState state in identityStates)
+                    {
+                        TimeSpan currentTime = context.IsReversed ? state.Range.Start : state.Range.End;
+                        Func<TimeSpan, TimeSpan> mapper = duration =>
+                        {
+                            if (state.IgnoreTail || duration == TimeSpan.MaxValue)
+                                return TimeSpan.MaxValue;
+
+                            if (state.StateEnd is { } stateEnd
+                                && duration >= GetDurationBetween(currentTime, stateEnd))
+                            {
+                                return TimeSpan.MaxValue;
+                            }
+
+                            TimeSpan totalDuration = AddDurationSaturated(state.Prefix, duration);
+                            return context.TimelineDurationFromTarget?.Invoke(totalDuration) ?? totalDuration;
+                        };
+                        var presentedContext = new TimeContext(
+                            state.Range,
+                            mapper,
+                            state.IgnoreTail || context.HasUnboundedTail,
+                            context.IsReversed,
+                            state.AffectsOffset);
+                        CollectFrom(state.Target, targets, active, presentedContext, ref isComplete);
+                    }
+                    break;
+                // Keep legacy typed presenters safe even when they have not opted into exact
+                // target-state reporting yet.
                 case IPresenter<Drawable> presenter:
-                    if (presenter.Target.CurrentValue is { } presented)
-                        CollectFrom(presented, targets, active, context);
+                    if (presenter.Target.HasExpression || presenter.Target.Animation != null)
+                    {
+                        isComplete = false;
+                    }
+                    else if (presenter.Target.CurrentValue is { } presented)
+                    {
+                        CollectFrom(presented, targets, active, context, ref isComplete);
+                    }
                     break;
             }
         }
@@ -238,141 +306,178 @@ internal static class SlippableMedia
         }
     }
 
-    private static IEnumerable<TimeMappingTargetState> GetTimeMappingTargetStates(
-        ITimeMappingPresenter presenter,
-        TimeContext context)
+    private static bool TryGetPresenterTargetStates(
+        ITargetStatePresenter presenter,
+        TimeContext context,
+        out List<TimeMappingTargetState> result)
     {
-        TimeRange range = context.Range;
-        if (range.IsEmpty)
+        result = [];
+        if (!TryGetTargetStateQueryRange(context, out TimeRange queryRange)
+            || !presenter.TryGetTargetStates(queryRange, out IReadOnlyList<PresenterTargetState> states)
+            || !IsCompleteTargetStatePartition(presenter, queryRange, states))
         {
-            TimeSpan[] emptyRangeFutureBoundaries = GetFutureTargetAnimationTimes(
-                presenter.TargetProperty, range.Start, context.IsReversed);
-            if (presenter.GetTarget(new CompositionContext(range.Start)) is { } target)
+            return false;
+        }
+
+        TimeRange range = context.Range;
+        if (!range.IsEmpty)
+        {
+            foreach (PresenterTargetState state in states)
             {
-                yield return new TimeMappingTargetState(
+                TimeSpan start = state.CompositionRange.Start > range.Start
+                    ? state.CompositionRange.Start
+                    : range.Start;
+                TimeSpan end = state.CompositionRange.End < range.End
+                    ? state.CompositionRange.End
+                    : range.End;
+                if (start >= end || state.Target is not { } target)
+                    continue;
+
+                bool isTailState = context.IsReversed
+                    ? state.CompositionRange.Start < range.Start
+                    : state.CompositionRange.End > range.End;
+                result.Add(new TimeMappingTargetState(
+                    new TimeRange(start, end - start),
+                    target,
+                    TimeSpan.Zero,
+                    isTailState ? GetNextStateBoundary(state, queryRange, context.IsReversed) : null,
+                    !isTailState,
+                    context.AffectsOffset));
+            }
+        }
+        else
+        {
+            PresenterTargetState current = states.First(state => state.CompositionRange.Contains(range.Start));
+            if (current.Target is { } target)
+            {
+                result.Add(new TimeMappingTargetState(
                     range,
                     target,
                     TimeSpan.Zero,
-                    emptyRangeFutureBoundaries.Length > 0 ? emptyRangeFutureBoundaries[0] : null,
+                    GetNextStateBoundary(current, queryRange, context.IsReversed),
                     false,
-                    context.AffectsOffset);
-            }
-
-            for (int i = 0; i < emptyRangeFutureBoundaries.Length; i++)
-            {
-                TimeSpan boundary = emptyRangeFutureBoundaries[i];
-                TimeSpan? nextBoundary = i + 1 < emptyRangeFutureBoundaries.Length
-                    ? emptyRangeFutureBoundaries[i + 1]
-                    : null;
-                TimeSpan sample = GetFutureTargetSample(boundary, nextBoundary, context.IsReversed);
-                if (presenter.GetTarget(new CompositionContext(sample)) is { } futureTarget)
-                {
-                    yield return new TimeMappingTargetState(
-                        new TimeRange(boundary, TimeSpan.Zero),
-                        futureTarget,
-                        GetDurationBetween(range.Start, boundary),
-                        nextBoundary,
-                        false,
-                        false);
-                }
-            }
-
-            yield break;
-        }
-
-        var boundaries = new HashSet<TimeSpan> { range.Start, range.End };
-        AddTargetAnimationTimes(presenter.TargetProperty, range, boundaries);
-        TimeSpan[] orderedBoundaries = [.. boundaries.Order()];
-        TimeSpan tailOrigin = context.IsReversed ? range.Start : range.End;
-        TimeSpan[] futureBoundaries = GetFutureTargetAnimationTimes(
-            presenter.TargetProperty, tailOrigin, context.IsReversed);
-        TimeSpan? firstFutureBoundary = futureBoundaries.Length > 0
-            ? futureBoundaries[0]
-            : null;
-        for (int i = 1; i < orderedBoundaries.Length; i++)
-        {
-            TimeSpan start = orderedBoundaries[i - 1];
-            TimeSpan end = orderedBoundaries[i];
-            if (start >= end)
-                continue;
-
-            var stateRange = new TimeRange(start, end - start);
-            var targets = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
-            foreach (TimeSpan sample in GetTargetSamples(presenter.TargetProperty, stateRange))
-            {
-                if (presenter.GetTarget(new CompositionContext(sample)) is { } target
-                    && targets.Add(target))
-                {
-                    bool isTailState = context.IsReversed
-                        ? stateRange.Start == range.Start
-                        : stateRange.End == range.End;
-                    yield return new TimeMappingTargetState(
-                        stateRange,
-                        target,
-                        TimeSpan.Zero,
-                        isTailState ? firstFutureBoundary : null,
-                        !isTailState,
-                        context.AffectsOffset);
-                }
+                    context.AffectsOffset));
             }
         }
 
-        for (int i = 0; i < futureBoundaries.Length; i++)
+        AddFutureTargetStates(states, queryRange, context, result);
+        return true;
+    }
+
+    private static bool TryGetTargetStateQueryRange(TimeContext context, out TimeRange queryRange)
+    {
+        TimeRange range = context.Range;
+        if (range.Start < TimeSpan.Zero || range.End <= TimeSpan.Zero)
         {
-            TimeSpan boundary = futureBoundaries[i];
-            TimeSpan? nextBoundary = i + 1 < futureBoundaries.Length
-                ? futureBoundaries[i + 1]
+            queryRange = default;
+            return false;
+        }
+
+        queryRange = context.IsReversed
+            ? new TimeRange(TimeSpan.Zero, range.End)
+            : new TimeRange(range.Start, TimeSpan.MaxValue - range.Start);
+        return !queryRange.IsEmpty;
+    }
+
+    private static bool IsCompleteTargetStatePartition(
+        ITargetStatePresenter presenter,
+        TimeRange queryRange,
+        IReadOnlyList<PresenterTargetState>? states)
+    {
+        if (states is null || states.Count == 0)
+            return false;
+
+        TimeSpan cursor = queryRange.Start;
+        foreach (PresenterTargetState state in states)
+        {
+            TimeRange range = state.CompositionRange;
+            if (range.IsEmpty
+                || range.Start != cursor
+                || !TryGetRangeEnd(range, out TimeSpan end)
+                || end > queryRange.End
+                || state.Target is { } target && !presenter.TargetType.IsInstanceOfType(target))
+            {
+                return false;
+            }
+
+            cursor = end;
+        }
+
+        return cursor == queryRange.End;
+    }
+
+    private static bool TryGetRangeEnd(TimeRange range, out TimeSpan end)
+    {
+        if (range.Duration <= TimeSpan.Zero
+            || range.Start.Ticks > TimeSpan.MaxValue.Ticks - range.Duration.Ticks)
+        {
+            end = default;
+            return false;
+        }
+
+        end = TimeSpan.FromTicks(range.Start.Ticks + range.Duration.Ticks);
+        return true;
+    }
+
+    private static TimeSpan? GetNextStateBoundary(
+        PresenterTargetState state,
+        TimeRange queryRange,
+        bool reverse)
+    {
+        if (reverse)
+        {
+            return state.CompositionRange.Start > queryRange.Start
+                ? state.CompositionRange.Start
                 : null;
-            TimeSpan sample = GetFutureTargetSample(boundary, nextBoundary, context.IsReversed);
-            if (presenter.GetTarget(new CompositionContext(sample)) is { } target)
+        }
+
+        return state.CompositionRange.End < queryRange.End
+            ? state.CompositionRange.End
+            : null;
+    }
+
+    private static void AddFutureTargetStates(
+        IReadOnlyList<PresenterTargetState> states,
+        TimeRange queryRange,
+        TimeContext context,
+        List<TimeMappingTargetState> result)
+    {
+        TimeSpan origin = context.IsReversed ? context.Range.Start : context.Range.End;
+        if (context.IsReversed)
+        {
+            for (int i = states.Count - 1; i >= 0; i--)
             {
-                yield return new TimeMappingTargetState(
+                PresenterTargetState state = states[i];
+                if (state.CompositionRange.End > origin || state.Target is not { } target)
+                    continue;
+
+                TimeSpan boundary = state.CompositionRange.End;
+                result.Add(new TimeMappingTargetState(
                     new TimeRange(boundary, TimeSpan.Zero),
                     target,
-                    GetDurationBetween(tailOrigin, boundary),
-                    nextBoundary,
+                    GetDurationBetween(origin, boundary),
+                    GetNextStateBoundary(state, queryRange, true),
                     false,
-                    false);
+                    false));
             }
         }
-    }
+        else
+        {
+            foreach (PresenterTargetState state in states)
+            {
+                if (state.CompositionRange.Start < origin || state.Target is not { } target)
+                    continue;
 
-    private static TimeSpan[] GetFutureTargetAnimationTimes(
-        IProperty property,
-        TimeSpan origin,
-        bool reverse)
-    {
-        if (property.Animation is not IKeyFrameAnimation animation)
-            return [];
-
-        TimeSpan ownerStart = property.GetOwnerObject() is EngineObject owner
-            ? owner.TimeRange.Start
-            : TimeSpan.Zero;
-        IEnumerable<TimeSpan> times = animation.KeyFrames
-            .Select(keyFrame => animation.UseGlobalClock
-                ? keyFrame.KeyTime
-                : ownerStart + keyFrame.KeyTime)
-            .Where(time => reverse ? time <= origin : time >= origin)
-            .Distinct();
-        return reverse
-            ? [.. times.OrderDescending()]
-            : [.. times.Order()];
-    }
-
-    private static TimeSpan GetFutureTargetSample(
-        TimeSpan boundary,
-        TimeSpan? nextBoundary,
-        bool reverse)
-    {
-        if (nextBoundary is { } next)
-            return boundary + TimeSpan.FromTicks((next - boundary).Ticks / 2);
-
-        if (!reverse)
-            return boundary;
-
-        return boundary > TimeSpan.MinValue
-            ? boundary - TimeSpan.FromTicks(1)
-            : boundary;
+                TimeSpan boundary = state.CompositionRange.Start;
+                result.Add(new TimeMappingTargetState(
+                    new TimeRange(boundary, TimeSpan.Zero),
+                    target,
+                    GetDurationBetween(origin, boundary),
+                    GetNextStateBoundary(state, queryRange, false),
+                    false,
+                    false));
+            }
+        }
     }
 
     private static TimeSpan GetDurationBetween(TimeSpan first, TimeSpan second)
@@ -386,41 +491,6 @@ internal static class SlippableMedia
         return left.Ticks >= TimeSpan.MaxValue.Ticks - right.Ticks
             ? TimeSpan.MaxValue
             : TimeSpan.FromTicks(left.Ticks + right.Ticks);
-    }
-
-    private static void AddTargetAnimationTimes(
-        IProperty property,
-        TimeRange range,
-        HashSet<TimeSpan> times)
-    {
-        if (property.Animation is not IKeyFrameAnimation animation)
-            return;
-
-        TimeSpan ownerStart = property.GetOwnerObject() is EngineObject owner
-            ? owner.TimeRange.Start
-            : TimeSpan.Zero;
-        foreach (IKeyFrame keyFrame in animation.KeyFrames)
-        {
-            TimeSpan time = animation.UseGlobalClock
-                ? keyFrame.KeyTime
-                : ownerStart + keyFrame.KeyTime;
-            if (time > range.Start && time < range.End)
-                times.Add(time);
-        }
-    }
-
-    private static IEnumerable<TimeSpan> GetTargetSamples(IProperty property, TimeRange range)
-    {
-        if (property.HasExpression)
-        {
-            yield return range.Start;
-            yield return range.Start + TimeSpan.FromTicks(range.Duration.Ticks / 2);
-            yield return range.End;
-        }
-        else
-        {
-            yield return range.Start + TimeSpan.FromTicks(range.Duration.Ticks / 2);
-        }
     }
 
     private static void AddTarget(List<Target> targets, Target target)
@@ -505,7 +575,7 @@ internal static class SlippableMedia
             return TimeSpan.MaxValue;
 
         if (context.IsReversed)
-            return null;
+            return CalculateReversedVideoTimelineRoom(video, context);
 
         TimeSpan cursor = context.Range.End;
         TimeSpan accumulated = TimeSpan.Zero;
@@ -573,6 +643,68 @@ internal static class SlippableMedia
             cursor = nextBoundary;
             nextIndex++;
         }
+    }
+
+    private static TimeSpan? CalculateReversedVideoTimelineRoom(SourceVideo video, TimeContext context)
+    {
+        TimeSpan cursor = context.Range.Start;
+        TimeSpan accumulated = TimeSpan.Zero;
+        TimeSpan[] earlierTimes = GetAnimationTimes(video)
+            .Where(time => time <= cursor)
+            .OrderDescending()
+            .ToArray();
+        int nextIndex = 0;
+
+        while (nextIndex < earlierTimes.Length)
+        {
+            TimeSpan next = earlierTimes[nextIndex];
+            if (next >= cursor)
+            {
+                nextIndex++;
+                continue;
+            }
+
+            TimeSpan sampleTime = cursor + TimeSpan.FromTicks((next - cursor).Ticks / 2);
+            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
+            TimeSpan stateDuration = cursor - next;
+            if (resource.Source is { } source && source.Duration > TimeSpan.Zero)
+            {
+                TimeSpan sourcePosition = GetSourcePositionAt(video, cursor, resource);
+                if (resource.IsLoop)
+                    sourcePosition = NormalizeLoopPosition(sourcePosition, source.Duration);
+
+                if (video.OffsetPosition.CurrentValue + sourcePosition >= source.Duration
+                    || SpeedMayRunBackward(video, new TimeRange(next, stateDuration)))
+                {
+                    return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+                }
+            }
+
+            accumulated = AddDurationSaturated(accumulated, stateDuration);
+            cursor = next;
+            nextIndex++;
+        }
+
+        TimeSpan videoStart = video.TimeRange.Start;
+        if (videoStart < cursor)
+        {
+            TimeSpan sampleTime = cursor + TimeSpan.FromTicks((videoStart - cursor).Ticks / 2);
+            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
+            if (resource.Source is { } source && source.Duration > TimeSpan.Zero)
+            {
+                TimeSpan sourcePosition = GetSourcePositionAt(video, cursor, resource);
+                if (resource.IsLoop)
+                    sourcePosition = NormalizeLoopPosition(sourcePosition, source.Duration);
+
+                if (video.OffsetPosition.CurrentValue + sourcePosition >= source.Duration
+                    || SpeedMayRunBackward(video, new TimeRange(videoStart, cursor - videoStart)))
+                {
+                    return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+                }
+            }
+        }
+
+        return null;
     }
 
     private static TimeSpan MapTimelineDuration(TimeContext context, TimeSpan prefix, TimeSpan tail)
@@ -838,6 +970,7 @@ internal static class SlippableMedia
     // streams (e.g. a video + audio pair) in sync even when one hits its source boundary first.
     public static TimeSpan ClampSharedDelta(IReadOnlyList<Target> targets, TimeSpan delta, TimeSpan elementLength)
     {
+        if (targets is TargetCollection { IsComplete: false }) return TimeSpan.Zero;
         if (delta == TimeSpan.Zero || targets.Count == 0) return TimeSpan.Zero;
 
         long magnitude = Math.Abs(delta.Ticks);
@@ -881,6 +1014,7 @@ internal static class SlippableMedia
     public static void ApplyOffsetDelta(
         IReadOnlyList<Target> targets, TimeSpan delta, HashSet<IProperty<TimeSpan>>? applied = null)
     {
+        if (targets is TargetCollection { IsComplete: false }) return;
         if (delta == TimeSpan.Zero) return;
 
         foreach (Target target in targets)
@@ -896,6 +1030,8 @@ internal static class SlippableMedia
     // bounded by the tightest source tail among its streams. TimeSpan.MaxValue when unbounded.
     public static TimeSpan OutPointRoom(IReadOnlyList<Target> targets, TimeSpan elementLength)
     {
+        if (targets is TargetCollection { IsComplete: false }) return TimeSpan.Zero;
+
         TimeSpan room = TimeSpan.MaxValue;
         foreach (Target target in targets)
         {
@@ -916,6 +1052,8 @@ internal static class SlippableMedia
     // TimeSpan.MaxValue when the element has no slip-able media.
     public static TimeSpan InPointRoom(IReadOnlyList<Target> targets)
     {
+        if (targets is TargetCollection { IsComplete: false }) return TimeSpan.Zero;
+
         TimeSpan room = TimeSpan.MaxValue;
         foreach (Target target in targets)
         {

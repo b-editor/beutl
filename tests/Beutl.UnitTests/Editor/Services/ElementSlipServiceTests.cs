@@ -44,6 +44,34 @@ public class ElementSlipServiceTests
     private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
+    private static IReadOnlyList<PresenterTargetState> CreatePresenterTargetStates(
+        TimeRange range,
+        CoreObject? initialTarget,
+        params (TimeSpan Time, CoreObject? Target)[] transitions)
+    {
+        var states = new List<PresenterTargetState>();
+        CoreObject? current = initialTarget;
+        TimeSpan cursor = range.Start;
+        foreach ((TimeSpan time, CoreObject? target) in transitions.OrderBy(x => x.Time))
+        {
+            if (time <= range.Start)
+            {
+                current = target;
+                continue;
+            }
+
+            if (time >= range.End)
+                break;
+
+            states.Add(new PresenterTargetState(new TimeRange(cursor, time - cursor), current));
+            cursor = time;
+            current = target;
+        }
+
+        states.Add(new PresenterTargetState(new TimeRange(cursor, range.End - cursor), current));
+        return states;
+    }
+
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
@@ -708,7 +736,10 @@ public class ElementSlipServiceTests
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
         var video = new SourceVideo();
-        var presenter = new TestSourceVideoTimeMappingPresenter();
+        var presenter = new TestSourceVideoTimeMappingPresenter
+        {
+            TargetStateResolver = range => [new PresenterTargetState(range, video)],
+        };
         presenter.Target.Expression = new ConstantSourceVideoExpression(video);
         element.Objects.Add(presenter);
 
@@ -718,6 +749,87 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Slip_ExpressionBackedPresenterWithoutCompleteTargetStatesFailsClosed()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var video = new SourceVideo();
+        var presenter = new TestSourceVideoTimeMappingPresenter();
+        presenter.Target.Expression = new ConstantSourceVideoExpression(video);
+        element.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void Slip_DrawableTimeControllerWithExpressionTargetFailsClosed()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var video = new SourceVideo();
+        var controller = new DrawableTimeController();
+        controller.Target.Expression = new ConstantSourceVideoExpression(video);
+        element.Objects.Add(controller);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void Slip_NarrowExpressionTargetStateConstrainsSharedDelta()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var longSource = new VideoSource();
+        longSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var shortSource = new VideoSource();
+        shortSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 3)));
+        var longVideo = new SourceVideo
+        {
+            Source = { CurrentValue = longSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var shortVideo = new SourceVideo
+        {
+            Source = { CurrentValue = shortSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromMilliseconds(100)),
+        };
+        var presenter = new TestSourceVideoTimeMappingPresenter
+        {
+            TargetStateResolver = range => CreatePresenterTargetStates(
+                range,
+                longVideo,
+                (TimeSpan.FromMilliseconds(200), shortVideo),
+                (TimeSpan.FromMilliseconds(300), longVideo)),
+        };
+        presenter.Target.Expression = new NarrowSourceVideoExpression(
+            longVideo,
+            shortVideo,
+            TimeSpan.FromMilliseconds(200),
+            TimeSpan.FromMilliseconds(300));
+        element.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(longVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(shortVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -786,6 +898,10 @@ public class ElementSlipServiceTests
         var presenter = new TestSourceVideoTimeMappingPresenter
         {
             Target = { CurrentValue = currentVideo, Animation = targetAnimation },
+            TargetStateResolver = range => CreatePresenterTargetStates(
+                range,
+                currentVideo,
+                (TimeSpan.FromSeconds(5), futureVideo)),
         };
         presenter.Target.Expression = new SwitchingSourceVideoExpression(
             currentVideo, futureVideo, TimeSpan.FromSeconds(5));
@@ -818,6 +934,10 @@ public class ElementSlipServiceTests
         var presenter = new TestSourceVideoTimeMappingPresenter
         {
             Target = { CurrentValue = currentVideo, Animation = targetAnimation },
+            TargetStateResolver = range => CreatePresenterTargetStates(
+                range,
+                currentVideo,
+                (TimeSpan.FromSeconds(5), futureVideo)),
         };
         presenter.Target.Expression = new SwitchingSourceVideoExpression(
             currentVideo, futureVideo, TimeSpan.FromSeconds(5));
@@ -952,6 +1072,49 @@ public class ElementSlipServiceTests
         {
             MappedStart = TimeSpan.FromSeconds(-2),
             ReverseSelector = range => range.Start == TimeSpan.Zero,
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        TimeSpan room = SlippableMedia.OutPointRoom(
+            SlippableMedia.Collect(element),
+            element.Length);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [Test]
+    public void ResizeBounds_ReversedMappingScansEarlierSourceStates()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var shortSource = new VideoSource();
+        shortSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var longSource = new VideoSource();
+        longSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var sourceAnimation = new KeyFrameAnimation<VideoSource?>();
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = shortSource,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(4),
+            Value = longSource,
+        });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = longSource, Animation = sourceAnimation },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        video.Source.Expression = new SwitchingVideoSourceExpression(
+            shortSource, longSource, TimeSpan.FromSeconds(4));
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(4),
+            ReverseSelector = _ => true,
             Target = { CurrentValue = video },
         };
         element.Objects.Add(presenter);
@@ -1457,6 +1620,35 @@ internal sealed partial class TestSourceVideoTimeMappingPresenter : Drawable, IT
 {
     public IProperty<SourceVideo?> Target { get; } = Property.CreateAnimatable<SourceVideo?>();
 
+    public Func<TimeRange, IReadOnlyList<PresenterTargetState>?>? TargetStateResolver { get; set; }
+
+    public bool TryGetTargetStates(
+        TimeRange compositionRange,
+        out IReadOnlyList<PresenterTargetState> states)
+    {
+        if (TargetStateResolver is { } resolver)
+        {
+            IReadOnlyList<PresenterTargetState>? resolved = resolver(compositionRange);
+            states = resolved ?? [];
+            return resolved != null;
+        }
+
+        if (compositionRange.IsEmpty)
+        {
+            states = [];
+            return true;
+        }
+
+        if (Target.HasExpression || Target.Animation != null)
+        {
+            states = [];
+            return false;
+        }
+
+        states = [new PresenterTargetState(compositionRange, Target.CurrentValue)];
+        return true;
+    }
+
     public bool IsReversed(TimeRange timeRange, SourceVideo target) => false;
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, SourceVideo target)
@@ -1522,6 +1714,45 @@ internal sealed class SwitchingSourceVideoExpression(
 
     public SourceVideo Evaluate(ExpressionContext context)
         => context.Time < threshold ? before : after;
+
+    public bool Validate(out string? error)
+    {
+        error = null;
+        return true;
+    }
+}
+
+internal sealed class SwitchingVideoSourceExpression(
+    VideoSource before,
+    VideoSource after,
+    TimeSpan threshold) : IExpression<VideoSource?>
+{
+    public string ExpressionString => "switching-video-source";
+
+    public Type ResultType => typeof(VideoSource);
+
+    public VideoSource Evaluate(ExpressionContext context)
+        => context.Time < threshold ? before : after;
+
+    public bool Validate(out string? error)
+    {
+        error = null;
+        return true;
+    }
+}
+
+internal sealed class NarrowSourceVideoExpression(
+    SourceVideo outside,
+    SourceVideo inside,
+    TimeSpan start,
+    TimeSpan end) : IExpression<SourceVideo?>
+{
+    public string ExpressionString => "narrow-source-video";
+
+    public Type ResultType => typeof(SourceVideo);
+
+    public SourceVideo Evaluate(ExpressionContext context)
+        => context.Time >= start && context.Time < end ? inside : outside;
 
     public bool Validate(out string? error)
     {

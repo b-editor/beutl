@@ -399,6 +399,33 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Roll_IncompleteBackPresenterTargets_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        var video = new SourceVideo();
+        var presenter = new DrawablePresenter();
+        presenter.Target.Expression = new ConstantSourceVideoExpression(video);
+        back.Objects.Add(presenter);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(
+            _scene,
+            [new ElementTrimPair(front, back)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Roll_LockedNeighbour_NoCommit()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
@@ -782,6 +809,35 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Slide_IncompleteMiddlePresenterTargets_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        var presenter = new DrawablePresenter();
+        presenter.Target.Expression = new ConstantSourceVideoExpression(video);
+        middle.Objects.Add(presenter);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(
+            _scene,
+            [new ElementSlideLane(front, [middle], back)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Slide_LockedParticipant_NoCommit()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
@@ -995,6 +1051,27 @@ public class ElementResizeServiceTests
         {
             Assert.That(min, Is.EqualTo(minDuration - TimeSpan.FromSeconds(2)));
             Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(3) - minDuration));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_IncompletePresenterTargets_ReturnsZeroWindow()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        var video = new SourceVideo();
+        var presenter = new DrawablePresenter();
+        presenter.Target.Expression = new ConstantSourceVideoExpression(video);
+        front.Objects.Add(presenter);
+
+        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(min, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(max, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
