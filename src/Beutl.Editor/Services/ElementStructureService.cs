@@ -71,7 +71,7 @@ public sealed class ElementStructureService : IElementStructureService
 
             ShiftLocalKeyFrames(backward, -forwardDuration);
 
-            CoreSerializer.StoreToUri(backward, RandomFileNameGenerator.GenerateUri(scene.Uri, EditorConstants.ElementFileExtension));
+            CoreSerializer.StoreToUri(backward, ElementFileNaming.GetUri(scene.Uri, backward.Id));
             scene.AddChild(backward);
             backward.NotifySplitted(true, forwardDuration, -forwardDuration);
             target.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);

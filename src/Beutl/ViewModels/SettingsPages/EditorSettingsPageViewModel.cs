@@ -11,6 +11,7 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     private readonly EditorConfig _editorConfig;
     private readonly GraphicsConfig _graphicsConfig;
     private readonly ProxyStoreConfig _proxyStoreConfig;
+    private readonly VersionControlConfig _versionControlConfig;
     private readonly CompositeDisposable _disposables = [];
 
     public EditorSettingsPageViewModel()
@@ -19,6 +20,7 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         _editorConfig = GlobalConfiguration.Instance.EditorConfig;
         _graphicsConfig = GlobalConfiguration.Instance.GraphicsConfig;
         _proxyStoreConfig = GlobalConfiguration.Instance.ProxyStoreConfig;
+        _versionControlConfig = GlobalConfiguration.Instance.VersionControlConfig;
 
         AutoAdjustSceneDuration = _editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
             .ToReactiveProperty()
@@ -186,6 +188,69 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         ProxyDefaultPreset.Subscribe(preset => _proxyStoreConfig.DefaultPreset = (int)preset)
             .DisposeWith(_disposables);
 
+        EnableVersionControlForNewProjects = _versionControlConfig
+            .GetObservable(VersionControlConfig.EnableForNewProjectsProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        EnableVersionControlForNewProjects.Subscribe(
+                value => _versionControlConfig.EnableForNewProjects = value)
+            .DisposeWith(_disposables);
+
+        AutoCommitOnSave = _versionControlConfig
+            .GetObservable(VersionControlConfig.AutoCommitOnSaveProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        AutoCommitOnSave.Subscribe(value => _versionControlConfig.AutoCommitOnSave = value)
+            .DisposeWith(_disposables);
+
+        AutoCommitOnClose = _versionControlConfig
+            .GetObservable(VersionControlConfig.AutoCommitOnCloseProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        AutoCommitOnClose.Subscribe(value => _versionControlConfig.AutoCommitOnClose = value)
+            .DisposeWith(_disposables);
+
+        GitExecutablePath = _versionControlConfig
+            .GetObservable(VersionControlConfig.GitExecutablePathProperty)
+            .Select(static value => value ?? string.Empty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        GitExecutablePath.Subscribe(value =>
+            {
+                string? normalized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+                if (_versionControlConfig.GitExecutablePath != normalized)
+                {
+                    _versionControlConfig.GitExecutablePath = normalized;
+                }
+            })
+            .DisposeWith(_disposables);
+
+        UseLfsWhenAvailable = _versionControlConfig
+            .GetObservable(VersionControlConfig.UseLfsWhenAvailableProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        UseLfsWhenAvailable.Subscribe(value => _versionControlConfig.UseLfsWhenAvailable = value)
+            .DisposeWith(_disposables);
+
+        LargeMediaWarningThresholdMb = _versionControlConfig
+            .GetObservable(VersionControlConfig.LargeMediaWarningThresholdMbProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        LargeMediaWarningThresholdMb.Subscribe(value =>
+            {
+                int normalized = Math.Max(1, value);
+                if (_versionControlConfig.LargeMediaWarningThresholdMb != normalized)
+                {
+                    _versionControlConfig.LargeMediaWarningThresholdMb = normalized;
+                }
+
+                if (LargeMediaWarningThresholdMb.Value != normalized)
+                {
+                    LargeMediaWarningThresholdMb.Value = normalized;
+                }
+            })
+            .DisposeWith(_disposables);
+
         // GPU selection
         InitializeGpuSelection();
     }
@@ -262,6 +327,18 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     public ReactiveProperty<double> ProxyStoreMaxTotalGiB { get; }
 
     public ReactiveProperty<ProxyPreset> ProxyDefaultPreset { get; }
+
+    public ReactiveProperty<bool> EnableVersionControlForNewProjects { get; }
+
+    public ReactiveProperty<bool> AutoCommitOnSave { get; }
+
+    public ReactiveProperty<bool> AutoCommitOnClose { get; }
+
+    public ReactiveProperty<string> GitExecutablePath { get; }
+
+    public ReactiveProperty<bool> UseLfsWhenAvailable { get; }
+
+    public ReactiveProperty<int> LargeMediaWarningThresholdMb { get; }
 
     public IReadOnlyList<ProxyPreset> ProxyPresetOptions { get; } = Enum.GetValues<ProxyPreset>();
 

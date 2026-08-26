@@ -39,7 +39,10 @@ public abstract class OutputExtension : Extension
 
     public abstract bool TryCreateControl(IEditorContext editorContext, [NotNullWhen(true)] out Control? control);
 
-    public abstract bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context);
+    public abstract bool TryCreateContext(
+        IEditorContext editorContext,
+        IOutputOperationLeaseProvider outputOperations,
+        [NotNullWhen(true)] out IOutputContext? context);
 
     public abstract bool IsSupported(Type type);
 }

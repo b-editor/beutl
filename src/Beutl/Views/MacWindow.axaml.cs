@@ -1,20 +1,26 @@
 ﻿using System.Collections.ObjectModel;
+using System.Runtime.ExceptionServices;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Beutl.Configuration;
+using Beutl.Language;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels;
 using DynamicData;
 using DynamicData.Binding;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
 
 public sealed partial class MacWindow : Window
 {
+    private static readonly ILogger<MacWindow> s_logger = Log.CreateLogger<MacWindow>();
     private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
+    private readonly WindowShutdownCoordinator _shutdown;
 
     public MacWindow()
     {
@@ -27,6 +33,7 @@ public sealed partial class MacWindow : Window
         }
 
         InitializeComponent();
+        _shutdown = new WindowShutdownCoordinator(ShutdownAsync, Close);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         (int X, int Y)? pos = viewConfig.WindowPosition;
         (int Width, int Height)? size = viewConfig.WindowSize;
@@ -128,7 +135,16 @@ public sealed partial class MacWindow : Window
         }
     }
 
-    private void InitExtMenuItems(MainViewModel viewModel)
+    // Resolved by header rather than position: a menu edit used to shift these silently, and the
+    // catch below then dropped every extension entry instead of surfacing anything.
+    internal static NativeMenuItem? FindMenuItem(NativeMenu? menu, string header)
+    {
+        return menu?.Items
+            .OfType<NativeMenuItem>()
+            .FirstOrDefault(item => string.Equals(item.Header, header, StringComparison.Ordinal));
+    }
+
+    internal void InitExtMenuItems(MainViewModel viewModel)
     {
         NativeMenuItem? viewMenuItem = null;
         NativeMenu? editorTabMenu = null;
@@ -137,13 +153,12 @@ public sealed partial class MacWindow : Window
         NativeMenu? dockLayoutPresetMenu = null;
         try
         {
-            var rootMenu = NativeMenu.GetMenu(this)!;
-            viewMenuItem = (NativeMenuItem)rootMenu.Items[2];
-            editorTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[0]).Menu;
-            toolTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[1]).Menu;
-            toolWindowMenu = ((NativeMenuItem)rootMenu.Items[3]).Menu;
-            // View > ... > "Apply dock layout" (see MacWindow.axaml).
-            dockLayoutPresetMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[^2]).Menu;
+            NativeMenu rootMenu = NativeMenu.GetMenu(this)!;
+            viewMenuItem = FindMenuItem(rootMenu, Strings.View);
+            editorTabMenu = FindMenuItem(viewMenuItem?.Menu, Strings.Editors)?.Menu;
+            toolTabMenu = FindMenuItem(viewMenuItem?.Menu, Strings.Tools)?.Menu;
+            toolWindowMenu = FindMenuItem(rootMenu, Strings.Tools)?.Menu;
+            dockLayoutPresetMenu = FindMenuItem(viewMenuItem?.Menu, Strings.ApplyDockLayout)?.Menu;
         }
         catch
         {
@@ -204,33 +219,23 @@ public sealed partial class MacWindow : Window
 
             menuItem.Click += async (s, e) =>
             {
-                EditorTabItem? selectedTab = viewModel.EditorService.SelectedTabItem.Value;
-                if (s is NativeMenuItem { CommandParameter: EditorExtension editorExtension } menuItem
-                    && selectedTab != null)
+                if (s is not NativeMenuItem { CommandParameter: EditorExtension editorExtension })
                 {
-                    IKnownEditorCommands? commands = selectedTab.Commands.Value;
-                    if (commands != null)
-                    {
-                        await commands.OnSave();
-                    }
+                    return;
+                }
 
-                    if (editorExtension.TryCreateContext(
-                            selectedTab.Context.Value.Object,
-                            new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
-                            out IEditorContext? context))
-                    {
-                        selectedTab.Context.Value.Dispose();
-                        selectedTab.Context.Value = context;
-                    }
-                    else
-                    {
-                        NotificationService.ShowInformation(
-                            title: MessageStrings.ContextNotCreated,
-                            message: string.Format(
-                                format: MessageStrings.FailedToOpenFileWithExtension,
-                                arg0: editorExtension.DisplayName,
-                                arg1: selectedTab.FileName.Value));
-                    }
+                // An unhandled exception in an async void handler terminates the process.
+                try
+                {
+                    await viewModel.EditorService.SwitchEditorExtensionAsync(editorExtension);
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogError(
+                        ex,
+                        "Failed to switch to the {Extension} editor.",
+                        editorExtension.DisplayName);
+                    NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
                 }
             };
 
@@ -411,27 +416,13 @@ public sealed partial class MacWindow : Window
         }
     }
 
-    private bool _captureStopped;
-    private Task? _captureStopTask;
-
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (!_captureStopped)
+        if (!_shutdown.CanClose)
         {
-            if (_captureStopTask is not null)
-            {
-                // A shutdown task is already draining ffmpeg from a prior close
-                // attempt; keep cancelling until that task finalizes and calls Close().
-                e.Cancel = true;
-                return;
-            }
-
-            if (mainView is { HasActiveCapture: true } mv)
-            {
-                e.Cancel = true;
-                _captureStopTask = StopCaptureAndCloseAsync(mv);
-                return;
-            }
+            e.Cancel = true;
+            _ = _shutdown.BeginShutdownAsync();
+            return;
         }
 
         base.OnClosing(e);
@@ -439,18 +430,28 @@ public sealed partial class MacWindow : Window
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
         viewConfig.WindowPosition = (Position.X, Position.Y);
         viewConfig.IsWindowMaximized = WindowState == WindowState.Maximized;
+    }
+
+    private async Task ShutdownAsync(CancellationToken cancellationToken)
+    {
+        // See MainWindow.ShutdownAsync: a capture that refuses to stop must not skip the agent-host
+        // drain, the project close and its version-control snapshot, or the composition-root dispose.
+        ExceptionDispatchInfo? captureFailure = null;
+        try
+        {
+            await mainView.EnsureCaptureStoppedAsync();
+        }
+        catch (Exception ex)
+        {
+            captureFailure = ExceptionDispatchInfo.Capture(ex);
+        }
 
         if (DataContext is MainViewModel viewModel)
         {
-            viewModel.Dispose();
+            await viewModel.ShutdownAsync(cancellationToken);
         }
-    }
 
-    private async Task StopCaptureAndCloseAsync(MainView mv)
-    {
-        await mv.EnsureCaptureStoppedAsync();
-        _captureStopped = true;
-        Close();
+        captureFailure?.Throw();
     }
 
     private async void OpenTutorialsDialog(object? sender, EventArgs e) => await mainView.ShowTutorialsDialogAsync();

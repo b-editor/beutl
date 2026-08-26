@@ -74,6 +74,8 @@ public abstract class CoreObject : ICoreObject
 
     public Uri? Uri { get; set; }
 
+    internal bool WasTypeDiscriminatorAddedDuringRestore { get; set; }
+
     private Dictionary<int, IEntry> Values => _values ??= [];
 
     private Dictionary<int, string> Errors => _errors ??= [];

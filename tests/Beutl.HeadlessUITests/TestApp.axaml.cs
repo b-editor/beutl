@@ -56,6 +56,17 @@ public sealed class TestApp : Application
         }
     }
 
+    // The suite runs at PerAssembly isolation, so this composition root is shared by every test
+    // case. A case that disposes it would leave the rest of the run holding a torn-down shell, so
+    // the next reset drops it and GetMainViewModel builds a fresh one.
+    internal void DropMainViewModelIfDisposed()
+    {
+        if (_mainViewModel is { IsDisposed: true })
+        {
+            _mainViewModel = null;
+        }
+    }
+
     public MainViewModel GetMainViewModel()
     {
         if (_mainViewModel is null)

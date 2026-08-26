@@ -98,6 +98,67 @@
                 </ctrls:OptionsDisplayItem>
 
                 <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:Strings.VersionControl}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.VersionControl_EnableForNewProjects_Description}"
+                                          Header="{x:Static lang:SettingsStrings.VersionControl_EnableForNewProjects}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding EnableVersionControlForNewProjects.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.VersionControl_AutoCommitOnSave_Description}"
+                                          Header="{x:Static lang:SettingsStrings.VersionControl_AutoCommitOnSave}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding AutoCommitOnSave.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.VersionControl_AutoCommitOnClose_Description}"
+                                          Header="{x:Static lang:SettingsStrings.VersionControl_AutoCommitOnClose}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding AutoCommitOnClose.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.VersionControl_GitExecutablePath_Description}"
+                                          Header="{x:Static lang:SettingsStrings.VersionControl_GitExecutablePath}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBox MinWidth="250"
+                                 VerticalAlignment="Center"
+                                 Watermark="{x:Static lang:SettingsStrings.VersionControl_GitExecutablePath_Automatic}"
+                                 Text="{CompiledBinding GitExecutablePath.Value, Mode=TwoWay}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.VersionControl_UseLfsWhenAvailable_Description}"
+                                          Header="{x:Static lang:SettingsStrings.VersionControl_UseLfsWhenAvailable}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding UseLfsWhenAvailable.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.VersionControl_LargeMediaWarningThresholdMb_Description}"
+                                          Header="{x:Static lang:SettingsStrings.VersionControl_LargeMediaWarningThresholdMb}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <NumericUpDown MinWidth="250"
+                                       FormatString="F0"
+                                       Increment="1"
+                                       Minimum="1"
+                                       Value="{CompiledBinding LargeMediaWarningThresholdMb.Value, Mode=TwoWay}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <TextBlock Margin="0,16,0,0"
                            Text="{x:Static lang:SettingsStrings.ProxyMedia}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 

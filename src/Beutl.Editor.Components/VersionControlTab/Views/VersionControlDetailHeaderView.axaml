@@ -1,0 +1,33 @@
+﻿<UserControl x:Class="Beutl.Editor.Components.VersionControlTab.Views.VersionControlDetailHeaderView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
+             d:DesignHeight="56"
+             d:DesignWidth="420"
+             x:CompileBindings="True"
+             x:DataType="vm:VersionControlTabViewModel"
+             mc:Ignorable="d">
+    <Border Padding="8"
+            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+            BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <Button x:Name="BackButton"
+                    Command="{Binding BackToHistoryCommand}"
+                    Content="{x:Static lang:Strings.Back}"
+                    VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Spacing="2">
+                <TextBlock Classes="secondary"
+                           Text="{Binding SelectedCommit.Value.Commit.ShortSha}" />
+                <TextBlock FontWeight="SemiBold"
+                           Text="{Binding SelectedCommit.Value.DisplayMessage}"
+                           TextTrimming="CharacterEllipsis"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

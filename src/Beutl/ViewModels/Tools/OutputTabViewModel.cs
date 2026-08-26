@@ -61,8 +61,20 @@ public class OutputTabViewModel : IToolContext
     {
         _logger.LogInformation("Removing item: {ItemName}", item.Context.Name.Value);
         int index = Items.IndexOf(item);
-        Items.Remove(item);
-        item.Dispose();
+        if (index < 0)
+        {
+            _logger.LogWarning("The output profile is not part of this tab.");
+            return;
+        }
+
+        if (!item.TryDisposeIfIdle())
+        {
+            _logger.LogWarning("Cannot remove an output profile while it is encoding: {ItemName}",
+                item.Context.Name.Value);
+            return;
+        }
+
+        Items.RemoveAt(index);
         if (Items.Count > 0)
         {
             if (index < Items.Count)

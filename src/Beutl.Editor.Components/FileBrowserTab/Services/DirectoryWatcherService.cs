@@ -127,8 +127,13 @@ internal sealed class DirectoryWatcherService : IDisposable
     }
 
     // プロジェクト、シーン、要素のファイルは頻繁に変更されるため除外
-    private bool ShouldExcludePath(string path)
+    internal bool ShouldExcludePath(string path)
     {
+        if (HasGitMetadataSegment(path))
+        {
+            return true;
+        }
+
         // templatesディレクトリは例外
         if (PathScope.IsUnderDirectory(path, BeutlEnvironment.GetTemplatesDirectoryPath()))
         {
@@ -145,6 +150,33 @@ internal sealed class DirectoryWatcherService : IDisposable
                path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase) ||
                path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase) ||
                path.Contains(".beutl");
+    }
+
+    private static bool HasGitMetadataSegment(string path)
+    {
+        ReadOnlySpan<char> remaining = path;
+        while (!remaining.IsEmpty)
+        {
+            int separator = remaining.IndexOfAny(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+            ReadOnlySpan<char> segment = separator >= 0
+                ? remaining[..separator]
+                : remaining;
+            if (segment.Equals(".git", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (separator < 0)
+            {
+                break;
+            }
+
+            remaining = remaining[(separator + 1)..];
+        }
+
+        return false;
     }
 
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)

@@ -30,6 +30,11 @@ internal static class ToolErrorMapper
                 ex.Path,
                 "Reload the project or save to a different path."),
             SessionUnavailableException ex => ex.ToError(),
+            OutputOperationBusyException ex => new ToolError(
+                ex.Code,
+                ex.Message,
+                null,
+                "Retry after the conflicting workspace operation completes."),
             RenderingUnavailableException ex => new ToolError(ex.Code, ex.Message),
             CodecUnavailableException ex => new ToolError(ex.Code, ex.Message),
             UnsupportedMediaException ex => new ToolError(ErrorCode.MediaUnsupported, ex.Message, ex.FileName),

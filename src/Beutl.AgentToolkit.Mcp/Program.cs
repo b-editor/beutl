@@ -3,6 +3,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Extensibility;
 using Beutl.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -17,6 +18,7 @@ ConfigureConsoleLogging(builder.Logging);
 
 builder.Services
     .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
+    .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
     .AddSingleton<DestructiveGuard>()
     .AddSingleton<StillRenderer>()
     .AddSingleton<StoryboardRenderer>()
