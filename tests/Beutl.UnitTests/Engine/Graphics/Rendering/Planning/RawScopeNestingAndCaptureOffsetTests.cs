@@ -2,8 +2,8 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
-using SkiaSharp;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
@@ -208,22 +208,7 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         scope.AddChild(probe);
         scope.AddChild(new DrawBackdropRenderNode(probe, domain));
         root.AddChild(scope);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    OutputScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-                // The clamp under test is planning's, against the engine ceiling. Leaving the allocator
-                // implicit would measure the buffer against whatever this machine's GPU can attach, and the
-                // assertion below would then hold only on a device that reaches that ceiling.
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = CreateProbeRenderer(root, domain);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -240,42 +225,47 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         });
     }
 
+    /// <remarks>
+    /// A clamped capture necessarily reaches <see cref="RenderScaleUtilities.MaxBufferDimension"/> on the axis
+    /// that forced the clamp, so the only axis this fixture is free to choose is the other one. It keeps that
+    /// one two logical pixels wide: the buffer is 8x16384, about a megabyte at RgbaF16, where a full-frame
+    /// domain would ask for a quarter of a gigabyte and be declined on a constrained runner - answering a
+    /// question about planning with a fact about the machine.
+    /// </remarks>
     [Test]
     public void BuiltInBackdropCapture_ClampsTheMaximumSingularValueToTheCaptureFootprint()
     {
-        var domain = new Rect(0, 0, 1920, 1080);
-        Matrix transform = Matrix.CreateScale(4, 0.25f);
+        const float maximumSingularValue = 8;
+        var domain = new Rect(0, 0, 16, 1024);
+        Matrix transform = Matrix.CreateScale(maximumSingularValue, 0.25f);
         using var root = new ContainerRenderNode();
         var scope = new TransformRenderNode(transform, TransformOperator.Append);
         var probe = new CaptureSizeProbeNode();
         scope.AddChild(probe);
         scope.AddChild(new DrawBackdropRenderNode(probe, domain));
         root.AddChild(scope);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    OutputScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = CreateProbeRenderer(root, domain);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
+        // The preimage is 2x4096, so the maximum singular value alone overflows the ceiling, and the largest
+        // density that still fits it is the ceiling over the taller preimage axis.
         Rect captureBounds = domain.TransformToAABB(transform.Invert());
-        float expectedDensity = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(captureBounds, 4);
+        float expectedDensity = RenderScaleUtilities.MaxBufferDimension / captureBounds.Height;
         PixelRect expectedFootprint = PixelRect.FromRect(captureBounds, expectedDensity);
+        PixelRect unclampedFootprint = PixelRect.FromRect(captureBounds, maximumSingularValue);
         Assert.Multiple(() =>
         {
-            Assert.That(probe.CapturedDensity, Is.EqualTo(expectedDensity).Within(1e-4f));
-            Assert.That(probe.CapturedDensity, Is.LessThan(4));
+            Assert.That(unclampedFootprint.Height, Is.GreaterThan(RenderScaleUtilities.MaxBufferDimension),
+                "The fixture must ask for a footprint the engine ceiling refuses, or nothing is clamped.");
+            Assert.That(probe.CapturedDensity, Is.EqualTo(expectedDensity).Within(1e-4f),
+                "Only a density taken from the maximum singular value overflows here - the coarser axis and "
+                + "the two axes' geometric mean both fit unclamped and would have been reported unreduced.");
+            Assert.That(probe.CapturedDensity, Is.LessThan(maximumSingularValue));
             Assert.That(probe.CapturedDeviceSize, Is.EqualTo(expectedFootprint.Size));
+            Assert.That(expectedFootprint.Height, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                "The clamp must give up only what the ceiling costs, leaving the limiting axis against it.");
             Assert.That(expectedFootprint.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
-            Assert.That(expectedFootprint.Height, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
         });
     }
 
@@ -292,18 +282,7 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         scope.AddChild(probe);
         scope.AddChild(new DrawBackdropRenderNode(probe, domain));
         root.AddChild(scope);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    OutputScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = CreateProbeRenderer(root, domain);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -429,6 +408,26 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
 
         Assert.That(() => renderer.Rasterize().Dispose(), Throws.Nothing);
     }
+
+    /// <remarks>
+    /// A capture-density probe reads the density planning gave a capture, so the buffer has to be the one
+    /// planning asked for. Leaving the allocator implicit measures it against whatever this machine's GPU can
+    /// attach instead, and a capture clamped to the engine ceiling is past what several devices allow.
+    /// </remarks>
+    private static RenderNodeRenderer CreateProbeRenderer(RenderNode node, Rect domain)
+        => new(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = domain,
+                    OutputScale = 1,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
         => new(
