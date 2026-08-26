@@ -295,7 +295,7 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         Drawable targetDrawable,
         bool reverse = false)
     {
-        using var resource = (Resource)ToResource(CompositionContext.Default);
+        using var resource = (Resource)ToResource(new CompositionContext(start));
         return CalculateTimelineDuration(start, targetDuration, targetDrawable, resource, reverse);
     }
 
@@ -734,7 +734,7 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
     /// </summary>
     public bool HasUnboundedTail(TimeRange timeRange, Drawable targetDrawable, bool reverse = false)
     {
-        using var resource = (Resource)ToResource(CompositionContext.Default);
+        using var resource = (Resource)ToResource(new CompositionContext(GetSampleTime(timeRange)));
         return HasUnboundedTail(timeRange, targetDrawable, resource);
     }
 
@@ -789,8 +789,15 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable targetDrawable)
     {
-        using var resource = (Resource)ToResource(CompositionContext.Default);
+        using var resource = (Resource)ToResource(new CompositionContext(GetSampleTime(timeRange)));
         return CalculateTargetTimeRange(timeRange, targetDrawable, resource);
+    }
+
+    private static TimeSpan GetSampleTime(TimeRange timeRange)
+    {
+        return timeRange.IsEmpty
+            ? timeRange.Start
+            : timeRange.Start + TimeSpan.FromTicks(timeRange.Duration.Ticks / 2);
     }
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)

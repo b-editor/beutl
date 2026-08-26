@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Editor.Services;
@@ -362,6 +363,38 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SourceVideo_OvershootingSpeedEasingDoesNotAssumeEndpointMaximum()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 30)));
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 10f,
+            Easing = new BackEaseOut(),
+        });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            Speed = { Animation = speed },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(0.88) },
+        };
+        element.Objects.Add(video);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(0.1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.88)));
+        });
+    }
+
+    [Test]
     public void Slip_SourceSound_ShiftsOffsetPositionAndCommits()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
@@ -685,6 +718,118 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Slip_ExpressionBackedTimeControllerMappingUsesQueriedCompositionTime()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            TimeRange = element.Range,
+            Target = { CurrentValue = video },
+        };
+        controller.OffsetPosition.Expression = new TimeSpanAtOrAfterExpression(
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(9));
+        element.Objects.Add(controller);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void ResizeBounds_FuturePresenterTargetConstrainsTailAfterKeyframe()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        var currentSource = new VideoSource();
+        currentSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var futureSource = new VideoSource();
+        futureSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 150)));
+        var currentVideo = new SourceVideo
+        {
+            Source = { CurrentValue = currentSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var futureVideo = new SourceVideo
+        {
+            Source = { CurrentValue = futureSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(5)),
+        };
+        var targetAnimation = new KeyFrameAnimation<SourceVideo?>();
+        targetAnimation.KeyFrames.Add(new KeyFrame<SourceVideo?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = currentVideo,
+        });
+        targetAnimation.KeyFrames.Add(new KeyFrame<SourceVideo?>
+        {
+            KeyTime = TimeSpan.FromSeconds(5),
+            Value = futureVideo,
+        });
+        var presenter = new TestSourceVideoTimeMappingPresenter
+        {
+            Target = { CurrentValue = currentVideo, Animation = targetAnimation },
+        };
+        presenter.Target.Expression = new SwitchingSourceVideoExpression(
+            currentVideo, futureVideo, TimeSpan.FromSeconds(5));
+        element.Objects.Add(presenter);
+
+        TimeSpan room = SlippableMedia.OutPointRoom(
+            SlippableMedia.Collect(element),
+            element.Length);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(1)));
+    }
+
+    [Test]
+    public void Slip_FuturePresenterTargetIsNotShiftedBeforeItBecomesActive()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        var currentVideo = new SourceVideo();
+        var futureVideo = new SourceVideo();
+        var targetAnimation = new KeyFrameAnimation<SourceVideo?>();
+        targetAnimation.KeyFrames.Add(new KeyFrame<SourceVideo?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = currentVideo,
+        });
+        targetAnimation.KeyFrames.Add(new KeyFrame<SourceVideo?>
+        {
+            KeyTime = TimeSpan.FromSeconds(5),
+            Value = futureVideo,
+        });
+        var presenter = new TestSourceVideoTimeMappingPresenter
+        {
+            Target = { CurrentValue = currentVideo, Animation = targetAnimation },
+        };
+        presenter.Target.Expression = new SwitchingSourceVideoExpression(
+            currentVideo, futureVideo, TimeSpan.FromSeconds(5));
+        element.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(currentVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(futureVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -1310,12 +1455,12 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
 
 internal sealed partial class TestSourceVideoTimeMappingPresenter : Drawable, ITimeMappingPresenter<SourceVideo>
 {
-    public IProperty<SourceVideo?> Target { get; } = Property.Create<SourceVideo?>();
+    public IProperty<SourceVideo?> Target { get; } = Property.CreateAnimatable<SourceVideo?>();
 
     public bool IsReversed(TimeRange timeRange, SourceVideo target) => false;
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, SourceVideo target)
-        => new(TimeSpan.Zero, timeRange.Duration);
+        => timeRange;
 
     public bool HasUnboundedTail(TimeRange timeRange, SourceVideo target, bool reverse = false)
         => false;
@@ -1342,6 +1487,41 @@ internal sealed class ConstantSourceVideoExpression(SourceVideo target) : IExpre
     public Type ResultType => typeof(SourceVideo);
 
     public SourceVideo? Evaluate(ExpressionContext context) => target;
+
+    public bool Validate(out string? error)
+    {
+        error = null;
+        return true;
+    }
+}
+
+internal sealed class TimeSpanAtOrAfterExpression(TimeSpan threshold, TimeSpan value) : IExpression<TimeSpan>
+{
+    public string ExpressionString => "time-span-at-or-after";
+
+    public Type ResultType => typeof(TimeSpan);
+
+    public TimeSpan Evaluate(ExpressionContext context)
+        => context.Time >= threshold ? value : TimeSpan.Zero;
+
+    public bool Validate(out string? error)
+    {
+        error = null;
+        return true;
+    }
+}
+
+internal sealed class SwitchingSourceVideoExpression(
+    SourceVideo before,
+    SourceVideo after,
+    TimeSpan threshold) : IExpression<SourceVideo?>
+{
+    public string ExpressionString => "switching-source-video";
+
+    public Type ResultType => typeof(SourceVideo);
+
+    public SourceVideo Evaluate(ExpressionContext context)
+        => context.Time < threshold ? before : after;
 
     public bool Validate(out string? error)
     {
