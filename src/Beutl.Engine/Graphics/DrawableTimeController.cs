@@ -164,11 +164,12 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
             return timeRange;
 
-        if (resource.Loop)
-            return targetDrawable.TimeRange;
-
         TimeSpan start = CalculateTargetTime(timeRange.Start, resource, targetDrawable);
         TimeSpan end = CalculateTargetTime(timeRange.End, resource, targetDrawable);
+
+        if (resource.Loop && end < start)
+            return targetDrawable.TimeRange;
+
         TimeSpan rangeStart = start <= end ? start : end;
         TimeSpan rangeEnd = start >= end ? start : end;
         return new TimeRange(rangeStart, rangeEnd - rangeStart);
