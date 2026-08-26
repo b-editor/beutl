@@ -650,6 +650,26 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_VideoNestedInSpecializedTimeMappingPresenter_IsCollected()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var video = new SourceVideo();
+        var presenter = new TestSourceVideoTimeMappingPresenter
+        {
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
     public void Slip_AnimatedSourceUsesTightestActiveSourceBound()
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(6));
@@ -682,6 +702,74 @@ public class ElementSlipServiceTests
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
         });
+    }
+
+    [Test]
+    public void ResizeBounds_AnimatedSourceSkipsSourceLessStateBeforeNextSource()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var currentSource = new VideoSource();
+        currentSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 600)));
+        var futureSource = new VideoSource();
+        futureSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 600)));
+        var sourceAnimation = new KeyFrameAnimation<VideoSource?>();
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = currentSource,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(5),
+            Value = null,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(6),
+            Value = futureSource,
+        });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = currentSource, Animation = sourceAnimation },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        element.Objects.Add(video);
+
+        TimeSpan room = SlippableMedia.OutPointRoom(
+            SlippableMedia.Collect(element),
+            element.Length);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(19)));
+    }
+
+    [Test]
+    public void ResizeBounds_LoopedSourceNormalizesMappedPositionBeforeOffset()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsLoop = { CurrentValue = true },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(1) },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(-2),
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        TimeSpan room = SlippableMedia.OutPointRoom(
+            SlippableMedia.Collect(element),
+            element.Length);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.Zero));
     }
 
     [Test]
@@ -1162,6 +1250,33 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
 
         return targetDuration;
     }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+        => Size.Empty;
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+}
+
+internal sealed partial class TestSourceVideoTimeMappingPresenter : Drawable, ITimeMappingPresenter<SourceVideo>
+{
+    public IProperty<SourceVideo?> Target { get; } = Property.Create<SourceVideo?>();
+
+    public bool IsReversed => false;
+
+    public TimeRange CalculateTargetTimeRange(TimeRange timeRange, SourceVideo target)
+        => new(TimeSpan.Zero, timeRange.Duration);
+
+    public bool HasUnboundedTail(TimeRange timeRange, SourceVideo target, bool reverse = false)
+        => false;
+
+    public TimeSpan CalculateTimelineDuration(
+        TimeSpan start,
+        TimeSpan targetDuration,
+        SourceVideo target,
+        bool reverse = false)
+        => targetDuration;
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
         => Size.Empty;
