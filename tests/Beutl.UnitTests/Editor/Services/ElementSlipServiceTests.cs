@@ -257,6 +257,29 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_SourceVideo_SubFrameConsumptionReservesLastSourceFrame()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(0.1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            Speed = { CurrentValue = 1f },
+        };
+        element.Objects.Add(video);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+        TimeSpan frameDuration = TimeSpan.FromSeconds(1d / 30);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3) - frameDuration));
+        });
+    }
+
+    [Test]
     public void Slip_SourceVideo_AnimatedSpeedAdjustsSourceBounds()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
@@ -674,6 +697,62 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(6)));
+        });
+    }
+
+    [Test]
+    public void Slip_LoopedSourceVideo_NormalizesMappedSourcePosition()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            IsLoop = { CurrentValue = true },
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(10) },
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(controller);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(5)));
+        });
+    }
+
+    [Test]
+    public void Slip_LoopedSourceVideo_ReservesFullCycleWhenMappedRangeWraps()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            IsLoop = { CurrentValue = true },
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(9.5) },
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(controller);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
         });
     }
 

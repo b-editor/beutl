@@ -1350,6 +1350,59 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void CalculateTimelineDuration_LoopedFrameRateUsesQuantizedTail()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            FrameRate = { CurrentValue = 1f },
+            Loop = { CurrentValue = true },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(0.1),
+            TimeSpan.FromSeconds(0.5),
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(0.9)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_ReverseAnimationStopsAtClockOrigin()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200f });
+        var controller = new DrawableTimeController
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(4),
+            video,
+            resource,
+            reverse: true);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_BackInPoint_MinClampedToSourceHead()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
