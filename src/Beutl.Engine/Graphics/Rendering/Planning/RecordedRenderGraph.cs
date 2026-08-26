@@ -171,10 +171,9 @@ internal sealed class RecordedRenderGraphBuilder
         _nestedRequests.Add(nestedRequest);
     }
 
-    public void Append(NodeRecordingCommit commit)
+    public void Append(in NodeRecordingCommit commit)
     {
         EnsureMutable();
-        ArgumentNullException.ThrowIfNull(commit);
 
         HashSet<RenderFragmentReference> available = _appendScratchAvailable;
         available.Clear();

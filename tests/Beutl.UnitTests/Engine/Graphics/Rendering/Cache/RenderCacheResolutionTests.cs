@@ -475,7 +475,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [primary, maskDependency],
             payload: null,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
 
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
             RenderMaterializationDemandResolver.Resolve(
@@ -507,7 +507,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [primary, maskDependency],
             payload: null,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
         var boundaries = new HashSet<RenderFragmentReference>(
             ReferenceEqualityComparer.Instance)
         {
@@ -849,7 +849,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [denseInput],
             payload: null,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
         var command = new RenderFragmentReference(
             RenderFragmentKind.TargetCommand,
             s_bounds,
@@ -861,7 +861,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [layer],
             payload: null,
-            static _ => false);
+            RenderFragmentHitTest.None);
 
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
             RenderMaterializationDemandResolver.Resolve(
@@ -982,7 +982,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [leaf],
             new LayerRenderFragmentPayload(bounds),
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
         RenderFragmentReference transform = ValueReplayMap(
             layer,
             EffectiveScale.Unbounded,
@@ -1032,7 +1032,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [leaf],
             new LayerRenderFragmentPayload(layerDomain),
-            static _ => false);
+            RenderFragmentHitTest.None);
         var contributing = new RenderFragmentReference(
             RenderFragmentKind.ContributeValues,
             inputBounds,
@@ -1044,7 +1044,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [layer],
             payload: null,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
         using Scenario scenario = Build(
             [leaf, layer, contributing],
             [contributing],
@@ -1216,7 +1216,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [source],
             new ShaderRenderFragmentPayload(description),
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
         return Build(
             [source, shader],
             [shader],
@@ -1347,7 +1347,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [input],
             new ShaderRenderFragmentPayload(description),
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
 
     private static Scenario GeometryCandidate(GeometryDescription description)
     {
@@ -1363,7 +1363,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [source],
             new GeometryRenderFragmentPayload(description),
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
         return Build(
             [source, geometry],
             [geometry],
@@ -1385,7 +1385,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [primary, dependency],
             payload: null,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
         return Build(
             [primary, dependency, opacityMask],
             [opacityMask],
@@ -1424,7 +1424,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [input],
             new TargetScopeRenderFragmentPayload(description),
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
     }
 
     private static RenderFragmentReference AuthoredTargetScope(
@@ -1452,7 +1452,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: false,
             [input],
             new TargetScopeRenderFragmentPayload(description),
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
     }
 
     private static RenderFragmentReference RawTargetScope(
@@ -1475,7 +1475,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: true,
             [input],
             new RawTargetScopeRenderFragmentPayload(description),
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
     }
 
     private static EffectiveScale ReduceSupplyByFour(EffectiveScale inputSupply)
@@ -1643,7 +1643,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: inputs.Any(static item => item.HasOpaqueExternalWork),
             [.. inputs],
             payload,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
     }
 
 
@@ -1690,7 +1690,7 @@ public sealed class RenderCacheResolutionTests
                 OpaqueRenderTopology.Map,
                 description,
                 [RenderInputReadback.None]),
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
     }
 
     private static RenderFragmentReference Boundary(
@@ -1757,7 +1757,7 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: kind == RenderFragmentKind.RawTargetScope,
             [.. inputs],
             payload,
-            static _ => false);
+            RenderFragmentHitTest.None);
     }
 
     private sealed class Scenario : IDisposable

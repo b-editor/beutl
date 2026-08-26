@@ -230,7 +230,7 @@ public sealed class RenderNodeRecordingCacheTests
     }
 
     /// <remarks>
-    /// A refused node still reports whether its recording repeats, or nothing above one could ever be reused.
+    /// A refused node re-records every request, and what it produces is what an ancestor was recorded over.
     /// </remarks>
     [Test]
     public void AnAncestorOfARefusedNode_IsStillReused()
@@ -250,8 +250,13 @@ public sealed class RenderNodeRecordingCacheTests
         });
     }
 
+    /// <remarks>
+    /// What an ancestor is recorded over is the fragments below it, not the fact that the node beneath it ran
+    /// its <see cref="RenderNode.Process(RenderNodeContext)"/> again. A leaf that reports a change and then
+    /// records what it recorded before leaves its ancestor's inputs digesting to what it was recorded over.
+    /// </remarks>
     [Test]
-    public void ARefusedNodeThatChanges_StillForcesItsAncestorToRecordAgain()
+    public void ARefusedNodeThatChangesNothingItRecords_LeavesItsAncestorServed()
     {
         using var raw = new BorrowedThing();
         using var leaf = new ResourceBindingNode(s_bounds, raw);
@@ -261,6 +266,27 @@ public sealed class RenderNodeRecordingCacheTests
         Record(root);
         Record(root);
         leaf.HasChanges = true;
+        Record(root);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(leaf.ProcessCalls, Is.EqualTo(3), "a refused node records for every request");
+            Assert.That(root.ProcessCalls, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void ARefusedNodeThatChangesWhatItRecords_ForcesItsAncestorToRecordAgain()
+    {
+        using var raw = new BorrowedThing();
+        using var leaf = new ResourceBindingNode(s_bounds, raw);
+        using var root = new CountingContainerNode();
+        root.AddChild(leaf);
+
+        Record(root);
+        Record(root);
+        leaf.HasChanges = true;
+        leaf.Bounds = s_bounds.Inflate(4);
         Record(root);
 
         Assert.That(root.ProcessCalls, Is.EqualTo(2));
@@ -410,11 +436,13 @@ public sealed class RenderNodeRecordingCacheTests
     {
         public int ProcessCalls { get; private set; }
 
+        public Rect Bounds { get; set; } = bounds;
+
         public override void Process(RenderNodeContext context)
         {
             ProcessCalls++;
             _ = context.Borrow(raw);
-            context.Publish(context.OpaqueSource(CreateSource(bounds)));
+            context.Publish(context.OpaqueSource(CreateSource(Bounds)));
         }
     }
 

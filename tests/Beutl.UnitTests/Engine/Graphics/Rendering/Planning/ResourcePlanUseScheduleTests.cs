@@ -76,5 +76,5 @@ public sealed class ResourcePlanUseScheduleTests
             hasOpaqueExternalWork: false,
             [.. inputs],
             payload: null,
-            hitTest: null);
+            hitTest: RenderFragmentHitTest.None);
 }

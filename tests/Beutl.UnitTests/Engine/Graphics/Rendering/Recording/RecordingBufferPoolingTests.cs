@@ -339,7 +339,7 @@ public sealed class RecordingBufferPoolingTests
             hasOpaqueExternalWork: false,
             inputs: [],
             payload: null,
-            hitTest: null);
+            hitTest: RenderFragmentHitTest.None);
 
     private static RenderRequestOptions CreateOptions(RenderRequestOwner? owner)
         => new(

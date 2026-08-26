@@ -314,7 +314,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             hasOpaqueExternalWork: inputs.Any(static input => input.HasOpaqueExternalWork),
             [.. inputs],
             payload,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
 
     private sealed record GraphFixture(
         RecordedRenderGraph Graph,

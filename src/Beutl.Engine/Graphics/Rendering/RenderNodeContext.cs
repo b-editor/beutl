@@ -258,7 +258,7 @@ public sealed class RenderNodeContext
             reference.HasOpaqueExternalWork,
             [reference],
             payload: null,
-            reference.HitTest);
+            RenderFragmentHitTest.Inputs);
     }
 
     /// <summary>Records a deferred premultiplied-opacity scope around one fragment stream.</summary>
@@ -285,7 +285,7 @@ public sealed class RenderNodeContext
             new OpacityRenderFragmentPayload(
                 opacity,
                 OpacityRenderNode.CreateFusionDescription(opacity)),
-            reference.HitTest);
+            RenderFragmentHitTest.Inputs);
     }
 
     /// <summary>Records a blend-mode boundary around one input.</summary>
@@ -313,7 +313,7 @@ public sealed class RenderNodeContext
             reference.HasOpaqueExternalWork,
             [reference],
             new BlendRenderFragmentPayload(blendMode),
-            reference.HitTest);
+            RenderFragmentHitTest.Inputs);
     }
 
     /// <summary>Records an opacity-mask fragment and its declarative brush dependencies.</summary>
@@ -349,7 +349,7 @@ public sealed class RenderNodeContext
                 mask,
                 brushBounds,
                 invert),
-            reference.HitTest);
+            RenderFragmentHitTest.Inputs);
     }
 
     /// <summary>Records a deferred shader transformation over one value-eligible fragment.</summary>
@@ -428,7 +428,7 @@ public sealed class RenderNodeContext
             new ShaderRenderFragmentPayload(
                 description,
                 workingScalePolicy),
-            reference.HitTest);
+            RenderFragmentHitTest.Inputs);
     }
 
     /// <summary>Records a deferred geometry callback over one value-eligible fragment.</summary>
@@ -487,11 +487,6 @@ public sealed class RenderNodeContext
             scale = EffectiveScale.At(workingScale);
         }
 
-        Func<Point, bool> hitTest = CreateHitTest(
-            description.HitTest,
-            bounds,
-            [reference],
-            description.Resources);
         RenderValueCardinality cardinality = RenderValueCardinality.Range(
             minimum: 0,
             maximum: reference.ValueCardinality.Maximum);
@@ -508,7 +503,7 @@ public sealed class RenderNodeContext
             new GeometryRenderFragmentPayload(
                 description,
                 workingScalePolicy),
-            hitTest);
+            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
     internal RenderFragmentHandle PaintedSource<TState>(
@@ -607,7 +602,6 @@ public sealed class RenderNodeContext
 
         Rect bounds = description.Bounds.TransformBounds([]);
         EffectiveScale scale = description.Scale.Resolve([], bounds, OutputScale, MaxWorkingScale);
-        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, bounds, [], description.Resources);
         return GetTransaction().CreateFragment(
             RenderFragmentKind.OpaqueSource,
             bounds,
@@ -619,7 +613,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: !description.HasDirectReplayMaterializationContract,
             inputs: [],
             new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Source, description, inputReadbacks),
-            hitTest);
+            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
     /// <summary>Records an opaque value-source call.</summary>
@@ -659,11 +653,6 @@ public sealed class RenderNodeContext
         RenderValueCardinality cardinality = description.ValueCardinality.Equals(RenderValueCardinality.Single)
             ? reference.ValueCardinality
             : RenderValueCardinality.Range(0, reference.ValueCardinality.Maximum);
-        Func<Point, bool> hitTest = CreateHitTest(
-            description.HitTest,
-            bounds,
-            [reference],
-            description.Resources);
         return transaction.CreateFragment(
             RenderFragmentKind.OpaqueMap,
             bounds,
@@ -675,7 +664,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: true,
             [reference],
             new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Map, description, inputReadbacks),
-            hitTest);
+            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
     /// <summary>Records an opaque one-input value-transformation call.</summary>
@@ -796,7 +785,7 @@ public sealed class RenderNodeContext
                 [.. recordedBoundsItems],
                 workingScalePolicy,
                 references.Length),
-            outputBounds.Contains,
+            RenderFragmentHitTest.Bounds,
             requiresOwningTargetDomain
                 ? RenderFragmentBoundsRequirement.OwningTargetDomain
                 : RenderFragmentBoundsRequirement.Finite);
@@ -812,7 +801,6 @@ public sealed class RenderNodeContext
     {
         ArgumentNullException.ThrowIfNull(description);
         ValidateDescriptionResources([description.Target], nameof(description));
-        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, description.Bounds, [], []);
         return GetTransaction().CreateFragment(
             RenderFragmentKind.MaterializedInput,
             description.Bounds,
@@ -824,7 +812,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: false,
             inputs: [],
             new MaterializedInputRenderFragmentPayload(description),
-            hitTest);
+            RenderFragmentHitTest.FromContract(description.HitTest, null));
     }
 
     /// <summary>Records a declared capture of the active target.</summary>
@@ -843,7 +831,6 @@ public sealed class RenderNodeContext
                 description.Bounds,
                 OutputScale,
                 MaxWorkingScale);
-        Func<Point, bool> hitTest = CreateHitTest(description.HitTest, description.Bounds, [], []);
         return GetTransaction().CreateFragment(
             RenderFragmentKind.TargetCapture,
             description.Bounds,
@@ -855,7 +842,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: false,
             inputs: [],
             new TargetCaptureRenderFragmentPayload(description),
-            hitTest);
+            RenderFragmentHitTest.FromContract(description.HitTest, null));
     }
 
     internal RenderFragmentHandle BuiltInBackdropCapture(object identity)
@@ -885,7 +872,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: false,
             inputs: [],
             new BuiltInBackdropCaptureRenderFragmentPayload(description, identity),
-            hitTest: null,
+            RenderFragmentHitTest.FromContract(description.HitTest, null),
             boundsRequirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
         transaction.BindBuiltInBackdrop(identity, handle);
         return handle;
@@ -951,9 +938,9 @@ public sealed class RenderNodeContext
             : domain;
         // The layer's own bounds are clipped to the domain above, so a point the domain excludes names
         // content the layer cannot render however far an input's geometry reaches.
-        Func<Point, bool> hitTest = hasConcreteInputMetadata
-            ? point => domain.Contains(point) && references.Any(item => item.HitTest(point))
-            : domain.Contains;
+        RenderFragmentHitTest hitTest = hasConcreteInputMetadata
+            ? RenderFragmentHitTest.RegionAndInputs(domain)
+            : RenderFragmentHitTest.Region(domain);
         return transaction.CreateFragment(
             RenderFragmentKind.Layer,
             bounds,
@@ -1001,7 +988,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
             references,
             new LayerRenderFragmentPayload(Domain: null),
-            point => references.Any(item => item.HitTest(point)),
+            RenderFragmentHitTest.Inputs,
             boundsRequirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
     }
 
@@ -1031,7 +1018,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
             references,
             new TargetLayerScopeRenderFragmentPayload(region),
-            CreateTargetLayerScopeHitTest(region, references),
+            CreateTargetLayerScopeHitTest(region),
             hasDirectSymbolicBoundsDependency: region.Kind == TargetRegionKind.Full);
     }
 
@@ -1039,19 +1026,13 @@ public sealed class RenderNodeContext
     // point outside it names content this scope cannot render however far an input's geometry reaches. A Full
     // region has no recording-time extent to test against and defers to its inputs, and an Empty one renders
     // nothing at all.
-    private static Func<Point, bool> CreateTargetLayerScopeHitTest(
-        TargetRegion region,
-        ImmutableArray<RenderFragmentReference> references)
-    {
-        if (region.Kind == TargetRegionKind.Empty)
-            return static _ => false;
-
-        if (region.Kind != TargetRegionKind.Region)
-            return point => references.Any(item => item.HitTest(point));
-
-        Rect bounds = region.Value;
-        return point => bounds.Contains(point) && references.Any(item => item.HitTest(point));
-    }
+    private static RenderFragmentHitTest CreateTargetLayerScopeHitTest(TargetRegion region)
+        => region.Kind switch
+        {
+            TargetRegionKind.Empty => RenderFragmentHitTest.None,
+            TargetRegionKind.Region => RenderFragmentHitTest.RegionAndInputs(region.Value),
+            _ => RenderFragmentHitTest.Inputs,
+        };
 
     /// <summary>Records a guarded target scope around one input.</summary>
     /// <param name="input">A non-null fragment borrowed from the active transaction and replayed inside the scope.</param>
@@ -1110,11 +1091,6 @@ public sealed class RenderNodeContext
     {
         ArgumentNullException.ThrowIfNull(description);
         ValidateDescriptionResources(description.Resources, nameof(description));
-        Func<Point, bool> hitTest = CreateHitTest(
-            description.HitTest,
-            description.QueryBounds,
-            [],
-            description.Resources);
         return GetTransaction().CreateFragment(
             RenderFragmentKind.RawTargetCommand,
             description.QueryBounds,
@@ -1126,7 +1102,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: true,
             inputs: [],
             new RawTargetCommandRenderFragmentPayload(description),
-            hitTest);
+            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
     /// <summary>Records an opaque external target-command call.</summary>
@@ -1162,11 +1138,6 @@ public sealed class RenderNodeContext
             nameof(description));
         ValidateDescriptionResources(description.Resources, nameof(description));
 
-        Func<Point, bool> hitTest = CreateHitTest(
-            description.HitTest,
-            description.QueryBounds,
-            references,
-            description.Resources);
         return transaction.CreateFragment(
             RenderFragmentKind.TargetCommand,
             description.QueryBounds,
@@ -1178,7 +1149,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: false,
             references,
             new TargetCommandRenderFragmentPayload(description, inputReadbacks),
-            hitTest);
+            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
     /// <summary>Records a guarded target-command call.</summary>
@@ -1351,9 +1322,6 @@ public sealed class RenderNodeContext
         return true;
     }
 
-    internal Func<Point, bool> GetRecordedHitTest(RenderFragmentHandle fragment)
-        => GetTransaction().GetReference(fragment).HitTest;
-
     internal Rect CalculateRecordedInputBoundsHint()
     {
         NodeRecordingTransaction transaction = GetTransaction();
@@ -1429,11 +1397,6 @@ public sealed class RenderNodeContext
             bounds,
             OutputScale,
             MaxWorkingScale);
-        Func<Point, bool> hitTest = CreateHitTest(
-            description.HitTest,
-            bounds,
-            references,
-            description.Resources);
         return transaction.CreateFragment(
             topology == OpaqueRenderTopology.Combine
                 ? RenderFragmentKind.OpaqueCombine
@@ -1447,7 +1410,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: true,
             references,
             new OpaqueRenderFragmentPayload(topology, description, inputReadbacks),
-            hitTest);
+            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
     private RenderFragmentHandle RecordTargetScope(
@@ -1487,7 +1450,6 @@ public sealed class RenderNodeContext
             bounds,
             OutputScale,
             MaxWorkingScale);
-        Func<Point, bool> hitTest = CreateHitTest(hitTestContract, bounds, [reference], resourceBindings);
         bool isValueReplayMap = !raw
             && ((TargetScopeDescription)description).IsValueReplayMap;
         return transaction.CreateFragment(
@@ -1507,7 +1469,7 @@ public sealed class RenderNodeContext
             raw
                 ? new RawTargetScopeRenderFragmentPayload((RawTargetScopeDescription)description)
                 : new TargetScopeRenderFragmentPayload((TargetScopeDescription)description),
-            hitTest);
+            RenderFragmentHitTest.FromContract(hitTestContract, resourceBindings));
     }
 
     private void ValidateDescriptionResources(
@@ -1533,18 +1495,6 @@ public sealed class RenderNodeContext
         => ValidateDescriptionResources(
             resources.Select(static binding => binding.Resource).ToArray(),
             parameterName);
-
-    private static Func<Point, bool> CreateHitTest(
-        RenderHitTestContract contract,
-        Rect outputBounds,
-        IReadOnlyList<RenderFragmentReference> inputs,
-        IReadOnlyList<RenderResourceBinding> resources)
-    {
-        RenderHitTestInput[] views = inputs
-            .Select(static item => new RenderHitTestInput(item.Bounds, item.HitTest))
-            .ToArray();
-        return point => contract.Evaluate(outputBounds, views, resources, point);
-    }
 
     private static Rect CalculateReferenceBounds(
         IEnumerable<RenderFragmentReference> references)

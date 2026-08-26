@@ -292,7 +292,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
             hasOpaqueExternalWork: false,
             inputs: [],
             payload: null,
-            hitTest: null);
+            hitTest: RenderFragmentHitTest.None);
         var requestId = new RenderRequestId(1);
         return new RenderOutputCacheIdentity(
             candidateKey: "feature-003-density",

@@ -184,9 +184,13 @@ public sealed class TargetAuthoringContractTests
         {
             Assert.That(recorded.Preparations, Is.EqualTo(2), "one preparation per request");
             Assert.That(
-                recorded.Preparations,
-                Is.EqualTo(recorded.Processes),
-                "every Process must be preceded by exactly one PrepareForRequest");
+                recorded.Processes,
+                Is.EqualTo(1),
+                "the second request's inputs digest to what the recording was made over, so it is served");
+            Assert.That(
+                recorded.Processes,
+                Is.LessThanOrEqualTo(recorded.Preparations),
+                "no Process may run for a request that did not prepare the node first");
         });
     }
 

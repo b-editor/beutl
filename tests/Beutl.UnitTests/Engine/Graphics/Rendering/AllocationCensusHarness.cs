@@ -893,8 +893,8 @@ public sealed class AllocationCensusHarness
 
     /// <summary>
     /// Marks one leaf changed every frame and reports what that costs the nodes above it. The leaf re-records
-    /// the same fragments, so every ancestor's input digests still match what it was recorded over; only the
-    /// "every recording below it repeated" rule can reject them.
+    /// the same fragments, so every ancestor's input digests still match what it was recorded over and the
+    /// gate serves them; a non-zero reject count here is the gate rejecting on something other than a digest.
     /// </summary>
     [Test]
     [NonParallelizable]

@@ -20,11 +20,12 @@ public sealed class RecordingPerVisitAllocationTests
     private const int Frames = 200;
     private static readonly Rect s_bounds = new(0, 0, 100, 100);
 
-    // Measured at 8,496 bytes for a three-node subtree of four fragments, against 9,120 before the per-visit
-    // buffers were right-sized and the replay scratch pooled - 208 bytes off each node visit. The figure is
-    // deterministic on one machine, so the margin covers a platform that sizes its collections differently
-    // rather than measurement noise.
-    private const long ReplayedSubtreeBytesPerRecordCeiling = 8_800;
+    // Measured at 8,424 bytes for a three-node subtree of four fragments, against 9,120 before the per-visit
+    // buffers were right-sized and the replay scratch pooled, and 8,496 before a node's commit became a value
+    // and its fragments stopped building a hit-test delegate per recording. The figure is deterministic on
+    // one machine, so the margin covers a platform that sizes its collections differently rather than
+    // measurement noise.
+    private const long ReplayedSubtreeBytesPerRecordCeiling = 8_700;
 
     [Test]
     public void ARepeatedlyReplayedSubtree_StaysWithinItsPerVisitBudget()

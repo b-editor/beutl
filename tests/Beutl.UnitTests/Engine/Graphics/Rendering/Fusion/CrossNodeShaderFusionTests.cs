@@ -384,8 +384,10 @@ public sealed class CrossNodeShaderFusionTests
                 Assert.That(disabled.StructuralPlanCacheStatistics.Compilations, Is.EqualTo(1));
                 Assert.That(disabled.StructuralPlanCacheStatistics.Misses, Is.EqualTo(1));
                 Assert.That(disabled.StructuralPlanCacheStatistics.Hits, Is.Zero);
-                Assert.That(node.ProcessCounts, Is.EqualTo(new[] { 3, 3, 3 }),
-                    "Each render must traverse the countable source, Gamma, and Invert node transactions.");
+                Assert.That(node.ProcessCounts, Is.EqualTo(new[] { 3, 2, 2 }),
+                    "The source holds a render target, so its recording is refused and it records for every "
+                    + "request. The two shader stages are recorded over explicit inputs whose digests the "
+                    + "second enabled render repeats, so that render replays them.");
             });
         });
     }
@@ -902,7 +904,7 @@ public sealed class CrossNodeShaderFusionTests
             hasOpaqueExternalWork: false,
             [.. inputs],
             payload,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
     }
 
     private static RecordedRenderGraph BuildGraph(

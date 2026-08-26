@@ -39,7 +39,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         Request.TransitionTo(RenderRequestState.Recording);
         try
         {
-            IReadOnlyList<RenderFragmentReference> outputs = RecordSubtreeCore(root, parent: null).Outputs;
+            IReadOnlyList<RenderFragmentReference> outputs = RecordSubtreeCore(root, parent: null);
             CommitCacheCandidates();
             foreach (RenderFragmentReference output in outputs)
             {
@@ -70,20 +70,19 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(inputs);
 
-        // These fragments land in the caller's commit, so the caller's recording repeats only if this one
-        // does. A node reached with explicit inputs is not walked, and nothing here can tell whether those
-        // inputs repeat what it was recorded over, so only an input-free one is offered its own cache.
-        NodeRecording recording = subtree
+        // These fragments land in the caller's commit, so they are part of the caller's recording and the
+        // caller cannot be replayed independently of them. Whether this node is served is its own question,
+        // and its input digests answer it however the node was reached.
+        ImmutableArray<RenderFragmentReference> outputs = subtree
             ? RecordSubtreeCore(node, parent)
-            : InvokeNode(node, inputs, inputs.Count == 0, parent, guardAlreadyHeld: false);
-        parent.MarkAbsorbedRecording(recording.RepeatsPreviousRecording);
-        return recording.Outputs;
+            : InvokeNode(node, inputs, parent, guardAlreadyHeld: false);
+        parent.MarkAbsorbedRecording();
+        return outputs;
     }
 
-    public void Commit(NodeRecordingCommit commit)
+    public void Commit(in NodeRecordingCommit commit)
     {
-        ArgumentNullException.ThrowIfNull(commit);
-        _builder.Append(commit);
+        _builder.Append(in commit);
         foreach (RenderResource resource in commit.Resources)
         {
             Request.Options.Owner.ResourceRegistry.Commit(resource);
@@ -112,31 +111,25 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         }
     }
 
-    private NodeRecording RecordSubtreeCore(
+    private ImmutableArray<RenderFragmentReference> RecordSubtreeCore(
         RenderNode node,
         NodeRecordingTransaction? parent)
     {
         using ActiveNodeScope scope = EnterNode(node);
         node.PrepareForRequest(new RenderNodePreparation(Request.Options));
         var inputs = new List<RenderFragmentReference>();
-        bool inputsRepeat = true;
         if (node is ContainerRenderNode container)
         {
             foreach (RenderNode child in container.Children)
-            {
-                NodeRecording childRecording = RecordSubtreeCore(child, parent);
-                inputs.AddRange(childRecording.Outputs);
-                inputsRepeat &= childRecording.RepeatsPreviousRecording;
-            }
+                inputs.AddRange(RecordSubtreeCore(child, parent));
         }
 
-        return InvokeNode(node, inputs, inputsRepeat, parent, guardAlreadyHeld: true);
+        return InvokeNode(node, inputs, parent, guardAlreadyHeld: true);
     }
 
-    private NodeRecording InvokeNode(
+    private ImmutableArray<RenderFragmentReference> InvokeNode(
         RenderNode node,
         IReadOnlyList<RenderFragmentReference> inputs,
-        bool inputsRepeatPreviousRecording,
         NodeRecordingTransaction? parent,
         bool guardAlreadyHeld)
     {
@@ -164,10 +157,9 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
 
                 // What a skip path needs and nothing more: the node reports no change, the request agrees
                 // with the one the recording was made for, and the fragments it is replayed over digest to
-                // the ones it was recorded over. Whether the recording is actually reused is a separate
-                // question - it repeats either way, which is what the node above needs to know.
+                // the ones it was recorded over. A descendant that re-recorded is not itself a reason to
+                // re-record here - what it produced is, and the digest is what reports that.
                 bool repeats = !node.HasChanges
-                               && inputsRepeatPreviousRecording
                                && snapshot is not null
                                && snapshot.Matches(key, inputs);
 
@@ -191,7 +183,6 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
 #endif
                 }
 
-                repeats &= transaction.AbsorbedRecordingsRepeat;
                 bool canCache = transaction.IsRenderCacheEnabled
                                 && node.Cache.CanCapture
                                 && !node.HasChanges
@@ -201,7 +192,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
                     QueueCacheCandidates(node, outputs);
                 if (_crossCheckProbeDepth == 0)
                     RetainRecording(key, node, inputs, transaction, snapshot, repeats);
-                return new NodeRecording(outputs, repeats);
+                return outputs;
             }
             catch (Exception ex)
             {
@@ -319,16 +310,6 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
             _builder.AddCacheCandidate(fragmentId, candidate.Identity, candidate.Cache);
         }
         _pendingCacheCandidates.Clear();
-    }
-
-    /// <summary>What one node recorded, and whether it is what the node recorded for the previous request.</summary>
-    private readonly struct NodeRecording(
-        ImmutableArray<RenderFragmentReference> outputs,
-        bool repeatsPreviousRecording)
-    {
-        public ImmutableArray<RenderFragmentReference> Outputs { get; } = outputs;
-
-        public bool RepeatsPreviousRecording { get; } = repeatsPreviousRecording;
     }
 
     private readonly struct ActiveNodeScope : IDisposable

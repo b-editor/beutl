@@ -434,7 +434,7 @@ public sealed class StructuralAndProgramCacheTests
             hasOpaqueExternalWork: false,
             [],
             payload: null,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
         var opacity = new RenderFragmentReference(
             RenderFragmentKind.Opacity,
             opacityBounds,
@@ -448,7 +448,7 @@ public sealed class StructuralAndProgramCacheTests
             new OpacityRenderFragmentPayload(
                 0.625f,
                 OpacityRenderNode.CreateFusionDescription(0.625f)),
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
         var builder = new RecordedRenderGraphBuilder(requestId);
         RenderProvenanceId provenance = builder.AddProvenance(
             typeof(StructuralAndProgramCacheTests),

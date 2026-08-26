@@ -325,7 +325,7 @@ public sealed class RegionAnalyzerTests
                     OpaqueRenderTopology.Source,
                     description,
                     Array.Empty<RenderInputReadback>()),
-                bounds.Contains));
+                RenderFragmentHitTest.Bounds));
         }
 
         public RenderFragmentReference Map(
@@ -355,7 +355,7 @@ public sealed class RegionAnalyzerTests
                     OpaqueRenderTopology.Map,
                     description,
                     [RenderInputReadback.None]),
-                outputBounds.Contains));
+                RenderFragmentHitTest.Bounds));
         }
 
         public RenderFragmentReference Capture(Rect bounds, EffectiveScale scale)
@@ -376,7 +376,7 @@ public sealed class RegionAnalyzerTests
                 hasOpaqueExternalWork: false,
                 inputs: [],
                 new TargetCaptureRenderFragmentPayload(description),
-                hitTest: null));
+                hitTest: RenderFragmentHitTest.None));
         }
 
         public RenderFragmentReference Command(TargetRegion affectedRegion, Rect queryBounds)
@@ -397,7 +397,7 @@ public sealed class RegionAnalyzerTests
                 hasOpaqueExternalWork: false,
                 inputs: [],
                 new TargetCommandRenderFragmentPayload(description, []),
-                queryBounds.Contains));
+                RenderFragmentHitTest.Bounds));
         }
 
         private RenderFragmentReference Stamp(RenderFragmentReference reference)

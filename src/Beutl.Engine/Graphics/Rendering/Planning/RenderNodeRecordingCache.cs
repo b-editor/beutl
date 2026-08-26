@@ -65,8 +65,8 @@ internal readonly struct ReplayedRenderFragment(
 
 /// <summary>What one <see cref="RenderNode.Process(RenderNodeContext)"/> call produced, kept for reuse.</summary>
 /// <remarks>
-/// A snapshot with no <see cref="Fragments"/> records only that the node recorded for this key, which is what
-/// lets a node the cache refuses still report a repeat recording to whoever records above it.
+/// A snapshot with no <see cref="Fragments"/> records only that the node recorded for this key and over which
+/// input digests, which is all a node the cache refuses can offer - it must record again either way.
 /// </remarks>
 internal sealed class RenderNodeRecordingSnapshot
 {

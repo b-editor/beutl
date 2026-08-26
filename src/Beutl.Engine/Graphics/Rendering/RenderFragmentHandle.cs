@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -136,11 +137,171 @@ internal interface IRenderFragmentHandleOwner
     void VerifyOwns(RenderFragmentReference reference);
 }
 
+/// <summary>How a fragment answers a hit test, stated so that it can be re-evaluated over any inputs.</summary>
+internal enum RenderFragmentHitTestKind : byte
+{
+    /// <summary>Never hits.</summary>
+    None,
+
+    /// <summary>Hits everywhere inside the fragment's own bounds.</summary>
+    Bounds,
+
+    /// <summary>Hits everywhere inside a fixed region the fragment carries.</summary>
+    Region,
+
+    /// <summary>Hits wherever any input hits.</summary>
+    Inputs,
+
+    /// <summary>Hits wherever an input hits inside a fixed region the fragment carries.</summary>
+    RegionAndInputs,
+
+    /// <summary>Hits where an author-declared contract says, read over the fragment's bounds and inputs.</summary>
+    Contract,
+}
+
+/// <summary>What a recorded fragment answers a hit test with, as a rule rather than a bound delegate.</summary>
+/// <remarks>
+/// A delegate built while recording closes over the fragments that request held. Replay recreates a fragment
+/// over the inputs of the request it is replayed into, so such a delegate would answer for a graph that has
+/// ended. A rule names its inputs instead of capturing them, which lets replay rebase the hit test the same
+/// way it rebases everything else - and lets <see cref="RenderFragmentReference.RecordingFingerprint"/> speak
+/// for the hit test, because a rule has an identity a digest can read.
+/// </remarks>
+internal readonly struct RenderFragmentHitTest
+{
+    private readonly Rect _region;
+    private readonly RenderHitTestContract _contract;
+    private readonly IReadOnlyList<RenderResourceBinding>? _resources;
+
+    private RenderFragmentHitTest(
+        RenderFragmentHitTestKind kind,
+        Rect region,
+        RenderHitTestContract contract,
+        IReadOnlyList<RenderResourceBinding>? resources)
+    {
+        Kind = kind;
+        _region = region;
+        _contract = contract;
+        _resources = resources;
+    }
+
+    public RenderFragmentHitTestKind Kind { get; }
+
+    public static RenderFragmentHitTest None => default;
+
+    public static RenderFragmentHitTest Bounds { get; } =
+        new(RenderFragmentHitTestKind.Bounds, default, default, null);
+
+    public static RenderFragmentHitTest Inputs { get; } =
+        new(RenderFragmentHitTestKind.Inputs, default, default, null);
+
+    public static RenderFragmentHitTest Region(Rect region)
+        => new(RenderFragmentHitTestKind.Region, region, default, null);
+
+    public static RenderFragmentHitTest RegionAndInputs(Rect region)
+        => new(RenderFragmentHitTestKind.RegionAndInputs, region, default, null);
+
+    public static RenderFragmentHitTest FromContract(
+        RenderHitTestContract contract,
+        IReadOnlyList<RenderResourceBinding>? resources)
+        => new(RenderFragmentHitTestKind.Contract, default, contract, resources);
+
+    public bool Evaluate(Rect bounds, ImmutableArray<RenderFragmentReference> inputs, Point point)
+        => Kind switch
+        {
+            RenderFragmentHitTestKind.Bounds => bounds.Contains(point),
+            RenderFragmentHitTestKind.Region => _region.Contains(point),
+            RenderFragmentHitTestKind.Inputs => AnyInput(inputs, point),
+            RenderFragmentHitTestKind.RegionAndInputs
+                => _region.Contains(point) && AnyInput(inputs, point),
+            RenderFragmentHitTestKind.Contract
+                => _contract.Evaluate(bounds, CreateInputViews(inputs), _resources ?? [], point),
+            _ => false,
+        };
+
+    /// <summary>A digest of which rule this is, ignoring the state an author-declared contract reads.</summary>
+    /// <remarks>
+    /// A contract's structural identity is which callback answers, not what it answers over: a contract built
+    /// from a resource or from per-recording state keeps one identity while that state moves. The state
+    /// belongs to the node that recorded it and is answered for by
+    /// <see cref="RenderNode.HasChanges"/>; a consumer that only forwards the hit test reads the live one
+    /// through <see cref="RenderFragmentReference.Inputs"/> either way.
+    /// </remarks>
+    public ulong IdentityDigest
+    {
+        get
+        {
+            unchecked
+            {
+                ulong hash = Combine(14695981039346656037UL, (byte)Kind);
+                switch (Kind)
+                {
+                    case RenderFragmentHitTestKind.Region:
+                    case RenderFragmentHitTestKind.RegionAndInputs:
+                        hash = Combine(hash, (uint)BitConverter.SingleToInt32Bits(_region.X));
+                        hash = Combine(hash, (uint)BitConverter.SingleToInt32Bits(_region.Y));
+                        hash = Combine(hash, (uint)BitConverter.SingleToInt32Bits(_region.Width));
+                        hash = Combine(hash, (uint)BitConverter.SingleToInt32Bits(_region.Height));
+                        break;
+                    case RenderFragmentHitTestKind.Contract:
+                        hash = Combine(hash, (uint)ContractIdentityHash());
+                        break;
+                }
+
+                return hash;
+            }
+        }
+    }
+
+    private int ContractIdentityHash()
+    {
+        object identity = _contract.StructuralIdentity;
+        // A boxed contract kind or bounds identity answers for its value; a callback answers only for which
+        // object it is, because two closures over equal state are not the same declaration.
+        return identity is ValueType
+            ? identity.GetHashCode()
+            : RuntimeHelpers.GetHashCode(identity);
+    }
+
+    private static ulong Combine(ulong hash, ulong value)
+    {
+        unchecked
+        {
+            return (hash ^ value) * 1099511628211UL;
+        }
+    }
+
+    private static bool AnyInput(ImmutableArray<RenderFragmentReference> inputs, Point point)
+    {
+        foreach (RenderFragmentReference input in inputs)
+        {
+            if (input.HitTest(point))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static RenderHitTestInput[] CreateInputViews(ImmutableArray<RenderFragmentReference> inputs)
+    {
+        if (inputs.Length == 0)
+            return [];
+
+        var views = new RenderHitTestInput[inputs.Length];
+        for (int index = 0; index < inputs.Length; index++)
+            views[index] = new RenderHitTestInput(inputs[index].Bounds, inputs[index].HitTest);
+        return views;
+    }
+}
+
 internal sealed class RenderFragmentReference
 {
-    private readonly Func<Point, bool>? _recordedHitTest;
     private readonly bool _hasDirectSymbolicBoundsDependency;
-    private Func<Point, bool> _hitTest;
+
+    // Holds the recorded rule until planning lowers it, and a fragment is captured for replay and
+    // fingerprinted before planning begins, so both of those read what recording stated. Nothing may clone or
+    // digest a fragment after ApplyResolvedMetadata has run on it.
+    private RenderFragmentHitTest _hitTest;
 
     /// <remarks><paramref name="inputs"/> is stored as given, not copied.</remarks>
     public RenderFragmentReference(
@@ -154,7 +315,7 @@ internal sealed class RenderFragmentReference
         bool hasOpaqueExternalWork,
         ImmutableArray<RenderFragmentReference> inputs,
         object? payload,
-        Func<Point, bool>? hitTest,
+        RenderFragmentHitTest hitTest,
         RenderFragmentBoundsRequirement boundsRequirement = RenderFragmentBoundsRequirement.Finite,
         bool hasDirectSymbolicBoundsDependency = false)
     {
@@ -195,8 +356,7 @@ internal sealed class RenderFragmentReference
         PotentiallyWritesTarget = ComputePotentiallyWritesTarget();
         HasSymbolicTargetWrite = ComputeHasSymbolicTargetWrite();
         _hasDirectSymbolicBoundsDependency = hasDirectSymbolicBoundsDependency;
-        _recordedHitTest = hitTest;
-        _hitTest = hitTest ?? (static _ => false);
+        _hitTest = hitTest;
         RecordingFingerprint = ComputeRecordingFingerprint();
     }
 
@@ -272,16 +432,12 @@ internal sealed class RenderFragmentReference
 
     public bool AllowsFanOut => CanBeUsedAsValueInput;
 
-    public bool HitTest(Point point)
-        => Kind == RenderFragmentKind.FilterEffectSegment
-           && BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain
-            ? Bounds.Contains(point)
-            : _hitTest(point);
+    public bool HitTest(Point point) => _hitTest.Evaluate(Bounds, Inputs, point);
 
     public void ApplyResolvedMetadata(
         Rect bounds,
         EffectiveScale effectiveScale,
-        Func<Point, bool>? hitTest = null)
+        RenderFragmentHitTest? hitTest = null)
     {
         if (!RenderRectValidation.IsFiniteNonNegative(bounds))
         {
@@ -291,8 +447,8 @@ internal sealed class RenderFragmentReference
 
         Bounds = bounds;
         EffectiveScale = effectiveScale;
-        if (hitTest is not null)
-            _hitTest = hitTest;
+        if (hitTest is { } resolved)
+            _hitTest = resolved;
     }
 
     /// <summary>Recreates this fragment for another request, over <paramref name="inputs"/>.</summary>
@@ -300,8 +456,9 @@ internal sealed class RenderFragmentReference
     /// The clone carries the values this fragment was recorded with, not the ones metadata resolution later
     /// wrote into it: a fragment is rebased before any request resolves it, and reproducing a resolved value
     /// would hand the new request a bound the previous one settled. Everything the constructor derives from
-    /// the inputs is derived again from the ones given here, so a clone made over no inputs at all is a
-    /// faithful template for one made over real ones.
+    /// the inputs is derived again from the ones given here - the hit-test rule included, which is why a
+    /// clone answers over the fragments it is replayed onto rather than the ones it was recorded over. A
+    /// clone made over no inputs at all is therefore a faithful template for one made over real ones.
     /// </remarks>
     internal RenderFragmentReference CloneForReplay(ImmutableArray<RenderFragmentReference> inputs)
         => new(
@@ -315,7 +472,7 @@ internal sealed class RenderFragmentReference
             HasOpaqueExternalWork,
             inputs,
             Payload,
-            _recordedHitTest,
+            _hitTest,
             BoundsRequirement,
             _hasDirectSymbolicBoundsDependency);
 
@@ -340,14 +497,62 @@ internal sealed class RenderFragmentReference
                 hash,
                 ValueCardinality.Maximum is { } maximum ? (ulong)(uint)maximum : ulong.MaxValue);
             hash = Mix(hash, PackRecordingFlags());
+            hash = Mix(hash, _hitTest.IdentityDigest);
             hash = Mix(
                 hash,
                 Payload is null ? 0UL : (ulong)Payload.GetType().TypeHandle.Value.ToInt64());
+            hash = Mix(hash, PackObservablePayloadIdentity());
             hash = Mix(hash, (ulong)(uint)Inputs.Length);
             foreach (RenderFragmentReference input in Inputs)
                 hash = Mix(hash, (ulong)input.RecordingFingerprint);
             return (long)hash;
         }
+    }
+
+    /// <summary>
+    /// The part of the payload another node can read while recording, which the payload's type alone does not
+    /// separate.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TargetWriteMetadataResolver"/> reaches into an input's payload for the target extent a
+    /// consumer scopes by, so two fragments that agree on everything else and disagree here are not
+    /// interchangeable to whoever records above them. The rest of a payload reaches execution only, where the
+    /// node that recorded it answers for it through <see cref="RenderNode.HasChanges"/>.
+    /// </remarks>
+    private ulong PackObservablePayloadIdentity()
+    {
+        switch (Payload)
+        {
+            case BlendRenderFragmentPayload blend:
+                return 1UL + (byte)blend.BlendMode;
+            case TargetCommandRenderFragmentPayload command:
+                return PackRegion(command.Description.AffectedRegion);
+            case TargetLayerScopeRenderFragmentPayload layer:
+                return PackRegion(layer.Region);
+            case TargetScopeRenderFragmentPayload scope:
+                return ((ulong)(uint)scope.Description.Bounds.StructuralIdentity.GetHashCode() << 1)
+                       | (scope.Description.IsValueReplayMap ? 1UL : 0UL);
+            default:
+                return 0;
+        }
+    }
+
+    private static ulong PackRegion(TargetRegion region)
+    {
+        ulong hash = 1UL + (byte)region.Kind;
+        if (region.Kind != TargetRegionKind.Region)
+            return hash;
+
+        Rect value = region.Value;
+        unchecked
+        {
+            hash = (hash * 31) + (uint)BitConverter.SingleToInt32Bits(value.X);
+            hash = (hash * 31) + (uint)BitConverter.SingleToInt32Bits(value.Y);
+            hash = (hash * 31) + (uint)BitConverter.SingleToInt32Bits(value.Width);
+            hash = (hash * 31) + (uint)BitConverter.SingleToInt32Bits(value.Height);
+        }
+
+        return hash;
     }
 
     private ulong PackRecordingFlags()

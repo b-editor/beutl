@@ -484,7 +484,7 @@ public sealed class ExecutionIslandAuthorityTests
             hasOpaqueExternalWork: false,
             [.. inputs],
             payload,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
 
     private static RecordedRenderGraph BuildGraph(
         RenderRequestId requestId,

@@ -24,7 +24,7 @@ internal static class RenderCacheTestSupport
             hasOpaqueExternalWork: false,
             inputs: [],
             payload: null,
-            hitTest: null);
+            hitTest: RenderFragmentHitTest.None);
         return new RenderOutputCacheIdentity(
             name,
             RenderFragmentOutputIdentity.Create(fragment, new RenderRequestId(1)),

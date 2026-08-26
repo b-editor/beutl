@@ -140,7 +140,7 @@ public sealed class FusionBoundaryTests
                 hasOpaqueExternalWork: false,
                 [first],
                 new ShaderRenderFragmentPayload(description),
-                static _ => true);
+                RenderFragmentHitTest.Bounds);
             return BuildGraph(requestId, [source, first, mismatched], [mismatched], cache);
         });
 
@@ -602,7 +602,7 @@ public sealed class FusionBoundaryTests
                 || inputs.Any(static input => input.HasOpaqueExternalWork),
             [.. inputs],
             payload,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
     }
 
     private static CompiledRenderRequest Compile(

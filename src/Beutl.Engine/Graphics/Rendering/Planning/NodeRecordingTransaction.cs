@@ -107,7 +107,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         bool hasOpaqueExternalWork,
         ImmutableArray<RenderFragmentReference> inputs,
         object? payload,
-        Func<Point, bool>? hitTest,
+        RenderFragmentHitTest hitTest,
         RenderFragmentBoundsRequirement boundsRequirement = RenderFragmentBoundsRequirement.Finite,
         bool hasDirectSymbolicBoundsDependency = false)
     {
@@ -405,9 +405,9 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         try
         {
             if (_parent is null)
-                _host.Commit(commit);
+                _host.Commit(in commit);
             else
-                _parent.Absorb(commit);
+                _parent.Absorb(in commit);
 
             State = NodeRecordingTransactionState.Committed;
             ReleaseOwnedReferences();
@@ -491,22 +491,10 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     /// <summary>Whether this recording called <see cref="DisableRenderCache"/> on itself.</summary>
     internal bool IsRenderCacheDisabledHere => _cacheDisabled;
 
-    /// <summary>Whether every recording this one absorbed repeated what its node recorded last request.</summary>
-    /// <remarks>
-    /// A node that records another node through <see cref="RecordNode"/> absorbs that node's fragments into
-    /// its own commit, so its recording changes when the absorbed one does - however still its own
-    /// <see cref="RenderNode.HasChanges"/> reads.
-    /// </remarks>
-    internal bool AbsorbedRecordingsRepeat { get; private set; } = true;
-
     /// <summary>How many other nodes this recording drove.</summary>
     internal int AbsorbedRecordingCount { get; private set; }
 
-    internal void MarkAbsorbedRecording(bool repeatsPreviousRecording)
-    {
-        AbsorbedRecordingCount++;
-        AbsorbedRecordingsRepeat &= repeatsPreviousRecording;
-    }
+    internal void MarkAbsorbedRecording() => AbsorbedRecordingCount++;
 
     /// <summary>Records the fragments of <paramref name="snapshot"/> again, over the current inputs.</summary>
     /// <remarks>
@@ -682,7 +670,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         return result;
     }
 
-    private void Absorb(NodeRecordingCommit child)
+    private void Absorb(in NodeRecordingCommit child)
     {
         VerifyActive();
         _fragments.AddRange(child.Fragments.AsSpan());
@@ -939,10 +927,16 @@ internal interface IRenderRequestRecordingHost
         RenderNode root,
         RenderRequestOptions options);
 
-    void Commit(NodeRecordingCommit commit);
+    void Commit(in NodeRecordingCommit commit);
 }
 
-internal sealed record NodeRecordingCommit(
+/// <summary>What one recording hands to whoever absorbs it.</summary>
+/// <remarks>
+/// A value, not an object: it is created once per node visit, read once, and never stored, so the heap
+/// object it used to be was pure per-frame cost. Every member is already an immutable array, which is what
+/// lets the copy stay a handful of references.
+/// </remarks>
+internal readonly record struct NodeRecordingCommit(
     ImmutableArray<RecordedRenderFragmentEntry> Fragments,
     ImmutableArray<RenderFragmentReference> Publications,
     ImmutableArray<RenderResource> Resources,

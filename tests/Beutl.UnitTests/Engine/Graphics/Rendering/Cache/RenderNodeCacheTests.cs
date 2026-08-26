@@ -170,7 +170,7 @@ public class RenderNodeCacheTests
             hasOpaqueExternalWork: false,
             inputs: [],
             payload: null,
-            hitTest: null);
+            hitTest: RenderFragmentHitTest.None);
         var identity = new RenderOutputCacheIdentity(
             "finalizer-cache",
             RenderFragmentOutputIdentity.Create(fragment, new RenderRequestId(1)),

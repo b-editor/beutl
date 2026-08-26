@@ -580,8 +580,8 @@ internal sealed class RegionAnalyzer
             EffectiveScale resolvedScale = reference.HasSymbolicBoundsDependency
                 ? ResolveForwardScale(reference, resolvedBounds, options)
                 : reference.RecordedEffectiveScale;
-            Func<Point, bool>? resolvedHitTest = reference.HasSymbolicBoundsDependency
-                ? ResolveForwardHitTest(reference, resolvedBounds)
+            RenderFragmentHitTest? resolvedHitTest = reference.HasSymbolicBoundsDependency
+                ? ResolveForwardHitTest(reference)
                 : null;
             reference.ApplyResolvedMetadata(resolvedBounds, resolvedScale, resolvedHitTest);
             result.Add(
@@ -776,9 +776,15 @@ internal sealed class RegionAnalyzer
         }
     }
 
-    private static Func<Point, bool> ResolveForwardHitTest(
-        RenderFragmentReference reference,
-        Rect resolvedBounds)
+    /// <summary>
+    /// The rule a symbolic fragment answers with once its own bounds and its inputs' are known.
+    /// </summary>
+    /// <remarks>
+    /// A fragment records the best rule the recording could state. Where that rule stood in for information
+    /// only graph-wide resolution has - a domain that was not yet finite, an input whose extent was symbolic -
+    /// this replaces it with the one the resolved graph supports.
+    /// </remarks>
+    private static RenderFragmentHitTest ResolveForwardHitTest(RenderFragmentReference reference)
     {
         return reference.Kind switch
         {
@@ -787,113 +793,59 @@ internal sealed class RegionAnalyzer
                 or RenderFragmentKind.Blend
                 or RenderFragmentKind.OpacityMask
                 or RenderFragmentKind.Shader
-                => reference.Inputs[0].HitTest,
+                or RenderFragmentKind.Layer
+                or RenderFragmentKind.TargetLayerScope
+                => RenderFragmentHitTest.Inputs,
             RenderFragmentKind.Geometry
-                => CreateResolvedHitTest(
-                    ((GeometryRenderFragmentPayload)reference.Payload!).Description,
-                    resolvedBounds,
-                    reference.Inputs),
+                => FromDescription(((GeometryRenderFragmentPayload)reference.Payload!).Description),
             RenderFragmentKind.OpaqueSource
                 or RenderFragmentKind.OpaqueMap
                 or RenderFragmentKind.OpaqueCombine
                 or RenderFragmentKind.OpaqueExpand
-                => CreateResolvedHitTest(
-                    ((OpaqueRenderFragmentPayload)reference.Payload!).Description,
-                    resolvedBounds,
-                    reference.Inputs),
-            RenderFragmentKind.FilterEffectSegment => resolvedBounds.Contains,
+                => FromDescription(((OpaqueRenderFragmentPayload)reference.Payload!).Description),
+            RenderFragmentKind.FilterEffectSegment => RenderFragmentHitTest.Bounds,
             RenderFragmentKind.MaterializedInput
-                => CreateResolvedHitTest(
+                => RenderFragmentHitTest.FromContract(
                     ((MaterializedInputRenderFragmentPayload)reference.Payload!).Description.HitTest,
-                    resolvedBounds,
-                    reference.Inputs,
-                    []),
+                    null),
             RenderFragmentKind.TargetCapture
-                => CreateResolvedHitTest(
+                => RenderFragmentHitTest.FromContract(
                     ((TargetCaptureRenderFragmentPayload)reference.Payload!).Description.HitTest,
-                    resolvedBounds,
-                    reference.Inputs,
-                    []),
+                    null),
             RenderFragmentKind.BuiltInBackdropCapture
-                => CreateResolvedHitTest(
+                => RenderFragmentHitTest.FromContract(
                     ((BuiltInBackdropCaptureRenderFragmentPayload)reference.Payload!).Description.HitTest,
-                    resolvedBounds,
-                    reference.Inputs,
-                    []),
-            RenderFragmentKind.Layer or RenderFragmentKind.TargetLayerScope
-                => point => reference.Inputs.Any(input => input.HitTest(point)),
+                    null),
             RenderFragmentKind.TargetScope
-                => CreateResolvedHitTest(
-                    ((TargetScopeRenderFragmentPayload)reference.Payload!).Description,
-                    resolvedBounds,
-                    reference.Inputs),
+                => FromDescription(((TargetScopeRenderFragmentPayload)reference.Payload!).Description),
             RenderFragmentKind.RawTargetScope
-                => CreateResolvedHitTest(
-                    ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description,
-                    resolvedBounds,
-                    reference.Inputs),
+                => FromDescription(((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description),
             RenderFragmentKind.RawTargetCommand
-                => CreateResolvedHitTest(
-                    ((RawTargetCommandRenderFragmentPayload)reference.Payload!).Description,
-                    resolvedBounds,
-                    reference.Inputs),
+                => FromDescription(((RawTargetCommandRenderFragmentPayload)reference.Payload!).Description),
             RenderFragmentKind.TargetCommand
-                => CreateResolvedHitTest(
-                    ((TargetCommandRenderFragmentPayload)reference.Payload!).Description,
-                    resolvedBounds,
-                    reference.Inputs),
+                => FromDescription(((TargetCommandRenderFragmentPayload)reference.Payload!).Description),
             _ => throw new InvalidOperationException(
                 $"Fragment kind '{reference.Kind}' has no symbolic hit-test lowering rule."),
         };
     }
 
-    private static Func<Point, bool> CreateResolvedHitTest(
-        GeometryDescription description,
-        Rect outputBounds,
-        IReadOnlyList<RenderFragmentReference> inputs)
-        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+    private static RenderFragmentHitTest FromDescription(GeometryDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
 
-    private static Func<Point, bool> CreateResolvedHitTest(
-        OpaqueRenderDescription description,
-        Rect outputBounds,
-        IReadOnlyList<RenderFragmentReference> inputs)
-        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+    private static RenderFragmentHitTest FromDescription(OpaqueRenderDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
 
-    private static Func<Point, bool> CreateResolvedHitTest(
-        TargetScopeDescription description,
-        Rect outputBounds,
-        IReadOnlyList<RenderFragmentReference> inputs)
-        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+    private static RenderFragmentHitTest FromDescription(TargetScopeDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
 
-    private static Func<Point, bool> CreateResolvedHitTest(
-        RawTargetScopeDescription description,
-        Rect outputBounds,
-        IReadOnlyList<RenderFragmentReference> inputs)
-        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+    private static RenderFragmentHitTest FromDescription(RawTargetScopeDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
 
-    private static Func<Point, bool> CreateResolvedHitTest(
-        RawTargetCommandDescription description,
-        Rect outputBounds,
-        IReadOnlyList<RenderFragmentReference> inputs)
-        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
+    private static RenderFragmentHitTest FromDescription(RawTargetCommandDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
 
-    private static Func<Point, bool> CreateResolvedHitTest(
-        TargetCommandDescription description,
-        Rect outputBounds,
-        IReadOnlyList<RenderFragmentReference> inputs)
-        => CreateResolvedHitTest(description.HitTest, outputBounds, inputs, description.Resources);
-
-    private static Func<Point, bool> CreateResolvedHitTest(
-        RenderHitTestContract contract,
-        Rect outputBounds,
-        IReadOnlyList<RenderFragmentReference> inputs,
-        IReadOnlyList<RenderResourceBinding> resources)
-    {
-        RenderHitTestInput[] views = inputs
-            .Select(static input => new RenderHitTestInput(input.Bounds, input.HitTest))
-            .ToArray();
-        return point => contract.Evaluate(outputBounds, views, resources, point);
-    }
+    private static RenderFragmentHitTest FromDescription(TargetCommandDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
 
     private static EffectiveScale ResolveMaterializedScale(
         EffectiveScale[] inputScales,

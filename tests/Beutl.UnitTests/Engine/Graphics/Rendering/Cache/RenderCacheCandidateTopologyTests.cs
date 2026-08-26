@@ -358,7 +358,7 @@ public sealed class RenderCacheCandidateTopologyTests
             hasOpaqueExternalWork: false,
             inputs is null ? [] : [.. inputs],
             payload: null,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
 }
 
 internal static class RenderCacheCandidateTopologyScenes

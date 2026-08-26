@@ -66,7 +66,7 @@ public sealed class ImperativeSegmentPlanIdentityTests
             hasOpaqueExternalWork: false,
             [],
             payload: null,
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
 
     private static RenderFragmentReference Segment(
         RenderFragmentReference input,
@@ -87,7 +87,7 @@ public sealed class ImperativeSegmentPlanIdentityTests
                 ImmutableArray.Create(item),
                 WorkingScalePolicy: null,
                 StreamInputCount: 1),
-            static _ => true);
+            RenderFragmentHitTest.Bounds);
 
     private sealed class DeclarativeItem : IFEItem
     {

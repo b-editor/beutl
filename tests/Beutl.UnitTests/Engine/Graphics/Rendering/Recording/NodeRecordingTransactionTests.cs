@@ -655,7 +655,7 @@ public sealed class NodeRecordingTransactionTests
             hasOpaqueExternalWork: false,
             inputs: [.. inputs],
             payload: null,
-            hitTest: bounds.Contains);
+            hitTest: RenderFragmentHitTest.Bounds);
     }
 
     private static RenderFragmentHandle CreateLayer(
@@ -674,7 +674,7 @@ public sealed class NodeRecordingTransactionTests
             hasOpaqueExternalWork: false,
             inputs: [.. inputs],
             payload: null,
-            hitTest: bounds.Contains);
+            hitTest: RenderFragmentHitTest.Bounds);
     }
 
     private sealed class SharedRecordingOrigin;
@@ -705,7 +705,7 @@ public sealed class NodeRecordingTransactionTests
             hasOpaqueExternalWork: false,
             inputs: [],
             payload: null,
-            hitTest: bounds.Contains);
+            hitTest: RenderFragmentHitTest.Bounds);
     }
 
     private sealed class RecordingHost(RenderRequest request) : IRenderRequestRecordingHost
@@ -741,7 +741,7 @@ public sealed class NodeRecordingTransactionTests
             return new RecordedNestedRenderRequest(nestedRequest, graph);
         }
 
-        public void Commit(NodeRecordingCommit commit)
+        public void Commit(in NodeRecordingCommit commit)
         {
             Commits.Add(commit);
             foreach (RenderResource resource in commit.Resources)
