@@ -150,24 +150,21 @@ internal static class SlippableMedia
                     foreach (Drawable child in decorator.Children)
                         CollectFrom(child, targets, active, context);
                     break;
-                case DrawableTimeController controller:
-                    if (controller.Target.CurrentValue is { } controlled)
+                case ITimeMappingPresenter<Drawable> timeMappingPresenter:
+                    if (timeMappingPresenter.Target.CurrentValue is { } controlled)
                     {
-                        using var resource = (DrawableTimeController.Resource)controller.ToResource(
-                            CompositionContext.Default);
-                        TimeRange mapped = controller.CalculateTargetTimeRange(context.Range, controlled, resource);
+                        TimeRange mapped = timeMappingPresenter.CalculateTargetTimeRange(context.Range, controlled);
                         TimeSpan currentTime = context.IsReversed ? context.Range.Start : context.Range.End;
                         Func<TimeSpan, TimeSpan> mapper = duration =>
                         {
-                            TimeSpan parentDuration = controller.CalculateTimelineDuration(
+                            TimeSpan parentDuration = timeMappingPresenter.CalculateTimelineDuration(
                                 currentTime,
                                 duration,
                                 controlled,
-                                resource,
                                 reverse: context.IsReversed);
                             return context.TimelineDurationFromTarget?.Invoke(parentDuration) ?? parentDuration;
                         };
-                        bool isReversed = context.IsReversed ^ resource.Reverse;
+                        bool isReversed = context.IsReversed ^ timeMappingPresenter.IsReversed;
                         var mappedContext = new TimeContext(
                             mapped,
                             mapper,
@@ -320,11 +317,19 @@ internal static class SlippableMedia
         TimeSpan sourceClockStart = GetVideoClockStartAt(video, video.TimeRange.Start);
         TimeSpan sourceClock = GetVideoClockStartAt(video, time);
         TimeSpan duration = sourceClock - sourceClockStart;
-        if (duration <= TimeSpan.Zero)
+        if (duration == TimeSpan.Zero)
             return TimeSpan.Zero;
 
         TimeSpan position = video.CalculateVideoDuration(sourceClockStart, duration, resource);
-        return position > TimeSpan.Zero ? position : TimeSpan.Zero;
+        if (!resource.IsLoop
+            && resource.Source is { } source
+            && source.Duration > TimeSpan.Zero
+            && position < TimeSpan.Zero)
+        {
+            position = TimeSpan.FromTicks(source.Duration.Ticks + position.Ticks);
+        }
+
+        return resource.IsLoop || position > TimeSpan.Zero ? position : TimeSpan.Zero;
     }
 
     private static TimeSpan GetVideoClockStartAt(SourceVideo video, TimeSpan time)

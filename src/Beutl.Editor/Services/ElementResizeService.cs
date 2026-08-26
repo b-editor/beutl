@@ -120,11 +120,22 @@ public sealed class ElementResizeService : IElementResizeService
             ElementResizeRequest req = requests[i];
             ArgumentNullException.ThrowIfNull(req.Element);
             TimeSpan start = req.NewStart < TimeSpan.Zero ? TimeSpan.Zero : req.NewStart;
-            TimeSpan length = req.NewLength < minLength ? minLength : req.NewLength;
+            TimeSpan length = req.NewStart < TimeSpan.Zero
+                ? AddSaturated(req.NewStart, req.NewLength) - start
+                : req.NewLength;
+            if (length < minLength) length = minLength;
             normalized[i] = new ElementResizeRequest(req.Element, start, length, req.ZIndex);
         }
 
         return normalized;
+    }
+
+    private static TimeSpan AddSaturated(TimeSpan left, TimeSpan right)
+    {
+        decimal ticks = (decimal)left.Ticks + right.Ticks;
+        if (ticks >= TimeSpan.MaxValue.Ticks) return TimeSpan.MaxValue;
+        if (ticks <= TimeSpan.MinValue.Ticks) return TimeSpan.MinValue;
+        return TimeSpan.FromTicks((long)ticks);
     }
 
     // Limits a same-layer left-edge grow so the rigid ripple shift cannot push any upstream element
