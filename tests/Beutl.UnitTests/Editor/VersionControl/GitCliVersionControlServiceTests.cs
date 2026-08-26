@@ -258,9 +258,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(
                 File.ReadAllText(stagedFile),
                 Is.EqualTo("working tree during initialization\n"));
-            Assert.That(File.ReadAllText(ignorePath), Is.EqualTo(originalIgnoreContents));
+            Assert.That(
+                File.ReadAllText(ignorePath),
+                Is.EqualTo(originalIgnoreContents + "**/.beutl/\n*.tmp\n"));
             Assert.That(File.GetAttributes(ignorePath), Is.EqualTo(originalIgnoreAttributes));
-            Assert.That(File.Exists(Path.Combine(Root, ".gitattributes")), Is.False);
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, ".gitattributes")),
+                Does.Contain("*.[bB][eE][pP] text eol=lf\n"));
         });
         if (!OperatingSystem.IsWindows() && originalIgnoreMode is { } expectedMode)
         {
@@ -294,7 +298,49 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(indexAfter, Is.EqualTo(indexBefore));
             Assert.That(File.ReadAllText(ignorePath), Is.EqualTo("external edit\n"));
-            Assert.That(File.Exists(Path.Combine(Root, ".gitattributes")), Is.False);
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, ".gitattributes")),
+                Does.Contain("*.[bB][eE][pP] text eol=lf\n"));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_keeps_external_hygiene_replacements_at_the_failed_commit_boundary()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        string ignorePath = Path.Combine(Root, ".gitignore");
+        string attributesPath = Path.Combine(Root, ".gitattributes");
+        await File.WriteAllTextAsync(ignorePath, "original ignore\n");
+        await File.WriteAllTextAsync(attributesPath, "original attributes\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
+        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
+        const string externalIgnore = "external replacement ignore\n";
+        const string externalAttributes = "external replacement attributes\n";
+        var runner = new FailingInitialCommitRunner(
+            CreateRunner(),
+            // This is the last reachable boundary before failed initialization starts rollback.
+            beforeFailure: _ =>
+            {
+                File.WriteAllText(ignorePath, externalIgnore);
+                File.WriteAllText(attributesPath, externalAttributes);
+            });
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        Assert.ThrowsAsync<GitOperationException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(Repository, UseLfsWhenAvailable: false),
+                CancellationToken.None));
+
+        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(File.ReadAllText(ignorePath), Is.EqualTo(externalIgnore));
+            Assert.That(File.ReadAllText(attributesPath), Is.EqualTo(externalAttributes));
         });
     }
 
@@ -1520,6 +1566,212 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(indexAfter, Is.EqualTo(indexBefore));
             Assert.That(stagedContents.Stdout, Is.EqualTo("staged before snapshot\n"));
             Assert.That(workingContents, Is.EqualTo("working tree at snapshot\n"));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CommitAllAsync_preserves_live_index_when_temp_index_add_fails_or_is_cancelled(
+        bool cancelAdd)
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        string projectFile = Path.Combine(Root, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "changed\n");
+        string tipBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        byte[] indexBefore = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "index"));
+        using var cancellation = new CancellationTokenSource();
+        var runner = new TempIndexAddFailureRunner(CreateRunner(), cancelAdd ? cancellation : null);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        if (cancelAdd)
+        {
+            Assert.CatchAsync<OperationCanceledException>(
+                async () => await service.CommitAllAsync(
+                    "beutl: snapshot on save",
+                    SnapshotKind.Save,
+                    cancellation.Token));
+        }
+        else
+        {
+            Assert.ThrowsAsync<GitOperationException>(
+                async () => await service.CommitAllAsync(
+                    "beutl: snapshot on save",
+                    SnapshotKind.Save,
+                    CancellationToken.None));
+        }
+
+        byte[] indexAfter = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "index"));
+        string tipAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.AddAttempts, Is.EqualTo(1));
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(tipAfter, Is.EqualTo(tipBefore));
+            Assert.That(runner.TemporaryIndexPath, Is.Not.Null);
+            Assert.That(File.Exists(runner.TemporaryIndexPath!), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_refuses_index_rollback_when_external_stage_lands_after_post_add_snapshot()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        string projectRoot = Path.Combine(Root, "nested-project");
+        Directory.CreateDirectory(projectRoot);
+        string projectFile = Path.Combine(projectRoot, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "baseline\n");
+        await RunGitAsync("add", "--", "nested-project/project.bep");
+        await RunGitAsync("commit", "-m", "nested baseline");
+        var projectRepository = new RepositoryInfo(Root, projectRoot);
+        string tipBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await File.WriteAllTextAsync(projectFile, "snapshot\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "external.txt"), "external stage\n");
+        var runner = new FailingSnapshotCommitRunner(
+            CreateRunner(),
+            beforeFailure: repository =>
+            {
+                CreateRunner().RunAsync(
+                        Repository,
+                        ["add", "--", "external.txt"],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
+            });
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            projectRepository,
+            watcher: null,
+            _ => runner);
+
+        Exception? exception = Assert.CatchAsync<Exception>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        string branchTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("changed after staging"));
+            Assert.That(staged.Stdout, Does.Contain("external.txt"));
+            Assert.That(branchTip, Is.EqualTo(tipBefore));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_refuses_live_index_publication_when_external_stage_lands_during_temp_staging()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        string projectRoot = Path.Combine(Root, "nested-project");
+        Directory.CreateDirectory(projectRoot);
+        string projectFile = Path.Combine(projectRoot, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "baseline\n");
+        await RunGitAsync("add", "--", "nested-project/project.bep");
+        await RunGitAsync("commit", "-m", "nested baseline");
+        await File.WriteAllTextAsync(projectFile, "snapshot\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "external.txt"), "external stage\n");
+        var projectRepository = new RepositoryInfo(Root, projectRoot);
+        var runner = new ExternalStageDuringTempIndexRunner(
+            CreateRunner(),
+            Repository,
+            "external.txt");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            projectRepository,
+            watcher: null,
+            _ => runner);
+
+        Exception? exception = Assert.CatchAsync<Exception>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("changed while the snapshot was being staged"));
+            Assert.That(staged.Stdout, Does.Contain("external.txt"));
+            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_refuses_live_index_publication_when_external_stage_lands_during_temp_staging()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        string projectRoot = Path.Combine(Root, "nested-project");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "snapshot\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "external.txt"), "external stage\n");
+        string tipBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        var projectRepository = new RepositoryInfo(Root, projectRoot);
+        var runner = new ExternalStageDuringTempIndexRunner(
+            CreateRunner(),
+            Repository,
+            "external.txt");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        Exception? exception = Assert.CatchAsync<Exception>(
+            async () => await service.InitializeAsync(
+                new InitOptions(projectRepository, UseLfsWhenAvailable: false),
+                CancellationToken.None));
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
+        string tipAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("changed while the snapshot was being staged"));
+            Assert.That(staged.Stdout, Does.Contain("external.txt"));
+            Assert.That(tipAfter, Is.EqualTo(tipBefore));
+            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_byte_exact_rollback_preserves_preexisting_intent_to_add_entry()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        string projectFile = Path.Combine(Root, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "snapshot\n");
+        string intentFile = Path.Combine(Root, "intent.txt");
+        await File.WriteAllTextAsync(intentFile, "intent\n");
+        await RunGitAsync("add", "-N", "--", "intent.txt");
+        string indexRecord = (await RunGitAsync("rev-parse", "--git-path", "index"))
+            .Stdout.TrimEnd('\r', '\n');
+        string indexPath = Path.GetFullPath(
+            Path.IsPathFullyQualified(indexRecord)
+                ? indexRecord
+                : Path.Combine(Root, indexRecord));
+        byte[] indexBefore = await File.ReadAllBytesAsync(indexPath);
+        var runner = new FailingSnapshotCommitRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        Assert.ThrowsAsync<GitOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        byte[] indexAfter = await File.ReadAllBytesAsync(indexPath);
+        GitCommandResult status = await RunGitAsync("status", "--porcelain", "--", "intent.txt");
+        Assert.Multiple(() =>
+        {
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(status.Stdout, Does.Contain("intent.txt"));
+            Assert.That(runner.CommitAttempts, Is.EqualTo(1));
         });
     }
 
@@ -5467,7 +5719,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
     private sealed class FailingSnapshotCommitRunner(
         IGitCliRunner inner,
-        CancellationTokenSource? cancellation = null) : IGitCliRunner
+        CancellationTokenSource? cancellation = null,
+        Action<RepositoryInfo>? beforeFailure = null) : IGitCliRunner
     {
         private int _commitAttempts;
 
@@ -5486,6 +5739,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 && arguments.Contains("Beutl-Snapshot: save"))
             {
                 Interlocked.Increment(ref _commitAttempts);
+                beforeFailure?.Invoke(repository);
                 if (cancellation is not null)
                 {
                     cancellation.Cancel();
@@ -5503,6 +5757,113 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class TempIndexAddFailureRunner(
+        IGitCliRunner inner,
+        CancellationTokenSource? cancellation = null) : IGitCliRunner
+    {
+        private int _addAttempts;
+
+        public int AddAttempts => Volatile.Read(ref _addAttempts);
+
+        public string? TemporaryIndexPath { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (options.EnvironmentOverrides?.TryGetValue("GIT_INDEX_FILE", out string? observedIndexPath) == true
+                && observedIndexPath!.Contains(".beutl-index-", StringComparison.Ordinal))
+            {
+                TemporaryIndexPath = observedIndexPath;
+            }
+
+            if (arguments.Contains("add")
+                && options.EnvironmentOverrides?.TryGetValue("GIT_INDEX_FILE", out string? indexPath) == true
+                && indexPath!.Contains(".beutl-index-", StringComparison.Ordinal)
+                && Interlocked.Increment(ref _addAttempts) == 1)
+            {
+                if (cancellation is not null)
+                {
+                    cancellation.Cancel();
+                    return Task.FromCanceled<GitCommandResult>(cancellation.Token);
+                }
+
+                return Task.FromException<GitCommandResult>(new GitOperationException(
+                    1,
+                    "simulated temporary index add failure"));
+            }
+
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class ExternalStageDuringTempIndexRunner(
+        IGitCliRunner inner,
+        RepositoryInfo liveRepository,
+        string externalRelativePath) : IGitCliRunner
+    {
+        private int _interceptionPending = 1;
+
+        public int InterceptionCount { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.Contains("add")
+                && options.EnvironmentOverrides?.ContainsKey("GIT_INDEX_FILE") == true
+                && Interlocked.Exchange(ref _interceptionPending, 0) == 1)
+            {
+                await inner.RunAsync(
+                        liveRepository,
+                        ["add", "--", externalRelativePath],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                InterceptionCount++;
+            }
+
+            return await inner.RunAsync(
+                    repository,
+                    arguments,
+                    options,
+                    cancellationToken,
+                    stderrProgress)
+                .ConfigureAwait(false);
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
@@ -5835,12 +6196,18 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             if (arguments.FirstOrDefault() == "rev-parse"
                 && arguments.Contains("--git-path"))
             {
+                string gitDirectory = Path.Combine(repository.RepoRoot, ".git");
+                if (File.Exists(gitDirectory))
+                {
+                    File.Delete(gitDirectory);
+                }
+
+                Directory.CreateDirectory(gitDirectory);
                 string[] paths = arguments
                     .Select((argument, index) => (argument, index))
                     .Where(static item => item.argument == "--git-path")
                     .Select(item => Path.Combine(
-                        repository.RepoRoot,
-                        ".git",
+                        gitDirectory,
                         arguments[item.index + 1]))
                     .ToArray();
                 return Task.FromResult(new GitCommandResult(

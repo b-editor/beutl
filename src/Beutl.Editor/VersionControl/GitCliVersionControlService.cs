@@ -46,6 +46,26 @@ internal sealed class GitCliVersionControlService :
 
     private sealed record WorktreeStateFingerprint(string Tree, string IndexEntries);
 
+    private sealed record IndexFileSnapshot(
+        bool Exists,
+        byte[] Contents,
+        FileAttributes? Attributes,
+        UnixFileMode? UnixMode,
+        DateTime? LastWriteTimeUtc);
+
+    private sealed class IndexRollbackAmbiguousException : InvalidOperationException
+    {
+        public IndexRollbackAmbiguousException(string message)
+            : base(message)
+        {
+        }
+
+        public IndexRollbackAmbiguousException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
+    }
+
     private enum TreeTransitionOutcome
     {
         AppliedTarget,
@@ -2316,6 +2336,45 @@ internal sealed class GitCliVersionControlService :
         return commit;
     }
 
+    private static async Task<string> CreateReservedPathCleanupCommitAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string tree,
+        string parentCommit,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(
+                repository,
+                [
+                    "commit-tree",
+                    tree,
+                    "-p",
+                    parentCommit,
+                    "-m",
+                    "beutl: stop tracking reserved project state",
+                    "-m",
+                    "Beutl-Snapshot: init",
+                ],
+                GitCommandOptions.Local,
+                cancellationToken)
+            .ConfigureAwait(false);
+        string commit = result.Stdout.Trim();
+        if (commit.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "Git did not return the reserved-path cleanup commit.");
+        }
+
+        await runner.RunAsync(
+                repository,
+                ["cat-file", "-e", commit + "^{commit}"],
+                GitCommandOptions.Local,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return commit;
+    }
+
     private async Task CompletePendingPullRecoveryCoreAsync(
         PendingPullRecovery recovery,
         CancellationToken cancellationToken)
@@ -3064,10 +3123,46 @@ internal sealed class GitCliVersionControlService :
             string commit = result.Stdout.Trim();
             return string.IsNullOrEmpty(commit) ? null : commit;
         }
-        catch (GitOperationException ex) when (ex.ExitCode is 1 or 128)
+        catch (GitOperationException ex) when (ex.ExitCode is 1 or 128
+                                                && !ex.IsRepositoryLockFailure)
         {
             return null;
         }
+    }
+
+    private static async Task<string?> TryResolveCommitWithRetryAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string revision)
+    {
+        Exception? observationFailure = null;
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            try
+            {
+                string? commit = await TryResolveCommitAsync(
+                        repository,
+                        runner,
+                        revision,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                if (commit is not null)
+                {
+                    return commit;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                observationFailure = ex;
+            }
+        }
+
+        if (observationFailure is not null)
+        {
+            throw observationFailure;
+        }
+
+        return null;
     }
 
     private static async Task<string?> TryResolveObjectAsync(
@@ -4669,103 +4764,516 @@ internal sealed class GitCliVersionControlService :
         IReadOnlyList<string> reservedPaths,
         CancellationToken cancellationToken)
     {
-        string? indexTree = null;
+        string? temporaryIndex = null;
+        string? refUpdateWorktreePath = null;
+        bool cleanupRefPublished = false;
         try
         {
-            GitCommandResult index = await runner.RunAsync(
-                repository,
-                ["write-tree"],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            indexTree = index.Stdout.Trim();
+            string branchRef = await GetAttachedBranchRefCoreAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            CheckedOutBranchTip expectedHead = await GetCheckedOutBranchTipCoreAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!string.Equals(branchRef, expectedHead.RefName, StringComparison.Ordinal))
+            {
+                throw new ProjectCheckpointStateChangedException();
+            }
 
-            var removeArguments = new List<string> { "rm", "--cached", "--quiet", "--" };
+            await EnsureNoExternalRepositoryOperationAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            refUpdateWorktreePath = Path.Combine(
+                Path.GetTempPath(),
+                $"beutl-git-ref-update-{Guid.NewGuid():N}");
+            await runner.RunAsync(
+                    repository,
+                    [
+                        "worktree",
+                        "add",
+                        "--detach",
+                        "--no-checkout",
+                        refUpdateWorktreePath,
+                        expectedHead.Commit,
+                    ],
+                    GitCommandOptions.Local,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var refUpdateRepository = new RepositoryInfo(
+                refUpdateWorktreePath,
+                refUpdateWorktreePath);
+
+            string headPath = await ResolveGitPathAsync(
+                    repository,
+                    runner,
+                    "HEAD",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            using HeadOwnershipLease headLease = HeadOwnershipLease.Acquire(
+                headPath,
+                expectedHead.RefName,
+                ex => LogWarningBestEffort(
+                    ex,
+                    "Failed to release the protected Git HEAD lock while untracking reserved project paths."));
+
+            temporaryIndex = Path.Combine(
+                Path.GetTempPath(),
+                $"beutl-git-index-{Guid.NewGuid():N}");
+            var indexOptions = new GitCommandOptions(
+                GitCommandExecutionKind.Local,
+                new Dictionary<string, string?>
+                {
+                    ["GIT_INDEX_FILE"] = temporaryIndex,
+                });
+            await runner.RunAsync(
+                    repository,
+                    ["read-tree", expectedHead.Commit],
+                    indexOptions,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            var removeArguments = new List<string>
+            {
+                "update-index",
+                "--force-remove",
+                "--",
+            };
             removeArguments.AddRange(reservedPaths);
             await runner.RunAsync(
-                repository,
-                removeArguments,
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
+                    repository,
+                    removeArguments,
+                    indexOptions,
+                    cancellationToken)
+                .ConfigureAwait(false);
 
-            // A pathspec-limited commit reads the working tree for the named paths and reports
-            // "nothing to commit" for an index-only deletion, which would leave the untracking
-            // staged forever. The commit therefore takes the index as it stands - and only when
-            // nothing else is staged, so an enclosing repository's own work is never swept in.
-            GitCommandResult staged = await runner.RunAsync(
-                repository,
-                ["diff", "--cached", "--name-only", "-z"],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            string[] stagedPaths = staged.Stdout.Split('\0', StringSplitOptions.RemoveEmptyEntries);
-            if (stagedPaths.Length != reservedPaths.Count
-                || !stagedPaths.All(path => reservedPaths.Contains(path, StringComparer.Ordinal)))
+            GitCommandResult desiredTreeResult = await runner.RunAsync(
+                    repository,
+                    ["write-tree"],
+                    indexOptions,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            string desiredTree = desiredTreeResult.Stdout.Trim();
+            string currentTree = await ResolveTreeAsync(
+                    repository,
+                    runner,
+                    expectedHead.Commit,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            // If the reserved paths are only staged additions, there is no tree change to publish.
+            // Do not mutate the live index: a detached ref movement can race this no-op and the
+            // staged-only additions belong to the caller, not to reserved-path hygiene.
+            if (string.Equals(desiredTree, currentTree, StringComparison.OrdinalIgnoreCase))
             {
-                await ResetIndexAsync(repository, runner, indexTree, repository.Pathspec)
-                    .ConfigureAwait(false);
-                _logger.LogInformation(
-                    "Left reserved project paths tracked because other changes are staged in the repository.");
+                if (await IsReservedPathCleanupCommitAsync(
+                            repository,
+                            runner,
+                            expectedHead.Commit,
+                            reservedPaths,
+                            cancellationToken)
+                        .ConfigureAwait(false))
+                {
+                    _logger.LogInformation(
+                        "The reserved-path cleanup commit is already durable; reconciling only the live index when its ownership can be proven.");
+                    await ReconcileReservedPathsInLiveIndexAsync(
+                            repository,
+                            runner,
+                            refUpdateRepository,
+                            expectedHead.RefName,
+                            expectedHead.Commit,
+                            removeArguments,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Reserved project paths are staged additions with no cleanup commit; leaving the live index untouched.");
+                }
+
                 return;
             }
 
-            await runner.RunAsync(
-                repository,
-                [
-                    "-c",
-                    "core.logAllRefUpdates=true",
-                    "commit",
-                    "--no-gpg-sign",
-                    "-m",
-                    "beutl: stop tracking reserved project state",
-                    "-m",
-                    "Beutl-Snapshot: init",
-                ],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
+            string cleanupCommit = await CreateReservedPathCleanupCommitAsync(
+                    repository,
+                    runner,
+                    desiredTree,
+                    expectedHead.Commit,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            await VerifyUntrackHeadOwnershipAsync(
+                    repository,
+                    runner,
+                    expectedHead)
+                .ConfigureAwait(false);
+            await EnsureNoExternalRepositoryOperationAsync(
+                    repository,
+                    runner,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+
+            try
+            {
+                await runner.RunAsync(
+                        refUpdateRepository,
+                        [
+                            "update-ref",
+                            "-m",
+                            "beutl: stop tracking reserved project state",
+                            expectedHead.RefName,
+                            cleanupCommit,
+                            expectedHead.Commit,
+                        ],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                cleanupRefPublished = true;
+            }
+            catch (Exception publicationException)
+            {
+                string? observedTip;
+                try
+                {
+                    observedTip = await TryResolveCommitWithRetryAsync(
+                            refUpdateRepository,
+                            runner,
+                            expectedHead.RefName)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception observationException)
+                {
+                    if (observationException is GitOperationException
+                        {
+                            IsRepositoryLockFailure: true,
+                        } observationLockException)
+                    {
+                        throw observationLockException;
+                    }
+
+                    throw new AggregateException(
+                        "The reserved-path cleanup ref update failed and its result could not be observed after a retry.",
+                        publicationException,
+                        observationException);
+                }
+
+                if (!string.Equals(
+                        observedTip,
+                        cleanupCommit,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    if (publicationException is GitOperationException
+                        {
+                            IsRepositoryLockFailure: true,
+                        } lockException
+                        && string.Equals(
+                            observedTip,
+                            expectedHead.Commit,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw lockException;
+                    }
+
+                    throw new AggregateException(
+                        "The reserved-path cleanup ref update was not published because the branch tip changed.",
+                        publicationException,
+                        new InvalidOperationException(
+                            $"Expected branch '{expectedHead.RefName}' at '{expectedHead.Commit}', but observed '{observedTip ?? "<unborn>"}'."));
+                }
+
+                cleanupRefPublished = true;
+            }
+
+            string? reconciledTip = await TryResolveCommitWithRetryAsync(
+                    refUpdateRepository,
+                    runner,
+                    expectedHead.RefName)
+                .ConfigureAwait(false);
+            if (!string.Equals(
+                    reconciledTip,
+                    cleanupCommit,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(
+                    "Reserved-path cleanup was published, but branch {Branch} moved to {ObservedTip} before the live index could be reconciled; leaving the index untouched.",
+                    expectedHead.RefName,
+                    reconciledTip ?? "<unborn>");
+                return;
+            }
+
+            await ReconcileReservedPathsInLiveIndexAsync(
+                    repository,
+                    runner,
+                    refUpdateRepository,
+                    expectedHead.RefName,
+                    cleanupCommit,
+                    removeArguments,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            // Cancellation lands here with the reserved paths already removed from the index but not
-            // committed. Leaving that staged would let the next user commit drop them silently, so
-            // this step's own index change is undone before the cancellation surfaces.
-            await TryRestoreIndexAfterUntrackAsync(repository, runner, indexTree)
-                .ConfigureAwait(false);
+            // All tree construction happens in the temporary index. Cancellation before the ref
+            // publication therefore leaves both the live index and the branch untouched.
+            throw;
+        }
+        catch (GitOperationException ex) when (ex.IsRepositoryLockFailure)
+        {
+            // Preserve lock failures for the serialized-operation boundary, which records the
+            // recoverable lock instead of silently leaving a stale HEAD.lock/index.lock behind.
             throw;
         }
         catch (Exception ex)
         {
-            // Initialization has already succeeded by the time this runs, so a failure here must not
-            // fail it; undo only this step's own index change and leave the rest untouched.
-            await TryRestoreIndexAfterUntrackAsync(repository, runner, indexTree)
-                .ConfigureAwait(false);
-
             LogWarningBestEffort(
                 ex,
-                "Could not stop tracking reserved project paths; pulls will report the repository dirty until they are untracked manually.");
+                cleanupRefPublished
+                    ? "Reserved-path cleanup was committed, but the live index could not be reconciled safely."
+                    : "Could not stop tracking reserved project paths; pulls will report the repository dirty until they are untracked manually.");
+        }
+        finally
+        {
+            if (refUpdateWorktreePath is not null)
+            {
+                await RemoveRefUpdateWorktreeBestEffortAsync(
+                        repository,
+                        runner,
+                        refUpdateWorktreePath)
+                    .ConfigureAwait(false);
+            }
+
+            if (temporaryIndex is not null)
+            {
+                TryDeleteTemporaryIndex(temporaryIndex);
+            }
         }
     }
 
-    // ResetIndexAsync deliberately runs without a cancellation token: this is a compensating action
-    // that also has to complete on the cancellation path.
-    private async Task TryRestoreIndexAfterUntrackAsync(
+    private static async Task VerifyUntrackHeadOwnershipAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
-        string? indexTree)
+        CheckedOutBranchTip expectedHead)
     {
-        if (indexTree is null)
+        CheckedOutBranchTip actualHead = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(actualHead, expectedHead))
+        {
+            throw new ProjectCheckpointStateChangedException();
+        }
+    }
+
+    private static async Task<bool> IsReservedPathCleanupCommitAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string commit,
+        IReadOnlyList<string> reservedPaths,
+        CancellationToken cancellationToken)
+    {
+        var historyArguments = new List<string>
+        {
+            "log",
+            "--first-parent",
+            "--format=%H",
+            "-z",
+            "--max-count=128",
+            commit,
+            "--",
+        };
+        historyArguments.AddRange(reservedPaths);
+        GitCommandResult history = await runner.RunAsync(
+            repository,
+            historyArguments,
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        foreach (string candidate in history.Stdout.Split(
+                     '\0',
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (await IsExactReservedPathCleanupCommitAsync(
+                        repository,
+                        runner,
+                        candidate,
+                        reservedPaths,
+                        cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static async Task<bool> IsExactReservedPathCleanupCommitAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string commit,
+        IReadOnlyList<string> reservedPaths,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult message = await runner.RunAsync(
+            repository,
+            ["show", "-s", "--format=%s%n%b", commit],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        if (!message.Stdout.StartsWith(
+                "beutl: stop tracking reserved project state\n",
+                StringComparison.Ordinal)
+            || !message.Stdout.Contains(
+                "Beutl-Snapshot: init",
+                StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        GitCommandResult parent = await runner.RunAsync(
+            repository,
+            ["rev-parse", "--verify", $"{commit}^{{commit}}^"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        var diffArguments = new List<string>
+        {
+            "diff",
+            "--name-only",
+            "-z",
+            parent.Stdout.Trim(),
+            commit,
+            "--",
+        };
+        diffArguments.AddRange(reservedPaths);
+        GitCommandResult changed = await runner.RunAsync(
+            repository,
+            diffArguments,
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        string[] changedPaths = changed.Stdout.Split(
+            '\0',
+            StringSplitOptions.RemoveEmptyEntries);
+        return changedPaths.Length > 0
+               && changedPaths.All(path => reservedPaths.Contains(path, StringComparer.Ordinal));
+    }
+
+    private async Task ReconcileReservedPathsInLiveIndexAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        RepositoryInfo refUpdateRepository,
+        string branchRef,
+        string expectedTip,
+        IReadOnlyList<string> removeArguments,
+        CancellationToken cancellationToken)
+    {
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        string liveIndexPath = await ResolveGitPathAsync(
+                repository,
+                runner,
+                "index",
+                cancellationToken)
+            .ConfigureAwait(false);
+        IndexFileSnapshot liveIndexBefore = await CaptureIndexFileSnapshotAsync(
+                liveIndexPath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        IndexFileSnapshot liveIndexAfter = await TransformIndexSnapshotAsync(
+                repository,
+                runner,
+                liveIndexPath,
+                liveIndexBefore,
+                removeArguments,
+                GitCommandOptions.Local,
+                "The live Git index changed while reserved paths were being reconciled; it was left untouched.",
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        bool externalOperationStarted = false;
+        try
+        {
+            await EnsureNoExternalRepositoryOperationAsync(
+                    repository,
+                    runner,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (VersionControlConflictedException)
+        {
+            externalOperationStarted = true;
+        }
+
+        string? finalTip;
+        try
+        {
+            finalTip = await TryResolveCommitWithRetryAsync(
+                    refUpdateRepository,
+                    runner,
+                    branchRef)
+                .ConfigureAwait(false);
+        }
+        catch (Exception observationException)
+        {
+            try
+            {
+                await ApplyIndexSnapshotAsync(
+                        liveIndexPath,
+                        expectedCurrent: liveIndexAfter,
+                        replacement: liveIndexBefore,
+                        mismatchMessage:
+                            "The branch tip became unobservable after reserved-path reconciliation and the live index changed concurrently; the external index state was preserved.")
+                    .ConfigureAwait(false);
+            }
+            catch (IndexRollbackAmbiguousException rollbackException)
+            {
+                LogWarningBestEffort(
+                    rollbackException,
+                    "The branch tip became unobservable after reserved-path reconciliation; a concurrent index change was preserved instead of restoring the prior index.");
+            }
+
+            LogWarningBestEffort(
+                observationException,
+                "The branch tip could not be observed after reserved-path index reconciliation; the prior live index was restored when ownership could be proven.");
+            if (observationException is GitOperationException
+                {
+                    IsRepositoryLockFailure: true,
+                } observationLockException)
+            {
+                throw observationLockException;
+            }
+
+            return;
+        }
+
+        if (!externalOperationStarted
+            && string.Equals(finalTip, expectedTip, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
         try
         {
-            await ResetIndexAsync(repository, runner, indexTree, repository.Pathspec)
+            await ApplyIndexSnapshotAsync(
+                    liveIndexPath,
+                    expectedCurrent: liveIndexAfter,
+                    replacement: liveIndexBefore,
+                    mismatchMessage:
+                        "The branch moved after reserved-path reconciliation and the live index changed concurrently; the external index state was preserved.")
                 .ConfigureAwait(false);
         }
-        catch (Exception restoreException)
+        catch (IndexRollbackAmbiguousException rollbackException)
         {
             LogWarningBestEffort(
-                restoreException,
-                "Could not restore the index after failing to untrack reserved project paths.");
+                rollbackException,
+                "The branch moved after reserved-path reconciliation; a concurrent index change was preserved instead of restoring the prior index.");
         }
     }
 
@@ -5937,19 +6445,11 @@ internal sealed class GitCliVersionControlService :
 
         string ignorePath = Path.Combine(repository.ProjectRoot, ".gitignore");
         string attributesPath = Path.Combine(repository.ProjectRoot, ".gitattributes");
-        HygieneFileSnapshot originalIgnore = await ReadHygieneFileSnapshotAsync(
-                ignorePath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        HygieneFileSnapshot originalAttributes = await ReadHygieneFileSnapshotAsync(
-                attributesPath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        HygieneFileSnapshot? initializedIgnore = null;
-        HygieneFileSnapshot? initializedAttributes = null;
         string? branchRef = null;
         string? originalBranchTip = null;
-        string? originalIndexTree = null;
+        string? indexPath = null;
+        IndexFileSnapshot? indexBeforeAdd = null;
+        IndexFileSnapshot? indexAfterAdd = null;
         string? reflogAction = null;
         bool indexMayHaveChanged = false;
         bool commitAttempted = false;
@@ -5970,18 +6470,10 @@ internal sealed class GitCliVersionControlService :
                     s_gitIgnoreLines,
                     cancellationToken)
                 .ConfigureAwait(false);
-            initializedIgnore = await ReadHygieneFileSnapshotAsync(
-                    ignorePath,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
             await EnsureAttributesAsync(
                     attributesPath,
                     useLfs,
                     cancellationToken)
-                .ConfigureAwait(false);
-            initializedAttributes = await ReadHygieneFileSnapshotAsync(
-                    attributesPath,
-                    CancellationToken.None)
                 .ConfigureAwait(false);
 
             WorkspaceStatus status = await GetStatusCoreAsync(
@@ -6014,12 +6506,6 @@ internal sealed class GitCliVersionControlService :
                         branchRef,
                         cancellationToken)
                     .ConfigureAwait(false);
-                GitCommandResult originalIndex = await runner.RunAsync(
-                    repository,
-                    ["write-tree"],
-                    GitCommandOptions.Local,
-                    cancellationToken).ConfigureAwait(false);
-                originalIndexTree = originalIndex.Stdout.Trim();
                 string currentBranchRef = await GetAttachedBranchRefCoreAsync(
                         repository,
                         runner,
@@ -6046,7 +6532,6 @@ internal sealed class GitCliVersionControlService :
                         cancellationToken)
                     .ConfigureAwait(false);
                 reflogAction = $"beutl-initialize/{Guid.NewGuid():N}";
-                indexMayHaveChanged = true;
                 IReadOnlyList<string> snapshotExcludes = CreateSnapshotExcludePathspecs(repository);
                 var addArguments = new List<string>
                 {
@@ -6056,14 +6541,29 @@ internal sealed class GitCliVersionControlService :
                     CreateSnapshotBasePathspec(repository),
                 };
                 addArguments.AddRange(snapshotExcludes);
-                await runner.RunAsync(
-                    repository,
-                    addArguments,
-                    new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs)
-                    {
-                        UseLiteralPathspecs = false,
-                    },
-                    cancellationToken).ConfigureAwait(false);
+                indexPath = await ResolveGitPathAsync(
+                        repository,
+                        runner,
+                        "index",
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                indexBeforeAdd = await CaptureIndexFileSnapshotAsync(
+                        indexPath,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                indexMayHaveChanged = true;
+                indexAfterAdd = await StageIndexSnapshotAsync(
+                        repository,
+                        runner,
+                        indexPath,
+                        indexBeforeAdd,
+                        addArguments,
+                        new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs)
+                        {
+                            UseLiteralPathspecs = false,
+                        },
+                        cancellationToken)
+                    .ConfigureAwait(false);
                 commitAttempted = true;
                 var commitArguments = new List<string>
                 {
@@ -6097,6 +6597,16 @@ internal sealed class GitCliVersionControlService :
         }
         catch (Exception operationException)
         {
+            if (operationException is IndexRollbackAmbiguousException)
+            {
+                throw;
+            }
+
+            if (indexAfterAdd is null)
+            {
+                throw;
+            }
+
             bool durableCommitRecorded = false;
             if (commitAttempted)
             {
@@ -6113,7 +6623,7 @@ internal sealed class GitCliVersionControlService :
                 catch (Exception observationException)
                 {
                     throw new AggregateException(
-                        "The initial snapshot failed and its durable commit result could not be observed. The initialization state was left unchanged.",
+                        "The initial snapshot failed and its durable commit result could not be observed; initialization hygiene changes were retained.",
                         operationException,
                         observationException);
                 }
@@ -6148,7 +6658,7 @@ internal sealed class GitCliVersionControlService :
                 catch (Exception observationException)
                 {
                     throw new AggregateException(
-                        "The initial snapshot failed and the current branch tip could not be observed. The initialization state was left unchanged.",
+                        "The initial snapshot failed and the current branch tip could not be observed; initialization hygiene changes were retained.",
                         operationException,
                         observationException);
                 }
@@ -6160,7 +6670,7 @@ internal sealed class GitCliVersionControlService :
                         StringComparison.OrdinalIgnoreCase))
                 {
                     throw new AggregateException(
-                        "The initial snapshot failed, but the branch tip changed before its durable result could be identified. The initialization state was left unchanged.",
+                        "The initial snapshot failed, but the branch tip changed before its durable result could be identified; initialization hygiene changes were retained.",
                         operationException,
                         new InvalidOperationException(
                             $"Expected branch '{branchRef}' at '{originalBranchTip ?? "<unborn>"}', but observed '{observedBranchRef}' at '{observedBranchTip ?? "<unborn>"}'."));
@@ -6169,24 +6679,39 @@ internal sealed class GitCliVersionControlService :
 
             if (!durableCommitRecorded)
             {
+                if (indexAfterAdd is null)
+                {
+                    throw;
+                }
+
                 try
                 {
-                    await RestoreFailedInitializationAsync(
-                            repository,
-                            runner,
-                            indexMayHaveChanged ? originalIndexTree : null,
-                            ignorePath,
-                            originalIgnore,
-                            initializedIgnore,
-                            attributesPath,
-                            originalAttributes,
-                            initializedAttributes)
+                    if (indexPath is null
+                        || indexBeforeAdd is null
+                        )
+                    {
+                        throw new IndexRollbackAmbiguousException(
+                            "The initial snapshot failed before a complete post-staging index snapshot could be captured; the index was left untouched.");
+                    }
+
+                    await RestoreFailedIndexSnapshotAsync(
+                            indexPath,
+                            indexBeforeAdd,
+                            indexAfterAdd)
                         .ConfigureAwait(false);
+                }
+                catch (IndexRollbackAmbiguousException)
+                {
+                    throw;
+                }
+                catch (GitOperationException)
+                {
+                    throw;
                 }
                 catch (Exception restoreException)
                 {
                     throw new AggregateException(
-                        "Version-control initialization failed and the prior index or repository hygiene state could not be restored.",
+                        "Version-control initialization failed and the prior index could not be restored.",
                         operationException,
                         restoreException);
                 }
@@ -6518,12 +7043,14 @@ internal sealed class GitCliVersionControlService :
                 branchRef,
                 cancellationToken)
             .ConfigureAwait(false);
-        GitCommandResult originalIndex = await runner.RunAsync(
-            repository,
-            ["write-tree"],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
-        string originalIndexTree = originalIndex.Stdout.Trim();
+        string indexPath = await ResolveGitPathAsync(
+                repository,
+                runner,
+                "index",
+                cancellationToken)
+            .ConfigureAwait(false);
+        IndexFileSnapshot? indexBeforeAdd = null;
+        IndexFileSnapshot? indexAfterAdd = null;
         string reflogAction = $"beutl-snapshot/{Guid.NewGuid():N}";
 
         var arguments = new List<string>
@@ -6562,14 +7089,22 @@ internal sealed class GitCliVersionControlService :
                 CreateSnapshotBasePathspec(repository),
             };
             addArguments.AddRange(snapshotExcludes);
-            await runner.RunAsync(
-                repository,
-                addArguments,
-                new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs)
-                {
-                    UseLiteralPathspecs = false,
-                },
-                cancellationToken).ConfigureAwait(false);
+            indexBeforeAdd = await CaptureIndexFileSnapshotAsync(
+                    indexPath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            indexAfterAdd = await StageIndexSnapshotAsync(
+                    repository,
+                    runner,
+                    indexPath,
+                    indexBeforeAdd,
+                    addArguments,
+                    new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs)
+                    {
+                        UseLiteralPathspecs = false,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
             await runner.RunAsync(
                 repository,
                 arguments,
@@ -6586,6 +7121,16 @@ internal sealed class GitCliVersionControlService :
         }
         catch (Exception operationException)
         {
+            if (operationException is IndexRollbackAmbiguousException)
+            {
+                throw;
+            }
+
+            if (indexAfterAdd is null)
+            {
+                throw;
+            }
+
             string? durableCommit;
             try
             {
@@ -6599,7 +7144,7 @@ internal sealed class GitCliVersionControlService :
             catch (Exception observationException)
             {
                 throw new AggregateException(
-                    "The snapshot operation failed and its durable commit result could not be observed. The index was left unchanged.",
+                    "The snapshot operation failed and its durable commit result could not be observed; the index was left unchanged.",
                     operationException,
                     observationException);
             }
@@ -6626,7 +7171,7 @@ internal sealed class GitCliVersionControlService :
             catch (Exception observationException)
             {
                 throw new AggregateException(
-                    "The snapshot operation failed and the current branch tip could not be observed. The index was left unchanged.",
+                    "The snapshot operation failed and the current branch tip could not be observed; the index was left unchanged.",
                     operationException,
                     observationException);
             }
@@ -6637,7 +7182,7 @@ internal sealed class GitCliVersionControlService :
                     StringComparison.OrdinalIgnoreCase))
             {
                 throw new AggregateException(
-                    "The snapshot operation failed, but the branch tip changed before its durable result could be identified. The index was left unchanged.",
+                    "The snapshot operation failed, but the branch tip changed before its durable result could be identified; the index was left unchanged.",
                     operationException,
                     new InvalidOperationException(
                         $"Expected branch tip '{originalBranchTip ?? "<unborn>"}', but observed '{observedBranchTip ?? "<unborn>"}'."));
@@ -6645,12 +7190,25 @@ internal sealed class GitCliVersionControlService :
 
             try
             {
-                await ResetIndexAsync(
-                        repository,
-                        runner,
-                        originalIndexTree,
-                        repository.Pathspec)
+                if (indexBeforeAdd is null)
+                {
+                    throw new IndexRollbackAmbiguousException(
+                        "The snapshot operation failed before a complete pre-staging index snapshot could be captured; the index was left untouched.");
+                }
+
+                await RestoreFailedIndexSnapshotAsync(
+                        indexPath,
+                        indexBeforeAdd,
+                        indexAfterAdd!)
                     .ConfigureAwait(false);
+            }
+            catch (IndexRollbackAmbiguousException)
+            {
+                throw;
+            }
+            catch (GitOperationException)
+            {
+                throw;
             }
             catch (Exception restoreException)
             {
@@ -7848,118 +8406,324 @@ internal sealed class GitCliVersionControlService :
         return firstBlockIndex;
     }
 
-    private static async Task RestoreFailedInitializationAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string? originalIndexTree,
-        string ignorePath,
-        HygieneFileSnapshot originalIgnore,
-        HygieneFileSnapshot? initializedIgnore,
-        string attributesPath,
-        HygieneFileSnapshot originalAttributes,
-        HygieneFileSnapshot? initializedAttributes)
+    // The hygiene files are ordinary user-visible files. Portable .NET has no atomic
+    // compare-and-delete/replace primitive, so rollback never mutates them after initialization;
+    // retaining Beutl's additions is safer than risking deletion or overwrite of an external edit.
+    private static async Task<IndexFileSnapshot> CaptureIndexFileSnapshotAsync(
+        string indexPath,
+        CancellationToken cancellationToken)
     {
-        var failures = new List<Exception>();
-        if (originalIndexTree is not null)
+        EnsureIndexPathIsRegular(indexPath);
+        try
         {
-            try
+            if (!File.Exists(indexPath))
             {
-                await ResetIndexAsync(
-                        repository,
-                        runner,
-                        originalIndexTree,
-                        repository.Pathspec)
-                    .ConfigureAwait(false);
+                return new IndexFileSnapshot(
+                    Exists: false,
+                    Contents: [],
+                    Attributes: null,
+                    UnixMode: null,
+                    LastWriteTimeUtc: null);
             }
-            catch (Exception ex)
-            {
-                failures.Add(ex);
-            }
-        }
 
-        if (initializedIgnore is not null)
-        {
-            try
+            byte[] contents = await File.ReadAllBytesAsync(indexPath, cancellationToken)
+                .ConfigureAwait(false);
+            FileAttributes attributes = File.GetAttributes(indexPath);
+            UnixFileMode? unixMode = null;
+            if (!OperatingSystem.IsWindows())
             {
-                await RestoreHygieneFileIfUnchangedAsync(
-                        ignorePath,
-                        originalIgnore,
-                        initializedIgnore)
-                    .ConfigureAwait(false);
+                unixMode = File.GetUnixFileMode(indexPath);
             }
-            catch (Exception ex)
-            {
-                failures.Add(ex);
-            }
-        }
 
-        if (initializedAttributes is not null)
-        {
-            try
-            {
-                await RestoreHygieneFileIfUnchangedAsync(
-                        attributesPath,
-                        originalAttributes,
-                        initializedAttributes)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                failures.Add(ex);
-            }
+            EnsureIndexPathIsRegular(indexPath);
+            return new IndexFileSnapshot(
+                Exists: true,
+                contents,
+                attributes,
+                unixMode,
+                File.GetLastWriteTimeUtc(indexPath));
         }
-
-        if (failures.Count > 0)
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
-            throw new AggregateException(failures);
+            EnsureIndexPathIsRegular(indexPath);
+            return new IndexFileSnapshot(
+                Exists: false,
+                Contents: [],
+                Attributes: null,
+                UnixMode: null,
+                LastWriteTimeUtc: null);
         }
     }
 
-    private static async Task RestoreHygieneFileIfUnchangedAsync(
-        string path,
-        HygieneFileSnapshot original,
-        HygieneFileSnapshot initialized)
+    private static void EnsureIndexPathIsRegular(string path)
     {
-        HygieneFileSnapshot current = await ReadHygieneFileSnapshotAsync(
-                path,
-                CancellationToken.None)
-            .ConfigureAwait(false);
-        if (current != initialized || current == original)
-        {
-            return;
-        }
-
-        if (!original.Exists)
-        {
-            current = await ReadHygieneFileSnapshotAsync(path, CancellationToken.None)
-                .ConfigureAwait(false);
-            if (current == initialized)
-            {
-                File.Delete(path);
-            }
-
-            return;
-        }
-
-        string temporaryPath = await WriteTemporaryHygieneFileAsync(
-                path,
-                original.Contents ?? string.Empty,
-                original,
-                CancellationToken.None)
-            .ConfigureAwait(false);
         try
         {
-            current = await ReadHygieneFileSnapshotAsync(path, CancellationToken.None)
-                .ConfigureAwait(false);
-            if (current == initialized)
+            var file = new FileInfo(path);
+            file.Refresh();
+            if (file.Exists
+                && (file.LinkTarget is not null
+                    || (file.Attributes & FileAttributes.ReparsePoint) != 0))
             {
-                File.Move(temporaryPath, path, overwrite: true);
+                throw new InvalidOperationException(
+                    $"Git index path '{path}' must be a regular file.");
             }
+
+            if (Directory.Exists(path))
+            {
+                throw new InvalidOperationException(
+                    $"Git index path '{path}' must be a regular file.");
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or NotSupportedException)
+        {
+            throw new InvalidOperationException(
+                $"The Git index path '{path}' could not be inspected safely.",
+                ex);
+        }
+    }
+
+    private static bool IndexBytesEqual(
+        IndexFileSnapshot left,
+        IndexFileSnapshot right)
+    {
+        return left.Exists == right.Exists
+               && left.Contents.AsSpan().SequenceEqual(right.Contents)
+               && left.Attributes == right.Attributes
+               && left.UnixMode == right.UnixMode;
+    }
+
+    private static async Task<IndexFileSnapshot> StageIndexSnapshotAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string indexPath,
+        IndexFileSnapshot beforeAdd,
+        IReadOnlyList<string> addArguments,
+        GitCommandOptions addOptions,
+        CancellationToken cancellationToken)
+        => await TransformIndexSnapshotAsync(
+                repository,
+                runner,
+                indexPath,
+                beforeAdd,
+                addArguments,
+                addOptions,
+                $"The Git index '{indexPath}' changed while the snapshot was being staged; the live index was left untouched.",
+                cancellationToken)
+            .ConfigureAwait(false);
+
+    private static async Task<IndexFileSnapshot> TransformIndexSnapshotAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string indexPath,
+        IndexFileSnapshot beforeTransform,
+        IReadOnlyList<string> arguments,
+        GitCommandOptions options,
+        string mismatchMessage,
+        CancellationToken cancellationToken)
+    {
+        string indexDirectory = Path.GetDirectoryName(indexPath)
+                                ?? throw new InvalidOperationException(
+                                    $"The Git index path '{indexPath}' has no parent directory.");
+        string temporaryIndexPath = Path.Combine(
+            indexDirectory,
+            $".beutl-index-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            if (beforeTransform.Exists)
+            {
+                await using var stream = new FileStream(
+                    temporaryIndexPath,
+                    new FileStreamOptions
+                    {
+                        Mode = FileMode.CreateNew,
+                        Access = FileAccess.Write,
+                        Share = FileShare.None,
+                        Options = FileOptions.Asynchronous,
+                    });
+                await stream.WriteAsync(beforeTransform.Contents, cancellationToken)
+                    .ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            if (beforeTransform.LastWriteTimeUtc is { } lastWriteTimeUtc)
+            {
+                File.SetLastWriteTimeUtc(temporaryIndexPath, lastWriteTimeUtc);
+            }
+
+            var environmentOverrides = options.EnvironmentOverrides is null
+                ? new Dictionary<string, string?>()
+                : new Dictionary<string, string?>(options.EnvironmentOverrides);
+            environmentOverrides["GIT_INDEX_FILE"] = temporaryIndexPath;
+            GitCommandOptions temporaryIndexOptions = options with
+            {
+                EnvironmentOverrides = environmentOverrides,
+            };
+            await runner.RunAsync(
+                    repository,
+                    arguments,
+                    temporaryIndexOptions,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            IndexFileSnapshot afterAdd = await CaptureIndexFileSnapshotAsync(
+                    temporaryIndexPath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (beforeTransform.Exists)
+            {
+                afterAdd = afterAdd with
+                {
+                    Attributes = beforeTransform.Attributes,
+                    UnixMode = beforeTransform.UnixMode,
+                };
+            }
+            await ApplyIndexSnapshotAsync(
+                    indexPath,
+                    expectedCurrent: beforeTransform,
+                    replacement: afterAdd,
+                    mismatchMessage: mismatchMessage)
+                .ConfigureAwait(false);
+            return afterAdd;
         }
         finally
         {
-            TryDeleteHygieneTemporaryFile(temporaryPath);
+            TryDeleteTemporaryIndex(temporaryIndexPath);
         }
+    }
+
+    private static FileStream AcquireIndexLock(string indexPath)
+    {
+        string lockPath = indexPath + ".lock";
+        try
+        {
+            return new FileStream(
+                lockPath,
+                new FileStreamOptions
+                {
+                    Mode = FileMode.CreateNew,
+                    Access = FileAccess.ReadWrite,
+                    Share = FileShare.None,
+                    Options = FileOptions.WriteThrough,
+                });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new GitOperationException(
+                128,
+                $"Unable to acquire the worktree Git index lock '{lockPath}': {ex.Message}");
+        }
+    }
+
+    private static async Task ApplyIndexSnapshotAsync(
+        string indexPath,
+        IndexFileSnapshot expectedCurrent,
+        IndexFileSnapshot replacement,
+        string mismatchMessage)
+    {
+        string lockPath = indexPath + ".lock";
+        FileStream lockStream = AcquireIndexLock(indexPath);
+        bool lockMoved = false;
+        try
+        {
+            // The lockfile blocks Git's normal index writers for the entire compare/write/rename
+            // sequence. A changed byte stream means another writer owns the index and this
+            // operation must not overwrite it.
+            IndexFileSnapshot current = await CaptureIndexFileSnapshotAsync(
+                    indexPath,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (!IndexBytesEqual(current, expectedCurrent))
+            {
+                throw new IndexRollbackAmbiguousException(mismatchMessage);
+            }
+
+            await lockStream.WriteAsync(replacement.Contents, CancellationToken.None)
+                .ConfigureAwait(false);
+            await lockStream.FlushAsync(CancellationToken.None).ConfigureAwait(false);
+            lockStream.Flush(flushToDisk: true);
+            lockStream.Dispose();
+
+            if (replacement.Exists)
+            {
+                if (replacement.Attributes is { } attributes)
+                {
+                    File.SetAttributes(lockPath, attributes);
+                }
+
+                if (!OperatingSystem.IsWindows() && replacement.UnixMode is { } unixMode)
+                {
+                    File.SetUnixFileMode(lockPath, unixMode);
+                }
+
+                if (replacement.LastWriteTimeUtc is { } lastWriteTimeUtc)
+                {
+                    File.SetLastWriteTimeUtc(lockPath, lastWriteTimeUtc);
+                }
+
+                File.Move(lockPath, indexPath, overwrite: true);
+            }
+            else
+            {
+                // An absent replacement has no byte stream to rename. Keep the lockfile in place
+                // while removing the index so compliant Git writers cannot recreate it between
+                // the compare and delete operations.
+                File.Delete(indexPath);
+                File.Delete(lockPath);
+            }
+
+            lockMoved = true;
+        }
+        catch (IndexRollbackAmbiguousException)
+        {
+            throw;
+        }
+        catch (GitOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new IndexRollbackAmbiguousException(
+                $"The Git index '{indexPath}' could not be changed without risking an overwrite.",
+                ex);
+        }
+        finally
+        {
+            lockStream.Dispose();
+
+            if (!lockMoved)
+            {
+                try
+                {
+                    File.Delete(lockPath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Preserve the original ownership/operation failure. The lock is still
+                    // visible to compliant Git writers until the caller can recover it.
+                }
+            }
+        }
+    }
+
+    private static async Task RestoreFailedIndexSnapshotAsync(
+        string indexPath,
+        IndexFileSnapshot beforeAdd,
+        IndexFileSnapshot afterAdd)
+    {
+        await ApplyIndexSnapshotAsync(
+                indexPath,
+                expectedCurrent: afterAdd,
+                replacement: beforeAdd,
+                mismatchMessage:
+                    $"The Git index '{indexPath}' changed after staging; its prior bytes were not restored.")
+            .ConfigureAwait(false);
     }
 
     private async Task UpdateHygieneFileAsync(

@@ -1033,16 +1033,17 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             "track reserved project state");
         using var cancellation = new CancellationTokenSource();
         // Cancel exactly between the index change and the commit that would make it durable.
+        var runner = new CancelAfterCommandRunner(
+            CreateRunner(),
+            arguments => arguments.Count > 1
+                         && arguments[0] == "read-tree"
+                         && arguments[1] != "--reset",
+            cancellation);
         using GitCliVersionControlService service = new(
             CreateInstalledLocator(),
             repository: null,
             watcher: null,
-            _ => new CancelAfterCommandRunner(
-                CreateRunner(),
-                arguments => arguments.Count > 1
-                             && arguments[0] == "rm"
-                             && arguments[1] == "--cached",
-                cancellation));
+            _ => runner);
 
         await service.InitializeAsync(
             new InitOptions(new RepositoryInfo(Root, projectRoot), UseLfsWhenAvailable: false),
@@ -1055,6 +1056,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
 
         GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
         GitCommandResult tracked = await RunGitAsync("ls-files", "--", "nested/project");
+        GitCommandResult head = await RunGitAsync("symbolic-ref", "--quiet", "HEAD");
 
         Assert.Multiple(() =>
         {
@@ -1062,6 +1064,326 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             // otherwise stop tracking the reserved state without anyone asking for it.
             Assert.That(staged.Stdout.Trim(), Is.Empty);
             Assert.That(tracked.Stdout, Does.Contain(".beutl/view-state.json"));
+            Assert.That(head.Stdout.Trim(), Is.EqualTo("refs/heads/main"));
+            Assert.That(runner.TemporaryIndexPath, Is.Not.Null);
+            Assert.That(File.Exists(runner.TemporaryIndexPath!), Is.False);
+            Assert.That(runner.TemporaryWorktreePath, Is.Not.Null);
+            Assert.That(Directory.Exists(runner.TemporaryWorktreePath!), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Untracking_reserved_project_state_does_not_capture_an_unrelated_root_stage()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await CommitFileAsync(
+            Path.Combine("nested", "project", ".beutl", "view-state.json"),
+            "{}\n",
+            "track reserved project state");
+        using GitCliVersionControlService service = CreateUnassociatedService();
+        await service.InitializeAsync(
+            new InitOptions(new RepositoryInfo(Root, projectRoot), UseLfsWhenAvailable: false),
+            CancellationToken.None);
+        IReadOnlyList<string> reserved = await service.GetTrackedReservedPathsAsync(
+            CancellationToken.None);
+
+        string unrelatedPath = Path.Combine(Root, "root-unrelated.txt");
+        await File.WriteAllTextAsync(unrelatedPath, "keep staged\n");
+        var runner = new StageBeforeCleanupPublicationRunner(
+            CreateRunner(),
+            Repository,
+            unrelatedPath);
+        using GitCliVersionControlService interleavedService = new(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        await interleavedService.UntrackReservedPathsAsync(reserved, CancellationToken.None);
+
+        GitCommandResult commitFiles = await RunGitAsync(
+            "show",
+            "--format=",
+            "--name-only",
+            "HEAD");
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
+        GitCommandResult tracked = await RunGitAsync("ls-files", "--", "nested/project");
+        GitCommandResult status = await RunGitAsync("status", "--porcelain");
+        GitCommandResult metadata = await RunGitAsync(
+            "show",
+            "-s",
+            "--format=%an%n%ae%n%s%n%b",
+            "HEAD");
+        GitCommandResult head = await RunGitAsync("symbolic-ref", "--quiet", "HEAD");
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(commitFiles.Stdout, Does.Not.Contain("root-unrelated.txt"));
+            Assert.That(staged.Stdout.Trim(), Is.EqualTo("root-unrelated.txt"));
+            Assert.That(tracked.Stdout, Does.Not.Contain(".beutl/"));
+            Assert.That(status.Stdout, Does.Contain("A  root-unrelated.txt"));
+            Assert.That(metadata.Stdout, Does.Contain("Beutl Test\nbeutl-test@example.invalid\n"));
+            Assert.That(metadata.Stdout, Does.Contain("beutl: stop tracking reserved project state\n"));
+            Assert.That(metadata.Stdout, Does.Contain("Beutl-Snapshot: init\n"));
+            Assert.That(head.Stdout.Trim(), Is.EqualTo("refs/heads/main"));
+            Assert.That(runner.TemporaryIndexPath, Is.Not.Null);
+            Assert.That(File.Exists(runner.TemporaryIndexPath!), Is.False);
+            Assert.That(runner.TemporaryWorktreePath, Is.Not.Null);
+            Assert.That(Directory.Exists(runner.TemporaryWorktreePath!), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Untracking_reserved_project_state_reconciles_after_one_shot_ref_observation_loss()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await CommitFileAsync(
+            Path.Combine("nested", "project", ".beutl", "view-state.json"),
+            "{}\n",
+            "track reserved project state");
+        using (GitCliVersionControlService setupService = CreateUnassociatedService())
+        {
+            await setupService.InitializeAsync(
+                new InitOptions(new RepositoryInfo(Root, projectRoot), UseLfsWhenAvailable: false),
+                CancellationToken.None);
+        }
+
+        var runner = new LostReservedCleanupObservationRunner(CreateRunner());
+        using GitCliVersionControlService service = new(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+        IReadOnlyList<string> reserved = await service.GetTrackedReservedPathsAsync(
+            CancellationToken.None);
+
+        await service.UntrackReservedPathsAsync(reserved, CancellationToken.None);
+
+        GitCommandResult tracked = await RunGitAsync("ls-files", "--", "nested/project");
+        GitCommandResult status = await RunGitAsync("status", "--porcelain");
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.ObservationFailures, Is.EqualTo(1));
+            Assert.That(tracked.Stdout, Does.Not.Contain(".beutl/"));
+            Assert.That(status.Stdout.Trim(), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Untracking_reserved_project_state_rethrows_a_stale_head_lock()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await CommitFileAsync(
+            Path.Combine("nested", "project", ".beutl", "view-state.json"),
+            "{}\n",
+            "track reserved project state");
+        string headRecord = (await RunGitAsync("rev-parse", "--git-path", "HEAD"))
+            .Stdout.TrimEnd('\r', '\n');
+        string headPath = Path.GetFullPath(
+            Path.IsPathFullyQualified(headRecord)
+                ? headRecord
+                : Path.Combine(Root, headRecord));
+        string lockPath = headPath + ".lock";
+        await File.WriteAllTextAsync(lockPath, "stale");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            DateTime.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1));
+        using GitCliVersionControlService service = new(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner());
+        IReadOnlyList<string> reserved = await service.GetTrackedReservedPathsAsync(
+            CancellationToken.None);
+        var notification = new TaskCompletionSource<RepositoryLockInfo>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        service.RecoverableLockAvailable += (_, info) => notification.TrySetResult(info);
+
+        GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
+            () => service.UntrackReservedPathsAsync(reserved, CancellationToken.None));
+        RepositoryLockInfo lockInfo = await notification.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.IsRepositoryLockFailure, Is.True);
+            Assert.That(
+                RepositoryPathComparer.AreEquivalent(lockInfo.LockPath, lockPath),
+                Is.True);
+            Assert.That(service.RecoverableLock, Is.EqualTo(lockInfo));
+            Assert.That(File.Exists(lockPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Untracking_reserved_project_state_refuses_a_moved_branch_without_losing_staged_state()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await CommitFileAsync(
+            Path.Combine("nested", "project", ".beutl", "view-state.json"),
+            "{}\n",
+            "track reserved project state");
+        string unrelatedPath = Path.Combine(Root, "root-unrelated.txt");
+        await File.WriteAllTextAsync(unrelatedPath, "keep staged\n");
+        await RunGitAsync("add", "--", "root-unrelated.txt");
+        IReadOnlyList<string> reserved;
+        using (GitCliVersionControlService service = CreateUnassociatedService())
+        {
+            await service.InitializeAsync(
+                new InitOptions(new RepositoryInfo(Root, projectRoot), UseLfsWhenAvailable: false),
+                CancellationToken.None);
+            reserved = await service.GetTrackedReservedPathsAsync(CancellationToken.None);
+        }
+        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
+
+        var runner = new MoveBranchBeforePublicationRunner(CreateRunner());
+        using GitCliVersionControlService interleavedService = new(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+        await interleavedService.UntrackReservedPathsAsync(reserved, CancellationToken.None);
+
+        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
+        GitCommandResult tracked = await RunGitAsync("ls-files", "--", "nested/project");
+        string branchAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        GitCommandResult head = await RunGitAsync("symbolic-ref", "--quiet", "HEAD");
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(tracked.Stdout, Does.Contain(".beutl/"));
+            Assert.That(branchAfter, Is.EqualTo(runner.ExternalTip));
+            Assert.That(head.Stdout.Trim(), Is.EqualTo("refs/heads/main"));
+            Assert.That(runner.TemporaryIndexPath, Is.Not.Null);
+            Assert.That(File.Exists(runner.TemporaryIndexPath!), Is.False);
+            Assert.That(runner.TemporaryWorktreePath, Is.Not.Null);
+            Assert.That(Directory.Exists(runner.TemporaryWorktreePath!), Is.False);
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Untracking_reserved_project_state_restores_index_when_branch_moves_after_live_reconciliation(
+        bool stageExternalIndex)
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await CommitFileAsync(
+            Path.Combine("nested", "project", ".beutl", "view-state.json"),
+            "{}\n",
+            "track reserved project state");
+        string unrelatedPath = Path.Combine(Root, "root-unrelated.txt");
+        await File.WriteAllTextAsync(unrelatedPath, "keep staged\n");
+        await RunGitAsync("add", "--", "root-unrelated.txt");
+        const string externalStagePath = "external-stage.txt";
+        if (stageExternalIndex)
+        {
+            await File.WriteAllTextAsync(Path.Combine(Root, externalStagePath), "external stage\n");
+        }
+        IReadOnlyList<string> reserved;
+        using (GitCliVersionControlService service = CreateUnassociatedService())
+        {
+            await service.InitializeAsync(
+                new InitOptions(new RepositoryInfo(Root, projectRoot), UseLfsWhenAvailable: false),
+                CancellationToken.None);
+            reserved = await service.GetTrackedReservedPathsAsync(CancellationToken.None);
+        }
+
+        string indexPath = Path.Combine(Root, ".git", "index");
+        byte[] indexBefore = await File.ReadAllBytesAsync(indexPath);
+        var runner = new MoveBranchAfterLiveReconciliationRunner(
+            CreateRunner(),
+            Repository,
+            stageExternalIndex ? externalStagePath : null);
+        using GitCliVersionControlService interleavedService = new(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        await interleavedService.UntrackReservedPathsAsync(reserved, CancellationToken.None);
+
+        byte[] indexAfter = await File.ReadAllBytesAsync(indexPath);
+        GitCommandResult tracked = await RunGitAsync("ls-files", "--", "nested/project");
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
+        string branchAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        GitCommandResult head = await RunGitAsync("symbolic-ref", "--quiet", "HEAD");
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(runner.LiveReconciliationObserved, Is.True);
+            if (stageExternalIndex)
+            {
+                Assert.That(indexAfter, Is.Not.EqualTo(indexBefore));
+            }
+            else
+            {
+                Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            }
+            if (stageExternalIndex)
+            {
+                Assert.That(tracked.Stdout, Does.Not.Contain(".beutl/"));
+            }
+            else
+            {
+                Assert.That(tracked.Stdout, Does.Contain(".beutl/"));
+            }
+            Assert.That(staged.Stdout, Does.Contain("root-unrelated.txt"));
+            if (stageExternalIndex)
+            {
+                Assert.That(staged.Stdout, Does.Contain(externalStagePath));
+            }
+            Assert.That(branchAfter, Is.EqualTo(runner.ExternalTip));
+            Assert.That(head.Stdout.Trim(), Is.EqualTo("refs/heads/main"));
+            Assert.That(runner.TemporaryIndexPath, Is.Not.Null);
+            Assert.That(File.Exists(runner.TemporaryIndexPath!), Is.False);
+            Assert.That(runner.TemporaryWorktreePath, Is.Not.Null);
+            Assert.That(Directory.Exists(runner.TemporaryWorktreePath!), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Untracking_staged_only_reserved_project_state_leaves_branch_and_index_untouched()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        string projectRoot = CreateProjectDirectory();
+        string reservedPath = Path.Combine(projectRoot, ".beutl", "view-state.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(reservedPath)!);
+        await File.WriteAllTextAsync(reservedPath, "{}\n");
+        string repositoryRelativeReservedPath = Path.GetRelativePath(Root, reservedPath)
+            .Replace(Path.DirectorySeparatorChar, '/');
+        await RunGitAsync("add", "-f", "--", repositoryRelativeReservedPath);
+        string branchBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string indexRecord = (await RunGitAsync("rev-parse", "--git-path", "index"))
+            .Stdout.TrimEnd('\r', '\n');
+        string indexPath = Path.GetFullPath(
+            Path.IsPathFullyQualified(indexRecord)
+                ? indexRecord
+                : Path.Combine(Root, indexRecord));
+        byte[] indexBefore = await File.ReadAllBytesAsync(indexPath);
+        IReadOnlyList<string> reserved;
+        using (var service = new GitCliVersionControlService(
+                   CreateInstalledLocator(),
+                   Repository,
+                   watcher: null,
+                   _ => CreateRunner()))
+        {
+            reserved = await service.GetTrackedReservedPathsAsync(CancellationToken.None);
+            await service.UntrackReservedPathsAsync(reserved, CancellationToken.None);
+        }
+
+        string branchAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        byte[] indexAfter = await File.ReadAllBytesAsync(indexPath);
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
+        Assert.Multiple(() =>
+        {
+            Assert.That(reserved, Is.EqualTo(new[] { repositoryRelativeReservedPath }));
+            Assert.That(branchAfter, Is.EqualTo(branchBefore));
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(staged.Stdout, Does.Contain(repositoryRelativeReservedPath));
         });
     }
 
@@ -1125,6 +1447,10 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         Func<IReadOnlyList<string>, bool> match,
         CancellationTokenSource cancellation) : IGitCliRunner
     {
+        public string? TemporaryIndexPath { get; private set; }
+
+        public string? TemporaryWorktreePath { get; private set; }
+
         public bool HasActiveProcess => inner.HasActiveProcess;
 
         public async Task<GitCommandResult> RunAsync(
@@ -1134,6 +1460,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
+            RecordTemporaryPaths(arguments, options);
             GitCommandResult result = await inner.RunAsync(
                 repository,
                 arguments,
@@ -1146,6 +1473,403 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             }
 
             return result;
+        }
+
+        private void RecordTemporaryPaths(
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options)
+        {
+            if (arguments is ["worktree", "add", "--detach", "--no-checkout", ..])
+            {
+                TemporaryWorktreePath = arguments[4];
+            }
+
+            if (options.EnvironmentOverrides?.TryGetValue(
+                    "GIT_INDEX_FILE",
+                    out string? indexPath) == true)
+            {
+                TemporaryIndexPath = indexPath;
+            }
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class StageBeforeCleanupPublicationRunner(
+        IGitCliRunner inner,
+        RepositoryInfo originalRepository,
+        string unrelatedPath) : IGitCliRunner
+    {
+        private int _interceptionPending = 1;
+
+        public int InterceptionCount { get; private set; }
+
+        public string? TemporaryIndexPath { get; private set; }
+
+        public string? TemporaryWorktreePath { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            RecordTemporaryPaths(arguments, options);
+            if (arguments.FirstOrDefault() == "update-ref"
+                && arguments.Contains("beutl: stop tracking reserved project state")
+                && Interlocked.Exchange(ref _interceptionPending, 0) == 1)
+            {
+                await inner.RunAsync(
+                        originalRepository,
+                        ["add", "--", Path.GetRelativePath(originalRepository.RepoRoot, unrelatedPath)],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                InterceptionCount++;
+            }
+
+            return await inner.RunAsync(
+                    repository,
+                    arguments,
+                    options,
+                    cancellationToken,
+                    stderrProgress)
+                .ConfigureAwait(false);
+        }
+
+        private void RecordTemporaryPaths(
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options)
+        {
+            if (arguments is ["worktree", "add", "--detach", "--no-checkout", ..])
+            {
+                TemporaryWorktreePath = arguments[4];
+            }
+
+            if (options.EnvironmentOverrides?.TryGetValue(
+                    "GIT_INDEX_FILE",
+                    out string? indexPath) == true)
+            {
+                TemporaryIndexPath = indexPath;
+            }
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class MoveBranchBeforePublicationRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private int _interceptionPending = 1;
+
+        public int InterceptionCount { get; private set; }
+
+        public string? ExternalTip { get; private set; }
+
+        public string? TemporaryIndexPath { get; private set; }
+
+        public string? TemporaryWorktreePath { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            RecordTemporaryPaths(arguments, options);
+            if (arguments.FirstOrDefault() == "update-ref"
+                && arguments.Contains("beutl: stop tracking reserved project state")
+                && Interlocked.Exchange(ref _interceptionPending, 0) == 1)
+            {
+                string branchRef = arguments[3];
+                string currentCommit = arguments[^1];
+                GitCommandResult tree = await inner.RunAsync(
+                        repository,
+                        ["rev-parse", currentCommit + "^{tree}"],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                GitCommandResult externalCommit = await inner.RunAsync(
+                        repository,
+                        [
+                            "commit-tree",
+                            tree.Stdout.Trim(),
+                            "-p",
+                            currentCommit,
+                            "-m",
+                            "external branch movement",
+                        ],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                await inner.RunAsync(
+                        repository,
+                        [
+                            "update-ref",
+                            branchRef,
+                            externalCommit.Stdout.Trim(),
+                            currentCommit,
+                        ],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                ExternalTip = externalCommit.Stdout.Trim();
+                InterceptionCount++;
+            }
+
+            return await inner.RunAsync(
+                    repository,
+                    arguments,
+                    options,
+                    cancellationToken,
+                    stderrProgress)
+                .ConfigureAwait(false);
+        }
+
+        private void RecordTemporaryPaths(
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options)
+        {
+            if (arguments is ["worktree", "add", "--detach", "--no-checkout", ..])
+            {
+                TemporaryWorktreePath = arguments[4];
+            }
+
+            if (options.EnvironmentOverrides?.TryGetValue(
+                    "GIT_INDEX_FILE",
+                    out string? indexPath) == true)
+            {
+                TemporaryIndexPath = indexPath;
+            }
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class MoveBranchAfterLiveReconciliationRunner(
+        IGitCliRunner inner,
+        RepositoryInfo liveRepository,
+        string? externalStagePath) : IGitCliRunner
+    {
+        private int _publicationPending = 1;
+        private int _movePending;
+        private string? _branchRef;
+        private string? _cleanupCommit;
+
+        public int InterceptionCount { get; private set; }
+
+        public bool LiveReconciliationObserved { get; private set; }
+
+        public string? ExternalTip { get; private set; }
+
+        public string? TemporaryIndexPath { get; private set; }
+
+        public string? TemporaryWorktreePath { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            RecordTemporaryPaths(arguments, options);
+            if (arguments.FirstOrDefault() == "update-ref"
+                && arguments.Contains("beutl: stop tracking reserved project state")
+                && Interlocked.Exchange(ref _publicationPending, 0) == 1)
+            {
+                _branchRef = arguments[3];
+                _cleanupCommit = arguments[4];
+                GitCommandResult result = await inner.RunAsync(
+                        repository,
+                        arguments,
+                        options,
+                        cancellationToken,
+                        stderrProgress)
+                    .ConfigureAwait(false);
+                return result;
+            }
+
+            if (arguments.FirstOrDefault() == "update-index"
+                && arguments.Contains("--force-remove")
+                && options.EnvironmentOverrides?.TryGetValue("GIT_INDEX_FILE", out string? indexPath) == true
+                && indexPath!.Contains(".beutl-index-", StringComparison.Ordinal))
+            {
+                GitCommandResult result = await inner.RunAsync(
+                        repository,
+                        arguments,
+                        options,
+                        cancellationToken,
+                        stderrProgress)
+                    .ConfigureAwait(false);
+                if (_branchRef is not null && _cleanupCommit is not null)
+                {
+                    LiveReconciliationObserved = true;
+                    _movePending = 1;
+                }
+
+                return result;
+            }
+
+            if (Volatile.Read(ref _movePending) == 1
+                && arguments.FirstOrDefault() == "rev-parse"
+                && arguments.Count == 4
+                && arguments[1] == "--verify"
+                && arguments[2] == "--quiet")
+            {
+                Interlocked.Exchange(ref _movePending, 0);
+                GitCommandResult tree = await inner.RunAsync(
+                        repository,
+                        ["rev-parse", _cleanupCommit! + "^{tree}"],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                GitCommandResult externalCommit = await inner.RunAsync(
+                        repository,
+                        [
+                            "commit-tree",
+                            tree.Stdout.Trim(),
+                            "-p",
+                            _cleanupCommit!,
+                            "-m",
+                            "external branch movement after live reconciliation",
+                        ],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                await inner.RunAsync(
+                        repository,
+                        ["update-ref", _branchRef!, externalCommit.Stdout.Trim(), _cleanupCommit!],
+                        GitCommandOptions.Local,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                if (externalStagePath is not null)
+                {
+                    await inner.RunAsync(
+                            liveRepository,
+                            ["add", "--", externalStagePath],
+                            GitCommandOptions.Local,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                }
+                ExternalTip = externalCommit.Stdout.Trim();
+                InterceptionCount++;
+            }
+
+            return await inner.RunAsync(
+                    repository,
+                    arguments,
+                    options,
+                    cancellationToken,
+                    stderrProgress)
+                .ConfigureAwait(false);
+        }
+
+        private void RecordTemporaryPaths(
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options)
+        {
+            if (arguments is ["worktree", "add", "--detach", "--no-checkout", ..])
+            {
+                TemporaryWorktreePath = arguments[4];
+            }
+
+            if (options.EnvironmentOverrides?.TryGetValue(
+                    "GIT_INDEX_FILE",
+                    out string? indexPath) == true)
+            {
+                TemporaryIndexPath = indexPath;
+            }
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class LostReservedCleanupObservationRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private int _publicationPending = 1;
+        private int _observationPending = 1;
+        private string? _refUpdateRepositoryRoot;
+
+        public int ObservationFailures { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.FirstOrDefault() == "update-ref"
+                && arguments.Contains("beutl: stop tracking reserved project state")
+                && Interlocked.Exchange(ref _publicationPending, 0) == 1)
+            {
+                _refUpdateRepositoryRoot = repository.RepoRoot;
+                GitCommandResult result = await inner.RunAsync(
+                        repository,
+                        arguments,
+                        options,
+                        cancellationToken,
+                        stderrProgress)
+                    .ConfigureAwait(false);
+                throw new TimeoutException("simulated lost reserved-path ref update result");
+            }
+
+            if (_refUpdateRepositoryRoot is not null
+                && string.Equals(
+                    repository.RepoRoot,
+                    _refUpdateRepositoryRoot,
+                    StringComparison.Ordinal)
+                && arguments.Count == 4
+                && arguments[0] == "rev-parse"
+                && arguments[1] == "--verify"
+                && arguments[2] == "--quiet"
+                && Interlocked.Exchange(ref _observationPending, 0) == 1)
+            {
+                ObservationFailures++;
+                throw new TimeoutException("simulated one-shot reserved-path ref observation loss");
+            }
+
+            return await inner.RunAsync(
+                    repository,
+                    arguments,
+                    options,
+                    cancellationToken,
+                    stderrProgress)
+                .ConfigureAwait(false);
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
