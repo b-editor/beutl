@@ -54,6 +54,15 @@ public class ElementSlipServiceTests
             maximumRoom);
     }
 
+    private static void SetPropertyValueSilently<T>(IProperty<T> property, T value)
+    {
+        property.GetType()
+            .GetField(
+                "_currentValue",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(property, value);
+    }
+
     private static IReadOnlyList<PresenterTargetState> CreatePresenterTargetStates(
         TimeRange range,
         CoreObject? initialTarget,
@@ -614,7 +623,23 @@ public class ElementSlipServiceTests
 
         TimeSpan room = GetOutPointRoom(element);
 
-        Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(0.88)).Within(TimeSpan.FromMilliseconds(20)));
+        TimeSpan frameDuration = TimeSpan.FromSeconds(1d / 30);
+        TimeSpan lastTimelineSample = room - frameDuration;
+        using var resource = (SourceVideo.Resource)video.ToResource(
+            new CompositionContext(lastTimelineSample));
+        TimeSpan requestedPosition = video.CalculateVideoDuration(
+            TimeSpan.Zero,
+            lastTimelineSample,
+            resource);
+        int requestedFrame = (int)Math.Round(
+            requestedPosition.TotalSeconds * 30,
+            MidpointRounding.AwayFromZero);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(0.82)).Within(TimeSpan.FromMilliseconds(20)));
+            Assert.That(requestedFrame, Is.LessThan(15));
+        });
     }
 
     [Test]
@@ -1848,6 +1873,64 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(requestedFrame, Is.LessThan(90));
+        });
+    }
+
+    [Test]
+    public void Slip_ReversedMappedVideoReservesFullFrameRoundingHeadroom()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(2.9),
+            MapRangeBackward = true,
+            ReverseSelector = _ => true,
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        int requestedFrame = (int)Math.Round(
+            (TimeSpan.FromSeconds(2.9) + video.OffsetPosition.CurrentValue).TotalSeconds * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(requestedFrame, Is.LessThan(90));
+        });
+    }
+
+    [Test]
+    public void Slip_NegativeStaticVideoSpeedFailsClosed()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+        };
+        SetPropertyValueSilently(video.Speed, -100f);
+        element.Objects.Add(video);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromMilliseconds(500));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
 

@@ -382,7 +382,9 @@ internal static class SlippableMedia
             && !video.IsLoop.HasExpression
             && video.IsLoop.Animation is null or KeyFrameAnimation<bool>
             && !video.Speed.HasExpression
-            && video.Speed.Animation is null or KeyFrameAnimation<float>;
+            && video.Speed.Animation is null or KeyFrameAnimation<float>
+            && (video.Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 }
+                || float.IsFinite(video.Speed.CurrentValue) && video.Speed.CurrentValue >= 0);
     }
 
     private static bool HasCompleteSoundState(SourceSound sound)
@@ -836,6 +838,7 @@ internal static class SlippableMedia
             {
                 sourceRoom = source.Duration - video.OffsetPosition.CurrentValue - sourcePosition;
             }
+
             if (sourceRoom <= TimeSpan.Zero)
                 return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
 
@@ -846,7 +849,17 @@ internal static class SlippableMedia
             if (consumedToBoundary < TimeSpan.Zero)
                 return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
 
-            if (sourceRoom > consumedToBoundary)
+            TimeSpan roundingHeadroom = GetVideoFrameRoundingHeadroom(source);
+            TimeSpan requiredRoundingHeadroom = GetRequiredVideoFrameRoundingHeadroom(
+                video,
+                boundary,
+                context.FrameDuration,
+                resource,
+                roundingHeadroom);
+            if (!ReachesVideoSourceLimit(
+                    consumedToBoundary,
+                    requiredRoundingHeadroom,
+                    sourceRoom))
             {
                 accumulated = AddDurationSaturated(accumulated, stateDuration);
                 if (boundary == horizon)
@@ -862,7 +875,10 @@ internal static class SlippableMedia
                 GetVideoClockStartAt(video, cursor),
                 sourceRoom,
                 stateDuration,
-                resource);
+                resource,
+                cursor,
+                context.FrameDuration,
+                roundingHeadroom);
             if (timelineRoom == stateDuration && boundary < horizon)
             {
                 accumulated = AddDurationSaturated(accumulated, stateDuration);
@@ -1046,24 +1062,43 @@ internal static class SlippableMedia
         TimeSpan clockStart,
         TimeSpan sourceDuration,
         TimeSpan maximumTimelineDuration,
-        SourceVideo.Resource resource)
+        SourceVideo.Resource resource,
+        TimeSpan timelineStart,
+        TimeSpan frameDuration,
+        TimeSpan roundingHeadroom)
     {
         long low = 0;
         long high = maximumTimelineDuration.Ticks;
         while (low < high)
         {
             long middle = low + (high - low) / 2;
+            TimeSpan timelineDuration = TimeSpan.FromTicks(middle);
             TimeSpan consumed = video.CalculateVideoDuration(
                 clockStart,
-                TimeSpan.FromTicks(middle),
+                timelineDuration,
                 resource);
-            if (consumed >= sourceDuration)
+            TimeSpan requiredRoundingHeadroom = GetRequiredVideoFrameRoundingHeadroom(
+                video,
+                timelineStart + timelineDuration,
+                frameDuration,
+                resource,
+                roundingHeadroom);
+            if (ReachesVideoSourceLimit(consumed, requiredRoundingHeadroom, sourceDuration))
                 high = middle;
             else
                 low = middle + 1;
         }
 
         return TimeSpan.FromTicks(high);
+    }
+
+    private static bool ReachesVideoSourceLimit(
+        TimeSpan consumed,
+        TimeSpan requiredRoundingHeadroom,
+        TimeSpan sourceDuration)
+    {
+        return consumed >= sourceDuration
+            || requiredRoundingHeadroom >= sourceDuration - consumed;
     }
 
     private static TimeSpan FindEarliestReversedRawBoundary(
@@ -1160,18 +1195,17 @@ internal static class SlippableMedia
             && source.FrameRate.Numerator > 0
             && source.FrameRate.Denominator > 0)
         {
-            double frameTicks = TimeSpan.TicksPerSecond
-                * source.FrameRate.Denominator
-                / (double)source.FrameRate.Numerator;
+            double frameTicks = GetVideoFrameTicks(source);
             if (frameTicks > 0)
             {
                 long roundedTicks = Math.Max(1L, (long)Math.Round(frameTicks));
                 TimeSpan frameDuration = TimeSpan.FromTicks(roundedTicks);
-                long roundingTicks = Math.Max(1L, (long)Math.Floor(frameTicks / 2) + 1);
-                TimeSpan roundingHeadroom = TimeSpan.FromTicks(roundingTicks);
+                TimeSpan roundingHeadroom = GetVideoFrameRoundingHeadroom(source);
                 // OnDraw rounds to the nearest source frame. Reserve whatever portion of the
                 // strict half-frame threshold is not already covered by the final sample gap.
-                TimeSpan finalSampleConsumption = GetFinalSampleConsumption(video, context, resource);
+                TimeSpan finalSampleConsumption = context.IsReversed
+                    ? TimeSpan.Zero
+                    : GetFinalSampleConsumption(video, context, resource);
                 TimeSpan requiredRoundingHeadroom = roundingHeadroom > finalSampleConsumption
                     ? roundingHeadroom - finalSampleConsumption
                     : TimeSpan.Zero;
@@ -1269,6 +1303,60 @@ internal static class SlippableMedia
             duration,
             resource);
         return consumed > TimeSpan.Zero ? consumed : TimeSpan.Zero;
+    }
+
+    private static TimeSpan GetSampleConsumptionEndingAt(
+        SourceVideo video,
+        TimeSpan end,
+        TimeSpan frameDuration,
+        SourceVideo.Resource resource)
+    {
+        if (frameDuration <= TimeSpan.Zero)
+            return TimeSpan.Zero;
+
+        TimeSpan duration = end.Ticks < TimeSpan.MinValue.Ticks + frameDuration.Ticks
+            ? TimeSpan.FromTicks(end.Ticks - TimeSpan.MinValue.Ticks)
+            : frameDuration;
+        TimeSpan start = end - duration;
+        TimeSpan consumed = video.CalculateVideoDuration(
+            GetVideoClockStartAt(video, start),
+            duration,
+            resource);
+        return consumed > TimeSpan.Zero ? consumed : TimeSpan.Zero;
+    }
+
+    private static TimeSpan GetRequiredVideoFrameRoundingHeadroom(
+        SourceVideo video,
+        TimeSpan end,
+        TimeSpan frameDuration,
+        SourceVideo.Resource resource,
+        TimeSpan roundingHeadroom)
+    {
+        TimeSpan finalSampleConsumption = GetSampleConsumptionEndingAt(
+            video,
+            end,
+            frameDuration,
+            resource);
+        return roundingHeadroom > finalSampleConsumption
+            ? roundingHeadroom - finalSampleConsumption
+            : TimeSpan.Zero;
+    }
+
+    private static double GetVideoFrameTicks(VideoSource.Resource source)
+    {
+        return source.FrameRate.Numerator > 0 && source.FrameRate.Denominator > 0
+            ? TimeSpan.TicksPerSecond * source.FrameRate.Denominator / (double)source.FrameRate.Numerator
+            : 0;
+    }
+
+    private static TimeSpan GetVideoFrameRoundingHeadroom(VideoSource.Resource source)
+    {
+        double frameTicks = GetVideoFrameTicks(source);
+        if (!(frameTicks > 0))
+            return TimeSpan.Zero;
+
+        long roundingTicks = Math.Max(1L, (long)Math.Floor(frameTicks / 2) + 1);
+        return TimeSpan.FromTicks(roundingTicks);
     }
 
     private static TimeSpan GetMaximumSourcePosition(
