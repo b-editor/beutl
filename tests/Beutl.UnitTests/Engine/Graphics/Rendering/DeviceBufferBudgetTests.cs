@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -418,6 +420,100 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
+    /// <summary>
+    /// An effect item allocates at what the device can attach, which on a device below the engine ceiling is
+    /// less than the density the plan - and therefore a cache key - was built from. Nothing may be stored
+    /// under a key whose pixels do not exist at that density, so such a segment must not be a cache
+    /// candidate at all.
+    /// </summary>
+    /// <remarks>
+    /// The clamped density is named here rather than read from the machine running the suite, so the case is
+    /// reached on a device whose own limit is the engine ceiling.
+    /// </remarks>
+    [Test]
+    public void ADeviceClampedEffectItem_IsNeverKeyedOnThePlannedDensity()
+    {
+        float plannedDensity = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+            s_overBudgetDomain,
+            1f);
+        var effect = new DeviceClampedCustomEffect();
+        var effectNode = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            ScaleRecordingTestHelper.Source(EffectiveScale.At(1), s_overBudgetDomain),
+            effectNode);
+        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
+            RenderNodeCacheHelper.BeginLifecycle(effectNode).CompleteSuccessfully(advanceWarmup: true);
+
+        RenderCacheDecision[] segmentDecisions = ResolveEffectSegmentDecisions(pipeline);
+        using var renderer = new RenderNodeRenderer(
+            pipeline,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    CacheOptions = RenderCacheOptions.Enabled,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    TargetDomain = s_overBudgetDomain,
+                    Purpose = RenderRequestPurpose.Frame,
+                },
+                TargetFactory = new RecordingCpuTargetFactory(),
+            });
+
+        using RenderNodeRasterization first = renderer.Rasterize();
+        using RenderNodeRasterization second = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plannedDensity, Is.EqualTo(1f),
+                "the fixture must plan at a density the engine ceiling leaves alone");
+            Assert.That(DeviceClampedCustomEffect.LastPublishedDensity, Is.LessThan(plannedDensity),
+                "the fixture must publish a target the device clamped below the planned density");
+            Assert.That(segmentDecisions, Is.Not.Empty,
+                "the fixture must reach the cache candidate whose key the clamped density would break");
+            Assert.That(
+                segmentDecisions,
+                Has.All.Property(nameof(RenderCacheDecision.BypassReason))
+                    .EqualTo(RenderCacheBypassReason.RawTargetWork));
+            Assert.That(first.IsEmpty, Is.False);
+            Assert.That(second.IsEmpty, Is.False);
+            Assert.That(effectNode.Cache.IsCached, Is.False,
+                "pixels that exist only at the clamped density must not be stored under the planned key");
+            Assert.That(
+                second.Bitmap!.GetPixelSpan().SequenceEqual(first.Bitmap!.GetPixelSpan()),
+                Is.True,
+                "the repeated frame must recompute the segment rather than reuse a mismatched entry");
+        });
+    }
+
+    /// <summary>
+    /// Every cache decision covering a filter-effect segment that materializes through the effect-item path.
+    /// </summary>
+    private static RenderCacheDecision[] ResolveEffectSegmentDecisions(RenderNode node)
+    {
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            targetDomain: s_overBudgetDomain,
+            outputScale: 1,
+            maxWorkingScale: 1,
+            cachePolicy: RenderCacheOptions.Enabled));
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+        var compiler = new RenderRequestCompiler(
+            renderCacheContext: new RenderCacheResolutionContext(
+                RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
+                new RenderCacheDeviceContextIdentity("device", "context")));
+        using CompiledRenderRequest compiled = compiler.Compile(request, graph);
+        Dictionary<RenderFragmentId, RenderFragmentReference> references = graph.Fragments.ToDictionary(
+            static fragment => fragment.Id,
+            static fragment => (RenderFragmentReference)fragment.Payload!);
+        return [.. compiled.CacheResolution.Decisions.Where(decision =>
+            references.TryGetValue(decision.Candidate.FragmentId, out RenderFragmentReference? reference)
+            && reference.Kind == RenderFragmentKind.FilterEffectSegment
+            && !FilterEffectSegmentDirectReplaySupport.CanMaterialize(reference))];
+    }
+
     private static IGraphicsContext ContextAttaching(int maxAttachmentDimension)
     {
         var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
@@ -469,6 +565,56 @@ public sealed class DeviceBufferBudgetTests
             Requests.Add(allocation.DeviceSize);
             return new CpuRenderTarget(allocation.DeviceSize);
         }
+    }
+
+    /// <summary>
+    /// An effect item that publishes at the density a device attaching <see cref="DeviceBudget"/> would have
+    /// allocated, which is what <c>CustomFilterEffectContext.CreateTarget</c> hands back on such a device.
+    /// </summary>
+    [SuppressResourceClassGeneration]
+    private sealed partial class DeviceClampedCustomEffect : FilterEffect
+    {
+        public static float LastPublishedDensity { get; private set; }
+
+        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        {
+            context.CustomEffect(
+                0,
+                static (_, execution) => execution.ForEach((_, source) =>
+                {
+                    float density = RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
+                        new Rect(default, source.Bounds.Size),
+                        execution.WorkingScale,
+                        DeviceBudget);
+                    (int width, int height) = CustomFilterEffectContext.DeviceBufferSize(
+                        source.Bounds,
+                        density);
+                    using RenderTarget backing = new CpuRenderTarget(new PixelSize(width, height));
+                    var replacement = new EffectTarget(
+                        backing,
+                        source.Bounds,
+                        EffectiveScale.At(density));
+                    using (ImmediateCanvas canvas = execution.Open(replacement))
+                    {
+                        canvas.Clear();
+                        source.Draw(canvas);
+                    }
+
+                    LastPublishedDensity = density;
+                    return replacement;
+                }),
+                static (_, bounds) => bounds);
+        }
+
+        public override Resource ToResource(CompositionContext context)
+        {
+            var resource = new Resource();
+            bool updateOnly = false;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+
+        public new sealed class Resource : FilterEffect.Resource;
     }
 
     private sealed class CpuRenderTarget(PixelSize size)
