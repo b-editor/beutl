@@ -163,10 +163,12 @@ internal static class SlippableMedia
                         CollectFrom(child, targets, active, context);
                     break;
                 case ITimeMappingPresenter timeMappingPresenter:
-                    if (timeMappingPresenter.CurrentTarget is { } controlled)
+                    foreach ((TimeRange presenterRange, CoreObject controlled) in GetTimeMappingTargetStates(
+                        timeMappingPresenter,
+                        context.Range))
                     {
-                        TimeRange mapped = timeMappingPresenter.CalculateTargetTimeRange(context.Range, controlled);
-                        TimeSpan currentTime = context.IsReversed ? context.Range.Start : context.Range.End;
+                        TimeRange mapped = timeMappingPresenter.CalculateTargetTimeRange(presenterRange, controlled);
+                        TimeSpan currentTime = context.IsReversed ? presenterRange.Start : presenterRange.End;
                         Func<TimeSpan, TimeSpan> mapper = duration =>
                         {
                             if (duration == TimeSpan.MaxValue)
@@ -182,10 +184,11 @@ internal static class SlippableMedia
 
                             return context.TimelineDurationFromTarget?.Invoke(parentDuration) ?? parentDuration;
                         };
-                        bool isReversed = context.IsReversed ^ timeMappingPresenter.IsReversed;
+                        bool isReversed = context.IsReversed
+                            ^ timeMappingPresenter.IsReversed(presenterRange, controlled);
                         bool hasUnboundedTail = context.HasUnboundedTail
                             || timeMappingPresenter.HasUnboundedTail(
-                                context.Range,
+                                presenterRange,
                                 controlled,
                                 reverse: context.IsReversed);
 
@@ -208,6 +211,76 @@ internal static class SlippableMedia
         finally
         {
             active.Remove(obj);
+        }
+    }
+
+    private static IEnumerable<(TimeRange Range, CoreObject Target)> GetTimeMappingTargetStates(
+        ITimeMappingPresenter presenter,
+        TimeRange range)
+    {
+        if (range.IsEmpty)
+        {
+            if (presenter.GetTarget(new CompositionContext(range.Start)) is { } target)
+                yield return (range, target);
+
+            yield break;
+        }
+
+        var boundaries = new HashSet<TimeSpan> { range.Start, range.End };
+        AddTargetAnimationTimes(presenter.TargetProperty, range, boundaries);
+        TimeSpan[] orderedBoundaries = [.. boundaries.Order()];
+        for (int i = 1; i < orderedBoundaries.Length; i++)
+        {
+            TimeSpan start = orderedBoundaries[i - 1];
+            TimeSpan end = orderedBoundaries[i];
+            if (start >= end)
+                continue;
+
+            var stateRange = new TimeRange(start, end - start);
+            var targets = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
+            foreach (TimeSpan sample in GetTargetSamples(presenter.TargetProperty, stateRange))
+            {
+                if (presenter.GetTarget(new CompositionContext(sample)) is { } target
+                    && targets.Add(target))
+                {
+                    yield return (stateRange, target);
+                }
+            }
+        }
+    }
+
+    private static void AddTargetAnimationTimes(
+        IProperty property,
+        TimeRange range,
+        HashSet<TimeSpan> times)
+    {
+        if (property.Animation is not IKeyFrameAnimation animation)
+            return;
+
+        TimeSpan ownerStart = property.GetOwnerObject() is EngineObject owner
+            ? owner.TimeRange.Start
+            : TimeSpan.Zero;
+        foreach (IKeyFrame keyFrame in animation.KeyFrames)
+        {
+            TimeSpan time = animation.UseGlobalClock
+                ? keyFrame.KeyTime
+                : ownerStart + keyFrame.KeyTime;
+            if (time > range.Start && time < range.End)
+                times.Add(time);
+        }
+    }
+
+    private static IEnumerable<TimeSpan> GetTargetSamples(IProperty property, TimeRange range)
+    {
+        if (property.HasExpression)
+        {
+            yield return range.Start;
+            yield return range.Start + TimeSpan.FromTicks(range.Duration.Ticks / 2);
+            yield return range.End;
+        }
+        else
+        {
+            yield return range.Start + TimeSpan.FromTicks(range.Duration.Ticks / 2);
         }
     }
 
