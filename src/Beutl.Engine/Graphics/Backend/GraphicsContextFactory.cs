@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend.Composite;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
@@ -15,6 +16,7 @@ public class GraphicsContextFactory
     private static bool s_failedToInitialize;
     private static VulkanInstance? s_vulkanInstance;
     private static VulkanPhysicalDeviceInfo? s_selectedPhysicalDevice;
+    private static Action s_reclaimQueueDischarge = GpuResourceReclaimQueue.DrainAfterContextSync;
 
     public static IGraphicsContext? SharedContext { get; private set; }
 
@@ -178,17 +180,55 @@ public class GraphicsContextFactory
     {
         RenderThread.Dispatcher.Invoke(static () =>
         {
-            // The flush speaks for a device that may already be abandoned or lost, so its failure has to
-            // reach the caller. What it must not decide is whether graphics are released: a context left
-            // installed is handed straight back by the next GetOrCreateShared, and both RenderTargetPool's
-            // retained slots and the buffer-dimension memo are only invalidated by the context changing.
+            Exception? flushFailure = null;
+            Exception? dischargeFailure = null;
+
             try
             {
-                GpuResourceReclaimQueue.FlushAndDrain();
+                // The flush speaks for a device that may already be abandoned or lost, so its failure has
+                // to reach the caller. What it must not decide is whether the queue is discharged.
+                try
+                {
+                    GpuResourceReclaimQueue.FlushAndDrain();
+                }
+                catch (Exception ex)
+                {
+                    flushFailure = ex;
+                }
+
+                // Everything still queued is owned by the context released below and destroys itself
+                // through that context's command pool. Discharging here re-defers each destroy onto a pool
+                // that is still live, which retires it behind the submission that reads it; leaving the
+                // queue for after the release would instead run every destroy immediately against a
+                // device that no longer exists.
+                try
+                {
+                    s_reclaimQueueDischarge();
+                }
+                catch (Exception ex)
+                {
+                    dischargeFailure = ex;
+                }
             }
             finally
             {
+                // A context left installed is handed straight back by the next GetOrCreateShared, and both
+                // RenderTargetPool's retained slots and the buffer-dimension memo are only invalidated by
+                // the context changing, so neither failure above may decide whether the release happens.
                 ReleaseInstalledGraphics();
+            }
+
+            if (flushFailure is not null && dischargeFailure is not null)
+            {
+                throw new AggregateException(
+                    "The graphics reclaim flush and the queue discharge both failed.",
+                    flushFailure,
+                    dischargeFailure);
+            }
+
+            if ((flushFailure ?? dischargeFailure) is { } failure)
+            {
+                ExceptionDispatchInfo.Capture(failure).Throw();
             }
         });
     }
@@ -210,6 +250,20 @@ public class GraphicsContextFactory
         {
             vulkanInstance?.Dispose();
         }
+    }
+
+    /// <summary>Installs <paramref name="replacement"/> as the discharge <see cref="Shutdown"/> runs, reporting what it replaced.</summary>
+    /// <remarks>
+    /// The production discharge cannot fail - <see cref="GpuResourceReclaimQueue"/> contains each queued
+    /// resource's own teardown failure - so standing in for it is the only way to pin that a discharge
+    /// which does fail still leaves the context released rather than stranded.
+    /// </remarks>
+    internal static Action ExchangeReclaimQueueDischarge(Action replacement)
+    {
+        ArgumentNullException.ThrowIfNull(replacement);
+        Action previous = s_reclaimQueueDischarge;
+        s_reclaimQueueDischarge = replacement;
+        return previous;
     }
 
     /// <summary>Installs <paramref name="replacement"/> in place of the live state, reporting what it replaced.</summary>
