@@ -141,14 +141,15 @@ internal static class SlippableMedia
                                 currentTime, duration, controlled, resource);
                             return context.TimelineDurationFromTarget?.Invoke(parentDuration) ?? parentDuration;
                         };
+                        bool isReversed = context.IsReversed ^ resource.Reverse;
+                        bool hasUnboundedTail = isReversed ? resource.HoldFirstFrame : resource.HoldLastFrame;
                         var mappedContext = new TimeContext(
                             mapped,
                             mapper,
                             context.HasUnboundedTail
                                 || resource.Loop
-                                || resource.HoldFirstFrame
-                                || resource.HoldLastFrame,
-                            context.IsReversed ^ resource.Reverse);
+                                || hasUnboundedTail,
+                            isReversed);
                         CollectFrom(controlled, targets, active, mappedContext);
                     }
                     break;
