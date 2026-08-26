@@ -4,6 +4,7 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -178,14 +179,32 @@ internal static class SlippableMedia
             switch (obj)
             {
                 case SourceVideo video:
+                    if (!HasCompleteVideoState(video))
+                    {
+                        isComplete = false;
+                        break;
+                    }
+
                     foreach (Target target in CreateVideoTargets(video, context))
                         AddTarget(targets, target);
                     break;
                 case SourceSound sound:
-                    AddTarget(targets, CreateSoundTarget(sound, context.AffectsOffset));
+                    if (!HasCompleteSoundState(sound))
+                    {
+                        isComplete = false;
+                        break;
+                    }
+
+                    AddTarget(targets, CreateSoundTarget(sound, context));
                     break;
                 case SceneSound sceneSound:
-                    AddTarget(targets, CreateSceneSoundTarget(sceneSound, context.AffectsOffset));
+                    if (!HasCompleteSceneSoundState(sceneSound))
+                    {
+                        isComplete = false;
+                        break;
+                    }
+
+                    AddTarget(targets, CreateSceneSoundTarget(sceneSound, context));
                     break;
                 case SoundGroup soundGroup:
                     foreach (Sound child in soundGroup.Children)
@@ -304,6 +323,42 @@ internal static class SlippableMedia
         {
             active.Remove(obj);
         }
+    }
+
+    private static bool HasCompleteVideoState(SourceVideo video)
+    {
+        return !video.OffsetPosition.HasExpression
+            && video.OffsetPosition.Animation == null
+            && !video.Source.HasExpression
+            && video.Source.Animation is null or KeyFrameAnimation<VideoSource?>
+            && !video.IsLoop.HasExpression
+            && video.IsLoop.Animation is null or KeyFrameAnimation<bool>
+            && !video.Speed.HasExpression
+            && video.Speed.Animation is null or KeyFrameAnimation<float>;
+    }
+
+    private static bool HasCompleteSoundState(SourceSound sound)
+    {
+        return !sound.OffsetPosition.HasExpression
+            && sound.OffsetPosition.Animation == null
+            && !sound.Source.HasExpression
+            && sound.Source.Animation == null
+            && !sound.Speed.HasExpression
+            && sound.Speed.Animation == null
+            && float.IsFinite(sound.Speed.CurrentValue)
+            && sound.Speed.CurrentValue >= 0;
+    }
+
+    private static bool HasCompleteSceneSoundState(SceneSound sound)
+    {
+        return !sound.OffsetPosition.HasExpression
+            && sound.OffsetPosition.Animation == null
+            && !sound.ReferencedScene.HasExpression
+            && sound.ReferencedScene.Animation == null
+            && !sound.Speed.HasExpression
+            && sound.Speed.Animation == null
+            && float.IsFinite(sound.Speed.CurrentValue)
+            && sound.Speed.CurrentValue >= 0;
     }
 
     private static bool TryGetPresenterTargetStates(
@@ -678,6 +733,14 @@ internal static class SlippableMedia
                 {
                     return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
                 }
+
+                if (resource.IsLoop
+                    && video.OffsetPosition.CurrentValue > TimeSpan.Zero
+                    && TryGetPreviousLoopWrapDuration(
+                        video, cursor, stateDuration, source.Duration, resource, out TimeSpan wrapDuration))
+                {
+                    return MapTimelineDuration(context, accumulated, wrapDuration);
+                }
             }
 
             accumulated = AddDurationSaturated(accumulated, stateDuration);
@@ -690,6 +753,7 @@ internal static class SlippableMedia
         {
             TimeSpan sampleTime = cursor + TimeSpan.FromTicks((videoStart - cursor).Ticks / 2);
             using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
+            TimeSpan stateDuration = cursor - videoStart;
             if (resource.Source is { } source && source.Duration > TimeSpan.Zero)
             {
                 TimeSpan sourcePosition = GetSourcePositionAt(video, cursor, resource);
@@ -697,14 +761,61 @@ internal static class SlippableMedia
                     sourcePosition = NormalizeLoopPosition(sourcePosition, source.Duration);
 
                 if (video.OffsetPosition.CurrentValue + sourcePosition >= source.Duration
-                    || SpeedMayRunBackward(video, new TimeRange(videoStart, cursor - videoStart)))
+                    || SpeedMayRunBackward(video, new TimeRange(videoStart, stateDuration)))
                 {
                     return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+                }
+
+                if (resource.IsLoop
+                    && video.OffsetPosition.CurrentValue > TimeSpan.Zero
+                    && TryGetPreviousLoopWrapDuration(
+                        video, cursor, stateDuration, source.Duration, resource, out TimeSpan wrapDuration))
+                {
+                    return MapTimelineDuration(context, accumulated, wrapDuration);
                 }
             }
         }
 
         return null;
+    }
+
+    private static bool TryGetPreviousLoopWrapDuration(
+        SourceVideo video,
+        TimeSpan cursor,
+        TimeSpan maximumDuration,
+        TimeSpan sourceDuration,
+        SourceVideo.Resource resource,
+        out TimeSpan duration)
+    {
+        duration = TimeSpan.Zero;
+        TimeSpan rawAtCursor = GetRawSourcePositionAt(video, cursor, resource);
+        long remainder = rawAtCursor.Ticks % sourceDuration.Ticks;
+        if (remainder < 0)
+            remainder += sourceDuration.Ticks;
+        if (remainder == 0)
+            return true;
+        if (rawAtCursor.Ticks < TimeSpan.MinValue.Ticks + remainder)
+            return true;
+
+        TimeSpan previousWrap = TimeSpan.FromTicks(rawAtCursor.Ticks - remainder);
+        TimeSpan earliest = cursor - maximumDuration;
+        if (GetRawSourcePositionAt(video, earliest, resource) > previousWrap)
+            return false;
+
+        TimeSpan low = TimeSpan.Zero;
+        TimeSpan high = maximumDuration;
+        for (int i = 0; i < 50; i++)
+        {
+            TimeSpan middle = TimeSpan.FromTicks(low.Ticks + (high.Ticks - low.Ticks) / 2);
+            TimeSpan position = GetRawSourcePositionAt(video, cursor - middle, resource);
+            if (position > previousWrap)
+                low = middle;
+            else
+                high = middle;
+        }
+
+        duration = high;
+        return true;
     }
 
     private static TimeSpan MapTimelineDuration(TimeContext context, TimeSpan prefix, TimeSpan tail)
@@ -949,20 +1060,112 @@ internal static class SlippableMedia
             : time - video.TimeRange.Start;
     }
 
-    private static Target CreateSoundTarget(SourceSound sound, bool affectsOffset)
+    private static Target CreateSoundTarget(SourceSound sound, TimeContext context)
     {
         // SourceSound.TryGetOriginalDuration returns the full source duration.
         TimeSpan? total = sound.TryGetOriginalDuration(out TimeSpan duration) ? duration : null;
-        return new Target(sound.OffsetPosition, total, affectsOffset: affectsOffset);
+        return CreateSoundTargetCore(
+            sound,
+            sound.OffsetPosition,
+            sound.Speed.CurrentValue,
+            total,
+            context);
     }
 
-    private static Target CreateSceneSoundTarget(SceneSound sound, bool affectsOffset)
+    private static Target CreateSceneSoundTarget(SceneSound sound, TimeContext context)
     {
         // The referenced scene is the "source": its duration bounds how far the media
         // window can advance. Unresolved references stay unbounded, like a SourceVideo
         // without a loaded source.
         TimeSpan? total = sound.ReferencedScene.CurrentValue?.Duration;
-        return new Target(sound.OffsetPosition, total, affectsOffset: affectsOffset);
+        return CreateSoundTargetCore(
+            sound,
+            sound.OffsetPosition,
+            sound.Speed.CurrentValue,
+            total,
+            context);
+    }
+
+    private static Target CreateSoundTargetCore(
+        Sound sound,
+        IProperty<TimeSpan> offset,
+        float speed,
+        TimeSpan? total,
+        TimeContext context)
+    {
+        double speedScale = speed / 100.0;
+        TimeSpan sourceStartPosition = GetSoundSourcePosition(
+            context.Range.Start, sound.TimeRange.Start, speedScale);
+        TimeSpan sourceEndPosition = GetSoundSourcePosition(
+            context.Range.End, sound.TimeRange.Start, speedScale);
+        TimeSpan consumedDuration = sourceEndPosition - sourceStartPosition;
+        if (consumedDuration < TimeSpan.Zero) consumedDuration = TimeSpan.Zero;
+        TimeSpan? timelineRoom = null;
+        TimeSpan? forwardOffsetLimit = null;
+        if (total is { } sourceDuration)
+        {
+            TimeSpan maxOffset = sourceDuration - sourceEndPosition;
+            if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
+            forwardOffsetLimit = maxOffset;
+
+            if (context.HasUnboundedTail || speedScale == 0)
+            {
+                timelineRoom = TimeSpan.MaxValue;
+            }
+            else if (context.IsReversed)
+            {
+                TimeSpan targetRoom = context.Range.Start - sound.TimeRange.Start;
+                if (targetRoom < TimeSpan.Zero) targetRoom = TimeSpan.Zero;
+                timelineRoom = context.TimelineDurationFromTarget?.Invoke(targetRoom) ?? targetRoom;
+            }
+            else
+            {
+                TimeSpan sourceRoom = sourceDuration - offset.CurrentValue - sourceEndPosition;
+                TimeSpan targetRoom = TimeSpan.Zero;
+                if (sourceRoom > TimeSpan.Zero)
+                {
+                    TimeSpan leadIn = sound.TimeRange.Start > context.Range.End
+                        ? sound.TimeRange.Start - context.Range.End
+                        : TimeSpan.Zero;
+                    targetRoom = AddDurationSaturated(
+                        leadIn,
+                        ScaleDuration(sourceRoom, 1 / speedScale));
+                }
+
+                timelineRoom = context.TimelineDurationFromTarget?.Invoke(targetRoom) ?? targetRoom;
+            }
+        }
+
+        return new Target(
+            offset,
+            total,
+            consumedDuration,
+            timelineRoom,
+            sourceEndPosition: sourceEndPosition,
+            forwardOffsetLimit: forwardOffsetLimit,
+            affectsOffset: context.AffectsOffset);
+    }
+
+    private static TimeSpan GetSoundSourcePosition(
+        TimeSpan time,
+        TimeSpan soundStart,
+        double speedScale)
+    {
+        TimeSpan localTime = time - soundStart;
+        return localTime > TimeSpan.Zero
+            ? ScaleDuration(localTime, speedScale)
+            : TimeSpan.Zero;
+    }
+
+    private static TimeSpan ScaleDuration(TimeSpan duration, double scale)
+    {
+        if (duration <= TimeSpan.Zero || !(scale > 0))
+            return TimeSpan.Zero;
+
+        double ticks = duration.Ticks * scale;
+        return ticks >= TimeSpan.MaxValue.Ticks
+            ? TimeSpan.MaxValue
+            : TimeSpan.FromTicks((long)ticks);
     }
 
     // The largest-magnitude delta (in the requested direction) that every stream can apply
