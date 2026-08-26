@@ -157,18 +157,32 @@ internal static class SlippableMedia
                         TimeSpan currentTime = context.IsReversed ? context.Range.Start : context.Range.End;
                         Func<TimeSpan, TimeSpan> mapper = duration =>
                         {
+                            if (duration == TimeSpan.MaxValue)
+                                return TimeSpan.MaxValue;
+
                             TimeSpan parentDuration = timeMappingPresenter.CalculateTimelineDuration(
                                 currentTime,
                                 duration,
                                 controlled,
                                 reverse: context.IsReversed);
+                            if (parentDuration == TimeSpan.MaxValue)
+                                return TimeSpan.MaxValue;
+
                             return context.TimelineDurationFromTarget?.Invoke(parentDuration) ?? parentDuration;
                         };
                         bool isReversed = context.IsReversed ^ timeMappingPresenter.IsReversed;
+                        bool hasUnboundedTail = context.HasUnboundedTail;
+                        if (timeMappingPresenter is DrawableTimeController controller
+                            && controller.Loop.CurrentValue
+                            && mapped == controlled.TimeRange)
+                        {
+                            hasUnboundedTail = true;
+                        }
+
                         var mappedContext = new TimeContext(
                             mapped,
                             mapper,
-                            context.HasUnboundedTail,
+                            hasUnboundedTail,
                             isReversed);
                         CollectFrom(controlled, targets, active, mappedContext);
                     }
@@ -272,6 +286,14 @@ internal static class SlippableMedia
     private static TimeSpan GetMaximumSourcePosition(
         SourceVideo video, TimeRange range, SourceVideo.Resource resource)
     {
+        if (!resource.IsLoop
+            && resource.Source is { } mediaSource
+            && mediaSource.Duration > TimeSpan.Zero
+            && CrossesSourcePositionZero(video, range, resource))
+        {
+            return mediaSource.Duration;
+        }
+
         TimeSpan start = GetSourcePositionAt(video, range.Start, resource);
         TimeSpan end = GetSourcePositionAt(video, range.End, resource);
 
@@ -297,6 +319,15 @@ internal static class SlippableMedia
         return start >= end ? start : end;
     }
 
+    private static bool CrossesSourcePositionZero(
+        SourceVideo video, TimeRange range, SourceVideo.Resource resource)
+    {
+        TimeSpan start = GetRawSourcePositionAt(video, range.Start, resource);
+        TimeSpan end = GetRawSourcePositionAt(video, range.End, resource);
+        return start < TimeSpan.Zero && end >= TimeSpan.Zero
+            || end < TimeSpan.Zero && start >= TimeSpan.Zero;
+    }
+
     private static TimeSpan NormalizeLoopPosition(TimeSpan value, TimeSpan duration)
     {
         long ticks = value.Ticks % duration.Ticks;
@@ -314,13 +345,7 @@ internal static class SlippableMedia
     private static TimeSpan GetSourcePositionAt(
         SourceVideo video, TimeSpan time, SourceVideo.Resource resource)
     {
-        TimeSpan sourceClockStart = GetVideoClockStartAt(video, video.TimeRange.Start);
-        TimeSpan sourceClock = GetVideoClockStartAt(video, time);
-        TimeSpan duration = sourceClock - sourceClockStart;
-        if (duration == TimeSpan.Zero)
-            return TimeSpan.Zero;
-
-        TimeSpan position = video.CalculateVideoDuration(sourceClockStart, duration, resource);
+        TimeSpan position = GetRawSourcePositionAt(video, time, resource);
         if (!resource.IsLoop
             && resource.Source is { } source
             && source.Duration > TimeSpan.Zero
@@ -330,6 +355,18 @@ internal static class SlippableMedia
         }
 
         return resource.IsLoop || position > TimeSpan.Zero ? position : TimeSpan.Zero;
+    }
+
+    private static TimeSpan GetRawSourcePositionAt(
+        SourceVideo video, TimeSpan time, SourceVideo.Resource resource)
+    {
+        TimeSpan sourceClockStart = GetVideoClockStartAt(video, video.TimeRange.Start);
+        TimeSpan sourceClock = GetVideoClockStartAt(video, time);
+        TimeSpan duration = sourceClock - sourceClockStart;
+        if (duration == TimeSpan.Zero)
+            return TimeSpan.Zero;
+
+        return video.CalculateVideoDuration(sourceClockStart, duration, resource);
     }
 
     private static TimeSpan GetVideoClockStartAt(SourceVideo video, TimeSpan time)

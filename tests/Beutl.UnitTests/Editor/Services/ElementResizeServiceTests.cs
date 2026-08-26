@@ -1192,6 +1192,33 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void CalculateTimelineDuration_DistantTerminalKeyframeDoesNotIntegrateUnusedPrefix()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromDays(365), Value = 100f });
+        var controller = new DrawableTimeController
+        {
+            Speed = { Animation = speed },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(2),
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromMilliseconds(50)));
+    }
+
+    [Test]
     public void CalculateTimelineDuration_AnimatedTerminalSpeedUsesAnalyticTail()
     {
         var video = new SourceVideo
@@ -1324,6 +1351,31 @@ public class ElementResizeServiceTests
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(4)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerAfterLoopWrapHasUnboundedTail()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(10.5), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - minDuration));
     }
 
     [Test]

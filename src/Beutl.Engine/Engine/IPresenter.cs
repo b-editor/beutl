@@ -31,7 +31,9 @@ public interface ITimeMappingPresenter<T> : IPresenter<T>
     /// <summary>
     /// Calculates the presenter time needed to consume a target-time duration beginning at
     /// <paramref name="start"/>. <paramref name="reverse"/> describes the traversal direction
-    /// inherited from an outer presenter.
+    /// inherited from an outer presenter. <paramref name="targetDuration"/> may be
+    /// <see cref="TimeSpan.MaxValue"/> to represent an unbounded duration; implementations
+    /// must propagate that sentinel without performing arithmetic on it.
     /// </summary>
     TimeSpan CalculateTimelineDuration(
         TimeSpan start,

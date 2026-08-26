@@ -490,6 +490,7 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         high = TimeSpan.Zero;
 
         KeyFrame<float>? terminalFrame;
+        TimeSpan terminalDuration;
         TimeSpan elapsed;
         if (reverse)
         {
@@ -498,12 +499,14 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
 
             terminalFrame = first;
             TimeSpan terminal = first.KeyTime < animationStart ? first.KeyTime : animationStart;
-            elapsed = animationStart - terminal;
+            terminalDuration = animationStart - terminal;
             TimeSpan clockOriginDuration = animationStart > TimeSpan.Zero
                 ? animationStart
                 : TimeSpan.Zero;
-            if (elapsed > clockOriginDuration)
-                elapsed = clockOriginDuration;
+            if (terminalDuration > clockOriginDuration)
+                terminalDuration = clockOriginDuration;
+
+            elapsed = terminalDuration;
         }
         else
         {
@@ -512,8 +515,18 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
 
             terminalFrame = last;
             TimeSpan terminal = last.KeyTime > animationStart ? last.KeyTime : animationStart;
-            elapsed = terminal - animationStart;
+            terminalDuration = terminal - animationStart;
+            elapsed = terminalDuration;
         }
+
+        TimeSpan probe = EstimateTimelineDuration(
+            targetDuration,
+            start,
+            resource,
+            targetDrawable,
+            animation);
+        if (probe < elapsed)
+            elapsed = probe;
 
         TimeSpan consumed = CalculateTargetDistance(
             start, elapsed, targetAtStart, resource, targetDrawable, reverse, animation);
@@ -521,6 +534,18 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         {
             high = elapsed;
             return true;
+        }
+
+        if (elapsed < terminalDuration)
+        {
+            elapsed = terminalDuration;
+            consumed = CalculateTargetDistance(
+                start, elapsed, targetAtStart, resource, targetDrawable, reverse, animation);
+            if (consumed >= targetDuration)
+            {
+                high = elapsed;
+                return true;
+            }
         }
 
         if (terminalFrame.Value <= 0)
@@ -549,6 +574,25 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         }
 
         return true;
+    }
+
+    private TimeSpan EstimateTimelineDuration(
+        TimeSpan targetDuration,
+        TimeSpan start,
+        Resource resource,
+        Drawable targetDrawable,
+        KeyFrameAnimation<float> animation)
+    {
+        TimeSpan animationStart = CalculateSpeedClockTime(start, resource, targetDrawable, animation);
+        float speed = animation.Interpolate(animationStart);
+        if (!(speed > 0))
+            return targetDuration;
+
+        TimeSpan estimatedTargetDuration = resource.FrameRate > 0
+            ? AddDurationSaturated(targetDuration, GetFrameDuration(resource.FrameRate))
+            : targetDuration;
+        TimeSpan estimate = ScaleDuration(estimatedTargetDuration, 100.0 / speed);
+        return estimate > TimeSpan.Zero ? estimate : TimeSpan.FromTicks(1);
     }
 
     private static TimeSpan GetMaximumDurationFrom(TimeSpan start, bool reverse)
