@@ -31,7 +31,9 @@ internal static class SerializedProjectGraph
                 && !relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 && !relativePath.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal))
             {
-                paths.Add(relativePath.Replace('\\', '/'));
+                paths.Add(OperatingSystem.IsWindows()
+                    ? relativePath.Replace('\\', '/')
+                    : relativePath);
             }
         }
 

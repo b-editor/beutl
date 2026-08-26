@@ -15,8 +15,10 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         string projectFile = Path.Combine(Root, "project.bep");
         string sceneFile = Path.Combine(Root, "main.scene");
         string elementFile = Path.Combine(Root, "elements", "11111111111111111111111111111111.belm");
-        string sourceFile = Path.Combine(Root, "state.tmp");
+        const string sourceRelativePath = "assets/state.tmp";
+        string sourceFile = Path.Combine(Root, "assets", "state.tmp");
         Directory.CreateDirectory(Path.GetDirectoryName(elementFile)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(sourceFile)!);
 
         var project = new Project { Uri = new Uri(projectFile) };
         var scene = new Scene(640, 480, "main") { Uri = new Uri(sceneFile) };
@@ -35,12 +37,12 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         await File.WriteAllTextAsync(sourceFile, "plugin state\n");
         await WriteProjectFileAsync(".gitignore", "*.tmp\n");
         await RunGitAsync("add", "-A", "--", ".");
-        await RunGitAsync("add", "-f", "--", "state.tmp");
+        await RunGitAsync("add", "-f", "--", sourceRelativePath);
         await RunGitAsync("commit", "-m", "saved project baseline");
         await File.WriteAllTextAsync(sourceFile, "plugin state updated\n");
 
         IReadOnlySet<string> referenced = SerializedProjectGraph.GetRelativePaths(projectFile, Root);
-        Assert.That(referenced, Does.Contain("state.tmp"));
+        Assert.That(referenced, Does.Contain(sourceRelativePath));
 
         using var service = CreateService(projectFile);
         var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
@@ -50,13 +52,66 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         IReadOnlyList<FileChange> committedFiles = await service.GetCommitFilesAsync(
             commit.Sha,
             CancellationToken.None);
-        GitCommandResult committedSource = await RunGitAsync("show", $"{commit.Sha}:state.tmp");
+        GitCommandResult committedSource = await RunGitAsync(
+            "show",
+            $"{commit.Sha}:{sourceRelativePath}");
 
         Assert.Multiple(() =>
         {
             Assert.That(committedFiles, Has.Some.Matches<FileChange>(
-                change => change.Path == "state.tmp" && change.Status == FileChangeStatus.Modified));
+                change => change.Path == sourceRelativePath
+                          && change.Status == FileChangeStatus.Modified));
             Assert.That(committedSource.Stdout, Is.EqualTo("plugin state updated\n"));
+        });
+    }
+
+    [Test]
+    public async Task Serialized_graph_preserves_literal_backslash_in_Unix_file_source_paths()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Backslashes are directory separators on Windows.");
+        }
+
+        const string sourceRelativePath = @"assets/clip\state.customstate";
+        const string substitutedPath = "assets/clip/state.customstate";
+        string projectFile = Path.Combine(Root, "project.bep");
+        string sceneFile = Path.Combine(Root, "main.scene");
+        string elementFile = Path.Combine(
+            Root,
+            "elements",
+            "11111111111111111111111111111111.belm");
+        string sourceFile = Path.Combine(Root, sourceRelativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(elementFile)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(sourceFile)!);
+
+        var project = new Project { Uri = new Uri(projectFile) };
+        var scene = new Scene(640, 480, "main") { Uri = new Uri(sceneFile) };
+        var element = new Element { Uri = new Uri(elementFile) };
+        var imageSource = new ImageSource();
+        imageSource.ReadFrom(new Uri(sourceFile));
+        var image = new SourceImage();
+        image.Source.CurrentValue = imageSource;
+        element.Objects.Add(image);
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        CoreSerializer.StoreToUri(scene, new Uri(sceneFile));
+        CoreSerializer.StoreToUri(element, new Uri(elementFile));
+        await File.WriteAllTextAsync(
+            sourceFile,
+            "<<<<<<< ours\n{\"value\":1}\n=======\n{\"value\":2}\n>>>>>>> theirs\n");
+
+        IReadOnlySet<string> referenced = SerializedProjectGraph.GetRelativePaths(projectFile, Root);
+        string? markerFile = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(referenced, Does.Contain(sourceRelativePath));
+            Assert.That(referenced, Does.Not.Contain(substitutedPath));
+            Assert.That(markerFile, Is.EqualTo(sourceFile));
         });
     }
 
