@@ -318,8 +318,16 @@ public static class AvaloniaTypeConverter
                 _cts?.Cancel();
             }
 
-            ClearPublishedBitmap();
-            ReleaseResourceIfSettled();
+            try
+            {
+                ClearPublishedBitmap();
+            }
+            finally
+            {
+                // _disposeRequested is already latched, so every later Dispose returns at the guard above:
+                // an exception escaping the clear leaves this the last chance to release the resource.
+                ReleaseResourceIfSettled();
+            }
         }
 
         public void Update()
@@ -372,8 +380,16 @@ public static class AvaloniaTypeConverter
 
             void Clear()
             {
-                _imageBrush.Source = null;
-                published?.Dispose();
+                try
+                {
+                    _imageBrush.Source = null;
+                }
+                finally
+                {
+                    // Avalonia stores a property value before it raises the change, so the brush has already
+                    // let go of the bitmap even when a subscriber throws out of this assignment.
+                    published?.Dispose();
+                }
             }
 
             if (Dispatcher.UIThread.CheckAccess())

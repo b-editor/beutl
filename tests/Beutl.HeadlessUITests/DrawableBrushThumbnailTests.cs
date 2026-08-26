@@ -731,6 +731,61 @@ public class DrawableBrushThumbnailTests
         }
     }
 
+    // An ImageBrush.Source subscriber is arbitrary code and may throw out of the assignment that clears the
+    // source. Dispose has already latched _disposeRequested by then, so a throw escaping the clear turns every
+    // later Dispose into a no-op and strands the published bitmap and the owned resource for good.
+    [AvaloniaTest]
+    public async Task Dispose_completes_its_cleanup_when_a_source_subscriber_throws()
+    {
+        GpuTestGate.EnsureAvailable();
+        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
+        drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
+        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
+        var imageBrush = new AvaImageBrush();
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+        var failure = new InvalidOperationException("An ImageBrush.Source subscriber refused the change.");
+
+        void Reject(object? sender, AvaPropertyChangedEventArgs e)
+        {
+            if (e.Property == AvaImageBrush.SourceProperty)
+                throw failure;
+        }
+
+        try
+        {
+            handler.Update();
+            await WaitUntilAsync(
+                () => imageBrush.Source is WriteableBitmap bitmap
+                      && bitmap.PixelSize == new AvaPixelSize(40, 24),
+                TimeSpan.FromSeconds(5));
+            var published = (WriteableBitmap)imageBrush.Source!;
+
+            imageBrush.PropertyChanged += Reject;
+            try
+            {
+                Assert.That(
+                    handler.Dispose,
+                    Throws.Exception.SameAs(failure),
+                    "The subscriber's failure still belongs to the caller.");
+            }
+            finally
+            {
+                imageBrush.PropertyChanged -= Reject;
+            }
+
+            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+            Assert.That(
+                CanLock(published), Is.False,
+                "The published bitmap has no owner left once the handler has let go of it.");
+        }
+        finally
+        {
+            imageBrush.PropertyChanged -= Reject;
+            handler.Dispose();
+            resource.Dispose();
+        }
+    }
+
     [AvaloniaTest]
     public void Handler_attached_to_an_already_stopped_dispatcher_still_releases_its_resource()
     {
