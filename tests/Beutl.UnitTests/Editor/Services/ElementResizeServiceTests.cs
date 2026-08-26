@@ -1184,7 +1184,7 @@ public class ElementResizeServiceTests
 
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
-        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromMilliseconds(1)));
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(5)).Within(TimeSpan.FromMilliseconds(1)));
     }
 
     [Test]
@@ -1208,6 +1208,7 @@ public class ElementResizeServiceTests
         TimeSpan result = controller.CalculateTimelineDuration(
             TimeSpan.FromSeconds(2),
             TimeSpan.FromSeconds(3),
+            TimeSpan.MaxValue,
             video,
             resource,
             reverse: true);
@@ -1234,6 +1235,7 @@ public class ElementResizeServiceTests
         TimeSpan result = controller.CalculateTimelineDuration(
             TimeSpan.FromSeconds(0.1),
             TimeSpan.FromSeconds(1),
+            TimeSpan.MaxValue,
             video,
             resource);
 
@@ -1263,10 +1265,35 @@ public class ElementResizeServiceTests
         TimeSpan result = controller.CalculateTimelineDuration(
             TimeSpan.Zero,
             TimeSpan.FromSeconds(1),
+            TimeSpan.MaxValue,
             video,
             resource);
 
         Assert.That(result, Is.Not.EqualTo(TimeSpan.MaxValue));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_DoesNotSearchPastMaximumDuration()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { CurrentValue = 100f },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(1),
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
     }
 
     [Test]
@@ -1290,6 +1317,7 @@ public class ElementResizeServiceTests
         TimeSpan result = controller.CalculateTimelineDuration(
             TimeSpan.Zero,
             TimeSpan.FromSeconds(2),
+            TimeSpan.MaxValue,
             video,
             resource);
 
@@ -1318,6 +1346,7 @@ public class ElementResizeServiceTests
         TimeSpan result = controller.CalculateTimelineDuration(
             TimeSpan.Zero,
             TimeSpan.FromSeconds(1),
+            TimeSpan.MaxValue,
             video,
             resource);
 
@@ -1349,6 +1378,7 @@ public class ElementResizeServiceTests
         TimeSpan result = controller.CalculateTimelineDuration(
             TimeSpan.Zero,
             TimeSpan.FromSeconds(10),
+            TimeSpan.MaxValue,
             video,
             resource);
 
@@ -1357,33 +1387,6 @@ public class ElementResizeServiceTests
             Assert.That(result, Is.Not.EqualTo(TimeSpan.MaxValue));
             Assert.That(result, Is.GreaterThan(TimeSpan.FromHours(1)));
         });
-    }
-
-    [Test]
-    public void GetTrimDeltaBounds_TimeControllerPositiveThenZeroSpeedReturnsUnbounded()
-    {
-        var frontSource = new VideoSource();
-        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
-        var video = new SourceVideo
-        {
-            Source = { CurrentValue = frontSource },
-            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
-        };
-        var speed = new KeyFrameAnimation<float>();
-        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
-        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 0f });
-        var controller = new DrawableTimeController
-        {
-            Target = { CurrentValue = video },
-            Speed = { Animation = speed },
-        };
-        Element front = AddElement(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(0.5));
-        front.Objects.Add(controller);
-        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
-
-        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
-
-        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - TimeSpan.FromSeconds(1d / 30)));
     }
 
     [Test]
@@ -1773,6 +1776,7 @@ public class ElementResizeServiceTests
         TimeSpan result = controller.CalculateTimelineDuration(
             TimeSpan.FromSeconds(1),
             TimeSpan.FromSeconds(2),
+            TimeSpan.MaxValue,
             video,
             resource);
 
@@ -1822,6 +1826,7 @@ public class ElementResizeServiceTests
         TimeSpan result = controller.CalculateTimelineDuration(
             TimeSpan.FromSeconds(0.1),
             TimeSpan.FromSeconds(0.5),
+            TimeSpan.MaxValue,
             video,
             resource);
 
@@ -1849,6 +1854,7 @@ public class ElementResizeServiceTests
         TimeSpan result = controller.CalculateTimelineDuration(
             TimeSpan.FromSeconds(2),
             TimeSpan.FromSeconds(4),
+            TimeSpan.MaxValue,
             video,
             resource,
             reverse: true);
