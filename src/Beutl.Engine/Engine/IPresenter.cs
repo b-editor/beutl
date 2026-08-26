@@ -16,13 +16,69 @@ public interface IPresenter<T> : IPresenter
 }
 
 /// <summary>
+/// Provides time mapping through a non-generic presenter boundary so callers can traverse
+/// presenters without knowing the target type at compile time.
+/// </summary>
+public interface ITimeMappingPresenter : IPresenter
+{
+    /// <summary>
+    /// Gets the target currently evaluated by this presenter.
+    /// </summary>
+    CoreObject? CurrentTarget { get; }
+
+    /// <summary>
+    /// Maps a presenter-time interval to the target-time interval it evaluates.
+    /// </summary>
+    TimeRange CalculateTargetTimeRange(TimeRange timeRange, CoreObject target);
+
+    /// <summary>
+    /// Reports whether the mapped interval has no finite tail bound for the operation being
+    /// evaluated.
+    /// </summary>
+    bool HasUnboundedTail(TimeRange timeRange, CoreObject target, bool reverse = false);
+
+    /// <summary>
+    /// Calculates the presenter time needed to consume a target-time duration beginning at
+    /// <paramref name="start"/>.
+    /// </summary>
+    TimeSpan CalculateTimelineDuration(
+        TimeSpan start,
+        TimeSpan targetDuration,
+        CoreObject target,
+        bool reverse = false);
+
+    /// <summary>
+    /// Gets whether this presenter reverses the target timeline.
+    /// </summary>
+    bool IsReversed { get; }
+}
+
+/// <summary>
 /// Provides the time mapping for a presenter whose target is evaluated on a different
 /// timeline. Presenters that only forward their target can continue to implement
 /// <see cref="IPresenter{T}"/> without this contract.
 /// </summary>
-public interface ITimeMappingPresenter<T> : IPresenter<T>
+public interface ITimeMappingPresenter<T> : IPresenter<T>, ITimeMappingPresenter
     where T : CoreObject
 {
+    CoreObject? ITimeMappingPresenter.CurrentTarget => Target.CurrentValue;
+
+    TimeRange ITimeMappingPresenter.CalculateTargetTimeRange(TimeRange timeRange, CoreObject target)
+        => CalculateTargetTimeRange(timeRange, (T)target);
+
+    bool ITimeMappingPresenter.HasUnboundedTail(
+        TimeRange timeRange,
+        CoreObject target,
+        bool reverse)
+        => HasUnboundedTail(timeRange, (T)target, reverse);
+
+    TimeSpan ITimeMappingPresenter.CalculateTimelineDuration(
+        TimeSpan start,
+        TimeSpan targetDuration,
+        CoreObject target,
+        bool reverse)
+        => CalculateTimelineDuration(start, targetDuration, (T)target, reverse);
+
     /// <summary>
     /// Maps a presenter-time interval to the target-time interval it evaluates.
     /// </summary>
@@ -48,8 +104,4 @@ public interface ITimeMappingPresenter<T> : IPresenter<T>
         T target,
         bool reverse = false);
 
-    /// <summary>
-    /// Gets whether this presenter reverses the target timeline.
-    /// </summary>
-    bool IsReversed { get; }
 }

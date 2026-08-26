@@ -162,8 +162,8 @@ internal static class SlippableMedia
                     foreach (Drawable child in decorator.Children)
                         CollectFrom(child, targets, active, context);
                     break;
-                case ITimeMappingPresenter<Drawable> timeMappingPresenter:
-                    if (timeMappingPresenter.Target.CurrentValue is { } controlled)
+                case ITimeMappingPresenter timeMappingPresenter:
+                    if (timeMappingPresenter.CurrentTarget is { } controlled)
                     {
                         TimeRange mapped = timeMappingPresenter.CalculateTargetTimeRange(context.Range, controlled);
                         TimeSpan currentTime = context.IsReversed ? context.Range.Start : context.Range.End;
@@ -315,9 +315,20 @@ internal static class SlippableMedia
                 : cursor;
             using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
             if (resource.Source is not { } source || source.Duration <= TimeSpan.Zero)
-                return TimeSpan.MaxValue;
+            {
+                if (next is not { } boundary)
+                    return MapTimelineDuration(context, accumulated, TimeSpan.MaxValue);
+
+                accumulated += boundary - cursor;
+                cursor = boundary;
+                nextIndex++;
+                continue;
+            }
 
             TimeSpan sourcePosition = GetSourcePositionAt(video, cursor, resource);
+            if (resource.IsLoop && source.Duration > TimeSpan.Zero)
+                sourcePosition = NormalizeLoopPosition(sourcePosition, source.Duration);
+
             if (resource.IsLoop && video.OffsetPosition.CurrentValue == TimeSpan.Zero)
             {
                 if (next is not { } boundary)
