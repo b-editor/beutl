@@ -687,7 +687,11 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         var vulkanPoolSizes = poolSizes
             .Select(VulkanFlagConverter.ToVulkan)
             .ToArray();
-        return new VulkanDescriptorSet(this, vulkanPipeline.DescriptorSetLayoutHandle, vulkanPoolSizes);
+        return new VulkanDescriptorSet(
+            this,
+            vulkanPipeline.DescriptorSetLayoutHandle,
+            vulkanPipeline.DescriptorBindings,
+            vulkanPoolSizes);
     }
 
     public ISampler CreateSampler(

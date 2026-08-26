@@ -10,7 +10,10 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// Every operand is resolved through <see cref="VulkanContext.RequireOwned{TResource}"/> before its handle
 /// reaches <c>vkUpdateDescriptorSets</c>. A Vulkan handle carries no device provenance, so writing one from
 /// another context into this set is undefined behaviour the driver need not diagnose - not merely a
-/// validation message - and a plain cast would let it through.
+/// validation message - and a plain cast would let it through. The binding a write names is checked the same
+/// way, against the <see cref="VulkanDescriptorBindingTable"/> of the layout the set was allocated from: the
+/// layout handle carries none of its own declarations, so nothing below this line can tell that a write names
+/// a binding the pipeline never declared.
 /// </remarks>
 internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContextResource
 {
@@ -18,14 +21,20 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     private readonly DescriptorPool _descriptorPool;
     private readonly DescriptorSet _descriptorSet;
     private readonly DescriptorSetLayout _layout;
+    private readonly VulkanDescriptorBindingTable _bindings;
     private bool _disposed;
 
     public VulkanContext OwnerContext => _context;
 
-    public VulkanDescriptorSet(VulkanContext context, DescriptorSetLayout layout, Silk.NET.Vulkan.DescriptorPoolSize[] poolSizes)
+    public VulkanDescriptorSet(
+        VulkanContext context,
+        DescriptorSetLayout layout,
+        VulkanDescriptorBindingTable bindings,
+        Silk.NET.Vulkan.DescriptorPoolSize[] poolSizes)
     {
         _context = context;
         _layout = layout;
+        _bindings = bindings;
 
         var vk = context.Vk;
         var device = context.Device;
@@ -70,6 +79,13 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
         _descriptorSet = set;
     }
 
+    /// <summary>The array element every write on this type targets.</summary>
+    /// <remarks><see cref="IDescriptorSet"/> exposes no array element, so each write is the first one.</remarks>
+    private const uint FirstArrayElement = 0;
+
+    /// <summary>The number of descriptors every write on this type covers.</summary>
+    private const uint SingleDescriptor = 1;
+
     public DescriptorSet Handle => _descriptorSet;
 
     public DescriptorSetLayout Layout => _layout;
@@ -78,6 +94,12 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        _bindings.ValidateWrite(
+            binding,
+            Silk.NET.Vulkan.DescriptorType.UniformBuffer,
+            FirstArrayElement,
+            SingleDescriptor,
+            nameof(binding));
         VulkanBuffer vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
 
         var bufferInfo = new DescriptorBufferInfo
@@ -92,8 +114,8 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
             SType = StructureType.WriteDescriptorSet,
             DstSet = _descriptorSet,
             DstBinding = (uint)binding,
-            DstArrayElement = 0,
-            DescriptorCount = 1,
+            DstArrayElement = FirstArrayElement,
+            DescriptorCount = SingleDescriptor,
             DescriptorType = Silk.NET.Vulkan.DescriptorType.UniformBuffer,
             PBufferInfo = &bufferInfo
         };
@@ -129,6 +151,12 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        _bindings.ValidateWrite(
+            binding,
+            Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
+            FirstArrayElement,
+            SingleDescriptor,
+            nameof(binding));
         VulkanSampler vulkanSampler = _context.RequireOwned<VulkanSampler>(sampler, nameof(sampler));
 
         var imageInfo = new DescriptorImageInfo
@@ -143,8 +171,8 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
             SType = StructureType.WriteDescriptorSet,
             DstSet = _descriptorSet,
             DstBinding = (uint)binding,
-            DstArrayElement = 0,
-            DescriptorCount = 1,
+            DstArrayElement = FirstArrayElement,
+            DescriptorCount = SingleDescriptor,
             DescriptorType = Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
             PImageInfo = &imageInfo
         };

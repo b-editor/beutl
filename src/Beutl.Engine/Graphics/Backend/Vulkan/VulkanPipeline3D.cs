@@ -16,6 +16,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
     private readonly Pipeline _pipeline;
     private readonly PipelineLayout _pipelineLayout;
     private readonly DescriptorSetLayout _descriptorSetLayout;
+    private readonly VulkanDescriptorBindingTable _descriptorBindings;
     private readonly ShaderModule _vertexShader;
     private readonly ShaderModule _fragmentShader;
     private bool _disposed;
@@ -46,6 +47,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
     {
         _context = context;
         _compatibleRenderPass = renderPass;
+        _descriptorBindings = new VulkanDescriptorBindingTable(descriptorBindings);
         var vk = context.Vk;
         var device = context.Device;
 
@@ -139,6 +141,13 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
     public PipelineLayout PipelineLayoutHandle => _pipelineLayout;
 
     public DescriptorSetLayout DescriptorSetLayoutHandle => _descriptorSetLayout;
+
+    /// <summary>The bindings <see cref="DescriptorSetLayoutHandle"/> was created from.</summary>
+    /// <remarks>
+    /// The handle alone says nothing about what it declares, so it has to travel with these for a
+    /// descriptor write against a set allocated from it to be checkable at all.
+    /// </remarks>
+    public VulkanDescriptorBindingTable DescriptorBindings => _descriptorBindings;
 
     /// <summary>Whether this pipeline was created for <paramref name="renderPass"/>.</summary>
     /// <remarks>
