@@ -327,10 +327,11 @@ public sealed class ElementResizeService : IElementResizeService
                 GetForwardExtension(scene, front, back));
             if (!frontTargets.IsComplete || !backTargets[i].IsComplete) return false;
 
+            // Future targets are not shifted by this operation, but their offsets still belong
+            // to the fixed front content and must participate in alias detection.
             foreach (SlippableMedia.Target target in frontTargets)
             {
-                if (target.AffectsOffset)
-                    fixedOffsets.Add(target.Offset);
+                fixedOffsets.Add(target.Offset);
             }
 
             (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back,
@@ -422,10 +423,11 @@ public sealed class ElementResizeService : IElementResizeService
                 GetForwardExtension(scene, front, back));
             if (!frontTargets.IsComplete || !backTargets[i].IsComplete) return false;
 
+            // Future targets are not shifted by this operation, but their offsets still belong
+            // to the fixed front content and must participate in alias detection.
             foreach (SlippableMedia.Target target in frontTargets)
             {
-                if (target.AffectsOffset)
-                    fixedOffsets.Add(target.Offset);
+                fixedOffsets.Add(target.Offset);
             }
 
             // Middle in-points are fixed too: they move in time without re-trimming.
@@ -436,8 +438,7 @@ public sealed class ElementResizeService : IElementResizeService
 
                 foreach (SlippableMedia.Target target in middleTargets)
                 {
-                    if (target.AffectsOffset)
-                        fixedOffsets.Add(target.Offset);
+                    fixedOffsets.Add(target.Offset);
                 }
             }
 
