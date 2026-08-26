@@ -324,7 +324,8 @@ public sealed class ElementResizeService : IElementResizeService
             List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
             foreach (SlippableMedia.Target target in frontTargets)
             {
-                fixedOffsets.Add(target.Offset);
+                if (target.AffectsOffset)
+                    fixedOffsets.Add(target.Offset);
             }
 
             (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back,
@@ -414,7 +415,8 @@ public sealed class ElementResizeService : IElementResizeService
             List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
             foreach (SlippableMedia.Target target in frontTargets)
             {
-                fixedOffsets.Add(target.Offset);
+                if (target.AffectsOffset)
+                    fixedOffsets.Add(target.Offset);
             }
 
             // Middle in-points are fixed too: they move in time without re-trimming.
@@ -422,7 +424,8 @@ public sealed class ElementResizeService : IElementResizeService
             {
                 foreach (SlippableMedia.Target target in SlippableMedia.Collect(middle))
                 {
-                    fixedOffsets.Add(target.Offset);
+                    if (target.AffectsOffset)
+                        fixedOffsets.Add(target.Offset);
                 }
             }
 
