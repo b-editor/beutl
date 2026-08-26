@@ -36,12 +36,14 @@ public static class DiagnosticDescriptors
         title: "Render metadata callback reads static state that is not proven constant",
         messageFormat:
             "'{0}.{1}' keys its compiled plan by which callback this is, not by what the callback reads, "
-            + "so the callback has to answer the same way every time it runs; this one reads the static "
+            + "so the callback has to answer the same way every time it runs; this one reaches the static "
             + "{2} '{3}', and {4}. Carry the value through the state-passing overload or a bound render "
-            + "resource, or make '{3}' yield the same value on every read. This check only sees what the "
-            + "callback body names itself - not what a static method it calls reads, nor what an instance "
-            + "member reached through an accepted field computes - so it staying silent is not proof that "
-            + "the callback is state-free.",
+            + "resource, or make '{3}' answer the same way every time. This check reads the callback's own "
+            + "body - a lambda's, or the one a method group names - and follows the static methods that "
+            + "body names, and the methods those name, to a bounded depth. What a called method whose body "
+            + "has no source here reads, what an instance member computes, and what a user-defined "
+            + "operator, conversion or constructor does are all still invisible, so it staying silent is "
+            + "not proof that the callback is state-free.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -67,10 +69,22 @@ public static class DiagnosticDescriptors
             + "enum member, default, or a static readonly field that same test accepts. Every other getter "
             + "is reported, including one whose source is not available here, because a metadata callback "
             + "reading external mutable static state is the hazard this rule exists for; having no setter "
-            + "is not on its own evidence that a getter answers the same way twice. What is still invisible "
-            + "to it: a static method the body calls, and whatever an instance member reached through an "
-            + "accepted field computes. Treat silence as the absence of the shape authors usually write, "
-            + "not as a purity proof.");
+            + "is not on its own evidence that a getter answers the same way twice. All of that is read out "
+            + "of the callback's own body, and a method group names a body as surely as a lambda writes "
+            + "one, so both are read: the method a group names is followed to its declaration and walked. "
+            + "A method group whose body has no source in this compilation is reported, because that body "
+            + "is the whole of the callback and silence would say the rule looked when it looked at "
+            + "nothing - the position the static field rule already takes for a type whose state was never "
+            + "imported. From inside a body the walk follows the static methods that body names, and the "
+            + "methods those name, to a bounded depth; a chain longer than the bound is reported rather "
+            + "than accepted, so the bound can cost a diagnostic and never hide one. A called method whose "
+            + "body has no source here is where the walk stops without reporting: the rule did inspect the "
+            + "callback, so the callee is a bound on an inspected callback rather than an uninspected one, "
+            + "and reporting it would reject every callback that names Math.Clamp. What is still invisible "
+            + "to it: what such a method reads, whatever an instance member computes - one reached through "
+            + "an accepted field, or one the body calls on a value - and a user-defined operator, "
+            + "conversion or constructor, which a body invokes without naming. Treat silence as the "
+            + "absence of the shape authors usually write, not as a purity proof.");
 
     public static readonly DiagnosticDescriptor UnmarkedRenderNodeMutation = new(
         id: "BESG005",

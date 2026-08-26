@@ -1,4 +1,4 @@
-# Breaking Changes and Migration Contract
+﻿# Breaking Changes and Migration Contract
 
 ## Summary
 
@@ -887,13 +887,17 @@ describes, and nothing at runtime notices.
   `OpaqueRenderBoundsContract` and `TargetCaptureScaleContract`, and on the definition builders
   `OpaqueRenderDefinition`, `TargetScopeDefinition`, `TargetCommandDefinition`, `RawTargetScopeDefinition`,
   `RawTargetCommandDefinition` and `GeometryDefinition`.
-- **BESG004** — nor may it read mutable static state. A `static` lambda cannot reach a local or `this`, but
-  it can reach a static field or property. The rule accepts a `const`, and a `static readonly` field or
+- **BESG004** — nor may it read mutable static state. A `static` callback cannot reach a local or `this`,
+  but it can reach a static field or property. The rule accepts a `const`, and a `static readonly` field or
   get-only property only when the value is provably fixed: the getter reduces to one returned expression
   and that expression is a compile-time constant, `default`, or a `static readonly` field whose type holds
   nothing writable, walked eight levels through readonly structs and sealed classes. Everything else is
-  reported, including a member whose source is not available. Migration: copy the value into a
-  `static readonly` of an immutable type, or pass it as call state.
+  reported, including a member whose source is not available. It reads the callback's own body whether that
+  body is a lambda's or the one a method group names, and follows the static methods that body names eight
+  levels deep, reporting a longer chain rather than accepting it; a method group whose body has no source
+  in the compilation is reported, because that body is the whole of the callback. Migration: copy the value
+  into a `static readonly` of an immutable type, or pass it as call state; declare a method group's method
+  where the rule can read it, or write the callback as a `static` lambda at the call site.
 - **BESG005** — a `RenderNode` must mark `HasChanges` when it mutates what its `Process` reads. This is the
   static half of the recording cache's contract; the runtime half is `RenderRecordingCrossCheck`, which is
   Debug-only and compares a replayed recording against a live one.

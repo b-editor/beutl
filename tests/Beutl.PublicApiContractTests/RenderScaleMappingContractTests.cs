@@ -8,6 +8,10 @@ namespace Beutl.PublicApiContractTests;
 [TestFixture]
 public sealed class RenderScaleMappingContractTests
 {
+    // EffectiveScale.Unbounded is a get-only property this assembly reads as metadata, where a recording
+    // callback cannot be shown what its getter answers; a snapshot of it can be.
+    private static readonly EffectiveScale s_unbounded = EffectiveScale.Unbounded;
+
     [TestCase(2, 4)]
     public void MapInputSupplyPreservingDemand_IsUsableByExternalRenderNodeAuthors(
         float inputDensity,
@@ -343,7 +347,7 @@ public sealed class RenderScaleMappingContractTests
 
         private static EffectiveScale HalveSupply(EffectiveScale inputSupply)
             => inputSupply.IsUnbounded
-                ? EffectiveScale.Unbounded
+                ? s_unbounded
                 : EffectiveScale.At(inputSupply.Value / 2);
 
         private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
@@ -493,7 +497,7 @@ public sealed class RenderScaleMappingContractTests
 
         private static EffectiveScale DoubleSupply(EffectiveScale input)
             => input.IsUnbounded
-                ? EffectiveScale.Unbounded
+                ? s_unbounded
                 : EffectiveScale.At(input.Value * 2);
 
         private readonly record struct FixedScaleResolver(float Value)

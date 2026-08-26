@@ -599,7 +599,7 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(
             diagnostics.Select(static d => d.Id),
             Does.Contain("BESG004"),
-            "what the called method reads is exactly what this rule is documented not to see");
+            "a getter has to prove its value, and a call is not a shape that proves one");
     }
 
     /// <remarks>
@@ -1602,6 +1602,242 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             definition,
             session,
             "static (session, state) => Use(session, state)");
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A static method group clears the capture rule and reads static state on exactly the terms a static
+    /// lambda does, so the body it names has to be read for the same reason the lambda's is. Leaving it
+    /// unread exempted the very form BESG003's own message tells authors to write.
+    /// </remarks>
+    [Test]
+    public void AStaticMethodGroupReadingAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                private static Rect Map(Rect value)
+                    => new Rect(value.X + Settings.Offset, value.Y, value.Width, value.Height);
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Map, static value => value);
+            }
+            """);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Contain("BESG004"),
+                "the same body written as a lambda is reported, and it is the same program");
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Not.Contain("BESG003"),
+                "a static method group is delegate-cached, so the capture rule is right to stay silent");
+        });
+    }
+
+    /// <remarks>
+    /// The call the callback makes used to be where the rule stopped, so a read moved one method along was
+    /// enough to leave it. The walk now follows it to a bounded depth, on the shape the field walk already
+    /// uses: run out of depth and report, so the bound can cost a diagnostic and never hide one.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingAMethodThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            "public static float Current;\n\n    public static float Read() => Current;",
+            "value.X + Settings.Read()");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "moving the read one call along does not make the callback answer the same way twice");
+    }
+
+    /// <remarks>
+    /// Both halves at once: the callback is a method group, and the read is a call further in. Neither the
+    /// body inspection nor the call walk catches this on its own.
+    /// </remarks>
+    [Test]
+    public void AStaticMethodGroupReadingAMutableStaticThroughACall_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+
+                public static float Read() => Offset;
+            }
+
+            internal static class Author
+            {
+                private static Rect Map(Rect value)
+                    => new Rect(value.X + Settings.Read(), value.Y, value.Width, value.Height);
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Map, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
+    }
+
+    /// <remarks>
+    /// A chain longer than the walk is reported rather than accepted, so the bound only ever costs a
+    /// diagnostic. Nine hops is one past <c>MaxCallbackCallDepth</c>, and every body in it is provably
+    /// constant, which is what makes the report attributable to the bound and to nothing else.
+    /// </remarks>
+    [Test]
+    public void ACallChainDeeperThanTheWalk_IsReported()
+    {
+        string chain = string.Join(
+            "\n\n    ",
+            Enumerable
+                .Range(0, 9)
+                .Select(static i => $"public static float Step{i}() => Step{i + 1}();"));
+
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            $"{chain}\n\n    public static float Step9() => 1f;",
+            "value.X + Settings.Step0()");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "running out of depth is not evidence that the rest of the chain is constant");
+    }
+
+    /// <remarks>
+    /// A callback that names its own method recursively would walk for ever, and the compiler allows it.
+    /// </remarks>
+    [Test]
+    public void ARecursiveStaticMethodGroupOverConstants_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                private static Rect Map(Rect value)
+                    => value.Width > 0f ? Map(new Rect(value.X, value.Y, 0f, value.Height)) : value;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Map, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// This is the half that stops the widened rule from rejecting the form it recommends. A method group
+    /// reading only constants and proven static readonly state is exactly what BESG003 sends authors to, and
+    /// reporting it would leave them nowhere to go.
+    /// </remarks>
+    [Test]
+    public void AStaticMethodGroupReadingOnlyProvenConstants_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public const float Inset = 1f;
+
+                public static readonly float Margin = 2f;
+
+                public static float Scale => 3f;
+            }
+
+            internal static class Author
+            {
+                private static Rect Map(Rect value)
+                    => new Rect(
+                        value.X + Settings.Inset + Settings.Margin + Settings.Scale,
+                        value.Y,
+                        value.Width,
+                        value.Height);
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Map, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A method compiled into another assembly carries no body this rule can read, and it is the whole of
+    /// the callback: staying silent would say the rule looked when it looked at nothing. This is where the
+    /// static field rule already stands - a type whose state was not imported is refused, not assumed clean -
+    /// and a callback is the one place that reasoning bites hardest, because there is no second half left to
+    /// check.
+    /// </remarks>
+    [Test]
+    public void AStaticMethodGroupFromAReferencedAssembly_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            using Beutl.Graphics;
+
+            namespace External
+            {
+                public static class Callbacks
+                {
+                    public static Rect Map(Rect value) => value;
+                }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using External;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Callbacks.Map, static value => value);
+            }
+            """);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Contain("BESG004"),
+                "a body with no source proves nothing, and here it is the entire callback");
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Not.Contain("BESG003"),
+                "the method group is still delegate-cached, so the capture rule is right to stay silent");
+        });
+    }
+
+    /// <remarks>
+    /// A method the body calls is the documented bound, and it stays one when the callee has no source: the
+    /// rule did inspect the callback, unlike the case above where the callback was the unreadable method.
+    /// Reporting here would reject every callback that names <see cref="Math.Clamp(float, float, float)"/>.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingAMethodWithNoSource_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            "public const float Inset = 1f;",
+            "System.Math.Clamp(value.X, 0f, Settings.Inset)");
 
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }

@@ -233,7 +233,7 @@ public sealed class GeometryAuthoringContractTests
         Assert.Multiple(() =>
         {
             Assert.That(context.OutputBounds, Is.EqualTo(new Rect(8, 18, 12, 10)));
-            Assert.That(context.Inputs, Has.Count.EqualTo(1));
+            Assert.That(context.Inputs.Count, Is.EqualTo(1));
             Assert.That(context.Inputs[0].Bounds, Is.EqualTo(new Rect(10, 20, 8, 6)));
         });
         return context.OutputBounds.Contains(point);

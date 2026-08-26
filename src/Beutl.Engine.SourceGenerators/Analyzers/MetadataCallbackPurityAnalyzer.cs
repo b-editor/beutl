@@ -374,11 +374,17 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     }
 
     /// <remarks>
-    /// A static lambda satisfies the capture rule and can still read static state, which changes the answer
-    /// without changing the delegate. Only what the body names is visible here; a static method it calls can
-    /// read anything, and that is the bound this rule is documented to stop at rather than paper over.
-    /// Within that bound the burden runs the other way: a read is reported unless the member is proven to
-    /// answer the same way twice, because a callback reading state nobody can pin down is the hazard.
+    /// <para>
+    /// A callback satisfies the capture rule and can still read static state, which changes the answer
+    /// without changing the delegate. What the body names is what is visible here, and a method group names
+    /// its body as surely as a lambda writes one out, so both are read: exempting the method group left the
+    /// form BESG003's own message recommends checked by nothing at all.
+    /// </para>
+    /// <para>
+    /// Within the body the burden runs the other way from the walk that follows it: a read is reported
+    /// unless the member is proven to answer the same way twice, because a callback reading state nobody
+    /// can pin down is the hazard.
+    /// </para>
     /// </remarks>
     private static void ReportUnprovenStaticStateReads(
         SyntaxNodeAnalysisContext context,
@@ -388,24 +394,13 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax callback,
         Location callSite)
     {
-        if (callback is not AnonymousFunctionExpressionSyntax { Body: { } body })
-            return;
-
-        foreach (SimpleNameSyntax name in body.DescendantNodesAndSelf().OfType<SimpleNameSyntax>())
+        void Report(SyntaxNode node, string kind, ISymbol symbol, string reason)
         {
-            // A nameof argument names a member without reading it.
-            if (IsInsideNameOf(name))
-                continue;
-
-            ISymbol? symbol = model.GetSymbolInfo(name, context.CancellationToken).Symbol;
-            if (DescribeUnprovenStaticState(context, symbol) is not (string kind, string reason))
-                continue;
-
-            // A callback reached through a readonly field can be written in another file, and a syntax
-            // node action may only report where it was asked to look. The call is where the author
-            // chose this callback, so it is the location that survives.
-            Location location = name.SyntaxTree == context.Node.SyntaxTree
-                ? name.GetLocation()
+            // A callback reached through a readonly field, and any body the walk follows into, can be
+            // written in another file, and a syntax node action may only report where it was asked to
+            // look. The call is where the author chose this callback, so it is the location that survives.
+            Location location = node.SyntaxTree == context.Node.SyntaxTree
+                ? node.GetLocation()
                 : callSite;
 
             context.ReportDiagnostic(Diagnostic.Create(
@@ -414,9 +409,175 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 containingType.Name,
                 method.Name,
                 kind,
-                symbol!.ToDisplayString(SymbolDisplayFormat.CSharpShortErrorMessageFormat),
+                symbol.ToDisplayString(SymbolDisplayFormat.CSharpShortErrorMessageFormat),
                 reason));
         }
+
+        HashSet<ISymbol> walked = new(SymbolEqualityComparer.Default);
+
+        if (callback is AnonymousFunctionExpressionSyntax { Body: { } lambdaBody })
+        {
+            WalkBody(context, model, lambdaBody, MaxCallbackCallDepth, walked, Report);
+            return;
+        }
+
+        // Every other shape is BESG003's to explain: a local, a parameter, a settable field, a member this
+        // rule could not follow. Naming it again here would say the same thing under a second id.
+        if (callback is not (IdentifierNameSyntax or MemberAccessExpressionSyntax)
+            || model.GetSymbolInfo(callback, context.CancellationToken).Symbol is not IMethodSymbol group)
+        {
+            return;
+        }
+
+        walked.Add(group.OriginalDefinition);
+
+        if (GetBody(context, group) is not { } groupBody)
+        {
+            Report(callback, "method", group, UnreadableCallbackBody);
+            return;
+        }
+
+        WalkBody(
+            context,
+            GetSemanticModel(context, groupBody.SyntaxTree),
+            groupBody,
+            MaxCallbackCallDepth,
+            walked,
+            Report);
+    }
+
+    /// <remarks>
+    /// The body is the whole of what a method group contributes, so a method group with no body to read is
+    /// a callback this rule has inspected nothing of, and silence would say it looked. That is where the
+    /// static field rule already stands for a type whose state was never imported, and a callback is where
+    /// the reasoning bites hardest: there is no second half left to check.
+    /// </remarks>
+    private const string UnreadableCallbackBody =
+        "the callback is a method whose body has no source in this compilation, so nothing it reads can be "
+        + "seen, and being static says only that the delegate is the same one every frame, not that it "
+        + "answers the same way; declare the method where this rule can read it, or write the callback as a "
+        + "static lambda at the call site";
+
+    /// <remarks>
+    /// The same shape <see cref="MaxImmutableFieldDepth"/> takes and for the same reason: a chain longer
+    /// than the walk is reported rather than accepted, so the bound can only ever cost a diagnostic and
+    /// never hide one. Eight is past any callback written by hand, and a metadata callback needing a ninth
+    /// hop is doing more than one of these should.
+    /// </remarks>
+    private const int MaxCallbackCallDepth = 8;
+
+    private const string DeeperThanTheWalk =
+        "the callback reaches it through a chain of calls longer than this rule walks, so what the rest of "
+        + "that chain reads was never looked at, and a call chain nobody can follow to its end is not "
+        + "evidence that the callback answers the same way twice";
+
+    /// <summary>
+    /// Reports every static member named by <paramref name="body"/>, or by a static method it names, that is
+    /// not proven to answer the same way twice.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="walked"/> spans the whole callback rather than one path through it: two calls
+    /// reaching the same method want one diagnostic, not one each, and a method that names itself would
+    /// otherwise walk for ever.
+    /// </remarks>
+    private static void WalkBody(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode body,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        foreach (SimpleNameSyntax name in body.DescendantNodesAndSelf().OfType<SimpleNameSyntax>())
+        {
+            // A nameof argument names a member without reading it.
+            if (IsInsideNameOf(name))
+                continue;
+
+            ISymbol? symbol = model.GetSymbolInfo(name, context.CancellationToken).Symbol;
+
+            // Only a static method, because a virtual call has no one body to read and what an instance
+            // receiver carries is state the field walk decides separately; and only these three kinds,
+            // because a property read is already the branch below and an operator, a conversion and a
+            // constructor are invoked without a name for this loop to reach.
+            if (symbol is IMethodSymbol
+                {
+                    IsStatic: true,
+                    MethodKind: MethodKind.Ordinary or MethodKind.LocalFunction
+                        or MethodKind.ReducedExtension
+                } called)
+            {
+                FollowCall(context, called, name, depth, walked, report);
+                continue;
+            }
+
+            if (DescribeUnprovenStaticState(context, symbol) is not (string kind, string reason))
+                continue;
+
+            report(name, kind, symbol!, reason);
+        }
+    }
+
+    /// <remarks>
+    /// A callee with no body to read is where the walk stops without reporting, and that is not the answer
+    /// the method group itself gets. The difference is what the rule has already done: here it read the
+    /// callback and is one layer past it, so the callee is a bound on an inspected callback rather than an
+    /// uninspected one, and reporting it would reject every callback that names <c>Math.Clamp</c>.
+    /// </remarks>
+    private static void FollowCall(
+        SyntaxNodeAnalysisContext context,
+        IMethodSymbol called,
+        SimpleNameSyntax name,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (!walked.Add(called.OriginalDefinition))
+            return;
+
+        if (GetBody(context, called) is not { } body)
+            return;
+
+        if (depth == 0)
+        {
+            report(name, "method", called, DeeperThanTheWalk);
+            return;
+        }
+
+        WalkBody(context, GetSemanticModel(context, body.SyntaxTree), body, depth - 1, walked, report);
+    }
+
+    /// <returns>
+    /// The syntax whose names stand for everything the method reads, or <see langword="null"/> when the
+    /// method has no body in this compilation - one compiled into another assembly, or abstract, extern or
+    /// partial with no implementing declaration.
+    /// </returns>
+    private static SyntaxNode? GetBody(SyntaxNodeAnalysisContext context, IMethodSymbol method)
+    {
+        // An extension method called in reduced form and a constructed generic both carry the declaration
+        // of the method they came from, and a partial method's body is on the implementing part.
+        IMethodSymbol declared = (method.ReducedFrom ?? method).OriginalDefinition;
+        declared = declared.PartialImplementationPart ?? declared;
+
+        foreach (SyntaxReference declaration in declared.DeclaringSyntaxReferences)
+        {
+            switch (declaration.GetSyntax(context.CancellationToken))
+            {
+                case MethodDeclarationSyntax { Body: { } block }:
+                    return block;
+
+                case MethodDeclarationSyntax { ExpressionBody.Expression: { } expression }:
+                    return expression;
+
+                case LocalFunctionStatementSyntax { Body: { } block }:
+                    return block;
+
+                case LocalFunctionStatementSyntax { ExpressionBody.Expression: { } expression }:
+                    return expression;
+            }
+        }
+
+        return null;
     }
 
     /// <returns>
@@ -715,8 +876,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             if (current is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } })
                 return true;
 
-            if (current is AnonymousFunctionExpressionSyntax)
+            if (current is AnonymousFunctionExpressionSyntax or MemberDeclarationSyntax
+                or LocalFunctionStatementSyntax)
+            {
                 return false;
+            }
         }
 
         return false;

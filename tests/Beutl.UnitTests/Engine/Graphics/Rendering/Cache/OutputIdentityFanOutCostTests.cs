@@ -113,10 +113,14 @@ public sealed class OutputIdentityFanOutCostTests
                 RenderScaleContract.MaterializeAtWorkingScale)
             .Call(bounds);
 
+    // Colors.White computes its value in a getter, which a recording callback cannot be shown answers
+    // the same way twice; a snapshot of it can be.
+    private static readonly Color s_white = Colors.White;
+
     private static void Draw(OpaqueRenderSession session, Rect area)
     {
         using OpaqueRenderOutput output = session.CreateOutput(area);
-        output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
+        output.Canvas.Use(static canvas => canvas.Clear(s_white));
         session.Publish(output);
     }
 }

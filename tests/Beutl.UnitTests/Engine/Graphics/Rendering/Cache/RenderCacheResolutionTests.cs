@@ -1479,8 +1479,12 @@ public sealed class RenderCacheResolutionTests
             RenderFragmentHitTest.Bounds);
     }
 
+    // EffectiveScale.Unbounded is a get-only property this assembly reads as metadata, where a
+    // recording callback cannot be shown what its getter answers; snapshotting it here can be.
+    private static readonly EffectiveScale s_unbounded = EffectiveScale.Unbounded;
+
     private static EffectiveScale ReduceSupplyByFour(EffectiveScale inputSupply)
-        => inputSupply.IsUnbounded ? EffectiveScale.Unbounded : EffectiveScale.At(inputSupply.Value / 4);
+        => inputSupply.IsUnbounded ? s_unbounded : EffectiveScale.At(inputSupply.Value / 4);
 
     private static EffectiveScale QuadrupleDemand(EffectiveScale outputDemand)
         => EffectiveScale.At(outputDemand.Value * 4);

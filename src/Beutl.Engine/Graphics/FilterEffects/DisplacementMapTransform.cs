@@ -61,6 +61,10 @@ public abstract partial class DisplacementMapTransform : EngineObject
     private static readonly Lazy<SKSLShader> s_drawableMapShader =
         new(() => SKSLShader.Create(DrawableMapShaderSource));
 
+    // SkiaSharp declares its named colours as plain static fields, which anything in the process can
+    // assign; a binder read by a keyed recording callback needs a value nothing can write.
+    private static readonly SKColor s_transparent = SKColors.Transparent;
+
     public partial class Resource
     {
         internal abstract void ApplyTo(
@@ -247,7 +251,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
             .CreateShader();
         if (shader is null)
         {
-            writer.Set(SKShader.CreateColor(SKColors.Transparent));
+            writer.Set(SKShader.CreateColor(s_transparent));
             return;
         }
 

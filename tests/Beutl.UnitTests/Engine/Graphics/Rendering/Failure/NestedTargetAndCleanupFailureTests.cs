@@ -1113,17 +1113,15 @@ public sealed class NestedTargetAndCleanupFailureTests
                     session.Publish(output);
                 }));
             RenderBoundsContract bounds = RenderBoundsContract.Create(
-                static value => value,
-                ThrowDuringRequiredInputBounds);
+                PrimaryFailure,
+                static (_, value) => value,
+                static (failure, _) => throw failure);
             GeometryDescription geometry = GeometryDescription.CreateRequestLocal(
                 static _ => { },
                 bounds,
                 RenderHitTestContract.AnyInput);
             context.Publish(context.Geometry(source, geometry));
         }
-
-        private static Rect ThrowDuringRequiredInputBounds(Rect _)
-            => throw PrimaryFailure;
     }
 
     private sealed class NestedParentNode(RenderNode child) : RenderNode

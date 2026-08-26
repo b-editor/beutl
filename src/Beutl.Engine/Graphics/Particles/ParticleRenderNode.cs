@@ -11,6 +11,11 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     private static readonly Rect s_drawableRecordingDomain = new(0, 0, 1920, 1080);
     private static readonly Rect s_fallbackBounds = new(-5, -5, 10, 10);
     private static readonly RenderResourceSlot<Particle[]> s_particlesSlot = new();
+
+    // Colors.White computes its value in a getter and SkiaSharp's named colours are plain static fields
+    // anything can assign; a keyed recording callback needs values nothing can change under it.
+    private static readonly Color s_untintedParticle = Colors.White;
+    private static readonly SKColor s_opaqueWhite = SKColors.White;
     private static readonly RenderResourceSlot<Brush.Resource> s_fallbackFillSlot = new();
     private static readonly OpaqueRenderDefinition<ParticleFallbackState> s_fallbackDefinition =
         OpaqueRenderDefinition<ParticleFallbackState>.Create(
@@ -178,7 +183,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
                                * Matrix.CreateRotation(rotation)
                                * Matrix.CreateTranslation(particle.X, particle.Y);
             Color color = particle.CurrentColor;
-            using SKColorFilter? colorFilter = color == Colors.White
+            using SKColorFilter? colorFilter = color == s_untintedParticle
                 ? null
                 : SKColorFilter.CreateBlendMode(
                     new SKColor(color.R, color.G, color.B, color.A),
@@ -188,7 +193,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             {
                 IsAntialias = true,
                 ColorFilter = colorFilter,
-                Color = SKColors.White.WithAlpha(
+                Color = s_opaqueWhite.WithAlpha(
                            (byte)Math.Clamp(MathF.Round(opacity * byte.MaxValue), 0, byte.MaxValue)),
             })
             {

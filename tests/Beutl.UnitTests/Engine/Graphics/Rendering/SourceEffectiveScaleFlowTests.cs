@@ -18,9 +18,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class SourceEffectiveScaleFlowTests
 {
-    private static int s_throwingWorkingScaleResolverCalls;
     private static float s_effectItemCustomWorkingScale;
-    private static List<ScaleResolverObservation>? s_scaleResolverObservations;
 
     private static FilterEffectRenderNode MosaicNode()
     {
@@ -462,38 +460,32 @@ public class SourceEffectiveScaleFlowTests
         Rect secondInputBounds = new(100, 200, 8, 6);
         Rect firstBufferBounds = new(1, 2, 22, 12);
         Rect secondBufferBounds = new(99, 199, 10, 8);
-        s_scaleResolverObservations = [];
-        try
-        {
-            var policy = new FilterEffectWorkingScalePolicy(RenderScaleContract.Custom(
-                ObserveBranchWorkingScale));
+        List<ScaleResolverObservation> observations = [];
+        var policy = new FilterEffectWorkingScalePolicy(RenderScaleContract.Custom(
+            observations,
+            ObserveBranchWorkingScale));
 
-            EffectiveScale resolved = policy.Resolve(
-                [EffectiveScale.At(0.5f), EffectiveScale.At(2)],
-                [firstInputBounds, secondInputBounds],
-                [firstBufferBounds, secondBufferBounds],
-                outputScale: 1,
-                maxWorkingScale: 4);
+        EffectiveScale resolved = policy.Resolve(
+            [EffectiveScale.At(0.5f), EffectiveScale.At(2)],
+            [firstInputBounds, secondInputBounds],
+            [firstBufferBounds, secondBufferBounds],
+            outputScale: 1,
+            maxWorkingScale: 4);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(resolved, Is.EqualTo(EffectiveScale.At(2)));
-                Assert.That(s_scaleResolverObservations, Has.Count.EqualTo(2));
-                Assert.That(
-                    s_scaleResolverObservations.Select(static item => item.InputSupplies),
-                    Is.All.Matches<IReadOnlyList<EffectiveScale>>(static supplies => supplies.Count == 1));
-                Assert.That(
-                    s_scaleResolverObservations.Select(static item => item.InputSupplies.Single()),
-                    Is.EqualTo(new[] { EffectiveScale.At(0.5f), EffectiveScale.At(2) }));
-                Assert.That(
-                    s_scaleResolverObservations.Select(static item => item.OutputBounds),
-                    Is.EqualTo(new[] { firstInputBounds, secondInputBounds }));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            s_scaleResolverObservations = null;
-        }
+            Assert.That(resolved, Is.EqualTo(EffectiveScale.At(2)));
+            Assert.That(observations, Has.Count.EqualTo(2));
+            Assert.That(
+                observations.Select(static item => item.InputSupplies),
+                Is.All.Matches<IReadOnlyList<EffectiveScale>>(static supplies => supplies.Count == 1));
+            Assert.That(
+                observations.Select(static item => item.InputSupplies.Single()),
+                Is.EqualTo(new[] { EffectiveScale.At(0.5f), EffectiveScale.At(2) }));
+            Assert.That(
+                observations.Select(static item => item.OutputBounds),
+                Is.EqualTo(new[] { firstInputBounds, secondInputBounds }));
+        });
     }
 
     [Test]
@@ -725,7 +717,6 @@ public class SourceEffectiveScaleFlowTests
     [Test]
     public void NoOpEffect_DoesNotEvaluateUnobservedWorkingScaleHookOrResolver()
     {
-        s_throwingWorkingScaleResolverCalls = 0;
         using var node = new ThrowingWorkingScaleRenderNode(
             new FilterEffectGroup().ToResource(CompositionContext.Default));
 
@@ -738,7 +729,7 @@ public class SourceEffectiveScaleFlowTests
         {
             Assert.That(measurement.EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
             Assert.That(node.HookCalls, Is.Zero);
-            Assert.That(s_throwingWorkingScaleResolverCalls, Is.Zero);
+            Assert.That(node.ResolverCalls, Is.Zero);
         });
     }
 
@@ -1759,19 +1750,31 @@ public class SourceEffectiveScaleFlowTests
             => RenderScaleContract.PreserveInputSupply;
     }
 
-    private sealed class ThrowingWorkingScaleRenderNode(FilterEffect.Resource effect)
-        : FilterEffectRenderNode(effect)
+    private sealed class ThrowingWorkingScaleRenderNode : FilterEffectRenderNode
     {
-        private static readonly RenderScaleContract s_scale = RenderScaleContract.Custom(
-            ThrowWorkingScaleResolver);
+        private readonly ResolverCallLog _log = new();
+        private readonly RenderScaleContract _scale;
+
+        public ThrowingWorkingScaleRenderNode(FilterEffect.Resource effect)
+            : base(effect)
+            => _scale = RenderScaleContract.Custom(_log, ThrowWorkingScaleResolver);
 
         public int HookCalls { get; private set; }
+
+        public int ResolverCalls => _log.Calls;
 
         protected override RenderScaleContract? GetWorkingScaleContract()
         {
             HookCalls++;
-            return s_scale;
+            return _scale;
         }
+    }
+
+    private sealed class ResolverCallLog
+    {
+        public int Calls { get; private set; }
+
+        public void Record() => Calls++;
     }
 
     private sealed class TargetCommandSourceRenderNode(Rect bounds, bool owningTargetDomain) : RenderNode
@@ -1972,9 +1975,9 @@ public class SourceEffectiveScaleFlowTests
         public void Dispose() => DisposeCount++;
     }
 
-    private static float ThrowWorkingScaleResolver(RenderScaleContext _)
+    private static float ThrowWorkingScaleResolver(ResolverCallLog log, RenderScaleContext _)
     {
-        s_throwingWorkingScaleResolverCalls++;
+        log.Record();
         throw new InvalidOperationException("The no-op resolver must remain lazy.");
     }
 
@@ -1992,9 +1995,11 @@ public class SourceEffectiveScaleFlowTests
         }
     }
 
-    private static float ObserveBranchWorkingScale(RenderScaleContext context)
+    private static float ObserveBranchWorkingScale(
+        List<ScaleResolverObservation> observations,
+        RenderScaleContext context)
     {
-        s_scaleResolverObservations!.Add(new ScaleResolverObservation(
+        observations.Add(new ScaleResolverObservation(
             context.InputSupplies.ToArray(),
             context.OutputBounds));
         EffectiveScale supply = context.InputSupplies.Single();
