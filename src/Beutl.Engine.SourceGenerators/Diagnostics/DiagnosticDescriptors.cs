@@ -47,16 +47,24 @@ public static class DiagnosticDescriptors
         description:
             "Proving a callback state-free in general is not possible, and this rule does not try. It reads "
             + "only the static fields and properties the callback body names directly. A static field is "
-            + "accepted when it is const or readonly. A static property is accepted only when its getter is "
-            + "proven to yield the same value on every read: an expression-bodied getter, a getter whose "
-            + "body is a single return, or the initialiser of a get-only auto-property, whose expression is "
-            + "a compile-time constant, an enum member, default, or a static readonly field of an immutable "
-            + "type. Every other getter is reported, including one whose source is not available here, "
-            + "because a metadata callback reading external mutable static state is the hazard this rule "
-            + "exists for; having no setter is not on its own evidence that a getter answers the same way "
-            + "twice. A static method the body calls, a member reached through a static readonly instance, "
-            + "and mutation of the object a static readonly field holds are all still invisible to it. Treat "
-            + "silence as the absence of the shape authors usually write, not as a purity proof.");
+            + "accepted when it is const, or readonly and of a type whose instances carry no writable "
+            + "state: an enum, a primitive, string, decimal, DateTime, or a readonly struct or sealed class "
+            + "whose every instance field, inherited ones included, is itself readonly and of such a type, "
+            + "walked to a bounded depth. readonly on its own fixes the reference and not the object behind "
+            + "it, so a static readonly field of a type carrying a writable field - its own or one it "
+            + "reaches - is reported, and so is one of an unsealed class, which a subclass can add state "
+            + "to, or of a delegate, whose target this rule cannot read. A static property is accepted only "
+            + "when its getter is proven to yield the same value on every read: an expression-bodied "
+            + "getter, a getter whose body is a single return, or the initialiser of a get-only "
+            + "auto-property, whose expression is a compile-time constant, an enum member, default, or a "
+            + "static readonly field that same test accepts. Every other getter is reported, including one "
+            + "whose source is not available here, because a metadata callback reading external mutable "
+            + "static state is the hazard this rule exists for; having no setter is not on its own evidence "
+            + "that a getter answers the same way twice. What is still invisible to it: a static method the "
+            + "body calls, whatever an instance member reached through an accepted field computes, and the "
+            + "private fields a reference assembly removed, which can leave a class passing on a field list "
+            + "shorter than the class. Treat silence as the absence of the shape authors usually write, not "
+            + "as a purity proof.");
 
     public static readonly DiagnosticDescriptor UnmarkedRenderNodeMutation = new(
         id: "BESG005",

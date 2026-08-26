@@ -429,8 +429,18 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     {
         return symbol switch
         {
-            IFieldSymbol { IsStatic: true, IsConst: false, IsReadOnly: false } =>
+            // A const can only ever hold a primitive, a string, an enum member, or null, and the value is
+            // burned into every read of it.
+            IFieldSymbol { IsStatic: true, IsConst: true } => null,
+
+            IFieldSymbol { IsStatic: true, IsReadOnly: false } =>
                 ("field", "a static field that is neither const nor readonly can be assigned between two "
+                    + "recordings while the plan key stays the same"),
+
+            IFieldSymbol { IsStatic: true } field when !IsImmutableType(field.Type) =>
+                ("field", "readonly stops the field being assigned and not the value it holds being "
+                    + "mutated, and this field's type is not one whose instances this rule can prove carry "
+                    + "no writable state, so what the callback reads through it can change between two "
                     + "recordings while the plan key stays the same"),
 
             IPropertySymbol { IsStatic: true } property => DescribeUnprovenGetter(context, property),
@@ -503,10 +513,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     }
 
     /// <remarks>
-    /// A static readonly field is accepted on the same terms the field rule accepts one directly, so routing
-    /// the read through a property does not make it stricter. That carries the field rule's limit with it:
-    /// mutation of the object such a field holds stays invisible, which is why the type has to be one whose
-    /// instances cannot be mutated at all.
+    /// A static readonly field is accepted on the same terms the field rule accepts one directly, through
+    /// the same test, so routing the read through a property makes it neither stricter nor looser.
     /// </remarks>
     private static bool IsProvenConstant(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
@@ -531,16 +539,32 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             && IsImmutableType(field.Type);
     }
 
-    private static bool IsImmutableType(ITypeSymbol type) => type switch
+    /// <summary>
+    /// Decides whether the value a static readonly field holds carries state something can still write.
+    /// </summary>
+    /// <remarks>
+    /// This is the single test both places that accept a static readonly field are judged by - the field a
+    /// callback names directly, and the one a proven getter hands back - because readonly says the same
+    /// thing in both: the reference is fixed, and what it points at is not.
+    /// </remarks>
+    private static bool IsImmutableType(ITypeSymbol type) => IsImmutableType(type, MaxImmutableFieldDepth);
+
+    /// <remarks>
+    /// A class can hold a reference to its own type, so the walk below has a real cycle to end, and a
+    /// value-type layout that would cycle is only rejected while the code still compiles - which an
+    /// analyzer reading a half-written file cannot assume. Eight is past any type written by hand, and the
+    /// framework's own bottom out after one or two levels; a type nested deeper is reported rather than
+    /// assumed, so the bound can only ever cost a diagnostic, never hide one.
+    /// </remarks>
+    private const int MaxImmutableFieldDepth = 8;
+
+    private static bool IsImmutableType(ITypeSymbol type, int depth) => type switch
     {
         { TypeKind: TypeKind.Enum } => true,
 
-        // A readonly struct has no instance member that can write it, so a readonly field holding one keeps
-        // the value it was given; a struct without the modifier can be written through an instance method.
-        { IsValueType: true, IsReadOnly: true } => true,
-
-        // The framework types with no mutable state at all. Anything else is reported, including a sealed
-        // type an author considers immutable, because nothing in the symbol says so.
+        // The framework types with no mutable state at all, decided before the walk below because the walk
+        // has nothing to tell about them: every primitive carries an instance of itself, string's own
+        // fields are not readonly, and IntPtr carries a pointer at memory the type says nothing about.
         {
             SpecialType: SpecialType.System_Boolean or SpecialType.System_Char or SpecialType.System_SByte
                 or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16
@@ -550,8 +574,47 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 or SpecialType.System_UIntPtr or SpecialType.System_DateTime
         } => true,
 
+        // A readonly struct has no instance member that can write it and a sealed class has no derived
+        // instance that can add one, so in both the declared fields are the whole of what an instance
+        // carries - which is what makes the walk mean anything. Holding a reference is not itself an
+        // answer, so the fields are put the same question their type just was.
+        INamedTypeSymbol named when named is { IsValueType: true, IsReadOnly: true }
+                or { TypeKind: TypeKind.Class, IsSealed: true } =>
+            depth > 0 && HasOnlyImmutableFields(named, depth),
+
+        // Anything else is reported. A struct without the modifier can be written through an instance
+        // method; an unsealed class is a base a subclass can add state to; a delegate carries a target this
+        // rule can no more read than the static method it already says it cannot follow. A pointer, a type
+        // parameter, an array, and a type that failed to bind land here too, rather than in the walk, where
+        // having no fields to read would pass for having no state.
         _ => false,
     };
+
+    /// <remarks>
+    /// This reads the fields the symbol carries, which is not always the whole type: a reference assembly
+    /// has had its private fields removed, so a class from one can pass on a field list shorter than the
+    /// class. That is the same shape of blind spot the rule already declares - what an instance member
+    /// reached through the field computes is never read either - and it fails the same way, quietly, which
+    /// is why only the field's own type is ever claimed here.
+    /// </remarks>
+    private static bool HasOnlyImmutableFields(INamedTypeSymbol type, int depth)
+    {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            foreach (ISymbol member in current.GetMembers())
+            {
+                // An auto-property's backing field is implicitly declared and is still part of the value,
+                // so every instance field counts regardless of how it was written.
+                if (member is not IFieldSymbol { IsStatic: false } field)
+                    continue;
+
+                if (!field.IsReadOnly || !IsImmutableType(field.Type, depth - 1))
+                    return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <remarks>
     /// The property whose getter decides this is routinely declared in another file, and the context's model

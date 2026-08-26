@@ -636,6 +636,286 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// readonly stops the field being assigned and says nothing about the object it points at. The delegate
+    /// is the same delegate on every frame, so the plan key never moves, while what the callback reads
+    /// through the field answers differently the moment anyone writes <c>Offset</c> - the same failure a
+    /// settable static field is reported for, reached one hop further out.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfAMutableClass_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            """
+            internal sealed class Palette
+                {
+                    public float Offset;
+                }
+
+                public static readonly Palette Current = new Palette();
+            """,
+            "value.X + Settings.Current.Offset");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Contain("BESG004"),
+                "readonly fixes the reference, and the object behind it is what the callback reads");
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Not.Contain("BESG003"),
+                "the lambda is static, so the capture rule is right to stay silent");
+        });
+    }
+
+    /// <remarks>
+    /// A readonly struct cannot be written through an instance member, which says nothing about what its
+    /// fields point at. This one holds a reference, so the value the field keeps is fixed and the state the
+    /// callback reaches through it is not - the case that stops "readonly struct" from standing in for
+    /// "immutable".
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfAReferenceBearingStruct_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            """
+            internal sealed class Palette
+                {
+                    public float Offset;
+                }
+
+                internal readonly struct Style
+                {
+                    public Style(Palette palette) => Palette = palette;
+
+                    public Palette Palette { get; }
+                }
+
+                public static readonly Style Current = new Style(new Palette());
+            """,
+            "value.X + Settings.Current.Palette.Offset");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Contain("BESG004"),
+                "a readonly struct holding a reference carries the mutable object with it");
+            Assert.That(
+                diagnostics.Select(static d => d.Id),
+                Does.Not.Contain("BESG003"),
+                "the lambda is static, so the capture rule is right to stay silent");
+        });
+    }
+
+    /// <remarks>
+    /// The field's type is decided in metadata, where the rule still has the fields to walk even though it
+    /// has no source. A referenced readonly struct that carries a reference must be reported on the same
+    /// terms as one written here, or the boundary itself becomes the way past the rule.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingThroughAStaticReadonlyFieldFromAReferencedAssembly_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            namespace External
+            {
+                public sealed class Palette
+                {
+                    public float Offset;
+                }
+
+                public readonly struct Style
+                {
+                    public Style(Palette palette) => Palette = palette;
+
+                    public Palette Palette { get; }
+                }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using External;
+
+            internal static class Settings
+            {
+                public static readonly Style Current = new Style(new Palette());
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + Settings.Current.Palette.Offset,
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a type with no source is still a type whose fields metadata carries");
+    }
+
+    /// <remarks>
+    /// These are what stop the field rule becoming a blanket reject on static readonly, which authors would
+    /// suppress wholesale and lose the rule with it. Each type's instances carry no state anything can
+    /// write, so a field fixing the value fixes the whole of what the callback can read through it.
+    /// </remarks>
+    [TestCase("public static readonly Alignment Current = Alignment.Center;", "value.X + (float)Settings.Current")]
+    [TestCase("public static readonly float Current = 2f;", "value.X + Settings.Current")]
+    [TestCase("public static readonly string Current = \"beutl\";", "value.X + Settings.Current.Length")]
+    [TestCase("public static readonly decimal Current = 1.5m;", "value.X + (float)Settings.Current")]
+    [TestCase("public static readonly System.DateTime Current = System.DateTime.MinValue;", "value.X + Settings.Current.Year")]
+    public void AStaticLambdaReadingAStaticReadonlyFieldOfAnImmutableType_IsNotReported(
+        string members,
+        string read)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(members, read);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// The struct an author writes to group a few numbers is the shape the field rule has to keep accepting,
+    /// or the reference-bearing case above would have cost every value type with it.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfAnImmutableStruct_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            """
+            internal readonly struct Margins
+                {
+                    public Margins(float left, Inset inset)
+                    {
+                        Left = left;
+                        Inset = inset;
+                    }
+
+                    public float Left { get; }
+
+                    public Inset Inset { get; }
+                }
+
+                internal readonly struct Inset
+                {
+                    public Inset(float top) => Top = top;
+
+                    public float Top { get; }
+                }
+
+                public static readonly Margins Current = new Margins(1f, new Inset(2f));
+            """,
+            "value.X + Settings.Current.Left + Settings.Current.Inset.Top");
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A class with nothing to write is the shape the diagnostic's own advice hands back: a resource slot is
+    /// an address a definition declares once, held in a static readonly field and named by every callback
+    /// that leases through it. Rejecting it for being a reference would leave the rule rejecting the fix it
+    /// recommends, which is the state authors suppress a rule over.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAStaticReadonlyFieldOfAStatelessSealedClass_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            """
+            internal sealed class Address
+                {
+                    public float Measure(float value) => value;
+                }
+
+                public static readonly Address Current = new Address();
+            """,
+            "Settings.Current.Measure(value.X)");
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// Every field readonly and every field's type accepted is the whole of what the walk asks, and a class
+    /// answering it carries no more writable state than a readonly struct does.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfASealedImmutableClass_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            """
+            internal sealed class Config
+                {
+                    public Config(float offset) => Offset = offset;
+
+                    public float Offset { get; }
+                }
+
+                public static readonly Config Current = new Config(2f);
+            """,
+            "value.X + Settings.Current.Offset");
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// Sealing is what makes the field list the whole of the type. Without it the walk would be reading one
+    /// class while the field holds an instance of another, so an unsealed class is reported however
+    /// immutable its own declaration looks.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfAnUnsealedClass_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            """
+            internal class Config
+                {
+                    public Config(float offset) => Offset = offset;
+
+                    public float Offset { get; }
+                }
+
+                public static readonly Config Current = new Config(2f);
+            """,
+            "value.X + Settings.Current.Offset");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a subclass can add the writable state the declaration does not show");
+    }
+
+    /// <remarks>
+    /// A settable auto-property compiles to a backing field nothing marks readonly, so the walk reaches the
+    /// same answer it would for the field written out - which is what stops an author spelling their way
+    /// past the rule.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfAClassWithASettableProperty_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            """
+            internal sealed class Config
+                {
+                    public float Offset { get; set; }
+                }
+
+                public static readonly Config Current = new Config();
+            """,
+            "value.X + Settings.Current.Offset");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the backing field of a settable auto-property is writable state like any other");
+    }
+
+    /// <remarks>
     /// readonly fixes the reference the plan key needs and says nothing about the delegate the field holds.
     /// A field assigned in a constructor is where that gap shows: the delegate is built from the
     /// constructor's arguments, and the runtime validator accepts an ordinary closure target.
