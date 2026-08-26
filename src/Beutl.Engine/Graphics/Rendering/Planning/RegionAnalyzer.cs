@@ -807,15 +807,15 @@ internal sealed class RegionAnalyzer
             RenderFragmentKind.MaterializedInput
                 => RenderFragmentHitTest.FromContract(
                     ((MaterializedInputRenderFragmentPayload)reference.Payload!).Description.HitTest,
-                    null),
+                    ((MaterializedInputRenderFragmentPayload)reference.Payload!).Description.Resources),
             RenderFragmentKind.TargetCapture
                 => RenderFragmentHitTest.FromContract(
                     ((TargetCaptureRenderFragmentPayload)reference.Payload!).Description.HitTest,
-                    null),
+                    ((TargetCaptureRenderFragmentPayload)reference.Payload!).Description.Resources),
             RenderFragmentKind.BuiltInBackdropCapture
                 => RenderFragmentHitTest.FromContract(
                     ((BuiltInBackdropCaptureRenderFragmentPayload)reference.Payload!).Description.HitTest,
-                    null),
+                    ((BuiltInBackdropCaptureRenderFragmentPayload)reference.Payload!).Description.Resources),
             RenderFragmentKind.TargetScope
                 => FromDescription(((TargetScopeRenderFragmentPayload)reference.Payload!).Description),
             RenderFragmentKind.RawTargetScope

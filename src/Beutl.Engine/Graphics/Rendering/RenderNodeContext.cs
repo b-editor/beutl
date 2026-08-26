@@ -801,6 +801,7 @@ public sealed class RenderNodeContext
     {
         ArgumentNullException.ThrowIfNull(description);
         ValidateDescriptionResources([description.Target], nameof(description));
+        ValidateDescriptionResources(description.Resources, nameof(description));
         return GetTransaction().CreateFragment(
             RenderFragmentKind.MaterializedInput,
             description.Bounds,
@@ -812,7 +813,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: false,
             inputs: [],
             new MaterializedInputRenderFragmentPayload(description),
-            RenderFragmentHitTest.FromContract(description.HitTest, null));
+            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
     /// <summary>Records a declared capture of the active target.</summary>
@@ -825,6 +826,7 @@ public sealed class RenderNodeContext
     public RenderFragmentHandle TargetCapture(TargetCaptureDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
+        ValidateDescriptionResources(description.Resources, nameof(description));
         EffectiveScale scale = description.Scale.PreservesTargetSupply
             ? EffectiveScale.Unbounded
             : description.Scale.ResolveDeclared(
@@ -842,7 +844,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: false,
             inputs: [],
             new TargetCaptureRenderFragmentPayload(description),
-            RenderFragmentHitTest.FromContract(description.HitTest, null));
+            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
     internal RenderFragmentHandle BuiltInBackdropCapture(object identity)
@@ -872,7 +874,7 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: false,
             inputs: [],
             new BuiltInBackdropCaptureRenderFragmentPayload(description, identity),
-            RenderFragmentHitTest.FromContract(description.HitTest, null),
+            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources),
             boundsRequirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
         transaction.BindBuiltInBackdrop(identity, handle);
         return handle;

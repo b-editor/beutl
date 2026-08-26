@@ -10,7 +10,8 @@ public sealed class MaterializedInputDescription
         EffectiveScale effectiveScale,
         PixelRect deviceBounds,
         Vector deviceGridOffset,
-        RenderHitTestContract hitTest)
+        RenderHitTestContract hitTest,
+        IReadOnlyList<RenderResourceBinding> resources)
     {
         Target = target;
         Bounds = bounds;
@@ -18,6 +19,7 @@ public sealed class MaterializedInputDescription
         DeviceBounds = deviceBounds;
         DeviceGridOffset = deviceGridOffset;
         HitTest = hitTest;
+        Resources = resources;
     }
 
     public Rect Bounds { get; }
@@ -32,6 +34,14 @@ public sealed class MaterializedInputDescription
         .ToRect(EffectiveScale.Value)
         .Translate(-DeviceGridOffset);
 
+    /// <summary>Gets the resources the hit-test contract resolves its slots against.</summary>
+    /// <remarks>
+    /// A materialized input runs no callback of its own, so these are read only by
+    /// <see cref="RenderHitTestContract.FromSlot{T}(RenderResourceSlot{T}, Func{T, Point, bool})"/>. A slot the
+    /// contract names and this list does not bind has nothing to resolve against and fails the hit test.
+    /// </remarks>
+    public IReadOnlyList<RenderResourceBinding> Resources { get; }
+
     internal RenderResource<RenderTarget> Target { get; }
 
     internal RenderHitTestContract HitTest { get; }
@@ -42,7 +52,8 @@ public sealed class MaterializedInputDescription
         EffectiveScale effectiveScale,
         PixelRect deviceBounds,
         Vector deviceGridOffset,
-        RenderHitTestContract hitTest)
+        RenderHitTestContract hitTest,
+        IEnumerable<RenderResourceBinding>? resources = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         if (target.RegistrationState == RenderResourceRegistrationState.Released)
@@ -89,7 +100,8 @@ public sealed class MaterializedInputDescription
             effectiveScale,
             deviceBounds,
             deviceGridOffset,
-            hitTest);
+            hitTest,
+            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
     }
 
     internal void ValidateTargetDeviceSize(RenderTarget target)

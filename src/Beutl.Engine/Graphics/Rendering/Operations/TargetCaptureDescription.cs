@@ -6,12 +6,14 @@ public sealed class TargetCaptureDescription
         TargetRegion sourceRegion,
         Rect bounds,
         RenderHitTestContract hitTest,
-        TargetCaptureScaleContract scale)
+        TargetCaptureScaleContract scale,
+        IReadOnlyList<RenderResourceBinding> resources)
     {
         SourceRegion = sourceRegion;
         Bounds = bounds;
         HitTest = hitTest;
         Scale = scale;
+        Resources = resources;
     }
 
     public TargetRegion SourceRegion { get; }
@@ -22,11 +24,20 @@ public sealed class TargetCaptureDescription
 
     public TargetCaptureScaleContract Scale { get; }
 
+    /// <summary>Gets the resources the hit-test contract resolves its slots against.</summary>
+    /// <remarks>
+    /// A capture runs no callback of its own, so these are read only by
+    /// <see cref="RenderHitTestContract.FromSlot{T}(RenderResourceSlot{T}, Func{T, Point, bool})"/>. A slot the
+    /// contract names and this list does not bind has nothing to resolve against and fails the hit test.
+    /// </remarks>
+    public IReadOnlyList<RenderResourceBinding> Resources { get; }
+
     public static TargetCaptureDescription Create(
         TargetRegion sourceRegion,
         Rect bounds,
         RenderHitTestContract hitTest,
-        TargetCaptureScaleContract scale)
+        TargetCaptureScaleContract scale,
+        IEnumerable<RenderResourceBinding>? resources = null)
     {
         sourceRegion.ThrowIfUninitialized(nameof(sourceRegion));
         if (sourceRegion.Kind == TargetRegionKind.Empty)
@@ -51,7 +62,12 @@ public sealed class TargetCaptureDescription
 
         scale.ThrowIfUninitialized(nameof(scale));
 
-        return new TargetCaptureDescription(sourceRegion, bounds, hitTest, scale);
+        return new TargetCaptureDescription(
+            sourceRegion,
+            bounds,
+            hitTest,
+            scale,
+            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
     }
 
     /// <summary>

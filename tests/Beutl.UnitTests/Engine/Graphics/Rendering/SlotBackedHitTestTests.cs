@@ -133,6 +133,52 @@ public sealed class SlotBackedHitTestTests
         });
     }
 
+    // A materialized input and a target capture declare a hit test the same way every other description
+    // does, so the resources that test resolves against have to travel with them: without the bindings the
+    // slot addresses nothing, and a contract that compiles can only ever throw.
+    [Test]
+    public void AMaterializedInputResolvesTheSlotItsCallBound()
+    {
+        var lowerLeft = new HitShape(new Rect(0, 0, 40, 40));
+        var upperRight = new HitShape(new Rect(60, 60, 40, 40));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(HitMaterializedInput(lowerLeft, new Point(20, 20)), Is.True);
+            Assert.That(HitMaterializedInput(lowerLeft, new Point(80, 80)), Is.False);
+            Assert.That(HitMaterializedInput(upperRight, new Point(80, 80)), Is.True);
+            Assert.That(HitMaterializedInput(upperRight, new Point(20, 20)), Is.False);
+        });
+    }
+
+    [Test]
+    public void ATargetCaptureResolvesTheSlotItsCallBound()
+    {
+        var lowerLeft = new HitShape(new Rect(0, 0, 40, 40));
+        var upperRight = new HitShape(new Rect(60, 60, 40, 40));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(HitTargetCapture(lowerLeft, new Point(20, 20)), Is.True);
+            Assert.That(HitTargetCapture(lowerLeft, new Point(80, 80)), Is.False);
+            Assert.That(HitTargetCapture(upperRight, new Point(80, 80)), Is.True);
+            Assert.That(HitTargetCapture(upperRight, new Point(20, 20)), Is.False);
+        });
+    }
+
+    // A slot the description never bound has nothing to resolve against, and answering false there would
+    // report a miss the author never wrote.
+    [Test]
+    public void AMaterializedInputWithNoBindingForItsSlotFailsLoudly()
+    {
+        using RenderTarget target = RenderTarget.CreateNull(100, 100);
+        using var node = new MaterializedInputSlotHitTestNode(target, new HitShape(s_bounds), bind: false);
+
+        Assert.That(
+            () => HitTest(node, new Point(20, 20)),
+            Throws.TypeOf<KeyNotFoundException>().With.Message.Contain("slot"));
+    }
+
     private static bool HitTest(RenderNode node, Point point)
     {
         using var renderer = new RenderNodeRenderer(
@@ -152,6 +198,19 @@ public sealed class SlotBackedHitTestTests
     private static bool Hit(HitShape shape, Point point)
     {
         using var node = new SlotHitTestNode(shape);
+        return HitTest(node, point);
+    }
+
+    private static bool HitMaterializedInput(HitShape shape, Point point)
+    {
+        using RenderTarget target = RenderTarget.CreateNull(100, 100);
+        using var node = new MaterializedInputSlotHitTestNode(target, shape, bind: true);
+        return HitTest(node, point);
+    }
+
+    private static bool HitTargetCapture(HitShape shape, Point point)
+    {
+        using var node = new TargetCaptureSlotHitTestNode(shape);
         return HitTest(node, point);
     }
 
@@ -229,6 +288,49 @@ public sealed class SlotBackedHitTestTests
             handle.TryHitTest(new Point(80, 80), out bool outside);
             HitOutside = outside;
             context.Publish(handle);
+        }
+    }
+
+    private sealed class MaterializedInputSlotHitTestNode(
+        RenderTarget source,
+        HitShape shape,
+        bool bind) : RenderNode
+    {
+        private static readonly RenderResourceSlot<HitShape> s_shapeSlot = new();
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderResource<RenderTarget> target = context.Borrow(source);
+            RenderResource<HitShape> shapeResource = context.Borrow(shape);
+            context.Publish(context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
+                target,
+                s_bounds,
+                EffectiveScale.At(1),
+                PixelRect.FromRect(s_bounds, 1),
+                default,
+                RenderHitTestContract.FromSlot(
+                    s_shapeSlot,
+                    static (shape, point) => shape.Contains(point)),
+                resources: bind ? [s_shapeSlot.Bind(shapeResource)] : null)));
+        }
+    }
+
+    private sealed class TargetCaptureSlotHitTestNode(HitShape shape) : RenderNode
+    {
+        private static readonly RenderResourceSlot<HitShape> s_shapeSlot = new();
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderResource<HitShape> shapeResource = context.Borrow(shape);
+            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
+                TargetRegion.Region(s_bounds),
+                s_bounds,
+                RenderHitTestContract.FromSlot(
+                    s_shapeSlot,
+                    static (shape, point) => shape.Contains(point)),
+                TargetCaptureScaleContract.MaterializeAtWorkingScale,
+                resources: [s_shapeSlot.Bind(shapeResource)]));
+            context.Publish(context.ContributeValues(capture));
         }
     }
 
