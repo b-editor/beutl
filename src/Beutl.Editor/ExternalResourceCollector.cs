@@ -95,6 +95,7 @@ public sealed class ExternalResourceCollector
         return new SerializationGraph(
             visitor.Objects,
             visitor.UnaddressableFileSources,
+            visitor.AddressableFileSources,
             visitor.FontFamilies);
     }
 
@@ -265,6 +266,7 @@ public sealed class ExternalResourceCollector
     {
         private readonly List<CoreObject> _objects = [];
         private readonly HashSet<Uri> _unaddressableFileSources = [];
+        private readonly HashSet<Uri> _addressableFileSources = [];
         private readonly HashSet<FontFamily> _fontFamilies = [];
         private readonly HashSet<object> _visitedCoreObjects = new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _visitedCoreCollections = new(ReferenceEqualityComparer.Instance);
@@ -286,6 +288,8 @@ public sealed class ExternalResourceCollector
         public IReadOnlyList<CoreObject> Objects => _objects;
 
         public IReadOnlySet<Uri> UnaddressableFileSources => _unaddressableFileSources;
+
+        public IReadOnlySet<Uri> AddressableFileSources => _addressableFileSources;
 
         public IReadOnlySet<FontFamily> FontFamilies => _fontFamilies;
 
@@ -747,7 +751,11 @@ public sealed class ExternalResourceCollector
                     }
                 }
 
-                if (!fileSourceIsAddressable)
+                if (fileSourceIsAddressable)
+                {
+                    _addressableFileSources.Add(uri);
+                }
+                else
                 {
                     _unaddressableFileSources.Add(uri);
                 }
@@ -1834,7 +1842,11 @@ public sealed class ExternalResourceCollector
                 return;
             }
 
-            if (!fileSourceIsAddressable && uri != null)
+            if (uri != null && fileSourceIsAddressable)
+            {
+                _addressableFileSources.Add(uri);
+            }
+            else if (uri != null)
             {
                 _unaddressableFileSources.Add(uri);
             }
@@ -2062,5 +2074,6 @@ public sealed class ExternalResourceCollector
     internal sealed record SerializationGraph(
         IReadOnlyList<CoreObject> Objects,
         IReadOnlySet<Uri> UnaddressableFileSources,
+        IReadOnlySet<Uri> AddressableFileSources,
         IReadOnlySet<FontFamily> FontFamilies);
 }

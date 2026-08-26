@@ -1993,7 +1993,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     public async Task Pending_pull_recovery_preserves_external_tip_and_reapplies_checkpoint()
     {
         await CommitFileAsync("project.bep", "base\n", "initial");
-        using var service = CreateService();
+        var recordingRunner = new InterceptingRunner(
+            CreateRunner(),
+            static (_, _, _) => false,
+            before: null,
+            after: null);
+        using var service = CreateService(runner: recordingRunner);
         CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
             CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local work\n");
@@ -2021,6 +2026,15 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             "-m",
             "external branch owner")).Stdout.Trim();
         await RunGitAsync("update-ref", baseTip.RefName, externalCommit, baseTip.Commit);
+        // The external branch owner also replaced the worktree/index. This ensures
+        // recovery must materialize the checkpoint tree through commit-tree instead of
+        // taking the already-present checkpoint content as a no-op.
+        await RunGitAsync("reset", "--hard", externalCommit);
+        File.Delete(Path.Combine(Root, "local.belm"));
+        Assert.That(File.Exists(Path.Combine(Root, "local.belm")), Is.False);
+        await RunGitAsync("config", "--unset", "user.name");
+        await RunGitAsync("config", "--unset", "user.email");
+        recordingRunner.Commands.Clear();
 
         PendingPullRecoveryOutcome? outcome = null;
         PendingPullRecoveryOutcome? repeatedOutcome = null;
@@ -2056,6 +2070,13 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Assert.That(File.ReadAllText(Path.Combine(Root, "local.belm")),
                 Is.EqualTo("local work\n"));
             Assert.That(status.IsClean, Is.False);
+            Assert.That(
+                recordingRunner.Commands.Any(command => command.Contains("commit-tree")),
+                Is.True);
+            Assert.That(
+                recordingRunner.Commands.Any(command =>
+                    command.Contains("cat-file") && command.Contains("-e")),
+                Is.True);
         });
     }
 

@@ -432,7 +432,8 @@ internal sealed class GitCliVersionControlService :
         Func<string, CancellationToken, Task>? beforeHygieneFileReplace = null,
         Func<string, CancellationToken, Task>? beforeHygieneFileCommit = null,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
-        Action<Action>? statusNotificationScheduler = null)
+        Action<Action>? statusNotificationScheduler = null,
+        string? projectFile = null)
         : this(
             installationLocator,
             repository,
@@ -440,7 +441,7 @@ internal sealed class GitCliVersionControlService :
             runnerFactory,
             createWatcherWhenRepositoryAvailable: false,
             isWorktreeMutationAllowed: static () => true,
-            projectFile: null,
+            projectFile: projectFile,
             policyNoticeSink,
             beforeHygieneFileReplace: beforeHygieneFileReplace,
             beforeHygieneFileCommit: beforeHygieneFileCommit,
@@ -2095,6 +2096,11 @@ internal sealed class GitCliVersionControlService :
             return false;
         }
 
+        // Validate before any temporary commit or checkout can replace a symlinked project path.
+        ValidateRecoveryProjectFilePhysicalContainment(
+            repository,
+            recovery.ProjectFile);
+
         string desiredTree = await BuildProjectTreeAsync(
                 repository,
                 runner,
@@ -2225,13 +2231,22 @@ internal sealed class GitCliVersionControlService :
             return false;
         }
 
+        string targetCommit = await CreateTreeCommitAsync(
+                repository,
+                runner,
+                desiredTree,
+                actualTip.Commit,
+                "beutl temporary pending pull recovery",
+                cancellationToken)
+            .ConfigureAwait(false);
+
         TreeTransitionResult transition = await ApplyTreeTransitionAsync(
                 repository,
                 runner,
                 actualTip,
                 actualTip,
                 actualTip.Commit,
-                desiredTree,
+                targetCommit,
                 "beutl reapply pending pull checkpoint",
                 new TreeTransitionIndexPlan(
                     FinalCommit: actualTip.Commit,
@@ -2251,6 +2266,44 @@ internal sealed class GitCliVersionControlService :
                 "The pending pull checkpoint could not be reapplied safely.",
                 transition.Error),
         };
+    }
+
+    private static async Task<string> CreateTreeCommitAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string tree,
+        string parentCommit,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(
+                repository,
+                ["commit-tree", tree, "-p", parentCommit, "-m", message],
+                new GitCommandOptions(
+                    GitCommandExecutionKind.Local,
+                    EnvironmentOverrides: new Dictionary<string, string?>
+                    {
+                        ["GIT_AUTHOR_NAME"] = "Beutl Recovery",
+                        ["GIT_AUTHOR_EMAIL"] = "beutl-recovery@localhost",
+                        ["GIT_COMMITTER_NAME"] = "Beutl Recovery",
+                        ["GIT_COMMITTER_EMAIL"] = "beutl-recovery@localhost",
+                    }),
+                cancellationToken)
+            .ConfigureAwait(false);
+        string commit = result.Stdout.Trim();
+        if (commit.Length == 0)
+        {
+            throw new InvalidOperationException("Git did not return the temporary recovery commit.");
+        }
+
+        await runner.RunAsync(
+                repository,
+                ["cat-file", "-e", commit + "^{commit}"],
+                GitCommandOptions.Local,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return commit;
     }
 
     private async Task CompletePendingPullRecoveryCoreAsync(
@@ -4823,20 +4876,35 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         GitCommandResult gitDirectory = await runner.RunAsync(
-            repository,
-            ["rev-parse", "--absolute-git-dir"],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
-        string root = gitDirectory.Stdout.Trim();
+                repository,
+                ["rev-parse", "--git-common-dir"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        string commonDirectory = gitDirectory.Stdout.Trim();
+        if (commonDirectory.Length == 0)
+        {
+            throw new InvalidOperationException("Git returned an empty common directory.");
+        }
+
+        string root = Path.GetFullPath(
+            Path.IsPathFullyQualified(commonDirectory)
+                ? commonDirectory
+                : Path.Combine(repository.RepoRoot, commonDirectory));
         GitCommandResult configured = await runner.RunAsync(
             repository,
             ["config", "--get", "--default", "", "lfs.storage"],
             GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
         string storage = configured.Stdout.Trim();
-        return storage.Length == 0
-            ? Path.Combine(root, "lfs", "objects")
-            : Path.Combine(root, storage, "objects");
+        if (storage.Length == 0)
+        {
+            return Path.Combine(root, "lfs", "objects");
+        }
+
+        string storageRoot = Path.IsPathFullyQualified(storage)
+            ? storage
+            : Path.Combine(root, storage);
+        return Path.Combine(storageRoot, "objects");
     }
 
     private async Task SwitchBranchCoreAsync(
@@ -6344,7 +6412,39 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         RepositoryInfo repository = GetRepository();
-        ValidateProjectSnapshotLayout(repository.ProjectRoot);
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ValidateProjectSnapshotLayout(repository.ProjectRoot);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException
+                                   and not OutOfMemoryException)
+        {
+            // Git can begin a merge after the initial status check and write conflict
+            // markers before the project graph is deserialized. Prefer the conflict
+            // guidance when that race is observed, but preserve unrelated parse errors.
+            try
+            {
+                await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (VersionControlConflictedException)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (OutOfMemoryException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+            }
+
+            throw;
+        }
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         string branchRef = await GetAttachedBranchRefCoreAsync(
                 repository,
@@ -8153,7 +8253,7 @@ internal sealed class GitCliVersionControlService :
                 GetSerializedProjectRelativePaths(repository.ProjectRoot)
                     .Select(path => prefix + path),
                 environmentOverrides: null,
-                includeTrackedFiles: true,
+                includeTrackedFiles: false,
                 cancellationToken)
             .ConfigureAwait(false);
     }

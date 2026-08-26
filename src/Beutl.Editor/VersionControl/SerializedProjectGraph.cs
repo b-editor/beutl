@@ -17,6 +17,7 @@ internal static class SerializedProjectGraph
         foreach (Uri uri in graph.Objects
                      .Select(static obj => obj.Uri)
                      .Concat(graph.UnaddressableFileSources)
+                     .Concat(graph.AddressableFileSources)
                      .OfType<Uri>())
         {
             if (!uri.IsFile)

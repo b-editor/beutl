@@ -3160,6 +3160,64 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CommitAllAsync_reports_conflict_before_deserializing_malformed_project_graph()
+    {
+        await CommitFileAsync("project.bep", "base\n", "base");
+        await RunGitAsync("switch", "-c", "alternate");
+        await CommitFileAsync("project.bep", "alternate\n", "alternate");
+        await RunGitAsync("switch", "main");
+        await CommitFileAsync("project.bep", "main\n", "main");
+        Assert.ThrowsAsync<GitOperationException>(async () => await RunGitAsync("merge", "alternate"));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(), Repository, static () => true,
+            projectFile: Path.Combine(Root, "project.bep"));
+        Assert.ThrowsAsync<VersionControlConflictedException>(async () =>
+            await service.CommitAllAsync("blocked", SnapshotKind.Manual, CancellationToken.None));
+    }
+
+    [Test]
+    public async Task CommitAllAsync_conflict_started_during_graph_deserialization_wins_over_parse_failure()
+    {
+        await CommitFileAsync("project.bep", "base\n", "base");
+        await RunGitAsync("switch", "-c", "alternate");
+        await CommitFileAsync("project.bep", "alternate\n", "alternate");
+        await RunGitAsync("switch", "main");
+        await CommitFileAsync("project.bep", "main\n", "main");
+
+        var runner = new MergeAfterFirstStatusRunner(
+            CreateRunner(),
+            async () =>
+            {
+                try
+                {
+                    await RunGitAsync("merge", "--no-commit", "--no-ff", "alternate");
+                }
+                catch (GitOperationException)
+                {
+                }
+            });
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner,
+            projectFile: Path.Combine(Root, "project.bep"));
+
+        VersionControlConflictedException exception =
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.CommitAllAsync(
+                    "blocked snapshot",
+                    SnapshotKind.Manual,
+                    CancellationToken.None))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(exception.Guidance, Is.EqualTo(Strings.VersionControl_ConflictGuidance));
+        });
+    }
+
+    [Test]
     public async Task Conflicted_repository_keeps_reads_available_and_blocks_every_mutation()
     {
         await CommitFileAsync("project.bep", "base\n", "base");
@@ -4573,6 +4631,81 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Failed_lfs_prefetch_uses_shared_cache_from_a_linked_worktree()
+    {
+        const string oid = "2222222222222222222222222222222222222222222222222222222222222222";
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitattributes"), "*.mp4 filter=lfs\n");
+        await RunGitAsync("add", ".gitattributes");
+        await RunGitAsync("commit", "-m", "attributes");
+        string linkedRoot = CreateTemporaryDirectory();
+        Directory.Delete(linkedRoot);
+        await RunGitAsync("worktree", "add", "--detach", linkedRoot, "HEAD");
+        string commonDir = (await RunGitAsync("rev-parse", "--git-common-dir")).Stdout.Trim();
+        string commonRoot = Path.GetFullPath(Path.Combine(Root, commonDir));
+        string objectDirectory = Path.Combine(commonRoot, "lfs", "objects", oid[..2], oid[2..4]);
+        Directory.CreateDirectory(objectDirectory);
+        await File.WriteAllTextAsync(Path.Combine(objectDirectory, oid), "cached\n");
+        await RunGitAsync("-C", linkedRoot, "remote", "add", "origin", CreateTemporaryDirectory());
+        var runner = new UnreachableLfsEndpointRunner(CreateRunner(), $"{oid} * clip.mp4\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true),
+            new RepositoryInfo(linkedRoot, linkedRoot),
+            watcher: null,
+            _ => runner);
+
+        Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            async transaction =>
+            {
+                await transaction.PrefetchBranchLfsObjectsAsync("HEAD", CancellationToken.None);
+                return true;
+            },
+            CancellationToken.None));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Failed_lfs_prefetch_uses_configured_cache_from_a_linked_worktree(
+        bool absoluteStorage)
+    {
+        const string oid = "3333333333333333333333333333333333333333333333333333333333333333";
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitattributes"), "*.mp4 filter=lfs\n");
+        await RunGitAsync("add", ".gitattributes");
+        await RunGitAsync("commit", "-m", "attributes");
+        string linkedRoot = CreateTemporaryDirectory();
+        Directory.Delete(linkedRoot);
+        await RunGitAsync("worktree", "add", "--detach", linkedRoot, "HEAD");
+
+        string configuredStorage = absoluteStorage
+            ? Path.Combine(CreateTemporaryDirectory(), "lfs-cache")
+            : Path.Combine("custom-lfs", "nested");
+        string commonRoot = Path.GetFullPath(
+            Path.Combine(Root, (await RunGitAsync("rev-parse", "--git-common-dir")).Stdout.Trim()));
+        string storageRoot = absoluteStorage
+            ? configuredStorage
+            : Path.Combine(commonRoot, configuredStorage);
+        string objectDirectory = Path.Combine(storageRoot, "objects", oid[..2], oid[2..4]);
+        Directory.CreateDirectory(objectDirectory);
+        await File.WriteAllTextAsync(Path.Combine(objectDirectory, oid), "cached\n");
+        await RunGitAsync("-C", linkedRoot, "config", "lfs.storage", configuredStorage);
+        await RunGitAsync("-C", linkedRoot, "remote", "add", "origin", CreateTemporaryDirectory());
+
+        var runner = new UnreachableLfsEndpointRunner(CreateRunner(), $"{oid} * clip.mp4\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true),
+            new RepositoryInfo(linkedRoot, linkedRoot),
+            watcher: null,
+            _ => runner);
+
+        Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            async transaction =>
+            {
+                await transaction.PrefetchBranchLfsObjectsAsync("HEAD", CancellationToken.None);
+                return true;
+            },
+            CancellationToken.None));
+    }
+
+    [Test]
     public void Snapshot_excludes_keep_a_tmp_path_the_project_graph_requires()
     {
         var repository = new RepositoryInfo(Root, Root);
@@ -5794,6 +5927,48 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             RepositoryInfo repository,
             RepositoryLockInfo lockInfo)
             => false;
+    }
+
+    private sealed class MergeAfterFirstStatusRunner(
+        IGitCliRunner inner,
+        Func<Task> merge) : IGitCliRunner
+    {
+        private int _interceptionCount;
+
+        public int InterceptionCount => Volatile.Read(ref _interceptionCount);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            GitCommandResult result = await inner.RunAsync(
+                    repository,
+                    arguments,
+                    options,
+                    cancellationToken,
+                    stderrProgress)
+                .ConfigureAwait(false);
+            if (GetGitSubcommand(arguments) == "status"
+                && Interlocked.CompareExchange(ref _interceptionCount, 1, 0) == 0)
+            {
+                await merge().ConfigureAwait(false);
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     private sealed record LogEntry(LogLevel Level, Exception? Exception, string Message);

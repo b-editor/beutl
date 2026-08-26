@@ -1,10 +1,65 @@
 ﻿using Beutl.Editor.VersionControl;
+using Beutl.Graphics;
+using Beutl.Media.Source;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 [TestFixture]
 public class VersionControlSnapshotScopeTests : RealGitTestRepository
 {
+    [Test]
+    public async Task Snapshot_includes_direct_addressable_file_source_even_when_tmp_is_ignored()
+    {
+        string projectFile = Path.Combine(Root, "project.bep");
+        string sceneFile = Path.Combine(Root, "main.scene");
+        string elementFile = Path.Combine(Root, "elements", "11111111111111111111111111111111.belm");
+        string sourceFile = Path.Combine(Root, "state.tmp");
+        Directory.CreateDirectory(Path.GetDirectoryName(elementFile)!);
+
+        var project = new Project { Uri = new Uri(projectFile) };
+        var scene = new Scene(640, 480, "main") { Uri = new Uri(sceneFile) };
+        var element = new Element { Uri = new Uri(elementFile) };
+        var imageSource = new ImageSource();
+        imageSource.ReadFrom(new Uri(sourceFile));
+        var image = new SourceImage();
+        image.Source.CurrentValue = imageSource;
+        element.Objects.Add(image);
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        CoreSerializer.StoreToUri(scene, new Uri(sceneFile));
+        CoreSerializer.StoreToUri(element, new Uri(elementFile));
+        Assert.That(await File.ReadAllTextAsync(elementFile), Does.Contain("state.tmp"));
+        await File.WriteAllTextAsync(sourceFile, "plugin state\n");
+        await WriteProjectFileAsync(".gitignore", "*.tmp\n");
+        await RunGitAsync("add", "-A", "--", ".");
+        await RunGitAsync("add", "-f", "--", "state.tmp");
+        await RunGitAsync("commit", "-m", "saved project baseline");
+        await File.WriteAllTextAsync(sourceFile, "plugin state updated\n");
+
+        IReadOnlySet<string> referenced = SerializedProjectGraph.GetRelativePaths(projectFile, Root);
+        Assert.That(referenced, Does.Contain("state.tmp"));
+
+        using var service = CreateService(projectFile);
+        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None)).Revision;
+        IReadOnlyList<FileChange> committedFiles = await service.GetCommitFilesAsync(
+            commit.Sha,
+            CancellationToken.None);
+        GitCommandResult committedSource = await RunGitAsync("show", $"{commit.Sha}:state.tmp");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(committedFiles, Has.Some.Matches<FileChange>(
+                change => change.Path == "state.tmp" && change.Status == FileChangeStatus.Modified));
+            Assert.That(committedSource.Stdout, Is.EqualTo("plugin state updated\n"));
+        });
+    }
+
     [Test]
     public async Task One_element_property_edit_commits_only_that_element_file()
     {
@@ -126,13 +181,14 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         });
     }
 
-    private GitCliVersionControlService CreateService()
+    private GitCliVersionControlService CreateService(string? projectFile = null)
     {
         return new GitCliVersionControlService(
             CreateInstalledLocator(),
             Repository,
             watcher: null,
-            _ => CreateRunner(TimeSpan.FromSeconds(30)));
+            _ => CreateRunner(TimeSpan.FromSeconds(30)),
+            projectFile: projectFile);
     }
 
     private async Task WriteProjectFileAsync(string relativePath, string contents)
