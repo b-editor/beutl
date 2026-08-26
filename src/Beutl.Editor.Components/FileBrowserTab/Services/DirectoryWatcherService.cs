@@ -163,7 +163,7 @@ internal sealed class DirectoryWatcherService : IDisposable
             ReadOnlySpan<char> segment = separator >= 0
                 ? remaining[..separator]
                 : remaining;
-            if (segment.Equals(".git", StringComparison.OrdinalIgnoreCase))
+            if (segment.Equals(".git", FileSystemPathComparison.ForCurrentPlatform))
             {
                 return true;
             }

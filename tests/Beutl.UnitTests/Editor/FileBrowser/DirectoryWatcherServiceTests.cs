@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.Components.FileBrowserTab.Services;
+﻿using Beutl.Editor;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 
 namespace Beutl.UnitTests.Editor.FileBrowser;
 
@@ -39,5 +40,19 @@ public class DirectoryWatcherServiceTests
         using var service = new DirectoryWatcherService();
 
         Assert.That(service.ShouldExcludePath(path), Is.EqualTo(expected));
+    }
+
+    [TestCase(".GIT")]
+    [TestCase("assets/.GIT/objects/ab/cdef")]
+    public void Uppercase_git_segments_follow_platform_path_comparison(string relativePath)
+    {
+        string path = Path.Combine(
+            _projectRoot,
+            relativePath.Replace('/', Path.DirectorySeparatorChar));
+        using var service = new DirectoryWatcherService();
+
+        Assert.That(
+            service.ShouldExcludePath(path),
+            Is.EqualTo(FileSystemPathComparison.IsCaseInsensitive));
     }
 }
