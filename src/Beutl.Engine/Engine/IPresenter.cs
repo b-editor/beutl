@@ -1,5 +1,4 @@
-﻿using Beutl.Composition;
-using Beutl.Media;
+﻿using Beutl.Media;
 
 namespace Beutl.Engine;
 
@@ -17,21 +16,67 @@ public interface IPresenter<T> : IPresenter
 }
 
 /// <summary>
+/// Describes one half-open composition-time interval during which a presenter resolves the
+/// same target object by reference identity. A <see langword="null"/> target explicitly
+/// represents an interval with no presented object.
+/// </summary>
+/// <param name="CompositionRange">The half-open composition-time interval.</param>
+/// <param name="Target">The target resolved throughout the interval, or <see langword="null"/>.</param>
+public readonly record struct PresenterTargetState(TimeRange CompositionRange, CoreObject? Target);
+
+/// <summary>
+/// Exposes a presenter's complete target-state partition without requiring callers to know the
+/// target type at compile time.
+/// </summary>
+public interface ITargetStatePresenter : IPresenter
+{
+    /// <summary>
+    /// Tries to describe every target state in <paramref name="compositionRange"/>. On success,
+    /// <paramref name="states"/> must be a sorted, non-overlapping partition of the requested
+    /// range using half-open intervals. Implementations must return <see langword="false"/> when
+    /// they cannot prove that the partition is complete, such as for an arbitrary expression.
+    /// Every non-null target must be assignable to <see cref="IPresenter.TargetType"/>.
+    /// </summary>
+    bool TryGetTargetStates(
+        TimeRange compositionRange,
+        out IReadOnlyList<PresenterTargetState> states);
+}
+
+/// <summary>
+/// Provides the default target-state contract for a typed presenter. Presenters with dynamic
+/// targets can implement <see cref="ITargetStatePresenter.TryGetTargetStates"/> directly when
+/// they can describe the target changes exactly.
+/// </summary>
+public interface ITargetStatePresenter<T> : IPresenter<T>, ITargetStatePresenter
+    where T : CoreObject
+{
+    bool ITargetStatePresenter.TryGetTargetStates(
+        TimeRange compositionRange,
+        out IReadOnlyList<PresenterTargetState> states)
+    {
+        if (compositionRange.IsEmpty)
+        {
+            states = [];
+            return true;
+        }
+
+        if (Target.HasExpression || Target.Animation != null)
+        {
+            states = [];
+            return false;
+        }
+
+        states = [new PresenterTargetState(compositionRange, Target.CurrentValue)];
+        return true;
+    }
+}
+
+/// <summary>
 /// Provides time mapping through a non-generic presenter boundary so callers can traverse
 /// presenters without knowing the target type at compile time.
 /// </summary>
-public interface ITimeMappingPresenter : IPresenter
+public interface ITimeMappingPresenter : ITargetStatePresenter
 {
-    /// <summary>
-    /// Gets the target property evaluated by this presenter.
-    /// </summary>
-    IProperty TargetProperty { get; }
-
-    /// <summary>
-    /// Resolves the target using the supplied composition time.
-    /// </summary>
-    CoreObject? GetTarget(CompositionContext context);
-
     /// <summary>
     /// Maps a presenter-time interval to the target-time interval it evaluates.
     /// </summary>
@@ -62,16 +107,11 @@ public interface ITimeMappingPresenter : IPresenter
 /// <summary>
 /// Provides the time mapping for a presenter whose target is evaluated on a different
 /// timeline. Presenters that only forward their target can continue to implement
-/// <see cref="IPresenter{T}"/> without this contract.
+/// <see cref="ITargetStatePresenter{T}"/> without this contract.
 /// </summary>
-public interface ITimeMappingPresenter<T> : IPresenter<T>, ITimeMappingPresenter
+public interface ITimeMappingPresenter<T> : ITargetStatePresenter<T>, ITimeMappingPresenter
     where T : CoreObject
 {
-    IProperty ITimeMappingPresenter.TargetProperty => Target;
-
-    CoreObject? ITimeMappingPresenter.GetTarget(CompositionContext context)
-        => Target.GetValue(context);
-
     TimeRange ITimeMappingPresenter.CalculateTargetTimeRange(TimeRange timeRange, CoreObject target)
         => CalculateTargetTimeRange(timeRange, (T)target);
 
@@ -120,5 +160,4 @@ public interface ITimeMappingPresenter<T> : IPresenter<T>, ITimeMappingPresenter
     /// Gets whether this presenter reverses the target timeline over the requested interval.
     /// </summary>
     bool IsReversed(TimeRange timeRange, T target);
-
 }

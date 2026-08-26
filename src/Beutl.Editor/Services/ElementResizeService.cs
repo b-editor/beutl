@@ -314,14 +314,16 @@ public sealed class ElementResizeService : IElementResizeService
             if (!used.Add(front) || !used.Add(back)) return false;
         }
 
-        var backTargets = new List<SlippableMedia.Target>[pairs.Count];
+        var backTargets = new SlippableMedia.TargetCollection[pairs.Count];
         var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
         (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
             backTargets[i] = SlippableMedia.Collect(back);
-            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+            SlippableMedia.TargetCollection frontTargets = SlippableMedia.Collect(front);
+            if (!frontTargets.IsComplete || !backTargets[i].IsComplete) return false;
+
             foreach (SlippableMedia.Target target in frontTargets)
             {
                 if (target.AffectsOffset)
@@ -405,14 +407,16 @@ public sealed class ElementResizeService : IElementResizeService
         }
 
         // The middle clips' lengths are unaffected by Slide, so only front and back bound the delta.
-        var backTargets = new List<SlippableMedia.Target>[lanes.Count];
+        var backTargets = new SlippableMedia.TargetCollection[lanes.Count];
         var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
         (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
         for (int i = 0; i < lanes.Count; i++)
         {
             (Element front, IReadOnlyList<Element> middles, Element back) = lanes[i];
             backTargets[i] = SlippableMedia.Collect(back);
-            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+            SlippableMedia.TargetCollection frontTargets = SlippableMedia.Collect(front);
+            if (!frontTargets.IsComplete || !backTargets[i].IsComplete) return false;
+
             foreach (SlippableMedia.Target target in frontTargets)
             {
                 if (target.AffectsOffset)
@@ -422,7 +426,10 @@ public sealed class ElementResizeService : IElementResizeService
             // Middle in-points are fixed too: they move in time without re-trimming.
             foreach (Element middle in middles)
             {
-                foreach (SlippableMedia.Target target in SlippableMedia.Collect(middle))
+                SlippableMedia.TargetCollection middleTargets = SlippableMedia.Collect(middle);
+                if (!middleTargets.IsComplete) return false;
+
+                foreach (SlippableMedia.Target target in middleTargets)
                 {
                     if (target.AffectsOffset)
                         fixedOffsets.Add(target.Offset);
@@ -486,6 +493,12 @@ public sealed class ElementResizeService : IElementResizeService
         IReadOnlyList<SlippableMedia.Target> frontTargets,
         IReadOnlyList<SlippableMedia.Target> backTargets)
     {
+        if (frontTargets is SlippableMedia.TargetCollection { IsComplete: false }
+            || backTargets is SlippableMedia.TargetCollection { IsComplete: false })
+        {
+            return (TimeSpan.Zero, TimeSpan.Zero);
+        }
+
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
         // Below the tick resolution the floor rounds to zero.
