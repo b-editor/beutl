@@ -50,6 +50,11 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                     Func<TState, Rect, Rect> getRequiredInputBounds) => default;
             }
 
+            public abstract class RenderResourceSlot { }
+
+            public sealed class RenderResourceSlot<T> : RenderResourceSlot
+                where T : class { }
+
             public sealed class OpaqueRenderSession { }
 
             public sealed class TargetScopeSession { }
@@ -760,6 +765,277 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             diagnostics.Select(static d => d.Id),
             Does.Contain("BESG004"),
             "a type with no source is still a type whose fields metadata carries");
+    }
+
+    /// <remarks>
+    /// A compilation imports only the public and protected members of a metadata type, so a class read from
+    /// another assembly arrives with its private state absent from the field list and every field still on
+    /// it readonly. Reading that list as "no writable state" answers a question the walk was never shown the
+    /// evidence for: mutating the object behind the field changes what the callback answers while the plan
+    /// key stays the same. The library here is emitted whole, so this is not a reference assembly having
+    /// removed anything - it is the import boundary, and a reference assembly only reaches the same place
+    /// twice.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAStaticReadonlyFieldOfASealedClassWithMetadataOnlyState_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            namespace External
+            {
+                public sealed class Palette
+                {
+                    private float _offset;
+
+                    public float Offset => _offset;
+
+                    public void Shift(float amount) => _offset += amount;
+                }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using External;
+
+            internal static class Settings
+            {
+                public static readonly Palette Current = new Palette();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + Settings.Current.Offset,
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a field list stopping at the public members is not evidence the type carries no state");
+    }
+
+    /// <remarks>
+    /// StringBuilder's shape, which is the case that showed the hole: sealed, its buffer private, and a
+    /// public Length computed from it. Across an assembly boundary the buffer is not imported, so the walk
+    /// sees a class with nothing writable on it; Append then changes what Length answers with the delegate
+    /// untouched.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingABuilderLengthAcrossAnAssemblyBoundary_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            namespace External
+            {
+                public sealed class Buffer
+                {
+                    private char[] _chunk = new char[8];
+                    private int _length;
+
+                    public int Length => _length;
+
+                    public void Append(char value)
+                    {
+                        _chunk[_length] = value;
+                        _length++;
+                    }
+                }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using External;
+
+            internal static class Settings
+            {
+                public static readonly Buffer Current = new Buffer();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + Settings.Current.Length,
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a builder whose buffer was not imported is still a builder");
+    }
+
+    /// <remarks>
+    /// The same class written here instead. Sealing and having nothing writable is not what was in doubt -
+    /// where the field list was read from is - so the two have to land on opposite sides, or the rule is
+    /// deciding on the shape of the type rather than on what it was shown.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAStaticReadonlyFieldOfAStatelessSealedClassFromAnotherAssembly_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            namespace External
+            {
+                public sealed class Address
+                {
+                    public float Measure(float value) => value;
+                }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using External;
+
+            internal static class Settings
+            {
+                public static readonly Address Current = new Address();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Settings.Current.Measure(value.X),
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a class with no fields in the metadata is not a class with no fields");
+    }
+
+    /// <remarks>
+    /// A struct is where the import stops short of nothing: a compilation cannot decide definite assignment
+    /// or an unmanaged constraint without every field of a referenced struct, so it has them all and the
+    /// walk is reading the type. Rejecting a referenced readonly struct would cost the rule every value type
+    /// an author shares across a project boundary for no evidence gained.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAStaticReadonlyFieldOfAnImmutableStructFromAnotherAssembly_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            namespace External
+            {
+                public readonly struct Inset
+                {
+                    private readonly float _top;
+
+                    public Inset(float top) => _top = top;
+
+                    public float Top => _top;
+                }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using External;
+
+            internal static class Settings
+            {
+                public static readonly Inset Current = new Inset(2f);
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + Settings.Current.Top,
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// The shape the diagnostic's own message sends an author to, seen the way an author outside
+    /// Beutl.Engine sees it: a metadata class, which the field walk is no longer allowed to clear. The rule
+    /// knows this one by name instead, so recommending it and accepting it stay the same answer whichever
+    /// assembly the author is writing in.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAStaticReadonlyResourceSlotFromAnotherAssembly_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            namespace External
+            {
+                public sealed class Payload
+                {
+                    public float Offset;
+                }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using External;
+
+            internal static class Author
+            {
+                private static readonly RenderResourceSlot<Payload> s_slot = new();
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + Lease(s_slot),
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+
+                private static float Lease(RenderResourceSlot<Payload> slot) => 0f;
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// The reviewer's example written literally, against the shipping StringBuilder. Its five chunk fields
+    /// are internal, so a compilation importing only public and protected members sees a sealed class with
+    /// no fields at all - which is why the walk used to accept it, and why the walk is not what decides a
+    /// metadata type any more.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAStaticReadonlyStringBuilderLength_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeCallbackReading(
+            "public static readonly System.Text.StringBuilder Current = new System.Text.StringBuilder();",
+            "value.X + Settings.Current.Length");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "appending to the builder changes what the callback answers with the delegate unchanged");
     }
 
     /// <remarks>

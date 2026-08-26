@@ -438,15 +438,40 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     + "recordings while the plan key stays the same"),
 
             IFieldSymbol { IsStatic: true } field when !IsImmutableType(field.Type) =>
-                ("field", "readonly stops the field being assigned and not the value it holds being "
-                    + "mutated, and this field's type is not one whose instances this rule can prove carry "
-                    + "no writable state, so what the callback reads through it can change between two "
-                    + "recordings while the plan key stays the same"),
+                ("field", DescribeUnprovableFieldType(field.Type)),
 
             IPropertySymbol { IsStatic: true } property => DescribeUnprovenGetter(context, property),
 
             _ => null,
         };
+    }
+
+    /// <remarks>
+    /// The two ways a field's type fails this test want different fixes and so are said apart. A type
+    /// carrying writable state has to lose it or move behind the state-passing parameter; a type this rule
+    /// was never shown the state of has to be declared where the rule can read it, and telling an author
+    /// their type "carries writable state" when the rule simply could not see it would send them looking for
+    /// a field that is not there. Only a class can be in the second case - a struct's fields are imported
+    /// whatever its assembly - and only when everything that was visible passed, which is exactly the shape
+    /// the walk used to clear.
+    /// </remarks>
+    private static string DescribeUnprovableFieldType(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol { TypeKind: TypeKind.Class, IsSealed: true } named
+            && !HasCompleteFieldList(named)
+            && HasOnlyImmutableFields(named, MaxImmutableFieldDepth))
+        {
+            return "readonly stops the field being assigned and not the value it holds being mutated, and "
+                + "this field's type is a class declared outside this compilation, which imports its public "
+                + "and protected members and not the private state behind them, so the fields visible here "
+                + "are a floor and not the type, and nothing shows whether its instances hold something "
+                + "writable";
+        }
+
+        return "readonly stops the field being assigned and not the value it holds being mutated, and this "
+            + "field's type is not one whose instances this rule can prove carry no writable state, so what "
+            + "the callback reads through it can change between two recordings while the plan key stays the "
+            + "same";
     }
 
     /// <remarks>
@@ -574,13 +599,24 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 or SpecialType.System_UIntPtr or SpecialType.System_DateTime
         } => true,
 
+        // The engine's own resource address, which the BESG004 message tells authors to move a
+        // per-recording value onto. The slot is an identity and nothing else - it is sealed and neither it
+        // nor its base declares an instance field, which RenderResourceSlotStateTests pins - and outside
+        // Beutl.Engine it is a metadata class the walk below is not allowed to read. Leaving it to the walk
+        // would have the rule rejecting the fix it recommends, which is the state authors suppress a rule
+        // over. The abstract base is deliberately not named here: it is a base the engine derives a stateful
+        // slot from, so only the sealed one is an address and nothing else.
+        INamedTypeSymbol { Name: "RenderResourceSlot", IsSealed: true } slot
+            when slot.ContainingNamespace.ToDisplayString() == "Beutl.Graphics.Rendering" => true,
+
         // A readonly struct has no instance member that can write it and a sealed class has no derived
         // instance that can add one, so in both the declared fields are the whole of what an instance
-        // carries - which is what makes the walk mean anything. Holding a reference is not itself an
-        // answer, so the fields are put the same question their type just was.
+        // carries - which is what makes the walk mean anything, once the fields can be read at all.
+        // Holding a reference is not itself an answer, so the fields are put the same question their type
+        // just was.
         INamedTypeSymbol named when named is { IsValueType: true, IsReadOnly: true }
                 or { TypeKind: TypeKind.Class, IsSealed: true } =>
-            depth > 0 && HasOnlyImmutableFields(named, depth),
+            depth > 0 && HasCompleteFieldList(named) && HasOnlyImmutableFields(named, depth),
 
         // Anything else is reported. A struct without the modifier can be written through an instance
         // method; an unsealed class is a base a subclass can add state to; a delegate carries a target this
@@ -590,12 +626,52 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         _ => false,
     };
 
+    /// <summary>
+    /// Decides whether the field list this rule can read is the whole of what an instance carries.
+    /// </summary>
     /// <remarks>
-    /// This reads the fields the symbol carries, which is not always the whole type: a reference assembly
-    /// has had its private fields removed, so a class from one can pass on a field list shorter than the
-    /// class. That is the same shape of blind spot the rule already declares - what an instance member
-    /// reached through the field computes is never read either - and it fails the same way, quietly, which
-    /// is why only the field's own type is ever claimed here.
+    /// An empty field list says two different things and the walk cannot tell them apart on its own: this
+    /// type has no state, and this rule was not shown its state. Which one it is turns on where the type was
+    /// read from, so that is asked rather than guessed.
+    /// </remarks>
+    private static bool HasCompleteFieldList(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            if (!IsFieldListReadable(current))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <remarks>
+    /// A type declared in this compilation is read from its declaration, where every field is present
+    /// whatever its accessibility. A type that arrives as metadata is imported down to its public and
+    /// protected members, so a class's private and internal state is simply not there - which is how
+    /// System.Text.StringBuilder reaches an analyzer as a sealed class with no fields at all, and how a
+    /// reference assembly, having dropped the private fields on the way out, arrives too. There the list is
+    /// a floor and not the type, and the rule refuses what it cannot prove.
+    /// <para>
+    /// A struct is the exception, and not by accident: a compilation cannot decide definite assignment, an
+    /// unmanaged constraint or a layout cycle without every field of a metadata struct, so it imports them
+    /// whatever their accessibility. The private field of a referenced readonly struct is therefore readable
+    /// where a class's is not.
+    /// </para>
+    /// <para>
+    /// object, ValueType and Enum are what a base chain ends at and declare no instance field in any build
+    /// of them, so reaching one is not reaching an unread type.
+    /// </para>
+    /// </remarks>
+    private static bool IsFieldListReadable(INamedTypeSymbol type)
+        => type.IsValueType
+            || type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType
+                or SpecialType.System_Enum
+            || !type.DeclaringSyntaxReferences.IsEmpty;
+
+    /// <remarks>
+    /// Only worth reading once <see cref="HasCompleteFieldList"/> says the list is the whole type; on its
+    /// own it answers about the fields it was given, not about the type they came from.
     /// </remarks>
     private static bool HasOnlyImmutableFields(INamedTypeSymbol type, int depth)
     {

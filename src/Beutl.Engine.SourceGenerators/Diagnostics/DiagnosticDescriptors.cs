@@ -39,8 +39,9 @@ public static class DiagnosticDescriptors
             + "so the callback has to answer the same way every time it runs; this one reads the static "
             + "{2} '{3}', and {4}. Carry the value through the state-passing overload or a bound render "
             + "resource, or make '{3}' yield the same value on every read. This check only sees what the "
-            + "callback body names itself, so it staying silent is not proof that the callback is "
-            + "state-free.",
+            + "callback body names itself - not what a static method it calls reads, nor what an instance "
+            + "member reached through an accepted field computes - so it staying silent is not proof that "
+            + "the callback is state-free.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -48,23 +49,28 @@ public static class DiagnosticDescriptors
             "Proving a callback state-free in general is not possible, and this rule does not try. It reads "
             + "only the static fields and properties the callback body names directly. A static field is "
             + "accepted when it is const, or readonly and of a type whose instances carry no writable "
-            + "state: an enum, a primitive, string, decimal, DateTime, or a readonly struct or sealed class "
-            + "whose every instance field, inherited ones included, is itself readonly and of such a type, "
-            + "walked to a bounded depth. readonly on its own fixes the reference and not the object behind "
-            + "it, so a static readonly field of a type carrying a writable field - its own or one it "
-            + "reaches - is reported, and so is one of an unsealed class, which a subclass can add state "
-            + "to, or of a delegate, whose target this rule cannot read. A static property is accepted only "
-            + "when its getter is proven to yield the same value on every read: an expression-bodied "
-            + "getter, a getter whose body is a single return, or the initialiser of a get-only "
-            + "auto-property, whose expression is a compile-time constant, an enum member, default, or a "
-            + "static readonly field that same test accepts. Every other getter is reported, including one "
-            + "whose source is not available here, because a metadata callback reading external mutable "
-            + "static state is the hazard this rule exists for; having no setter is not on its own evidence "
-            + "that a getter answers the same way twice. What is still invisible to it: a static method the "
-            + "body calls, whatever an instance member reached through an accepted field computes, and the "
-            + "private fields a reference assembly removed, which can leave a class passing on a field list "
-            + "shorter than the class. Treat silence as the absence of the shape authors usually write, not "
-            + "as a purity proof.");
+            + "state: an enum, a primitive, string, decimal, DateTime, a RenderResourceSlot<T>, or a "
+            + "readonly struct or sealed class whose every instance field, inherited ones included, is "
+            + "itself readonly and of such a type, walked to a bounded depth. That walk is only run where "
+            + "the field list is the whole type - a type declared in this compilation, read from its "
+            + "declaration, or a struct, whose fields a compilation imports whatever their accessibility. A "
+            + "class from another assembly is imported down to its public and protected members, so its "
+            + "field list is a floor and not the type; a static readonly field of one is reported however "
+            + "immutable the visible members look, and the fix is to declare the type where this rule can "
+            + "read it or to carry the value through the state-passing overload. readonly on its own fixes "
+            + "the reference and not the object behind it, so a static readonly field of a type carrying a "
+            + "writable field - its own or one it reaches - is reported, and so is one of an unsealed "
+            + "class, which a subclass can add state to, or of a delegate, whose target this rule cannot "
+            + "read. A static property is accepted only when its getter is proven to yield the same value "
+            + "on every read: an expression-bodied getter, a getter whose body is a single return, or the "
+            + "initialiser of a get-only auto-property, whose expression is a compile-time constant, an "
+            + "enum member, default, or a static readonly field that same test accepts. Every other getter "
+            + "is reported, including one whose source is not available here, because a metadata callback "
+            + "reading external mutable static state is the hazard this rule exists for; having no setter "
+            + "is not on its own evidence that a getter answers the same way twice. What is still invisible "
+            + "to it: a static method the body calls, and whatever an instance member reached through an "
+            + "accepted field computes. Treat silence as the absence of the shape authors usually write, "
+            + "not as a purity proof.");
 
     public static readonly DiagnosticDescriptor UnmarkedRenderNodeMutation = new(
         id: "BESG005",
