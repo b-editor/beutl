@@ -92,4 +92,7 @@ public sealed class EncodeCompleteMessage
 {
     public bool Success { get; set; }
     public string? Error { get; set; }
+
+    // FFmpeg AVERROR code, if available.
+    public int? FFmpegErrorCode { get; set; }
 }

@@ -44,7 +44,9 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
                     }
                     catch (Exception ex)
                     {
-                        response = IpcMessage.CreateError(msg.Id, ex.Message, ex.StackTrace);
+                        response = IpcMessage.CreateError(
+                            msg.Id, ex.Message, ex.StackTrace,
+                            FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(ex));
                     }
 
                     try
@@ -70,7 +72,9 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             }
             catch (Exception ex)
             {
-                seqResponse = IpcMessage.CreateError(message.Id, ex.Message, ex.StackTrace);
+                seqResponse = IpcMessage.CreateError(
+                    message.Id, ex.Message, ex.StackTrace,
+                    FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(ex));
             }
 
             if (seqResponse.Type == MessageType.Shutdown)

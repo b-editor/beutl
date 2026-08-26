@@ -427,4 +427,19 @@ Do you want to restart the application?</value>
   <data name="WindowCapture_FfmpegNotFound" xml:space="preserve">
     <value>ffmpeg executable was not found. Install ffmpeg and ensure it is on PATH.</value>
   </data>
+  <data name="FFmpegErrorInvalidData" xml:space="preserve">
+    <value>The input file appears corrupt, incomplete, or still being written. Re-export or restore the file and try again.</value>
+  </data>
+  <data name="FFmpegErrorDecoderNotFound" xml:space="preserve">
+    <value>No decoder was found for this codec in the bundled FFmpeg build.</value>
+  </data>
+  <data name="FFmpegErrorDemuxerNotFound" xml:space="preserve">
+    <value>The container format is not supported by the bundled FFmpeg build.</value>
+  </data>
+  <data name="FFmpegErrorProtocolNotFound" xml:space="preserve">
+    <value>The stream protocol is not supported by the bundled FFmpeg build.</value>
+  </data>
+  <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
+    <value>No suitable stream was found in the input.</value>
+  </data>
 </root>

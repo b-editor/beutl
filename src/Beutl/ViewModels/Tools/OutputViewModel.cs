@@ -6,6 +6,7 @@ using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.FFmpegIpc;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
@@ -384,8 +385,36 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError(MessageStrings.OutputException, ex.Message);
-            _logger.LogError(ex, "An exception occurred during the encoding process.");
+            // Translate known FFmpeg failures for users.
+            string userMessage = ex.Message;
+            if (ex is FFmpegWorkerException ffmpegEx
+                && FFmpegErrorMessageMapper.TryClassify(ffmpegEx.FFmpegErrorCode, ffmpegEx.Message) is { } ffmpegErrorKind)
+            {
+                userMessage = ffmpegErrorKind switch
+                {
+                    FFmpegErrorKind.InvalidData => MessageStrings.FFmpegErrorInvalidData,
+                    FFmpegErrorKind.DecoderNotFound => MessageStrings.FFmpegErrorDecoderNotFound,
+                    FFmpegErrorKind.DemuxerNotFound => MessageStrings.FFmpegErrorDemuxerNotFound,
+                    FFmpegErrorKind.ProtocolNotFound => MessageStrings.FFmpegErrorProtocolNotFound,
+                    FFmpegErrorKind.StreamNotFound => MessageStrings.FFmpegErrorStreamNotFound,
+                    _ => ex.Message,
+                };
+            }
+
+            // Keep the translated message visible after failure.
+            ProgressText.Value = userMessage;
+            NotificationService.ShowError(MessageStrings.OutputException, userMessage);
+            if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
+            {
+                // Keep the code for diagnostics.
+                _logger.LogError(
+                    ex, "An exception occurred during the encoding process. FFmpegErrorCode={FFmpegErrorCode}",
+                    ffmpegErrorCode);
+            }
+            else
+            {
+                _logger.LogError(ex, "An exception occurred during the encoding process.");
+            }
         }
         finally
         {
