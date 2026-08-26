@@ -10,7 +10,7 @@ BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation
 
 The affected public surface is mostly in `Beutl.Engine`, plus `Beutl.ProjectSystem`'s `SceneRenderer`, which now takes its render intent as a required argument. In-tree consumers in `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and the test/benchmark hosts have already migrated, but out-of-tree render-node, filter-effect, geometry, mesh, renderer, target-factory, brush-construction, and graphics-backend code must apply the recipes below. Anything implementing `IGraphicsContext`, `IRenderPass3D`, or the other backend interfaces has to be recompiled even where its own source is unchanged, because those contracts gained members and lost a default.
 
-The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The remaining nineteen each carry their own footer as well: `999ad728f`, `991f49e70`, `ee507067d`, `2974a6073`, `6dfd0f2d3`, `66cd2dc4c`, `7e2d928b5`, `48318a60f`, `70479b19f`, `a619d8046`, `3c33795ab`, `d53b155e8`, `449e71258`, `c8314e40f`, `6857dfa98`, `def8dcb1b`, `66dc0486b`, `c9ab89352` and `5ade9db14`, documented in the sections below. All twenty-one contain a literal `BREAKING CHANGE:` footer, so no history rewrite is required. Keep this list and the count current when a new `!` commit lands on the branch; a squash merge takes its footer from the pull request description, not from these messages, so the description is the only place the changelog reads.
+The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The remaining twenty-nine each carry their own footer as well: `999ad728f`, `991f49e70`, `ee507067d`, `2974a6073`, `6dfd0f2d3`, `66cd2dc4c`, `7e2d928b5`, `48318a60f`, `70479b19f`, `a619d8046`, `3c33795ab`, `d53b155e8`, `449e71258`, `c8314e40f`, `6857dfa98`, `def8dcb1b`, `66dc0486b`, `c9ab89352`, `5ade9db14`, `9226be071`, `85667b924`, `60b51d110`, `5c6bac032`, `28d79bc87`, `e82717596`, `263c47e31`, `bd624508e`, `bc79b7f32` and `a3497c49c`, documented in the sections below. All thirty-one contain a literal `BREAKING CHANGE:` footer, so no history rewrite is required. Keep this list and the count current when a new `!` commit lands on the branch; a squash merge takes its footer from the pull request description, not from these messages, so the description is the only place the changelog reads.
 
 `main` is squash-only, so the single commit that lands there is built from the pull request's title and body, not from any of those messages. The footer that reaches changelog tooling is therefore the one in the **pull request description**; a branch full of correctly footed commits does not supply it. Keep a `BREAKING CHANGE:` footer in the description that names `Beutl.Engine` and summarises the migrations below, and update it whenever a new breaking commit is added to the branch.
 
@@ -870,3 +870,56 @@ var brush = new BrushConstructor(
 A call that previously relied on the default was rendering as a preview, so `RenderIntent.Preview` preserves
 its behaviour exactly; an export host that meant delivery was already degrading silently and should pass
 `RenderIntent.Delivery`. Pass `null` for the materializer when the brush is never a `DrawableBrush`.
+
+## A metadata callback is judged by what it can read, not by where it appears
+
+Five analyzer rules now ship from `Beutl.Engine.SourceGenerators`, and each reports authoring shapes that
+compiled clean before. They exist because the engine keys a compiled plan on the callback that produced it:
+if the same callback answers differently on a later frame, the plan is reused for pixels it no longer
+describes, and nothing at runtime notices.
+
+- **BESG003** — a metadata callback must not capture. It reports a non-`static` lambda, a callback that
+  arrives as a parameter or a local, one behind a cast, parentheses, `as`, a null-suppression or `checked`,
+  a method group over a value-typed receiver, and any callback expression it cannot classify. Migration:
+  write the callback as a `static` lambda or a static method group at the call site, and pass the values
+  that change through the contract's state-passing overload. Those overloads exist on
+  `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleContract`, `RenderInputDemandContract`,
+  `OpaqueRenderBoundsContract` and `TargetCaptureScaleContract`, and on the definition builders
+  `OpaqueRenderDefinition`, `TargetScopeDefinition`, `TargetCommandDefinition`, `RawTargetScopeDefinition`,
+  `RawTargetCommandDefinition` and `GeometryDefinition`.
+- **BESG004** — nor may it read mutable static state. A `static` lambda cannot reach a local or `this`, but
+  it can reach a static field or property. The rule accepts a `const`, and a `static readonly` field or
+  get-only property only when the value is provably fixed: the getter reduces to one returned expression
+  and that expression is a compile-time constant, `default`, or a `static readonly` field whose type holds
+  nothing writable, walked eight levels through readonly structs and sealed classes. Everything else is
+  reported, including a member whose source is not available. Migration: copy the value into a
+  `static readonly` of an immutable type, or pass it as call state.
+- **BESG005** — a `RenderNode` must mark `HasChanges` when it mutates what its `Process` reads. This is the
+  static half of the recording cache's contract; the runtime half is `RenderRecordingCrossCheck`, which is
+  Debug-only and compares a replayed recording against a live one.
+
+Each rule states in its own diagnostic what it cannot see. None of them claims to prove purity: a static
+method the callback *calls* stays invisible to all of them.
+
+## A recording is replayed while it is still valid
+
+`RenderNode.Process` is no longer called on every frame. When a node reports no changes, its request
+options are unchanged, and the fingerprints of the inputs it was recorded over still match, the recorder
+replays the previous recording instead. Nodes that bind a `RenderResource`, open a nested request, register
+a built-in backdrop binding, or drive another node are always re-recorded, because their recordings own
+lifetimes a replay cannot reproduce.
+
+The consequence for an out-of-tree `RenderNode` is a real tightening, and it does not announce itself at
+compile time. **A node that mutates state its `Process` reads — including a value that only reaches an
+execution callback, such as a uniform or a command's bound state — must set `HasChanges`.** Forgetting it
+used to cost only pixel-cache reuse, so the change still reached the frame through a fresh recording; now
+the node is not re-recorded at all and the change never arrives. BESG005 reports the shapes it can see, and
+the Debug cross-check catches drift it cannot, but neither runs in a Release build of a plugin.
+
+## Recorded identity keys on the delegate, not its `MethodInfo`
+
+Reflection is no longer used anywhere on the render path. Structural identity keys on the delegate instance
+rather than on `Delegate.Method`, which is sound because C# caches a `static` lambda and a static
+method-group conversion per call site — and per generic instantiation, so two instantiations of the same
+generic helper stay distinct. A method group over a value-typed receiver boxes a fresh target on every
+conversion and so never compares equal; BESG003 reports that shape for exactly this reason.
