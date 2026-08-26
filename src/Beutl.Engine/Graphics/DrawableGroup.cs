@@ -130,7 +130,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             if (memoryNode != MemoryNode)
             {
                 MemoryNode = memoryNode;
-                HasChanges = true;
+                MarkChanged();
                 return true;
             }
 
@@ -153,7 +153,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             if (isolatesContent != IsolatesContent)
             {
                 IsolatesContent = isolatesContent;
-                HasChanges = true;
+                MarkChanged();
                 return true;
             }
 
@@ -242,7 +242,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
             if (changed)
             {
-                HasChanges = true;
+                MarkChanged();
             }
 
             return changed;

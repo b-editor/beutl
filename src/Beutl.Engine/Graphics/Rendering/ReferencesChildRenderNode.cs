@@ -19,11 +19,14 @@ public class ReferencesChildRenderNode : RenderNode
     {
         if (Child != item)
         {
-            HasChanges = true;
+            MarkChanged();
             _child = item is null ? [] : [item];
         }
 
-        HasChanges |= item?.HasChanges == true;
+        if (item?.HasChanges == true)
+        {
+            MarkChanged();
+        }
 
         return HasChanges;
     }

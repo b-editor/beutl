@@ -109,7 +109,7 @@ public sealed class DeclaredPlannerTraitContractTests
             Assert.That(node.ExecutedColors.Last(), Is.EqualTo(Colors.Red));
         });
 
-        node.HasChanges = true;
+        node.MarkChanged();
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 

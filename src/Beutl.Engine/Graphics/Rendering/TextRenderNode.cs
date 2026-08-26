@@ -17,7 +17,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
         Text = text;
         if (changed || !oldText.Equals(text))
         {
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 

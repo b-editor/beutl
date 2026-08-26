@@ -34,7 +34,7 @@ public class RenderNodeHasChangesTests
     {
         NoOpUpdateCase testCase = factory();
         using RenderNode node = testCase.Node;
-        node.HasChanges = true;
+        node.MarkChanged();
 
         bool changed = testCase.NoOpUpdate();
 

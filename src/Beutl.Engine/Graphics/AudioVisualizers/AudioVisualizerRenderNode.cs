@@ -13,7 +13,7 @@ internal sealed class AudioVisualizerRenderNode(AudioVisualizerDrawable.Resource
         if (!resource.Compare(Visualizer))
         {
             Visualizer = resource.Capture();
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 

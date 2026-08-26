@@ -63,7 +63,10 @@ public abstract partial class ConfigureNode : GraphNode
                 hasChanges = true;
             }
 
-            output.HasChanges = inputs.Any(i => i?.HasChanges == true) || hasChanges || output.HasChanges;
+            if (hasChanges || inputs.Any(i => i?.HasChanges == true))
+            {
+                output.MarkChanged();
+            }
         }
 
         private static void DetachInputReferences(ContainerRenderNode output)

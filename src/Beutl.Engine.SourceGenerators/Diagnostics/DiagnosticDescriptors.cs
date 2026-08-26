@@ -70,11 +70,11 @@ public static class DiagnosticDescriptors
         id: "BESG005",
         title: "Render node changes state its Process reads without marking the node changed",
         messageFormat:
-            "'{0}.{1}' assigns '{2}', which '{0}.Process' reads, and no assignment to HasChanges is reachable "
-            + "from it. A render graph recorded for a node that reports no changes may be reused instead of "
-            + "re-recorded, so this change would never reach a frame. Set HasChanges = true where the value "
-            + "changes. This rule reads only a direct assignment written inside '{0}', so it staying silent "
-            + "is not proof that every mutation is marked.",
+            "'{0}.{1}' assigns '{2}', which '{0}.Process' reads, and no MarkChanged() call on this node is "
+            + "reachable from it. A render graph recorded for a node that reports no changes may be reused "
+            + "instead of re-recorded, so this change would never reach a frame. Call MarkChanged() where "
+            + "the value changes. This rule reads only a direct assignment written inside '{0}', so it "
+            + "staying silent is not proof that every mutation is marked.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -82,11 +82,12 @@ public static class DiagnosticDescriptors
             "Deciding in general whether a render node's recorded output can go stale is not possible, and "
             + "this rule does not try. It reports one shape: a member of the node's own type assigns an "
             + "instance field or auto-property that the node's Process reads, and neither that member nor a "
-            + "method of the same type it calls assigns HasChanges. Everything else stays invisible - an "
-            + "assignment made through a helper on another type, through a virtual call, or by mutating a "
-            + "collection in place; an assignment guarded by a branch that skips the HasChanges the rule "
-            + "found elsewhere in the same member; and any assignment written inside Process itself or a "
-            + "method Process calls, which are excluded so that ordinary memoization is not reported. The "
+            + "method of the same type it calls marks that node with MarkChanged(). Everything else stays "
+            + "invisible - an assignment made through a helper on another type, through a virtual call, or "
+            + "by mutating a collection in place; an assignment guarded by a branch that skips the "
+            + "MarkChanged() call the rule found elsewhere in the same member; and any assignment written "
+            + "inside Process itself or a method Process calls, which are excluded so that ordinary "
+            + "memoization is not reported. The "
             + "runtime cross-check in Beutl.Engine, not this rule, is what covers those. Treat silence as "
             + "the absence of the shape authors usually write, not as a proof that the node is safe to skip.");
 }

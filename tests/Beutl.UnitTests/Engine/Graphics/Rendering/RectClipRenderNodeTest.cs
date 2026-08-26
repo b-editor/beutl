@@ -34,7 +34,7 @@ public class RectClipRenderNodeTest
         var rect = new Rect(0, 0, 100, 100);
         var operation = ClipOperation.Intersect;
         using var node = new RectClipRenderNode(rect, operation);
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
 
         Assert.Multiple(() =>
         {
@@ -49,7 +49,7 @@ public class RectClipRenderNodeTest
         var rect = new Rect(0, 0, 100, 100);
         var operation = ClipOperation.Intersect;
         using var node = new RectClipRenderNode(rect, operation);
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
 
         Assert.Multiple(() =>
         {

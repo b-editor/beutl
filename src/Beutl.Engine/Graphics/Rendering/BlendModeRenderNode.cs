@@ -9,7 +9,7 @@ public sealed class BlendModeRenderNode(BlendMode blendMode) : ContainerRenderNo
         if (BlendMode != blendMode)
         {
             BlendMode = blendMode;
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 

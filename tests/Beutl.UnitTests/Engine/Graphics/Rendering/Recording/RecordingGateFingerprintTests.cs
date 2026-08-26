@@ -72,7 +72,7 @@ public sealed class RecordingGateFingerprintTests
         Assert.That(ancestor.ProcessCalls, Is.EqualTo(1), "an unchanged subtree must be served");
 
         long[] recordedOver = ancestor.RecordingSnapshot!.InputFingerprints.ToArray();
-        child.HasChanges = true;
+        child.MarkChanged();
         child.Contract = RenderHitTestContract.None;
         RenderFragmentReference embedded = OnlyFragmentOf(Record(ancestor), RenderFragmentKind.Opacity);
 
@@ -111,7 +111,7 @@ public sealed class RecordingGateFingerprintTests
         Record(ancestor);
 
         long[] recordedOver = ancestor.RecordingSnapshot!.InputFingerprints.ToArray();
-        child.HasChanges = true;
+        child.MarkChanged();
         child.HitRegion = Rect.Empty;
         RenderFragmentReference embedded = OnlyFragmentOf(Record(ancestor), RenderFragmentKind.Opacity);
 
@@ -144,7 +144,7 @@ public sealed class RecordingGateFingerprintTests
             Is.EqualTo(1),
             "a node reached with explicit inputs is served when those inputs digest to what it was recorded over");
 
-        source.HasChanges = true;
+        source.MarkChanged();
         source.Contract = RenderHitTestContract.None;
         RenderFragmentReference embedded = OnlyFragmentOf(Record(driver), RenderFragmentKind.Opacity);
 
@@ -180,7 +180,7 @@ public sealed class RecordingGateFingerprintTests
         using (RenderRecordingCrossCheck.Enable())
         {
             Record(ancestor);
-            child.HasChanges = true;
+            child.MarkChanged();
             child.Contract = RenderHitTestContract.None;
 
             Assert.That(() => Record(ancestor), Throws.Nothing);
@@ -207,7 +207,7 @@ public sealed class RecordingGateFingerprintTests
                 {
                     for (int frame = 0; frame < 4; frame++)
                     {
-                        leaf.HasChanges = true;
+                        leaf.MarkChanged();
                         Assert.That(() => Record(root), Throws.Nothing);
                         ClearChanges(root);
                     }
@@ -245,7 +245,7 @@ public sealed class RecordingGateFingerprintTests
 
                 for (int frame = 0; frame < 4; frame++)
                 {
-                    leaf.HasChanges = true;
+                    leaf.MarkChanged();
                     Record(root);
                     ClearChanges(root);
                 }
@@ -254,7 +254,7 @@ public sealed class RecordingGateFingerprintTests
                 for (int index = 0; index < nodes.Count; index++)
                     before[index] = nodes[index].RecordingSnapshot;
 
-                leaf.HasChanges = true;
+                leaf.MarkChanged();
                 Record(root);
 
                 int servedCount = 0, rejectedCount = 0, refusedCount = 0;
@@ -361,7 +361,7 @@ public sealed class RecordingGateFingerprintTests
     private static void ClearChanges(RenderNode root)
     {
         foreach (RenderNode node in CollectNodes(root))
-            node.HasChanges = false;
+            node.ClearChanges(node.ChangeVersion);
     }
 
     private static RenderFragmentReference OnlyFragmentOf(

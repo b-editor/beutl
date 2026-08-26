@@ -30,7 +30,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         if (!resource.Compare(Particle))
         {
             Particle = resource.Capture();
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 

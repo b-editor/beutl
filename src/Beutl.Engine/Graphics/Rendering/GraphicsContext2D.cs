@@ -107,7 +107,10 @@ public sealed class GraphicsContext2D(
         if (!_faulted)
         {
             TrimTrailingNodes(_container, _drawOperationindex);
-            _container.HasChanges |= _hasChanges;
+            if (_hasChanges)
+            {
+                _container.MarkChanged();
+            }
         }
 
         bool scopeChanges = _hasChanges;
@@ -143,7 +146,10 @@ public sealed class GraphicsContext2D(
             return;
 
         TrimTrailingNodes(_container, _drawOperationindex);
-        _container.HasChanges |= _hasChanges;
+        if (_hasChanges)
+        {
+            _container.MarkChanged();
+        }
     }
 
     private bool BeginRecordingOperation()
@@ -169,7 +175,7 @@ public sealed class GraphicsContext2D(
 
             removed = [.. container.Children.Skip(start)];
             container.RemoveRange(start, count);
-            container.HasChanges = true;
+            container.MarkChanged();
             _hasChanges = true;
         }
         catch (Exception cleanupFailure)

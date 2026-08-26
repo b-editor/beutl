@@ -87,11 +87,38 @@ public sealed class RenderNodeRecordingCacheTests
 
         Record(node);
         Record(node);
-        node.HasChanges = true;
+        node.MarkChanged();
         Record(node);
         Record(node);
 
         Assert.That(node.ProcessCalls, Is.EqualTo(2));
+    }
+
+    /// <remarks>
+    /// The public surface only raises the flag, so the one path that lowers it is a consumed recording. Were
+    /// that path lost, a node marked once would report changes forever and never reuse a recording again.
+    /// </remarks>
+    [Test]
+    public void ConsumingARecording_LowersTheMarkTheNodeRaised()
+    {
+        using var node = new CountingSourceNode(s_bounds);
+        node.MarkChanged();
+
+        Record(node);
+        int callsAfterTheMarkedRequest = node.ProcessCalls;
+        bool markSurvivedTheRequest = node.HasChanges;
+
+        Record(node);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(callsAfterTheMarkedRequest, Is.EqualTo(1), "the marked node had to record");
+            Assert.That(markSurvivedTheRequest, Is.False, "the request that recorded it consumed the mark");
+            Assert.That(
+                node.ProcessCalls,
+                Is.EqualTo(1),
+                "nothing changed after the mark was consumed, so the recording repeats");
+        });
     }
 
     [Test]
@@ -103,7 +130,7 @@ public sealed class RenderNodeRecordingCacheTests
 
         Record(root);
         Record(root);
-        leaf.HasChanges = true;
+        leaf.MarkChanged();
         leaf.Bounds = s_bounds.Inflate(10);
         Record(root);
 
@@ -265,7 +292,7 @@ public sealed class RenderNodeRecordingCacheTests
 
         Record(root);
         Record(root);
-        leaf.HasChanges = true;
+        leaf.MarkChanged();
         Record(root);
 
         Assert.Multiple(() =>
@@ -285,7 +312,7 @@ public sealed class RenderNodeRecordingCacheTests
 
         Record(root);
         Record(root);
-        leaf.HasChanges = true;
+        leaf.MarkChanged();
         leaf.Bounds = s_bounds.Inflate(4);
         Record(root);
 

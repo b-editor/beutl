@@ -23,7 +23,7 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
 
         if (changed)
         {
-            HasChanges = true;
+            MarkChanged();
         }
 
         return changed;

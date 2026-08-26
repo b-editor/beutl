@@ -14,21 +14,21 @@ public class ContainerRenderNode : RenderNode
     {
         ArgumentNullException.ThrowIfNull(item);
         _children.Add(item);
-        HasChanges = true;
+        MarkChanged();
     }
 
     public void RemoveChild(RenderNode item)
     {
         ArgumentNullException.ThrowIfNull(item);
         if (_children.Remove(item))
-            HasChanges = true;
+            MarkChanged();
     }
 
     public void RemoveRange(int index, int count)
     {
         _children.RemoveRange(index, count);
         if (count > 0)
-            HasChanges = true;
+            MarkChanged();
     }
 
     /// <summary>Replaces the child at <paramref name="index"/> and disposes the one it replaced.</summary>
@@ -44,7 +44,7 @@ public class ContainerRenderNode : RenderNode
             return;
 
         _children[index] = item;
-        HasChanges = true;
+        MarkChanged();
         previous?.Dispose();
     }
 
@@ -54,8 +54,8 @@ public class ContainerRenderNode : RenderNode
         _children.AddRange(containerNode._children);
 
         containerNode._children.Clear();
-        HasChanges = true;
-        containerNode.HasChanges = true;
+        MarkChanged();
+        containerNode.MarkChanged();
     }
 
     public override void Process(RenderNodeContext context)

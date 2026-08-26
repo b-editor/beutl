@@ -35,7 +35,7 @@ public class RenderNodeCacheTests
         {
             node.Cache.RecordSuccessfulStableRequest();
         }
-        node.HasChanges = true;
+        node.MarkChanged();
 
         RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
 
@@ -76,7 +76,7 @@ public class RenderNodeCacheTests
             dirtyLeaf.Cache.RecordSuccessfulStableRequest();
             sibling.Cache.RecordSuccessfulStableRequest();
         }
-        dirtyBranch.HasChanges = true;
+        dirtyBranch.MarkChanged();
 
         RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(root);
 
@@ -120,7 +120,7 @@ public class RenderNodeCacheTests
         RenderNodeCacheHelper.BeginLifecycle(parentB).CompleteSuccessfully(advanceWarmup: true);
         Assert.That(parentB.Cache.IsCached, Is.True);
 
-        shared.HasChanges = true;
+        shared.MarkChanged();
 
         RenderNodeCacheHelper.BeginLifecycle(parentA).CompleteSuccessfully(advanceWarmup: true);
 

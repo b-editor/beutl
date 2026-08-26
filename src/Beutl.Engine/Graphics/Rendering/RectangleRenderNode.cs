@@ -24,7 +24,7 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
 
         if (changed)
         {
-            HasChanges = true;
+            MarkChanged();
         }
 
         return changed;

@@ -54,20 +54,33 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
         AssertContextCallSurface(typeof(FilterEffectContext), "Shader", typeof(ShaderCall<>));
     }
 
-    // HasChanges stays the only way to invalidate a cached node. DisableRenderCache is not a second
-    // invalidation signal: it opts a recording out of caching altogether, which a node recording a child
-    // it does not list in ChildNodes has to be able to do for itself.
+    // MarkChanged stays the only way to invalidate a cached node, and it only raises: HasChanges has no
+    // setter and nothing public lowers it, so a node cannot withdraw a change it already reported.
+    // DisableRenderCache is not a second invalidation signal: it opts a recording out of caching altogether,
+    // which a node recording a child it does not list in ChildNodes has to be able to do for itself.
     [Test]
-    public void HasChanges_IsTheOnlyPublicNodeInvalidationSignal()
+    public void MarkChanged_IsTheOnlyPublicNodeInvalidationSignal()
     {
         PropertyInfo? hasChanges = typeof(RenderNode).GetProperty(nameof(RenderNode.HasChanges));
+        MethodInfo? markChanged = typeof(RenderNode).GetMethod(
+            nameof(RenderNode.MarkChanged),
+            BindingFlags.Public | BindingFlags.Instance);
         string[] excludedMembers = ["Cache", "CacheKey", "RuntimeIdentity", "ChangeVersion"];
 
         Assert.Multiple(() =>
         {
             Assert.That(hasChanges, Is.Not.Null);
             Assert.That(hasChanges!.CanRead, Is.True);
-            Assert.That(hasChanges.CanWrite, Is.True);
+            Assert.That(
+                hasChanges.CanWrite,
+                Is.False,
+                "a node able to lower its own flag would replay the recording the flag exists to replace");
+            Assert.That(markChanged, Is.Not.Null);
+            Assert.That(markChanged!.GetParameters(), Is.Empty);
+            Assert.That(
+                typeof(RenderNode).GetMethod("ClearChanges", BindingFlags.Public | BindingFlags.Instance),
+                Is.Null,
+                "lowering the flag belongs to the recording lifecycle, not to the node's public surface");
             foreach (string member in excludedMembers)
                 Assert.That(typeof(RenderNode).GetProperty(member), Is.Null, member);
             Assert.That(

@@ -223,7 +223,7 @@ public sealed class RenderDescriptionAllocationTests
             for (int index = 0; index < children.Length; index++)
                 Visit(children[index]);
 
-            current.HasChanges = false;
+            current.ClearChanges(current.ChangeVersion);
         }
     }
 

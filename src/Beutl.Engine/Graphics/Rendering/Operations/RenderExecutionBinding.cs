@@ -50,7 +50,7 @@ internal abstract class RenderExecutionBinding<TSession>
 /// </summary>
 /// <remarks>
 /// The state is stored in its own field so a value-typed state is never boxed while the binding is recorded or
-/// invoked. A node must set <see cref="RenderNode.HasChanges"/> before a changed state can alter cached output.
+/// invoked. A node must call <see cref="RenderNode.MarkChanged"/> before a changed state can alter cached output.
 /// </remarks>
 internal sealed class StateRenderExecutionBinding<TSession, TState> : RenderExecutionBinding<TSession>
     where TState : notnull

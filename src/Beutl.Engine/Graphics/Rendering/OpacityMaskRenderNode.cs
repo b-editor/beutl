@@ -34,7 +34,7 @@ public sealed class OpacityMaskRenderNode(Brush.Resource mask, Rect maskBounds, 
 
         if (changed)
         {
-            HasChanges = true;
+            MarkChanged();
         }
 
         return changed;

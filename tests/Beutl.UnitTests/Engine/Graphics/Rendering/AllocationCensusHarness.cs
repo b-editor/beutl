@@ -525,7 +525,7 @@ public sealed class AllocationCensusHarness
             for (int index = 0; index < children.Length; index++)
                 Visit(children[index]);
 
-            current.HasChanges = false;
+            current.ClearChanges(current.ChangeVersion);
         }
     }
 
@@ -934,7 +934,7 @@ public sealed class AllocationCensusHarness
                 void Frame(long[]? totals)
                 {
                     if (dirtyLeaf)
-                        leaf.HasChanges = true;
+                        leaf.MarkChanged();
                     RunOneFrame(root, registry, structuralPlanCache, programCache, spirvProgramCache,
                         RenderCacheOptions.Disabled, false, totals);
                 }

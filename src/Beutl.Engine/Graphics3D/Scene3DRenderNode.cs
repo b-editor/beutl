@@ -40,7 +40,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         if (changed)
         {
-            HasChanges = true;
+            MarkChanged();
         }
 
         return changed;

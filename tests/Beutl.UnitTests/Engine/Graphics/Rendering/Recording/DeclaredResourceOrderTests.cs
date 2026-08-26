@@ -123,7 +123,7 @@ public sealed class DeclaredResourceOrderTests
         public void SwapDeclarationOrder()
         {
             _swapped = !_swapped;
-            HasChanges = true;
+            MarkChanged();
         }
 
         public override void Process(RenderNodeContext context)

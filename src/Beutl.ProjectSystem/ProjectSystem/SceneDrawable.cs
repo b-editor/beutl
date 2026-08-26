@@ -211,7 +211,7 @@ public sealed partial class SceneDrawable : Drawable
             Scene = resource.Capture();
             _outputScale = outputScale;
             _frameSize = frameSize;
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 
@@ -311,7 +311,7 @@ public sealed partial class SceneDrawable : Drawable
             destination.BringFrom(candidate);
             DisposeAll(previous);
             destination.Update(resource);
-            destination.HasChanges = true;
+            destination.MarkChanged();
         }
 
         private static void DisposeAll(IEnumerable<RenderNode> nodes)

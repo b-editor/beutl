@@ -165,7 +165,7 @@ public sealed class ConfigureNodeOwnershipTests
                 ?? throw new AssertionException("The ConfigureNode consumer did not produce a container.");
             var reference = output.Children.Single() as ReferencesChildRenderNode
                 ?? throw new AssertionException("ConfigureNode must wrap its input in a non-owning reference.");
-            output.HasChanges = false;
+            output.ClearChanges(output.ChangeVersion);
 
             snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
 
@@ -191,7 +191,7 @@ public sealed class ConfigureNodeOwnershipTests
                     "retargeting a ConfigureNode input must invalidate its output");
             });
 
-            output.HasChanges = false;
+            output.ClearChanges(output.ChangeVersion);
             source.Select(null);
             snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
 

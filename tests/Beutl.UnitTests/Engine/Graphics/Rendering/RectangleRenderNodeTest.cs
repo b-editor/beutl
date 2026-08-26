@@ -53,7 +53,7 @@ public class RectangleRenderNodeTest
         var rect = new Rect(0, 0, 100, 100);
         var fill = Brushes.Resource.Red;
         using var node = new RectangleRenderNode(rect, fill, null);
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
 
         Assert.Multiple(() =>
         {
@@ -75,15 +75,15 @@ public class RectangleRenderNodeTest
         var penResource = pen.ToResource(CompositionContext.Default);
         using var node = new RectangleRenderNode(rect1, fill1, null);
 
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
         bool rectChanged = node.Update(rect2, fill1, null);
         bool rectMarked = node.HasChanges;
 
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
         bool fillChanged = node.Update(rect2, fill2, null);
         bool fillMarked = node.HasChanges;
 
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
         bool penChanged = node.Update(rect2, fill2, penResource);
         bool penMarked = node.HasChanges;
 

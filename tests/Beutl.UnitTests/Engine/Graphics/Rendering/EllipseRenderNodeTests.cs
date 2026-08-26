@@ -50,7 +50,7 @@ public class EllipseRenderNodeTest
         var rect = new Rect(0, 0, 100, 100);
         var fillResource = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
         using var node = new EllipseRenderNode(rect, fillResource, null);
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
 
         Assert.Multiple(() =>
         {
@@ -70,15 +70,15 @@ public class EllipseRenderNodeTest
         var penResource = pen.ToResource(CompositionContext.Default);
         using var node = new EllipseRenderNode(rect1, fillResource1, null);
 
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
         bool rectChanged = node.Update(rect2, fillResource1, null);
         bool rectMarked = node.HasChanges;
 
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
         bool fillChanged = node.Update(rect2, fillResource2, null);
         bool fillMarked = node.HasChanges;
 
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
         bool penChanged = node.Update(rect2, fillResource2, penResource);
         bool penMarked = node.HasChanges;
 

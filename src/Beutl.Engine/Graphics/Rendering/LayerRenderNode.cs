@@ -9,7 +9,7 @@ public class LayerRenderNode(Rect limit) : ContainerRenderNode
         if (Limit != limit)
         {
             Limit = limit;
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 

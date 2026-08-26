@@ -79,7 +79,8 @@ public sealed class RenderRecordingCrossCheckTests
     [Test]
     public void ANodeThatReportsChanges_IsNotHeldToTheContract()
     {
-        using var node = new DriftingSourceNode(s_bounds) { HasChanges = true };
+        using var node = new DriftingSourceNode(s_bounds);
+        node.MarkChanged();
 
         using (RenderRecordingCrossCheck.Enable())
         {

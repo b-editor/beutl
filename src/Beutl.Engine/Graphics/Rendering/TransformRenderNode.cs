@@ -23,7 +23,7 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
 
         if (changed)
         {
-            HasChanges = true;
+            MarkChanged();
         }
 
         return changed;

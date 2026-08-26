@@ -13,7 +13,7 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>RenderNode.HasChanges</c> is public, so an out-of-tree node decides for itself when to raise it. Today
+/// <c>RenderNode.MarkChanged</c> is public, so an out-of-tree node decides for itself when to call it. Today
 /// a node that forgets is still re-recorded every frame and only loses the pixel cache, which is why the
 /// omission has been survivable. Once a recorded graph may be reused for a node that reports no changes,
 /// forgetting means the node is not re-recorded at all and renders stale, and no compile error says so.
@@ -36,7 +36,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 {
     private const string RenderNodeMetadataName = "Beutl.Graphics.Rendering.RenderNode";
     private const string ProcessMethodName = "Process";
-    private const string HasChangesPropertyName = "HasChanges";
+    private const string MarkChangedMethodName = "MarkChanged";
     private const string DisposeCallbackName = "OnDispose";
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
@@ -238,11 +238,17 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return read.ToImmutable();
         }
 
-        /// <summary>Whether an assignment to <c>HasChanges</c> is reachable from <paramref name="method"/>.</summary>
+        /// <summary>Whether a <c>MarkChanged</c> call on this node is reachable from <paramref name="method"/>.</summary>
         /// <remarks>
-        /// Path-insensitive by design: one assignment anywhere in the member, or in a method of the same type
-        /// it calls, clears every assignment in that member. A mutation on a branch that skips the mark is
+        /// <para>
+        /// Only a call on this instance counts. Marking another node says nothing about whether this one's
+        /// own recording went stale, and accepting it would excuse the mutation this rule is looking at.
+        /// </para>
+        /// <para>
+        /// Path-insensitive by design: one call anywhere in the member, or in a method of the same type it
+        /// calls, clears every assignment in that member. A mutation on a branch that skips the mark is
         /// therefore missed, which is the direction this rule errs in.
+        /// </para>
         /// </remarks>
         public bool MarksChanged(IMethodSymbol method)
         {
@@ -291,7 +297,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                         continue;
 
                     ISymbol? symbol = body.Model.GetSymbolInfo(name).Symbol;
-                    if (IsHasChanges(symbol) && IsWriteTarget(GetAccessExpression(name)))
+                    if (IsMarkChanged(symbol) && IsOnThisInstance(name))
                         return true;
 
                     foreach (IMethodSymbol callee in ResolveCallees(body.Model, name))
@@ -309,10 +315,10 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        private bool IsHasChanges(ISymbol? symbol)
-            => symbol is IPropertySymbol { Name: HasChangesPropertyName } property
+        private bool IsMarkChanged(ISymbol? symbol)
+            => symbol is IMethodSymbol { Name: MarkChangedMethodName, IsStatic: false } method
                && SymbolEqualityComparer.Default.Equals(
-                   property.ContainingType?.OriginalDefinition,
+                   method.ContainingType?.OriginalDefinition,
                    renderNodeType);
 
         private bool IsTrackedInstanceState(ISymbol? symbol)

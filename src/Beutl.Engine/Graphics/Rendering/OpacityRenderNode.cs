@@ -44,7 +44,7 @@ public sealed class OpacityRenderNode(float opacity) : ContainerRenderNode
         if (Opacity != opacity)
         {
             Opacity = opacity;
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 

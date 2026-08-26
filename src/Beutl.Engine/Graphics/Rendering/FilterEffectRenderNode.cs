@@ -12,7 +12,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         if (!fe.Compare(FilterEffect))
         {
             FilterEffect = fe.Capture();
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 

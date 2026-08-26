@@ -549,7 +549,7 @@ public sealed class StructuralAndProgramCacheTests
                 return;
 
             field = value;
-            HasChanges = true;
+            MarkChanged();
         }
 
         public override void Process(RenderNodeContext context)
@@ -611,7 +611,7 @@ public sealed class StructuralAndProgramCacheTests
                     return;
 
                 _region = value;
-                HasChanges = true;
+                MarkChanged();
             }
         }
 
@@ -633,7 +633,7 @@ public sealed class StructuralAndProgramCacheTests
                     return;
 
                 _readFirstInput = value;
-                HasChanges = true;
+                MarkChanged();
             }
         }
 
@@ -684,7 +684,7 @@ public sealed class StructuralAndProgramCacheTests
                     return;
 
                 _value = value;
-                HasChanges = true;
+                MarkChanged();
             }
         }
 

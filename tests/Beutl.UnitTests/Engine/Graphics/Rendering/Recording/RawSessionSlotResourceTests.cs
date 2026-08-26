@@ -106,7 +106,7 @@ public sealed class RawSessionSlotResourceTests
         public void RebindToTheOtherPayload()
         {
             _useRebound = true;
-            HasChanges = true;
+            MarkChanged();
         }
 
         public override void Process(RenderNodeContext context)

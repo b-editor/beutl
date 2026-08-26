@@ -18,7 +18,7 @@ public sealed class ClearRenderNode(Color color) : RenderNode
         if (Color != color)
         {
             Color = color;
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
         return false;

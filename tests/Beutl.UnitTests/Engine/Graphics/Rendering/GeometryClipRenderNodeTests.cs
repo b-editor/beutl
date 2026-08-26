@@ -14,7 +14,7 @@ public sealed class GeometryClipRenderNodeTests
     {
         Geometry.Resource clip = CreateClip(30, 40);
         using var node = new GeometryClipRenderNode(clip, ClipOperation.Intersect);
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
 
         Assert.Multiple(() =>
         {
@@ -28,7 +28,7 @@ public sealed class GeometryClipRenderNodeTests
     {
         Geometry.Resource clip = CreateClip(30, 40);
         using var node = new GeometryClipRenderNode(clip, ClipOperation.Intersect);
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
 
         Assert.Multiple(() =>
         {

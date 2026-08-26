@@ -19,7 +19,7 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
 
         if (changed)
         {
-            HasChanges = true;
+            MarkChanged();
         }
 
         return changed;

@@ -1862,7 +1862,7 @@ public class SourceEffectiveScaleFlowTests
         public void UpdateDensity(float density)
         {
             _density = density;
-            HasChanges = true;
+            MarkChanged();
         }
 
         public override void Process(RenderNodeContext context)

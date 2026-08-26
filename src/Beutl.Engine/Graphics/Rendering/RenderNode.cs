@@ -23,17 +23,20 @@ public abstract class RenderNode : IDisposable
 
     public bool IsDisposed { get; private set; }
 
-    public bool HasChanges
+    /// <summary>Whether this node would record something other than what its last consumed recording holds.</summary>
+    public bool HasChanges => _hasChanges;
+
+    /// <summary>Reports that this node's next recording differs from the one it last had consumed.</summary>
+    /// <remarks>
+    /// Raising is the only direction a node gets: withdrawing a change it has already reported would let the
+    /// recording taken before the withdrawal be replayed for a state that never produced it. Lowering the
+    /// flag belongs to <see cref="ClearChanges"/>, which the engine calls with the version it recorded at, so
+    /// a mark that lands while a recording is in flight is not swallowed by that recording's clear.
+    /// </remarks>
+    public void MarkChanged()
     {
-        get => _hasChanges;
-        set
-        {
-            _hasChanges = value;
-            if (value)
-            {
-                _changeVersion++;
-            }
-        }
+        _hasChanges = true;
+        _changeVersion++;
     }
 
     internal long ChangeVersion => _changeVersion;

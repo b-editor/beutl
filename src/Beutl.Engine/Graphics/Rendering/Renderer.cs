@@ -455,7 +455,7 @@ public class Renderer : IRenderer
             }
             catch
             {
-                entry.Node.HasChanges = true;
+                entry.Node.MarkChanged();
                 throw;
             }
         }
@@ -911,7 +911,7 @@ internal sealed class CompleteTargetRenderNode : RenderNode
             return;
 
         _roots = roots;
-        HasChanges = true;
+        MarkChanged();
     }
 
     private bool HasSameRoots(RenderNode[] roots)

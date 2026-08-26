@@ -903,7 +903,7 @@ internal sealed class BenchmarkAnimatedShaderNode : ContainerRenderNode, IFrameS
             return;
 
         _amount = state.AnimatedAmount;
-        HasChanges = true;
+        MarkChanged();
     }
 
     public override void Process(RenderNodeContext context)

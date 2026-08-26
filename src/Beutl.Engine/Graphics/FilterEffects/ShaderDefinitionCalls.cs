@@ -7,8 +7,8 @@ namespace Beutl.Graphics.Effects;
 /// <typeparam name="TState">The per-recording values supplied by <see cref="ShaderCall{TState}"/>.</typeparam>
 /// <remarks>
 /// A definition is reusable operation shape. A call supplies the values and request-scoped resource bindings for one
-/// recording. When any pixel-affecting call state changes, the owning <see cref="RenderNode"/> must set
-/// <see cref="RenderNode.HasChanges"/> before the next request. Value providers and execution binders must be
+/// recording. When any pixel-affecting call state changes, the owning <see cref="RenderNode"/> must call
+/// <see cref="RenderNode.MarkChanged"/> before the next request. Value providers and execution binders must be
 /// non-capturing so every changing value is read from the call state.
 /// </remarks>
 public sealed class ShaderDefinition<TState>

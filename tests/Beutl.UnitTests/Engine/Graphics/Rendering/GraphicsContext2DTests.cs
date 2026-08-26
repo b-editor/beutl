@@ -440,7 +440,7 @@ public class GraphicsContext2DTests
 
     private static void ClearHasChanges(RenderNode node)
     {
-        node.HasChanges = false;
+        node.ClearChanges(node.ChangeVersion);
         if (node is ContainerRenderNode container)
         {
             foreach (RenderNode child in container.Children)

@@ -6,8 +6,8 @@
 /// <typeparam name="TState">The per-recording state supplied by an <see cref="OpaqueRenderCall{TState}"/>.</typeparam>
 /// <remarks>
 /// A definition contains only operation shape: its callback, metadata contracts, and planner traits. Values that
-/// affect pixels belong to a call. When those values change, the owning <see cref="RenderNode"/> must set
-/// <see cref="RenderNode.HasChanges"/> before its next request.
+/// affect pixels belong to a call. When those values change, the owning <see cref="RenderNode"/> must call
+/// <see cref="RenderNode.MarkChanged"/> before its next request.
 /// </remarks>
 public sealed class OpaqueRenderDefinition<TState>
     where TState : notnull

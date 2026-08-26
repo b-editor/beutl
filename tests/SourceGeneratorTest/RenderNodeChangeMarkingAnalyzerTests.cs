@@ -35,7 +35,13 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
 
             public abstract class RenderNode
             {
-                public bool HasChanges { get; set; }
+                private bool _hasChanges;
+
+                public bool HasChanges => _hasChanges;
+
+                public void MarkChanged() => _hasChanges = true;
+
+                internal void ClearChanges(long observedVersion) => _hasChanges = false;
 
                 public abstract void Process(RenderNodeContext context);
 
@@ -113,7 +119,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
                         return false;
 
                     _bounds = bounds;
-                    HasChanges = true;
+                    MarkChanged();
                     return true;
                 }
 
@@ -148,7 +154,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
                     Invalidate();
                 }
 
-                private void Invalidate() => HasChanges = true;
+                private void Invalidate() => MarkChanged();
 
                 public override void Process(RenderNodeContext context)
                 {
@@ -158,6 +164,121 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             """);
 
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// The successor to the shape this rule used to wave through. Lowering the flag on the very path that
+    /// changes what Process reads is the opposite of marking, and the analyzer once accepted it because it
+    /// only asked whether <c>HasChanges</c> was written, never what was written to it.
+    /// </remarks>
+    [Test]
+    public void AMutatorThatClearsInsteadOfMarking_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class UnInvalidatingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public Rect Bounds
+                {
+                    get => _bounds;
+                    set
+                    {
+                        _bounds = value;
+                        ClearChanges(0);
+                    }
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "clearing the flag where the value changes leaves the recording stale, not marked");
+    }
+
+    /// <remarks>
+    /// Whether this node's own recording went stale is not something marking a different node answers, so a
+    /// call that names another instance cannot excuse the assignment.
+    /// </remarks>
+    [Test]
+    public void AMutatorThatMarksAnotherNode_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ForwardingNode : RenderNode
+            {
+                private readonly RenderNode _other;
+                private Rect _bounds;
+
+                public ForwardingNode(RenderNode other)
+                {
+                    _other = other;
+                }
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    _other.MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG005"));
+    }
+
+    /// <remarks>
+    /// The stronger half of the guard, and the reason the rule no longer has to spot an un-marking: a node
+    /// outside the engine cannot withdraw a change it already reported, because <c>HasChanges</c> has no
+    /// setter to withdraw it through. Only a consumed recording lowers the flag.
+    /// </remarks>
+    [Test]
+    public void AMutatorThatUnMarksTheNode_DoesNotCompile()
+    {
+        ImmutableArray<Diagnostic> errors = CompileErrors("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class UnMarkingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public Rect Bounds
+                {
+                    get => _bounds;
+                    set
+                    {
+                        _bounds = value;
+                        HasChanges = false;
+                    }
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            errors.Select(static d => d.Id),
+            Does.Contain("CS0200"),
+            "an assignment to HasChanges is what BESG005 used to accept as a mark; it no longer binds");
     }
 
     [Test]
@@ -178,7 +299,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
                     if (_bounds != bounds)
                     {
                         _bounds = bounds;
-                        HasChanges = true;
+                        MarkChanged();
                     }
                 }
 
@@ -304,17 +425,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
 
     private static ImmutableArray<Diagnostic> Analyze(string source)
     {
-        CSharpCompilation compilation = CSharpCompilation.Create(
-            "AnalyzerTest",
-            [
-                CSharpSyntaxTree.ParseText(RenderNodeStubs),
-                CSharpSyntaxTree.ParseText(source),
-            ],
-            AppDomain.CurrentDomain.GetAssemblies()
-                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(static a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
-                .ToArray(),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        CSharpCompilation compilation = CreateCompilation(source);
 
         // A source that does not bind produces no analyzer diagnostics, which would let a "stays accepted"
         // case pass without the analyzer ever having looked at it.
@@ -329,4 +440,21 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             .GetAwaiter()
             .GetResult();
     }
+
+    /// <summary>The compiler errors <paramref name="source"/> produces, for a case that must not bind.</summary>
+    private static ImmutableArray<Diagnostic> CompileErrors(string source)
+        => [.. CreateCompilation(source).GetDiagnostics().Where(static d => d.Severity == DiagnosticSeverity.Error)];
+
+    private static CSharpCompilation CreateCompilation(string source)
+        => CSharpCompilation.Create(
+            "AnalyzerTest",
+            [
+                CSharpSyntaxTree.ParseText(RenderNodeStubs),
+                CSharpSyntaxTree.ParseText(source),
+            ],
+            AppDomain.CurrentDomain.GetAssemblies()
+                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+                .Select(static a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
+                .ToArray(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 }

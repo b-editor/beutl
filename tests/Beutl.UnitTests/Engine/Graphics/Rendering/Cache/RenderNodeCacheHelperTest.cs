@@ -29,7 +29,7 @@ public class RenderNodeCacheHelperTest
             RenderCacheTestSupport.CreatePublication(root.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
             RenderCacheTestSupport.CreatePublication(child.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
         ]);
-        child.HasChanges = true;
+        child.MarkChanged();
 
         RenderNodeCacheHelper.BeginLifecycle(root);
 
@@ -43,7 +43,8 @@ public class RenderNodeCacheHelperTest
     [Test]
     public void Lifecycle_WithoutSuccessfulCompletion_DoesNotClearDirtyFlags()
     {
-        using var root = new ContainerRenderNode { HasChanges = true };
+        using var root = new ContainerRenderNode();
+        root.MarkChanged();
 
         _ = RenderNodeCacheHelper.BeginLifecycle(root);
 
@@ -96,7 +97,7 @@ public class RenderNodeCacheHelperTest
         using var containerNode = new ContainerRenderNode();
         var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         containerNode.AddChild(childNode);
-        containerNode.HasChanges = true;
+        containerNode.MarkChanged();
         using var renderer = CreateFrameRenderer(containerNode);
 
         RenderRequests(renderer, RenderNodeCache.StableRequestCount + 2);
@@ -115,7 +116,7 @@ public class RenderNodeCacheHelperTest
         using var containerNode = new ContainerRenderNode();
         var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         containerNode.AddChild(childNode);
-        containerNode.HasChanges = true;
+        containerNode.MarkChanged();
         using var renderer = CreateFrameRenderer(containerNode, useRenderCache: false);
 
         RenderRequests(renderer, RenderNodeCache.StableRequestCount + 2);
@@ -156,7 +157,8 @@ public class RenderNodeCacheHelperTest
     [Test]
     public void DirectFrameRequest_WhenRecordingFails_RetainsDirtyFlag()
     {
-        using var node = new ThrowingRenderNode { HasChanges = true };
+        using var node = new ThrowingRenderNode();
+        node.MarkChanged();
         using var renderer = CreateFrameRenderer(node);
 
         Assert.That(
@@ -221,7 +223,7 @@ public class RenderNodeCacheHelperTest
 
         for (int frame = 0; frame <= RenderNodeCache.StableRequestCount; frame++)
         {
-            parent.HasChanges = true;
+            parent.MarkChanged();
             changing.SetCallState(
                 frame % 2 == 0 ? Colors.Blue : Colors.Green,
                 reportChanges: true);
@@ -240,7 +242,7 @@ public class RenderNodeCacheHelperTest
             Assert.That(stable.Cache.IsCached, Is.True, "the unchanged child publishes a reusable output");
         });
 
-        parent.HasChanges = true;
+        parent.MarkChanged();
         changing.SetCallState(Colors.Purple, reportChanges: true);
         using (renderer.Rasterize())
         {
@@ -265,7 +267,7 @@ public class RenderNodeCacheHelperTest
         using var containerNode = new ContainerRenderNode();
         var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         containerNode.AddChild(childNode);
-        containerNode.HasChanges = true;
+        containerNode.MarkChanged();
         using var renderer = CreateFrameRenderer(
             containerNode,
             cacheRules: new RenderCacheRules(maxPixels, 1));
@@ -337,7 +339,7 @@ public class RenderNodeCacheHelperTest
         {
             _color = color;
             if (reportChanges)
-                HasChanges = true;
+                MarkChanged();
         }
 
         public override void Process(RenderNodeContext context)

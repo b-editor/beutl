@@ -39,7 +39,7 @@ public sealed class VideoSourceRenderNode(
 
         if (changed)
         {
-            HasChanges = true;
+            MarkChanged();
         }
 
         return changed;

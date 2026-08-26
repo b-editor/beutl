@@ -27,7 +27,7 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
 
         if (changed)
         {
-            HasChanges = true;
+            MarkChanged();
         }
 
         return changed;

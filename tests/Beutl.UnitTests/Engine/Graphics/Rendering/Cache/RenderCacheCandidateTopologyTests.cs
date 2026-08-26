@@ -245,7 +245,7 @@ public sealed class RenderCacheCandidateTopologyTests
             WarmCaches(children[i], seen);
 
         current.Cache.RecordStableRequests();
-        current.HasChanges = false;
+        current.ClearChanges(current.ChangeVersion);
     }
 
     private static Dictionary<RenderFragmentId, RenderFragmentReference> IndexReferences(

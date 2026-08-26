@@ -14,7 +14,7 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
         {
             Backdrop = backdrop;
             Bounds = bounds;
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 
