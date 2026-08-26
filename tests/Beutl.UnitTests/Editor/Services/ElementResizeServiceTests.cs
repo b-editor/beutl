@@ -1,4 +1,5 @@
-﻿using Beutl.Configuration;
+﻿using Beutl.Animation;
+using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
@@ -1053,6 +1054,57 @@ public class ElementResizeServiceTests
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerAnimatedSpeedUsesFutureRate()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 120)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(4)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200f });
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1.25)).Within(TimeSpan.FromMilliseconds(10)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerReverseKeepsRemainingTargetRoom()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Reverse = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromMilliseconds(1)));
     }
 
     [Test]

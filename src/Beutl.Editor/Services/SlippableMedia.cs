@@ -17,7 +17,7 @@ internal static class SlippableMedia
 {
     private readonly record struct TimeContext(
         TimeRange Range,
-        double TargetTicksPerTimelineTick,
+        Func<TimeSpan, TimeSpan>? TimelineDurationFromTarget,
         bool HasUnboundedTail,
         bool IsReversed);
 
@@ -39,16 +39,38 @@ internal static class SlippableMedia
 
         public IProperty<TimeSpan> Offset { get; }
 
-        public TimeSpan? Total { get; }
+        public TimeSpan? Total { get; private set; }
 
-        public TimeSpan? ConsumedDuration { get; }
+        public TimeSpan? ConsumedDuration { get; private set; }
 
-        public TimeSpan? TimelineRoom { get; }
+        public TimeSpan? TimelineRoom { get; private set; }
 
         public TimeSpan Current
         {
             get => Offset.CurrentValue;
             set => Offset.CurrentValue = value;
+        }
+
+        internal void Merge(Target other)
+        {
+            if (other.Total is { } total)
+            {
+                Total = Total is { } currentTotal ? TimeSpan.FromTicks(Math.Min(currentTotal.Ticks, total.Ticks)) : total;
+            }
+
+            if (other.ConsumedDuration is { } consumed)
+            {
+                ConsumedDuration = ConsumedDuration is { } currentConsumed
+                    ? TimeSpan.FromTicks(Math.Max(currentConsumed.Ticks, consumed.Ticks))
+                    : consumed;
+            }
+
+            if (other.TimelineRoom is { } room)
+            {
+                TimelineRoom = TimelineRoom is { } currentRoom
+                    ? TimeSpan.FromTicks(Math.Min(currentRoom.Ticks, room.Ticks))
+                    : room;
+            }
         }
     }
 
@@ -61,74 +83,101 @@ internal static class SlippableMedia
     public static List<Target> Collect(Element element)
     {
         var targets = new List<Target>();
-        var visited = new HashSet<object>();
-        var context = new TimeContext(element.Range, 1, false, false);
+        var active = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        var context = new TimeContext(element.Range, null, false, false);
         foreach (EngineObject obj in element.Objects)
         {
-            CollectFrom(obj, targets, visited, context);
+            CollectFrom(obj, targets, active, context);
         }
 
         return targets;
     }
 
-    // The visited set makes each node contribute once: a media object reachable through
-    // several paths (e.g. one SourceVideo shared by two DrawablePresenter.Targets) must not
-    // receive the shared delta once per path, and a presenter cycle must not recurse forever.
+    // The active set prevents cycles while still allowing a shared media object to contribute
+    // once for every presentation path. Those path-specific bounds are merged by AddTarget.
     private static void CollectFrom(
         object obj,
         List<Target> targets,
-        HashSet<object> visited,
+        HashSet<object> active,
         TimeContext context)
     {
-        if (!visited.Add(obj)) return;
+        if (!active.Add(obj)) return;
 
-        switch (obj)
+        try
         {
-            case SourceVideo video:
-                targets.Add(CreateVideoTarget(video, context));
-                break;
-            case SourceSound sound:
-                targets.Add(CreateSoundTarget(sound));
-                break;
-            case SceneSound sceneSound:
-                targets.Add(CreateSceneSoundTarget(sceneSound));
-                break;
-            case SoundGroup soundGroup:
-                foreach (Sound child in soundGroup.Children)
-                    CollectFrom(child, targets, visited, context);
-                break;
-            case DrawableGroup drawableGroup:
-                foreach (Drawable child in drawableGroup.Children)
-                    CollectFrom(child, targets, visited, context);
-                break;
-            case DrawableDecorator decorator:
-                foreach (Drawable child in decorator.Children)
-                    CollectFrom(child, targets, visited, context);
-                break;
-            case DrawableTimeController controller:
-                if (controller.Target.CurrentValue is { } controlled)
-                {
-                    using var resource = (DrawableTimeController.Resource)controller.ToResource(
-                        CompositionContext.Default);
-                    TimeRange mapped = controller.CalculateTargetTimeRange(context.Range, controlled, resource);
-                    double scale = context.Range.Duration > TimeSpan.Zero
-                        ? mapped.Duration.Ticks / (double)context.Range.Duration.Ticks
-                        : 0;
-                    var mappedContext = new TimeContext(
-                        mapped,
-                        context.TargetTicksPerTimelineTick * scale,
-                        context.HasUnboundedTail || resource.Loop || resource.HoldLastFrame,
-                        context.IsReversed || resource.Reverse);
-                    CollectFrom(controlled, targets, visited, mappedContext);
-                }
-                break;
-            // DrawablePresenter / DrawableTimeController render the drawable in Target
-            // rather than a Children list, so a wrapped SourceVideo is only reachable here.
-            case IPresenter<Drawable> presenter:
-                if (presenter.Target.CurrentValue is { } presented)
-                    CollectFrom(presented, targets, visited, context);
-                break;
+            switch (obj)
+            {
+                case SourceVideo video:
+                    AddTarget(targets, CreateVideoTarget(video, context));
+                    break;
+                case SourceSound sound:
+                    AddTarget(targets, CreateSoundTarget(sound));
+                    break;
+                case SceneSound sceneSound:
+                    AddTarget(targets, CreateSceneSoundTarget(sceneSound));
+                    break;
+                case SoundGroup soundGroup:
+                    foreach (Sound child in soundGroup.Children)
+                        CollectFrom(child, targets, active, context);
+                    break;
+                case DrawableGroup drawableGroup:
+                    foreach (Drawable child in drawableGroup.Children)
+                        CollectFrom(child, targets, active, context);
+                    break;
+                case DrawableDecorator decorator:
+                    foreach (Drawable child in decorator.Children)
+                        CollectFrom(child, targets, active, context);
+                    break;
+                case DrawableTimeController controller:
+                    if (controller.Target.CurrentValue is { } controlled)
+                    {
+                        using var resource = (DrawableTimeController.Resource)controller.ToResource(
+                            CompositionContext.Default);
+                        TimeRange mapped = controller.CalculateTargetTimeRange(context.Range, controlled, resource);
+                        TimeSpan currentTime = context.IsReversed ? context.Range.Start : context.Range.End;
+                        Func<TimeSpan, TimeSpan> mapper = duration =>
+                        {
+                            TimeSpan parentDuration = controller.CalculateTimelineDuration(
+                                currentTime, duration, controlled, resource);
+                            return context.TimelineDurationFromTarget?.Invoke(parentDuration) ?? parentDuration;
+                        };
+                        var mappedContext = new TimeContext(
+                            mapped,
+                            mapper,
+                            context.HasUnboundedTail
+                                || resource.Loop
+                                || resource.HoldFirstFrame
+                                || resource.HoldLastFrame,
+                            context.IsReversed ^ resource.Reverse);
+                        CollectFrom(controlled, targets, active, mappedContext);
+                    }
+                    break;
+                // DrawablePresenter / DrawableTimeController render the drawable in Target
+                // rather than a Children list, so a wrapped SourceVideo is only reachable here.
+                case IPresenter<Drawable> presenter:
+                    if (presenter.Target.CurrentValue is { } presented)
+                        CollectFrom(presented, targets, active, context);
+                    break;
+            }
         }
+        finally
+        {
+            active.Remove(obj);
+        }
+    }
+
+    private static void AddTarget(List<Target> targets, Target target)
+    {
+        foreach (Target existing in targets)
+        {
+            if (ReferenceEquals(existing.Offset, target.Offset))
+            {
+                existing.Merge(target);
+                return;
+            }
+        }
+
+        targets.Add(target);
     }
 
     private static Target CreateVideoTarget(SourceVideo video, TimeContext context)
@@ -138,8 +187,7 @@ internal static class SlippableMedia
         TimeSpan? total = resource.Source is { } source && source.Duration > TimeSpan.Zero
             ? source.Duration
             : null;
-        TimeSpan clockStart = GetVideoClockStart(video);
-        TimeSpan consumedDuration = GetConsumedDuration(video, context.Range.End, clockStart, resource);
+        TimeSpan consumedDuration = GetConsumedDuration(video, context.Range, resource);
         if (consumedDuration < TimeSpan.Zero) consumedDuration = TimeSpan.Zero;
         TimeSpan? timelineRoom = null;
         if (total is { } sourceDuration)
@@ -150,16 +198,17 @@ internal static class SlippableMedia
             {
                 timelineRoom = TimeSpan.MaxValue;
             }
-            else if (context.IsReversed || context.TargetTicksPerTimelineTick <= 0)
+            else if (context.IsReversed)
             {
-                timelineRoom = context.IsReversed ? TimeSpan.Zero : TimeSpan.MaxValue;
+                TimeSpan targetRoom = context.Range.Start - video.TimeRange.Start;
+                if (targetRoom < TimeSpan.Zero) targetRoom = TimeSpan.Zero;
+                timelineRoom = context.TimelineDurationFromTarget?.Invoke(targetRoom) ?? targetRoom;
             }
             else
             {
                 TimeSpan targetRoom = video.CalculateTimelineDuration(
                     GetVideoClockStartAt(video, context.Range.End), sourceRoom, resource);
-                timelineRoom = ScaleTimelineDuration(
-                    targetRoom, 1 / context.TargetTicksPerTimelineTick);
+                timelineRoom = context.TimelineDurationFromTarget?.Invoke(targetRoom) ?? targetRoom;
             }
         }
 
@@ -167,9 +216,10 @@ internal static class SlippableMedia
     }
 
     private static TimeSpan GetConsumedDuration(
-        SourceVideo video, TimeSpan end, TimeSpan clockStart, SourceVideo.Resource resource)
+        SourceVideo video, TimeRange range, SourceVideo.Resource resource)
     {
-        TimeSpan duration = end - video.TimeRange.Start;
+        TimeSpan duration = range.Duration;
+        TimeSpan clockStart = GetVideoClockStartAt(video, range.Start);
         return duration > TimeSpan.Zero
             ? video.CalculateVideoDuration(clockStart, duration, resource)
             : TimeSpan.Zero;
@@ -180,24 +230,6 @@ internal static class SlippableMedia
         return video.Speed.Animation is KeyFrameAnimation<float> { UseGlobalClock: true }
             ? time
             : time - video.TimeRange.Start;
-    }
-
-    private static TimeSpan ScaleTimelineDuration(TimeSpan duration, double scale)
-    {
-        if (duration == TimeSpan.MaxValue || scale >= TimeSpan.MaxValue.Ticks / (double)duration.Ticks)
-            return TimeSpan.MaxValue;
-
-        double ticks = duration.Ticks * scale;
-        return ticks >= TimeSpan.MaxValue.Ticks
-            ? TimeSpan.MaxValue
-            : TimeSpan.FromTicks((long)ticks);
-    }
-
-    private static TimeSpan GetVideoClockStart(SourceVideo video)
-    {
-        return video.Speed.Animation is KeyFrameAnimation<float> { UseGlobalClock: true }
-            ? video.TimeRange.Start
-            : TimeSpan.Zero;
     }
 
     private static Target CreateSoundTarget(SourceSound sound)
