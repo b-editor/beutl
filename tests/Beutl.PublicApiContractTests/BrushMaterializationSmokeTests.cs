@@ -293,7 +293,7 @@ public sealed class BrushMaterializationSmokeTests
                                     ?? throw new InvalidOperationException("Could not create the canvas target.");
         using var canvas = new ImmediateCanvas(
             target,
-            intent: RenderIntent.Delivery,
+            RenderIntent.Delivery,
             drawableBrushMaterializer: materializer);
 
         Assert.That(canvas.DrawableBrushMaterializer, Is.SameAs(materializer));

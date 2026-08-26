@@ -37,7 +37,7 @@ public class BackdropScaleTests
             // 1. Capture a backdrop on a root canvas at SurfaceDensity = s_out.
             using RenderTarget root = RenderTarget.Create(dev, dev)!;
             IBackdrop backdrop;
-            using (var canvas = new ImmediateCanvas(root, sOut))
+            using (var canvas = new ImmediateCanvas(root, RenderIntent.Preview, sOut))
             {
                 canvas.Clear(Colors.Black);
                 canvas.DrawRectangle(new Rect(25, 25, 50, 50), Brushes.Resource.White, null);
@@ -46,7 +46,7 @@ public class BackdropScaleTests
 
             // 2. Replay on a separate density-s_out canvas; must un-scale by captured density.
             using RenderTarget nested = RenderTarget.Create(dev, dev)!;
-            using (var canvas2 = new ImmediateCanvas(nested, sOut))
+            using (var canvas2 = new ImmediateCanvas(nested, RenderIntent.Preview, sOut))
             {
                 canvas2.Clear(Colors.Black);
                 backdrop.Draw(canvas2);
@@ -86,7 +86,7 @@ public class BackdropScaleTests
 
             // 1. Capture on a flush-style canvas (SurfaceDensity = w).
             using RenderTarget captureTarget = RenderTarget.Create(dev, dev)!;
-            using (var capCanvas = new ImmediateCanvas(captureTarget, w))
+            using (var capCanvas = new ImmediateCanvas(captureTarget, RenderIntent.Preview, w))
             {
                 capCanvas.Clear(Colors.Black);
                 capCanvas.DrawRectangle(new Rect(25, 25, 50, 50), Brushes.Resource.White, null);
@@ -95,7 +95,7 @@ public class BackdropScaleTests
 
             // 2. Replay on a separate density-w canvas.
             using RenderTarget replayTarget = RenderTarget.Create(dev, dev)!;
-            using (var replayCanvas = new ImmediateCanvas(replayTarget, w))
+            using (var replayCanvas = new ImmediateCanvas(replayTarget, RenderIntent.Preview, w))
             {
                 replayCanvas.Clear(Colors.Black);
                 snapshot.Draw(replayCanvas);

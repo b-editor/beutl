@@ -309,6 +309,7 @@ public sealed class RenderNodeRendererContractTests
         using var destinationTarget = new TrackingRenderTarget(new PixelSize(40, 30));
         using var destination = new ImmediateCanvas(
             destinationTarget,
+            RenderIntent.Preview,
             density: 2,
             maxWorkingScale: 1.5f,
             logicalSize: new Size(20, 15));
@@ -407,7 +408,7 @@ public sealed class RenderNodeRendererContractTests
                 TargetFactory = factory,
             });
         using var target = new TrackingRenderTarget(new PixelSize(20, 20));
-        using var destination = new ImmediateCanvas(target);
+        using var destination = new ImmediateCanvas(target, RenderIntent.Preview);
 
         using (destination.PushTransform(Matrix.CreateScale(0, 1)))
         {
@@ -454,7 +455,7 @@ public sealed class RenderNodeRendererContractTests
                 TargetFactory = factory,
             });
         using var target = new TrackingRenderTarget(new PixelSize(20, 20));
-        using var destination = new ImmediateCanvas(target);
+        using var destination = new ImmediateCanvas(target, RenderIntent.Preview);
 
         using (destination.PushTransform(Matrix.CreateScale(0, 1)))
         {
@@ -501,7 +502,7 @@ public sealed class RenderNodeRendererContractTests
                 TargetFactory = factory,
             });
         using var target = new TrackingRenderTarget(new PixelSize(20, 20));
-        using var destination = new ImmediateCanvas(target);
+        using var destination = new ImmediateCanvas(target, RenderIntent.Preview);
 
         using (destination.PushTransform(Matrix.CreateScale(0, 1)))
         {
@@ -774,7 +775,7 @@ public sealed class RenderNodeRendererContractTests
     {
         var bounds = new Rect(0, 0, 4, 3);
         using var destinationTarget = new TrackingRenderTarget(new PixelSize(4, 3));
-        using var destination = new ImmediateCanvas(destinationTarget);
+        using var destination = new ImmediateCanvas(destinationTarget, RenderIntent.Preview);
         var factory = new TrackingTargetFactory(_ => destinationTarget);
 
         using var root = SourceNode(bounds);
@@ -842,7 +843,7 @@ public sealed class RenderNodeRendererContractTests
                 DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
             });
         using var target = new TrackingRenderTarget(new PixelSize(2, 2));
-        using var destination = new ImmediateCanvas(target);
+        using var destination = new ImmediateCanvas(target, RenderIntent.Preview);
 
         renderer.Dispose();
         renderer.Dispose();
@@ -905,7 +906,7 @@ public sealed class RenderNodeRendererContractTests
                 },
             });
         using var target = new TrackingRenderTarget(deviceSize);
-        using var destination = new ImmediateCanvas(target, density, logicalSize: logicalSize);
+        using var destination = new ImmediateCanvas(target, RenderIntent.Preview, density, logicalSize: logicalSize);
 
         using (destination.PushTransform(transform))
             renderer.Render(destination);

@@ -346,7 +346,7 @@ public readonly struct BrushConstructor(
             }
 
             // Density 1: the SetMatrix below builds an absolute device matrix with Scale(s) folded in.
-            using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale, intent: Intent))
+            using (var canvas = new ImmediateCanvas(intermediate, Intent, 1f, MaxWorkingScale))
             using (var paintTmp = new SKPaint())
             {
                 canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;

@@ -206,6 +206,7 @@ public sealed class GpuPassFusion3DBoundaryTests
                        PixelRect.FromRect(compiled.ExecutionTargetBounds, 1.75f).Size))
             using (var canvas = new ImmediateCanvas(
                        root.Target,
+                       RenderIntent.Preview,
                        density: 1.75f,
                        maxWorkingScale: 0.75f,
                        logicalSize: compiled.ExecutionTargetBounds.Size))
@@ -279,6 +280,7 @@ public sealed class GpuPassFusion3DBoundaryTests
             PixelRect.FromRect(compiled.ExecutionTargetBounds, 1.75f).Size);
         using var canvas = new ImmediateCanvas(
             root.Target,
+            RenderIntent.Preview,
             density: 1.75f,
             maxWorkingScale: 0.75f,
             logicalSize: compiled.ExecutionTargetBounds.Size);

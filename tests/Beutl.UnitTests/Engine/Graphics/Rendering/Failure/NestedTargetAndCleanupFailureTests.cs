@@ -94,7 +94,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderRequest request = FailureTestSupport.CreateFrameRequest(useRenderCache: false);
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);
@@ -125,7 +125,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderRequest request = FailureTestSupport.CreateFrameRequest(useRenderCache: false);
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);
@@ -196,7 +196,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         RecordedNestedRenderRequest nested = graph.NestedRequests.Single();
         var factory = new FailureTestTargetFactory();
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var registry = new RenderTargetLeaseRegistry(factory);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
@@ -247,7 +247,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         RecordedNestedRenderRequest nested = graph.NestedRequests.Single();
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var registry = new RenderTargetLeaseRegistry(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
@@ -370,7 +370,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderRequest nestedRequest = nested.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         var factory = new FailureTestTargetFactory();
         using var registry = new RenderTargetLeaseRegistry(factory);
         using RenderTargetLeaseSession targets = registry.BeginSession(
@@ -430,7 +430,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderRequest nestedRequest = nested.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         var factory = new FailureTestTargetFactory(failAt: 0);
         using var registry = new RenderTargetLeaseRegistry(factory);
         using RenderTargetLeaseSession targets = registry.BeginSession(
@@ -480,7 +480,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderRequest nestedRequest = nested.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         var factory = new FailureTestTargetFactory(failAt: 0);
         using var registry = new RenderTargetLeaseRegistry(factory);
         using RenderTargetLeaseSession targets = registry.BeginSession(
@@ -527,7 +527,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using CompiledRenderRequest compiled = new RenderRequestCompiler(
             renderCacheContext: FailureTestSupport.CacheResolutionContext).Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var registry = new RenderTargetLeaseRegistry(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
@@ -594,7 +594,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderRequest grandchildRequest = grandchildRecording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var registry = new RenderTargetLeaseRegistry(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
@@ -777,7 +777,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using CompiledRenderRequest compiled = new RenderRequestCompiler(
             renderCacheContext: FailureTestSupport.CacheResolutionContext).Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var registry = new RenderTargetLeaseRegistry(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,

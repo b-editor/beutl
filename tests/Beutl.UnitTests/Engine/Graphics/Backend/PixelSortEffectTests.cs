@@ -174,7 +174,7 @@ public class PixelSortEffectTests
         var target = RenderTarget.Create(width, height);
         if (target == null) return null;
 
-        using (var canvas = new ImmediateCanvas(target))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview))
         {
             canvas.Clear(Colors.Black);
             // 水平方向に明度勾配

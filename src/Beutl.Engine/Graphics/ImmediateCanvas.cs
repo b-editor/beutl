@@ -70,15 +70,20 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private bool _allowDeferredSameContextSampling;
     private bool _submitOnDispose;
 
+    /// <param name="intent">
+    /// The classification of the render this canvas paints for. It precedes the optional parameters because a
+    /// trailing default would let a delivery host silently inherit <see cref="RenderIntent.Preview"/>, whose
+    /// policy is to drop an unallocatable brush intermediate: the export would ship a frame with a hole in it
+    /// and report success.
+    /// </param>
     /// <param name="drawableBrushMaterializer">
     /// The hook that rasterizes a <see cref="DrawableBrush.Resource"/>'s nested content, or
     /// <see langword="null"/> to inherit the ambient one. A canvas left without either paints a
     /// <see cref="DrawableBrush"/> transparent under <see cref="RenderIntent.Preview"/> and throws under
     /// <see cref="RenderIntent.Delivery"/>.
     /// </param>
-    public ImmediateCanvas(RenderTarget renderTarget, float density = 1f,
+    public ImmediateCanvas(RenderTarget renderTarget, RenderIntent intent, float density = 1f,
         float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default,
-        RenderIntent intent = RenderIntent.Preview,
         DrawableBrushMaterializer? drawableBrushMaterializer = null)
         : this(renderTarget, density, maxWorkingScale, logicalSize, intent, flushOnDispose: true,
             deviceOrigin: default, drawableBrushMaterializer)

@@ -283,10 +283,10 @@ public sealed class SKSLScriptEffectShaderTests
             using RenderTargetLease output = targets.Acquire(deviceBounds.Size);
             using var canvas = new ImmediateCanvas(
                 output.Target,
+                RenderIntent.Preview,
                 density: 1,
                 maxWorkingScale: 1,
-                logicalSize: compiled.ExecutionTargetBounds.Size,
-                intent: RenderIntent.Preview);
+                logicalSize: compiled.ExecutionTargetBounds.Size);
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(
                        -compiled.ExecutionTargetBounds.X,

@@ -119,7 +119,7 @@ public sealed partial class DrawableTextureSource : TextureSource
                             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                         },
                     });
-                using (var canvas = new ImmediateCanvas(_renderTarget, density, density))
+                using (var canvas = new ImmediateCanvas(_renderTarget, RenderIntent.Preview, density, density))
                 {
                     canvas.Clear();
                     renderer.Render(canvas);

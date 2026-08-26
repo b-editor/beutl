@@ -76,7 +76,7 @@ public sealed class RenderNodeRendererLifetimeTests
                 TargetFactory = factory,
             });
         using RenderTarget target = RenderTarget.CreateNull(8, 8);
-        using var canvas = new ImmediateCanvas(target);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
         renderer.Render(canvas);
 

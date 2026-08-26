@@ -289,7 +289,7 @@ public class RenderScaleBenchmarkTests
         {
             using RenderTarget target = RenderTarget.Create(_deviceSize.Width, _deviceSize.Height)
                                         ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-            using var canvas = new ImmediateCanvas(target, _scale, logicalSize: _logicalSize);
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, _scale, logicalSize: _logicalSize);
             canvas.Clear(Colors.Black);
             _renderer.Render(canvas);
             return target.Snapshot();

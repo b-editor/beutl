@@ -163,6 +163,7 @@ public sealed class MaterializedInputCompositeTests
         using var destination = new CpuRenderTarget(destinationSize.Width, destinationSize.Height);
         using var canvas = new ImmediateCanvas(
             destination,
+            RenderIntent.Preview,
             destinationDensity,
             destinationDensity,
             destinationSize.ToSize(destinationDensity));
@@ -190,6 +191,7 @@ public sealed class MaterializedInputCompositeTests
         using var destination = new CpuRenderTarget(destinationSize.Width, destinationSize.Height);
         using var canvas = new ImmediateCanvas(
             destination,
+            RenderIntent.Preview,
             destinationDensity,
             destinationDensity,
             destinationSize.ToSize(destinationDensity));

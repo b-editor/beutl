@@ -626,7 +626,7 @@ public sealed class RendererWideRecordingTests
         using var third = new DeferredProbeNode(2, recorded, executed);
         using var completeTarget = new CompleteTargetRenderNode(first, [second, third]);
         using var destination = new CpuRenderTarget(8, 8);
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var renderer = new RenderNodeRenderer(
             completeTarget,
             new RenderNodeRendererOptions
@@ -660,7 +660,7 @@ public sealed class RendererWideRecordingTests
         using var capture = new OrderedCaptureNode(3, recorded, executed);
         using var completeTarget = new CompleteTargetRenderNode(clear, [source, command, capture]);
         using var destination = new CpuRenderTarget(8, 8);
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var renderer = new RenderNodeRenderer(
             completeTarget,
             new RenderNodeRendererOptions

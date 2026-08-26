@@ -17,7 +17,7 @@ public sealed class ProductionResourceLifetimeTests
         using var node = new FanOutOpaqueNode();
         using var renderer = CreateRenderer(node);
         using RenderTarget target = new CpuRenderTarget(16, 16);
-        using var canvas = new ImmediateCanvas(target);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
         Assert.That(() => renderer.Render(canvas), Throws.Nothing);
         renderer.Render(canvas);

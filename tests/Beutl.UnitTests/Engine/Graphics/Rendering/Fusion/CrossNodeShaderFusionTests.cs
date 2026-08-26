@@ -151,7 +151,7 @@ public sealed class CrossNodeShaderFusionTests
                 TargetFactory = targetFactory,
             });
         using RenderTarget destination = targetFactory.CreateCpuTarget(new PixelSize(24, 16));
-        using var canvas = new ImmediateCanvas(destination, logicalSize: new Size(24, 16));
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: new Size(24, 16));
 
         Assert.That(destination.Value.Context, Is.Null);
         renderer.Render(canvas);
@@ -187,10 +187,10 @@ public sealed class CrossNodeShaderFusionTests
                     },
                 });
             using RenderTarget cpuDestination = cpuFactory.CreateCpuTarget(new PixelSize(24, 16));
-            using var cpuCanvas = new ImmediateCanvas(cpuDestination, logicalSize: new Size(24, 16));
+            using var cpuCanvas = new ImmediateCanvas(cpuDestination, RenderIntent.Preview, logicalSize: new Size(24, 16));
             using RenderTarget gpuDestination = RenderTarget.Create(24, 16)
                 ?? throw new InvalidOperationException("Could not create the GPU fusion-test surface.");
-            using var gpuCanvas = new ImmediateCanvas(gpuDestination, logicalSize: new Size(24, 16));
+            using var gpuCanvas = new ImmediateCanvas(gpuDestination, RenderIntent.Preview, logicalSize: new Size(24, 16));
 
             Assert.Multiple(() =>
             {
@@ -233,9 +233,11 @@ public sealed class CrossNodeShaderFusionTests
             using RenderTarget secondDestination = CreateContextTarget(secondContext, 24, 16);
             using var firstCanvas = new ImmediateCanvas(
                 firstDestination,
+                RenderIntent.Preview,
                 logicalSize: new Size(24, 16));
             using var secondCanvas = new ImmediateCanvas(
                 secondDestination,
+                RenderIntent.Preview,
                 logicalSize: new Size(24, 16));
             using RenderTarget source = new CpuTargetFactory().CreateCpuTarget(
                 new PixelSize((int)s_bounds.Width, (int)s_bounds.Height));
@@ -593,7 +595,7 @@ public sealed class CrossNodeShaderFusionTests
     {
         using RenderTarget target = RenderTarget.Create(32, 24)
             ?? throw new InvalidOperationException("Could not allocate the active-state destination.");
-        using var canvas = new ImmediateCanvas(target, logicalSize: new Size(32, 24));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: new Size(32, 24));
         canvas.Clear(new Color(255, 26, 48, 72));
         using (canvas.PushTransform(Matrix.CreateTranslation(x, y)))
         using (canvas.PushClip(new Rect(4, 5, 10, 7)))

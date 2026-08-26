@@ -128,7 +128,7 @@ public class SourceEffectiveScaleFlowTests
                 },
             });
         using RenderTarget target = RenderTarget.Create(120, 90)!;
-        using (var canvas = new ImmediateCanvas(target, 1))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1))
         {
             canvas.Clear(Colors.Black);
             renderer.Render(canvas);
@@ -2097,7 +2097,7 @@ public class SourceEffectiveScaleFlowTests
                 "an oversampled effect buffer must be concrete At(w), not Unbounded");
 
             using RenderTarget target = RenderTarget.Create(120, 90)!;
-            using (var canvas = new ImmediateCanvas(target, 1))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1))
             {
                 canvas.Clear(Colors.Black);
                 renderer.Render(canvas);
@@ -2105,7 +2105,7 @@ public class SourceEffectiveScaleFlowTests
 
             using Bitmap snapshot = target.Snapshot();
             using RenderTarget blackTarget = RenderTarget.Create(120, 90)!;
-            using (var blackCanvas = new ImmediateCanvas(blackTarget))
+            using (var blackCanvas = new ImmediateCanvas(blackTarget, RenderIntent.Preview))
                 blackCanvas.Clear(Colors.Black);
             using Bitmap black = blackTarget.Snapshot();
             Assert.That(ImageMetrics.MeanAbsoluteError(snapshot, black), Is.GreaterThan(0.01),

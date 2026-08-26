@@ -66,7 +66,7 @@ public class ClearRenderNodeTest
                 },
             });
         using var renderTarget = RenderTarget.CreateNull(100, 100);
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Preview);
 
         // Act
         RenderNodeMeasurement measurement = renderer.Measure();

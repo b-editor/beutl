@@ -97,7 +97,7 @@ public class TextBlockTests
         var bounds = PenHelper.GetBounds(skpath.Bounds.ToGraphicsRect(), penResource);
 
         using var renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)!;
-        using var graphics = new ImmediateCanvas(renderTarget);
+        using var graphics = new ImmediateCanvas(renderTarget, RenderIntent.Preview);
 
         graphics.Clear(Colors.White);
         graphics.DrawSKPath(skpath, true, null, penResource);

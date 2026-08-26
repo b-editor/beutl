@@ -325,7 +325,7 @@ internal static class FusionBoundaryExecutionTestSupport
             RenderIntent.Preview);
         PixelRect deviceBounds = PixelRect.FromRect(compiled.ExecutionTargetBounds, 1);
         using RenderTargetLease root = targets.Acquire(deviceBounds.Size);
-        using var canvas = new ImmediateCanvas(root.Target, 1, 1, compiled.ExecutionTargetBounds.Size);
+        using var canvas = new ImmediateCanvas(root.Target, RenderIntent.Preview, 1, 1, compiled.ExecutionTargetBounds.Size);
         canvas.Clear();
         using (canvas.PushTransform(Matrix.CreateTranslation(
                    -compiled.ExecutionTargetBounds.X,

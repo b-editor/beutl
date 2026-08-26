@@ -199,7 +199,7 @@ public sealed class WholeSourceHeadFusionParityTests
                 SKColorSpace.CreateSrgbLinear()))
             ?? throw new InvalidOperationException("Could not create the CPU output-size parity surface.");
         using RenderTarget destination = new CpuRenderTarget(surface, canvasSize);
-        using (var canvas = new ImmediateCanvas(destination, logicalSize: canvasBounds.Size))
+        using (var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: canvasBounds.Size))
         {
             canvas.Clear();
             renderer.Render(canvas);

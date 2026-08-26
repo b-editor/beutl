@@ -197,7 +197,7 @@ public sealed class BitmapSamplingQualityTests
             (int)MathF.Ceiling(frame.Width * scale),
             (int)MathF.Ceiling(frame.Height * scale))
             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, scale, logicalSize: frame.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, scale, logicalSize: frame.ToSize(1));
         canvas.Clear(Colors.Black);
         renderer.Render(canvas);
         return new RenderResult(target.Snapshot(), renderer.LastExecutionStatistics);

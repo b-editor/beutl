@@ -74,6 +74,7 @@ public sealed class FilterEffectActivatorReentrancyTests
             ?? throw new InvalidOperationException("A CPU render target is required for this test.");
         using (var canvas = new ImmediateCanvas(
                    renderTarget,
+                   RenderIntent.Preview,
                    density: 1,
                    maxWorkingScale: 1,
                    logicalSize: bounds.Size))

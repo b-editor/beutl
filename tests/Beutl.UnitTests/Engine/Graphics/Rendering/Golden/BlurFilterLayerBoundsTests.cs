@@ -164,7 +164,7 @@ public sealed class BlurFilterLayerBoundsTests
     {
         using RenderTarget target = RenderTarget.Create(s_frame.Width, s_frame.Height)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, 1f, logicalSize: s_frame.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1f, logicalSize: s_frame.ToSize(1));
         canvas.Clear();
 
         using var root = new DrawableRenderNode(resources[0]);

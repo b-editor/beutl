@@ -142,7 +142,7 @@ public class GLSLShaderTests
             // Set up a 4x4 red EffectTarget so we can detect the shader's blue overwrite.
             using var sourceRenderTarget = RenderTarget.Create(4, 4);
             Assume.That(sourceRenderTarget, Is.Not.Null);
-            using (var canvas = new ImmediateCanvas(sourceRenderTarget!))
+            using (var canvas = new ImmediateCanvas(sourceRenderTarget!, RenderIntent.Preview))
             {
                 canvas.Clear(Colors.Red);
             }
@@ -189,7 +189,7 @@ public class GLSLShaderTests
             using var targets = new EffectTargets();
             using RenderTarget source = RenderTarget.Create(4, 4)
                 ?? throw new InvalidOperationException("Could not create the GLSL source target.");
-            using (var canvas = new ImmediateCanvas(source))
+            using (var canvas = new ImmediateCanvas(source, RenderIntent.Preview))
             {
                 canvas.Clear(Colors.Red);
             }
@@ -372,7 +372,7 @@ public class GLSLShaderTests
     {
         RenderTarget target = RenderTarget.Create(width, height)
             ?? throw new InvalidOperationException("Could not create the GLSL source target.");
-        using (var canvas = new ImmediateCanvas(target))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview))
         {
             canvas.Clear(color);
         }

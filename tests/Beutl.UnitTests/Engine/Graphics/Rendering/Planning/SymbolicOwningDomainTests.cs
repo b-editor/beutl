@@ -86,7 +86,7 @@ public sealed class SymbolicOwningDomainTests
                 TargetFactory = new CpuTargetFactory(),
             });
         using var target = new CpuRenderTarget(100, 60);
-        using var canvas = new ImmediateCanvas(target);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
         renderer.Render(canvas);
         using Bitmap bitmap = target.Snapshot();
@@ -156,7 +156,7 @@ public sealed class SymbolicOwningDomainTests
                 TargetFactory = new CpuTargetFactory(),
             });
         using var target = new CpuRenderTarget(64, 48);
-        using var canvas = new ImmediateCanvas(target);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
         Assert.That(() => renderer.Render(canvas), Throws.Nothing);
         Assert.That(effect.CallbackCount, Is.EqualTo(1));
@@ -411,7 +411,7 @@ public sealed class SymbolicOwningDomainTests
                 TargetFactory = new CpuTargetFactory(),
             });
         using var target = new CpuRenderTarget(100, 60);
-        using var canvas = new ImmediateCanvas(target);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
         renderer.Render(canvas);
 
@@ -444,7 +444,7 @@ public sealed class SymbolicOwningDomainTests
                 TargetFactory = new CpuTargetFactory(),
             });
         using var target = new CpuRenderTarget(100, 60);
-        using var canvas = new ImmediateCanvas(target);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
         renderer.Render(canvas);
 
@@ -490,6 +490,7 @@ public sealed class SymbolicOwningDomainTests
         using var target = new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
         using var canvas = new ImmediateCanvas(
             target,
+            RenderIntent.Preview,
             density,
             maxWorkingScale: 4,
             domain.Size);

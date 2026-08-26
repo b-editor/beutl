@@ -50,6 +50,7 @@ public sealed class DirectSkiaFilterReplayTests
         using RenderTarget target = new CpuRenderTarget(deviceBounds.Size);
         using var canvas = new ImmediateCanvas(
             target,
+            RenderIntent.Preview,
             density: 1,
             maxWorkingScale: 4,
             logicalSize: deviceBounds.ToRect(1).Size);
@@ -861,6 +862,7 @@ public sealed class DirectSkiaFilterReplayTests
         using RenderTarget target = new CpuRenderTarget(deviceBounds.Size);
         using var canvas = new ImmediateCanvas(
             target,
+            RenderIntent.Preview,
             density: 1,
             maxWorkingScale: 4,
             logicalSize: deviceBounds.ToRect(1).Size);
@@ -898,6 +900,7 @@ public sealed class DirectSkiaFilterReplayTests
         using RenderTarget target = new CpuRenderTarget(deviceBounds.Size);
         using var canvas = new ImmediateCanvas(
             target,
+            RenderIntent.Preview,
             density: 1,
             maxWorkingScale: 4,
             logicalSize: deviceBounds.ToRect(1).Size);

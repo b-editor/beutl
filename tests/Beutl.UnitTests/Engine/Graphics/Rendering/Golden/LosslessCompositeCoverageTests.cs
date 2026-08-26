@@ -363,7 +363,7 @@ public sealed class LosslessCompositeCoverageTests
         {
             using RenderTarget source = RenderTarget.Create(16, 16)
                                         ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-            using (var sourceCanvas = new ImmediateCanvas(source, 1f, logicalSize: new Size(16, 16)))
+            using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview, 1f, logicalSize: new Size(16, 16)))
             {
                 sourceCanvas.Clear();
                 using var dark = new SKPaint { IsAntialias = false, Color = new SKColor(64, 64, 64) };
@@ -375,7 +375,7 @@ public sealed class LosslessCompositeCoverageTests
             using RenderTarget destination = RenderTarget.Create(64, 64)
                                              ?? throw new InvalidOperationException(
                                                  "RenderTarget.Create returned null.");
-            using (var canvas = new ImmediateCanvas(destination, 1f, logicalSize: new Size(64, 64)))
+            using (var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, 1f, logicalSize: new Size(64, 64)))
             {
                 canvas.Clear();
                 canvas.DrawRenderTargetScaled(source, new Rect(4, 4, 40, 40));
@@ -594,7 +594,7 @@ public sealed class LosslessCompositeCoverageTests
     {
         using RenderTarget target = RenderTarget.Create(180, 140)
             ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, logicalSize: new Size(180, 140));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: new Size(180, 140));
         canvas.Clear();
         using (canvas.PushTransform(
                    Matrix.CreateTranslation(destinationTranslation, destinationTranslation)))
@@ -672,7 +672,7 @@ public sealed class LosslessCompositeCoverageTests
                                      ?? throw new InvalidOperationException("The shape produced no geometry.");
 
         using RenderTarget target = CreateFrameTarget(density);
-        using var canvas = new ImmediateCanvas(target, density, logicalSize: frameSize);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, density, logicalSize: frameSize);
         canvas.Clear();
         using (canvas.PushTransform(transform))
         {
@@ -712,7 +712,7 @@ public sealed class LosslessCompositeCoverageTests
             });
 
         using RenderTarget target = CreateFrameTarget(density, frame);
-        using var canvas = new ImmediateCanvas(target, density, logicalSize: frame.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, density, logicalSize: frame.ToSize(1));
         canvas.Clear();
         renderer.Render(canvas);
         return target.Snapshot();

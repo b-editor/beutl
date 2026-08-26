@@ -183,7 +183,7 @@ public static class ObjectTemplatePreviewRenderer
         if (target == null)
             return null;
 
-        using var canvas = new ImmediateCanvas(target, scale, scale * 2f, logicalSize: bounds.Size);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, scale, scale * 2f, logicalSize: bounds.Size);
         canvas.Clear();
         using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
         {

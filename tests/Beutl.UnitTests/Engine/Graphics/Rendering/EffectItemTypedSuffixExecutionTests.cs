@@ -485,7 +485,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             });
 
         using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
-        using (var actualCanvas = new ImmediateCanvas(actualTarget, logicalSize: domain.Size))
+        using (var actualCanvas = new ImmediateCanvas(actualTarget, RenderIntent.Preview, logicalSize: domain.Size))
         {
             actualCanvas.Clear();
             renderer.Render(actualCanvas);
@@ -494,7 +494,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         using RenderTarget allocation = retainedAllocation
             ?? throw new AssertionException("The custom effect did not allocate an expanded target.");
         using var expectedTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
-        using (var expectedCanvas = new ImmediateCanvas(expectedTarget, logicalSize: domain.Size))
+        using (var expectedCanvas = new ImmediateCanvas(expectedTarget, RenderIntent.Preview, logicalSize: domain.Size))
         {
             expectedCanvas.Clear();
             expectedCanvas.DrawRenderTarget(allocation, expandedBounds.Position);
@@ -624,20 +624,20 @@ public sealed class EffectItemTypedSuffixExecutionTests
                 TargetFactory = new CpuTargetFactory(),
             });
         using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
-        using (var actualCanvas = new ImmediateCanvas(actualTarget, logicalSize: domain.Size))
+        using (var actualCanvas = new ImmediateCanvas(actualTarget, RenderIntent.Preview, logicalSize: domain.Size))
         {
             actualCanvas.Clear();
             renderer.Render(actualCanvas);
         }
 
         using var localTarget = new CpuRenderTarget(9, 7);
-        using (var localCanvas = new ImmediateCanvas(localTarget, logicalSize: effectItemBounds.Size))
+        using (var localCanvas = new ImmediateCanvas(localTarget, RenderIntent.Preview, logicalSize: effectItemBounds.Size))
         {
             DrawEffectItemPattern(localCanvas);
         }
 
         using var expectedTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
-        using (var expectedCanvas = new ImmediateCanvas(expectedTarget, logicalSize: domain.Size))
+        using (var expectedCanvas = new ImmediateCanvas(expectedTarget, RenderIntent.Preview, logicalSize: domain.Size))
         {
             expectedCanvas.Clear();
             expectedCanvas.DrawRenderTarget(localTarget, effectItemBounds.Position);
@@ -689,7 +689,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
                 TargetFactory = new CpuTargetFactory(),
             });
         using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
-        using (var actualCanvas = new ImmediateCanvas(actualTarget, logicalSize: domain.Size))
+        using (var actualCanvas = new ImmediateCanvas(actualTarget, RenderIntent.Preview, logicalSize: domain.Size))
         {
             actualCanvas.Clear();
             renderer.Render(actualCanvas);
@@ -701,7 +701,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         Assert.That(localTarget.Height, Is.EqualTo(7));
 
         using var expectedTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
-        using (var expectedCanvas = new ImmediateCanvas(expectedTarget, logicalSize: domain.Size))
+        using (var expectedCanvas = new ImmediateCanvas(expectedTarget, RenderIntent.Preview, logicalSize: domain.Size))
         {
             expectedCanvas.Clear();
             expectedCanvas.DrawRenderTarget(localTarget, movedBounds.Position);
@@ -878,6 +878,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             ?? throw new InvalidOperationException("A CPU render target is required for this test.");
         using (var canvas = new ImmediateCanvas(
                    renderTarget,
+                   RenderIntent.Preview,
                    density: 1,
                    maxWorkingScale: 1,
                    logicalSize: bounds.Size))
@@ -939,6 +940,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         using var destination = new CpuRenderTarget(32, 24);
         using var canvas = new ImmediateCanvas(
             destination,
+            RenderIntent.Preview,
             logicalSize: new Size(32, 24));
         canvas.Clear();
         using (canvas.PushTransform(Matrix.CreateTranslation(translation)))

@@ -87,7 +87,7 @@ public class ShaderMatrixUniformTests
     {
         using RenderTarget target = RenderTarget.Create(Width, Height)
             ?? throw new InvalidOperationException("Could not allocate the matrix-uniform target.");
-        using (var canvas = new ImmediateCanvas(target, 1, 1, new Size(Width, Height)))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 1, new Size(Width, Height)))
         {
             canvas.Clear();
             using var renderer = new RenderNodeRenderer(

@@ -50,7 +50,7 @@ public sealed class ExecutionIslandAuthorityTests
             using RenderTarget source = FusionBoundaryExecutionTestSupport.CreatePatternSource(s_bounds);
             using RenderTarget destination = RenderTarget.Create((int)s_bounds.Width, (int)s_bounds.Height)
                 ?? throw new InvalidOperationException("Could not allocate the flush-test destination.");
-            using var canvas = new ImmediateCanvas(destination, logicalSize: s_bounds.Size);
+            using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: s_bounds.Size);
             using var node = new TerminalOpacityNode(source);
             using var renderer = CreateRenderer(node);
             var observed = new ConcurrentQueue<ImmediateCanvasFlushKind>();

@@ -95,7 +95,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
         Rect? observedDomain = null;
         using var root = new DomainProbeNode(context => observedDomain = context.TargetDomain);
         using var target = new DeviceBoundsRenderTarget(deviceSize);
-        using var canvas = new ImmediateCanvas(target, density: 2, logicalSize: logicalSize);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, density: 2, logicalSize: logicalSize);
         using var renderer = new RenderNodeRenderer(
             root,
             new RenderNodeRendererOptions

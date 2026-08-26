@@ -294,6 +294,7 @@ public sealed class GpuPassFusionScaleRegionTests
         using var target = new CpuRenderTarget(80, 80);
         using var canvas = new ImmediateCanvas(
             target,
+            RenderIntent.Preview,
             density: 2,
             logicalSize: new Size(40, 40));
         canvas.Clear(Colors.Red);
@@ -336,6 +337,7 @@ public sealed class GpuPassFusionScaleRegionTests
         using var target = new CpuRenderTarget(80, 80);
         using var canvas = new ImmediateCanvas(
             target,
+            RenderIntent.Preview,
             density: 2,
             logicalSize: new Size(40, 40));
         using var opacity = canvas.PushOpacity(0.5f);
@@ -371,7 +373,7 @@ public sealed class GpuPassFusionScaleRegionTests
         using var node = new ClipBlurTargetNode(s_domain);
         using var renderer = CreateClipBlurRenderer(node, requestedRegion);
         using var target = new CpuRenderTarget((int)s_domain.Width, (int)s_domain.Height);
-        using var canvas = new ImmediateCanvas(target, logicalSize: s_domain.Size);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: s_domain.Size);
         canvas.Clear(Colors.OrangeRed);
         var ellipse = new EllipseGeometry
         {
@@ -403,7 +405,7 @@ public sealed class GpuPassFusionScaleRegionTests
         using var node = new ClipBlurTargetNode(s_domain);
         using var renderer = CreateClipBlurRenderer(node, requestedRegion);
         using var target = new CpuRenderTarget((int)s_domain.Width, (int)s_domain.Height);
-        using var canvas = new ImmediateCanvas(target, logicalSize: s_domain.Size);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: s_domain.Size);
         canvas.Clear(Colors.OrangeRed);
 
         using (canvas.PushClip(requestedRegion))
@@ -421,7 +423,7 @@ public sealed class GpuPassFusionScaleRegionTests
         using var node = new ClipBlurTargetNode(s_domain);
         using var renderer = CreateClipBlurRenderer(node, requestedRegion);
         using var target = new CpuRenderTarget((int)s_domain.Width, (int)s_domain.Height);
-        using var canvas = new ImmediateCanvas(target, logicalSize: s_domain.Size);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: s_domain.Size);
         canvas.Clear(Colors.OrangeRed);
         using (canvas.PushClip(clip))
         {
@@ -596,7 +598,7 @@ public sealed class GpuPassFusionScaleRegionTests
         const int height = 108;
         using RenderTarget target = RenderTarget.Create(width, height)
             ?? throw new InvalidOperationException("Could not allocate the thin-stroke target.");
-        using (var canvas = new ImmediateCanvas(target, 1, 2, new Size(width, height)))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 2, new Size(width, height)))
         {
             canvas.Clear();
             using var renderer = new RenderNodeRenderer(

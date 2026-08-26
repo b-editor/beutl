@@ -122,7 +122,7 @@ public sealed class EffectItemRequiredRegionTests
         using var destination = new CpuRenderTarget(
             (int)(frame.Width * scale),
             (int)(frame.Height * scale));
-        using var canvas = new ImmediateCanvas(destination, scale, logicalSize: frame.ToSize(1));
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, scale, logicalSize: frame.ToSize(1));
         using var renderer = new RenderNodeRenderer(
             filter,
             new RenderNodeRendererOptions

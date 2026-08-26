@@ -4,6 +4,7 @@ using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -43,6 +44,24 @@ public sealed class DeliveryIntentDeclarationContractTests
     }
 
     [Test]
+    public void TheCanvasConstructor_RequiresAnExplicitIntent()
+    {
+        ParameterInfo intent = RequireParameter(typeof(ImmediateCanvas), "intent");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(intent.HasDefaultValue, Is.False);
+            Assert.That(
+                typeof(ImmediateCanvas).GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+                    .Any(static constructor => constructor.GetParameters()
+                        .All(static parameter => parameter.Name == "renderTarget" || parameter.HasDefaultValue)),
+                Is.False,
+                "no public constructor may be reached with a render target alone, which would hand a delivery "
+                + "host a canvas that degrades instead of failing");
+        });
+    }
+
+    [Test]
     public void ADeliveryRendererStillDeclaresItsIntent()
     {
         using var renderer = new Renderer(4, 4, RenderIntent.Delivery);
@@ -61,6 +80,43 @@ public sealed class DeliveryIntentDeclarationContractTests
             drawableBrushMaterializer: null);
 
         Assert.That(constructor.Intent, Is.EqualTo(RenderIntent.Delivery));
+    }
+
+    // A canvas acts on its intent when it configures a fill: a brush whose content cannot be produced paints
+    // transparent under Preview and fails the render under Delivery. Construction is the only place that
+    // decision is made, so an intent stated there has to reach the paint.
+    [Test]
+    public void AnExplicitDeliveryIntent_SurvivesToTheCanvasFill()
+    {
+        using DrawableBrush.Resource brush = CreateUnmaterializableBrushResource();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => FillARectangle(RenderIntent.Preview, brush),
+                Throws.Nothing,
+                "a preview canvas degrades the fill to transparent and keeps drawing");
+            Assert.That(
+                () => FillARectangle(RenderIntent.Delivery, brush),
+                Throws.InvalidOperationException.With.Message.Contains("no runtime materializer"));
+        });
+    }
+
+    private static void FillARectangle(RenderIntent intent, Brush.Resource brush)
+    {
+        using RenderTarget target = RenderTarget.Create(64, 36)
+                                    ?? throw new InvalidOperationException("Could not create the canvas target.");
+        using var canvas = new ImmediateCanvas(target, intent, logicalSize: new Size(64, 36));
+        canvas.DrawRectangle(new Rect(0, 0, 64, 36), brush, pen: null);
+    }
+
+    private static DrawableBrush.Resource CreateUnmaterializableBrushResource()
+    {
+        var content = new EllipseShape();
+        content.Width.CurrentValue = 20;
+        content.Height.CurrentValue = 12;
+        content.Fill.CurrentValue = Brushes.White;
+        return new DrawableBrush(content).ToResource(CompositionContext.Default);
     }
 
     [Test]

@@ -107,7 +107,7 @@ public sealed class BrushIntermediateAllocationIntentTests
     public void Canvas_HandsItsIntentToTheBrushesItPaintsWith()
     {
         using RenderTarget target = RenderTarget.CreateNull(8, 8);
-        using var canvas = new ImmediateCanvas(target, intent: RenderIntent.Delivery);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery);
         using ImageBrush.Resource brush = CreateImageBrush();
 
         Assert.That(canvas.Intent, Is.EqualTo(RenderIntent.Delivery));
@@ -122,7 +122,7 @@ public sealed class BrushIntermediateAllocationIntentTests
     public void PreviewCanvas_KeepsDrawingWhenABrushIntermediateCannotBeAllocated()
     {
         using RenderTarget target = RenderTarget.CreateNull(8, 8);
-        using var canvas = new ImmediateCanvas(target);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
         using ImageBrush.Resource brush = CreateImageBrush();
 
         Assert.That(canvas.Intent, Is.EqualTo(RenderIntent.Preview));
@@ -136,7 +136,7 @@ public sealed class BrushIntermediateAllocationIntentTests
     {
         using RenderTarget target = RenderTarget.CreateNull(8, 8);
         using var canvas = new ImmediateCanvas(
-            target, density: 2f, maxWorkingScale: 4f, intent: RenderIntent.Delivery);
+            target, RenderIntent.Delivery, density: 2f, maxWorkingScale: 4f);
 
         BrushConstructor constructor = canvas.CreateBrushConstructor(
             s_bounds, Brushes.Resource.White, BlendMode.SrcOver);

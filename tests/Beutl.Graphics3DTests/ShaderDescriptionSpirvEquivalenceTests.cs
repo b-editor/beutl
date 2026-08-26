@@ -145,7 +145,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
         using var registry = new RenderTargetLeaseRegistry(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview);
         using RenderTargetLease output = targets.Acquire(PixelRect.FromRect(s_bounds, 1).Size);
-        using var canvas = new ImmediateCanvas(output.Target, 1, 1, s_bounds.Size);
+        using var canvas = new ImmediateCanvas(output.Target, RenderIntent.Preview, 1, 1, s_bounds.Size);
         canvas.Clear();
         var executor = new RenderRequestExecutor(
             targets,

@@ -130,7 +130,7 @@ public sealed class OpaqueSourceCoverageTests
         int deviceHeight = (int)MathF.Ceiling(s_frame.Height * density);
         using RenderTarget target = RenderTarget.Create(deviceWidth, deviceHeight)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, density, logicalSize: s_frame.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, density, logicalSize: s_frame.ToSize(1));
         canvas.Clear();
         renderer.Render(canvas);
         return target.Snapshot();

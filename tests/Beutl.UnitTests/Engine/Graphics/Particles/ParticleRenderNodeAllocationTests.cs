@@ -57,7 +57,7 @@ public sealed class ParticleRenderNodeAllocationTests
                 TargetFactory = factory,
             });
         using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
-        using var canvas = new ImmediateCanvas(target, logicalSize: s_frame, intent: RenderIntent.Delivery);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_frame);
 
         Assert.That(() => renderer.Render(canvas), Throws.Nothing);
         Assert.That(factory.Requests, Has.All.Matches<PixelSize>(size =>
@@ -156,7 +156,7 @@ public sealed class ParticleRenderNodeAllocationTests
                 TargetFactory = factory,
             });
         using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
-        using (var canvas = new ImmediateCanvas(target, logicalSize: s_frame, intent: RenderIntent.Delivery))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_frame))
         {
             canvas.Clear();
             renderer.Render(canvas);
@@ -205,7 +205,7 @@ public sealed class ParticleRenderNodeAllocationTests
                 TargetFactory = factory,
             });
         using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
-        using var canvas = new ImmediateCanvas(target, logicalSize: s_frame, intent: RenderIntent.Delivery);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_frame);
         renderer.Render(canvas);
 
         Assert.That(factory.Requests, Is.Not.Empty, "The fixture must reach the particle layer allocation.");

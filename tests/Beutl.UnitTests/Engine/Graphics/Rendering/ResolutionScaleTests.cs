@@ -247,7 +247,7 @@ public class ResolutionScaleTests
     public void PreserveTargetSupply_UsesTheFinerAnisotropicAxis()
     {
         using var target = RenderTarget.CreateNull(100, 100);
-        using var canvas = new ImmediateCanvas(target, 1, 1, new Size(100, 100));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 1, new Size(100, 100));
         using (canvas.PushTransform(Matrix.CreateScale(4, 0.25f)))
         {
             Assert.That(DeviceGridAlignment.ResolveLocalDensity(canvas), Is.EqualTo(4));
@@ -258,7 +258,7 @@ public class ResolutionScaleTests
     public void PreserveTargetSupply_UsesTheMaximumSingularValueUnderShear()
     {
         using var target = RenderTarget.CreateNull(100, 100);
-        using var canvas = new ImmediateCanvas(target, 1, 1, new Size(100, 100));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 1, new Size(100, 100));
         using (canvas.PushTransform(new Matrix(1, 1, 0, 1, 0, 0)))
         {
             float expected = MathF.Sqrt((3 + MathF.Sqrt(5)) / 2);
@@ -270,7 +270,7 @@ public class ResolutionScaleTests
     public void PreserveTargetSupply_RejectsPerspectiveInsteadOfApproximatingIt()
     {
         using var target = RenderTarget.CreateNull(100, 100);
-        using var canvas = new ImmediateCanvas(target, 1, 1, new Size(100, 100));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 1, new Size(100, 100));
         var perspective = new Matrix(
             1, 0, 0.01f,
             0, 1, 0,

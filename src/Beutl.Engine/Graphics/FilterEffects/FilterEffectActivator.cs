@@ -848,10 +848,10 @@ public sealed class FilterEffectActivator : IDisposable
         {
             canvas = new ImmediateCanvas(
                 target,
+                Intent,
                 density,
                 MaxWorkingScale,
-                logicalSize,
-                Intent);
+                logicalSize);
         }
 
         canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;

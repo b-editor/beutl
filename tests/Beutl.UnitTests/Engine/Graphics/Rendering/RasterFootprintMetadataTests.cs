@@ -38,7 +38,7 @@ public sealed class RasterFootprintMetadataTests
             density,
             bounds,
             deviceBounds,
-            () => new ImmediateCanvas(target, density, logicalSize: rasterBounds.Size),
+            () => new ImmediateCanvas(target, RenderIntent.Preview, density, logicalSize: rasterBounds.Size),
             CallbackCanvasCapability.Draw);
 
         canvas.Use(input.Draw);
@@ -74,7 +74,7 @@ public sealed class RasterFootprintMetadataTests
             density,
             logicalBounds,
             deviceBounds,
-            () => new ImmediateCanvas(target, density, logicalSize: rasterBounds.Size),
+            () => new ImmediateCanvas(target, RenderIntent.Preview, density, logicalSize: rasterBounds.Size),
             CallbackCanvasCapability.Draw);
 
         facade.Use(canvas =>
@@ -112,7 +112,7 @@ public sealed class RasterFootprintMetadataTests
             token,
             density: 1,
             callbackBounds,
-            () => new ImmediateCanvas(target, logicalSize: new Size(64, 48)),
+            () => new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: new Size(64, 48)),
             CallbackCanvasCapability.TargetCommandRegion,
             mapLogicalOrigin: false);
 
@@ -129,7 +129,7 @@ public sealed class RasterFootprintMetadataTests
         var expectedOffset = new Vector(0.25f, 0.75f);
         var token = new RenderExecutionSessionToken();
         using RenderTarget target = RenderTarget.CreateNull(64, 48);
-        using var destination = new ImmediateCanvas(target, logicalSize: new Size(64, 48));
+        using var destination = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: new Size(64, 48));
         using (destination.PushTransform(Matrix.CreateTranslation(expectedOffset)))
         {
             RenderCallbackCanvas facade = RenderCallbackCanvas.CreateTargetAttached(
@@ -162,7 +162,7 @@ public sealed class RasterFootprintMetadataTests
         var translation = new Vector(49.97410583f, 70);
         var token = new RenderExecutionSessionToken();
         using RenderTarget target = RenderTarget.CreateNull(256, 192);
-        using var destination = new ImmediateCanvas(target, logicalSize: new Size(256, 192));
+        using var destination = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: new Size(256, 192));
         using (destination.PushTransform(Matrix.CreateTranslation(translation)))
         {
             RenderCallbackCanvas facade = RenderCallbackCanvas.CreateTargetAttached(
@@ -303,6 +303,7 @@ public sealed class RasterFootprintMetadataTests
             (int)Math.Ceiling(logicalBounds.Height * density));
         using var destination = new ImmediateCanvas(
             target,
+            RenderIntent.Preview,
             density,
             logicalSize: logicalBounds.Size);
         using var renderer = new RenderNodeRenderer(
@@ -333,7 +334,7 @@ public sealed class RasterFootprintMetadataTests
             var token = new RenderExecutionSessionToken();
             using RenderTarget target = RenderTarget.Create(32, 16)
                 ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-            using var destination = new ImmediateCanvas(target, logicalSize: new Size(32, 16));
+            using var destination = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: new Size(32, 16));
             destination.Clear();
             PixelRect expectedBounds;
             using (destination.PushTransform(Matrix.CreateTranslation(gridOffset)))
@@ -742,7 +743,7 @@ public sealed class RasterFootprintMetadataTests
         var dest = new Rect(0, 0, 12, 10);
         var sourceSize = new PixelSize(12, 10);
         using RenderTarget target = RenderTarget.CreateNull(40, 40);
-        using var canvas = new ImmediateCanvas(target, 1f, logicalSize: new Size(40, 40));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1f, logicalSize: new Size(40, 40));
 
         bool aligned;
         bool fractional;
@@ -783,7 +784,7 @@ public sealed class RasterFootprintMetadataTests
             density,
             bounds,
             deviceBounds,
-            () => new ImmediateCanvas(target, density, logicalSize: bounds.Size),
+            () => new ImmediateCanvas(target, RenderIntent.Preview, density, logicalSize: bounds.Size),
             CallbackCanvasCapability.Draw);
 
         try

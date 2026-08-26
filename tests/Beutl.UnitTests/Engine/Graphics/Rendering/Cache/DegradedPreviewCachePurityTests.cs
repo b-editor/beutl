@@ -50,10 +50,10 @@ public sealed class DegradedPreviewCachePurityTests
             PixelRect.FromRect(s_bounds, 1).Height);
         using var delivery = new ImmediateCanvas(
             target,
+            RenderIntent.Delivery,
             density: 1,
             maxWorkingScale: 1,
-            logicalSize: s_bounds.Size,
-            intent: RenderIntent.Delivery);
+            logicalSize: s_bounds.Size);
 
         Assert.That(
             () => renderer.Render(delivery),

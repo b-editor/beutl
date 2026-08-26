@@ -144,7 +144,7 @@ public sealed class DeferredCallbackFailureTests
         var primary = new InvalidOperationException("session-body-primary");
         var token = new RenderExecutionSessionToken();
         using RenderTarget target = RenderTarget.CreateNull(8, 8);
-        using var canvas = new ImmediateCanvas(target, logicalSize: s_bounds.Size);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: s_bounds.Size);
         token.EnterCanvas(canvas, facade: null);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
@@ -162,7 +162,7 @@ public sealed class DeferredCallbackFailureTests
     {
         var token = new RenderExecutionSessionToken();
         using RenderTarget target = RenderTarget.CreateNull(8, 8);
-        using var canvas = new ImmediateCanvas(target, logicalSize: s_bounds.Size);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: s_bounds.Size);
         token.EnterCanvas(canvas, facade: null);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(

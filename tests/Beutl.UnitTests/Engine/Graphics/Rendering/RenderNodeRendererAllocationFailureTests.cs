@@ -122,7 +122,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
             factory,
             requestedRegion: new Rect(25, 25, 50, 50));
         using RenderTarget target = CpuTargetFactory.CreateTarget(new PixelSize(100, 100));
-        using var canvas = new ImmediateCanvas(target, logicalSize: s_domain.Size);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: s_domain.Size);
         canvas.Clear(Colors.OrangeRed);
         using Bitmap before = target.Snapshot();
 
@@ -148,7 +148,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
             factory,
             requestedRegion: new Rect(25, 25, 50, 50));
         using RenderTarget target = CpuTargetFactory.CreateTarget(new PixelSize(100, 100));
-        using var canvas = new ImmediateCanvas(target, logicalSize: s_domain.Size, intent: RenderIntent.Delivery);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_domain.Size);
         canvas.Clear(Colors.OrangeRed);
 
         InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(

@@ -339,7 +339,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
         var sourceSize = new PixelSize(96, 64);
         using RenderTarget source = RenderTarget.Create(sourceSize.Width, sourceSize.Height)
                                     ?? throw new InvalidOperationException("Could not allocate bitmap source.");
-        using (var sourceCanvas = new ImmediateCanvas(source, 1, logicalSize: sourceSize.ToSize(1)))
+        using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview, 1, logicalSize: sourceSize.ToSize(1)))
         {
             sourceCanvas.Clear(Colors.CornflowerBlue);
             sourceCanvas.DrawRectangle(new Rect(12, 10, 72, 44), Brushes.Resource.OrangeRed, null);
@@ -351,6 +351,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
                                          ?? throw new InvalidOperationException("Could not allocate bitmap destination.");
         using (var destinationCanvas = new ImmediateCanvas(
                    destination,
+                   RenderIntent.Preview,
                    scale,
                    logicalSize: s_frame.ToSize(1)))
         {

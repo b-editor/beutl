@@ -141,7 +141,7 @@ public sealed class OffFrameFilterEffectExecutionTests
     private static byte[] Render(RenderNode root)
     {
         using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
-        using var destination = new ImmediateCanvas(target, logicalSize: s_frame.Size);
+        using var destination = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: s_frame.Size);
         using var renderer = new RenderNodeRenderer(
             root,
             new RenderNodeRendererOptions

@@ -267,7 +267,7 @@ public sealed class RecordingAndPlanningFailureTests
             renderCacheLookup: new InvalidPayloadCacheLookup());
         using CompiledRenderRequest compiled = compiler.Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget(8, 8);
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var registry = new RenderTargetLeaseRegistry(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
@@ -298,7 +298,7 @@ public sealed class RecordingAndPlanningFailureTests
             .Compile(request, graph);
         node.Cache.Dispose();
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget(8, 8);
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         using var registry = new RenderTargetLeaseRegistry(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,

@@ -309,7 +309,7 @@ public sealed class DrawableGroupIsolationTests
                 using RenderTarget target = RenderTarget.Create(32, 32)
                                             ?? throw new InvalidOperationException(
                                                 "RenderTarget.Create returned null.");
-                using var canvas = new ImmediateCanvas(target);
+                using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
                 canvas.Clear(Colors.White);
                 using PushedState blend = blendMode == BlendMode.DstOut
                     ? canvas.PushDirectBlendMode(blendMode)
@@ -841,7 +841,7 @@ public sealed class DrawableGroupIsolationTests
             ? new CpuRenderTarget(width, height)
             : RenderTarget.Create(width, height)
               ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, outputScale, logicalSize: frame.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, outputScale, logicalSize: frame.ToSize(1));
         canvas.Clear();
 
         using var root = new DrawableRenderNode(resources[0]);

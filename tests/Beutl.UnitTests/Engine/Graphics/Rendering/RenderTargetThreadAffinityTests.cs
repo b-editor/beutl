@@ -157,7 +157,7 @@ public class RenderTargetThreadAffinityTests
     public void Repeated_canvas_dispose_behind_a_busy_owning_thread_queues_one_cleanup()
     {
         ImmediateCanvas canvas = RenderThread.Dispatcher.Invoke(() =>
-            new ImmediateCanvas(RenderTarget.CreateNull(4, 4), 1f, 1f, new Size(4, 4)));
+            new ImmediateCanvas(RenderTarget.CreateNull(4, 4), RenderIntent.Preview, 1f, 1f, new Size(4, 4)));
         using var occupied = new ManualResetEventSlim(false);
         using var release = new ManualResetEventSlim(false);
 

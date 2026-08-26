@@ -248,7 +248,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             token,
             density: 2,
             logicalBounds,
-            () => new ImmediateCanvas(target, 2, logicalSize: deviceBounds.Size.ToSize(2)),
+            () => new ImmediateCanvas(target, RenderIntent.Preview, 2, logicalSize: deviceBounds.Size.ToSize(2)),
             CallbackCanvasCapability.Draw);
         ImmediateCanvas? retainedCanvas = null;
 
@@ -309,10 +309,10 @@ public sealed class RenderDescriptionAndExecutionContractTests
             token,
             2,
             callbackBounds,
-            () => new ImmediateCanvas(callbackTarget, 2, logicalSize: callbackDeviceBounds.Size.ToSize(2)),
+            () => new ImmediateCanvas(callbackTarget, RenderIntent.Preview, 2, logicalSize: callbackDeviceBounds.Size.ToSize(2)),
             CallbackCanvasCapability.Draw);
         using RenderTarget externalTarget = RenderTarget.CreateNull(8, 8);
-        using var externalCanvas = new ImmediateCanvas(externalTarget);
+        using var externalCanvas = new ImmediateCanvas(externalTarget, RenderIntent.Preview);
 
         Assert.That(() => input.Draw(externalCanvas), Throws.TypeOf<InvalidOperationException>());
 
@@ -384,7 +384,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             token,
             1,
             bounds,
-            () => new ImmediateCanvas(target, logicalSize: deviceBounds.Size.ToSize(1)),
+            () => new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: deviceBounds.Size.ToSize(1)),
             CallbackCanvasCapability.TargetScope);
         int replayCount = 0;
         var session = new TargetScopeSession(

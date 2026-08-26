@@ -101,7 +101,7 @@ public sealed class CurrentPixelQuantizationTests
 
             using RenderTarget target = RenderTarget.Create(s_frame.Width, s_frame.Height)
                                         ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-            using var canvas = new ImmediateCanvas(target, 1, logicalSize: s_frame.ToSize(1));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, logicalSize: s_frame.ToSize(1));
             canvas.Clear();
             using var renderer = new RenderNodeRenderer(
                 node,

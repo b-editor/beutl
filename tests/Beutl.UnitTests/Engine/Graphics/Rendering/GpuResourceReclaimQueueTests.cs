@@ -27,11 +27,11 @@ public sealed class GpuResourceReclaimQueueTests
         {
             using IGraphicsContext foreign = GraphicsContextFactory.CreateContext();
             using RenderTarget destination = CreateBackendTarget(64, 64);
-            using var canvas = new ImmediateCanvas(destination);
+            using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
             canvas.Clear(Colors.Black);
 
             RenderTarget source = CreateBackendTarget(32, 32);
-            using (var sourceCanvas = new ImmediateCanvas(source))
+            using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview))
             {
                 sourceCanvas.Clear(Colors.Red);
             }
@@ -61,11 +61,11 @@ public sealed class GpuResourceReclaimQueueTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget destination = CreateBackendTarget(64, 64);
-            using var canvas = new ImmediateCanvas(destination);
+            using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
             canvas.Clear(Colors.Black);
 
             RenderTarget source = CreateBackendTarget(32, 32);
-            using (var sourceCanvas = new ImmediateCanvas(source))
+            using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview))
             {
                 sourceCanvas.Clear(Colors.Red);
             }
@@ -89,11 +89,11 @@ public sealed class GpuResourceReclaimQueueTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget destination = CreateBackendTarget(64, 64);
-            using var canvas = new ImmediateCanvas(destination);
+            using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
             canvas.Clear(Colors.Black);
 
             RenderTarget source = CreateBackendTarget(32, 32);
-            using (var sourceCanvas = new ImmediateCanvas(source))
+            using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview))
             {
                 sourceCanvas.Clear(Colors.Red);
             }
@@ -126,14 +126,14 @@ public sealed class GpuResourceReclaimQueueTests
         {
             using RenderTarget destination = CreateBackendTarget(64, 64);
             RenderTarget source = CreateBackendTarget(32, 32);
-            using (var sourceCanvas = new ImmediateCanvas(source))
+            using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview))
             {
                 sourceCanvas.Clear(Colors.Red);
             }
 
             GpuResourceReclaimQueue.FlushAndDrain();
 
-            var canvas = new ImmediateCanvas(destination);
+            var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
             canvas.Clear(Colors.Black);
             canvas.DrawRenderTargetPixelsWithoutFlush(source, 0, 0);
             source.Dispose();

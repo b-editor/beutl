@@ -138,7 +138,7 @@ public sealed class WholeSourceFragmentOriginTests
         using var node = new WholeSourceProbeNode(content, shader);
         using RenderTarget target = RenderTarget.Create(frameExtent, frameExtent)
             ?? throw new InvalidOperationException("Could not allocate the whole-source origin target.");
-        using (var canvas = new ImmediateCanvas(target, 1, 1, new Size(frameExtent, frameExtent)))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 1, new Size(frameExtent, frameExtent)))
         {
             canvas.Clear();
             using var renderer = new RenderNodeRenderer(

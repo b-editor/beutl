@@ -27,7 +27,7 @@ public class FrameClearCoverageTests
         {
             using RenderTarget target = RenderTarget.Create(expectedDeviceWidth, expectedDeviceHeight)
                 ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-            using (var prefill = new ImmediateCanvas(target))
+            using (var prefill = new ImmediateCanvas(target, RenderIntent.Preview))
             {
                 prefill.Clear(Colors.Magenta);
             }

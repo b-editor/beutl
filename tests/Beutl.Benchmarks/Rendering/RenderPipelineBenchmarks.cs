@@ -701,7 +701,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
                     scene.SemanticStageCount);
             RenderPipelineBenchmarkScenes.CreateLinearPremultipliedRgba16F(sourceScene, size)
                 .CopyTo(bitmap.GetPixelSpan<Half>());
-            using var canvas = new ImmediateCanvas(target, 1, 1, new Size(size.Width, size.Height));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 1, new Size(size.Width, size.Height));
             canvas.Clear();
             canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);
         }

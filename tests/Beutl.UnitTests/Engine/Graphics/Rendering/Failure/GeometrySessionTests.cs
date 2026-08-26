@@ -133,7 +133,7 @@ public sealed class GeometrySessionTests
             token,
             density: 1,
             bounds,
-            () => new ImmediateCanvas(outputTarget, 1, float.PositiveInfinity, bounds.Size),
+            () => new ImmediateCanvas(outputTarget, RenderIntent.Preview, 1, float.PositiveInfinity, bounds.Size),
             CallbackCanvasCapability.Draw);
         return new GeometrySession(
             token,

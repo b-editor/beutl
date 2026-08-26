@@ -72,7 +72,7 @@ public class TextBlockSubpixelPlacementTests
         Assume.That(created, Is.Not.Null, "no render target backend is available in this environment");
 
         using RenderTarget renderTarget = created!;
-        using (var canvas = new ImmediateCanvas(renderTarget))
+        using (var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Preview))
         {
             canvas.Clear();
             using var renderer = new RenderNodeRenderer(

@@ -46,7 +46,7 @@ public class RenderNodeRendererExceptionSafetyTests
             new RecordedOperationSpec("fault", ThrowOnDispose: true),
             new RecordedOperationSpec("remaining"));
         using var target = CreateCpuTarget(4, 4);
-        using var canvas = new ImmediateCanvas(target);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
         var ex = Assert.Throws<AggregateException>(() => ExecuteRequestAndSurfaceOwnerFailure(node, canvas));
 
@@ -447,7 +447,7 @@ public class RenderNodeRendererExceptionSafetyTests
         }
 
         using RenderTarget target = CreateCpuTarget(4, 4);
-        using var canvas = new ImmediateCanvas(target);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
         renderer.Render(canvas);
     }
 

@@ -190,8 +190,8 @@ public class Renderer : IRenderer
                             nameof(surface));
                     }
 
-                    var canvas = new ImmediateCanvas(actualSurface, outputScale, maxScale,
-                        logicalSize: FrameSize.ToSize(1), intent: intent);
+                    var canvas = new ImmediateCanvas(actualSurface, intent, outputScale, maxScale,
+                        logicalSize: FrameSize.ToSize(1));
                     return (canvas, actualSurface);
                 }
                 catch

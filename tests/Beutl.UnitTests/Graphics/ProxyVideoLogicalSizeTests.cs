@@ -215,7 +215,7 @@ public class ProxyVideoLogicalSizeTests
             using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero) { PreferProxy = true });
             using RenderTarget target = RenderTarget.Create(100, 80)!;
 
-            using (var canvas = new ImmediateCanvas(target, 1f))
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1f))
             {
                 canvas.Clear(Colors.Black);
                 canvas.DrawVideoSource(resource, 1, Brushes.Resource.White, null);

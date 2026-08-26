@@ -642,10 +642,10 @@ public class CustomFilterEffectContext
         {
             canvas = new ImmediateCanvas(
                 target.RenderTarget,
+                Intent,
                 density,
                 MaxWorkingScale,
-                logicalSize: target.Bounds.Size,
-                intent: Intent);
+                logicalSize: target.Bounds.Size);
         }
 
         canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;

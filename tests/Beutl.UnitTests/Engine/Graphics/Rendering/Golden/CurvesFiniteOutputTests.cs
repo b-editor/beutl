@@ -60,7 +60,7 @@ public sealed class CurvesFiniteOutputTests
         PixelSize pixelSize = PixelSize.FromSize(s_frame.ToSize(1), outputScale);
         using RenderTarget target = RenderTarget.Create(pixelSize.Width, pixelSize.Height)
             ?? throw new InvalidOperationException("Could not allocate the curves render target.");
-        using var canvas = new ImmediateCanvas(target, outputScale, logicalSize: s_frame.ToSize(1));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, outputScale, logicalSize: s_frame.ToSize(1));
         canvas.Clear();
 
         using var root = new DrawableRenderNode(resource);

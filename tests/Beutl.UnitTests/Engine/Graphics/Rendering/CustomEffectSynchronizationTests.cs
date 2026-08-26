@@ -135,7 +135,7 @@ public sealed class CustomEffectSynchronizationTests
         using var destination = new CpuRenderTarget(new PixelSize(
             (int)s_targetDomain.Width,
             (int)s_targetDomain.Height));
-        using var canvas = new ImmediateCanvas(destination, logicalSize: s_targetDomain.Size);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: s_targetDomain.Size);
         var flushes = new List<ImmediateCanvasFlushKind>();
         using (ImmediateCanvas.ObserveFlushes(flushes.Add))
             effectRenderer.Render(canvas);
@@ -177,7 +177,7 @@ public sealed class CustomEffectSynchronizationTests
             using RenderTarget expectedTarget = RenderTarget.Create(size.Width, size.Height)
                 ?? throw new InvalidOperationException("Could not create the GPU reference target.");
 
-            var actualCanvas = new ImmediateCanvas(actualTarget, logicalSize: s_targetDomain.Size);
+            var actualCanvas = new ImmediateCanvas(actualTarget, RenderIntent.Preview, logicalSize: s_targetDomain.Size);
             actualCanvas.Clear();
             var executionFlushes = new List<ImmediateCanvasFlushKind>();
             using (ImmediateCanvas.ObserveFlushes(executionFlushes.Add))
@@ -195,6 +195,7 @@ public sealed class CustomEffectSynchronizationTests
             {
                 using (var expectedCanvas = new ImmediateCanvas(
                            expectedTarget,
+                           RenderIntent.Preview,
                            logicalSize: s_targetDomain.Size))
                 {
                     expectedCanvas.Clear();
@@ -314,7 +315,7 @@ public sealed class CustomEffectSynchronizationTests
         using var destination = new CpuRenderTarget(new PixelSize(
             (int)s_targetDomain.Width,
             (int)s_targetDomain.Height));
-        using var canvas = new ImmediateCanvas(destination, logicalSize: s_targetDomain.Size);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: s_targetDomain.Size);
         var flushes = new List<ImmediateCanvasFlushKind>();
 
         using (ImmediateCanvas.ObserveFlushes(flushes.Add))
