@@ -239,6 +239,33 @@ public class ElementSlipServiceTests
         });
     }
 
+    [Test]
+    public void Slip_SourceVideo_NegativeToPositiveMappedRangeReservesSourceTail()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(-2),
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
     [TestCase(50f, 2d, true)]
     [TestCase(200f, 0d, false)]
     public void Slip_SourceVideo_SpeedAdjustsSourceBounds(float speed, double expectedDelta, bool expectedApplied)
@@ -619,6 +646,35 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.False);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void Slip_NestedTimeMappingPresenter_PropagatesUnboundedDuration()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            Speed = { CurrentValue = 0f },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.Zero,
+            ThrowOnUnboundedDuration = true,
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(presenter.TimelineDurationCallCount, Is.Zero);
         });
     }
 
@@ -1018,6 +1074,10 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
 
     public TimeSpan MappedStart { get; set; } = TimeSpan.FromSeconds(4);
 
+    public bool ThrowOnUnboundedDuration { get; set; }
+
+    public int TimelineDurationCallCount { get; private set; }
+
     public bool IsReversed => false;
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable target)
@@ -1028,7 +1088,13 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
         TimeSpan targetDuration,
         Drawable target,
         bool reverse = false)
-        => targetDuration;
+    {
+        TimelineDurationCallCount++;
+        if (ThrowOnUnboundedDuration && targetDuration == TimeSpan.MaxValue)
+            throw new InvalidOperationException("The unbounded duration sentinel must not reach the presenter.");
+
+        return targetDuration;
+    }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
         => Size.Empty;
