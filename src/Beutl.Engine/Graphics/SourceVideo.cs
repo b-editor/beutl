@@ -113,7 +113,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         if (!TryGetTimelineUpperBound(start, sourceDuration, resource, animation, out TimeSpan high))
             return TimeSpan.MaxValue;
 
-        TimeSpan consumed = CalculateVideoDuration(start, high, resource);
+        TimeSpan consumed = CalculateVideoDurationBounded(start, high, resource, animation);
 
         if (consumed < sourceDuration) return TimeSpan.MaxValue;
 
@@ -122,13 +122,34 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         {
             long middleTicks = low.Ticks + (high.Ticks - low.Ticks) / 2;
             TimeSpan middle = TimeSpan.FromTicks(middleTicks);
-            if (CalculateVideoDuration(start, middle, resource) <= sourceDuration)
+            if (CalculateVideoDurationBounded(start, middle, resource, animation) <= sourceDuration)
                 low = middle;
             else
                 high = middle;
         }
 
         return low;
+    }
+
+    private TimeSpan CalculateVideoDurationBounded(
+        TimeSpan start,
+        TimeSpan duration,
+        Resource resource,
+        KeyFrameAnimation<float> animation)
+    {
+        if (animation.KeyFrames[^1] is not KeyFrame<float> last)
+            return CalculateVideoDuration(start, duration, resource);
+
+        TimeSpan prefix = last.KeyTime > start ? last.KeyTime - start : TimeSpan.Zero;
+        if (duration <= prefix || last.Value <= 0)
+            return CalculateVideoDuration(start, duration, resource);
+
+        TimeSpan consumed = CalculateVideoDuration(start, prefix, resource);
+        double tailTicks = (duration - prefix).Ticks * (last.Value / 100.0);
+        if (tailTicks >= TimeSpan.MaxValue.Ticks - consumed.Ticks)
+            return TimeSpan.MaxValue;
+
+        return TimeSpan.FromTicks(consumed.Ticks + (long)tailTicks);
     }
 
     private bool TryGetTimelineUpperBound(

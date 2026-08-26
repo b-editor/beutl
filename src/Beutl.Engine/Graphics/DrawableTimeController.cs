@@ -183,7 +183,11 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     /// Calculates the timeline duration required to traverse a target-time interval.
     /// </summary>
     public TimeSpan CalculateTimelineDuration(
-        TimeSpan start, TimeSpan targetDuration, Drawable targetDrawable, Resource resource)
+        TimeSpan start,
+        TimeSpan targetDuration,
+        Drawable targetDrawable,
+        Resource resource,
+        bool reverse = false)
     {
         ArgumentNullException.ThrowIfNull(targetDrawable);
         ArgumentNullException.ThrowIfNull(resource);
@@ -194,8 +198,13 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             return TimeSpan.MaxValue;
         if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
             return TimeSpan.MaxValue;
-        if (resource.Loop)
-            return TimeSpan.MaxValue;
+
+        if (resource.Loop || IsHeldAtTail(resource, reverse))
+        {
+            TimeSpan boundary = CalculateTargetBoundary(start, targetDrawable, resource, reverse);
+            if (boundary <= TimeSpan.Zero || targetDuration >= boundary)
+                return TimeSpan.MaxValue;
+        }
 
         double speed = resource.Speed / 100.0;
         KeyFrameAnimation<float>? animation = Speed.Animation as KeyFrameAnimation<float>;
@@ -210,7 +219,10 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         if (animation is { KeyFrames.Count: > 0 })
         {
             TimeSpan animationStart = CalculateSpeedClockTime(start, resource, targetDrawable, animation);
-            if (!HasPositiveSpeedAtOrAfter(animation, animationStart))
+            bool hasPositiveSpeed = reverse
+                ? HasPositiveSpeedAtOrBefore(animation, animationStart)
+                : HasPositiveSpeedAtOrAfter(animation, animationStart);
+            if (!hasPositiveSpeed)
                 return TimeSpan.MaxValue;
         }
 
@@ -218,21 +230,22 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         TimeSpan high = targetDuration;
         if (animation is { KeyFrames.Count: > 0 }
             && !TryGetTimelineUpperBound(
-                start, targetDuration, targetAtStart, resource, targetDrawable, animation, out high))
+                start, targetDuration, targetAtStart, resource, targetDrawable, animation, reverse, out high))
         {
             return TimeSpan.MaxValue;
         }
 
-        TimeSpan consumed = CalculateTargetDistance(start, high, targetAtStart, resource, targetDrawable);
-        for (int i = 0; consumed < targetDuration && high < GetMaximumDurationFrom(start) && i < 20; i++)
+        TimeSpan consumed = CalculateTargetDistance(start, high, targetAtStart, resource, targetDrawable, reverse);
+        for (int i = 0; consumed < targetDuration
+            && high < GetMaximumDurationFrom(start, reverse) && i < 20; i++)
         {
-            long maximumTicks = GetMaximumDurationFrom(start).Ticks;
+            long maximumTicks = GetMaximumDurationFrom(start, reverse).Ticks;
             long nextTicks = high.Ticks > maximumTicks / 2 ? maximumTicks : high.Ticks * 2;
             if (nextTicks == high.Ticks)
                 break;
 
             high = TimeSpan.FromTicks(nextTicks);
-            consumed = CalculateTargetDistance(start, high, targetAtStart, resource, targetDrawable);
+            consumed = CalculateTargetDistance(start, high, targetAtStart, resource, targetDrawable, reverse);
         }
 
         if (consumed < targetDuration)
@@ -243,7 +256,8 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         {
             long middleTicks = low.Ticks + (high.Ticks - low.Ticks) / 2;
             TimeSpan middle = TimeSpan.FromTicks(middleTicks);
-            if (CalculateTargetDistance(start, middle, targetAtStart, resource, targetDrawable) <= targetDuration)
+            if (CalculateTargetDistance(start, middle, targetAtStart, resource, targetDrawable, reverse)
+                <= targetDuration)
                 low = middle;
             else
                 high = middle;
@@ -252,20 +266,51 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         return low;
     }
 
+    private static bool IsHeldAtTail(Resource resource, bool reverse)
+    {
+        return (reverse ^ resource.Reverse)
+            ? resource.HoldFirstFrame
+            : resource.HoldLastFrame;
+    }
+
+    private TimeSpan CalculateTargetBoundary(
+        TimeSpan start,
+        Drawable targetDrawable,
+        Resource resource,
+        bool reverse)
+    {
+        TimeSpan targetDuration = targetDrawable.TimeRange.Duration;
+        TimeSpan baseTime = CalculateTargetBaseTime(start, resource, targetDrawable);
+        bool outputReversed = reverse ^ resource.Reverse;
+
+        if (resource.Loop)
+        {
+            TimeSpan normalized = NormalizeLoopTime(baseTime, targetDuration);
+            return outputReversed ? normalized : targetDuration - normalized;
+        }
+
+        return outputReversed
+            ? baseTime <= TimeSpan.Zero ? TimeSpan.Zero : baseTime
+            : baseTime >= targetDuration ? TimeSpan.Zero : targetDuration - baseTime;
+    }
+
     private TimeSpan CalculateTargetDistance(
         TimeSpan start,
         TimeSpan duration,
         TimeSpan targetAtStart,
         Resource resource,
-        Drawable targetDrawable)
+        Drawable targetDrawable,
+        bool reverse)
     {
-        if (duration == TimeSpan.MaxValue || duration > GetMaximumDurationFrom(start))
+        if (duration == TimeSpan.MaxValue || duration > GetMaximumDurationFrom(start, reverse))
             return TimeSpan.MaxValue;
 
-        TimeSpan endpoint = start + duration;
-        TimeSpan targetAtEnd = resource.FrameRate > 0
-            ? CalculateTargetTime(endpoint, resource, targetDrawable)
-            : CalculateTargetBaseTime(endpoint, resource, targetDrawable);
+        TimeSpan endpoint = MoveTime(start, duration, reverse);
+        TimeSpan targetAtEnd = resource.Loop
+            ? CalculateTargetBaseTime(endpoint, resource, targetDrawable)
+            : resource.FrameRate > 0
+                ? CalculateTargetTime(endpoint, resource, targetDrawable)
+                : CalculateTargetBaseTime(endpoint, resource, targetDrawable);
         double ticks = Math.Abs((double)targetAtEnd.Ticks - targetAtStart.Ticks);
         return ticks >= TimeSpan.MaxValue.Ticks
             ? TimeSpan.MaxValue
@@ -274,7 +319,9 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
     private TimeSpan CalculateTargetDistanceEndpoint(TimeSpan time, Resource resource, Drawable targetDrawable)
     {
-        return resource.FrameRate > 0
+        return resource.Loop
+            ? CalculateTargetBaseTime(time, resource, targetDrawable)
+            : resource.FrameRate > 0
             ? CalculateTargetTime(time, resource, targetDrawable)
             : CalculateTargetBaseTime(time, resource, targetDrawable);
     }
@@ -286,27 +333,46 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         Resource resource,
         Drawable targetDrawable,
         KeyFrameAnimation<float> animation,
+        bool reverse,
         out TimeSpan high)
     {
         TimeSpan animationStart = CalculateSpeedClockTime(start, resource, targetDrawable, animation);
         high = TimeSpan.Zero;
-        if (animation.KeyFrames[^1] is not KeyFrame<float> last)
-            return false;
 
-        TimeSpan terminal = last.KeyTime > animationStart ? last.KeyTime : animationStart;
-        TimeSpan elapsed = terminal - animationStart;
-        TimeSpan consumed = CalculateTargetDistance(start, elapsed, targetAtStart, resource, targetDrawable);
+        KeyFrame<float>? terminalFrame;
+        TimeSpan elapsed;
+        if (reverse)
+        {
+            if (animation.KeyFrames[0] is not KeyFrame<float> first)
+                return false;
+
+            terminalFrame = first;
+            TimeSpan terminal = first.KeyTime < animationStart ? first.KeyTime : animationStart;
+            elapsed = animationStart - terminal;
+        }
+        else
+        {
+            if (animation.KeyFrames[^1] is not KeyFrame<float> last)
+                return false;
+
+            terminalFrame = last;
+            TimeSpan terminal = last.KeyTime > animationStart ? last.KeyTime : animationStart;
+            elapsed = terminal - animationStart;
+        }
+
+        TimeSpan consumed = CalculateTargetDistance(
+            start, elapsed, targetAtStart, resource, targetDrawable, reverse);
         if (consumed >= targetDuration)
         {
             high = elapsed;
             return true;
         }
 
-        if (last.Value <= 0)
+        if (terminalFrame.Value <= 0)
             return false;
 
-        double remainingTicks = (targetDuration - consumed).Ticks / (last.Value / 100.0);
-        long maximumTicks = GetMaximumDurationFrom(start).Ticks;
+        double remainingTicks = (targetDuration - consumed).Ticks / (terminalFrame.Value / 100.0);
+        long maximumTicks = GetMaximumDurationFrom(start, reverse).Ticks;
         if (remainingTicks >= maximumTicks - elapsed.Ticks)
             high = TimeSpan.FromTicks(maximumTicks);
         else
@@ -315,11 +381,29 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         return true;
     }
 
-    private static TimeSpan GetMaximumDurationFrom(TimeSpan start)
+    private static TimeSpan GetMaximumDurationFrom(TimeSpan start, bool reverse)
     {
-        return start.Ticks <= 0
+        if (!reverse)
+        {
+            return start.Ticks <= 0
+                ? TimeSpan.MaxValue
+                : TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks - start.Ticks);
+        }
+
+        return start.Ticks >= 0
             ? TimeSpan.MaxValue
-            : TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks - start.Ticks);
+            : TimeSpan.FromTicks(start.Ticks - TimeSpan.MinValue.Ticks);
+    }
+
+    private static TimeSpan MoveTime(TimeSpan start, TimeSpan duration, bool reverse)
+    {
+        if (!reverse)
+            return TimeSpan.FromTicks(start.Ticks + duration.Ticks);
+
+        if (start.Ticks < 0 && duration.Ticks > start.Ticks - TimeSpan.MinValue.Ticks)
+            return TimeSpan.MinValue;
+
+        return TimeSpan.FromTicks(start.Ticks - duration.Ticks);
     }
 
     private static TimeSpan ScaleDuration(TimeSpan duration, double scale)
@@ -338,6 +422,20 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         foreach (IKeyFrame keyFrame in animation.KeyFrames)
         {
             if (keyFrame is KeyFrame<float> speed && speed.KeyTime > start && speed.Value > 0)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasPositiveSpeedAtOrBefore(KeyFrameAnimation<float> animation, TimeSpan start)
+    {
+        if (animation.Interpolate(start) is float current && current > 0)
+            return true;
+
+        foreach (IKeyFrame keyFrame in animation.KeyFrames)
+        {
+            if (keyFrame is KeyFrame<float> speed && speed.KeyTime < start && speed.Value > 0)
                 return true;
         }
 

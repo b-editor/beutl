@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
@@ -1108,6 +1109,34 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void CalculateTimelineDuration_ReverseUsesPastSpeedAnimation()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200f });
+        var controller = new DrawableTimeController
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(3),
+            video,
+            resource,
+            reverse: true);
+
+        Assert.That(result.TotalSeconds, Is.EqualTo(2 - (Math.Sqrt(2) - 1)).Within(0.005));
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_TimeControllerPositiveThenZeroSpeedReturnsUnbounded()
     {
         var frontSource = new VideoSource();
@@ -1184,6 +1213,56 @@ public class ElementResizeServiceTests
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerLoopBoundsFiniteSourcePrefix()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(5) },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(4)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerHoldLastBoundsFiniteSourcePrefix()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(1) },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldLastFrame = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1)).Within(TimeSpan.FromMilliseconds(1)));
     }
 
     [Test]
