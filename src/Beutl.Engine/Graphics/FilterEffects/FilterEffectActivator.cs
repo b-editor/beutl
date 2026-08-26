@@ -23,15 +23,20 @@ public sealed class FilterEffectActivator : IDisposable
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
     private bool _customEffectBoundaryMaterialized;
 
+    /// <param name="drawableBrushMaterializer">
+    /// The hook that rasterizes a <see cref="DrawableBrush.Resource"/> an effect paints with, or
+    /// <see langword="null"/> when the caller applies no drawable brush. Stated rather than defaulted: left
+    /// implicit, a <see cref="DrawableBrush"/> resolves to transparent instead of to its content.
+    /// </param>
     public FilterEffectActivator(
         EffectTargets targets,
         SKImageFilterBuilder builder,
         RenderIntent intent,
         RenderRequestPurpose purpose,
+        DrawableBrushMaterializer? drawableBrushMaterializer,
         float outputScale = 1f,
         float workingScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity,
-        DrawableBrushMaterializer? drawableBrushMaterializer = null)
+        float maxWorkingScale = float.PositiveInfinity)
         : this(
             targets,
             builder,

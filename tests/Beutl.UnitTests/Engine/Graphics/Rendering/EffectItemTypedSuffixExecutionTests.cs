@@ -356,6 +356,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             outputScale: 1,
             workingScale: 1,
             maxWorkingScale: 1);
@@ -863,6 +864,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             outputScale: 1,
             workingScale: 1,
             maxWorkingScale: 1);

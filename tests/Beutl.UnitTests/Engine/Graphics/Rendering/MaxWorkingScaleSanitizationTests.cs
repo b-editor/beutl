@@ -200,6 +200,7 @@ public class MaxWorkingScaleSanitizationTests
             builder,
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             outputScale: 1f,
             workingScale: 1f,
             maxWorkingScale: maxWorkingScale);
@@ -217,6 +218,7 @@ public class MaxWorkingScaleSanitizationTests
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             outputScale: 1f,
             workingScale: 1f,
             maxWorkingScale: 3f);

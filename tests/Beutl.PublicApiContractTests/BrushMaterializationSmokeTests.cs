@@ -246,6 +246,72 @@ public sealed class BrushMaterializationSmokeTests
             "a materializer supplied to the public activator must reach the custom-effect brush constructor");
     }
 
+    // The absent hook is the failure, not the brush: a delivery frame that painted the fill transparent would
+    // ship a hole and report success, while a preview is allowed to drop it and keep going.
+    [Test]
+    public void ADeliveryFillWithoutAMaterializer_FailsInsteadOfPaintingAHole()
+    {
+        using DrawableBrush.Resource brushResource = CreateDrawableBrushResource();
+
+        using var paint = new SKPaint();
+        var constructor = new BrushConstructor(
+            new Rect(0, 0, 64, 36),
+            brushResource,
+            BlendMode.SrcOver,
+            RenderIntent.Delivery,
+            drawableBrushMaterializer: null);
+
+        Assert.That(
+            () => constructor.ConfigurePaint(paint),
+            Throws.InvalidOperationException.With.Message.Contains("no runtime materializer"));
+    }
+
+    [Test]
+    public void APreviewFillWithoutAMaterializer_StillDegradesQuietly()
+    {
+        using DrawableBrush.Resource brushResource = CreateDrawableBrushResource();
+
+        using var paint = new SKPaint();
+        var constructor = new BrushConstructor(
+            new Rect(0, 0, 64, 36),
+            brushResource,
+            BlendMode.SrcOver,
+            RenderIntent.Preview,
+            drawableBrushMaterializer: null);
+
+        Assert.That(() => constructor.ConfigurePaint(paint), Throws.Nothing);
+        Assert.That(paint.Shader, Is.Null);
+        Assert.That(paint.Color, Is.EqualTo(SKColors.Transparent));
+    }
+
+    [Test]
+    public void APublicCanvas_TakesAMaterializerAndHandsItToItsBrushes()
+    {
+        DrawableBrushMaterializer materializer =
+            (_, _, _) => new MaterializedDrawableBrush(CreateOpaqueImage(20, 12), new Rect(0, 0, 20, 12));
+        using RenderTarget target = RenderTarget.Create(64, 36)
+                                    ?? throw new InvalidOperationException("Could not create the canvas target.");
+        using var canvas = new ImmediateCanvas(
+            target,
+            intent: RenderIntent.Delivery,
+            drawableBrushMaterializer: materializer);
+
+        Assert.That(canvas.DrawableBrushMaterializer, Is.SameAs(materializer));
+        Assert.That(
+            canvas.CreateBrushConstructor(new Rect(0, 0, 64, 36), Brushes.Resource.White, BlendMode.SrcOver)
+                .Intent,
+            Is.EqualTo(RenderIntent.Delivery));
+    }
+
+    private static DrawableBrush.Resource CreateDrawableBrushResource()
+    {
+        var content = new EllipseShape();
+        content.Width.CurrentValue = 20;
+        content.Height.CurrentValue = 12;
+        content.Fill.CurrentValue = Brushes.White;
+        return new DrawableBrush(content).ToResource(CompositionContext.Default);
+    }
+
     private static SKImage CreateOpaqueImage(int width, int height)
     {
         var info = new SKImageInfo(width, height, SKColorType.RgbaF16, SKAlphaType.Premul);

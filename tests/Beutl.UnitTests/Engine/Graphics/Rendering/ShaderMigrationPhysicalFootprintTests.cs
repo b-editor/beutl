@@ -241,6 +241,7 @@ public sealed class ShaderMigrationPhysicalFootprintTests
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             outputScale: 1,
             workingScale,
             maxWorkingScale: 1);

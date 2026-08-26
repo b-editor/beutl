@@ -547,6 +547,7 @@ public sealed class ColorFilterShaderParityTests
             builder,
             RenderIntent.Delivery,
             RenderRequestPurpose.Frame,
+            drawableBrushMaterializer: null,
             outputScale: 1,
             workingScale: 1,
             maxWorkingScale: 1);

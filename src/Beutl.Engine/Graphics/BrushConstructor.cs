@@ -282,8 +282,10 @@ public readonly struct BrushConstructor(
             if (_drawableBrushMaterializer is not { } materializer)
             {
                 s_logger.LogWarning(
-                    "DrawableBrush '{Brush}' cannot be materialized because no runtime materializer is available; the fill degrades to transparent.",
+                    "DrawableBrush '{Brush}' cannot be materialized because no runtime materializer is available; preview fill degrades to transparent, delivery render fails fast.",
                     drawableBrush);
+                ThrowIfDeliveryContentLoss(
+                    $"DrawableBrush '{drawableBrush}' cannot be materialized because the host supplied no runtime materializer.");
                 return null;
             }
 
@@ -337,7 +339,7 @@ public readonly struct BrushConstructor(
                 s_logger.LogWarning(
                     "Tile-brush intermediate allocation failed ({Width}x{Height} px, density {Scale}); preview fill degrades to transparent, delivery render fails fast.",
                     iw, ih, s);
-                ThrowIfDeliveryAllocationFailure(
+                ThrowIfDeliveryContentLoss(
                     $"Tile-brush intermediate allocation failed ({iw}x{ih} px, density {s}).");
                 _renderTargetLeaseSession?.MarkContentDropped();
                 return null;
@@ -410,7 +412,11 @@ public readonly struct BrushConstructor(
         }
     }
 
-    private void ThrowIfDeliveryAllocationFailure(string message)
+    /// <summary>
+    /// Fails a delivery render that would otherwise paint a hole where content belongs. Preview returns so the
+    /// caller can degrade the fill to transparent.
+    /// </summary>
+    private void ThrowIfDeliveryContentLoss(string message)
     {
         if (Intent == RenderIntent.Delivery)
         {

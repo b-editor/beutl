@@ -102,7 +102,8 @@ public sealed class FilterEffectCrashSafetyTests
             targets,
             builder,
             RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary);
+            RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null);
         Assert.DoesNotThrow(() => activator.Apply(feCtx));
 
         foreach (EffectTarget target in activator.CurrentTargets)
@@ -159,7 +160,8 @@ public sealed class FilterEffectCrashSafetyTests
                 targets,
                 builder,
                 RenderIntent.Delivery,
-                RenderRequestPurpose.Auxiliary);
+                RenderRequestPurpose.Auxiliary,
+                drawableBrushMaterializer: null);
             Assert.DoesNotThrow(() => activator.Apply(feCtx));
         });
     }

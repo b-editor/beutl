@@ -25,18 +25,21 @@ public sealed class FilterEffectCompatibilityContractTests
             targets,
             builder,
             RenderIntent.Preview,
-            RenderRequestPurpose.Frame);
+            RenderRequestPurpose.Frame,
+            drawableBrushMaterializer: null);
         using var unboundedCeilingActivator = new FilterEffectActivator(
             targets,
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.CacheWarmup,
+            drawableBrushMaterializer: null,
             maxWorkingScale: float.PositiveInfinity);
         using var deliveryActivator = new FilterEffectActivator(
             targets,
             builder,
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             maxWorkingScale: 2);
 
         Type[] expectedParameterTypes =
@@ -45,10 +48,10 @@ public sealed class FilterEffectCompatibilityContractTests
             typeof(SKImageFilterBuilder),
             typeof(RenderIntent),
             typeof(RenderRequestPurpose),
-            typeof(float),
-            typeof(float),
-            typeof(float),
             typeof(DrawableBrushMaterializer),
+            typeof(float),
+            typeof(float),
+            typeof(float),
         ];
         System.Reflection.ParameterInfo[] constructorParameters = typeof(FilterEffectActivator)
             .GetConstructors()
@@ -69,10 +72,12 @@ public sealed class FilterEffectCompatibilityContractTests
                 "a finite working-scale ceiling must not demote an explicit delivery intent");
             Assert.That(deliveryActivator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
             Assert.That(actualParameterTypes, Is.EqualTo(expectedParameterTypes),
-                "the only public constructor must require both execution classifications");
+                "the only public constructor must require both execution classifications and the brush materializer");
             Assert.That(constructorParameters[2].IsOptional, Is.False);
             Assert.That(constructorParameters[3].IsOptional, Is.False);
-            Assert.That(constructorParameters.Skip(4).All(static parameter => parameter.IsOptional), Is.True);
+            Assert.That(constructorParameters[4].IsOptional, Is.False,
+                "a materializer left implicit paints a DrawableBrush transparent instead of its content");
+            Assert.That(constructorParameters.Skip(5).All(static parameter => parameter.IsOptional), Is.True);
             Assert.That(typeof(FilterEffectActivator).GetProperty(nameof(FilterEffectActivator.Intent))!.CanWrite,
                 Is.False);
             Assert.That(typeof(FilterEffectActivator).GetProperty(nameof(FilterEffectActivator.Purpose))!.CanWrite,
@@ -99,7 +104,8 @@ public sealed class FilterEffectCompatibilityContractTests
             targets,
             builder,
             RenderIntent.Delivery,
-            RenderRequestPurpose.CacheWarmup);
+            RenderRequestPurpose.CacheWarmup,
+            drawableBrushMaterializer: null);
         using var context = new FilterEffectContext(bounds);
         context.CustomEffect(
             0,

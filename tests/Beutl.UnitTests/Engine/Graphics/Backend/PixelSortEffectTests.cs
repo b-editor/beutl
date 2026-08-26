@@ -45,7 +45,8 @@ public class PixelSortEffectTests
                 targets,
                 builder,
                 RenderIntent.Delivery,
-                RenderRequestPurpose.Auxiliary);
+                RenderRequestPurpose.Auxiliary,
+                drawableBrushMaterializer: null);
             activator.Apply(feCtx);
             activator.Flush(false);
 
@@ -87,7 +88,8 @@ public class PixelSortEffectTests
                 targets,
                 builder,
                 RenderIntent.Delivery,
-                RenderRequestPurpose.Auxiliary);
+                RenderRequestPurpose.Auxiliary,
+                drawableBrushMaterializer: null);
             Assert.DoesNotThrow(() => activator.Apply(feCtx));
             Assert.DoesNotThrow(() => activator.Flush(false));
         });

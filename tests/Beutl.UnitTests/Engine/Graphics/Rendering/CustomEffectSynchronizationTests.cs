@@ -363,6 +363,7 @@ public sealed class CustomEffectSynchronizationTests
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             outputScale: 1,
             workingScale: 1,
             maxWorkingScale: 1);

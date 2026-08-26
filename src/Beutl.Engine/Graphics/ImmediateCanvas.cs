@@ -70,11 +70,18 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private bool _allowDeferredSameContextSampling;
     private bool _submitOnDispose;
 
+    /// <param name="drawableBrushMaterializer">
+    /// The hook that rasterizes a <see cref="DrawableBrush.Resource"/>'s nested content, or
+    /// <see langword="null"/> to inherit the ambient one. A canvas left without either paints a
+    /// <see cref="DrawableBrush"/> transparent under <see cref="RenderIntent.Preview"/> and throws under
+    /// <see cref="RenderIntent.Delivery"/>.
+    /// </param>
     public ImmediateCanvas(RenderTarget renderTarget, float density = 1f,
         float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default,
-        RenderIntent intent = RenderIntent.Preview)
+        RenderIntent intent = RenderIntent.Preview,
+        DrawableBrushMaterializer? drawableBrushMaterializer = null)
         : this(renderTarget, density, maxWorkingScale, logicalSize, intent, flushOnDispose: true,
-            deviceOrigin: default)
+            deviceOrigin: default, drawableBrushMaterializer)
     {
     }
 
@@ -85,7 +92,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         Size logicalSize,
         RenderIntent intent,
         bool flushOnDispose,
-        PixelPoint deviceOrigin)
+        PixelPoint deviceOrigin,
+        DrawableBrushMaterializer? drawableBrushMaterializer = null)
     {
         ArgumentNullException.ThrowIfNull(renderTarget);
         if (density <= 0f || !float.IsFinite(density))
@@ -105,7 +113,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _currentDensity = density;
         MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
         Intent = intent;
-        DrawableBrushMaterializer = s_drawableBrushMaterializer.Value;
+        DrawableBrushMaterializer = drawableBrushMaterializer ?? s_drawableBrushMaterializer.Value;
         RenderTargetLeaseSession = s_renderTargetLeaseSession.Value;
         if (density == 1f)
         {
@@ -207,9 +215,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// Runtime hook that materializes a <see cref="DrawableBrush.Resource"/>'s nested content into an
     /// <see cref="SKImage"/> covering <paramref name="bounds"/> at <paramref name="scale"/> device px per
     /// logical unit. The executor sets it while a canvas is open and clears it when the canvas closes;
-    /// a null hook leaves DrawableBrush materialization unavailable and degrades the fill to transparent.
+    /// a null hook leaves DrawableBrush materialization unavailable, which degrades the fill to transparent
+    /// under <see cref="RenderIntent.Preview"/> and fails the render under <see cref="RenderIntent.Delivery"/>.
     /// </summary>
-    internal DrawableBrushMaterializer? DrawableBrushMaterializer { get; set; }
+    public DrawableBrushMaterializer? DrawableBrushMaterializer { get; internal set; }
 
     /// <summary>
     /// The render pass's target lease session, or <see langword="null"/> outside one. Brush-owned intermediates
@@ -227,7 +236,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         return new RenderTargetLeaseSessionScope(this, previous, previousAmbient);
     }
 
-    internal IDisposable PushDrawableBrushMaterializer(DrawableBrushMaterializer? materializer)
+    /// <summary>
+    /// Installs <paramref name="materializer"/> for the returned scope's lifetime, restoring the previous hook
+    /// on dispose.
+    /// </summary>
+    public IDisposable PushDrawableBrushMaterializer(DrawableBrushMaterializer? materializer)
     {
         VerifyAccess();
         DrawableBrushMaterializer? previous = DrawableBrushMaterializer;

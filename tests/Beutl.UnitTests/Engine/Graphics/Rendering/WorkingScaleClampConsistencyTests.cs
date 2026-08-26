@@ -211,6 +211,7 @@ public class WorkingScaleClampConsistencyTests
                 builder,
                 RenderIntent.Delivery,
                 RenderRequestPurpose.Auxiliary,
+                drawableBrushMaterializer: null,
                 outputScale: density,
                 workingScale: density);
             if (hasFilter)
@@ -260,6 +261,7 @@ public class WorkingScaleClampConsistencyTests
                 builder,
                 RenderIntent.Delivery,
                 RenderRequestPurpose.Auxiliary,
+                drawableBrushMaterializer: null,
                 outputScale: density,
                 workingScale: density);
 
@@ -316,6 +318,7 @@ public class WorkingScaleClampConsistencyTests
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             outputScale: 1f,
             workingScale: 1f,
             maxWorkingScale: 8f);
@@ -339,6 +342,7 @@ public class WorkingScaleClampConsistencyTests
             builder,
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             outputScale: 1f,
             workingScale: 1f,
             maxWorkingScale: float.PositiveInfinity);

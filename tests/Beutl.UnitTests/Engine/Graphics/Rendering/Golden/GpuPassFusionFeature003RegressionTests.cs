@@ -244,6 +244,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
             builder,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             outputScale: 1,
             workingScale: 1,
             maxWorkingScale: 2);
@@ -263,6 +264,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
             builder,
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null,
             outputScale: 1,
             workingScale: 1,
             maxWorkingScale: float.PositiveInfinity);

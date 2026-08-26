@@ -174,7 +174,8 @@ public sealed class DeviceBufferBudgetTests
             targets,
             builder,
             RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary);
+            RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null);
 
         Assert.Multiple(() =>
         {
