@@ -15,10 +15,17 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     private readonly Format[] _colorFormats;
     private readonly Format? _depthFormat;
     private readonly int _colorAttachmentCount;
+    private readonly byte[] _pushConstantData = new byte[VulkanPipeline3D.MaxPushConstantsSize];
     private CommandBuffer _currentCommandBuffer;
     private VulkanPipeline3D? _currentPipeline;
     private VulkanFramebuffer3D? _currentFramebuffer;
     private RenderPass _resumeRenderPass;
+    private Silk.NET.Vulkan.Buffer _boundVertexBuffer;
+    private Silk.NET.Vulkan.Buffer _boundIndexBuffer;
+    private DescriptorSet _boundDescriptorSet;
+    private PipelineLayout _boundDescriptorSetLayout;
+    private PipelineLayout _pushConstantLayout;
+    private uint _pushConstantSize;
     private bool _inRenderPass;
     private bool _suspended;
     private bool _disposed;
@@ -346,6 +353,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             PClearValues = clearValues
         };
 
+        ForgetRecordedState();
         _context.BeginRenderPassScope(this);
         _context.Vk.CmdBeginRenderPass(_currentCommandBuffer, &renderPassBeginInfo, SubpassContents.Inline);
         SetFullFramebufferViewport(vulkanFramebuffer);
@@ -417,17 +425,84 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         _context.Vk.CmdBeginRenderPass(_currentCommandBuffer, &renderPassBeginInfo, SubpassContents.Inline);
         SetFullFramebufferViewport(framebuffer);
         _suspended = false;
+        RebindRecordedState();
+    }
 
-        // Bindings survive the split - a command buffer keeps its state across a pass boundary, and the two
-        // pass objects are compatible - but rebinding says so to a reader and to the validation layer
-        // without depending on that.
+    /// <summary>
+    /// Puts back everything a draw reads that lives on the command buffer rather than in an object.
+    /// </summary>
+    /// <remarks>
+    /// A synchronous flush during a suspension submits the batch, so the instance resumes on a freshly
+    /// allocated command buffer that holds none of the bindings the caller made before the split: the
+    /// pipeline, the vertex and index buffers, the descriptor set, and the push constants are all command
+    /// buffer state and would otherwise be absent from the next <c>Draw</c>. Every one of them is recorded
+    /// as the caller makes it and replayed here; the viewport and scissor, the only other state this pass
+    /// records, are re-issued by the caller of this method.
+    ///
+    /// The order is what the spec requires, not a preference: binding a pipeline can disturb descriptor
+    /// bindings made under an incompatible layout, and binding a descriptor set can leave push constant
+    /// values undefined, so the pipeline goes first and the push constants last.
+    /// </remarks>
+    private void RebindRecordedState()
+    {
+        Vk vk = _context.Vk;
+
         if (_currentPipeline is { } pipeline)
         {
-            _context.Vk.CmdBindPipeline(
+            vk.CmdBindPipeline(_currentCommandBuffer, PipelineBindPoint.Graphics, pipeline.Handle);
+        }
+
+        if (_boundDescriptorSet.Handle != 0)
+        {
+            DescriptorSet set = _boundDescriptorSet;
+            vk.CmdBindDescriptorSets(
                 _currentCommandBuffer,
                 PipelineBindPoint.Graphics,
-                pipeline.Handle);
+                _boundDescriptorSetLayout,
+                0,
+                1,
+                &set,
+                0,
+                null);
         }
+
+        if (_boundVertexBuffer.Handle != 0)
+        {
+            Silk.NET.Vulkan.Buffer vertexBuffer = _boundVertexBuffer;
+            ulong offset = 0;
+            vk.CmdBindVertexBuffers(_currentCommandBuffer, 0, 1, &vertexBuffer, &offset);
+        }
+
+        if (_boundIndexBuffer.Handle != 0)
+        {
+            vk.CmdBindIndexBuffer(_currentCommandBuffer, _boundIndexBuffer, 0, IndexType.Uint32);
+        }
+
+        if (_pushConstantSize != 0)
+        {
+            fixed (byte* data = _pushConstantData)
+            {
+                vk.CmdPushConstants(
+                    _currentCommandBuffer,
+                    _pushConstantLayout,
+                    VulkanPipeline3D.PushConstantStages,
+                    0,
+                    _pushConstantSize,
+                    data);
+            }
+        }
+    }
+
+    /// <summary>Drops the bindings recorded for an instance that is no longer recording.</summary>
+    private void ForgetRecordedState()
+    {
+        _currentPipeline = null;
+        _boundVertexBuffer = default;
+        _boundIndexBuffer = default;
+        _boundDescriptorSet = default;
+        _boundDescriptorSetLayout = default;
+        _pushConstantLayout = default;
+        _pushConstantSize = 0;
     }
 
     public void End()
@@ -445,7 +520,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         _inRenderPass = false;
         _suspended = false;
         _currentFramebuffer = null;
-        _currentPipeline = null;
+        ForgetRecordedState();
     }
 
     public CommandBuffer GetCurrentCommandBuffer()
@@ -484,6 +559,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
         var bufferHandle = vulkanBuffer.Handle;
         ulong offset = 0;
+        _boundVertexBuffer = bufferHandle;
         _context.Vk.CmdBindVertexBuffers(_currentCommandBuffer, 0, 1, &bufferHandle, &offset);
     }
 
@@ -495,6 +571,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         }
 
         var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
+        _boundIndexBuffer = vulkanBuffer.Handle;
         _context.Vk.CmdBindIndexBuffer(_currentCommandBuffer, vulkanBuffer.Handle, 0, IndexType.Uint32);
     }
 
@@ -508,6 +585,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         var vulkanPipeline = _context.RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
         var vulkanDescriptorSet = _context.RequireOwned<VulkanDescriptorSet>(descriptorSet, nameof(descriptorSet));
         var set = vulkanDescriptorSet.Handle;
+        _boundDescriptorSet = set;
+        _boundDescriptorSetLayout = vulkanPipeline.PipelineLayoutHandle;
         _context.Vk.CmdBindDescriptorSets(
             _currentCommandBuffer,
             PipelineBindPoint.Graphics,
@@ -557,6 +636,10 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             throw new ArgumentException(
                 $"Push constants size {size} exceeds maximum of {VulkanPipeline3D.MaxPushConstantsSize} bytes");
         }
+
+        new ReadOnlySpan<byte>(&data, (int)size).CopyTo(_pushConstantData);
+        _pushConstantLayout = _currentPipeline.PipelineLayoutHandle;
+        _pushConstantSize = size;
 
         // The bound layout's range is what decides these, not the caller: an update has to name every stage
         // of every range it overlaps, so naming fewer is undefined behaviour the driver need not report.

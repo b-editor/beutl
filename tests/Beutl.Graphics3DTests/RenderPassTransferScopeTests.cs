@@ -41,11 +41,47 @@ public sealed class RenderPassTransferScopeTests
         }
         """;
 
+    /// <summary>Reads its geometry from a vertex buffer, its texture from a descriptor set, and its tint
+    /// from push constants, so a draw is only correct when all three are bound.</summary>
+    private const string TexturedQuadVertexShader = """
+        #version 450
+
+        layout(location = 0) in vec2 inPosition;
+        layout(location = 0) out vec2 fragCoord;
+
+        void main() {
+            gl_Position = vec4(inPosition, 0.0, 1.0);
+            fragCoord = inPosition * 0.5 + 0.5;
+        }
+        """;
+
+    private const string TintedFragmentShader = """
+        #version 450
+
+        layout(location = 0) in vec2 fragCoord;
+        layout(location = 0) out vec4 outColor;
+        layout(binding = 0) uniform sampler2D sourceTexture;
+        layout(push_constant) uniform PushConstants { vec4 tint; } pc;
+
+        void main() {
+            outColor = texture(sourceTexture, fragCoord) * pc.tint;
+        }
+        """;
+
     // Past VulkanRenderPass3D's 128-byte push-constant limit, so SetPushConstants rejects it.
     [StructLayout(LayoutKind.Sequential, Size = 192)]
     private struct OversizedPushConstants
     {
         public byte First;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct TintPushConstants
+    {
+        public float Red;
+        public float Green;
+        public float Blue;
+        public float Alpha;
     }
 
     /// <remarks>
@@ -235,6 +271,128 @@ public sealed class RenderPassTransferScopeTests
                 + "an unterminated render pass.");
 
             context.WaitIdle();
+        });
+    }
+
+
+    /// <remarks>
+    /// A flush during a suspension submits the batch, so the instance resumes on a command buffer that was
+    /// allocated after the caller made its bindings. Everything a draw reads other than the pipeline - the
+    /// vertex and index buffers, the descriptor set, the push constants - is state of that command buffer,
+    /// not of any object, so a resume that restores only the pipeline hands the following draw undefined
+    /// vertices, no texture, and undefined push constants. Drawing what was bound before the split is the
+    /// whole point of splitting rather than submitting ahead, and under the validation layer this test also
+    /// fails on the missing bindings themselves rather than only on the pixels they produce.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void ADrawAfterAResumedPass_StillSeesEveryBindingMadeBeforeTheSplit()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            IShaderCompiler compiler = context.CreateShaderCompiler();
+            byte[] vertexSpirv = compiler.CompileToSpirv(TexturedQuadVertexShader, ShaderStage.Vertex);
+            byte[] fragmentSpirv = compiler.CompileToSpirv(TintedFragmentShader, ShaderStage.Fragment);
+
+            // Opaque white, so the drawn color is the push-constant tint alone.
+            using ITexture2D sourceTexture = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            byte[] white = new byte[Width * Height * 4];
+            Array.Fill(white, (byte)0xFF);
+            sourceTexture.Upload(white);
+
+            using ITexture2D color = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            using IRenderPass3D renderPass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
+            using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(renderPass, [color], null);
+            using ISampler sampler = context.CreateSampler();
+
+            var vertexInput = new VertexInputDescription
+            {
+                Bindings =
+                [
+                    new VertexBindingDescription
+                    {
+                        Binding = 0,
+                        Stride = sizeof(float) * 2,
+                        InputRate = VertexInputRate.Vertex,
+                    }
+                ],
+                Attributes =
+                [
+                    new VertexAttributeDescription
+                    {
+                        Location = 0,
+                        Binding = 0,
+                        Format = VertexFormat.Float2,
+                        Offset = 0,
+                    }
+                ],
+            };
+
+            using IPipeline3D pipeline = context.CreatePipeline3D(
+                renderPass,
+                vertexSpirv,
+                fragmentSpirv,
+                [new DescriptorBinding(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)],
+                vertexInput,
+                PipelineOptions.Fullscreen);
+            using IDescriptorSet descriptorSet = context.CreateDescriptorSet(
+                pipeline,
+                [new DescriptorPoolSize(DescriptorType.CombinedImageSampler, 1)]);
+            descriptorSet.UpdateTexture(0, sourceTexture, sampler);
+
+            float[] corners = [-1f, -1f, 1f, -1f, 1f, 1f, -1f, 1f];
+            uint[] quadIndices = [0, 1, 2, 0, 2, 3];
+            using IBuffer vertexBuffer = context.CreateBuffer(
+                (ulong)(corners.Length * sizeof(float)),
+                BufferUsage.VertexBuffer,
+                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            using IBuffer indexBuffer = context.CreateBuffer(
+                (ulong)(quadIndices.Length * sizeof(uint)),
+                BufferUsage.IndexBuffer,
+                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            vertexBuffer.Upload<float>(corners);
+            indexBuffer.Upload<uint>(quadIndices);
+
+            var tint = new TintPushConstants { Red = 1f, Green = 0f, Blue = 0.5f, Alpha = 1f };
+
+            renderPass.Begin(framebuffer, [Colors.Transparent]);
+            renderPass.BindPipeline(pipeline);
+            renderPass.BindVertexBuffer(vertexBuffer);
+            renderPass.BindIndexBuffer(indexBuffer);
+            renderPass.BindDescriptorSet(pipeline, descriptorSet);
+            renderPass.SetPushConstants(tint);
+
+            // Splits the pass onto a freshly allocated command buffer, between the bindings and the draw.
+            context.WaitIdle();
+
+            renderPass.DrawIndexed((uint)quadIndices.Length);
+            renderPass.End();
+            context.WaitIdle();
+
+            byte[] drawn = color.DownloadPixels();
+            int center = (((Height / 2) * Width) + (Width / 2)) * 4;
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    drawn[center],
+                    Is.EqualTo(255).Within(2),
+                    "the push-constant tint must survive the split: red");
+                Assert.That(
+                    drawn[center + 1],
+                    Is.EqualTo(0).Within(2),
+                    "the push-constant tint must survive the split: green");
+                Assert.That(
+                    drawn[center + 2],
+                    Is.EqualTo(128).Within(2),
+                    "the push-constant tint must survive the split: blue");
+                Assert.That(
+                    drawn[center + 3],
+                    Is.EqualTo(255).Within(2),
+                    "the quad must actually be drawn, which needs the vertex and index buffers and the "
+                    + "descriptor set to be bound on the command buffer the pass resumed onto");
+            }
         });
     }
 
