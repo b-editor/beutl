@@ -334,7 +334,7 @@ public sealed class DeviceBufferBudgetTests
         using RenderRequest request = CreateOverBudgetRequest(RenderIntent.Delivery);
         using CompiledRenderRequest compiled = CompileOverBudgetRequest(request, node);
         using RenderTarget destination = new CpuRenderTarget(new PixelSize(8, 8));
-        using var canvas = new ImmediateCanvas(destination);
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Delivery);
         using var registry = new RenderTargetLeaseRegistry(factory, maxBufferDimension: DeviceBudget);
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Delivery, destination);
 

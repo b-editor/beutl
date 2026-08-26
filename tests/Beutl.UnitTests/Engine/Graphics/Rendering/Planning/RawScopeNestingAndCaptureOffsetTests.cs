@@ -2,6 +2,7 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
+using SkiaSharp;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
@@ -218,6 +219,10 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
                     OutputScale = 1,
                     CacheOptions = RenderCacheOptions.Disabled,
                 },
+                // The clamp under test is planning's, against the engine ceiling. Leaving the allocator
+                // implicit would measure the buffer against whatever this machine's GPU can attach, and the
+                // assertion below would then hold only on a device that reaches that ceiling.
+                TargetFactory = new CpuTargetFactory(),
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -492,4 +497,23 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
             context.Publish(context.ContributeValues(capture));
         }
     }
+
+    private sealed class CpuTargetFactory : IRenderTargetFactory
+    {
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+        {
+            PixelSize deviceSize = allocation.DeviceSize;
+            SKSurface surface = SKSurface.Create(new SKImageInfo(
+                    deviceSize.Width,
+                    deviceSize.Height,
+                    SKColorType.RgbaF16,
+                    SKAlphaType.Premul,
+                    SKColorSpace.CreateSrgbLinear()))
+                ?? throw new InvalidOperationException("Could not create the CPU capture test surface.");
+            return new CpuRenderTarget(surface, deviceSize);
+        }
+    }
+
+    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
+        : RenderTarget(surface, size.Width, size.Height);
 }
