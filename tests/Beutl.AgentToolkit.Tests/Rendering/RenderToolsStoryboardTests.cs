@@ -13,6 +13,7 @@ using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -1145,6 +1146,56 @@ public sealed class RenderToolsStoryboardTests
         });
     }
 
+    [Test]
+    public async Task Suggest_quality_fixes_only_reserves_output_for_motion_analysis()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        var outputOperations = new BlockingOutputOperationLeaseProvider();
+        RenderTools tools = CreateTools(workspace, session, outputOperations);
+        var renderEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRender = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task renderBlocker = RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            renderEntered.TrySetResult();
+            releaseRender.Task.GetAwaiter().GetResult();
+        });
+        await renderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task<ToolResult<QualityFixSuggestionsResponse>> motionTask = tools.SuggestQualityFixes(
+            includeMotion: true,
+            cancellationToken: CancellationToken.None).AsTask();
+        try
+        {
+            await outputOperations.Acquired.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(motionTask.IsCompleted, Is.False);
+                Assert.That(outputOperations.TryBeginOutputOperation(), Is.Null);
+                Assert.That(outputOperations.Lease!.DisposeCount, Is.Zero);
+            });
+        }
+        finally
+        {
+            releaseRender.TrySetResult();
+            await renderBlocker.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        ToolResult<QualityFixSuggestionsResponse> motion = await motionTask;
+        ToolResult<QualityFixSuggestionsResponse> documentOnly = await tools.SuggestQualityFixes(
+            includeMotion: false,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(motion.IsSuccess, Is.True, motion.Error?.Message);
+            Assert.That(documentOnly.IsSuccess, Is.True, documentOnly.Error?.Message);
+            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(2));
+            Assert.That(outputOperations.Lease!.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
     private static IEnumerable<TestCaseData> InvalidStoryboardTimeCases()
     {
         yield return new TestCaseData(Array.Empty<double>(), "at least one");
@@ -1499,6 +1550,31 @@ public sealed class RenderToolsStoryboardTests
         }
     }
 
+    private sealed class BlockingOutputOperationLeaseProvider : IOutputOperationLeaseProvider
+    {
+        private int _active;
+
+        public int AcquireAttempts { get; private set; }
+
+        public TaskCompletionSource Acquired { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public CountingLease? Lease { get; private set; }
+
+        public IDisposable? TryBeginOutputOperation()
+        {
+            AcquireAttempts++;
+            if (Interlocked.CompareExchange(ref _active, 1, 0) != 0)
+            {
+                return null;
+            }
+
+            Acquired.TrySetResult();
+            Lease = new CountingLease(() => Volatile.Write(ref _active, 0));
+            return Lease;
+        }
+    }
+
     private sealed class CompletionObservingOutputOperationLeaseProvider(Func<bool> isFileComplete)
         : IOutputOperationLeaseProvider
     {
@@ -1527,7 +1603,7 @@ public sealed class RenderToolsStoryboardTests
         }
     }
 
-    private sealed class CountingLease : IDisposable
+    private sealed class CountingLease(Action? onDispose = null) : IDisposable
     {
         private int _disposeCount;
 
@@ -1535,7 +1611,10 @@ public sealed class RenderToolsStoryboardTests
 
         public void Dispose()
         {
-            Interlocked.Increment(ref _disposeCount);
+            if (Interlocked.Increment(ref _disposeCount) == 1)
+            {
+                onDispose?.Invoke();
+            }
         }
     }
 

@@ -536,6 +536,9 @@ public sealed class RenderTools(
     {
         return ExecuteAsync(async () =>
         {
+            using OwnedOutputOperation? outputOperation = includeMotion
+                ? BeginOutputOperation()
+                : null;
             ValidateVideoType(videoType);
             Scene scene = RequireSceneSnapshot();
             renderScale = ValidateRenderScale(scene, renderScale, "suggest_quality_fixes");
