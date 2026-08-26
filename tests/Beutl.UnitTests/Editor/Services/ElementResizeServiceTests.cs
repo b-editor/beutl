@@ -1507,6 +1507,29 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void CalculateTimelineDuration_HoldLastAtBoundaryRemainsFinite()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldLastFrame = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(2),
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromTicks(1)));
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_TimeControllerFrameRateUsesQuantizedTail()
     {
         var frontSource = new VideoSource();

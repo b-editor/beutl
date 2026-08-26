@@ -46,8 +46,6 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldLastFrame), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> HoldLastFrame { get; } = Property.Create<bool>();
 
-    public bool IsReversed => Reverse.CurrentValue;
-
     private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)
     {
         var anm = Speed.Animation;
@@ -214,7 +212,10 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         if (resource.Loop || IsHeldAtTail(resource, reverse))
         {
             TimeSpan boundary = CalculateTargetBoundary(start, targetDrawable, resource, reverse);
-            if (boundary <= TimeSpan.Zero || targetDuration >= boundary)
+            bool heldAtTail = IsHeldAtTail(resource, reverse);
+            if (boundary <= TimeSpan.Zero
+                || resource.Loop && targetDuration >= boundary
+                || heldAtTail && targetDuration > boundary)
                 return TimeSpan.MaxValue;
         }
 
@@ -713,6 +714,18 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         if (ticks < 0)
             ticks += duration.Ticks;
         return TimeSpan.FromTicks(ticks);
+    }
+
+    /// <summary>
+    /// Gets whether this controller reverses the target timeline over the requested interval.
+    /// </summary>
+    public bool IsReversed(TimeRange timeRange, Drawable targetDrawable)
+    {
+        ArgumentNullException.ThrowIfNull(targetDrawable);
+        TimeSpan sampleTime = timeRange.IsEmpty
+            ? timeRange.Start
+            : timeRange.Start + TimeSpan.FromTicks(timeRange.Duration.Ticks / 2);
+        return Reverse.GetValue(new CompositionContext(sampleTime));
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Composition;
+using Beutl.Media;
 
 namespace Beutl.Engine;
 
@@ -22,9 +23,14 @@ public interface IPresenter<T> : IPresenter
 public interface ITimeMappingPresenter : IPresenter
 {
     /// <summary>
-    /// Gets the target currently evaluated by this presenter.
+    /// Gets the target property evaluated by this presenter.
     /// </summary>
-    CoreObject? CurrentTarget { get; }
+    IProperty TargetProperty { get; }
+
+    /// <summary>
+    /// Resolves the target using the supplied composition time.
+    /// </summary>
+    CoreObject? GetTarget(CompositionContext context);
 
     /// <summary>
     /// Maps a presenter-time interval to the target-time interval it evaluates.
@@ -48,9 +54,9 @@ public interface ITimeMappingPresenter : IPresenter
         bool reverse = false);
 
     /// <summary>
-    /// Gets whether this presenter reverses the target timeline.
+    /// Gets whether this presenter reverses the target timeline over the requested interval.
     /// </summary>
-    bool IsReversed { get; }
+    bool IsReversed(TimeRange timeRange, CoreObject target);
 }
 
 /// <summary>
@@ -61,7 +67,10 @@ public interface ITimeMappingPresenter : IPresenter
 public interface ITimeMappingPresenter<T> : IPresenter<T>, ITimeMappingPresenter
     where T : CoreObject
 {
-    CoreObject? ITimeMappingPresenter.CurrentTarget => Target.CurrentValue;
+    IProperty ITimeMappingPresenter.TargetProperty => Target;
+
+    CoreObject? ITimeMappingPresenter.GetTarget(CompositionContext context)
+        => Target.GetValue(context);
 
     TimeRange ITimeMappingPresenter.CalculateTargetTimeRange(TimeRange timeRange, CoreObject target)
         => CalculateTargetTimeRange(timeRange, (T)target);
@@ -78,6 +87,9 @@ public interface ITimeMappingPresenter<T> : IPresenter<T>, ITimeMappingPresenter
         CoreObject target,
         bool reverse)
         => CalculateTimelineDuration(start, targetDuration, (T)target, reverse);
+
+    bool ITimeMappingPresenter.IsReversed(TimeRange timeRange, CoreObject target)
+        => IsReversed(timeRange, (T)target);
 
     /// <summary>
     /// Maps a presenter-time interval to the target-time interval it evaluates.
@@ -103,5 +115,10 @@ public interface ITimeMappingPresenter<T> : IPresenter<T>, ITimeMappingPresenter
         TimeSpan targetDuration,
         T target,
         bool reverse = false);
+
+    /// <summary>
+    /// Gets whether this presenter reverses the target timeline over the requested interval.
+    /// </summary>
+    bool IsReversed(TimeRange timeRange, T target);
 
 }

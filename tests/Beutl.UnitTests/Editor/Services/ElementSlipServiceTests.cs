@@ -3,6 +3,7 @@ using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -670,6 +671,24 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_VideoNestedInExpressionBackedSpecializedPresenter_IsResolvedAtCompositionTime()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var video = new SourceVideo();
+        var presenter = new TestSourceVideoTimeMappingPresenter();
+        presenter.Target.Expression = new ConstantSourceVideoExpression(video);
+        element.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
     public void Slip_AnimatedSourceUsesTightestActiveSourceBound()
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(6));
@@ -761,6 +780,33 @@ public class ElementSlipServiceTests
         var presenter = new TestTimeMappingPresenter
         {
             MappedStart = TimeSpan.FromSeconds(-2),
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        TimeSpan room = SlippableMedia.OutPointRoom(
+            SlippableMedia.Collect(element),
+            element.Length);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [Test]
+    public void ResizeBounds_TimeMappingPresenterUsesRangeAwareReversal()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(-2),
+            ReverseSelector = range => range.Start == TimeSpan.Zero,
             Target = { CurrentValue = video },
         };
         element.Objects.Add(presenter);
@@ -1228,9 +1274,12 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
 
     public bool ReportsUnboundedTail { get; set; }
 
+    public Func<TimeRange, bool>? ReverseSelector { get; set; }
+
     public int TimelineDurationCallCount { get; private set; }
 
-    public bool IsReversed => false;
+    public bool IsReversed(TimeRange timeRange, Drawable target)
+        => ReverseSelector?.Invoke(timeRange) ?? false;
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable target)
         => new(MappedStart, timeRange.Duration);
@@ -1263,7 +1312,7 @@ internal sealed partial class TestSourceVideoTimeMappingPresenter : Drawable, IT
 {
     public IProperty<SourceVideo?> Target { get; } = Property.Create<SourceVideo?>();
 
-    public bool IsReversed => false;
+    public bool IsReversed(TimeRange timeRange, SourceVideo target) => false;
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, SourceVideo target)
         => new(TimeSpan.Zero, timeRange.Duration);
@@ -1283,5 +1332,20 @@ internal sealed partial class TestSourceVideoTimeMappingPresenter : Drawable, IT
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
+    }
+}
+
+internal sealed class ConstantSourceVideoExpression(SourceVideo target) : IExpression<SourceVideo?>
+{
+    public string ExpressionString => "constant-source-video";
+
+    public Type ResultType => typeof(SourceVideo);
+
+    public SourceVideo? Evaluate(ExpressionContext context) => target;
+
+    public bool Validate(out string? error)
+    {
+        error = null;
+        return true;
     }
 }
