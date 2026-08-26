@@ -110,21 +110,10 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         }
 
         var animation = (KeyFrameAnimation<float>)Speed.Animation!;
-        if (!HasPositiveSpeedAtOrAfter(animation, start)) return TimeSpan.MaxValue;
+        if (!TryGetTimelineUpperBound(start, sourceDuration, resource, animation, out TimeSpan high))
+            return TimeSpan.MaxValue;
 
-        TimeSpan high = sourceDuration;
         TimeSpan consumed = CalculateVideoDuration(start, high, resource);
-        for (int i = 0; consumed < sourceDuration && high < TimeSpan.MaxValue; i++)
-        {
-            long nextTicks = high.Ticks > TimeSpan.MaxValue.Ticks / 2
-                ? TimeSpan.MaxValue.Ticks
-                : high.Ticks * 2;
-            if (nextTicks == high.Ticks) break;
-
-            high = TimeSpan.FromTicks(nextTicks);
-            consumed = CalculateVideoDuration(start, high, resource);
-            if (i == 20) break;
-        }
 
         if (consumed < sourceDuration) return TimeSpan.MaxValue;
 
@@ -142,18 +131,43 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         return low;
     }
 
-    private static bool HasPositiveSpeedAtOrAfter(KeyFrameAnimation<float> animation, TimeSpan start)
+    private bool TryGetTimelineUpperBound(
+        TimeSpan start,
+        TimeSpan sourceDuration,
+        Resource resource,
+        KeyFrameAnimation<float> animation,
+        out TimeSpan high)
     {
-        if (animation.Interpolate(start) is float current && current > 0)
-            return true;
-
-        foreach (IKeyFrame keyFrame in animation.KeyFrames)
+        high = TimeSpan.Zero;
+        if (animation.KeyFrames[^1] is not KeyFrame<float> last)
         {
-            if (keyFrame is KeyFrame<float> speed && speed.KeyTime > start && speed.Value > 0)
-                return true;
+            return false;
+        }
+        float terminalSpeed = last.Value;
+
+        TimeSpan terminal = last.KeyTime > start ? last.KeyTime : start;
+        TimeSpan elapsed = terminal - start;
+        TimeSpan consumed = CalculateVideoDuration(start, elapsed, resource);
+        if (consumed >= sourceDuration)
+        {
+            high = elapsed;
+            return true;
         }
 
-        return false;
+        if (terminalSpeed <= 0)
+            return false;
+
+        double remainingTicks = (sourceDuration - consumed).Ticks / (terminalSpeed / 100.0);
+        if (remainingTicks >= TimeSpan.MaxValue.Ticks - elapsed.Ticks)
+        {
+            high = TimeSpan.MaxValue - start;
+        }
+        else
+        {
+            high = TimeSpan.FromTicks(elapsed.Ticks + (long)remainingTicks);
+        }
+
+        return true;
     }
 
     public TimeSpan? CalculateOriginalTime(Resource resource)

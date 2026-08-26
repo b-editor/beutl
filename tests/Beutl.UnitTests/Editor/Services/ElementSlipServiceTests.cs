@@ -567,6 +567,66 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_VideoNestedInLoopingTimeController_ConsumesFullCycle()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 270)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(controller);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(8));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(6)));
+        });
+    }
+
+    [Test]
+    public void Slip_SharedSourceThroughControllers_MergesTightestPathBounds()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var shortController = new DrawableTimeController
+        {
+            Speed = { CurrentValue = 200f },
+            Target = { CurrentValue = video },
+        };
+        var longController = new DrawableTimeController
+        {
+            Speed = { CurrentValue = 900f },
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(shortController);
+        element.Objects.Add(longController);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
     public void Slip_SharedSourceReachableViaTwoPresenters_ShiftsOnce()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

@@ -61,10 +61,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         return resource.SpeedIntegrator.Integrate(timeSpan, keyFrameAnimation);
     }
 
-    /// <summary>
-    /// Main time calculation (follows the order defined in the design document).
-    /// </summary>
-    private TimeSpan CalculateTargetTime(TimeSpan currentTime, Resource resource, Drawable? targetDrawable)
+    private TimeSpan CalculateTargetBaseTime(TimeSpan currentTime, Resource resource, Drawable? targetDrawable)
     {
         if (targetDrawable == null)
             return currentTime;
@@ -115,6 +112,24 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             baseTime = targetDuration - baseTime;
         }
 
+        return baseTime;
+    }
+
+    /// <summary>
+    /// Main time calculation (follows the order defined in the design document).
+    /// </summary>
+    private TimeSpan CalculateTargetTime(TimeSpan currentTime, Resource resource, Drawable? targetDrawable)
+    {
+        if (targetDrawable == null)
+            return currentTime;
+
+        TimeSpan targetStart = targetDrawable.TimeRange.Start;
+        TimeSpan targetDuration = targetDrawable.TimeRange.Duration;
+        if (targetDuration <= TimeSpan.Zero)
+            return currentTime;
+
+        TimeSpan baseTime = CalculateTargetBaseTime(currentTime, resource, targetDrawable);
+
         // 5. Loop: time = time % targetDuration
         if (resource.Loop && targetDuration > TimeSpan.Zero)
         {
@@ -153,6 +168,112 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     }
 
     /// <summary>
+    /// Calculates the timeline duration required to traverse a target-time interval.
+    /// </summary>
+    public TimeSpan CalculateTimelineDuration(
+        TimeSpan start, TimeSpan targetDuration, Drawable targetDrawable, Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(targetDrawable);
+        ArgumentNullException.ThrowIfNull(resource);
+
+        if (targetDuration <= TimeSpan.Zero)
+            return TimeSpan.Zero;
+        if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
+            return TimeSpan.MaxValue;
+        if (resource.Loop || resource.HoldFirstFrame || resource.HoldLastFrame)
+            return TimeSpan.MaxValue;
+
+        double speed = resource.Speed / 100.0;
+        if (Speed.Animation is not KeyFrameAnimation<float> { KeyFrames.Count: > 0 } animation)
+        {
+            return speed > 0 ? ScaleDuration(targetDuration, 1 / speed) : TimeSpan.MaxValue;
+        }
+
+        TimeSpan animationStart = animation.UseGlobalClock
+            ? start
+            : start - TimeRange.Start;
+        if (!HasPositiveSpeedAtOrAfter(animation, animationStart))
+            return TimeSpan.MaxValue;
+
+        TimeSpan targetAtStart = CalculateTargetBaseTime(start, resource, targetDrawable);
+        TimeSpan high = targetDuration;
+        TimeSpan consumed = CalculateTargetDistance(start, high, targetAtStart, resource, targetDrawable);
+        for (int i = 0; consumed < targetDuration && high < TimeSpan.MaxValue; i++)
+        {
+            long nextTicks = high.Ticks > TimeSpan.MaxValue.Ticks / 2
+                ? TimeSpan.MaxValue.Ticks
+                : high.Ticks * 2;
+            if (nextTicks == high.Ticks)
+                break;
+
+            high = TimeSpan.FromTicks(nextTicks);
+            consumed = CalculateTargetDistance(start, high, targetAtStart, resource, targetDrawable);
+            if (i == 20)
+                break;
+        }
+
+        if (consumed < targetDuration)
+            return TimeSpan.MaxValue;
+
+        TimeSpan low = TimeSpan.Zero;
+        for (int i = 0; i < 50; i++)
+        {
+            long middleTicks = low.Ticks + (high.Ticks - low.Ticks) / 2;
+            TimeSpan middle = TimeSpan.FromTicks(middleTicks);
+            if (CalculateTargetDistance(start, middle, targetAtStart, resource, targetDrawable) <= targetDuration)
+                low = middle;
+            else
+                high = middle;
+        }
+
+        return low;
+    }
+
+    private TimeSpan CalculateTargetDistance(
+        TimeSpan start,
+        TimeSpan duration,
+        TimeSpan targetAtStart,
+        Resource resource,
+        Drawable targetDrawable)
+    {
+        TimeSpan targetAtEnd = CalculateTargetBaseTime(start + duration, resource, targetDrawable);
+        double ticks = Math.Abs((double)targetAtEnd.Ticks - targetAtStart.Ticks);
+        return ticks >= TimeSpan.MaxValue.Ticks
+            ? TimeSpan.MaxValue
+            : TimeSpan.FromTicks((long)ticks);
+    }
+
+    private static TimeSpan ScaleDuration(TimeSpan duration, double scale)
+    {
+        double ticks = duration.Ticks * scale;
+        return ticks >= TimeSpan.MaxValue.Ticks
+            ? TimeSpan.MaxValue
+            : TimeSpan.FromTicks((long)ticks);
+    }
+
+    private static bool HasPositiveSpeedAtOrAfter(KeyFrameAnimation<float> animation, TimeSpan start)
+    {
+        if (animation.Interpolate(start) is float current && current > 0)
+            return true;
+
+        foreach (IKeyFrame keyFrame in animation.KeyFrames)
+        {
+            if (keyFrame is KeyFrame<float> speed && speed.KeyTime > start && speed.Value > 0)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static TimeSpan NormalizeLoopTime(TimeSpan value, TimeSpan duration)
+    {
+        long ticks = value.Ticks % duration.Ticks;
+        if (ticks < 0)
+            ticks += duration.Ticks;
+        return TimeSpan.FromTicks(ticks);
+    }
+
+    /// <summary>
     /// Calculates the target-time interval produced while this controller evaluates
     /// <paramref name="timeRange"/>.
     /// </summary>
@@ -164,11 +285,24 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
             return timeRange;
 
+        if (resource.Loop)
+        {
+            TimeSpan unwrappedStart = CalculateTargetBaseTime(timeRange.Start, resource, targetDrawable);
+            TimeSpan unwrappedEnd = CalculateTargetBaseTime(timeRange.End, resource, targetDrawable);
+            double traversedTicks = Math.Abs((double)unwrappedEnd.Ticks - unwrappedStart.Ticks);
+            if (traversedTicks >= targetDrawable.TimeRange.Duration.Ticks)
+                return targetDrawable.TimeRange;
+
+            TimeSpan normalizedStart = NormalizeLoopTime(unwrappedStart, targetDrawable.TimeRange.Duration);
+            TimeSpan normalizedEnd = NormalizeLoopTime(unwrappedEnd, targetDrawable.TimeRange.Duration);
+            bool forward = unwrappedEnd >= unwrappedStart;
+            bool wraps = forward ? normalizedEnd < normalizedStart : normalizedEnd > normalizedStart;
+            if (wraps)
+                return targetDrawable.TimeRange;
+        }
+
         TimeSpan start = CalculateTargetTime(timeRange.Start, resource, targetDrawable);
         TimeSpan end = CalculateTargetTime(timeRange.End, resource, targetDrawable);
-
-        if (resource.Loop && end < start)
-            return targetDrawable.TimeRange;
 
         TimeSpan rangeStart = start <= end ? start : end;
         TimeSpan rangeEnd = start >= end ? start : end;
