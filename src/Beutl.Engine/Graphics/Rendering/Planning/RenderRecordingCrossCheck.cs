@@ -111,13 +111,19 @@ internal static class RenderRecordingCrossCheck
 /// description's replay contract, the resource types a description declares.
 /// </para>
 /// <para>
-/// It still does not compare a payload's per-call values. Those are deliberately outside structural identity -
-/// they are what the plan cache varies while holding one plan - and a callback's captured state has no defined
-/// equality, so reading it would trade a silent stale frame for a spurious failed one. A node whose drift
-/// changes only such a value - the opacity inside an opacity payload, the state bound to a target command -
-/// therefore passes here; <see cref="RenderNode.HasChanges"/> remains the only signal for that half, as it is
-/// for output reuse, and BESG005 is the static net for it since such a value reaches the payload from a field
-/// the node assigns.
+/// It also compares the per-call values a payload states in engine types - an opacity, a blend mode, a mask's
+/// bounds and inversion, a layer's domain, a target region. Those are deliberately outside structural identity,
+/// because they are what the plan cache varies while holding one plan, so nothing else compares them; a node
+/// that advances one inside its own <see cref="RenderNode.Process(RenderNodeContext)"/> passes BESG005 too,
+/// which excludes that method because memoizing while recording is legitimate and reads the same. Recording
+/// twice is what separates the two: a memo answers the same value the second time and a drift does not.
+/// </para>
+/// <para>
+/// What is still not compared is a payload's author-supplied callback state. A closure's captured state has no
+/// defined equality, and a state object a node rebuilds per recording would compare unequal while nothing
+/// drifted, so reading it would trade a silent stale frame for a spurious failed one. A drift confined to such
+/// a value therefore still passes here; <see cref="RenderNode.HasChanges"/> remains the only signal for that
+/// half, as it is for output reuse.
 /// </para>
 /// </remarks>
 internal readonly struct RecordedNodeShape
@@ -125,17 +131,20 @@ internal readonly struct RecordedNodeShape
     private readonly int _inputCount;
     private readonly ImmutableArray<string> _fragments;
     private readonly ImmutableArray<StructuralFragmentIdentity> _identities;
+    private readonly ImmutableArray<string> _callValues;
     private readonly ImmutableArray<string> _publications;
 
     private RecordedNodeShape(
         int inputCount,
         ImmutableArray<string> fragments,
         ImmutableArray<StructuralFragmentIdentity> identities,
+        ImmutableArray<string> callValues,
         ImmutableArray<string> publications)
     {
         _inputCount = inputCount;
         _fragments = fragments;
         _identities = identities;
+        _callValues = callValues;
         _publications = publications;
     }
 
@@ -188,10 +197,12 @@ internal readonly struct RecordedNodeShape
 
         var described = ImmutableArray.CreateBuilder<string>(fragments.Count);
         var identities = ImmutableArray.CreateBuilder<StructuralFragmentIdentity>(fragments.Count);
+        var callValues = ImmutableArray.CreateBuilder<string>(fragments.Count);
         foreach (RecordedRenderFragmentEntry entry in fragments)
         {
             described.Add(Describe(entry, labels));
             identities.Add(StructuralFragmentIdentity.Create(entry.Reference, slots));
+            callValues.Add(DescribeCallValues(entry.Reference));
         }
 
         var publicationLabels = ImmutableArray.CreateBuilder<string>(publications.Count);
@@ -202,6 +213,7 @@ internal readonly struct RecordedNodeShape
             inputs.Count,
             described.ToImmutable(),
             identities.ToImmutable(),
+            callValues.ToImmutable(),
             publicationLabels.ToImmutable());
     }
 
@@ -239,6 +251,17 @@ internal readonly struct RecordedNodeShape
             {
                 difference = $"fragment {index} kept its recorded metadata but its payload's structural "
                     + $"identity changed. It was recorded as {_fragments[index]}.";
+                return true;
+            }
+        }
+
+        for (int index = 0; index < _callValues.Length; index++)
+        {
+            if (!string.Equals(_callValues[index], other._callValues[index], StringComparison.Ordinal))
+            {
+                difference = $"fragment {index} kept its recorded metadata and its payload's structural "
+                    + $"identity, and the per-call values it carries changed from [{_callValues[index]}] to "
+                    + $"[{other._callValues[index]}]. It was recorded as {_fragments[index]}.";
                 return true;
             }
         }
@@ -291,6 +314,31 @@ internal readonly struct RecordedNodeShape
 
         return builder.Append(']').ToString();
     }
+
+    /// <summary>The per-call values a payload states in a type the engine defines and can compare.</summary>
+    /// <remarks>
+    /// Only engine-defined values are read. A payload's author-supplied callback state is left alone - see the
+    /// remarks on this type for why - so this net is narrow by design rather than by omission.
+    /// </remarks>
+    private static string DescribeCallValues(RenderFragmentReference reference) => reference.Payload switch
+    {
+        OpacityRenderFragmentPayload opacity
+            => "opacity=" + opacity.Opacity.ToString("R", CultureInfo.InvariantCulture),
+        BlendRenderFragmentPayload blend => "blend=" + blend.BlendMode,
+        OpacityMaskRenderFragmentPayload mask
+            => $"maskBounds={mask.BrushBounds} invert={mask.Invert}",
+        LayerRenderFragmentPayload layer
+            => $"domain={layer.Domain?.ToString() ?? "none"} queryFootprint={layer.DomainIsQueryFootprint}",
+        TargetLayerScopeRenderFragmentPayload layerScope => "region=" + DescribeRegion(layerScope.Region),
+        TargetCommandRenderFragmentPayload command
+            => "affected=" + DescribeRegion(command.Description.AffectedRegion),
+        _ => string.Empty,
+    };
+
+    private static string DescribeRegion(TargetRegion region)
+        => region.Kind == TargetRegionKind.Region
+            ? region.Kind + ":" + region.Value
+            : region.Kind.ToString();
 
     private static string Label(
         RenderFragmentReference reference,

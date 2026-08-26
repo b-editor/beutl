@@ -131,6 +131,67 @@ public sealed class RenderRecordingCrossCheckTests
         }
     }
 
+    /// <summary>
+    /// The drift that slips between BESG005 and the payload's structural identity: a per-call value.
+    /// </summary>
+    /// <remarks>
+    /// BESG005 excludes assignments inside <see cref="RenderNode.Process(RenderNodeContext)"/> because
+    /// memoizing while recording is legitimate and reads the same, so this compiles clean. Structural
+    /// identity excludes a target command's per-call values because they are what one compiled plan is
+    /// rebound over, so the shape comparison had nothing to say either, and a skip path replayed the first
+    /// region for the rest of the node's life.
+    /// </remarks>
+    [Test]
+    public void ANodeThatAdvancesAPerCallTargetRegionInsideProcess_IsReported()
+    {
+        using var node = new DriftingTargetRegionNode();
+
+        using (RenderRecordingCrossCheck.Enable())
+        {
+            var exception = Assert.Throws<RenderRecordingCrossCheckException>(() => Record(node));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(exception!.NodeType, Is.EqualTo(typeof(DriftingTargetRegionNode)));
+                Assert.That(exception.Message, Does.Contain("per-call"));
+            });
+        }
+    }
+
+    /// <summary>The same for the value the finding names first: an opacity advanced while recording.</summary>
+    [Test]
+    public void ANodeThatAdvancesAPerCallOpacityInsideProcess_IsReported()
+    {
+        using var node = new DriftingOpacityNode(s_bounds);
+
+        using (RenderRecordingCrossCheck.Enable())
+        {
+            var exception = Assert.Throws<RenderRecordingCrossCheckException>(() => Record(node));
+
+            Assert.That(exception!.NodeType, Is.EqualTo(typeof(DriftingOpacityNode)));
+        }
+    }
+
+    /// <summary>
+    /// The sharing this must not collapse: a value computed once while recording and read from the memo after.
+    /// </summary>
+    /// <remarks>
+    /// This is why the assignment cannot simply be reported where it is written. Memoizing is an assignment
+    /// inside <see cref="RenderNode.Process(RenderNodeContext)"/> to state that same method reads, exactly
+    /// like the drift above; what separates them is whether a second recording produces the same value.
+    /// </remarks>
+    [Test]
+    public void ANodeThatMemoizesAPerCallValueInsideProcess_IsAccepted()
+    {
+        using var node = new MemoizingOpacityNode(s_bounds);
+
+        using (RenderRecordingCrossCheck.Enable())
+        {
+            Assert.That(() => Record(node), Throws.Nothing);
+            Assert.That(() => Record(node), Throws.Nothing, "and again against the retained recording");
+        }
+    }
+
     /// <remarks>
     /// There has to be a fresh recording for the retained one to be checked against, so while this is on a
     /// node that would have been skipped records anyway.
@@ -303,6 +364,51 @@ public sealed class RenderRecordingCrossCheckTests
     }
 
 #pragma warning restore BESG005
+
+    /// <summary>A node whose recorded target region grows every time it records, and which never says so.</summary>
+    private sealed class DriftingTargetRegionNode : RenderNode
+    {
+        private float _width = 10;
+
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.Create(
+                    0,
+                    static (_, _) => { },
+                    TargetRegion.Region(new Rect(0, 0, _width, 10)),
+                    s_bounds,
+                    RenderHitTestContract.None)));
+            _width += 1;
+        }
+    }
+
+    /// <summary>A node whose recorded opacity moves every time it records, and which never says so.</summary>
+    private sealed class DriftingOpacityNode(Rect bounds) : RenderNode
+    {
+        private float _opacity = 0.5f;
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle input = context.OpaqueSource(CreateSource(bounds));
+            context.Publish(context.Opacity(input, _opacity));
+            _opacity -= 0.125f;
+        }
+    }
+
+    /// <summary>A node that settles its opacity on the first recording and reads the memo after.</summary>
+    private sealed class MemoizingOpacityNode(Rect bounds) : RenderNode
+    {
+        private float? _opacity;
+
+        public override void Process(RenderNodeContext context)
+        {
+            _opacity ??= 0.5f;
+            RenderFragmentHandle input = context.OpaqueSource(CreateSource(bounds));
+            context.Publish(context.Opacity(input, _opacity.Value));
+        }
+    }
 
     private sealed class OwningSourceNode(Rect bounds) : RenderNode
     {
