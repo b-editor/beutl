@@ -4,6 +4,7 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
+using Beutl.Media;
 
 namespace Beutl.Graphics;
 
@@ -149,6 +150,28 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
         // Convert to absolute time by adding Target's Start
         return targetStart + baseTime;
+    }
+
+    /// <summary>
+    /// Calculates the target-time interval produced while this controller evaluates
+    /// <paramref name="timeRange"/>.
+    /// </summary>
+    public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable targetDrawable, Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(targetDrawable);
+        ArgumentNullException.ThrowIfNull(resource);
+
+        if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
+            return timeRange;
+
+        if (resource.Loop)
+            return targetDrawable.TimeRange;
+
+        TimeSpan start = CalculateTargetTime(timeRange.Start, resource, targetDrawable);
+        TimeSpan end = CalculateTargetTime(timeRange.End, resource, targetDrawable);
+        TimeSpan rangeStart = start <= end ? start : end;
+        TimeSpan rangeEnd = start >= end ? start : end;
+        return new TimeRange(rangeStart, rangeEnd - rangeStart);
     }
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)

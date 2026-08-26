@@ -1032,6 +1032,30 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void GetTrimDeltaBounds_TimeControllerSpeedAdjustsSourceTail()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Speed = { CurrentValue = 200f },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_BackInPoint_MinClampedToSourceHead()
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));

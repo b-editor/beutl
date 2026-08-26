@@ -109,6 +109,9 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
                 : TimeSpan.FromTicks((long)ticks);
         }
 
+        var animation = (KeyFrameAnimation<float>)Speed.Animation!;
+        if (!HasPositiveSpeedAtOrAfter(animation, start)) return TimeSpan.MaxValue;
+
         TimeSpan high = sourceDuration;
         TimeSpan consumed = CalculateVideoDuration(start, high, resource);
         for (int i = 0; consumed < sourceDuration && high < TimeSpan.MaxValue; i++)
@@ -137,6 +140,20 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         }
 
         return low;
+    }
+
+    private static bool HasPositiveSpeedAtOrAfter(KeyFrameAnimation<float> animation, TimeSpan start)
+    {
+        if (animation.Interpolate(start) is float current && current > 0)
+            return true;
+
+        foreach (IKeyFrame keyFrame in animation.KeyFrames)
+        {
+            if (keyFrame is KeyFrame<float> speed && speed.KeyTime > start && speed.Value > 0)
+                return true;
+        }
+
+        return false;
     }
 
     public TimeSpan? CalculateOriginalTime(Resource resource)

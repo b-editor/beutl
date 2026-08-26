@@ -77,6 +77,16 @@ public class SceneTimeRangeServiceTests
         Assert.That(SceneTimeRangeService.GetFrameRate(_scene), Is.EqualTo(30));
     }
 
+    [Test]
+    public void ExtremeFrameRate_PreservesOneRepresentableFrame()
+    {
+        AttachProject(int.MaxValue.ToString());
+
+        _service.UpdateEndDrag(_scene, _scene.Start);
+
+        Assert.That(_scene.Duration, Is.EqualTo(TimeSpan.FromTicks(1)));
+    }
+
     private void AttachProject(string frameRate)
     {
         var project = new Project();
