@@ -671,6 +671,66 @@ public class DrawableBrushThumbnailTests
         }
     }
 
+    // A dispose with no update pending settles at once and hands the release to the render dispatcher.
+    // Shutdown abandons whatever is still queued, so the handler has to stay able to recover that release
+    // instead of writing it off the moment it is queued.
+    [AvaloniaTest]
+    public void Render_dispatcher_shutdown_recovers_a_release_it_abandoned()
+    {
+        var drawableBrush = new DisposalTrackingDrawableBrush();
+        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(
+            new CompositionContext(TimeSpan.Zero));
+        var imageBrush = new AvaImageBrush();
+        var blockerEntered = new ManualResetEventSlim();
+        var releaseBlocker = new ManualResetEventSlim();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(
+            resource,
+            imageBrush,
+            dispatcher);
+
+        try
+        {
+            dispatcher.Dispatch(
+                () =>
+                {
+                    blockerEntered.Set();
+                    releaseBlocker.Wait();
+                },
+                DispatchPriority.High);
+            Assert.That(blockerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            handler.Dispose();
+            Assert.That(resource.IsDisposed, Is.False, "the release is queued behind the blocked operation");
+
+            dispatcher.Shutdown();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(resource.IsDisposed, Is.True);
+                Assert.That(drawableBrush.ResourceDisposeCalls, Is.EqualTo(1));
+            });
+
+            releaseBlocker.Set();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(
+                drawableBrush.ResourceDisposeCalls,
+                Is.EqualTo(1),
+                "draining the queue must not release the resource a second time");
+        }
+        finally
+        {
+            handler.Dispose();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            releaseBlocker.Set();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+            blockerEntered.Dispose();
+            releaseBlocker.Dispose();
+            resource.Dispose();
+        }
+    }
+
     [AvaloniaTest]
     public void Handler_attached_to_an_already_stopped_dispatcher_still_releases_its_resource()
     {

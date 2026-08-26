@@ -272,6 +272,7 @@ public static class AvaloniaTypeConverter
         private int _runningUpdates;
         private bool _disposeRequested;
         private bool _resourceReleased;
+        private bool _resourceDisposed;
 
         public DrawableImageBrushHandler(DrawableBrush.Resource drawableBrush, ImageBrush imageBrush)
             : this(drawableBrush, imageBrush, RenderThread.Dispatcher)
@@ -302,7 +303,7 @@ public static class AvaloniaTypeConverter
             _renderDispatcher = renderDispatcher;
             _ownsResource = ownsResource;
             // A shutdown drops queued work without running it, so the resource must be released from here too.
-            _shutdownHandler = (_, _) => ReleaseResourceIfSettled();
+            _shutdownHandler = (_, _) => OnRenderDispatcherShutdown();
             _renderDispatcher.ShutdownStarted += _shutdownHandler;
         }
 
@@ -401,15 +402,54 @@ public static class AvaloniaTypeConverter
                 _cts = null;
             }
 
-            _renderDispatcher.ShutdownStarted -= _shutdownHandler;
             if (!_ownsResource)
+            {
+                _renderDispatcher.ShutdownStarted -= _shutdownHandler;
                 return;
+            }
 
             // A shutting-down dispatcher never runs queued work, so the release has to happen inline there.
             if (_renderDispatcher.CheckAccess() || _renderDispatcher.HasShutdownStarted)
-                _drawableBrush.Dispose();
-            else
-                _renderDispatcher.Dispatch(_drawableBrush.Dispose, DispatchPriority.Low);
+            {
+                ReleaseResource();
+                return;
+            }
+
+            _renderDispatcher.Dispatch(ReleaseResource, DispatchPriority.Low);
+            // Shutdown can begin between the check above and the dispatch, abandoning the queued release
+            // before the still-registered handler is given anything to recover.
+            if (_renderDispatcher.HasShutdownStarted)
+                ReleaseResource();
+        }
+
+        private void OnRenderDispatcherShutdown()
+        {
+            ReleaseResourceIfSettled();
+
+            bool released;
+            lock (_gate)
+                released = _resourceReleased;
+
+            // A release queued while the dispatcher still looked alive is abandoned by this shutdown, and
+            // nothing else will run it.
+            if (released && _ownsResource)
+                ReleaseResource();
+        }
+
+        // Reached from the render dispatcher and from a shutdown recovering that abandoned call, possibly at
+        // the same moment; Resource.Dispose is not thread-safe, so exactly one of them may run it.
+        private void ReleaseResource()
+        {
+            lock (_gate)
+            {
+                if (_resourceDisposed)
+                    return;
+
+                _resourceDisposed = true;
+            }
+
+            _renderDispatcher.ShutdownStarted -= _shutdownHandler;
+            _drawableBrush.Dispose();
         }
 
         private async Task RenderAndPublishAsync(CancellationToken token)
