@@ -25,21 +25,47 @@ public sealed class ElementResizeService : IElementResizeService
         requests = requests.Where(r => !scene.IsElementLocked(r.Element)).ToArray();
         if (requests.Count == 0) return;
 
+        // Normalize before MoveChild: UI submit paths can round below one frame, and the exception
+        // escapes the async-void handler.
+        requests = NormalizeRequests(scene, requests);
+
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
         var clamped = ripple ? new Dictionary<Element, (TimeSpan Start, TimeSpan Length)>(requests.Count) : null;
+        var rejected = ripple ? new HashSet<Element>() : null;
         if (ripple)
         {
             var resizedSet = new HashSet<Element>(requests.Select(r => r.Element));
-            foreach (ElementResizeRequest req in requests)
+            TimeSpan minLength = GetMinimumLength(scene);
+            while (true)
             {
-                ValidateRippleRequest(req);
-                // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
-                (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet);
-                length = ClampRippleEnd(scene, req, start, length, resizedSet);
-                clamped![req.Element] = (start, length);
-                oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
+                clamped!.Clear();
+                oldBounds!.Clear();
+                var newlyRejected = new List<Element>();
+                foreach (ElementResizeRequest req in requests)
+                {
+                    if (!resizedSet.Contains(req.Element)) continue;
+
+                    // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
+                    (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet);
+                    length = ClampRippleEnd(scene, req, start, length, resizedSet);
+                    if (length < minLength)
+                    {
+                        newlyRejected.Add(req.Element);
+                        continue;
+                    }
+
+                    clamped[req.Element] = (start, length);
+                    oldBounds[req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
+                }
+
+                if (newlyRejected.Count == 0) break;
+
+                rejected!.UnionWith(newlyRejected);
+                resizedSet.ExceptWith(newlyRejected);
             }
+
+            if (resizedSet.Count == 0) return;
         }
 
         if (ripple)
@@ -48,6 +74,7 @@ public sealed class ElementResizeService : IElementResizeService
             // writes are still CoreObjectOperationObserver-recorded for undo.
             foreach (ElementResizeRequest req in requests)
             {
+                if (rejected!.Contains(req.Element)) continue;
                 (TimeSpan start, TimeSpan length) = clamped![req.Element];
                 req.Element.ZIndex = req.ZIndex;
                 req.Element.Start = start;
@@ -64,9 +91,13 @@ public sealed class ElementResizeService : IElementResizeService
 
         if (ripple)
         {
-            Element[] resized = requests.Select(r => r.Element).ToArray();
+            Element[] resized = requests
+                .Where(r => !rejected!.Contains(r.Element))
+                .Select(r => r.Element)
+                .ToArray();
             foreach (ElementResizeRequest req in requests)
             {
+                if (rejected!.Contains(req.Element)) continue;
                 (int oldZ, TimeSpan oldStart, TimeSpan oldEnd) = oldBounds![req.Element];
                 if (req.Element.ZIndex != oldZ) continue;
 
@@ -102,19 +133,42 @@ public sealed class ElementResizeService : IElementResizeService
         scene.Duration = sceneEnd - scene.Start;
     }
 
-    private static void ValidateRippleRequest(ElementResizeRequest req)
+    // Floors each request into MoveChild's valid range: non-negative start, length >= 1 frame.
+    // Start floors to the timeline origin, not scene.Start — clips may legally sit before the
+    // scene window.
+    private static ElementResizeRequest[] NormalizeRequests(Scene scene, IReadOnlyList<ElementResizeRequest> requests)
     {
-        ArgumentNullException.ThrowIfNull(req.Element);
-
-        if (req.NewStart < TimeSpan.Zero)
+        TimeSpan minLength = GetMinimumLength(scene);
+        var normalized = new ElementResizeRequest[requests.Count];
+        for (int i = 0; i < requests.Count; i++)
         {
-            throw new ArgumentOutOfRangeException(nameof(ElementResizeRequest.NewStart));
+            ElementResizeRequest req = requests[i];
+            ArgumentNullException.ThrowIfNull(req.Element);
+            TimeSpan start = req.NewStart < TimeSpan.Zero ? TimeSpan.Zero : req.NewStart;
+            TimeSpan length = req.NewStart < TimeSpan.Zero
+                ? AddSaturated(req.NewStart, req.NewLength) - start
+                : req.NewLength;
+            if (length < minLength) length = minLength;
+            normalized[i] = new ElementResizeRequest(req.Element, start, length, req.ZIndex);
         }
 
-        if (req.NewLength <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(ElementResizeRequest.NewLength));
-        }
+        return normalized;
+    }
+
+    private static TimeSpan GetMinimumLength(Scene scene)
+    {
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
+        // A huge rate can round below the tick resolution; keep the floor positive.
+        return minLength > TimeSpan.Zero ? minLength : TimeSpan.FromTicks(1);
+    }
+
+    private static TimeSpan AddSaturated(TimeSpan left, TimeSpan right)
+    {
+        decimal ticks = (decimal)left.Ticks + right.Ticks;
+        if (ticks >= TimeSpan.MaxValue.Ticks) return TimeSpan.MaxValue;
+        if (ticks <= TimeSpan.MinValue.Ticks) return TimeSpan.MinValue;
+        return TimeSpan.FromTicks((long)ticks);
     }
 
     // Limits a same-layer left-edge grow so the rigid ripple shift cannot push any upstream element
@@ -252,8 +306,9 @@ public sealed class ElementResizeService : IElementResizeService
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
+            TimeSpan forwardExtension = GetForwardExtension(scene, front, back);
             (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back,
-                SlippableMedia.Collect(front), SlippableMedia.Collect(back));
+                SlippableMedia.Collect(front, forwardExtension), SlippableMedia.Collect(back));
             if (i == 0)
             {
                 (min, max) = (pairMin, pairMax);
@@ -293,14 +348,20 @@ public sealed class ElementResizeService : IElementResizeService
             if (!used.Add(front) || !used.Add(back)) return false;
         }
 
-        var backTargets = new List<SlippableMedia.Target>[pairs.Count];
+        var backTargets = new SlippableMedia.TargetCollection[pairs.Count];
         var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
         (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
             backTargets[i] = SlippableMedia.Collect(back);
-            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+            SlippableMedia.TargetCollection frontTargets = SlippableMedia.Collect(
+                front,
+                GetForwardExtension(scene, front, back));
+            if (!frontTargets.IsComplete || !backTargets[i].IsComplete) return false;
+
+            // Future targets are not shifted by this operation, but their offsets still belong
+            // to the fixed front content and must participate in alias detection.
             foreach (SlippableMedia.Target target in frontTargets)
             {
                 fixedOffsets.Add(target.Offset);
@@ -383,14 +444,20 @@ public sealed class ElementResizeService : IElementResizeService
         }
 
         // The middle clips' lengths are unaffected by Slide, so only front and back bound the delta.
-        var backTargets = new List<SlippableMedia.Target>[lanes.Count];
+        var backTargets = new SlippableMedia.TargetCollection[lanes.Count];
         var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
         (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
         for (int i = 0; i < lanes.Count; i++)
         {
             (Element front, IReadOnlyList<Element> middles, Element back) = lanes[i];
             backTargets[i] = SlippableMedia.Collect(back);
-            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front);
+            SlippableMedia.TargetCollection frontTargets = SlippableMedia.Collect(
+                front,
+                GetForwardExtension(scene, front, back));
+            if (!frontTargets.IsComplete || !backTargets[i].IsComplete) return false;
+
+            // Future targets are not shifted by this operation, but their offsets still belong
+            // to the fixed front content and must participate in alias detection.
             foreach (SlippableMedia.Target target in frontTargets)
             {
                 fixedOffsets.Add(target.Offset);
@@ -399,7 +466,10 @@ public sealed class ElementResizeService : IElementResizeService
             // Middle in-points are fixed too: they move in time without re-trimming.
             foreach (Element middle in middles)
             {
-                foreach (SlippableMedia.Target target in SlippableMedia.Collect(middle))
+                SlippableMedia.TargetCollection middleTargets = SlippableMedia.Collect(middle);
+                if (!middleTargets.IsComplete) return false;
+
+                foreach (SlippableMedia.Target target in middleTargets)
                 {
                     fixedOffsets.Add(target.Offset);
                 }
@@ -462,8 +532,16 @@ public sealed class ElementResizeService : IElementResizeService
         IReadOnlyList<SlippableMedia.Target> frontTargets,
         IReadOnlyList<SlippableMedia.Target> backTargets)
     {
+        if (frontTargets is SlippableMedia.TargetCollection { IsComplete: false }
+            || backTargets is SlippableMedia.TargetCollection { IsComplete: false })
+        {
+            return (TimeSpan.Zero, TimeSpan.Zero);
+        }
+
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+        // Below the tick resolution the floor rounds to zero.
+        if (minDuration <= TimeSpan.Zero) minDuration = TimeSpan.FromTicks(1);
 
         if (front.Length < minDuration || back.Length < minDuration)
             return (TimeSpan.Zero, TimeSpan.Zero);
@@ -473,7 +551,7 @@ public sealed class ElementResizeService : IElementResizeService
 
         if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
         {
-            TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length);
+            TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length, max);
             if (outRoom < max) max = outRoom;
         }
 
@@ -487,6 +565,20 @@ public sealed class ElementResizeService : IElementResizeService
         if (max < TimeSpan.Zero) max = TimeSpan.Zero;
 
         return (min, max);
+    }
+
+    private static TimeSpan GetForwardExtension(Scene scene, Element front, Element back)
+    {
+        if (!GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
+            return TimeSpan.Zero;
+
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+        if (minDuration <= TimeSpan.Zero) minDuration = TimeSpan.FromTicks(1);
+        if (front.Length < minDuration || back.Length <= minDuration)
+            return TimeSpan.Zero;
+
+        return back.Length - minDuration;
     }
 
     private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max)

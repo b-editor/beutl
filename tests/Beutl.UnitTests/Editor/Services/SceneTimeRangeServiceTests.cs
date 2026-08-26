@@ -39,6 +39,62 @@ public class SceneTimeRangeServiceTests
     }
 
     [Test]
+    public void GetFrameRate_NoProject_ReturnsDefault()
+    {
+        Assert.That(SceneTimeRangeService.GetFrameRate(_scene), Is.EqualTo(30));
+    }
+
+    [Test]
+    public void GetFrameRate_ValidProjectRate_ReturnsProjectRate()
+    {
+        AttachProject("60");
+
+        Assert.That(SceneTimeRangeService.GetFrameRate(_scene), Is.EqualTo(60));
+    }
+
+    [Test]
+    public void GetFrameRate_ZeroRate_FallsBackToDefault()
+    {
+        AttachProject("0");
+
+        Assert.That(SceneTimeRangeService.GetFrameRate(_scene), Is.EqualTo(30),
+            "a corrupted zero rate must not reach the 1/rate divisions");
+    }
+
+    [Test]
+    public void GetFrameRate_NegativeRate_FallsBackToDefault()
+    {
+        AttachProject("-5");
+
+        Assert.That(SceneTimeRangeService.GetFrameRate(_scene), Is.EqualTo(30));
+    }
+
+    [Test]
+    public void GetFrameRate_UnparsableRate_FallsBackToDefault()
+    {
+        AttachProject("not-a-number");
+
+        Assert.That(SceneTimeRangeService.GetFrameRate(_scene), Is.EqualTo(30));
+    }
+
+    [Test]
+    public void ExtremeFrameRate_PreservesOneRepresentableFrame()
+    {
+        AttachProject(int.MaxValue.ToString());
+
+        _service.UpdateEndDrag(_scene, _scene.Start);
+
+        Assert.That(_scene.Duration, Is.EqualTo(TimeSpan.FromTicks(1)));
+    }
+
+    private void AttachProject(string frameRate)
+    {
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = frameRate;
+        project.Items.Add(_scene);
+    }
+
+    [Test]
     public void SetStart_NegativeValue_ClampsToZero()
     {
         _service.SetStart(_scene, TimeSpan.FromSeconds(-3));

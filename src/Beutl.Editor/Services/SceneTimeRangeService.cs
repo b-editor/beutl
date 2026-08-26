@@ -48,14 +48,22 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
         _historyManager.Commit(CommandNames.ChangeSceneDuration);
     }
 
+    // Contract: a positive rate — every caller divides by this value.
     internal static int GetFrameRate(Scene scene)
     {
         Project? project = scene.FindHierarchicalParent<Project>();
         if (project is null) return 30;
         return project.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value)
             && int.TryParse(value, out int rate)
+            && rate > 0
             ? rate
             : 30;
+    }
+
+    private static TimeSpan GetFrameDuration(Scene scene)
+    {
+        TimeSpan frame = TimeSpan.FromSeconds(1d / GetFrameRate(scene));
+        return frame > TimeSpan.Zero ? frame : TimeSpan.FromTicks(1);
     }
 
     /// <summary>
@@ -65,8 +73,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// </summary>
     private static void ApplyStart(Scene scene, TimeSpan newStart, TimeSpan referenceStart, TimeSpan referenceDuration)
     {
-        int rate = GetFrameRate(scene);
-        TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan frame = GetFrameDuration(scene);
         TimeSpan sceneEnd = referenceStart + referenceDuration;
 
         if (newStart > sceneEnd)
@@ -99,8 +106,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// </summary>
     private static void ApplyEnd(Scene scene, TimeSpan newEnd)
     {
-        int rate = GetFrameRate(scene);
-        TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan frame = GetFrameDuration(scene);
 
         if (newEnd < scene.Start)
         {
@@ -125,8 +131,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// </summary>
     private static void ApplyStartDrag(Scene scene, TimeSpan newStart, TimeSpan initialStart, TimeSpan initialDuration)
     {
-        int rate = GetFrameRate(scene);
-        TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan frame = GetFrameDuration(scene);
         TimeSpan sceneEnd = initialStart + initialDuration;
 
         if (newStart < TimeSpan.Zero) newStart = TimeSpan.Zero;
@@ -144,8 +149,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// </summary>
     private static void ApplyEndDrag(Scene scene, TimeSpan pointerTime)
     {
-        int rate = GetFrameRate(scene);
-        TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan frame = GetFrameDuration(scene);
 
         TimeSpan duration = pointerTime - scene.Start;
         if (duration < frame) duration = frame;

@@ -97,6 +97,161 @@ public class SourceVideoSpeedTest
     }
 
     [Test]
+    public void CalculateVideoDuration_GlobalClockAnimation_UsesElementInterval()
+    {
+        _sourceVideo!.TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10));
+        var animation = new KeyFrameAnimation<float>
+        {
+            UseGlobalClock = true
+        };
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(15) });
+        _sourceVideo.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan consumed = _sourceVideo.CalculateVideoDuration(
+            _sourceVideo.TimeRange.Start, TimeSpan.FromSeconds(1), _sourceVideoResource);
+
+        Assert.That(consumed.TotalSeconds, Is.EqualTo(1.3667).Within(0.05));
+    }
+
+    [Test]
+    public void CalculateVideoDuration_LocalClockAnimation_UsesIntervalStart()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(15) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan consumed = _sourceVideo.CalculateVideoDuration(
+            TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), _sourceVideoResource);
+
+        Assert.That(consumed.TotalSeconds, Is.EqualTo(1.3667).Within(0.05));
+    }
+
+    [TestCase(50f, 4d)]
+    [TestCase(200f, 1d)]
+    public void CalculateTimelineDuration_StaticSpeedInvertsSourceDuration(float speed, double expected)
+    {
+        _sourceVideo!.Speed.CurrentValue = speed;
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), _sourceVideoResource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(expected)));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_ZeroSpeedTail_ReturnsUnbounded()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 0f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 0f, KeyTime = TimeSpan.FromSeconds(10) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), _sourceVideoResource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_WhenSpeedStopsAfterPositiveInterval_ReturnsUnbounded()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 0f, KeyTime = TimeSpan.FromSeconds(1) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.Zero, TimeSpan.FromSeconds(10), _sourceVideoResource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_TinyPositiveTerminalSpeed_CompletesBounded()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 0.001f, KeyTime = TimeSpan.FromSeconds(1) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.Zero, TimeSpan.FromSeconds(10), _sourceVideoResource);
+
+        Assert.That(result, Is.GreaterThan(TimeSpan.FromHours(1)));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_DistantTerminalKeyframeDoesNotIntegrateUnusedPrefix()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.FromDays(365) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(2),
+            _sourceVideoResource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromMilliseconds(50)));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_IncrementalProbeHandlesRapidSpeedChange()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 0.00001f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.FromSeconds(1) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.FromDays(365) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.Zero, TimeSpan.FromSeconds(1), _sourceVideoResource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.GreaterThan(TimeSpan.FromSeconds(1)));
+            Assert.That(result, Is.LessThan(TimeSpan.FromSeconds(3)));
+        });
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_NegativeStartSaturatesUpperBound()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 1e-20f, KeyTime = TimeSpan.FromSeconds(1) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = TimeSpan.Zero;
+        Assert.DoesNotThrow(() => result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(-1),
+            TimeSpan.FromSeconds(10),
+            _sourceVideoResource));
+
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
+    }
+
+    [Test]
     public void CalculateVideoTime_WithLinearSpeedAnimation_ShouldInterpolateSmoothly()
     {
         // Arrange: 0秒で速度100、2秒で速度200の線形アニメーション

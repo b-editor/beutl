@@ -38,10 +38,24 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     public bool TryGetOriginalDuration(out TimeSpan timeSpan)
     {
         using var resource = ToResource(CompositionContext.Default);
-        var ts = CalculateOriginalTime((Resource)resource);
-        if (ts.HasValue)
+        Resource sourceResource = (Resource)resource;
+        if (sourceResource.Source is not { } source)
         {
-            timeSpan = ts.Value - OffsetPosition.CurrentValue;
+            timeSpan = TimeSpan.Zero;
+            return false;
+        }
+
+        TimeSpan remainingSourceDuration = source.Duration - OffsetPosition.CurrentValue;
+        if (remainingSourceDuration <= TimeSpan.Zero)
+        {
+            timeSpan = TimeSpan.Zero;
+            return false;
+        }
+
+        var ts = CalculateOriginalTime(sourceResource, remainingSourceDuration);
+        if (ts is { } duration && duration > TimeSpan.Zero)
+        {
+            timeSpan = duration;
             return true;
         }
         else
@@ -63,7 +77,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     {
         var anm = Speed.Animation;
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
-            return timeSpan;
+            return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
 
         if (keyFrameAnimation.KeyFrames.Count == 0)
         {
@@ -74,11 +88,181 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         return resource._speedIntegrator.Integrate(timeSpan, keyFrameAnimation);
     }
 
+    /// <summary>
+    /// Calculates the source-time consumption for an interval in the speed animation's clock.
+    /// For local-clock animations, <paramref name="start"/> is local elapsed time; for
+    /// global-clock animations, it is the absolute timeline time.
+    /// </summary>
+    public TimeSpan CalculateVideoDuration(TimeSpan start, TimeSpan duration, Resource resource)
+    {
+        if (Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 })
+        {
+            return CalculateVideoTime(start + duration, resource) - CalculateVideoTime(start, resource);
+        }
+
+        return CalculateVideoTime(duration, resource);
+    }
+
+    /// <summary>
+    /// Calculates how much timeline time can consume the specified source duration.
+    /// The start uses the same speed-animation clock as <see cref="CalculateVideoDuration"/>.
+    /// </summary>
+    public TimeSpan CalculateTimelineDuration(TimeSpan start, TimeSpan sourceDuration, Resource resource)
+    {
+        if (sourceDuration <= TimeSpan.Zero) return TimeSpan.Zero;
+
+        if (Speed.Animation is not KeyFrameAnimation<float> { KeyFrames.Count: > 0 })
+        {
+            double speed = resource.Speed / 100.0;
+            if (speed <= 0) return TimeSpan.MaxValue;
+
+            double ticks = sourceDuration.Ticks / speed;
+            return ticks >= TimeSpan.MaxValue.Ticks
+                ? TimeSpan.MaxValue
+                : TimeSpan.FromTicks((long)ticks);
+        }
+
+        var animation = (KeyFrameAnimation<float>)Speed.Animation!;
+        if (!TryGetTimelineUpperBound(start, sourceDuration, resource, animation, out TimeSpan high))
+            return TimeSpan.MaxValue;
+
+        TimeSpan consumed = CalculateVideoDurationBounded(start, high, resource, animation);
+
+        if (consumed < sourceDuration) return TimeSpan.MaxValue;
+
+        TimeSpan low = TimeSpan.Zero;
+        for (int i = 0; i < 50; i++)
+        {
+            long middleTicks = low.Ticks + (high.Ticks - low.Ticks) / 2;
+            TimeSpan middle = TimeSpan.FromTicks(middleTicks);
+            if (CalculateVideoDurationBounded(start, middle, resource, animation) <= sourceDuration)
+                low = middle;
+            else
+                high = middle;
+        }
+
+        return low;
+    }
+
+    private TimeSpan CalculateVideoDurationBounded(
+        TimeSpan start,
+        TimeSpan duration,
+        Resource resource,
+        KeyFrameAnimation<float> animation)
+    {
+        if (animation.KeyFrames[^1] is not KeyFrame<float> last)
+            return CalculateVideoDuration(start, duration, resource);
+
+        TimeSpan prefix = last.KeyTime > start ? last.KeyTime - start : TimeSpan.Zero;
+        if (duration <= prefix || last.Value <= 0)
+            return CalculateVideoDuration(start, duration, resource);
+
+        TimeSpan consumed = CalculateVideoDuration(start, prefix, resource);
+        double tailTicks = (duration - prefix).Ticks * (last.Value / 100.0);
+        if (tailTicks >= TimeSpan.MaxValue.Ticks - consumed.Ticks)
+            return TimeSpan.MaxValue;
+
+        return TimeSpan.FromTicks(consumed.Ticks + (long)tailTicks);
+    }
+
+    private bool TryGetTimelineUpperBound(
+        TimeSpan start,
+        TimeSpan sourceDuration,
+        Resource resource,
+        KeyFrameAnimation<float> animation,
+        out TimeSpan high)
+    {
+        high = TimeSpan.Zero;
+        if (animation.KeyFrames[^1] is not KeyFrame<float> last)
+        {
+            return false;
+        }
+        float terminalSpeed = last.Value;
+
+        TimeSpan terminal = last.KeyTime > start ? last.KeyTime : start;
+        TimeSpan terminalDuration = terminal - start;
+        TimeSpan elapsed = GetInitialProbe(sourceDuration, start, animation, terminalDuration);
+        TimeSpan consumed = CalculateVideoDuration(start, elapsed, resource);
+        while (consumed < sourceDuration && elapsed < terminalDuration)
+        {
+            elapsed = GrowProbe(elapsed, terminalDuration);
+            consumed = CalculateVideoDuration(start, elapsed, resource);
+        }
+
+        if (consumed >= sourceDuration)
+        {
+            high = elapsed;
+            return true;
+        }
+
+        if (terminalSpeed <= 0)
+            return false;
+
+        double remainingTicks = (sourceDuration - consumed).Ticks / (terminalSpeed / 100.0);
+        if (remainingTicks >= TimeSpan.MaxValue.Ticks - elapsed.Ticks)
+        {
+            high = start.Ticks <= 0
+                ? TimeSpan.MaxValue
+                : TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks - start.Ticks);
+        }
+        else
+        {
+            high = TimeSpan.FromTicks(elapsed.Ticks + (long)remainingTicks);
+        }
+
+        return true;
+    }
+
+    private static TimeSpan GetInitialProbe(
+        TimeSpan sourceDuration,
+        TimeSpan start,
+        KeyFrameAnimation<float> animation,
+        TimeSpan maximum)
+    {
+        TimeSpan estimate = EstimateTimelineDuration(sourceDuration, start, animation);
+        TimeSpan probe = TimeSpan.FromSeconds(1);
+        if (estimate < probe)
+            probe = estimate;
+        return probe < maximum ? probe : maximum;
+    }
+
+    private static TimeSpan GrowProbe(TimeSpan current, TimeSpan maximum)
+    {
+        if (current >= maximum)
+            return maximum;
+
+        long nextTicks = current.Ticks > maximum.Ticks / 2
+            ? maximum.Ticks
+            : current.Ticks * 2;
+        return TimeSpan.FromTicks(nextTicks);
+    }
+
+    private static TimeSpan EstimateTimelineDuration(
+        TimeSpan sourceDuration,
+        TimeSpan start,
+        KeyFrameAnimation<float> animation)
+    {
+        float speed = animation.Interpolate(start);
+        if (!(speed > 0))
+            return sourceDuration;
+
+        double ticks = sourceDuration.Ticks / (speed / 100.0);
+        if (ticks >= TimeSpan.MaxValue.Ticks)
+            return TimeSpan.MaxValue;
+
+        return TimeSpan.FromTicks(Math.Max(1L, (long)ticks));
+    }
+
     public TimeSpan? CalculateOriginalTime(Resource resource)
     {
         if (resource.Source == null) return null;
 
-        var duration = resource.Source.Duration;
+        return CalculateOriginalTime(resource, resource.Source.Duration);
+    }
+
+    private TimeSpan? CalculateOriginalTime(Resource resource, TimeSpan duration)
+    {
+        if (resource.Source == null) return null;
 
         var anm = Speed.Animation;
 

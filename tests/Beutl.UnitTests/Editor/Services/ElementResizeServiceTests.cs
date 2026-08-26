@@ -1,6 +1,11 @@
-﻿using Beutl.Configuration;
+﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Audio;
+using Beutl.Composition;
+using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -38,6 +43,34 @@ public class ElementResizeServiceTests
 
     private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
+
+    private static IReadOnlyList<PresenterTargetState> CreatePresenterTargetStates(
+        TimeRange range,
+        CoreObject? initialTarget,
+        params (TimeSpan Time, CoreObject? Target)[] transitions)
+    {
+        var states = new List<PresenterTargetState>();
+        CoreObject? current = initialTarget;
+        TimeSpan cursor = range.Start;
+        foreach ((TimeSpan time, CoreObject? target) in transitions.OrderBy(x => x.Time))
+        {
+            if (time <= range.Start)
+            {
+                current = target;
+                continue;
+            }
+
+            if (time >= range.End)
+                break;
+
+            states.Add(new PresenterTargetState(new TimeRange(cursor, time - cursor), current));
+            cursor = time;
+            current = target;
+        }
+
+        states.Add(new PresenterTargetState(new TimeRange(cursor, range.End - cursor), current));
+        return states;
+    }
 
     [Test]
     public void Constructor_NullHistoryManager_Throws()
@@ -120,31 +153,142 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void Resize_RippleOn_NegativeStart_ThrowsBeforeMutation()
+    public void Resize_NonRipple_ZeroLength_ClampsToOneFrameInsteadOfThrowing()
+    {
+        // Regression: a sub-frame original duration floored to zero crashed MoveChild.
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int before = _history.UndoCount;
+
+        Assert.DoesNotThrow(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)),
+                "the service floors the length to one frame at the scene rate");
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Resize_NonRipple_NegativeStart_ClampsToZeroInsteadOfThrowing()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        Assert.DoesNotThrow(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(2), 0)]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Resize_NonRipple_StartBeforeNonZeroSceneStart_IsNotShifted()
+    {
+        // scene.Start is the window, not the legal floor; a stranded clip keeps its start.
+        _scene.Start = TimeSpan.FromSeconds(5);
+        Element element = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(3));
+
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), 0)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void Resize_NonRipple_CorruptProjectFrameRate_FallsBackInsteadOfThrowing()
+    {
+        // Regression: a zero persisted rate threw on 1d / rate before the clamp ran.
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = "0";
+        project.Items.Add(_scene);
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        Assert.DoesNotThrow(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)]));
+
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)),
+            "the fallback frame rate still floors the length to one frame");
+    }
+
+    [Test]
+    public void Resize_NonRipple_AbsurdProjectFrameRate_FloorStaysPositive()
+    {
+        // Above ~2e7 the one-frame TimeSpan rounds to zero ticks.
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = "50000000";
+        project.Items.Add(_scene);
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        Assert.DoesNotThrow(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)]));
+
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromTicks(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_AbsurdProjectFrameRate_KeepsOneTickMinimumDuration()
+    {
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = "50000000";
+        project.Items.Add(_scene);
+        Element front = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), 0);
+
+        (TimeSpan min, _) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(min, Is.EqualTo(TimeSpan.FromTicks(1) - TimeSpan.FromSeconds(2)),
+            "the one-tick minimum duration keeps Roll from shrinking a clip to zero at absurd rates");
+    }
+
+    [Test]
+    public void Resize_NullElementInRequest_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            _service.Resize(_scene,
+                [new ElementResizeRequest(null!, TimeSpan.Zero, TimeSpan.FromSeconds(1), 0)]));
+    }
+
+    [Test]
+    public void Resize_RippleOn_NegativeStart_ClampsToZeroAndApplies()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        Assert.DoesNotThrow(() =>
             _service.Resize(_scene,
                 [new ElementResizeRequest(element, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(2), 0)],
                 ripple: true));
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero),
+                "the service floors the start to the timeline start");
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1)),
+                "the service preserves the requested end when it floors the start");
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 
     [Test]
-    public void Resize_RippleOn_ZeroLength_ThrowsBeforeMutation()
+    public void Resize_RippleOn_ZeroLength_ClampsToOneFrameAndApplies()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        Assert.DoesNotThrow(() =>
             _service.Resize(_scene,
                 [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)],
                 ripple: true));
@@ -152,19 +296,69 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)),
+                "the service floors the length to one frame at the scene rate");
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_LockedClampBelowOneFrameRejectsRequest()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element lockedFollower = AddElement(
+            TimeSpan.FromSeconds(1) + TimeSpan.FromMilliseconds(15),
+            TimeSpan.FromSeconds(1));
+        lockedFollower.IsLocked = true;
+        int before = _history.UndoCount;
+
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(1) + TimeSpan.FromMilliseconds(15)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
 
     [Test]
-    public void Resize_RippleOn_InvalidSecondRequest_ThrowsBeforeAnyMutation()
+    public void Resize_RippleOn_RejectedBatchParticipantStillFollowsAcceptedRipple()
+    {
+        Element accepted = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element rejected = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        Element lockedFollower = AddElement(
+            TimeSpan.FromSeconds(2) + TimeSpan.FromMilliseconds(15),
+            TimeSpan.FromSeconds(1));
+        lockedFollower.IsLocked = true;
+
+        _service.Resize(_scene,
+        [
+            new ElementResizeRequest(accepted, TimeSpan.Zero, TimeSpan.FromSeconds(2), 0),
+            new ElementResizeRequest(rejected, TimeSpan.FromSeconds(2), TimeSpan.Zero, 0),
+        ],
+        ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(accepted.Range.End, Is.EqualTo(rejected.Start));
+            Assert.That(rejected.Start, Is.EqualTo(TimeSpan.FromSeconds(1) + TimeSpan.FromMilliseconds(15)));
+            Assert.That(rejected.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(2) + TimeSpan.FromMilliseconds(15)));
+        });
+    }
+
+    [Test]
+    public void Resize_RippleOn_ZeroLengthSecondRequest_ClampsAndAppliesBoth()
     {
         Element valid = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
         Element invalid = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), zIndex: 1);
         int before = _history.UndoCount;
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        Assert.DoesNotThrow(() =>
             _service.Resize(_scene,
             [
                 new ElementResizeRequest(valid, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), 0),
@@ -175,10 +369,11 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(valid.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(valid.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(valid.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(invalid.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
-            Assert.That(invalid.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(invalid.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)),
+                "the zero length is floored to one frame instead of rejecting the batch");
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 
@@ -280,6 +475,33 @@ public class ElementResizeServiceTests
             // Total length preserved.
             Assert.That(front.Length + back.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Roll_IncompleteBackPresenterTargets_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        var video = new SourceVideo();
+        var presenter = new DrawablePresenter();
+        presenter.Target.Expression = new ConstantSourceVideoExpression(video);
+        back.Objects.Add(presenter);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(
+            _scene,
+            [new ElementTrimPair(front, back)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
 
@@ -470,6 +692,41 @@ public class ElementResizeServiceTests
         });
     }
 
+    [TestCase(50f, 2d, 4d)]
+    [TestCase(200f, 1d, 0.5d)]
+    public void Roll_PositiveDelta_SpeedAdjustsFrontSourceTail(
+        float speed, double frontLength, double expectedDelta)
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(frontLength));
+        front.Objects.Add(new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            Speed = { CurrentValue = speed },
+        });
+        Element back = AddElement(TimeSpan.FromSeconds(frontLength), TimeSpan.FromSeconds(10));
+
+        bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(5));
+
+        TimeSpan expectedCut = TimeSpan.FromSeconds(frontLength + expectedDelta);
+        TimeSpan lastTimelineSample = front.Range.End - TimeSpan.FromSeconds(1d / 30);
+        int requestedFrame = (int)Math.Round(
+            lastTimelineSample.TotalSeconds * (speed / 100) * 30,
+            MidpointRounding.AwayFromZero);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(front.Length, Is.EqualTo(expectedCut).Within(TimeSpan.FromTicks(2)));
+            Assert.That(back.Start, Is.EqualTo(expectedCut).Within(TimeSpan.FromTicks(2)));
+            Assert.That(
+                back.Length,
+                Is.EqualTo(TimeSpan.FromSeconds(10 - expectedDelta)).Within(TimeSpan.FromTicks(2)));
+            Assert.That(requestedFrame, Is.LessThan(90));
+        });
+    }
+
     [Test]
     public void Roll_PositiveDelta_ClampDisabled_ExtendsPastFrontSource()
     {
@@ -637,6 +894,35 @@ public class ElementResizeServiceTests
             // Total length preserved: 2+3+2 = 7 before; 3+3+1 = 7 after.
             Assert.That(front.Length + middle.Length + back.Length, Is.EqualTo(TimeSpan.FromSeconds(7)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slide_IncompleteMiddlePresenterTargets_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element middle = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        Element back = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        var video = new SourceVideo();
+        var presenter = new DrawablePresenter();
+        presenter.Target.Expression = new ConstantSourceVideoExpression(video);
+        middle.Objects.Add(presenter);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(
+            _scene,
+            [new ElementSlideLane(front, [middle], back)],
+            TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
 
@@ -858,6 +1144,27 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void GetTrimDeltaBounds_IncompletePresenterTargets_ReturnsZeroWindow()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        var video = new SourceVideo();
+        var presenter = new DrawablePresenter();
+        presenter.Target.Expression = new ConstantSourceVideoExpression(video);
+        front.Objects.Add(presenter);
+
+        (TimeSpan min, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(min, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(max, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_SourceBackedFront_MaxClampedToSourceTail()
     {
         // Same shape as Roll_PositiveDelta_ClampedByFrontSourceTail: 3s source, 2s clip →
@@ -871,6 +1178,1187 @@ public class ElementResizeServiceTests
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1)));
+    }
+
+    [TestCase(50f, 2d, 4d)]
+    [TestCase(200f, 1d, 0.5d)]
+    public void GetTrimDeltaBounds_SourceBackedFront_SpeedAdjustsSourceTail(
+        float speed, double frontLength, double expectedMax)
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(frontLength));
+        front.Objects.Add(new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            Speed = { CurrentValue = speed },
+        });
+        Element back = AddElement(TimeSpan.FromSeconds(frontLength), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan extendedLength = front.Length + max;
+        TimeSpan lastTimelineSample = extendedLength - TimeSpan.FromSeconds(1d / 30);
+        int requestedFrame = (int)Math.Round(
+            lastTimelineSample.TotalSeconds * (speed / 100) * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(expectedMax)).Within(TimeSpan.FromTicks(2)));
+            Assert.That(requestedFrame, Is.LessThan(90));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerSpeedAdjustsSourceTail()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Speed = { CurrentValue = 200f },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerAnimatedSpeedUsesFutureRate()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 120)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(4)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200f });
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1.25)).Within(TimeSpan.FromMilliseconds(10)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerRecomputesFutureSampleGap()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 60)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1.1),
+            Value = 10f,
+            Easing = new HoldEasing(),
+        });
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(20));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        TimeSpan extendedEnd = front.Range.End + max;
+        TimeSpan lastTimelineSample = extendedEnd - TimeSpan.FromSeconds(1d / 30);
+        TimeSpan targetSample = controller.CalculateTargetTimeRange(
+            new TimeRange(lastTimelineSample, TimeSpan.Zero),
+            video).Start;
+        int requestedFrame = (int)Math.Round(
+            targetSample.TotalSeconds * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.GreaterThan(TimeSpan.FromSeconds(8)));
+            Assert.That(requestedFrame, Is.LessThan(60));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerReverseKeepsRemainingTargetRoom()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Reverse = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(5)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_ReverseUsesPastSpeedAnimation()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200f });
+        var controller = new DrawableTimeController
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(3),
+            TimeSpan.MaxValue,
+            video,
+            resource,
+            reverse: true);
+
+        Assert.That(result.TotalSeconds, Is.EqualTo(2 - (Math.Sqrt(2) - 1)).Within(0.005));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_StaticLowSpeedWithFrameRateFindsFiniteBound()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            FrameRate = { CurrentValue = 30f },
+            Speed = { CurrentValue = 0.00001f },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(0.1),
+            TimeSpan.FromSeconds(1),
+            TimeSpan.MaxValue,
+            video,
+            resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.EqualTo(TimeSpan.MaxValue));
+            Assert.That(result, Is.GreaterThan(TimeSpan.FromDays(1)));
+        });
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_HighStaticSpeedUsesOneTickSearchSeed()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Speed = { CurrentValue = 2_000_000_000f },
+            FrameRate = { CurrentValue = 30f },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.MaxValue,
+            video,
+            resource);
+
+        Assert.That(result, Is.Not.EqualTo(TimeSpan.MaxValue));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_DoesNotSearchPastMaximumDuration()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { CurrentValue = 100f },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(1),
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_IncludesHeldFirstLeadIn()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldFirstFrame = { CurrentValue = true },
+            OffsetPosition = { CurrentValue = -TimeSpan.FromSeconds(1) },
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(3),
+            TimeSpan.FromSeconds(10),
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(4)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void HasUnboundedTail_IgnoresUnsafeSpeedBeforeHeldSuffix()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 10f,
+            Easing = new BackEaseOut(),
+        });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 100f });
+        var controller = new DrawableTimeController
+        {
+            Reverse = { CurrentValue = true },
+            HoldFirstFrame = { CurrentValue = true },
+            Speed = { Animation = speed },
+            Target = { CurrentValue = video },
+        };
+        TimeRange heldSuffix = new(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                controller.CanProvideCompleteTimeMapping(
+                    new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                    video),
+                Is.False);
+            Assert.That(controller.HasUnboundedTail(heldSuffix, video), Is.True);
+        });
+    }
+
+    [Test]
+    public void HasUnboundedTail_ReverseTraversalStopsSpeedCheckAtClockOrigin()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = -TimeSpan.FromSeconds(2), Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = -TimeSpan.FromSeconds(1),
+            Value = 10f,
+            Easing = new BackEaseOut(),
+        });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        var controller = new DrawableTimeController
+        {
+            HoldFirstFrame = { CurrentValue = true },
+            Speed = { Animation = speed },
+            Target = { CurrentValue = video },
+        };
+        TimeRange heldPrefix = new(-TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+
+        Assert.That(controller.HasUnboundedTail(heldPrefix, video, reverse: true), Is.True);
+    }
+
+    [Test]
+    public void HasUnboundedTail_EmptySpeedAnimationUsesStaticSpeedForHeldTail()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldFirstFrame = { CurrentValue = true },
+            Speed =
+            {
+                CurrentValue = 100f,
+                Animation = new KeyFrameAnimation<float>(),
+            },
+            Target = { CurrentValue = video },
+        };
+
+        TimeRange heldSuffix = new(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1));
+
+        Assert.That(controller.HasUnboundedTail(heldSuffix, video, reverse: true), Is.True);
+    }
+
+    [Test]
+    public void HasUnboundedTail_LoopingControllerWithZeroSpeedHoldsReadableFrame()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(5) },
+            Speed = { CurrentValue = 0f },
+            Target = { CurrentValue = video },
+        };
+        TimeRange activeRange = new(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+
+        Assert.That(controller.HasUnboundedTail(activeRange, video), Is.True);
+    }
+
+    [Test]
+    public void HasUnboundedTail_LoopingControllerWithTerminalZeroSpeedHoldsReadableFrame()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 0f });
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Speed = { Animation = speed },
+            Target = { CurrentValue = video },
+        };
+        TimeRange heldRange = new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        Assert.That(controller.HasUnboundedTail(heldRange, video), Is.True);
+    }
+
+    [Test]
+    public void HasUnboundedTail_LoopingControllerThatReachesZeroSpeedHoldsFutureFrame()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 0f });
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Speed = { Animation = speed },
+            Target = { CurrentValue = video },
+        };
+        TimeRange movingRange = new(TimeSpan.Zero, TimeSpan.FromMilliseconds(500));
+
+        Assert.That(controller.HasUnboundedTail(movingRange, video), Is.True);
+    }
+
+    [Test]
+    public void HasUnboundedTail_NonLoopingControllerWithZeroSpeedHoldsReadableFrame()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(5) },
+            Speed = { CurrentValue = 0f },
+            Target = { CurrentValue = video },
+        };
+        TimeRange activeRange = new(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+
+        Assert.That(controller.HasUnboundedTail(activeRange, video), Is.True);
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_SlowMotionVideoReservesFrameRoundingHeadroom()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            Speed = { CurrentValue = 40f },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(video);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        TimeSpan extendedLength = front.Length + max;
+        TimeSpan lastTimelineSample = extendedLength - TimeSpan.FromSeconds(1d / 30);
+        int requestedFrame = (int)Math.Round(
+            lastTimelineSample.TotalSeconds * 0.4 * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.That(requestedFrame, Is.LessThan(90));
+    }
+
+    [Test]
+    public void CalculateTargetTimeRange_ControllerSafePrefixExcludesLaterSpeedReversal()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 0f,
+            Easing = new BackEaseOut(),
+        });
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        TimeRange safePrefix = new(TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(
+            new CompositionContext(TimeSpan.FromMilliseconds(50)));
+
+        TimeRange result = controller.CalculateTargetTimeRange(safePrefix, video, resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.EqualTo(video.TimeRange));
+            Assert.That(result.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(result.End, Is.LessThan(TimeSpan.FromMilliseconds(100)));
+        });
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_DistantTerminalKeyframeDoesNotIntegrateUnusedPrefix()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromDays(365), Value = 100f });
+        var controller = new DrawableTimeController
+        {
+            Speed = { Animation = speed },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(2),
+            TimeSpan.MaxValue,
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromMilliseconds(50)));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_IncrementalProbeHandlesRapidSpeedChange()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0.00001f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromDays(365), Value = 100f });
+        var controller = new DrawableTimeController
+        {
+            Speed = { Animation = speed },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.MaxValue,
+            video,
+            resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.GreaterThan(TimeSpan.FromSeconds(1)));
+            Assert.That(result, Is.LessThan(TimeSpan.FromSeconds(3)));
+        });
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_AnimatedTerminalSpeedUsesAnalyticTail()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 0.001f });
+        var controller = new DrawableTimeController
+        {
+            Speed = { Animation = speed },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(10),
+            TimeSpan.MaxValue,
+            video,
+            resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.EqualTo(TimeSpan.MaxValue));
+            Assert.That(result, Is.GreaterThan(TimeSpan.FromHours(1)));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerAdjustRangeUsesLocalSpeedClock()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 15)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 0f });
+        var controller = new DrawableTimeController
+        {
+            AdjustTimeRange = { CurrentValue = true },
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        Element front = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.5));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(10.5), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan extendedEnd = front.Range.End + max;
+        TimeSpan lastTimelineSample = extendedEnd - TimeSpan.FromSeconds(1d / 30);
+        TimeSpan targetSample = controller.CalculateTargetTimeRange(
+            new TimeRange(lastTimelineSample, TimeSpan.Zero),
+            video).Start;
+        int requestedFrame = (int)Math.Round(
+            (targetSample - video.TimeRange.Start).TotalSeconds * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(0.32)).Within(TimeSpan.FromMilliseconds(20)));
+            Assert.That(requestedFrame, Is.LessThan(15));
+        });
+    }
+
+    [Test]
+    public void CalculateTargetTimeRange_ControllerSpeedInteriorReversalReturnsFullTargetRange()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 10f,
+            Easing = new BackEaseOut(),
+        });
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(
+            new CompositionContext(TimeSpan.FromMilliseconds(500)));
+
+        TimeRange result = controller.CalculateTargetTimeRange(
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(video.TimeRange));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerHoldFirstDoesNotUnboundForwardTail()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldFirstFrame = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_ReversedControllerHeldAtFirstFrameHasUnboundedTail()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Reverse = { CurrentValue = true },
+            HoldFirstFrame = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(4));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(7), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.Multiple(() =>
+        {
+            Assert.That(controller.HasUnboundedTail(front.Range, video), Is.True);
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - minDuration));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_ControllerAnimatedSpeedHeldTailFailsClosed()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(4),
+            Value = 10f,
+            Easing = new BackEaseOut(),
+        });
+        var controller = new DrawableTimeController
+        {
+            HoldLastFrame = { CurrentValue = true },
+            Speed = { Animation = speed },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(controller.TryGetTargetStates(front.Range, out var states), Is.True);
+            Assert.That(states, Has.Count.EqualTo(1));
+            Assert.That(states[0].Target, Is.SameAs(video));
+            Assert.That(controller.CanProvideCompleteTimeMapping(front.Range, video), Is.False);
+            Assert.That(controller.HasUnboundedTail(front.Range, video), Is.False);
+            Assert.That(max, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_HoldLastAtExclusiveTargetEndRemainsFinite()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldLastFrame = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(controller.HasUnboundedTail(front.Range, video), Is.False);
+            Assert.That(max, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_FutureSourceAfterNullActiveRangeConstrainsTail()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var sourceAnimation = new KeyFrameAnimation<VideoSource?>();
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = null,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(2),
+            Value = source,
+        });
+        var video = new SourceVideo
+        {
+            Source = { Animation = sourceAnimation },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(video);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerLoopBoundsFiniteSourcePrefix()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(5) },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(4)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerAfterLoopWrapHasUnboundedTail()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(10.5), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - minDuration));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_LoopedSourceVideoWithZeroOffsetHasUnboundedTail()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            IsLoop = { CurrentValue = true },
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(video);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - minDuration));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_FutureLoopStatePreservesUnboundedTail()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var loopAnimation = new KeyFrameAnimation<bool>();
+        loopAnimation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = false });
+        loopAnimation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(5), Value = true });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsLoop = { CurrentValue = false, Animation = loopAnimation },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        front.Objects.Add(video);
+        Element back = AddElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - minDuration));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_CustomPresenterCanReportUnboundedTail()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(2),
+            CollapseMappedRange = true,
+            ReportsUnboundedTail = true,
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(presenter);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - minDuration));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_CustomUnboundedTailAtExclusiveSourceEndRemainsFinite()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(3),
+            CollapseMappedRange = true,
+            ReportsUnboundedTail = true,
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(presenter);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_CustomUnboundedSoundTailRespectsPhysicalSourceEnd()
+    {
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3)));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = source },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(1) },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestSourceSoundTimeMappingPresenter
+        {
+            ReportsUnboundedTail = true,
+            Target = { CurrentValue = sound },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(presenter);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_CustomStationarySoundTailWithinSourceIsUnbounded()
+    {
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3)));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestSourceSoundTimeMappingPresenter
+        {
+            CollapseMappedRange = true,
+            ReportsUnboundedTail = true,
+            TargetOffset = TimeSpan.FromSeconds(2),
+            Target = { CurrentValue = sound },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(presenter);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / 30);
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(10) - minDuration));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerHoldLastBoundsFiniteSourcePrefix()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(1) },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldLastFrame = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_HoldLastAtBoundaryRemainsFinite()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            HoldLastFrame = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(2),
+            TimeSpan.MaxValue,
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromTicks(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_TimeControllerFrameRateUsesQuantizedTail()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            FrameRate = { CurrentValue = 1f },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.FromSeconds(0.1), TimeSpan.FromSeconds(0.1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(0.2), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
+
+        TimeSpan extendedEnd = front.Range.End + max;
+        TimeSpan lastTimelineSample = extendedEnd - TimeSpan.FromSeconds(1d / 30);
+        TimeSpan targetSample = controller.CalculateTargetTimeRange(
+            new TimeRange(lastTimelineSample, TimeSpan.Zero),
+            video).Start;
+        int requestedFrame = (int)Math.Round(
+            targetSample.TotalSeconds * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(2.9)).Within(TimeSpan.FromMilliseconds(20)));
+            Assert.That(requestedFrame, Is.LessThan(90));
+        });
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_LoopedFrameRateUsesQuantizedTail()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            FrameRate = { CurrentValue = 1f },
+            Loop = { CurrentValue = true },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(0.1),
+            TimeSpan.FromSeconds(0.5),
+            TimeSpan.MaxValue,
+            video,
+            resource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(0.9)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_ReverseAnimationStopsAtClockOrigin()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200f });
+        var controller = new DrawableTimeController
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(4),
+            TimeSpan.MaxValue,
+            video,
+            resource,
+            reverse: true);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
     }
 
     [Test]
@@ -1078,6 +2566,40 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Roll_FutureFrontSourceSharedWithBack_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3));
+        var currentVideo = new SourceVideo();
+        var sharedVideo = new SourceVideo();
+        var presenter = new TestSourceVideoTimeMappingPresenter
+        {
+            Target = { CurrentValue = currentVideo },
+            TargetStateResolver = range => CreatePresenterTargetStates(
+                range,
+                currentVideo,
+                (TimeSpan.FromSeconds(2), sharedVideo)),
+        };
+        front.Objects.Add(presenter);
+        back.Objects.Add(sharedVideo);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Roll(
+            _scene,
+            [new ElementTrimPair(front, back)],
+            TimeSpan.FromSeconds(1.5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(sharedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Roll_OneInvalidPair_RejectsWholeOperation()
     {
         Element frontA = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2), zIndex: 0);
@@ -1269,6 +2791,42 @@ public class ElementResizeServiceTests
             Assert.That(applied, Is.False);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
             Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Slide_FutureFrontSourceSharedWithBack_NoCommit()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element middle = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        Element back = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3));
+        var currentVideo = new SourceVideo();
+        var sharedVideo = new SourceVideo();
+        var presenter = new TestSourceVideoTimeMappingPresenter
+        {
+            Target = { CurrentValue = currentVideo },
+            TargetStateResolver = range => CreatePresenterTargetStates(
+                range,
+                currentVideo,
+                (TimeSpan.FromSeconds(2), sharedVideo)),
+        };
+        front.Objects.Add(presenter);
+        back.Objects.Add(sharedVideo);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slide(
+            _scene,
+            [new ElementSlideLane(front, [middle], back)],
+            TimeSpan.FromSeconds(1.5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(sharedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }

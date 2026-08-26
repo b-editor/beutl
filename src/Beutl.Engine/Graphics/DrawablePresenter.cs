@@ -6,7 +6,7 @@ using Beutl.Language;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(GraphicsStrings.Presenter), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class DrawablePresenter : Drawable, IPresenter<Drawable>
+public sealed partial class DrawablePresenter : Drawable, ITargetStatePresenter<Drawable>
 {
     public DrawablePresenter()
     {
