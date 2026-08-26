@@ -1137,6 +1137,66 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void CalculateTimelineDuration_StaticLowSpeedWithFrameRateFindsFiniteBound()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            FrameRate = { CurrentValue = 30f },
+            Speed = { CurrentValue = 0.00001f },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(0.1),
+            TimeSpan.FromSeconds(1),
+            video,
+            resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.EqualTo(TimeSpan.MaxValue));
+            Assert.That(result, Is.GreaterThan(TimeSpan.FromDays(1)));
+        });
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_AnimatedTerminalSpeedUsesAnalyticTail()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 0.001f });
+        var controller = new DrawableTimeController
+        {
+            Speed = { Animation = speed },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(10),
+            video,
+            resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.EqualTo(TimeSpan.MaxValue));
+            Assert.That(result, Is.GreaterThan(TimeSpan.FromHours(1)));
+        });
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_TimeControllerPositiveThenZeroSpeedReturnsUnbounded()
     {
         var frontSource = new VideoSource();
@@ -1286,7 +1346,7 @@ public class ElementResizeServiceTests
 
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
-        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(3)).Within(TimeSpan.FromMilliseconds(20)));
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(3.9)).Within(TimeSpan.FromMilliseconds(20)));
     }
 
     [Test]

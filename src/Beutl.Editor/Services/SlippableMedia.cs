@@ -30,13 +30,15 @@ internal static class SlippableMedia
             TimeSpan? total,
             TimeSpan? consumedDuration = null,
             TimeSpan? timelineRoom = null,
-            TimeSpan? zeroConsumptionPadding = null)
+            TimeSpan? zeroConsumptionPadding = null,
+            TimeSpan? sourceEndPosition = null)
         {
             Offset = offset;
             Total = total;
             ConsumedDuration = consumedDuration;
             TimelineRoom = timelineRoom;
             ZeroConsumptionPadding = zeroConsumptionPadding;
+            SourceEndPosition = sourceEndPosition;
         }
 
         public IProperty<TimeSpan> Offset { get; }
@@ -48,6 +50,8 @@ internal static class SlippableMedia
         public TimeSpan? TimelineRoom { get; private set; }
 
         public TimeSpan? ZeroConsumptionPadding { get; private set; }
+
+        public TimeSpan? SourceEndPosition { get; private set; }
 
         public TimeSpan Current
         {
@@ -81,6 +85,13 @@ internal static class SlippableMedia
                 ZeroConsumptionPadding = ZeroConsumptionPadding is { } currentPadding
                     ? TimeSpan.FromTicks(Math.Max(currentPadding.Ticks, padding.Ticks))
                     : padding;
+            }
+
+            if (other.SourceEndPosition is { } sourceEndPosition)
+            {
+                SourceEndPosition = SourceEndPosition is { } currentSourceEndPosition
+                    ? TimeSpan.FromTicks(Math.Max(currentSourceEndPosition.Ticks, sourceEndPosition.Ticks))
+                    : sourceEndPosition;
             }
         }
     }
@@ -203,7 +214,8 @@ internal static class SlippableMedia
         TimeSpan consumedDuration = GetConsumedDuration(video, context.Range, resource);
         if (consumedDuration < TimeSpan.Zero) consumedDuration = TimeSpan.Zero;
         TimeSpan? zeroConsumptionPadding = null;
-        if (resource.Source is { } source
+        if (consumedDuration == TimeSpan.Zero
+            && resource.Source is { } source
             && source.FrameRate.Numerator > 0
             && source.FrameRate.Denominator > 0)
         {
@@ -216,10 +228,11 @@ internal static class SlippableMedia
                 zeroConsumptionPadding = TimeSpan.FromTicks(roundedTicks);
             }
         }
+        TimeSpan sourceEndPosition = GetMaximumSourcePosition(video, context.Range, resource);
         TimeSpan? timelineRoom = null;
         if (total is { } sourceDuration)
         {
-            TimeSpan sourceRoom = sourceDuration - video.OffsetPosition.CurrentValue - consumedDuration;
+            TimeSpan sourceRoom = sourceDuration - video.OffsetPosition.CurrentValue - sourceEndPosition;
             if (sourceRoom < TimeSpan.Zero) sourceRoom = TimeSpan.Zero;
             if (context.HasUnboundedTail)
             {
@@ -244,7 +257,8 @@ internal static class SlippableMedia
             total,
             consumedDuration,
             timelineRoom,
-            zeroConsumptionPadding);
+            zeroConsumptionPadding,
+            sourceEndPosition);
     }
 
     private static TimeSpan GetConsumedDuration(
@@ -255,6 +269,27 @@ internal static class SlippableMedia
         return duration > TimeSpan.Zero
             ? video.CalculateVideoDuration(clockStart, duration, resource)
             : TimeSpan.Zero;
+    }
+
+    private static TimeSpan GetMaximumSourcePosition(
+        SourceVideo video, TimeRange range, SourceVideo.Resource resource)
+    {
+        TimeSpan start = GetSourcePositionAt(video, range.Start, resource);
+        TimeSpan end = GetSourcePositionAt(video, range.End, resource);
+        return start >= end ? start : end;
+    }
+
+    private static TimeSpan GetSourcePositionAt(
+        SourceVideo video, TimeSpan time, SourceVideo.Resource resource)
+    {
+        TimeSpan sourceClockStart = GetVideoClockStartAt(video, video.TimeRange.Start);
+        TimeSpan sourceClock = GetVideoClockStartAt(video, time);
+        TimeSpan duration = sourceClock - sourceClockStart;
+        if (duration <= TimeSpan.Zero)
+            return TimeSpan.Zero;
+
+        TimeSpan position = video.CalculateVideoDuration(sourceClockStart, duration, resource);
+        return position > TimeSpan.Zero ? position : TimeSpan.Zero;
     }
 
     private static TimeSpan GetVideoClockStartAt(SourceVideo video, TimeSpan time)
@@ -303,11 +338,12 @@ internal static class SlippableMedia
     {
         if (target.Total is not { } total) return long.MaxValue;
 
-        TimeSpan consumed = target.ConsumedDuration ?? elementLength;
-        TimeSpan padding = target.ConsumedDuration == TimeSpan.Zero
-            ? target.ZeroConsumptionPadding ?? TimeSpan.Zero
-            : TimeSpan.Zero;
-        TimeSpan maxOffset = total - consumed - padding;
+        TimeSpan sourcePosition = target.SourceEndPosition
+            ?? target.ConsumedDuration
+            ?? elementLength;
+        TimeSpan padding = target.ZeroConsumptionPadding ?? TimeSpan.Zero;
+        TimeSpan reservation = sourcePosition >= padding ? sourcePosition : padding;
+        TimeSpan maxOffset = total - reservation;
         if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
         return Math.Max(0L, (maxOffset - target.Current).Ticks);
     }

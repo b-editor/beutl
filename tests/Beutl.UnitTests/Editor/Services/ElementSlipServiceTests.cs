@@ -563,6 +563,67 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_VideoNestedInOffsetTimeController_UsesAbsoluteSourceEndpoint()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(5) },
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(controller);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(10));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(4)));
+        });
+    }
+
+    [Test]
+    public void Slip_SharedSource_MergesZeroConsumptionFrameReservation()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(0.1), TimeSpan.FromSeconds(0.1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var quantizedController = new DrawableTimeController
+        {
+            FrameRate = { CurrentValue = 1f },
+            Target = { CurrentValue = video },
+        };
+        var shortController = new DrawableTimeController
+        {
+            Speed = { CurrentValue = 10f },
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(quantizedController);
+        element.Objects.Add(shortController);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+        TimeSpan frameDuration = TimeSpan.FromSeconds(1d / 30);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3) - frameDuration));
+        });
+    }
+
+    [Test]
     public void Slip_VideoNestedInLoopingTimeController_UsesRenderedSourceRange()
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));

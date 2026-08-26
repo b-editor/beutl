@@ -181,7 +181,9 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         double remainingTicks = (sourceDuration - consumed).Ticks / (terminalSpeed / 100.0);
         if (remainingTicks >= TimeSpan.MaxValue.Ticks - elapsed.Ticks)
         {
-            high = TimeSpan.MaxValue - start;
+            high = start.Ticks <= 0
+                ? TimeSpan.MaxValue
+                : TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks - start.Ticks);
         }
         else
         {
