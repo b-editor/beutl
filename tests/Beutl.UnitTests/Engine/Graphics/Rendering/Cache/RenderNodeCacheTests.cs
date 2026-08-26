@@ -168,7 +168,7 @@ public class RenderNodeCacheTests
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
             hasOpaqueExternalWork: false,
-            inputs: null,
+            inputs: [],
             payload: null,
             hitTest: null);
         var identity = new RenderOutputCacheIdentity(

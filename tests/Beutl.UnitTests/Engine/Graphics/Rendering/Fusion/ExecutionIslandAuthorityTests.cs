@@ -482,7 +482,7 @@ public sealed class ExecutionIslandAuthorityTests
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
             hasOpaqueExternalWork: false,
-            inputs,
+            [.. inputs],
             payload,
             static _ => true);
 

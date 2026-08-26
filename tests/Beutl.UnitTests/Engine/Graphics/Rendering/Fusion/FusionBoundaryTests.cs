@@ -600,7 +600,7 @@ public sealed class FusionBoundaryTests
                     or RenderFragmentKind.OpaqueCombine
                     or RenderFragmentKind.OpaqueExpand
                 || inputs.Any(static input => input.HasOpaqueExternalWork),
-            inputs,
+            [.. inputs],
             payload,
             static _ => true);
     }

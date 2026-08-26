@@ -1641,7 +1641,7 @@ public sealed class RenderCacheResolutionTests
             canBeUsedAsValueInput: true,
             hasTargetEffects: inputs.Any(static item => item.HasTargetEffects),
             hasOpaqueExternalWork: inputs.Any(static item => item.HasOpaqueExternalWork),
-            inputs,
+            [.. inputs],
             payload,
             static _ => true);
     }
@@ -1755,7 +1755,7 @@ public sealed class RenderCacheResolutionTests
             canBeUsed,
             hasTargetEffects: true,
             hasOpaqueExternalWork: kind == RenderFragmentKind.RawTargetScope,
-            inputs,
+            [.. inputs],
             payload,
             static _ => false);
     }

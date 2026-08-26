@@ -22,7 +22,7 @@ internal static class RenderCacheTestSupport
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
             hasOpaqueExternalWork: false,
-            inputs: null,
+            inputs: [],
             payload: null,
             hitTest: null);
         return new RenderOutputCacheIdentity(

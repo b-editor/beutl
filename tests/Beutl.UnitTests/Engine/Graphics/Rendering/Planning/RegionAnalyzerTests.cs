@@ -320,7 +320,7 @@ public sealed class RegionAnalyzerTests
                 canBeUsedAsValueInput: true,
                 hasTargetEffects: false,
                 hasOpaqueExternalWork: true,
-                inputs: null,
+                inputs: [],
                 new OpaqueRenderFragmentPayload(
                     OpaqueRenderTopology.Source,
                     description,
@@ -374,7 +374,7 @@ public sealed class RegionAnalyzerTests
                 canBeUsedAsValueInput: true,
                 hasTargetEffects: true,
                 hasOpaqueExternalWork: false,
-                inputs: null,
+                inputs: [],
                 new TargetCaptureRenderFragmentPayload(description),
                 hitTest: null));
         }
@@ -395,7 +395,7 @@ public sealed class RegionAnalyzerTests
                 canBeUsedAsValueInput: false,
                 hasTargetEffects: true,
                 hasOpaqueExternalWork: false,
-                inputs: null,
+                inputs: [],
                 new TargetCommandRenderFragmentPayload(description, []),
                 queryBounds.Contains));
         }

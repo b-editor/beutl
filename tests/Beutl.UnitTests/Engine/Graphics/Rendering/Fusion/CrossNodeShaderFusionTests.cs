@@ -900,7 +900,7 @@ public sealed class CrossNodeShaderFusionTests
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
             hasOpaqueExternalWork: false,
-            inputs,
+            [.. inputs],
             payload,
             static _ => true);
     }

@@ -290,7 +290,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
             hasOpaqueExternalWork: false,
-            inputs: null,
+            inputs: [],
             payload: null,
             hitTest: null);
         var requestId = new RenderRequestId(1);

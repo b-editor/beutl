@@ -74,7 +74,7 @@ public sealed class ResourcePlanUseScheduleTests
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
             hasOpaqueExternalWork: false,
-            inputs,
+            [.. inputs],
             payload: null,
             hitTest: null);
 }

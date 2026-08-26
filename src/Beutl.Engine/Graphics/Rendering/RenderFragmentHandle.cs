@@ -142,38 +142,8 @@ internal sealed class RenderFragmentReference
     private readonly bool _hasDirectSymbolicBoundsDependency;
     private Func<Point, bool> _hitTest;
 
+    /// <remarks><paramref name="inputs"/> is stored as given, not copied.</remarks>
     public RenderFragmentReference(
-        RenderFragmentKind kind,
-        Rect bounds,
-        EffectiveScale effectiveScale,
-        RenderValueCardinality valueCardinality,
-        bool contributesValuesToTarget,
-        bool canBeUsedAsValueInput,
-        bool hasTargetEffects,
-        bool hasOpaqueExternalWork,
-        IEnumerable<RenderFragmentReference>? inputs,
-        object? payload,
-        Func<Point, bool>? hitTest,
-        RenderFragmentBoundsRequirement boundsRequirement = RenderFragmentBoundsRequirement.Finite,
-        bool hasDirectSymbolicBoundsDependency = false)
-        : this(
-            kind,
-            bounds,
-            effectiveScale,
-            valueCardinality,
-            contributesValuesToTarget,
-            canBeUsedAsValueInput,
-            hasTargetEffects,
-            hasOpaqueExternalWork,
-            inputs is null ? [] : [.. inputs],
-            payload,
-            hitTest,
-            boundsRequirement,
-            hasDirectSymbolicBoundsDependency)
-    {
-    }
-
-    private RenderFragmentReference(
         RenderFragmentKind kind,
         Rect bounds,
         EffectiveScale effectiveScale,
@@ -185,8 +155,8 @@ internal sealed class RenderFragmentReference
         ImmutableArray<RenderFragmentReference> inputs,
         object? payload,
         Func<Point, bool>? hitTest,
-        RenderFragmentBoundsRequirement boundsRequirement,
-        bool hasDirectSymbolicBoundsDependency)
+        RenderFragmentBoundsRequirement boundsRequirement = RenderFragmentBoundsRequirement.Finite,
+        bool hasDirectSymbolicBoundsDependency = false)
     {
         valueCardinality.ThrowIfUninitialized(nameof(valueCardinality));
         if (!Enum.IsDefined(boundsRequirement))
@@ -209,7 +179,7 @@ internal sealed class RenderFragmentReference
         CanBeUsedAsValueInput = canBeUsedAsValueInput;
         HasTargetEffects = hasTargetEffects;
         HasOpaqueExternalWork = hasOpaqueExternalWork;
-        Inputs = inputs;
+        Inputs = inputs.IsDefault ? [] : inputs;
         SupportsIndependentOutputDensities = payload is OpaqueRenderFragmentPayload
             || (kind == RenderFragmentKind.ContributeValues
                 && Inputs.Length == 1

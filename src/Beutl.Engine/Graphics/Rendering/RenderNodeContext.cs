@@ -22,7 +22,7 @@ internal delegate void PaintedSourceDraw<TState>(
 public sealed class RenderNodeContext
 {
     private readonly NodeRecordingTransaction _transaction;
-    private readonly IReadOnlyList<RenderFragmentHandle> _inputs;
+    private readonly RenderFragmentHandle[] _inputs;
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
     private readonly Rect? _targetDomain;
@@ -32,7 +32,7 @@ public sealed class RenderNodeContext
     internal RenderNodeContext(NodeRecordingTransaction transaction)
     {
         _transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));
-        _inputs = transaction.Inputs;
+        _inputs = transaction.InputHandles;
         _intent = transaction.Request.Options.Intent;
         _purpose = transaction.Request.Options.Purpose;
         _targetDomain = transaction.Request.Options.TargetDomain;
@@ -99,9 +99,9 @@ public sealed class RenderNodeContext
     {
         VerifyActive();
         Rect result = default;
-        foreach (RenderFragmentHandle input in _inputs)
+        for (int index = 0; index < _inputs.Length; index++)
         {
-            RenderFragmentReference reference = _transaction.GetReference(input);
+            RenderFragmentReference reference = _transaction.GetReference(_inputs[index]);
             if (!reference.HasConcreteRecordingMetadata)
             {
                 bounds = default;
@@ -119,9 +119,9 @@ public sealed class RenderNodeContext
     {
         VerifyActive();
         Rect result = default;
-        foreach (RenderFragmentHandle input in _inputs)
+        for (int index = 0; index < _inputs.Length; index++)
         {
-            RenderFragmentReference reference = _transaction.GetReference(input);
+            RenderFragmentReference reference = _transaction.GetReference(_inputs[index]);
             if (reference.ContributesValuesToTarget)
             {
                 if (!reference.HasConcreteRecordingMetadata)
@@ -617,7 +617,7 @@ public sealed class RenderNodeContext
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
             hasOpaqueExternalWork: !description.HasDirectReplayMaterializationContract,
-            inputs: null,
+            inputs: [],
             new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Source, description, inputReadbacks),
             hitTest);
     }
@@ -822,7 +822,7 @@ public sealed class RenderNodeContext
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
             hasOpaqueExternalWork: false,
-            inputs: null,
+            inputs: [],
             new MaterializedInputRenderFragmentPayload(description),
             hitTest);
     }
@@ -853,7 +853,7 @@ public sealed class RenderNodeContext
             canBeUsedAsValueInput: true,
             hasTargetEffects: true,
             hasOpaqueExternalWork: false,
-            inputs: null,
+            inputs: [],
             new TargetCaptureRenderFragmentPayload(description),
             hitTest);
     }
@@ -883,7 +883,7 @@ public sealed class RenderNodeContext
             canBeUsedAsValueInput: true,
             hasTargetEffects: true,
             hasOpaqueExternalWork: false,
-            inputs: null,
+            inputs: [],
             new BuiltInBackdropCaptureRenderFragmentPayload(description, identity),
             hitTest: null,
             boundsRequirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
@@ -1124,7 +1124,7 @@ public sealed class RenderNodeContext
             canBeUsedAsValueInput: false,
             hasTargetEffects: true,
             hasOpaqueExternalWork: true,
-            inputs: null,
+            inputs: [],
             new RawTargetCommandRenderFragmentPayload(description),
             hitTest);
     }

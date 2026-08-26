@@ -312,7 +312,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             canBeUsedAsValueInput: true,
             hasTargetEffects: inputs.Any(static input => input.HasTargetEffects),
             hasOpaqueExternalWork: inputs.Any(static input => input.HasOpaqueExternalWork),
-            inputs,
+            [.. inputs],
             payload,
             static _ => true);
 

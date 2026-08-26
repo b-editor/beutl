@@ -653,7 +653,7 @@ public sealed class NodeRecordingTransactionTests
             canBeUsedAsValueInput: false,
             hasTargetEffects: true,
             hasOpaqueExternalWork: false,
-            inputs: inputs,
+            inputs: [.. inputs],
             payload: null,
             hitTest: bounds.Contains);
     }
@@ -672,7 +672,7 @@ public sealed class NodeRecordingTransactionTests
             canBeUsedAsValueInput: true,
             hasTargetEffects: true,
             hasOpaqueExternalWork: false,
-            inputs: inputs,
+            inputs: [.. inputs],
             payload: null,
             hitTest: bounds.Contains);
     }
@@ -703,7 +703,7 @@ public sealed class NodeRecordingTransactionTests
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
             hasOpaqueExternalWork: false,
-            inputs: null,
+            inputs: [],
             payload: null,
             hitTest: bounds.Contains);
     }

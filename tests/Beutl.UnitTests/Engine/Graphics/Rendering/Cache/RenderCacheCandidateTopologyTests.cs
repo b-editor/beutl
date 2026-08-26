@@ -356,7 +356,7 @@ public sealed class RenderCacheCandidateTopologyTests
             canBeUsedAsValueInput: true,
             hasTargetEffects: false,
             hasOpaqueExternalWork: false,
-            inputs ?? [],
+            inputs is null ? [] : [.. inputs],
             payload: null,
             static _ => true);
 }

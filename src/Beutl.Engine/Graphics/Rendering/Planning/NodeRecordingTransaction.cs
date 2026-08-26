@@ -1,4 +1,6 @@
-﻿using System.Collections.Immutable;
+﻿using System.Buffers;
+using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -12,9 +14,11 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     private readonly object _origin;
     private readonly List<RecordedRenderFragmentEntry> _fragments = [];
     private readonly List<RenderFragmentReference> _publications = [];
-    private readonly List<RenderResource> _resources = [];
-    private readonly List<RecordedNestedRenderRequest> _nestedRequests = [];
-    private readonly List<BuiltInBackdropBinding> _builtInBackdropBindings = [];
+
+    // Null until used: most nodes register nothing here, and an empty List<T> still costs an object per visit.
+    private List<RenderResource>? _resources;
+    private List<RecordedNestedRenderRequest>? _nestedRequests;
+    private List<BuiltInBackdropBinding>? _builtInBackdropBindings;
 
     // Nulled the moment the transaction seals so a recycled set can never answer for a dead transaction.
     private HashSet<RenderFragmentReference>? _ownedReferences = RentOwnedReferences();
@@ -28,10 +32,18 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     [ThreadStatic]
     private static Stack<HashSet<RenderFragmentReference>>? t_ownedReferencePool;
 
+    /// <summary>Where <see cref="ReplayRecording"/> takes its slot scratch from.</summary>
+    /// <remarks>
+    /// Assignable only so a test can observe the rent/return discipline, including under a mid-replay throw.
+    /// The render path never replaces it.
+    /// </remarks>
+    internal static ArrayPool<RenderFragmentReference> ReplayScratchPool { get; set; } =
+        ArrayPool<RenderFragmentReference>.Shared;
+
     public NodeRecordingTransaction(
         IRenderRequestRecordingHost host,
         object origin,
-        IEnumerable<RenderFragmentReference> inputs,
+        IReadOnlyList<RenderFragmentReference> inputs,
         NodeRecordingTransaction? parent = null)
     {
         _host = host;
@@ -39,18 +51,24 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         _origin = origin ?? throw new ArgumentNullException(nameof(origin));
         ArgumentNullException.ThrowIfNull(inputs);
 
-        var facades = new List<RenderFragmentHandle>();
-        foreach (RenderFragmentReference input in inputs)
+        int count = inputs.Count;
+        RenderFragmentHandle[] facades = count == 0 ? [] : new RenderFragmentHandle[count];
+        HashSet<RenderFragmentReference> owned = OwnedReferences;
+        for (int index = 0; index < count; index++)
         {
+            RenderFragmentReference input = inputs[index];
             ArgumentNullException.ThrowIfNull(input);
-            OwnedReferences.Add(input);
-            facades.Add(new RenderFragmentHandle(this, input));
+            owned.Add(input);
+            facades[index] = new RenderFragmentHandle(this, input);
         }
 
-        Inputs = facades;
+        InputHandles = facades;
     }
 
-    public IReadOnlyList<RenderFragmentHandle> Inputs { get; }
+    public IReadOnlyList<RenderFragmentHandle> Inputs => InputHandles;
+
+    // Indexing this instead of Inputs keeps the per-visit input walks from boxing an enumerator.
+    internal RenderFragmentHandle[] InputHandles { get; }
 
     public RenderRequest Request => _host.Request;
 
@@ -87,14 +105,14 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         bool canBeUsedAsValueInput,
         bool hasTargetEffects,
         bool hasOpaqueExternalWork,
-        IEnumerable<RenderFragmentReference>? inputs,
+        ImmutableArray<RenderFragmentReference> inputs,
         object? payload,
         Func<Point, bool>? hitTest,
         RenderFragmentBoundsRequirement boundsRequirement = RenderFragmentBoundsRequirement.Finite,
         bool hasDirectSymbolicBoundsDependency = false)
     {
         VerifyActive();
-        ImmutableArray<RenderFragmentReference> inputCopy = inputs is null ? [] : [.. inputs];
+        ImmutableArray<RenderFragmentReference> inputCopy = inputs.IsDefault ? [] : inputs;
         foreach (RenderFragmentReference input in inputCopy)
         {
             VerifyOwns(input);
@@ -132,7 +150,33 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     {
         VerifyActive();
         ArgumentNullException.ThrowIfNull(handles, parameterName);
-        var result = ImmutableArray.CreateBuilder<RenderFragmentReference>();
+        if (handles is not IReadOnlyList<RenderFragmentHandle> list)
+            return CollectReferences(handles, parameterName);
+
+        int count = list.Count;
+        if (count == 0)
+            return [];
+
+        // Handed straight to a fragment as its retained Inputs, so this array must be owned by nobody else -
+        // a pooled buffer would be read by the recording cache long after its renter returned it.
+        var references = new RenderFragmentReference[count];
+        for (int index = 0; index < count; index++)
+        {
+            RenderFragmentHandle handle = list[index];
+            if (handle is null)
+                throw new ArgumentException("A fragment sequence cannot contain null handles.", parameterName);
+            references[index] = handle.GetReference(this);
+        }
+
+        return ImmutableCollectionsMarshal.AsImmutableArray(references);
+    }
+
+    private ImmutableArray<RenderFragmentReference> CollectReferences(
+        IEnumerable<RenderFragmentHandle> handles,
+        string parameterName)
+    {
+        ImmutableArray<RenderFragmentReference>.Builder result =
+            ImmutableArray.CreateBuilder<RenderFragmentReference>();
         foreach (RenderFragmentHandle handle in handles)
         {
             if (handle is null)
@@ -151,9 +195,11 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     public void PassThrough()
     {
         VerifyActive();
-        foreach (RenderFragmentHandle input in Inputs)
+        RenderFragmentHandle[] handles = InputHandles;
+        _publications.EnsureCapacity(_publications.Count + handles.Length);
+        for (int index = 0; index < handles.Length; index++)
         {
-            PublishCore(input.GetReference(this));
+            PublishCore(handles[index].GetReference(this));
         }
     }
 
@@ -181,7 +227,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     {
         VerifyActive();
         RenderResource<T> token = Request.Options.Owner.ResourceRegistry.RegisterOwned(resource, this);
-        _resources.Add(token);
+        (_resources ??= []).Add(token);
         return token;
     }
 
@@ -190,7 +236,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     {
         VerifyActive();
         RenderResource<T> token = Request.Options.Owner.ResourceRegistry.RegisterBorrowed(resource, this);
-        _resources.Add(token);
+        (_resources ??= []).Add(token);
         return token;
     }
 
@@ -198,6 +244,12 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     {
         VerifyActive();
         ArgumentNullException.ThrowIfNull(resources);
+        if (resources.Count == 0)
+            return;
+
+        List<RenderResource> registered = _resources
+            ?? throw new InvalidOperationException(
+                "The render resource does not belong to this recording transaction.");
 
         var transactionIndices = new int[resources.Count];
         var claimed = new HashSet<int>();
@@ -205,9 +257,9 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         {
             RenderResource resource = resources[resourceIndex];
             int transactionIndex = -1;
-            for (int candidate = _resources.Count - 1; candidate >= 0; candidate--)
+            for (int candidate = registered.Count - 1; candidate >= 0; candidate--)
             {
-                if (!claimed.Contains(candidate) && ReferenceEquals(_resources[candidate], resource))
+                if (!claimed.Contains(candidate) && ReferenceEquals(registered[candidate], resource))
                 {
                     transactionIndex = candidate;
                     break;
@@ -228,7 +280,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         {
             RenderResource resource = resources[resourceIndex];
             int transactionIndex = transactionIndices[resourceIndex];
-            _resources.RemoveAt(transactionIndex);
+            registered.RemoveAt(transactionIndex);
             for (int earlier = 0; earlier < resourceIndex; earlier++)
             {
                 if (transactionIndices[earlier] > transactionIndex)
@@ -298,7 +350,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(options);
         RecordedNestedRenderRequest nested = _host.RecordNestedRequest(root, options);
-        _nestedRequests.Add(nested);
+        (_nestedRequests ??= []).Add(nested);
         return nested;
     }
 
@@ -316,8 +368,9 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
                 nameof(capture));
         }
 
-        _builtInBackdropBindings.RemoveAll(binding => ReferenceEquals(binding.Identity, identity));
-        _builtInBackdropBindings.Add(new BuiltInBackdropBinding(identity, reference));
+        List<BuiltInBackdropBinding> bindings = _builtInBackdropBindings ??= [];
+        bindings.RemoveAll(binding => ReferenceEquals(binding.Identity, identity));
+        bindings.Add(new BuiltInBackdropBinding(identity, reference));
     }
 
     public bool TryGetBuiltInBackdrop(
@@ -344,9 +397,9 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         var commit = new NodeRecordingCommit(
             fragments,
             [.. _publications],
-            [.. _resources],
-            [.. _nestedRequests],
-            [.. _builtInBackdropBindings],
+            _resources is null ? [] : [.. _resources],
+            _nestedRequests is null ? [] : [.. _nestedRequests],
+            _builtInBackdropBindings is null ? [] : [.. _builtInBackdropBindings],
             _dropped is null ? [] : [.. _dropped]);
 
         try
@@ -381,11 +434,11 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         State = NodeRecordingTransactionState.RolledBack;
         ReleaseOwnedReferences();
         List<Exception>? failures = null;
-        for (int index = _resources.Count - 1; index >= 0; index--)
+        for (int index = (_resources?.Count ?? 0) - 1; index >= 0; index--)
         {
             try
             {
-                RenderResource resource = _resources[index];
+                RenderResource resource = _resources![index];
                 if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
                     Request.Options.Owner.ResourceRegistry.Rollback(resource);
                 else
@@ -397,11 +450,11 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
             }
         }
 
-        for (int index = _nestedRequests.Count - 1; index >= 0; index--)
+        for (int index = (_nestedRequests?.Count ?? 0) - 1; index >= 0; index--)
         {
             try
             {
-                _nestedRequests[index].Request.Dispose();
+                _nestedRequests![index].Request.Dispose();
             }
             catch (Exception ex)
             {
@@ -409,8 +462,8 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
             }
         }
 
-        _resources.Clear();
-        _nestedRequests.Clear();
+        _resources?.Clear();
+        _nestedRequests?.Clear();
         if (failures is not null)
         {
             throw new AggregateException(
@@ -429,11 +482,11 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     /// <summary>The fragments this transaction abandoned, or <see langword="null"/> when it abandoned none.</summary>
     internal IReadOnlyCollection<RenderFragmentReference>? RecordedDropped => _dropped;
 
-    internal int RecordedResourceCount => _resources.Count;
+    internal int RecordedResourceCount => _resources?.Count ?? 0;
 
-    internal int RecordedNestedRequestCount => _nestedRequests.Count;
+    internal int RecordedNestedRequestCount => _nestedRequests?.Count ?? 0;
 
-    internal int RecordedBuiltInBackdropBindingCount => _builtInBackdropBindings.Count;
+    internal int RecordedBuiltInBackdropBindingCount => _builtInBackdropBindings?.Count ?? 0;
 
     /// <summary>Whether this recording called <see cref="DisableRenderCache"/> on itself.</summary>
     internal bool IsRenderCacheDisabledHere => _cacheDisabled;
@@ -472,46 +525,76 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
             ?? throw new InvalidOperationException("The recording snapshot cannot be replayed.");
 
         _cacheDisabled |= snapshot.DisabledRenderCache;
-        RenderFragmentReference[] replayed = fragments.Length == 0
-            ? []
-            : new RenderFragmentReference[fragments.Length];
-        for (int index = 0; index < fragments.Length; index++)
+        if (fragments.Length == 0)
         {
-            ReplayedRenderFragment fragment = fragments[index];
-            int[] slots = fragment.InputSlots;
-            ImmutableArray<RenderFragmentReference> fragmentInputs;
-            if (slots.Length == 0)
-            {
-                fragmentInputs = [];
-            }
-            else
-            {
-                var builder = ImmutableArray.CreateBuilder<RenderFragmentReference>(slots.Length);
-                foreach (int slot in slots)
-                    builder.Add(ResolveSlot(slot, replayed, inputs));
-                fragmentInputs = builder.MoveToImmutable();
-            }
-
-            RenderFragmentReference reference = fragment.Template.CloneForReplay(fragmentInputs);
-            replayed[index] = reference;
-            OwnedReferences.Add(reference);
-            _fragments.Add(new RecordedRenderFragmentEntry(reference, fragment.Origin, fragment.Role));
-            _hasOwnTargetEffectFragment |= IsTargetEffect(reference.Kind);
+            ReplaySlots(snapshot, [], inputs);
+            return;
         }
 
+        // Pure scratch - nothing reads it once this method returns - which is what lets it come from a pool.
+        // Rent hands each caller a buffer of its own, so a replay nested inside another cannot take the one
+        // its caller is still indexing.
+        ArrayPool<RenderFragmentReference> pool = ReplayScratchPool;
+        RenderFragmentReference[] rented = pool.Rent(fragments.Length);
+        try
+        {
+            // Rent may hand back a longer buffer; slicing keeps an out-of-range slot a bounds failure rather
+            // than a read of whatever the previous renter left past the end.
+            Span<RenderFragmentReference> replayed = rented.AsSpan(0, fragments.Length);
+            _fragments.EnsureCapacity(_fragments.Count + fragments.Length);
+            for (int index = 0; index < fragments.Length; index++)
+            {
+                ReplayedRenderFragment fragment = fragments[index];
+                int[] slots = fragment.InputSlots;
+                ImmutableArray<RenderFragmentReference> fragmentInputs;
+                if (slots.Length == 0)
+                {
+                    fragmentInputs = [];
+                }
+                else
+                {
+                    // Retained as the clone's Inputs, so it gets an array of its own rather than the scratch.
+                    var resolved = new RenderFragmentReference[slots.Length];
+                    for (int slotIndex = 0; slotIndex < slots.Length; slotIndex++)
+                        resolved[slotIndex] = ResolveSlot(slots[slotIndex], replayed, inputs);
+                    fragmentInputs = ImmutableCollectionsMarshal.AsImmutableArray(resolved);
+                }
+
+                RenderFragmentReference reference = fragment.Template.CloneForReplay(fragmentInputs);
+                replayed[index] = reference;
+                OwnedReferences.Add(reference);
+                _fragments.Add(new RecordedRenderFragmentEntry(reference, fragment.Origin, fragment.Role));
+                _hasOwnTargetEffectFragment |= IsTargetEffect(reference.Kind);
+            }
+
+            ReplaySlots(snapshot, replayed, inputs);
+        }
+        finally
+        {
+            pool.Return(rented, clearArray: true);
+        }
+    }
+
+    private void ReplaySlots(
+        RenderNodeRecordingSnapshot snapshot,
+        ReadOnlySpan<RenderFragmentReference> replayed,
+        IReadOnlyList<RenderFragmentReference> inputs)
+    {
         foreach (int slot in snapshot.DroppedSlots ?? [])
         {
             (_dropped ??= new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance))
                 .Add(ResolveSlot(slot, replayed, inputs));
         }
 
-        foreach (int slot in snapshot.PublicationSlots ?? [])
+        int[] publicationSlots = snapshot.PublicationSlots ?? [];
+        _publications.EnsureCapacity(_publications.Count + publicationSlots.Length);
+        foreach (int slot in publicationSlots)
             _publications.Add(ResolveSlot(slot, replayed, inputs));
     }
 
     private static RenderFragmentReference ResolveSlot(
         int slot,
-        RenderFragmentReference[] replayed,
+        ReadOnlySpan<RenderFragmentReference> replayed,
         IReadOnlyList<RenderFragmentReference> inputs)
         => slot >= 0 ? replayed[slot] : inputs[-slot - 1];
 
@@ -528,11 +611,11 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         State = NodeRecordingTransactionState.RolledBack;
         ReleaseOwnedReferences();
         Request.Options.Owner.RecordPrimaryFailure(primaryFailure);
-        for (int index = _resources.Count - 1; index >= 0; index--)
+        for (int index = (_resources?.Count ?? 0) - 1; index >= 0; index--)
         {
             try
             {
-                RenderResource resource = _resources[index];
+                RenderResource resource = _resources![index];
                 if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
                     Request.Options.Owner.ResourceRegistry.Rollback(resource);
                 else
@@ -545,11 +628,11 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         }
 
 
-        for (int index = _nestedRequests.Count - 1; index >= 0; index--)
+        for (int index = (_nestedRequests?.Count ?? 0) - 1; index >= 0; index--)
         {
             try
             {
-                _nestedRequests[index].Request.Dispose();
+                _nestedRequests![index].Request.Dispose();
             }
             catch (Exception ex)
             {
@@ -580,14 +663,20 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     }
 
     private IReadOnlyList<RenderFragmentHandle> MapReferences(
-        IEnumerable<RenderFragmentReference> references)
+        IReadOnlyList<RenderFragmentReference> references)
     {
         VerifyActive();
-        var result = new List<RenderFragmentHandle>();
-        foreach (RenderFragmentReference reference in references)
+        int count = references.Count;
+        if (count == 0)
+            return [];
+
+        var result = new RenderFragmentHandle[count];
+        HashSet<RenderFragmentReference> owned = OwnedReferences;
+        for (int index = 0; index < count; index++)
         {
-            OwnedReferences.Add(reference);
-            result.Add(new RenderFragmentHandle(this, reference));
+            RenderFragmentReference reference = references[index];
+            owned.Add(reference);
+            result[index] = new RenderFragmentHandle(this, reference);
         }
 
         return result;
@@ -596,17 +685,22 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     private void Absorb(NodeRecordingCommit child)
     {
         VerifyActive();
-        _fragments.AddRange(child.Fragments);
-        foreach (RenderResource resource in child.Resources)
+        _fragments.AddRange(child.Fragments.AsSpan());
+        if (!child.Resources.IsEmpty)
         {
-            // The child has sealed, so a registration it never got committed answers to this transaction's
-            // rollback from here on - and stays readable for the rest of this recording.
-            if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
-                resource.RecordingScope = this;
+            foreach (RenderResource resource in child.Resources)
+            {
+                // The child has sealed, so a registration it never got committed answers to this transaction's
+                // rollback from here on - and stays readable for the rest of this recording.
+                if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
+                    resource.RecordingScope = this;
+            }
+
+            (_resources ??= []).AddRange(child.Resources.AsSpan());
         }
 
-        _resources.AddRange(child.Resources);
-        _nestedRequests.AddRange(child.NestedRequests);
+        if (!child.NestedRequests.IsEmpty)
+            (_nestedRequests ??= []).AddRange(child.NestedRequests.AsSpan());
         if (!child.Dropped.IsEmpty)
         {
             _dropped ??= new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
@@ -614,10 +708,14 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
                 _dropped.Add(dropped);
         }
 
-        foreach (BuiltInBackdropBinding binding in child.BuiltInBackdropBindings)
+        if (!child.BuiltInBackdropBindings.IsEmpty)
         {
-            _builtInBackdropBindings.RemoveAll(item => ReferenceEquals(item.Identity, binding.Identity));
-            _builtInBackdropBindings.Add(binding);
+            List<BuiltInBackdropBinding> bindings = _builtInBackdropBindings ??= [];
+            foreach (BuiltInBackdropBinding binding in child.BuiltInBackdropBindings)
+            {
+                bindings.RemoveAll(item => ReferenceEquals(item.Identity, binding.Identity));
+                bindings.Add(binding);
+            }
         }
 
         // Nothing in the commit type keeps an absorbed entry's origin distinct from this transaction's, so
@@ -792,9 +890,9 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         out RenderFragmentReference? reference)
     {
         VerifyActive();
-        for (int index = _builtInBackdropBindings.Count - 1; index >= 0; index--)
+        for (int index = (_builtInBackdropBindings?.Count ?? 0) - 1; index >= 0; index--)
         {
-            BuiltInBackdropBinding binding = _builtInBackdropBindings[index];
+            BuiltInBackdropBinding binding = _builtInBackdropBindings![index];
             if (ReferenceEquals(binding.Identity, identity))
             {
                 reference = binding.Reference;
