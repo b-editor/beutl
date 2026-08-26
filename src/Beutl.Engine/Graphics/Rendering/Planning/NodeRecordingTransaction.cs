@@ -19,6 +19,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     private List<RenderResource>? _resources;
     private List<RecordedNestedRenderRequest>? _nestedRequests;
     private List<BuiltInBackdropBinding>? _builtInBackdropBindings;
+    private List<RecordedHitTestRead>? _hitTestReads;
 
     // Nulled the moment the transaction seals so a recycled set can never answer for a dead transaction.
     private HashSet<RenderFragmentReference>? _ownedReferences = RentOwnedReferences();
@@ -482,6 +483,9 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
     /// <summary>The fragments this transaction abandoned, or <see langword="null"/> when it abandoned none.</summary>
     internal IReadOnlyCollection<RenderFragmentReference>? RecordedDropped => _dropped;
 
+    /// <summary>The hit tests this recording read, in the order it read them.</summary>
+    internal IReadOnlyList<RecordedHitTestRead>? RecordedHitTestReads => _hitTestReads;
+
     internal int RecordedResourceCount => _resources?.Count ?? 0;
 
     internal int RecordedNestedRequestCount => _nestedRequests?.Count ?? 0;
@@ -649,6 +653,13 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
                 "The render fragment belongs to a different recording transaction.");
         }
     }
+
+    public void NoteHitTestRead(
+        RenderFragmentReference reference,
+        Point point,
+        bool concrete,
+        bool result)
+        => (_hitTestReads ??= []).Add(new RecordedHitTestRead(reference, point, concrete, result));
 
     private IReadOnlyList<RenderFragmentHandle> MapReferences(
         IReadOnlyList<RenderFragmentReference> references)
@@ -943,6 +954,13 @@ internal readonly record struct NodeRecordingCommit(
     ImmutableArray<RecordedNestedRenderRequest> NestedRequests,
     ImmutableArray<BuiltInBackdropBinding> BuiltInBackdropBindings,
     ImmutableArray<RenderFragmentReference> Dropped);
+
+/// <summary>One hit test a recording read, and what it answered.</summary>
+internal readonly record struct RecordedHitTestRead(
+    RenderFragmentReference Reference,
+    Point Point,
+    bool Concrete,
+    bool Result);
 
 internal sealed record RecordedRenderFragmentEntry(
     RenderFragmentReference Reference,

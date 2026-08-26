@@ -129,6 +129,130 @@ public sealed class RecordingGateFingerprintTests
         });
     }
 
+    /// <summary>
+    /// The hole the digest alone leaves: a parent that decides what to record from an input's hit test.
+    /// </summary>
+    /// <remarks>
+    /// The child keeps one hit-test rule while the state that rule reads moves, so its fragment digests the
+    /// same as before. A parent that only forwards the hit test is right anyway - it reads the live rule
+    /// through the fragment it is replayed over. A parent that reads the answer while recording does not: the
+    /// branch it took is baked into the fragments it published, and nothing about those fragments says the
+    /// answer was ever consulted.
+    /// </remarks>
+    [Test]
+    public void AParentThatBranchesOnItsInputHitTest_RecordsAgainWhenThatAnswerChanges()
+    {
+        using var child = new StatefulHitTestNode(s_bounds);
+        using var parent = new BranchesOnInputHitTestNode();
+        parent.AddChild(child);
+
+        Record(parent);
+        RecordedRenderGraph hitting = Record(parent);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(parent.ProcessCalls, Is.EqualTo(1), "an unchanged subtree must still be served");
+            Assert.That(
+                KindOfPublishedFragment(hitting),
+                Is.EqualTo(RenderFragmentKind.Opacity),
+                "the input hits, so the parent takes its hitting branch");
+        });
+
+        long[] recordedOver = parent.RecordingSnapshot!.InputFingerprints.ToArray();
+        child.HasChanges = true;
+        child.HitRegion = Rect.Empty;
+        RecordedRenderGraph missing = Record(parent);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                parent.RecordingSnapshot!.InputFingerprints,
+                Is.EqualTo(recordedOver),
+                "the digest cannot see this change, so the gate cannot be relying on it here");
+            Assert.That(parent.ProcessCalls, Is.EqualTo(2), "the parent must record its other branch");
+            Assert.That(
+                KindOfPublishedFragment(missing),
+                Is.EqualTo(RenderFragmentKind.OpaqueSource),
+                "a parent served over a stale hit-test answer would publish the branch it no longer takes");
+        });
+    }
+
+    /// <summary>A parent that reads a hit test it does not act on keeps being served.</summary>
+    /// <remarks>
+    /// The point of recording what a parent read is that the answer is what matters, not the reading. A
+    /// parent whose answer is unchanged has nothing to record again, however the input's rule got there.
+    /// </remarks>
+    [Test]
+    public void AParentThatBranchesOnItsInputHitTest_IsStillServedWhenThatAnswerHolds()
+    {
+        using var child = new StatefulHitTestNode(s_bounds);
+        using var parent = new BranchesOnInputHitTestNode();
+        parent.AddChild(child);
+
+        Record(parent);
+        Record(parent);
+        child.HasChanges = true;
+        child.HitRegion = s_bounds.Inflate(10);
+        Record(parent);
+
+        Assert.That(
+            parent.ProcessCalls,
+            Is.EqualTo(1),
+            "the input still hits the point the parent read, so its recording still stands");
+    }
+
+    /// <summary>The same hole over the explicit-input path, where the parent is reached with inputs.</summary>
+    [Test]
+    public void ANodeRecordedWithExplicitInputs_FollowsAHitTestAnswerItBranchedOn()
+    {
+        using var source = new StatefulHitTestNode(s_bounds);
+        using var wrapper = new BranchesOnInputHitTestNode();
+        using var driver = new DrivesAWrapperOverAnotherNode(source, wrapper);
+
+        Record(driver);
+        Record(driver);
+        Assert.That(wrapper.ProcessCalls, Is.EqualTo(1), "an unchanged input serves the wrapper");
+
+        source.HasChanges = true;
+        source.HitRegion = Rect.Empty;
+        RecordedRenderGraph missing = Record(driver);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(wrapper.ProcessCalls, Is.EqualTo(2));
+            Assert.That(
+                KindOfPublishedFragment(missing),
+                Is.EqualTo(RenderFragmentKind.OpaqueSource));
+        });
+    }
+
+    /// <summary>The cross-check no longer blames the parent for a hit-test answer its input changed.</summary>
+    /// <remarks>
+    /// While the gate served this parent, the cross-check re-recorded it and saw the other branch, and
+    /// reported it as the parent violating <see cref="RenderNode.HasChanges"/> - which is not what happened.
+    /// Now that the answer the parent read is part of what the gate offers its recording back over, the
+    /// re-recording and the retained one describe the same branch and there is nothing to report.
+    /// </remarks>
+    [Test]
+    public void TheCrossCheck_NoLongerBlamesTheParentForAHitTestAnswerItsInputChanged()
+    {
+        if (!RenderRecordingCrossCheck.IsAvailable)
+            Assert.Ignore("The cross-check call sites are compiled out of a Release build of Beutl.Engine.");
+
+        using var child = new StatefulHitTestNode(s_bounds);
+        using var parent = new BranchesOnInputHitTestNode();
+        parent.AddChild(child);
+
+        using (RenderRecordingCrossCheck.Enable())
+        {
+            Record(parent);
+            child.HasChanges = true;
+            child.HitRegion = Rect.Empty;
+
+            Assert.That(() => Record(parent), Throws.Nothing);
+        }
+    }
+
     /// <summary>The same guard over the explicit-input path, which the gate now admits.</summary>
     [Test]
     public void ANodeRecordedWithExplicitInputs_FollowsAHitTestOnlyChangeInThoseInputs()
@@ -378,6 +502,18 @@ public sealed class RecordingGateFingerprintTests
         throw new InvalidOperationException($"The recorded graph has no {kind?.ToString() ?? "fragment"}.");
     }
 
+    private static RenderFragmentKind KindOfPublishedFragment(RecordedRenderGraph graph)
+    {
+        RenderFragmentId root = graph.PublicationRoots.Single();
+        foreach (RecordedRenderFragment fragment in graph.Fragments)
+        {
+            if (fragment.Id == root)
+                return ((RenderFragmentReference)fragment.Payload!).Kind;
+        }
+
+        throw new InvalidOperationException("The recorded graph has no published fragment.");
+    }
+
     private static RecordedRenderGraph Record(RenderNode node)
     {
         RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node, cacheEnabled: false);
@@ -447,6 +583,22 @@ public sealed class RecordingGateFingerprintTests
             ProcessCalls++;
             foreach (RenderFragmentHandle input in context.Inputs)
                 context.Publish(context.Opacity(input, 0.5f));
+        }
+    }
+
+    /// <summary>Decides what to record from the hit test of each input, the way a public author may.</summary>
+    private sealed class BranchesOnInputHitTestNode : ContainerRenderNode
+    {
+        public int ProcessCalls { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            ProcessCalls++;
+            foreach (RenderFragmentHandle input in context.Inputs)
+            {
+                input.TryHitTest(s_inside, out bool hit);
+                context.Publish(hit ? context.Opacity(input, 0.5f) : context.ContributeValues(input));
+            }
         }
     }
 

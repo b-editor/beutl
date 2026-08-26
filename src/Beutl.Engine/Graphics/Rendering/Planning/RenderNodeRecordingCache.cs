@@ -63,6 +63,18 @@ internal readonly struct ReplayedRenderFragment(
     public int[] InputSlots { get; } = inputSlots;
 }
 
+/// <summary>One hit-test answer a recording read, stated over an input slot so it can be read again.</summary>
+/// <remarks>
+/// Only a read of a declared input is kept: everything else a recording can read a hit test on either has an
+/// answer the retained fragments alone fix, in which case there is nothing to re-check, or belongs to a
+/// request that has ended, in which case the recording is refused outright.
+/// </remarks>
+internal readonly record struct ReplayedHitTestRead(
+    int InputIndex,
+    Point Point,
+    bool Concrete,
+    bool Result);
+
 /// <summary>What one <see cref="RenderNode.Process(RenderNodeContext)"/> call produced, kept for reuse.</summary>
 /// <remarks>
 /// A snapshot with no <see cref="Fragments"/> records only that the node recorded for this key and over which
@@ -73,6 +85,7 @@ internal sealed class RenderNodeRecordingSnapshot
     public RenderNodeRecordingSnapshot(
         RenderNodeRecordingKey key,
         long[] inputFingerprints,
+        ReplayedHitTestRead[] hitTestReads,
         ReplayedRenderFragment[]? fragments,
         int[]? publicationSlots,
         int[]? droppedSlots,
@@ -80,6 +93,7 @@ internal sealed class RenderNodeRecordingSnapshot
     {
         Key = key;
         InputFingerprints = inputFingerprints;
+        HitTestReads = hitTestReads;
         Fragments = fragments;
         PublicationSlots = publicationSlots;
         DroppedSlots = droppedSlots;
@@ -89,6 +103,9 @@ internal sealed class RenderNodeRecordingSnapshot
     public RenderNodeRecordingKey Key { get; }
 
     public long[] InputFingerprints { get; }
+
+    /// <summary>The hit-test answers the recording branched on, which the fingerprints cannot report.</summary>
+    public ReplayedHitTestRead[] HitTestReads { get; }
 
     public ReplayedRenderFragment[]? Fragments { get; }
 
@@ -119,6 +136,15 @@ internal sealed class RenderNodeRecordingSnapshot
         for (int index = 0; index < InputFingerprints.Length; index++)
         {
             if (InputFingerprints[index] != inputs[index].RecordingFingerprint)
+                return false;
+        }
+
+        foreach (ReplayedHitTestRead read in HitTestReads)
+        {
+            RenderFragmentReference input = inputs[read.InputIndex];
+            if (input.HasConcreteRecordingMetadata != read.Concrete)
+                return false;
+            if (read.Concrete && input.HitTest(read.Point) != read.Result)
                 return false;
         }
 
@@ -159,6 +185,10 @@ internal static class RenderNodeRecordingCache
     /// An input reached from outside this node's own recording belongs to the request that produced it, so
     /// there is nothing for a later request to rebase it onto.
     /// </item>
+    /// <item>
+    /// A hit test read on a fragment that is neither a declared input nor fixed by this recording answers
+    /// for a graph that has ended, so there is no way to ask it again for the request being served.
+    /// </item>
     /// </list>
     /// </remarks>
     public static RenderNodeRecordingSnapshot Capture(
@@ -171,12 +201,17 @@ internal static class RenderNodeRecordingCache
         for (int index = 0; index < inputs.Count; index++)
             inputFingerprints[index] = inputs[index].RecordingFingerprint;
 
-        if (transaction.RecordedResourceCount != 0
+        ReplayedHitTestRead[] hitTestReads = [];
+        bool everyHitTestReadCanBeAskedAgain = transaction.RecordedHitTestReads is not { Count: > 0 } reads
+            || TryRebaseHitTestReads(reads, inputs, transaction.RecordedFragments, out hitTestReads);
+
+        if (!everyHitTestReadCanBeAskedAgain
+            || transaction.RecordedResourceCount != 0
             || transaction.RecordedNestedRequestCount != 0
             || transaction.RecordedBuiltInBackdropBindingCount != 0
             || transaction.AbsorbedRecordingCount != 0)
         {
-            return new RenderNodeRecordingSnapshot(key, inputFingerprints, null, null, null);
+            return Refuse(in key, inputFingerprints, hitTestReads);
         }
 
         IReadOnlyList<RecordedRenderFragmentEntry> entries = transaction.RecordedFragments;
@@ -191,7 +226,7 @@ internal static class RenderNodeRecordingCache
         {
             RecordedRenderFragmentEntry entry = entries[index];
             if (!ReferenceEquals(entry.Origin, node))
-                return new RenderNodeRecordingSnapshot(key, inputFingerprints, null, null, null);
+                return Refuse(in key, inputFingerprints, hitTestReads);
 
             RenderFragmentReference reference = entry.Reference;
             ImmutableArray<RenderFragmentReference> referenceInputs = reference.Inputs;
@@ -199,7 +234,7 @@ internal static class RenderNodeRecordingCache
             for (int inputIndex = 0; inputIndex < referenceInputs.Length; inputIndex++)
             {
                 if (!slots.TryGetValue(referenceInputs[inputIndex], out int slot))
-                    return new RenderNodeRecordingSnapshot(key, inputFingerprints, null, null, null);
+                    return Refuse(in key, inputFingerprints, hitTestReads);
                 inputSlots[inputIndex] = slot;
             }
 
@@ -218,7 +253,7 @@ internal static class RenderNodeRecordingCache
         for (int index = 0; index < publications.Count; index++)
         {
             if (!slots.TryGetValue(publications[index], out int slot))
-                return new RenderNodeRecordingSnapshot(key, inputFingerprints, null, null, null);
+                return Refuse(in key, inputFingerprints, hitTestReads);
             publicationSlots[index] = slot;
         }
 
@@ -231,7 +266,7 @@ internal static class RenderNodeRecordingCache
             foreach (RenderFragmentReference reference in dropped)
             {
                 if (!slots.TryGetValue(reference, out int slot))
-                    return new RenderNodeRecordingSnapshot(key, inputFingerprints, null, null, null);
+                    return Refuse(in key, inputFingerprints, hitTestReads);
                 droppedSlots[write++] = slot;
             }
         }
@@ -239,9 +274,92 @@ internal static class RenderNodeRecordingCache
         return new RenderNodeRecordingSnapshot(
             key,
             inputFingerprints,
+            hitTestReads,
             fragments,
             publicationSlots,
             droppedSlots,
             transaction.IsRenderCacheDisabledHere);
+    }
+
+    private static RenderNodeRecordingSnapshot Refuse(
+        in RenderNodeRecordingKey key,
+        long[] inputFingerprints,
+        ReplayedHitTestRead[] hitTestReads)
+        => new(key, inputFingerprints, hitTestReads, null, null, null);
+
+    /// <summary>
+    /// States each hit test the recording read over an input slot, or reports one that cannot be asked again.
+    /// </summary>
+    /// <remarks>
+    /// A read of a declared input is kept, and asking it again over the inputs a later request offers is what
+    /// decides whether the recording still stands. A read of a fragment this recording made itself is dropped
+    /// when nothing in that fragment's input cone leaves the recording: replay rebuilds such a fragment from
+    /// the retained templates alone, so it answers what it answered. Anything else - a fragment reached from
+    /// outside this recording, or one of its own whose cone reaches a declared input - has an answer that only
+    /// a fresh recording can settle.
+    /// </remarks>
+    private static bool TryRebaseHitTestReads(
+        IReadOnlyList<RecordedHitTestRead> reads,
+        IReadOnlyList<RenderFragmentReference> inputs,
+        IReadOnlyList<RecordedRenderFragmentEntry> entries,
+        out ReplayedHitTestRead[] rebased)
+    {
+        var declaredInputs = new Dictionary<RenderFragmentReference, int>(
+            inputs.Count,
+            ReferenceEqualityComparer.Instance);
+        for (int index = 0; index < inputs.Count; index++)
+            declaredInputs[inputs[index]] = index;
+
+        HashSet<RenderFragmentReference>? recorded = null;
+        HashSet<RenderFragmentReference>? visited = null;
+        var kept = new List<ReplayedHitTestRead>(reads.Count);
+        foreach (RecordedHitTestRead read in reads)
+        {
+            if (declaredInputs.TryGetValue(read.Reference, out int inputIndex))
+            {
+                kept.Add(new ReplayedHitTestRead(inputIndex, read.Point, read.Concrete, read.Result));
+                continue;
+            }
+
+            if (recorded is null)
+            {
+                recorded = new HashSet<RenderFragmentReference>(
+                    entries.Count,
+                    ReferenceEqualityComparer.Instance);
+                foreach (RecordedRenderFragmentEntry entry in entries)
+                    recorded.Add(entry.Reference);
+                visited = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
+            }
+
+            visited!.Clear();
+            if (!IsFixedByTheRecording(read.Reference, recorded, declaredInputs, visited))
+            {
+                rebased = [];
+                return false;
+            }
+        }
+
+        rebased = [.. kept];
+        return true;
+    }
+
+    private static bool IsFixedByTheRecording(
+        RenderFragmentReference reference,
+        HashSet<RenderFragmentReference> recorded,
+        Dictionary<RenderFragmentReference, int> declaredInputs,
+        HashSet<RenderFragmentReference> visited)
+    {
+        if (declaredInputs.ContainsKey(reference) || !recorded.Contains(reference))
+            return false;
+        if (!visited.Add(reference))
+            return true;
+
+        foreach (RenderFragmentReference input in reference.Inputs)
+        {
+            if (!IsFixedByTheRecording(input, recorded, declaredInputs, visited))
+                return false;
+        }
+
+        return true;
     }
 }

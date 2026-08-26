@@ -315,7 +315,9 @@ public sealed class RecordingBufferPoolingTests
         RenderFragmentReference second = CreateTemplate();
         return new RenderNodeRecordingSnapshot(
             RenderNodeRecordingKey.Create(CreateOptions(null), transactionCacheEnabled: false),
-            [],
+            inputFingerprints: [],
+            hitTestReads: [],
+            fragments:
             [
                 new ReplayedRenderFragment(first, new object(), RenderNodeRecordingCache.ProcessRole, []),
                 new ReplayedRenderFragment(
@@ -324,8 +326,8 @@ public sealed class RecordingBufferPoolingTests
                     RenderNodeRecordingCache.ProcessRole,
                     [inputSlotOfSecondFragment]),
             ],
-            [],
-            []);
+            publicationSlots: [],
+            droppedSlots: []);
     }
 
     private static RenderFragmentReference CreateTemplate()

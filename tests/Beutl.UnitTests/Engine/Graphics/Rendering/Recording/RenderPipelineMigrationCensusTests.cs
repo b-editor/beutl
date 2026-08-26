@@ -131,7 +131,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/DeclaredResourceOrderTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RawSessionSlotResourceTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingBufferPoolingTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingGateFingerprintTests.cs"] = 4,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingGateFingerprintTests.cs"] = 5,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingPerVisitAllocationTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingSideEffectTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RenderNodeRecordingCacheTests.cs"] = 7,
