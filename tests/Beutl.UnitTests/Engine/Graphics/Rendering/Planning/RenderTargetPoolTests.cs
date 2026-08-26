@@ -7,6 +7,8 @@ using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
+using Moq;
+
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
@@ -992,6 +994,65 @@ public sealed class RenderTargetPoolTests
         });
 
         Assert.DoesNotThrow(() => pool.Dispose());
+    }
+
+    [Test]
+    public void TargetlessDefaultAllocation_EvictsRetainedTargets_WhenTheSharedContextIsReplaced()
+    {
+        // GraphicsContextFactory.Shutdown is public, so the context a target-less request allocated on can be
+        // replaced while this pool still retains that context's surfaces.
+        IGraphicsContext first = Mock.Of<IGraphicsContext>();
+        IGraphicsContext replacement = Mock.Of<IGraphicsContext>();
+        using var pool = new RenderTargetPool(factory: null);
+        RenderTarget retained;
+
+        using (RenderTargetPoolRequest request = pool.BeginImplicitRequest(first))
+        {
+            using PooledRenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
+            retained = lease.Target;
+        }
+
+        Assert.That(
+            pool.Statistics.AvailableTargets,
+            Is.EqualTo(1),
+            "the fixture must retain a slot, or the eviction it asserts is unobservable");
+
+        using RenderTargetPoolRequest replaced = pool.BeginImplicitRequest(replacement);
+        using PooledRenderTargetLease reallocated = replaced.Acquire(new PixelSize(4, 4));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reallocated.WasReused, Is.False);
+            Assert.That(reallocated.Target, Is.Not.SameAs(retained));
+            Assert.That(retained.IsDisposed, Is.True);
+            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Creates, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void TargetlessDefaultAllocation_ReusesRetainedTargets_WhileTheSharedContextIsUnchanged()
+    {
+        IGraphicsContext shared = Mock.Of<IGraphicsContext>();
+        using var pool = new RenderTargetPool(factory: null);
+        RenderTarget retained;
+
+        using (RenderTargetPoolRequest request = pool.BeginImplicitRequest(shared))
+        {
+            using PooledRenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
+            retained = lease.Target;
+        }
+
+        using RenderTargetPoolRequest second = pool.BeginImplicitRequest(shared);
+        using PooledRenderTargetLease reused = second.Acquire(new PixelSize(4, 4));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.WasReused, Is.True);
+            Assert.That(reused.Target, Is.SameAs(retained));
+            Assert.That(pool.Statistics.Evictions, Is.Zero);
+            Assert.That(pool.Statistics.Creates, Is.EqualTo(1));
+        });
     }
 
     private sealed class TrackingTargetFactory(

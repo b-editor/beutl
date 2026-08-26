@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ExceptionServices;
 
+using Beutl.Graphics.Backend;
 using Beutl.Media;
 
 using SkiaSharp;
@@ -54,7 +55,22 @@ internal enum PooledRenderTargetLeaseState : byte
 internal sealed class RenderTargetPool : IDisposable
 {
     private static readonly object s_cpuContextIdentity = new();
-    private static readonly object s_implicitContextIdentity = new();
+
+    /// <summary>
+    /// The identity a target-less request on the engine's own allocator uses, and the shared context it was
+    /// minted for.
+    /// </summary>
+    /// <remarks>
+    /// The two live in one object so a request can never take an identity minted for one context while another
+    /// is live. <see cref="GraphicsContextFactory.Shutdown"/> is public, so the shared context is replaceable
+    /// while the pool still holds the previous one's surfaces; minting a new identity for the new context is
+    /// what makes <see cref="BeginRequestCore"/> evict them, rather than validating them against the handle the
+    /// replaced context reported and then clearing and drawing through a device that is gone.
+    /// </remarks>
+    private sealed class ImplicitContextBinding(IGraphicsContext? context)
+    {
+        public IGraphicsContext? Context { get; } = context;
+    }
 
     private readonly IRenderTargetFactory? _factory;
     private readonly RenderTargetPoolOptions _options;
@@ -64,6 +80,7 @@ internal sealed class RenderTargetPool : IDisposable
     private readonly HashSet<RenderTarget> _knownTargets = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<SKSurface> _knownSurfaces = new(ReferenceEqualityComparer.Instance);
     private RenderTargetPoolRequest? _activeRequest;
+    private ImplicitContextBinding _implicitBinding = new(null);
     private object? _contextIdentity;
     private GRRecordingContext? _graphicsContext;
     private nint _contextHandle;
@@ -127,8 +144,34 @@ internal sealed class RenderTargetPool : IDisposable
                 externalTarget);
         }
 
-        object contextIdentity = _hasContext ? _contextIdentity! : s_implicitContextIdentity;
-        return BeginRequestCore(contextIdentity, expectedContextHandle: null, externalTarget: null);
+        return BeginImplicitRequest(GraphicsContextFactory.SharedContext);
+    }
+
+    /// <summary>
+    /// <see cref="BeginRequest"/> without a destination, against a named shared context rather than the live one.
+    /// </summary>
+    internal RenderTargetPoolRequest BeginImplicitRequest(IGraphicsContext? sharedContext)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return BeginRequestCore(
+            ResolveImplicitContextIdentity(sharedContext),
+            expectedContextHandle: null,
+            externalTarget: null);
+    }
+
+    /// <summary>The identity a target-less request is bound to.</summary>
+    private object ResolveImplicitContextIdentity(IGraphicsContext? sharedContext)
+    {
+        // A caller-supplied factory picks its own context, and a binding taken from a caller-owned destination
+        // or an explicitly named context is the one every surface the pool hands out is checked against.
+        // Neither follows the shared context.
+        if (_factory is not null || (_hasContext && !ReferenceEquals(_contextIdentity, _implicitBinding)))
+            return _hasContext ? _contextIdentity! : _implicitBinding;
+
+        if (!ReferenceEquals(_implicitBinding.Context, sharedContext))
+            _implicitBinding = new ImplicitContextBinding(sharedContext);
+
+        return _implicitBinding;
     }
 
     public RenderTargetPoolRequest BeginRequestForContext(
