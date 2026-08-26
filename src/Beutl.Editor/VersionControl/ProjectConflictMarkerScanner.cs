@@ -60,6 +60,11 @@ internal static class ProjectConflictMarkerScanner
         foreach (string referenced in referencedFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (GitCliVersionControlService.IsSupportedMediaPath(referenced))
+            {
+                continue;
+            }
+
             if (await ContainsConflictMarkerAsync(projectRoot, referenced, cancellationToken)
                     .ConfigureAwait(false))
             {

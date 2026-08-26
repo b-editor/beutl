@@ -74,6 +74,22 @@ public class ProjectConflictMarkerScannerTests
     }
 
     [Test]
+    public async Task FindFirstAsync_skips_referenced_supported_media_files()
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string mediaFile = Path.Combine(_root, "clip.mp4");
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await File.WriteAllTextAsync(mediaFile, LfConflict);
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            new HashSet<string>(["clip.mp4"], StringComparer.Ordinal),
+            CancellationToken.None);
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
     public async Task FindFirstAsync_ignores_referenced_paths_that_are_missing()
     {
         string projectFile = Path.Combine(_root, "project.bep");

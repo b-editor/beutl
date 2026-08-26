@@ -261,6 +261,12 @@ internal sealed class GitCliVersionControlService :
         s_supportedMediaExtensions,
         StringComparer.OrdinalIgnoreCase);
 
+    internal static bool IsSupportedMediaPath(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        return s_mediaExtensions.Contains(Path.GetExtension(path));
+    }
+
     private static readonly HashSet<string> s_projectFileExtensions = new(
         [".bep", ".scene", ".belm"],
         StringComparer.OrdinalIgnoreCase);
