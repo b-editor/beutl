@@ -45,6 +45,17 @@ public sealed class ElementObjectService : IElementObjectService
         if (!element.Objects.Contains(obj)) return false;
 
         element.RemoveObject(obj);
+        if (Scene.TryResumeElementPersistence(element) is { } suppression)
+        {
+            _historyManager.Record(
+                () => element.SuppressedStorageSource = null,
+                () =>
+                {
+                    suppression.WasReinstated = true;
+                    element.SuppressedStorageSource = suppression;
+                });
+        }
+
         _historyManager.Commit(CommandNames.RemoveObject);
         return true;
     }
@@ -85,6 +96,17 @@ public sealed class ElementObjectService : IElementObjectService
 
             CoreSerializer.PopulateFromJsonObject(obj, type, newJson);
             element.Objects[index] = obj;
+            if (Scene.TryResumeElementPersistence(element) is { } suppression)
+            {
+                _historyManager.Record(
+                    () => element.SuppressedStorageSource = null,
+                    () =>
+                    {
+                        suppression.WasReinstated = true;
+                        element.SuppressedStorageSource = suppression;
+                    });
+            }
+
             _historyManager.Commit(CommandNames.PasteObject);
             return ObjectPasteOutcome.Pasted;
         }

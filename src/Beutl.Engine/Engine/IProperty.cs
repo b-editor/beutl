@@ -24,6 +24,12 @@ public interface IProperty : INotifyEdited
 
     object? CurrentValue { get; set; }
 
+    /// <summary>
+    /// Validates and installs <paramref name="value"/>, replacing distinct reference-type values
+    /// even when they compare equal while preserving the normal notification semantics.
+    /// </summary>
+    void ReplaceCurrentValue(object? value);
+
     string Name { get; }
 
     Type ValueType { get; }
@@ -67,6 +73,8 @@ public interface IProperty<T> : IProperty
 
     new T CurrentValue { get; set; }
 
+    void ReplaceCurrentValue(T value);
+
     new IAnimation<T>? Animation { get; set; }
 
     new IExpression<T>? Expression { get; set; }
@@ -102,6 +110,22 @@ public interface IProperty<T> : IProperty
             {
                 throw new InvalidCastException();
             }
+        }
+    }
+
+    void IProperty.ReplaceCurrentValue(object? value)
+    {
+        if (value is T typed)
+        {
+            ReplaceCurrentValue(typed);
+        }
+        else if (value is null && !typeof(T).IsValueType)
+        {
+            ReplaceCurrentValue(default!);
+        }
+        else
+        {
+            throw new InvalidCastException();
         }
     }
 

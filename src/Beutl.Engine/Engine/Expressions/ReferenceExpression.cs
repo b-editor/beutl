@@ -24,6 +24,11 @@ public sealed class ReferenceExpression<T> : IExpression<T>, IReferenceExpressio
 
     public bool HasPropertyPath => !string.IsNullOrEmpty(PropertyPath);
 
+    public IReferenceExpression? Rebind(Guid objectId)
+    {
+        return new ReferenceExpression<T>(objectId, PropertyPath);
+    }
+
     public string ExpressionString =>
         HasPropertyPath ? $"{ObjectId}.{PropertyPath}" : ObjectId.ToString();
 

@@ -59,6 +59,9 @@ public static class CoreSerializer
 
     public static object DeserializeFromJsonObject(JsonObject json, Type baseType, CoreSerializerOptions? options = null)
     {
+        // A sealed baseType deliberately ignores any present discriminator: sealed wrapper types
+        // (e.g. Optional<T>) legitimately carry the wrapped payload's $type on their own node and
+        // interpret it themselves during Deserialize.
         Type? actualType = baseType.IsSealed ? baseType : json.GetDiscriminator(baseType);
         if (actualType == null)
         {
@@ -67,6 +70,12 @@ public static class CoreSerializer
 
         try
         {
+            if (!baseType.IsAssignableFrom(actualType))
+            {
+                throw new InvalidCastException(
+                    $"Discriminator type '{actualType}' is not assignable to the expected type '{baseType}'.");
+            }
+
             var obj = Activator.CreateInstance(actualType) as ICoreSerializable
                       ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
 
@@ -83,6 +92,7 @@ public static class CoreSerializer
             if (obj is IFallback fallbackObj)
             {
                 fallbackObj.Reason = FallbackReason.TypeNotFound;
+                DeserializationIncidents.RecordFallback(fallbackObj);
             }
 
             return obj;
@@ -158,7 +168,10 @@ public static class CoreSerializer
         // 互換性処理
         // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
         // 期待される型に基づいてディスクリミネータを補完する。
-        if (!node.TryGetDiscriminator(out Type? _))
+        // Presence is checked on the property key alone: a present-but-unparsable or non-string
+        // discriminator must fail as an unknown type, not silently deserialize as the legacy
+        // default and overwrite the original data on the next save.
+        if (!jsonObject.ContainsKey("$type") && !jsonObject.ContainsKey("@type"))
         {
             if (type == typeof(ProjectItem))
             {
@@ -170,10 +183,49 @@ public static class CoreSerializer
             }
         }
 
-        Type? actualType = type.IsSealed ? type : jsonObject.GetDiscriminator(type);
+        bool hasDiscriminator = jsonObject.ContainsKey("$type") || jsonObject.ContainsKey("@type");
+        Type? actualType = hasDiscriminator
+            ? jsonObject.GetDiscriminator()
+            : type.IsSealed ? type : jsonObject.GetDiscriminator(type);
+        if (hasDiscriminator
+            && actualType == null
+            && FallbackDeserializationHelper.TryCreateFallback(type, null, jsonObject) is { } unknownTypeFallback)
+        {
+            ((IFallback)unknownTypeFallback).Reason = FallbackReason.TypeNotFound;
+            if (unknownTypeFallback is CoreObject coreObject)
+            {
+                coreObject.Uri = uri;
+            }
+
+            return unknownTypeFallback;
+        }
+
         if (actualType == null)
         {
             throw new InvalidOperationException("Discriminator not found in JSON object.");
+        }
+
+        if (!type.IsAssignableFrom(actualType))
+        {
+            // Reject before instantiating: deserializing the declared type first would run its own
+            // load side effects (e.g. a Scene declared in a .belm globs and reopens element files).
+            var exception = new InvalidCastException(
+                $"Discriminator type '{actualType}' is not assignable to the expected type '{type}'.");
+            if (FallbackDeserializationHelper.TryCreateFallback(
+                    type,
+                    actualType,
+                    jsonObject,
+                    exception) is { } incompatibleTypeFallback)
+            {
+                if (incompatibleTypeFallback is CoreObject coreObject)
+                {
+                    coreObject.Uri = uri;
+                }
+
+                return incompatibleTypeFallback;
+            }
+
+            throw exception;
         }
 
         try
@@ -192,6 +244,7 @@ public static class CoreSerializer
             if (obj is IFallback fallbackObj)
             {
                 fallbackObj.Reason = FallbackReason.TypeNotFound;
+                DeserializationIncidents.RecordFallback(fallbackObj);
             }
 
             return obj;
@@ -227,6 +280,133 @@ public static class CoreSerializer
     public static void StoreToUri<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
         where T : ICoreSerializable
     {
+        StoreToUriCore(obj, uri, mode, authorizedRootPath: null);
+    }
+
+    internal static void StoreToUri<T>(
+        T obj,
+        Uri uri,
+        string authorizedRootPath,
+        CoreSerializationMode? mode = null)
+        where T : ICoreSerializable
+    {
+        StoreToUriCore(obj, uri, mode, authorizedRootPath);
+    }
+
+    private static void StoreToUriCore<T>(
+        T obj,
+        Uri uri,
+        CoreSerializationMode? mode,
+        string? authorizedRootPath)
+        where T : ICoreSerializable
+    {
+        if (obj is CoreObject { SuppressedStorageSource: { } suppressed } suppressedObj)
+        {
+            if (uri == suppressed.SourceUri)
+            {
+                // The source location is skip-protected only while the on-disk bytes still match
+                // the retained recovery bytes. A repair that was undone re-establishes the
+                // suppression record through history with WasReinstated set, and the retained
+                // bytes must be restored verbatim so the next open sees the same recovery state
+                // the undo recorded. A continuously held record treats a mismatch as an external
+                // repair of the sidecar and leaves the changed file alone — clobbering it would
+                // destroy the user's repair.
+                string sourcePath = uri.LocalPath;
+                RestoreReinstatedBytes(suppressed, sourcePath);
+                return;
+            }
+
+            if (suppressed.WasReinstated && uri == suppressedObj.Uri)
+            {
+                RestoreReinstatedBytes(suppressed, uri.LocalPath);
+                return;
+            }
+
+            if (uri.Scheme != "file")
+            {
+                throw new JsonException();
+            }
+
+            // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the
+            // element. SourceUri stays unchanged so the source location remains skip-protected if a
+            // failed multi-file save rolls Uri back afterwards.
+            string rehomedPath = uri.LocalPath;
+            if (File.Exists(rehomedPath))
+            {
+                try
+                {
+                    EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
+                }
+                catch
+                {
+                    suppressedObj.Uri = suppressed.SourceUri;
+                    throw;
+                }
+
+                suppressed.WasReinstated = false;
+                CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
+                suppressedObj.Uri = uri;
+                return;
+            }
+
+            CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
+
+            string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
+            if (rehomedDirectory != null)
+            {
+                Directory.CreateDirectory(rehomedDirectory);
+            }
+
+            string tempPath = $"{rehomedPath}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                using (var stream = new FileStream(
+                           tempPath,
+                           FileMode.CreateNew,
+                           FileAccess.Write,
+                           FileShare.None))
+                {
+                    stream.Write(suppressed.RawBytes);
+                    stream.Flush(flushToDisk: true);
+                }
+
+                try
+                {
+                    File.Move(tempPath, rehomedPath, overwrite: false);
+                }
+                catch (IOException) when (File.Exists(rehomedPath))
+                {
+                    try
+                    {
+                        EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
+                    }
+                    catch
+                    {
+                        suppressedObj.Uri = suppressed.SourceUri;
+                        throw;
+                    }
+
+                    suppressed.WasReinstated = false;
+                    suppressedObj.Uri = uri;
+                    return;
+                }
+            }
+            finally
+            {
+                try
+                {
+                    File.Delete(tempPath);
+                }
+                catch
+                {
+                }
+            }
+
+            suppressed.WasReinstated = false;
+            suppressedObj.Uri = uri;
+            return;
+        }
+
         if (uri.Scheme == "file")
         {
             if (obj is CoreObject coreObj)
@@ -277,6 +457,168 @@ public static class CoreSerializer
         else
         {
             throw new JsonException();
+        }
+    }
+
+    private static void CopyReferencedStorageSources(
+        SuppressedStorageSource suppressed,
+        Uri rehomedUri,
+        string? authorizedRootPath)
+    {
+        if (suppressed.ReferencedStorageSources is not { Length: > 0 } referencedSources)
+        {
+            return;
+        }
+
+        if (suppressed.SourceRootPath is null)
+        {
+            throw new JsonException("Retained sidecars have no authorized source root.");
+        }
+
+        string destinationRoot = Path.TrimEndingDirectorySeparator(
+            PathBoundary.ResolveDeepestExistingTarget(
+                authorizedRootPath
+                ?? Path.GetDirectoryName(rehomedUri.LocalPath)
+                ?? throw new JsonException("Rehomed element has no destination directory.")));
+        var copies = new List<(SuppressedReferencedStorageSource Source, string Destination)>();
+        foreach (SuppressedReferencedStorageSource source in referencedSources)
+        {
+            string relativePath = authorizedRootPath is null
+                ? source.ElementRelativePath
+                : source.RelativePath;
+            if (Path.IsPathRooted(relativePath))
+            {
+                throw new JsonException($"Invalid retained sidecar path: {relativePath}");
+            }
+
+            string destination = Path.GetFullPath(Path.Combine(destinationRoot, relativePath));
+            string resolvedDestination = PathBoundary.ResolveDeepestExistingTarget(destination);
+            if (!PathBoundary.IsPathInsideRoot(destinationRoot, resolvedDestination))
+            {
+                throw new JsonException($"Retained sidecar escapes the Save As root: {relativePath}");
+            }
+
+            copies.Add((source, destination));
+        }
+
+        foreach ((SuppressedReferencedStorageSource source, string destination) in copies)
+        {
+            if (File.Exists(destination))
+            {
+                EnsureExistingBytesMatch(destination, source.RawBytes);
+            }
+        }
+
+        foreach ((SuppressedReferencedStorageSource source, string destination) in copies)
+        {
+            WriteBytesAtomicallyIfMatchingOrMissing(destination, source.RawBytes);
+        }
+    }
+
+    private static void WriteBytesAtomicallyIfMatchingOrMissing(string path, byte[] bytes)
+    {
+        if (File.Exists(path))
+        {
+            EnsureExistingBytesMatch(path, bytes);
+            return;
+        }
+
+        string? directory = Path.GetDirectoryName(path);
+        if (directory != null)
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        string tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var stream = new FileStream(
+                       tempPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+
+            try
+            {
+                File.Move(tempPath, path, overwrite: false);
+            }
+            catch (IOException) when (File.Exists(path))
+            {
+                EnsureExistingBytesMatch(path, bytes);
+            }
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(tempPath);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private static void EnsureExistingBytesMatch(string path, byte[] expectedBytes)
+    {
+        if (!File.ReadAllBytes(path).AsSpan().SequenceEqual(expectedBytes))
+        {
+            throw new IOException($"The retained sidecar destination already contains different data: '{path}'.");
+        }
+    }
+
+    private static void RestoreReinstatedBytes(SuppressedStorageSource suppressed, string path)
+    {
+        if (!suppressed.WasReinstated && File.Exists(path))
+        {
+            return;
+        }
+
+        if (!File.Exists(path)
+            || !File.ReadAllBytes(path).AsSpan().SequenceEqual(suppressed.RawBytes))
+        {
+            string? directory = Path.GetDirectoryName(path);
+            if (directory != null)
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            WriteBytesAtomically(path, suppressed.RawBytes);
+        }
+
+        suppressed.WasReinstated = false;
+    }
+
+    private static void WriteBytesAtomically(string path, byte[] bytes)
+    {
+        string tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var stream = new FileStream(
+                       tempPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(tempPath, path, overwrite: true);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(tempPath);
+            }
+            catch
+            {
+            }
         }
     }
 }

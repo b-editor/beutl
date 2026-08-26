@@ -212,7 +212,8 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public void SetJsonString(string? str)
     {
-        SetValue(Value.Value, FallbackHelper.DeserializeInstance<Transform>(str));
+        Transform? previous = Value.Value;
+        SetValue(previous, FallbackHelper.DeserializeInstance<Transform>(str));
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
@@ -294,6 +295,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     {
         if (Value.Value is IPresenter<Transform> presenter)
         {
+            Transform? previous = presenter.Target.CurrentValue;
             if (target != null)
             {
                 var expression = Expression.CreateReference<Transform>(target.Id);
@@ -304,6 +306,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
                 presenter.Target.Expression = null;
                 presenter.Target.CurrentValue = null;
             }
+            ResumeElementPersistenceAfterFallbackReplacement(previous);
             Commit();
         }
     }
