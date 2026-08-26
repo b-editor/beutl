@@ -58,6 +58,20 @@ validation job skips them, so the gate still covers everything else. Tracked as
 [#2263](https://github.com/b-editor/beutl/issues/2263); drop the exclusion from
 `.github/workflows/dotnet.yml` once the interop keeps one record.
 
+The same missing API caps what `VulkanContext`'s Skia image allocation hook can promise, on a path that is
+*not* in that category. Ganesh allocates its own filter and scratch images through the intercepted
+`vkCreateImage` / `vkBindImageMemory` pair, and the hook clears them to transparent at bind time, leaving
+them in `TransferDstOptimal` while Ganesh still holds `Undefined` for them. Its first use may therefore
+transition out of `Undefined`, which Vulkan permits to discard the contents. Nothing can be reconciled
+here: Skia never hands out a backend handle for an image it allocated itself, so the
+`GRVkImageInfo.ImageLayout` route `VulkanTexture2D` uses does not apply, and SkiaSharp 3.119.4's
+`GRContextOptions` — `AvoidStencilBuffers`, `RuntimeProgramCacheSize`, `GlyphCacheTextureMaximumBytes`,
+`AllowPathMaskCaching`, `DoManualMipmapping`, `BufferMapThreshold` — has no clear-on-allocate switch that
+would hand the clear back to Skia. The clear still zeroes the backing allocation, which is what stops
+SwiftShader from handing a recycled allocation's bytes to a caller; it is not a Vulkan-level guarantee that
+those zeros survive the first transition. The path raises no validation message — a transition out of
+`Undefined` is always legal — so its tests stay in the validation job.
+
 ## Headless E2E tests
 
 The end-to-end suites are built on `Avalonia.Headless.NUnit` (they run on headless CI without xvfb or a GPU). Shared helpers live in the non-test library `tests/Beutl.Testing.Headless/` (`BeutlHomeIsolation`, `HeadlessTestHelpers`).

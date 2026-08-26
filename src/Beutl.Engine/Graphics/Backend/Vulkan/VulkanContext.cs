@@ -285,6 +285,11 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
             LayerCount = createInfo.ArrayLayers,
         };
 
+    // This leaves the image in TransferDstOptimal while Ganesh still holds Undefined for it: Skia hands
+    // out no backend handle for an image it allocated itself, and SkiaSharp 3.119 exposes neither a way to
+    // state that layout nor a clear-on-allocate switch that would let Skia do this itself (b-editor/beutl#2263).
+    // A first use transitioning out of Undefined may therefore discard the clear, so what this guarantees is
+    // a zeroed backing allocation - no recycled allocation's bytes - not defined pixels at the Vulkan level.
     private unsafe void ClearSkiaImage(Image image, ImageCreateInfo createInfo)
     {
         _vulkanCommandPool.SubmitIsolatedCommands(commandBuffer =>
