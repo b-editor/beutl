@@ -274,7 +274,9 @@ public partial class MosaicEffect : FilterEffect
             }
             """,
             RenderBoundsContract.Identity,
-            static bindings => bindings.Uniform("tileSize", static tileSize => tileSize.ToVector2()));
+            static bindings => bindings.Uniform(
+                "tileSize",
+                static tileSize => new Vector2(tileSize.Width, tileSize.Height)));
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
