@@ -107,10 +107,7 @@ internal static class AiCaptionHistoryResultParser
         {
             return false;
         }
-        // 時刻の付いていない翻訳。行だけを渡して訳したものがこれで、字幕として
-        // どこに置くかは決まっていない——読めないものとして拒むと、支払い済みの
-        // 結果を取りに行く道がここで閉じる。並び順のまま、仮の時刻で受け取って、
-        // 置き場所は画面で直してもらう。
+        // Preserve paid untimed results in input order so users can place them manually.
         if (!AnySegmentHasContext(segments))
             return TryParseUntimedTranslation(segments, jobId, targetLanguage, out result);
 
@@ -190,7 +187,7 @@ internal static class AiCaptionHistoryResultParser
         return false;
     }
 
-    // 仮の時刻は 1 行 1 秒。0 幅にすると画面で掴めず、重ねると順番が読めない。
+    // Positive, non-overlapping ranges keep every placeholder cue editable in the UI.
     private static readonly TimeSpan s_untimedSegmentDuration = TimeSpan.FromSeconds(1);
 
     private static bool TryParseUntimedTranslation(
