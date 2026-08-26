@@ -130,7 +130,8 @@ internal static class SlippableMedia
             switch (obj)
             {
                 case SourceVideo video:
-                    AddTarget(targets, CreateVideoTarget(video, context));
+                    foreach (Target target in CreateVideoTargets(video, context))
+                        AddTarget(targets, target);
                     break;
                 case SourceSound sound:
                     AddTarget(targets, CreateSoundTarget(sound));
@@ -171,13 +172,8 @@ internal static class SlippableMedia
                             return context.TimelineDurationFromTarget?.Invoke(parentDuration) ?? parentDuration;
                         };
                         bool isReversed = context.IsReversed ^ timeMappingPresenter.IsReversed;
-                        bool hasUnboundedTail = context.HasUnboundedTail;
-                        if (timeMappingPresenter is DrawableTimeController controller
-                            && controller.Loop.CurrentValue
-                            && mapped == controlled.TimeRange)
-                        {
-                            hasUnboundedTail = true;
-                        }
+                        bool hasUnboundedTail = context.HasUnboundedTail
+                            || timeMappingPresenter.HasUnboundedTail(context.Range, controlled);
 
                         var mappedContext = new TimeContext(
                             mapped,
@@ -215,10 +211,63 @@ internal static class SlippableMedia
         targets.Add(target);
     }
 
-    private static Target CreateVideoTarget(SourceVideo video, TimeContext context)
+    private static IEnumerable<Target> CreateVideoTargets(SourceVideo video, TimeContext context)
+    {
+        foreach (TimeRange range in GetVideoStateRanges(video, context.Range))
+        {
+            TimeSpan sampleTime = range.Start + TimeSpan.FromTicks(range.Duration.Ticks / 2);
+            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
+            yield return CreateVideoTarget(video, context with { Range = range }, resource);
+        }
+    }
+
+    private static IEnumerable<TimeRange> GetVideoStateRanges(SourceVideo video, TimeRange range)
+    {
+        if (range.IsEmpty)
+        {
+            yield return range;
+            yield break;
+        }
+
+        var boundaries = new List<TimeSpan> { range.Start, range.End };
+        AddAnimationBoundaries(video.Source.Animation, video, range, boundaries);
+        AddAnimationBoundaries(video.IsLoop.Animation, video, range, boundaries);
+        boundaries.Sort();
+
+        for (int i = 1; i < boundaries.Count; i++)
+        {
+            TimeSpan start = boundaries[i - 1];
+            TimeSpan end = boundaries[i];
+            if (start < end)
+                yield return new TimeRange(start, end - start);
+        }
+    }
+
+    private static void AddAnimationBoundaries(
+        IAnimation? animation,
+        SourceVideo video,
+        TimeRange range,
+        List<TimeSpan> boundaries)
+    {
+        if (animation is not KeyFrameAnimation keyFrameAnimation)
+            return;
+
+        foreach (IKeyFrame keyFrame in keyFrameAnimation.KeyFrames)
+        {
+            TimeSpan time = keyFrameAnimation.UseGlobalClock
+                ? keyFrame.KeyTime
+                : video.TimeRange.Start + keyFrame.KeyTime;
+            if (time > range.Start && time < range.End)
+                boundaries.Add(time);
+        }
+    }
+
+    private static Target CreateVideoTarget(
+        SourceVideo video,
+        TimeContext context,
+        SourceVideo.Resource resource)
     {
         // Slip offsets and media bounds use source time, including speed conversion.
-        using var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default);
         TimeSpan? total = resource.Source is { } mediaSource && mediaSource.Duration > TimeSpan.Zero
             ? mediaSource.Duration
             : null;
@@ -246,7 +295,9 @@ internal static class SlippableMedia
         {
             TimeSpan sourceRoom = sourceDuration - video.OffsetPosition.CurrentValue - sourceEndPosition;
             if (sourceRoom < TimeSpan.Zero) sourceRoom = TimeSpan.Zero;
-            if (context.HasUnboundedTail)
+            if (context.HasUnboundedTail
+                || resource.IsLoop
+                    && video.OffsetPosition.CurrentValue == TimeSpan.Zero)
             {
                 timelineRoom = TimeSpan.MaxValue;
             }

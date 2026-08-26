@@ -29,6 +29,13 @@ public interface ITimeMappingPresenter<T> : IPresenter<T>
     TimeRange CalculateTargetTimeRange(TimeRange timeRange, T target);
 
     /// <summary>
+    /// Reports whether the mapped interval has no finite tail bound for the operation being
+    /// evaluated. Looping presenters should return <see langword="true"/> when the target can
+    /// continue to provide valid content indefinitely after <paramref name="timeRange"/>.
+    /// </summary>
+    bool HasUnboundedTail(TimeRange timeRange, T target);
+
+    /// <summary>
     /// Calculates the presenter time needed to consume a target-time duration beginning at
     /// <paramref name="start"/>. <paramref name="reverse"/> describes the traversal direction
     /// inherited from an outer presenter. <paramref name="targetDuration"/> may be

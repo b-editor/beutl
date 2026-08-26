@@ -519,33 +519,26 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
             elapsed = terminalDuration;
         }
 
-        TimeSpan probe = EstimateTimelineDuration(
+        elapsed = GetInitialProbe(
             targetDuration,
             start,
             resource,
             targetDrawable,
-            animation);
-        if (probe < elapsed)
-            elapsed = probe;
-
+            animation,
+            terminalDuration);
         TimeSpan consumed = CalculateTargetDistance(
             start, elapsed, targetAtStart, resource, targetDrawable, reverse, animation);
+        while (consumed < targetDuration && elapsed < terminalDuration)
+        {
+            elapsed = GrowProbe(elapsed, terminalDuration);
+            consumed = CalculateTargetDistance(
+                start, elapsed, targetAtStart, resource, targetDrawable, reverse, animation);
+        }
+
         if (consumed >= targetDuration)
         {
             high = elapsed;
             return true;
-        }
-
-        if (elapsed < terminalDuration)
-        {
-            elapsed = terminalDuration;
-            consumed = CalculateTargetDistance(
-                start, elapsed, targetAtStart, resource, targetDrawable, reverse, animation);
-            if (consumed >= targetDuration)
-            {
-                high = elapsed;
-                return true;
-            }
         }
 
         if (terminalFrame.Value <= 0)
@@ -574,6 +567,37 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         }
 
         return true;
+    }
+
+    private TimeSpan GetInitialProbe(
+        TimeSpan targetDuration,
+        TimeSpan start,
+        Resource resource,
+        Drawable targetDrawable,
+        KeyFrameAnimation<float> animation,
+        TimeSpan maximum)
+    {
+        TimeSpan estimate = EstimateTimelineDuration(
+            targetDuration,
+            start,
+            resource,
+            targetDrawable,
+            animation);
+        TimeSpan probe = TimeSpan.FromSeconds(1);
+        if (estimate < probe)
+            probe = estimate;
+        return probe < maximum ? probe : maximum;
+    }
+
+    private static TimeSpan GrowProbe(TimeSpan current, TimeSpan maximum)
+    {
+        if (current >= maximum)
+            return maximum;
+
+        long nextTicks = current.Ticks > maximum.Ticks / 2
+            ? maximum.Ticks
+            : current.Ticks * 2;
+        return TimeSpan.FromTicks(nextTicks);
     }
 
     private TimeSpan EstimateTimelineDuration(
@@ -689,6 +713,29 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         if (ticks < 0)
             ticks += duration.Ticks;
         return TimeSpan.FromTicks(ticks);
+    }
+
+    /// <summary>
+    /// Reports whether the mapped interval can continue to provide target content without a
+    /// finite tail bound.
+    /// </summary>
+    public bool HasUnboundedTail(TimeRange timeRange, Drawable targetDrawable)
+    {
+        using var resource = (Resource)ToResource(CompositionContext.Default);
+        return HasUnboundedTail(timeRange, targetDrawable, resource);
+    }
+
+    private bool HasUnboundedTail(
+        TimeRange timeRange,
+        Drawable targetDrawable,
+        Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(targetDrawable);
+        ArgumentNullException.ThrowIfNull(resource);
+
+        return resource.Loop
+            && targetDrawable.TimeRange.Duration > TimeSpan.Zero
+            && CalculateTargetTimeRange(timeRange, targetDrawable, resource) == targetDrawable.TimeRange;
     }
 
     /// <summary>

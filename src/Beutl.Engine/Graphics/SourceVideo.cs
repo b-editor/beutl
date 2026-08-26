@@ -168,27 +168,18 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
 
         TimeSpan terminal = last.KeyTime > start ? last.KeyTime : start;
         TimeSpan terminalDuration = terminal - start;
-        TimeSpan elapsed = terminalDuration;
-        TimeSpan probe = EstimateTimelineDuration(sourceDuration, start, animation);
-        if (probe < elapsed)
-            elapsed = probe;
-
+        TimeSpan elapsed = GetInitialProbe(sourceDuration, start, animation, terminalDuration);
         TimeSpan consumed = CalculateVideoDuration(start, elapsed, resource);
+        while (consumed < sourceDuration && elapsed < terminalDuration)
+        {
+            elapsed = GrowProbe(elapsed, terminalDuration);
+            consumed = CalculateVideoDuration(start, elapsed, resource);
+        }
+
         if (consumed >= sourceDuration)
         {
             high = elapsed;
             return true;
-        }
-
-        if (elapsed < terminalDuration)
-        {
-            elapsed = terminalDuration;
-            consumed = CalculateVideoDuration(start, elapsed, resource);
-            if (consumed >= sourceDuration)
-            {
-                high = elapsed;
-                return true;
-            }
         }
 
         if (terminalSpeed <= 0)
@@ -207,6 +198,30 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         }
 
         return true;
+    }
+
+    private static TimeSpan GetInitialProbe(
+        TimeSpan sourceDuration,
+        TimeSpan start,
+        KeyFrameAnimation<float> animation,
+        TimeSpan maximum)
+    {
+        TimeSpan estimate = EstimateTimelineDuration(sourceDuration, start, animation);
+        TimeSpan probe = TimeSpan.FromSeconds(1);
+        if (estimate < probe)
+            probe = estimate;
+        return probe < maximum ? probe : maximum;
+    }
+
+    private static TimeSpan GrowProbe(TimeSpan current, TimeSpan maximum)
+    {
+        if (current >= maximum)
+            return maximum;
+
+        long nextTicks = current.Ticks > maximum.Ticks / 2
+            ? maximum.Ticks
+            : current.Ticks * 2;
+        return TimeSpan.FromTicks(nextTicks);
     }
 
     private static TimeSpan EstimateTimelineDuration(
