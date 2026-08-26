@@ -12,6 +12,24 @@ public sealed class BackEaseIn : Easing
         return true;
     }
 
+    protected override bool TryGetOutputRangeCore(
+        float startProgress,
+        float endProgress,
+        out float minimum,
+        out float maximum)
+    {
+        float start = Ease(startProgress);
+        float end = Ease(endProgress);
+        minimum = MathF.Min(start, end) - 0.000001f;
+        maximum = MathF.Max(start, end) + 0.000001f;
+
+        const float troughProgress = 0.52957284f;
+        if (startProgress <= troughProgress && troughProgress <= endProgress)
+            minimum = -0.39f;
+
+        return true;
+    }
+
     public override float Ease(float progress)
     {
         return Funcs.BackEaseIn(progress);

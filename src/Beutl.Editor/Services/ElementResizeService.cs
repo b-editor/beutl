@@ -32,17 +32,27 @@ public sealed class ElementResizeService : IElementResizeService
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
         var clamped = ripple ? new Dictionary<Element, (TimeSpan Start, TimeSpan Length)>(requests.Count) : null;
+        var rejected = ripple ? new HashSet<Element>() : null;
         if (ripple)
         {
             var resizedSet = new HashSet<Element>(requests.Select(r => r.Element));
+            TimeSpan minLength = GetMinimumLength(scene);
             foreach (ElementResizeRequest req in requests)
             {
                 // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
                 (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet);
                 length = ClampRippleEnd(scene, req, start, length, resizedSet);
+                if (length < minLength)
+                {
+                    rejected!.Add(req.Element);
+                    continue;
+                }
+
                 clamped![req.Element] = (start, length);
                 oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
             }
+
+            if (rejected!.Count == requests.Count) return;
         }
 
         if (ripple)
@@ -51,6 +61,7 @@ public sealed class ElementResizeService : IElementResizeService
             // writes are still CoreObjectOperationObserver-recorded for undo.
             foreach (ElementResizeRequest req in requests)
             {
+                if (rejected!.Contains(req.Element)) continue;
                 (TimeSpan start, TimeSpan length) = clamped![req.Element];
                 req.Element.ZIndex = req.ZIndex;
                 req.Element.Start = start;
@@ -70,6 +81,7 @@ public sealed class ElementResizeService : IElementResizeService
             Element[] resized = requests.Select(r => r.Element).ToArray();
             foreach (ElementResizeRequest req in requests)
             {
+                if (rejected!.Contains(req.Element)) continue;
                 (int oldZ, TimeSpan oldStart, TimeSpan oldEnd) = oldBounds![req.Element];
                 if (req.Element.ZIndex != oldZ) continue;
 
@@ -110,10 +122,7 @@ public sealed class ElementResizeService : IElementResizeService
     // scene window.
     private static ElementResizeRequest[] NormalizeRequests(Scene scene, IReadOnlyList<ElementResizeRequest> requests)
     {
-        int rate = SceneTimeRangeService.GetFrameRate(scene);
-        TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
-        // A huge rate can round below the tick resolution; keep the floor positive.
-        if (minLength <= TimeSpan.Zero) minLength = TimeSpan.FromTicks(1);
+        TimeSpan minLength = GetMinimumLength(scene);
         var normalized = new ElementResizeRequest[requests.Count];
         for (int i = 0; i < requests.Count; i++)
         {
@@ -128,6 +137,14 @@ public sealed class ElementResizeService : IElementResizeService
         }
 
         return normalized;
+    }
+
+    private static TimeSpan GetMinimumLength(Scene scene)
+    {
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
+        // A huge rate can round below the tick resolution; keep the floor positive.
+        return minLength > TimeSpan.Zero ? minLength : TimeSpan.FromTicks(1);
     }
 
     private static TimeSpan AddSaturated(TimeSpan left, TimeSpan right)

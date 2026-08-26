@@ -303,6 +303,29 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Resize_RippleOn_LockedClampBelowOneFrameRejectsRequest()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element lockedFollower = AddElement(
+            TimeSpan.FromSeconds(1) + TimeSpan.FromMilliseconds(15),
+            TimeSpan.FromSeconds(1));
+        lockedFollower.IsLocked = true;
+        int before = _history.UndoCount;
+
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.Zero, 0)],
+            ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(1) + TimeSpan.FromMilliseconds(15)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void Resize_RippleOn_ZeroLengthSecondRequest_ClampsAndAppliesBoth()
     {
         Element valid = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
@@ -1435,6 +1458,80 @@ public class ElementResizeServiceTests
         TimeRange heldSuffix = new(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(1));
 
         Assert.That(controller.HasUnboundedTail(heldSuffix, video, reverse: true), Is.True);
+    }
+
+    [Test]
+    public void HasUnboundedTail_LoopingControllerWithZeroSpeedHoldsReadableFrame()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(5) },
+            Speed = { CurrentValue = 0f },
+            Target = { CurrentValue = video },
+        };
+        TimeRange activeRange = new(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+
+        Assert.That(controller.HasUnboundedTail(activeRange, video), Is.True);
+    }
+
+    [Test]
+    public void HasUnboundedTail_LoopingControllerWithTerminalZeroSpeedHoldsReadableFrame()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 0f });
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Speed = { Animation = speed },
+            Target = { CurrentValue = video },
+        };
+        TimeRange heldRange = new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        Assert.That(controller.HasUnboundedTail(heldRange, video), Is.True);
+    }
+
+    [Test]
+    public void CalculateTargetTimeRange_ControllerSafePrefixExcludesLaterSpeedReversal()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 0f,
+            Easing = new BackEaseOut(),
+        });
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        TimeRange safePrefix = new(TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(
+            new CompositionContext(TimeSpan.FromMilliseconds(50)));
+
+        TimeRange result = controller.CalculateTargetTimeRange(safePrefix, video, resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.EqualTo(video.TimeRange));
+            Assert.That(result.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(result.End, Is.LessThan(TimeSpan.FromMilliseconds(100)));
+        });
     }
 
     [Test]
