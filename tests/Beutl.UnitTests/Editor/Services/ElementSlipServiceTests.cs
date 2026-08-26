@@ -44,6 +44,15 @@ public class ElementSlipServiceTests
     private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
+    private static TimeSpan GetOutPointRoom(Element element)
+    {
+        TimeSpan maximumRoom = TimeSpan.FromSeconds(30);
+        return SlippableMedia.OutPointRoom(
+            SlippableMedia.Collect(element, maximumRoom),
+            element.Length,
+            maximumRoom);
+    }
+
     private static IReadOnlyList<PresenterTargetState> CreatePresenterTargetStates(
         TimeRange range,
         CoreObject? initialTarget,
@@ -69,6 +78,29 @@ public class ElementSlipServiceTests
         }
 
         states.Add(new PresenterTargetState(new TimeRange(cursor, range.End - cursor), current));
+        return states;
+    }
+
+    private static IReadOnlyList<PresenterTargetState> CreateAlternatingPresenterTargetStates(
+        TimeRange range,
+        TimeSpan interval,
+        CoreObject first,
+        CoreObject second)
+    {
+        var states = new List<PresenterTargetState>();
+        TimeSpan cursor = range.Start;
+        long stateIndex = cursor.Ticks / interval.Ticks;
+        while (cursor < range.End)
+        {
+            long nextTicks = (stateIndex + 1) * interval.Ticks;
+            TimeSpan next = TimeSpan.FromTicks(Math.Min(nextTicks, range.End.Ticks));
+            states.Add(new PresenterTargetState(
+                new TimeRange(cursor, next - cursor),
+                stateIndex % 2 == 0 ? first : second));
+            cursor = next;
+            stateIndex++;
+        }
+
         return states;
     }
 
@@ -478,9 +510,7 @@ public class ElementSlipServiceTests
         };
         element.Objects.Add(presenter);
 
-        TimeSpan room = SlippableMedia.OutPointRoom(
-            SlippableMedia.Collect(element),
-            element.Length);
+        TimeSpan room = GetOutPointRoom(element);
         bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(2));
 
         Assert.Multiple(() =>
@@ -509,9 +539,7 @@ public class ElementSlipServiceTests
         };
         element.Objects.Add(presenter);
 
-        TimeSpan room = SlippableMedia.OutPointRoom(
-            SlippableMedia.Collect(element),
-            element.Length);
+        TimeSpan room = GetOutPointRoom(element);
         bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
 
         Assert.Multiple(() =>
@@ -1092,11 +1120,88 @@ public class ElementSlipServiceTests
             currentVideo, futureVideo, TimeSpan.FromSeconds(5));
         element.Objects.Add(presenter);
 
-        TimeSpan room = SlippableMedia.OutPointRoom(
-            SlippableMedia.Collect(element),
-            element.Length);
+        TimeSpan room = GetOutPointRoom(element);
 
         Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(1)));
+    }
+
+    [Test]
+    public void ResizeBounds_ProceduralPresenterQueriesOnlyReachableRange()
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var longSource = new VideoSource();
+        longSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var shortSource = new VideoSource();
+        shortSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 45)));
+        var longVideo = new SourceVideo
+        {
+            Source = { CurrentValue = longSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var shortVideo = new SourceVideo
+        {
+            Source = { CurrentValue = shortSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestSourceVideoTimeMappingPresenter
+        {
+            TargetStateResolver = range => CreateAlternatingPresenterTargetStates(
+                range,
+                TimeSpan.FromSeconds(1),
+                longVideo,
+                shortVideo),
+        };
+        front.Objects.Add(presenter);
+        var resizeService = new ElementResizeService(_history);
+
+        (TimeSpan _, TimeSpan max) = resizeService.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.EqualTo(TimeSpan.FromMilliseconds(500)).Within(TimeSpan.FromMilliseconds(1)));
+            Assert.That(presenter.ObservedTargetStateRanges, Is.Not.Empty);
+            Assert.That(
+                presenter.ObservedTargetStateRanges.All(range => range.End < TimeSpan.MaxValue),
+                Is.True);
+        });
+    }
+
+    [Test]
+    public void Collect_ReversedFutureNestedPresenterSelectsPrecedingBoundaryState()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var video = new SourceVideo();
+        var nested = new TestSourceVideoTimeMappingPresenter
+        {
+            TargetStateResolver = range => [new PresenterTargetState(range, video)],
+        };
+        var current = new DrawableGroup();
+        var outer = new TestTimeMappingPresenter
+        {
+            MapRangeBackward = true,
+            ReverseSelector = _ => true,
+            TargetStateResolver = range => CreatePresenterTargetStates(
+                range,
+                current,
+                (TimeSpan.FromSeconds(1), nested)),
+        };
+        element.Objects.Add(outer);
+
+        SlippableMedia.TargetCollection? targets = null;
+        Assert.DoesNotThrow(() =>
+            targets = SlippableMedia.Collect(element, TimeSpan.FromSeconds(2)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(targets, Is.Not.Null);
+            Assert.That(targets!.IsComplete, Is.True);
+            Assert.That(targets, Has.Count.EqualTo(1));
+        });
     }
 
     [Test]
@@ -1206,9 +1311,7 @@ public class ElementSlipServiceTests
         };
         element.Objects.Add(video);
 
-        TimeSpan room = SlippableMedia.OutPointRoom(
-            SlippableMedia.Collect(element),
-            element.Length);
+        TimeSpan room = GetOutPointRoom(element);
 
         Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(19)));
     }
@@ -1234,9 +1337,7 @@ public class ElementSlipServiceTests
         };
         element.Objects.Add(presenter);
 
-        TimeSpan room = SlippableMedia.OutPointRoom(
-            SlippableMedia.Collect(element),
-            element.Length);
+        TimeSpan room = GetOutPointRoom(element);
 
         Assert.That(room, Is.EqualTo(TimeSpan.Zero));
     }
@@ -1261,9 +1362,7 @@ public class ElementSlipServiceTests
         };
         element.Objects.Add(presenter);
 
-        TimeSpan room = SlippableMedia.OutPointRoom(
-            SlippableMedia.Collect(element),
-            element.Length);
+        TimeSpan room = GetOutPointRoom(element);
 
         Assert.That(room, Is.EqualTo(TimeSpan.Zero));
     }
@@ -1302,9 +1401,7 @@ public class ElementSlipServiceTests
         };
         element.Objects.Add(presenter);
 
-        TimeSpan room = SlippableMedia.OutPointRoom(
-            SlippableMedia.Collect(element),
-            element.Length);
+        TimeSpan room = GetOutPointRoom(element);
 
         Assert.That(room, Is.EqualTo(TimeSpan.Zero));
     }
@@ -1331,9 +1428,7 @@ public class ElementSlipServiceTests
         };
         element.Objects.Add(presenter);
 
-        TimeSpan room = SlippableMedia.OutPointRoom(
-            SlippableMedia.Collect(element),
-            element.Length);
+        TimeSpan room = GetOutPointRoom(element);
 
         Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(1)).Within(TimeSpan.FromMilliseconds(1)));
     }
@@ -1788,7 +1883,11 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
 {
     public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
 
+    public Func<TimeRange, IReadOnlyList<PresenterTargetState>?>? TargetStateResolver { get; set; }
+
     public TimeSpan MappedStart { get; set; } = TimeSpan.FromSeconds(4);
+
+    public bool MapRangeBackward { get; set; }
 
     public bool ThrowOnUnboundedDuration { get; set; }
 
@@ -1798,11 +1897,40 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
 
     public int TimelineDurationCallCount { get; private set; }
 
+    public bool TryGetTargetStates(
+        TimeRange compositionRange,
+        out IReadOnlyList<PresenterTargetState> states)
+    {
+        if (TargetStateResolver is { } resolver)
+        {
+            IReadOnlyList<PresenterTargetState>? resolved = resolver(compositionRange);
+            states = resolved ?? [];
+            return resolved != null;
+        }
+
+        if (compositionRange.IsEmpty)
+        {
+            states = [];
+            return true;
+        }
+
+        if (Target.HasExpression || Target.Animation != null)
+        {
+            states = [];
+            return false;
+        }
+
+        states = [new PresenterTargetState(compositionRange, Target.CurrentValue)];
+        return true;
+    }
+
     public bool IsReversed(TimeRange timeRange, Drawable target)
         => ReverseSelector?.Invoke(timeRange) ?? false;
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable target)
-        => new(MappedStart, timeRange.Duration);
+        => MapRangeBackward
+            ? new(MappedStart - timeRange.Duration, timeRange.Duration)
+            : new(MappedStart, timeRange.Duration);
 
     public bool HasUnboundedTail(TimeRange timeRange, Drawable target, bool reverse = false)
         => ReportsUnboundedTail;
@@ -1834,10 +1962,13 @@ internal sealed partial class TestSourceVideoTimeMappingPresenter : Drawable, IT
 
     public Func<TimeRange, IReadOnlyList<PresenterTargetState>?>? TargetStateResolver { get; set; }
 
+    public List<TimeRange> ObservedTargetStateRanges { get; } = [];
+
     public bool TryGetTargetStates(
         TimeRange compositionRange,
         out IReadOnlyList<PresenterTargetState> states)
     {
+        ObservedTargetStateRanges.Add(compositionRange);
         if (TargetStateResolver is { } resolver)
         {
             IReadOnlyList<PresenterTargetState>? resolved = resolver(compositionRange);

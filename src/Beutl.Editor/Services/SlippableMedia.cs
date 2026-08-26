@@ -18,6 +18,7 @@ internal static class SlippableMedia
 {
     private readonly record struct TimeContext(
         TimeRange Range,
+        TimeRange ReachableRange,
         Func<TimeSpan, TimeSpan>? TimelineDurationFromTarget,
         bool HasUnboundedTail,
         bool IsReversed,
@@ -25,6 +26,7 @@ internal static class SlippableMedia
 
     private readonly record struct TimeMappingTargetState(
         TimeRange Range,
+        TimeRange ReachableRange,
         CoreObject Target,
         TimeSpan Prefix,
         TimeSpan? StateEnd,
@@ -149,11 +151,25 @@ internal static class SlippableMedia
     // and re-enabling it does not reveal a desynced or out-of-range offset. The same
     // reasoning keeps disabled streams in the clamp bounds — a delta that would push a
     // disabled stream outside its source is refused, not applied desynced.
-    public static TargetCollection Collect(Element element)
+    public static TargetCollection Collect(Element element, TimeSpan forwardExtension = default)
     {
+        ArgumentNullException.ThrowIfNull(element);
+        if (forwardExtension < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(forwardExtension));
+
         var targets = new List<Target>();
         var active = new HashSet<object>(ReferenceEqualityComparer.Instance);
-        var context = new TimeContext(element.Range, null, false, false, true);
+        TimeSpan reachableDuration = AddDurationSaturated(element.Length, forwardExtension);
+        TimeSpan maximumDuration = TimeSpan.MaxValue - element.Start;
+        if (reachableDuration > maximumDuration)
+            reachableDuration = maximumDuration;
+        var context = new TimeContext(
+            element.Range,
+            new TimeRange(element.Start, reachableDuration),
+            null,
+            false,
+            false,
+            true);
         bool isComplete = true;
         foreach (EngineObject obj in element.Objects)
         {
@@ -229,6 +245,9 @@ internal static class SlippableMedia
                     {
                         CoreObject controlled = state.Target;
                         TimeRange mapped = timeMappingPresenter.CalculateTargetTimeRange(state.Range, controlled);
+                        TimeRange mappedReachable = timeMappingPresenter.CalculateTargetTimeRange(
+                            state.ReachableRange,
+                            controlled);
                         TimeSpan currentTime = context.IsReversed ? state.Range.Start : state.Range.End;
                         Func<TimeSpan, TimeSpan> mapper = duration =>
                         {
@@ -265,6 +284,7 @@ internal static class SlippableMedia
 
                         var mappedContext = new TimeContext(
                             mapped,
+                            mappedReachable,
                             mapper,
                             hasUnboundedTail,
                             isReversed,
@@ -298,6 +318,7 @@ internal static class SlippableMedia
                         };
                         var presentedContext = new TimeContext(
                             state.Range,
+                            state.ReachableRange,
                             mapper,
                             state.IgnoreTail || context.HasUnboundedTail,
                             context.IsReversed,
@@ -375,6 +396,7 @@ internal static class SlippableMedia
         }
 
         TimeRange range = context.Range;
+        PresenterTargetState? selectedEmptyState = null;
         if (!range.IsEmpty)
         {
             foreach (PresenterTargetState state in states)
@@ -391,47 +413,105 @@ internal static class SlippableMedia
                 bool isTailState = context.IsReversed
                     ? state.CompositionRange.Start < range.Start
                     : state.CompositionRange.End > range.End;
+                TimeRange activeRange = new(start, end - start);
                 result.Add(new TimeMappingTargetState(
-                    new TimeRange(start, end - start),
+                    activeRange,
+                    isTailState ? state.CompositionRange : activeRange,
                     target,
                     TimeSpan.Zero,
-                    isTailState ? GetNextStateBoundary(state, queryRange, context.IsReversed) : null,
+                    isTailState ? GetNextStateBoundary(state, context.IsReversed) : null,
                     !isTailState,
                     context.AffectsOffset));
             }
         }
         else
         {
-            PresenterTargetState current = states.First(state => state.CompositionRange.Contains(range.Start));
+            if (!TrySelectBoundaryState(states, range.Start, context.IsReversed, out PresenterTargetState current))
+                return false;
+
+            selectedEmptyState = current;
             if (current.Target is { } target)
             {
                 result.Add(new TimeMappingTargetState(
                     range,
+                    current.CompositionRange,
                     target,
                     TimeSpan.Zero,
-                    GetNextStateBoundary(current, queryRange, context.IsReversed),
+                    GetNextStateBoundary(current, context.IsReversed),
                     false,
                     context.AffectsOffset));
             }
         }
 
-        AddFutureTargetStates(states, queryRange, context, result);
+        AddFutureTargetStates(states, context, selectedEmptyState, result);
         return true;
     }
 
     private static bool TryGetTargetStateQueryRange(TimeContext context, out TimeRange queryRange)
     {
-        TimeRange range = context.Range;
-        if (range.Start < TimeSpan.Zero || range.End <= TimeSpan.Zero)
+        TimeRange reachable = context.ReachableRange;
+        if (!reachable.IsEmpty)
+        {
+            queryRange = reachable;
+            return reachable.Start >= TimeSpan.Zero && reachable.End > TimeSpan.Zero;
+        }
+
+        TimeSpan point = context.Range.Start;
+        if (context.IsReversed)
+        {
+            if (point <= TimeSpan.Zero)
+            {
+                queryRange = default;
+                return false;
+            }
+
+            queryRange = new TimeRange(point - TimeSpan.FromTicks(1), TimeSpan.FromTicks(1));
+            return true;
+        }
+
+        if (point < TimeSpan.Zero || point >= TimeSpan.MaxValue)
         {
             queryRange = default;
             return false;
         }
 
-        queryRange = context.IsReversed
-            ? new TimeRange(TimeSpan.Zero, range.End)
-            : new TimeRange(range.Start, TimeSpan.MaxValue - range.Start);
-        return !queryRange.IsEmpty;
+        queryRange = new TimeRange(point, TimeSpan.FromTicks(1));
+        return true;
+    }
+
+    private static bool TrySelectBoundaryState(
+        IReadOnlyList<PresenterTargetState> states,
+        TimeSpan boundary,
+        bool reverse,
+        out PresenterTargetState selected)
+    {
+        if (reverse)
+        {
+            for (int i = states.Count - 1; i >= 0; i--)
+            {
+                PresenterTargetState state = states[i];
+                if (state.CompositionRange.Start < boundary
+                    && state.CompositionRange.End >= boundary)
+                {
+                    selected = state;
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            foreach (PresenterTargetState state in states)
+            {
+                if (state.CompositionRange.Contains(boundary))
+                {
+                    selected = state;
+                    return true;
+                }
+            }
+        }
+
+        selected = default;
+        return false;
     }
 
     private static bool IsCompleteTargetStatePartition(
@@ -476,25 +556,15 @@ internal static class SlippableMedia
 
     private static TimeSpan? GetNextStateBoundary(
         PresenterTargetState state,
-        TimeRange queryRange,
         bool reverse)
     {
-        if (reverse)
-        {
-            return state.CompositionRange.Start > queryRange.Start
-                ? state.CompositionRange.Start
-                : null;
-        }
-
-        return state.CompositionRange.End < queryRange.End
-            ? state.CompositionRange.End
-            : null;
+        return reverse ? state.CompositionRange.Start : state.CompositionRange.End;
     }
 
     private static void AddFutureTargetStates(
         IReadOnlyList<PresenterTargetState> states,
-        TimeRange queryRange,
         TimeContext context,
+        PresenterTargetState? selectedEmptyState,
         List<TimeMappingTargetState> result)
     {
         TimeSpan origin = context.IsReversed ? context.Range.Start : context.Range.End;
@@ -503,15 +573,18 @@ internal static class SlippableMedia
             for (int i = states.Count - 1; i >= 0; i--)
             {
                 PresenterTargetState state = states[i];
-                if (state.CompositionRange.End > origin || state.Target is not { } target)
+                if (state.CompositionRange.End > origin
+                    || state.Target is not { } target
+                    || selectedEmptyState is { } selected && state == selected)
                     continue;
 
                 TimeSpan boundary = state.CompositionRange.End;
                 result.Add(new TimeMappingTargetState(
                     new TimeRange(boundary, TimeSpan.Zero),
+                    state.CompositionRange,
                     target,
                     GetDurationBetween(origin, boundary),
-                    GetNextStateBoundary(state, queryRange, true),
+                    GetNextStateBoundary(state, true),
                     false,
                     false));
             }
@@ -520,15 +593,18 @@ internal static class SlippableMedia
         {
             foreach (PresenterTargetState state in states)
             {
-                if (state.CompositionRange.Start < origin || state.Target is not { } target)
+                if (state.CompositionRange.Start < origin
+                    || state.Target is not { } target
+                    || selectedEmptyState is { } selected && state == selected)
                     continue;
 
                 TimeSpan boundary = state.CompositionRange.Start;
                 result.Add(new TimeMappingTargetState(
                     new TimeRange(boundary, TimeSpan.Zero),
+                    state.CompositionRange,
                     target,
                     GetDurationBetween(origin, boundary),
-                    GetNextStateBoundary(state, queryRange, false),
+                    GetNextStateBoundary(state, false),
                     false,
                     false));
             }
@@ -1230,12 +1306,17 @@ internal static class SlippableMedia
     }
 
     // Room to extend the element's out-point (grow its length while the in-point stays put),
-    // bounded by the tightest source tail among its streams. TimeSpan.MaxValue when unbounded.
-    public static TimeSpan OutPointRoom(IReadOnlyList<Target> targets, TimeSpan elementLength)
+    // bounded by the tightest source tail and by the caller's reachable geometry horizon.
+    public static TimeSpan OutPointRoom(
+        IReadOnlyList<Target> targets,
+        TimeSpan elementLength,
+        TimeSpan maximumRoom)
     {
         if (targets is TargetCollection { IsComplete: false }) return TimeSpan.Zero;
+        if (maximumRoom < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(maximumRoom));
 
-        TimeSpan room = TimeSpan.MaxValue;
+        TimeSpan room = maximumRoom;
         foreach (Target target in targets)
         {
             if (target.Total is not { } total) continue;

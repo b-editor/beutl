@@ -273,8 +273,9 @@ public sealed class ElementResizeService : IElementResizeService
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
+            TimeSpan forwardExtension = GetForwardExtension(scene, front, back);
             (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back,
-                SlippableMedia.Collect(front), SlippableMedia.Collect(back));
+                SlippableMedia.Collect(front, forwardExtension), SlippableMedia.Collect(back));
             if (i == 0)
             {
                 (min, max) = (pairMin, pairMax);
@@ -321,7 +322,9 @@ public sealed class ElementResizeService : IElementResizeService
         {
             (Element front, Element back) = pairs[i];
             backTargets[i] = SlippableMedia.Collect(back);
-            SlippableMedia.TargetCollection frontTargets = SlippableMedia.Collect(front);
+            SlippableMedia.TargetCollection frontTargets = SlippableMedia.Collect(
+                front,
+                GetForwardExtension(scene, front, back));
             if (!frontTargets.IsComplete || !backTargets[i].IsComplete) return false;
 
             foreach (SlippableMedia.Target target in frontTargets)
@@ -414,7 +417,9 @@ public sealed class ElementResizeService : IElementResizeService
         {
             (Element front, IReadOnlyList<Element> middles, Element back) = lanes[i];
             backTargets[i] = SlippableMedia.Collect(back);
-            SlippableMedia.TargetCollection frontTargets = SlippableMedia.Collect(front);
+            SlippableMedia.TargetCollection frontTargets = SlippableMedia.Collect(
+                front,
+                GetForwardExtension(scene, front, back));
             if (!frontTargets.IsComplete || !backTargets[i].IsComplete) return false;
 
             foreach (SlippableMedia.Target target in frontTargets)
@@ -512,7 +517,7 @@ public sealed class ElementResizeService : IElementResizeService
 
         if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
         {
-            TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length);
+            TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length, max);
             if (outRoom < max) max = outRoom;
         }
 
@@ -526,6 +531,20 @@ public sealed class ElementResizeService : IElementResizeService
         if (max < TimeSpan.Zero) max = TimeSpan.Zero;
 
         return (min, max);
+    }
+
+    private static TimeSpan GetForwardExtension(Scene scene, Element front, Element back)
+    {
+        if (!GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength)
+            return TimeSpan.Zero;
+
+        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+        if (minDuration <= TimeSpan.Zero) minDuration = TimeSpan.FromTicks(1);
+        if (front.Length < minDuration || back.Length <= minDuration)
+            return TimeSpan.Zero;
+
+        return back.Length - minDuration;
     }
 
     private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max)
