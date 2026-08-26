@@ -897,19 +897,18 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
             return false;
 
+        if (!CanKeepTraversalDirection(timeRange, targetDrawable, resource, reverse))
+            return false;
+
+        if (HasStationaryTail(timeRange, targetDrawable, resource, reverse))
+            return true;
+
         if (resource.Loop)
         {
-            if (!CanKeepTraversalDirection(timeRange, targetDrawable, resource, reverse))
-                return false;
-
-            if (HasStationaryTail(timeRange, targetDrawable, resource, reverse))
-                return true;
-
             return CalculateTargetTimeRange(timeRange, targetDrawable, resource) == targetDrawable.TimeRange;
         }
 
-        if (!IsValidHeldTail(resource, reverse)
-            || !CanKeepTraversalDirection(timeRange, targetDrawable, resource, reverse))
+        if (!IsValidHeldTail(resource, reverse))
             return false;
 
         TimeSpan tail = reverse ? timeRange.Start : timeRange.End;
@@ -924,29 +923,71 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         bool reverse)
     {
         TimeSpan tail = reverse ? timeRange.Start : timeRange.End;
+        TimeSpan stationaryDuration;
         if (Speed.Animation is KeyFrameAnimation<float> animation)
         {
             if (animation.KeyFrames.Count == 0)
-                return resource.Speed == 0;
+            {
+                if (resource.Speed != 0)
+                    return false;
 
-            TimeSpan clock = CalculateSpeedClockTime(tail, resource, targetDrawable, animation);
-            if (reverse && clock <= TimeSpan.Zero)
-                return true;
+                stationaryDuration = TimeSpan.Zero;
+            }
+            else
+            {
+                TimeSpan clock = CalculateSpeedClockTime(tail, resource, targetDrawable, animation);
+                if (reverse)
+                {
+                    if (clock > TimeSpan.Zero
+                        && (!animation.TryGetOutputRange(
+                                new TimeRange(TimeSpan.Zero, clock),
+                                out float minimum,
+                                out float maximum)
+                            || minimum != 0
+                            || maximum != 0))
+                    {
+                        return false;
+                    }
 
-            TimeSpan lastKeyTime = animation.KeyFrames[^1].KeyTime;
-            TimeSpan first = reverse ? TimeSpan.Zero : clock;
-            TimeSpan last = reverse
-                ? clock
-                : lastKeyTime >= clock ? lastKeyTime : clock;
-            return animation.TryGetOutputRange(
-                    new TimeRange(first, last - first),
-                    out float minimum,
-                    out float maximum)
-                && minimum == 0
-                && maximum == 0;
+                    stationaryDuration = TimeSpan.Zero;
+                }
+                else
+                {
+                    TimeSpan lastKeyTime = animation.KeyFrames[^1].KeyTime;
+                    if (animation.Interpolate(lastKeyTime) != 0)
+                        return false;
+
+                    stationaryDuration = lastKeyTime > clock
+                        ? lastKeyTime - clock
+                        : TimeSpan.Zero;
+                }
+            }
+        }
+        else if (Speed.Animation == null && resource.Speed == 0)
+        {
+            stationaryDuration = TimeSpan.Zero;
+        }
+        else
+        {
+            return false;
         }
 
-        return Speed.Animation == null && resource.Speed == 0;
+        if (stationaryDuration > GetMaximumDurationFrom(tail, reverse))
+            return false;
+
+        TimeSpan stationaryTime = MoveTime(tail, stationaryDuration, reverse);
+        TimeSpan rangeStart = stationaryTime <= tail ? stationaryTime : tail;
+        TimeSpan rangeEnd = stationaryTime >= tail ? stationaryTime : tail;
+        TimeRange mappedRange = CalculateTargetTimeRange(
+            new TimeRange(rangeStart, rangeEnd - rangeStart),
+            targetDrawable,
+            resource);
+        if (resource.Loop)
+            return true;
+
+        return mappedRange.Start >= targetDrawable.TimeRange.Start
+            && mappedRange.Start < targetDrawable.TimeRange.End
+            && mappedRange.End < targetDrawable.TimeRange.End;
     }
 
     private bool CanKeepTraversalDirection(

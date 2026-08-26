@@ -37,22 +37,35 @@ public sealed class ElementResizeService : IElementResizeService
         {
             var resizedSet = new HashSet<Element>(requests.Select(r => r.Element));
             TimeSpan minLength = GetMinimumLength(scene);
-            foreach (ElementResizeRequest req in requests)
+            while (true)
             {
-                // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
-                (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet);
-                length = ClampRippleEnd(scene, req, start, length, resizedSet);
-                if (length < minLength)
+                clamped!.Clear();
+                oldBounds!.Clear();
+                var newlyRejected = new List<Element>();
+                foreach (ElementResizeRequest req in requests)
                 {
-                    rejected!.Add(req.Element);
-                    continue;
+                    if (!resizedSet.Contains(req.Element)) continue;
+
+                    // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
+                    (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet);
+                    length = ClampRippleEnd(scene, req, start, length, resizedSet);
+                    if (length < minLength)
+                    {
+                        newlyRejected.Add(req.Element);
+                        continue;
+                    }
+
+                    clamped[req.Element] = (start, length);
+                    oldBounds[req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
                 }
 
-                clamped![req.Element] = (start, length);
-                oldBounds![req.Element] = (req.Element.ZIndex, req.Element.Start, req.Element.Range.End);
+                if (newlyRejected.Count == 0) break;
+
+                rejected!.UnionWith(newlyRejected);
+                resizedSet.ExceptWith(newlyRejected);
             }
 
-            if (rejected!.Count == requests.Count) return;
+            if (resizedSet.Count == 0) return;
         }
 
         if (ripple)
@@ -78,7 +91,10 @@ public sealed class ElementResizeService : IElementResizeService
 
         if (ripple)
         {
-            Element[] resized = requests.Select(r => r.Element).ToArray();
+            Element[] resized = requests
+                .Where(r => !rejected!.Contains(r.Element))
+                .Select(r => r.Element)
+                .ToArray();
             foreach (ElementResizeRequest req in requests)
             {
                 if (rejected!.Contains(req.Element)) continue;

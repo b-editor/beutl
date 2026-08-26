@@ -326,6 +326,32 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void Resize_RippleOn_RejectedBatchParticipantStillFollowsAcceptedRipple()
+    {
+        Element accepted = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element rejected = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        Element lockedFollower = AddElement(
+            TimeSpan.FromSeconds(2) + TimeSpan.FromMilliseconds(15),
+            TimeSpan.FromSeconds(1));
+        lockedFollower.IsLocked = true;
+
+        _service.Resize(_scene,
+        [
+            new ElementResizeRequest(accepted, TimeSpan.Zero, TimeSpan.FromSeconds(2), 0),
+            new ElementResizeRequest(rejected, TimeSpan.FromSeconds(2), TimeSpan.Zero, 0),
+        ],
+        ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(accepted.Range.End, Is.EqualTo(rejected.Start));
+            Assert.That(rejected.Start, Is.EqualTo(TimeSpan.FromSeconds(1) + TimeSpan.FromMilliseconds(15)));
+            Assert.That(rejected.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(lockedFollower.Start, Is.EqualTo(TimeSpan.FromSeconds(2) + TimeSpan.FromMilliseconds(15)));
+        });
+    }
+
+    [Test]
     public void Resize_RippleOn_ZeroLengthSecondRequest_ClampsAndAppliesBoth()
     {
         Element valid = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
@@ -683,12 +709,21 @@ public class ElementResizeServiceTests
 
         bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(5));
 
+        TimeSpan expectedCut = TimeSpan.FromSeconds(frontLength + expectedDelta);
+        TimeSpan lastTimelineSample = front.Range.End - TimeSpan.FromSeconds(1d / 30);
+        int requestedFrame = (int)Math.Round(
+            lastTimelineSample.TotalSeconds * (speed / 100) * 30,
+            MidpointRounding.AwayFromZero);
+
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(frontLength + expectedDelta)));
-            Assert.That(back.Start, Is.EqualTo(TimeSpan.FromSeconds(frontLength + expectedDelta)));
-            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(10 - expectedDelta)));
+            Assert.That(front.Length, Is.EqualTo(expectedCut).Within(TimeSpan.FromTicks(2)));
+            Assert.That(back.Start, Is.EqualTo(expectedCut).Within(TimeSpan.FromTicks(2)));
+            Assert.That(
+                back.Length,
+                Is.EqualTo(TimeSpan.FromSeconds(10 - expectedDelta)).Within(TimeSpan.FromTicks(2)));
+            Assert.That(requestedFrame, Is.LessThan(90));
         });
     }
 
@@ -1162,7 +1197,16 @@ public class ElementResizeServiceTests
 
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
-        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(expectedMax)));
+        TimeSpan extendedLength = front.Length + max;
+        TimeSpan lastTimelineSample = extendedLength - TimeSpan.FromSeconds(1d / 30);
+        int requestedFrame = (int)Math.Round(
+            lastTimelineSample.TotalSeconds * (speed / 100) * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(expectedMax)).Within(TimeSpan.FromTicks(2)));
+            Assert.That(requestedFrame, Is.LessThan(90));
+        });
     }
 
     [Test]
@@ -1498,6 +1542,72 @@ public class ElementResizeServiceTests
         TimeRange heldRange = new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
         Assert.That(controller.HasUnboundedTail(heldRange, video), Is.True);
+    }
+
+    [Test]
+    public void HasUnboundedTail_LoopingControllerThatReachesZeroSpeedHoldsFutureFrame()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 0f });
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Speed = { Animation = speed },
+            Target = { CurrentValue = video },
+        };
+        TimeRange movingRange = new(TimeSpan.Zero, TimeSpan.FromMilliseconds(500));
+
+        Assert.That(controller.HasUnboundedTail(movingRange, video), Is.True);
+    }
+
+    [Test]
+    public void HasUnboundedTail_NonLoopingControllerWithZeroSpeedHoldsReadableFrame()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(5) },
+            Speed = { CurrentValue = 0f },
+            Target = { CurrentValue = video },
+        };
+        TimeRange activeRange = new(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+
+        Assert.That(controller.HasUnboundedTail(activeRange, video), Is.True);
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_SlowMotionVideoReservesFrameRoundingHeadroom()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            Speed = { CurrentValue = 40f },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(video);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        TimeSpan extendedLength = front.Length + max;
+        TimeSpan lastTimelineSample = extendedLength - TimeSpan.FromSeconds(1d / 30);
+        int requestedFrame = (int)Math.Round(
+            lastTimelineSample.TotalSeconds * 0.4 * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.That(requestedFrame, Is.LessThan(90));
     }
 
     [Test]
@@ -2121,7 +2231,19 @@ public class ElementResizeServiceTests
 
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
-        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(3.9)).Within(TimeSpan.FromMilliseconds(20)));
+        TimeSpan extendedEnd = front.Range.End + max;
+        TimeSpan lastTimelineSample = extendedEnd - TimeSpan.FromSeconds(1d / 30);
+        TimeSpan targetSample = controller.CalculateTargetTimeRange(
+            new TimeRange(lastTimelineSample, TimeSpan.Zero),
+            video).Start;
+        int requestedFrame = (int)Math.Round(
+            targetSample.TotalSeconds * 30,
+            MidpointRounding.AwayFromZero);
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(2.9)).Within(TimeSpan.FromMilliseconds(20)));
+            Assert.That(requestedFrame, Is.LessThan(90));
+        });
     }
 
     [Test]
