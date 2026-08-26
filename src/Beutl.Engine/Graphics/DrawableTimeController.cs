@@ -719,7 +719,7 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
     /// Reports whether the mapped interval can continue to provide target content without a
     /// finite tail bound.
     /// </summary>
-    public bool HasUnboundedTail(TimeRange timeRange, Drawable targetDrawable)
+    public bool HasUnboundedTail(TimeRange timeRange, Drawable targetDrawable, bool reverse = false)
     {
         using var resource = (Resource)ToResource(CompositionContext.Default);
         return HasUnboundedTail(timeRange, targetDrawable, resource);

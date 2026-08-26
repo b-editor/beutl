@@ -33,7 +33,7 @@ public interface ITimeMappingPresenter<T> : IPresenter<T>
     /// evaluated. Looping presenters should return <see langword="true"/> when the target can
     /// continue to provide valid content indefinitely after <paramref name="timeRange"/>.
     /// </summary>
-    bool HasUnboundedTail(TimeRange timeRange, T target);
+    bool HasUnboundedTail(TimeRange timeRange, T target, bool reverse = false);
 
     /// <summary>
     /// Calculates the presenter time needed to consume a target-time duration beginning at

@@ -1147,7 +1147,7 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable target)
         => new(MappedStart, timeRange.Duration);
 
-    public bool HasUnboundedTail(TimeRange timeRange, Drawable target)
+    public bool HasUnboundedTail(TimeRange timeRange, Drawable target, bool reverse = false)
         => ReportsUnboundedTail;
 
     public TimeSpan CalculateTimelineDuration(

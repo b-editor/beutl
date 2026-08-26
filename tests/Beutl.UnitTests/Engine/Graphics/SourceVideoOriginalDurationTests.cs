@@ -56,4 +56,15 @@ public class SourceVideoOriginalDurationTests
         Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.False);
         Assert.That(duration, Is.EqualTo(TimeSpan.Zero));
     }
+
+    [Test]
+    public void TryGetOriginalDuration_AppliesSourceOffsetBeforeSpeedConversion()
+    {
+        SourceVideo video = CreateSourceVideo();
+        video.Speed.CurrentValue = 200f;
+        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
+
+        Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.True);
+        Assert.That(duration, Is.EqualTo(TimeSpan.FromSeconds(0.75)).Within(TimeSpan.FromMilliseconds(1)));
+    }
 }
