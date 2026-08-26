@@ -165,6 +165,50 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Pull_fetches_a_differently_named_origin_upstream_for_preflight_and_fast_forward()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string originRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(originRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        await RunGitAsync("switch", "-c", "release");
+        await RunGitAsync("branch", "--set-upstream-to=origin/main", "release");
+
+        RepositoryInfo originPeer = await CloneRemoteAsync(originRoot);
+        await CommitInRepositoryAsync(originPeer, "project.bep", "from origin\n", "origin update");
+        string peerHead = (await CreateRunner().RunAsync(
+                originPeer,
+                ["rev-parse", "HEAD"],
+                GitCommandOptions.Local,
+                CancellationToken.None))
+            .Stdout.Trim();
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+
+        PullPreflightResult preflight = await service.PreflightPullAsync(
+            expected,
+            CancellationToken.None);
+        FastForwardPullResult pull = await service.PullFastForwardAsync(
+            expected,
+            checkpoint: null,
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+        string originHead = (await RunGitAsync("rev-parse", "refs/remotes/origin/main"))
+            .Stdout.Trim();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(preflight.Result, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(preflight.RequiresTransition, Is.True);
+            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(originHead, Is.EqualTo(peerHead));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("from origin\n"));
+        });
+    }
+
+    [Test]
     public async Task Status_uses_origin_counts_when_branch_tracks_another_remote()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");

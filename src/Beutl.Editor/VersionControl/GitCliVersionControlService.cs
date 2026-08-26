@@ -62,6 +62,10 @@ internal sealed class GitCliVersionControlService :
         Diverged,
     }
 
+    private sealed record PullFetchTarget(
+        IReadOnlyList<string> Arguments,
+        string UpstreamRef);
+
     private sealed record TreeTransitionResult(
         TreeTransitionOutcome Outcome,
         Exception? Error = null,
@@ -5198,11 +5202,18 @@ internal sealed class GitCliVersionControlService :
         }
 
         bool hasOrigin = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count > 0;
+        PullFetchTarget fetchTarget = await ResolvePullFetchTargetAsync(
+                repository,
+                runner,
+                hasOrigin,
+                expectedCurrent.RefName,
+                cancellationToken)
+            .ConfigureAwait(false);
         try
         {
             await runner.RunAsync(
                 repository,
-                CreatePullFetchArguments(hasOrigin, expectedCurrent.RefName),
+                fetchTarget.Arguments,
                 GitCommandOptions.Network,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -5215,9 +5226,7 @@ internal sealed class GitCliVersionControlService :
                 UpstreamCommit: null);
         }
 
-        string upstreamRef = hasOrigin
-            ? $"refs/remotes/origin/{GetBranchShortName(expectedCurrent.RefName)}"
-            : "@{upstream}";
+        string upstreamRef = fetchTarget.UpstreamRef;
         GitCommandResult upstreamResult;
         try
         {
@@ -5355,11 +5364,18 @@ internal sealed class GitCliVersionControlService :
         }
 
         bool hasOrigin = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count > 0;
+        PullFetchTarget fetchTarget = await ResolvePullFetchTargetAsync(
+                repository,
+                runner,
+                hasOrigin,
+                expectedCurrent.RefName,
+                cancellationToken)
+            .ConfigureAwait(false);
         try
         {
             await runner.RunAsync(
                 repository,
-                CreatePullFetchArguments(hasOrigin, expectedCurrent.RefName),
+                fetchTarget.Arguments,
                 GitCommandOptions.Network,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -5369,9 +5385,7 @@ internal sealed class GitCliVersionControlService :
             return new FastForwardPullResult(MapRemoteFailure(ex), expectedCurrent);
         }
 
-        string upstreamRef = hasOrigin
-            ? $"refs/remotes/origin/{GetBranchShortName(expectedCurrent.RefName)}"
-            : "@{upstream}";
+        string upstreamRef = fetchTarget.UpstreamRef;
         GitCommandResult upstreamResult;
         try
         {
@@ -8547,22 +8561,40 @@ internal sealed class GitCliVersionControlService :
         return SerializedProjectGraph.GetRelativePaths(_projectFile, projectRoot);
     }
 
-    private static IReadOnlyList<string> CreatePullFetchArguments(
+    private static async Task<PullFetchTarget> ResolvePullFetchTargetAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
         bool hasOrigin,
-        string localBranchRef)
+        string localBranchRef,
+        CancellationToken cancellationToken)
     {
         if (!hasOrigin)
         {
-            return ["fetch"];
+            return new PullFetchTarget(["fetch"], "@{upstream}");
         }
 
+        string? configuredUpstream = await TryGetUpstreamRefAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
         string branchName = GetBranchShortName(localBranchRef);
-        return
-        [
-            "fetch",
-            "origin",
-            $"+refs/heads/{branchName}:refs/remotes/origin/{branchName}",
-        ];
+        string upstreamRef = $"{OriginRefPrefix}{branchName}";
+        if (configuredUpstream is not null
+            && configuredUpstream.StartsWith(OriginRefPrefix, StringComparison.Ordinal)
+            && configuredUpstream.Length > OriginRefPrefix.Length)
+        {
+            upstreamRef = configuredUpstream;
+            branchName = configuredUpstream[OriginRefPrefix.Length..];
+        }
+
+        return new PullFetchTarget(
+            [
+                "fetch",
+                "origin",
+                $"+refs/heads/{branchName}:{upstreamRef}",
+            ],
+            upstreamRef);
     }
 
     private void ValidateRequiredProjectFileLayout(string projectRoot)
