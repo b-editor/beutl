@@ -64,7 +64,7 @@ internal static class SlippableMedia
             TimeSpan? total,
             TimeSpan? consumedDuration = null,
             TimeSpan? timelineRoom = null,
-            TimeSpan? zeroConsumptionPadding = null,
+            TimeSpan? minimumSourceReservation = null,
             TimeSpan? sourceEndPosition = null,
             TimeSpan? forwardOffsetLimit = null,
             bool affectsOffset = true)
@@ -73,7 +73,7 @@ internal static class SlippableMedia
             Total = total;
             ConsumedDuration = consumedDuration;
             TimelineRoom = timelineRoom;
-            ZeroConsumptionPadding = zeroConsumptionPadding;
+            MinimumSourceReservation = minimumSourceReservation;
             SourceEndPosition = sourceEndPosition;
             ForwardOffsetLimit = forwardOffsetLimit;
             AffectsOffset = affectsOffset;
@@ -87,7 +87,7 @@ internal static class SlippableMedia
 
         public TimeSpan? TimelineRoom { get; private set; }
 
-        public TimeSpan? ZeroConsumptionPadding { get; private set; }
+        public TimeSpan? MinimumSourceReservation { get; private set; }
 
         public TimeSpan? SourceEndPosition { get; private set; }
 
@@ -122,11 +122,11 @@ internal static class SlippableMedia
                     : room;
             }
 
-            if (other.ZeroConsumptionPadding is { } padding)
+            if (other.MinimumSourceReservation is { } reservation)
             {
-                ZeroConsumptionPadding = ZeroConsumptionPadding is { } currentPadding
-                    ? TimeSpan.FromTicks(Math.Max(currentPadding.Ticks, padding.Ticks))
-                    : padding;
+                MinimumSourceReservation = MinimumSourceReservation is { } currentReservation
+                    ? TimeSpan.FromTicks(Math.Max(currentReservation.Ticks, reservation.Ticks))
+                    : reservation;
             }
 
             if (other.SourceEndPosition is { } sourceEndPosition)
@@ -265,9 +265,14 @@ internal static class SlippableMedia
                             if (duration == TimeSpan.MaxValue)
                                 return TimeSpan.MaxValue;
 
+                            TimeSpan maximumTimelineDuration = state.StateEnd is { } stateBoundary
+                                ? GetDurationBetween(currentTime, stateBoundary)
+                                : TimeSpan.Zero;
+
                             TimeSpan parentDuration = timeMappingPresenter.CalculateTimelineDuration(
                                 currentTime,
                                 duration,
+                                maximumTimelineDuration,
                                 controlled,
                                 reverse: context.IsReversed);
                             if (parentDuration == TimeSpan.MaxValue)
@@ -718,103 +723,181 @@ internal static class SlippableMedia
             return CalculateReversedVideoTimelineRoom(video, context);
 
         TimeSpan cursor = context.Range.End;
+        TimeSpan horizon = context.ReachableRange.End;
+        if (horizon <= cursor)
+            return MapTimelineDuration(context, TimeSpan.Zero, TimeSpan.Zero);
+
         TimeSpan accumulated = TimeSpan.Zero;
         TimeSpan[] futureTimes = GetAnimationTimes(video)
-            .Where(time => time >= cursor)
+            .Where(time => time > cursor && time < horizon)
             .ToArray();
         int nextIndex = 0;
 
-        while (true)
+        while (cursor < horizon)
         {
-            TimeSpan? next = nextIndex < futureTimes.Length ? futureTimes[nextIndex] : null;
-            if (next is { } nextTime && nextTime <= cursor)
-            {
-                nextIndex++;
-                continue;
-            }
-
-            TimeSpan sampleTime = next is { } sampleBoundary
-                ? cursor + TimeSpan.FromTicks((sampleBoundary - cursor).Ticks / 2)
-                : cursor;
+            TimeSpan boundary = nextIndex < futureTimes.Length
+                ? futureTimes[nextIndex]
+                : horizon;
+            TimeSpan stateDuration = boundary - cursor;
+            TimeSpan sampleTime = cursor + TimeSpan.FromTicks(stateDuration.Ticks / 2);
             using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
             if (resource.Source is not { } source || source.Duration <= TimeSpan.Zero)
             {
-                if (next is not { } boundary)
-                    return MapTimelineDuration(context, accumulated, TimeSpan.MaxValue);
+                accumulated = AddDurationSaturated(accumulated, stateDuration);
+                if (boundary == horizon)
+                    return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
 
-                accumulated += boundary - cursor;
                 cursor = boundary;
                 nextIndex++;
                 continue;
             }
 
+            if (SpeedMayRunBackward(video, new TimeRange(cursor, stateDuration)))
+                return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+
+            TimeSpan rawSourcePosition = GetRawSourcePositionAt(video, cursor, resource);
             TimeSpan sourcePosition = GetSourcePositionAt(video, cursor, resource);
             if (resource.IsLoop && source.Duration > TimeSpan.Zero)
                 sourcePosition = NormalizeLoopPosition(sourcePosition, source.Duration);
 
             if (resource.IsLoop && video.OffsetPosition.CurrentValue == TimeSpan.Zero)
             {
-                if (next is not { } boundary)
-                    return MapTimelineDuration(context, accumulated, TimeSpan.MaxValue);
+                accumulated = AddDurationSaturated(accumulated, stateDuration);
+                if (boundary == horizon)
+                    return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
 
-                accumulated += boundary - cursor;
                 cursor = boundary;
                 nextIndex++;
                 continue;
             }
 
-            TimeSpan sourceRoom = source.Duration - video.OffsetPosition.CurrentValue - sourcePosition;
+            TimeSpan sourceRoom;
+            if (!resource.IsLoop
+                && video.OffsetPosition.CurrentValue == TimeSpan.Zero
+                && rawSourcePosition < TimeSpan.Zero)
+            {
+                TimeSpan leadIn = rawSourcePosition == TimeSpan.MinValue
+                    ? TimeSpan.MaxValue
+                    : -rawSourcePosition;
+                sourceRoom = AddDurationSaturated(source.Duration, leadIn);
+            }
+            else
+            {
+                sourceRoom = source.Duration - video.OffsetPosition.CurrentValue - sourcePosition;
+            }
             if (sourceRoom <= TimeSpan.Zero)
                 return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
 
-            TimeSpan timelineRoom = video.CalculateTimelineDuration(
+            TimeSpan consumedToBoundary = video.CalculateVideoDuration(
                 GetVideoClockStartAt(video, cursor),
-                sourceRoom,
+                stateDuration,
                 resource);
-            if (timelineRoom == TimeSpan.MaxValue)
-                return MapTimelineDuration(context, accumulated, TimeSpan.MaxValue);
+            if (consumedToBoundary < TimeSpan.Zero)
+                return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
 
-            if (next is not { } nextBoundary || timelineRoom <= nextBoundary - cursor)
+            if (sourceRoom > consumedToBoundary)
             {
-                return MapTimelineDuration(context, accumulated, timelineRoom);
+                accumulated = AddDurationSaturated(accumulated, stateDuration);
+                if (boundary == horizon)
+                    return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+
+                cursor = boundary;
+                nextIndex++;
+                continue;
             }
 
-            accumulated += nextBoundary - cursor;
-            cursor = nextBoundary;
-            nextIndex++;
+            TimeSpan timelineRoom = FindEarliestVideoConsumption(
+                video,
+                GetVideoClockStartAt(video, cursor),
+                sourceRoom,
+                stateDuration,
+                resource);
+            if (timelineRoom == stateDuration && boundary < horizon)
+            {
+                accumulated = AddDurationSaturated(accumulated, stateDuration);
+                cursor = boundary;
+                nextIndex++;
+                continue;
+            }
+
+            return MapTimelineDuration(context, accumulated, timelineRoom);
         }
+
+        return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
     }
 
     private static TimeSpan? CalculateReversedVideoTimelineRoom(SourceVideo video, TimeContext context)
     {
         TimeSpan cursor = context.Range.Start;
+        TimeSpan horizon = context.ReachableRange.Start;
+        if (horizon >= cursor)
+            return MapTimelineDuration(context, TimeSpan.Zero, TimeSpan.Zero);
+
         TimeSpan accumulated = TimeSpan.Zero;
         TimeSpan[] earlierTimes = GetAnimationTimes(video)
-            .Where(time => time <= cursor)
+            .Where(time => time > horizon && time < cursor)
             .OrderDescending()
             .ToArray();
         int nextIndex = 0;
 
-        while (nextIndex < earlierTimes.Length)
+        while (cursor > horizon)
         {
-            TimeSpan next = earlierTimes[nextIndex];
-            if (next >= cursor)
-            {
-                nextIndex++;
-                continue;
-            }
-
-            TimeSpan sampleTime = cursor + TimeSpan.FromTicks((next - cursor).Ticks / 2);
+            TimeSpan boundary = nextIndex < earlierTimes.Length
+                ? earlierTimes[nextIndex]
+                : horizon;
+            TimeSpan sampleTime = boundary + TimeSpan.FromTicks((cursor - boundary).Ticks / 2);
             using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
-            TimeSpan stateDuration = cursor - next;
+            TimeSpan stateDuration = cursor - boundary;
             if (resource.Source is { } source && source.Duration > TimeSpan.Zero)
             {
+                if (!resource.IsLoop)
+                {
+                    TimeSpan rawAtCursor = GetRawSourcePositionAt(video, cursor, resource);
+                    double renderedTicks = rawAtCursor >= TimeSpan.Zero
+                        ? rawAtCursor.Ticks + (double)video.OffsetPosition.CurrentValue.Ticks
+                        : source.Duration.Ticks
+                            + (double)rawAtCursor.Ticks
+                            + video.OffsetPosition.CurrentValue.Ticks;
+                    if (renderedTicks < 0 || renderedTicks >= source.Duration.Ticks)
+                        return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+
+                    TimeSpan lowerRawBoundary;
+                    if (rawAtCursor >= TimeSpan.Zero
+                        && video.OffsetPosition.CurrentValue > TimeSpan.Zero)
+                    {
+                        lowerRawBoundary = TimeSpan.Zero;
+                    }
+                    else
+                    {
+                        double lowerTicks = source.Duration.Ticks
+                            + Math.Max(0d, video.OffsetPosition.CurrentValue.Ticks);
+                        lowerRawBoundary = lowerTicks >= TimeSpan.MaxValue.Ticks
+                            ? -TimeSpan.MaxValue
+                            : TimeSpan.FromTicks(-(long)lowerTicks);
+                    }
+
+                    TimeSpan rawAtBoundary = GetRawSourcePositionAt(video, boundary, resource);
+                    if (rawAtBoundary <= lowerRawBoundary)
+                    {
+                        TimeSpan reachableDuration = FindEarliestReversedRawBoundary(
+                            video,
+                            cursor,
+                            lowerRawBoundary,
+                            stateDuration,
+                            resource);
+                        if (reachableDuration < stateDuration)
+                        {
+                            return MapTimelineDuration(context, accumulated, reachableDuration);
+                        }
+                    }
+                }
+
                 TimeSpan sourcePosition = GetSourcePositionAt(video, cursor, resource);
                 if (resource.IsLoop)
                     sourcePosition = NormalizeLoopPosition(sourcePosition, source.Duration);
 
                 if (video.OffsetPosition.CurrentValue + sourcePosition >= source.Duration
-                    || SpeedMayRunBackward(video, new TimeRange(next, stateDuration)))
+                    || SpeedMayRunBackward(video, new TimeRange(boundary, stateDuration)))
                 {
                     return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
                 }
@@ -829,39 +912,64 @@ internal static class SlippableMedia
             }
 
             accumulated = AddDurationSaturated(accumulated, stateDuration);
-            cursor = next;
+            if (boundary == horizon)
+                return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+
+            cursor = boundary;
             nextIndex++;
         }
 
-        TimeSpan videoStart = video.TimeRange.Start;
-        if (videoStart < cursor)
+        return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+    }
+
+    private static TimeSpan FindEarliestVideoConsumption(
+        SourceVideo video,
+        TimeSpan clockStart,
+        TimeSpan sourceDuration,
+        TimeSpan maximumTimelineDuration,
+        SourceVideo.Resource resource)
+    {
+        long low = 0;
+        long high = maximumTimelineDuration.Ticks;
+        while (low < high)
         {
-            TimeSpan sampleTime = cursor + TimeSpan.FromTicks((videoStart - cursor).Ticks / 2);
-            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime));
-            TimeSpan stateDuration = cursor - videoStart;
-            if (resource.Source is { } source && source.Duration > TimeSpan.Zero)
-            {
-                TimeSpan sourcePosition = GetSourcePositionAt(video, cursor, resource);
-                if (resource.IsLoop)
-                    sourcePosition = NormalizeLoopPosition(sourcePosition, source.Duration);
-
-                if (video.OffsetPosition.CurrentValue + sourcePosition >= source.Duration
-                    || SpeedMayRunBackward(video, new TimeRange(videoStart, stateDuration)))
-                {
-                    return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
-                }
-
-                if (resource.IsLoop
-                    && video.OffsetPosition.CurrentValue > TimeSpan.Zero
-                    && TryGetPreviousLoopWrapDuration(
-                        video, cursor, stateDuration, source.Duration, resource, out TimeSpan wrapDuration))
-                {
-                    return MapTimelineDuration(context, accumulated, wrapDuration);
-                }
-            }
+            long middle = low + (high - low) / 2;
+            TimeSpan consumed = video.CalculateVideoDuration(
+                clockStart,
+                TimeSpan.FromTicks(middle),
+                resource);
+            if (consumed >= sourceDuration)
+                high = middle;
+            else
+                low = middle + 1;
         }
 
-        return null;
+        return TimeSpan.FromTicks(high);
+    }
+
+    private static TimeSpan FindEarliestReversedRawBoundary(
+        SourceVideo video,
+        TimeSpan cursor,
+        TimeSpan lowerRawBoundary,
+        TimeSpan maximumTimelineDuration,
+        SourceVideo.Resource resource)
+    {
+        long low = 0;
+        long high = maximumTimelineDuration.Ticks;
+        while (low < high)
+        {
+            long middle = low + (high - low) / 2;
+            TimeSpan position = GetRawSourcePositionAt(
+                video,
+                cursor - TimeSpan.FromTicks(middle),
+                resource);
+            if (position <= lowerRawBoundary)
+                high = middle;
+            else
+                low = middle + 1;
+        }
+
+        return TimeSpan.FromTicks(high);
     }
 
     private static bool TryGetPreviousLoopWrapDuration(
@@ -927,7 +1035,8 @@ internal static class SlippableMedia
             : null;
         TimeSpan consumedDuration = GetConsumedDuration(video, context.Range, resource);
         if (consumedDuration < TimeSpan.Zero) consumedDuration = TimeSpan.Zero;
-        TimeSpan? zeroConsumptionPadding = null;
+        TimeSpan sourceEndPosition = GetMaximumSourcePosition(video, context.Range, resource);
+        TimeSpan? minimumSourceReservation = null;
         if (resource.Source is { } source
             && source.FrameRate.Numerator > 0
             && source.FrameRate.Denominator > 0)
@@ -940,18 +1049,23 @@ internal static class SlippableMedia
                 long roundedTicks = Math.Max(1L, (long)Math.Round(frameTicks));
                 TimeSpan frameDuration = TimeSpan.FromTicks(roundedTicks);
                 if (consumedDuration < frameDuration)
-                    zeroConsumptionPadding = frameDuration;
+                {
+                    minimumSourceReservation = AddDurationSaturated(
+                        sourceEndPosition,
+                        frameDuration - consumedDuration);
+                }
             }
         }
-        TimeSpan sourceEndPosition = GetMaximumSourcePosition(video, context.Range, resource);
         TimeSpan? timelineRoom = timelineRoomOverride;
         TimeSpan? forwardOffsetLimit = null;
         if (total is { } sourceDuration)
         {
             TimeSpan sourceRoom = sourceDuration - video.OffsetPosition.CurrentValue - sourceEndPosition;
             if (sourceRoom < TimeSpan.Zero) sourceRoom = TimeSpan.Zero;
-            TimeSpan padding = zeroConsumptionPadding ?? TimeSpan.Zero;
-            TimeSpan reservation = sourceEndPosition >= padding ? sourceEndPosition : padding;
+            TimeSpan minimumReservation = minimumSourceReservation ?? TimeSpan.Zero;
+            TimeSpan reservation = sourceEndPosition >= minimumReservation
+                ? sourceEndPosition
+                : minimumReservation;
             TimeSpan maxOffset = sourceDuration - reservation;
             if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
             forwardOffsetLimit = maxOffset;
@@ -981,7 +1095,7 @@ internal static class SlippableMedia
             total,
             consumedDuration,
             timelineRoom,
-            zeroConsumptionPadding,
+            minimumSourceReservation,
             sourceEndPosition,
             forwardOffsetLimit,
             context.AffectsOffset);
@@ -1054,11 +1168,15 @@ internal static class SlippableMedia
         TimeSpan secondClock = GetVideoClockStartAt(video, range.End);
         TimeSpan rangeStart = firstClock <= secondClock ? firstClock : secondClock;
         TimeSpan rangeEnd = firstClock >= secondClock ? firstClock : secondClock;
+        float startSpeed = animation.Interpolate(rangeStart);
         if (rangeStart == rangeEnd)
-            return animation.Interpolate(rangeStart) < 0;
+            return !float.IsFinite(startSpeed) || startSpeed < 0;
 
-        if (animation.Interpolate(rangeStart) < 0
-            || animation.Interpolate(rangeEnd) < 0
+        float endSpeed = animation.Interpolate(rangeEnd);
+        if (!float.IsFinite(startSpeed)
+            || !float.IsFinite(endSpeed)
+            || startSpeed < 0
+            || endSpeed < 0
             || animation.KeyFrames[0] is not KeyFrame<float> first)
         {
             return true;
@@ -1070,11 +1188,15 @@ internal static class SlippableMedia
             if (animation.KeyFrames[i] is not KeyFrame<float> next)
                 return true;
 
+            if (!float.IsFinite(previous.Value) || !float.IsFinite(next.Value))
+                return true;
+
             if (rangeEnd > previous.KeyTime && rangeStart < next.KeyTime)
             {
                 if (!next.Easing.TryGetOutputRange(out float easingMinimum, out float easingMaximum)
                     || !float.IsFinite(easingMinimum)
-                    || !float.IsFinite(easingMaximum))
+                    || !float.IsFinite(easingMaximum)
+                    || easingMinimum > easingMaximum)
                 {
                     return true;
                 }
@@ -1143,13 +1265,17 @@ internal static class SlippableMedia
 
     private static Target CreateSoundTarget(SourceSound sound, TimeContext context)
     {
-        // SourceSound.TryGetOriginalDuration returns the full source duration.
-        TimeSpan? total = sound.TryGetOriginalDuration(out TimeSpan duration) ? duration : null;
+        using SoundSource.Resource? resource = sound.Source.CurrentValue?.ToResource(CompositionContext.Default);
+        TimeSpan? total = resource is not null && resource.Duration > TimeSpan.Zero
+            ? resource.Duration
+            : null;
+        TimeSpan readableSample = GetReadableSampleDuration(resource?.SampleRate ?? 0);
         return CreateSoundTargetCore(
             sound,
             sound.OffsetPosition,
             sound.Speed.CurrentValue,
             total,
+            readableSample,
             context);
     }
 
@@ -1164,6 +1290,7 @@ internal static class SlippableMedia
             sound.OffsetPosition,
             sound.Speed.CurrentValue,
             total,
+            total > TimeSpan.Zero ? TimeSpan.FromTicks(1) : TimeSpan.Zero,
             context);
     }
 
@@ -1172,6 +1299,7 @@ internal static class SlippableMedia
         IProperty<TimeSpan> offset,
         float speed,
         TimeSpan? total,
+        TimeSpan readableSample,
         TimeContext context)
     {
         double speedScale = speed / 100.0;
@@ -1182,10 +1310,17 @@ internal static class SlippableMedia
         TimeSpan consumedDuration = sourceEndPosition - sourceStartPosition;
         if (consumedDuration < TimeSpan.Zero) consumedDuration = TimeSpan.Zero;
         TimeSpan? timelineRoom = null;
+        TimeSpan? minimumSourceReservation = consumedDuration < readableSample
+            ? AddDurationSaturated(sourceEndPosition, readableSample - consumedDuration)
+            : null;
         TimeSpan? forwardOffsetLimit = null;
         if (total is { } sourceDuration)
         {
-            TimeSpan maxOffset = sourceDuration - sourceEndPosition;
+            TimeSpan reservation = minimumSourceReservation is { } minimumReservation
+                && minimumReservation > sourceEndPosition
+                    ? minimumReservation
+                    : sourceEndPosition;
+            TimeSpan maxOffset = sourceDuration - reservation;
             if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
             forwardOffsetLimit = maxOffset;
 
@@ -1222,9 +1357,19 @@ internal static class SlippableMedia
             total,
             consumedDuration,
             timelineRoom,
+            minimumSourceReservation,
             sourceEndPosition: sourceEndPosition,
             forwardOffsetLimit: forwardOffsetLimit,
             affectsOffset: context.AffectsOffset);
+    }
+
+    private static TimeSpan GetReadableSampleDuration(int sampleRate)
+    {
+        if (sampleRate <= 0)
+            return TimeSpan.Zero;
+
+        long ticks = Math.Max(1L, (long)Math.Ceiling(TimeSpan.TicksPerSecond / (double)sampleRate));
+        return TimeSpan.FromTicks(ticks);
     }
 
     private static TimeSpan GetSoundSourcePosition(
@@ -1284,8 +1429,10 @@ internal static class SlippableMedia
         TimeSpan sourcePosition = target.SourceEndPosition
             ?? target.ConsumedDuration
             ?? elementLength;
-        TimeSpan padding = target.ZeroConsumptionPadding ?? TimeSpan.Zero;
-        TimeSpan reservation = sourcePosition >= padding ? sourcePosition : padding;
+        TimeSpan minimumReservation = target.MinimumSourceReservation ?? TimeSpan.Zero;
+        TimeSpan reservation = sourcePosition >= minimumReservation
+            ? sourcePosition
+            : minimumReservation;
         TimeSpan maxOffset = total - reservation;
         if (maxOffset < TimeSpan.Zero) maxOffset = TimeSpan.Zero;
         return Math.Max(0L, (maxOffset - target.Current).Ticks);

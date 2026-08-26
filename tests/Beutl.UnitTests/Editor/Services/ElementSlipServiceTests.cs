@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -360,6 +361,55 @@ public class ElementSlipServiceTests
         });
     }
 
+    [Test]
+    public void ResizeBounds_NonLoopingNegativeVideoContinuesAfterZeroWrap()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(-2),
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        TimeSpan room = GetOutPointRoom(element);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(11)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void ResizeBounds_NonLoopingNegativeVideoWithOffsetStopsBeforeZero()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            OffsetPosition = { CurrentValue = TimeSpan.FromMilliseconds(500) },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(-2),
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        TimeSpan room = GetOutPointRoom(element);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.FromMilliseconds(500)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
     [TestCase(50f, 2d, true)]
     [TestCase(200f, 0d, false)]
     public void Slip_SourceVideo_SpeedAdjustsSourceBounds(float speed, double expectedDelta, bool expectedApplied)
@@ -427,6 +477,160 @@ public class ElementSlipServiceTests
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3) - frameDuration));
         });
+    }
+
+    [Test]
+    public void Slip_EmptyMappedVideoReservesFrameAfterMappedPoint()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.Zero);
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(2),
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+        using var resource = (VideoSource.Resource)source.ToResource(CompositionContext.Default);
+        TimeSpan frameDuration = TimeSpan.FromSeconds(1d / 30);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(20));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(
+                video.OffsetPosition.CurrentValue,
+                Is.EqualTo(resource.Duration - TimeSpan.FromSeconds(2) - frameDuration)
+                    .Within(TimeSpan.FromTicks(1)));
+        });
+    }
+
+    [Test]
+    public void ResizeBounds_FutureVideoSpeedReversalFailsClosed()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(4),
+            Value = 10f,
+            Easing = new BackEaseOut(),
+        });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            Speed = { Animation = speed },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        element.Objects.Add(video);
+
+        TimeSpan room = GetOutPointRoom(element);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [Test]
+    public void ResizeBounds_VideoSpeedPlateauStopsAtEarliestSourceEnd()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.Zero);
+        var shortSource = new VideoSource();
+        shortSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 15)));
+        var replacementSource = new VideoSource();
+        replacementSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 900)));
+        var sourceAnimation = new KeyFrameAnimation<VideoSource?>();
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = shortSource,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(2),
+            Value = shortSource,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(30),
+            Value = replacementSource,
+        });
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = 100f,
+            Easing = new LinearEasing(),
+        });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 0f,
+            Easing = new LinearEasing(),
+        });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = shortSource, Animation = sourceAnimation },
+            Speed = { Animation = speed },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(30)),
+        };
+        element.Objects.Add(video);
+
+        TimeSpan room = GetOutPointRoom(element);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(0.88)).Within(TimeSpan.FromMilliseconds(20)));
+    }
+
+    [Test]
+    public void ResizeBounds_VideoSourceEndAtPropertyBoundaryContinuesWithNextState()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.Zero);
+        var currentSource = new VideoSource();
+        currentSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 60)));
+        var futureSource = new VideoSource();
+        futureSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 900)));
+        using var currentResource = (VideoSource.Resource)currentSource.ToResource(CompositionContext.Default);
+        TimeSpan sourceBoundary = currentResource.Duration;
+        var sourceAnimation = new KeyFrameAnimation<VideoSource?>();
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = currentSource,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = sourceBoundary,
+            Value = currentSource,
+        });
+        sourceAnimation.KeyFrames.Add(new KeyFrame<VideoSource?>
+        {
+            KeyTime = TimeSpan.FromSeconds(30),
+            Value = futureSource,
+        });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = currentSource, Animation = sourceAnimation },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(30)),
+        };
+        element.Objects.Add(video);
+
+        TimeSpan room = GetOutPointRoom(element);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(30)));
     }
 
     [Test]
@@ -640,6 +844,90 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(sceneSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Slip_ZeroSpeedSourceSoundReservesReadableSample()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(
+            sampleRate: 48000,
+            durationSeconds: 3)));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = source },
+            Speed = { CurrentValue = 0f },
+        };
+        element.Objects.Add(sound);
+        using var resource = (SoundSource.Resource)source.ToResource(CompositionContext.Default);
+        TimeSpan sampleDuration = TimeSpan.FromTicks(
+            (long)Math.Ceiling(TimeSpan.TicksPerSecond / (double)resource.SampleRate));
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(resource.Duration - sampleDuration));
+        });
+    }
+
+    [Test]
+    public void Slip_EmptyMappedSourceSoundReservesSampleAfterMappedPoint()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.Zero);
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(
+            sampleRate: 48000,
+            durationSeconds: 3)));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestSourceSoundTimeMappingPresenter
+        {
+            Target = { CurrentValue = sound },
+            TargetOffset = TimeSpan.FromSeconds(2),
+        };
+        element.Objects.Add(presenter);
+        using var resource = (SoundSource.Resource)source.ToResource(CompositionContext.Default);
+        TimeSpan sampleDuration = TimeSpan.FromTicks(
+            (long)Math.Ceiling(TimeSpan.TicksPerSecond / (double)resource.SampleRate));
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(
+                sound.OffsetPosition.CurrentValue,
+                Is.EqualTo(resource.Duration - TimeSpan.FromSeconds(2) - sampleDuration));
+        });
+    }
+
+    [Test]
+    public void Slip_ZeroSpeedSceneSoundStaysBeforeReferencedSceneEnd()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var referenced = new Scene { Duration = TimeSpan.FromSeconds(3) };
+        var sound = new SceneSound
+        {
+            ReferencedScene = { CurrentValue = referenced },
+            Speed = { CurrentValue = 0f },
+        };
+        element.Objects.Add(sound);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(
+                sound.OffsetPosition.CurrentValue,
+                Is.EqualTo(referenced.Duration - TimeSpan.FromTicks(1)));
         });
     }
 
@@ -1548,13 +1836,75 @@ public class ElementSlipServiceTests
         };
         var presenter = new TestTimeMappingPresenter
         {
-            MappedStart = TimeSpan.FromSeconds(11),
+            MappedStart = TimeSpan.FromSeconds(12),
+            MapRangeBackward = true,
             ReverseSelector = _ => true,
             Target = { CurrentValue = video },
         };
         element.Objects.Add(presenter);
 
         TimeSpan room = GetOutPointRoom(element);
+
+        Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(1)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void ResizeBounds_ReversedMappingScansToNegativeReachableHorizon()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(2),
+            MapRangeBackward = true,
+            ReverseSelector = _ => true,
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+        TimeSpan maximumRoom = TimeSpan.FromSeconds(2);
+
+        TimeSpan room = SlippableMedia.OutPointRoom(
+            SlippableMedia.Collect(element, maximumRoom),
+            element.Length,
+            maximumRoom);
+
+        Assert.That(room, Is.EqualTo(maximumRoom));
+    }
+
+    [Test]
+    public void ResizeBounds_ReversedMappingWithOffsetStopsAtZeroCrossing()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            OffsetPosition = { CurrentValue = TimeSpan.FromMilliseconds(500) },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(2),
+            MapRangeBackward = true,
+            ReverseSelector = _ => true,
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+        TimeSpan maximumRoom = TimeSpan.FromSeconds(2);
+
+        TimeSpan room = SlippableMedia.OutPointRoom(
+            SlippableMedia.Collect(element, maximumRoom),
+            element.Length,
+            maximumRoom);
 
         Assert.That(room, Is.EqualTo(TimeSpan.FromSeconds(1)).Within(TimeSpan.FromMilliseconds(1)));
     }
@@ -1628,6 +1978,32 @@ public class ElementSlipServiceTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Slip_TimeControllerIgnoresUnsafeSpeedOutsideReachableRange()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var video = new SourceVideo();
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(3), Value = -100f });
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+            Speed = { Animation = speed },
+        };
+        element.Objects.Add(controller);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(controller.CanProvideCompleteTimeMapping(element.Range, video), Is.True);
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
@@ -2075,6 +2451,7 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
     public TimeSpan CalculateTimelineDuration(
         TimeSpan start,
         TimeSpan targetDuration,
+        TimeSpan maximumTimelineDuration,
         Drawable target,
         bool reverse = false)
     {
@@ -2082,7 +2459,9 @@ internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingP
         if (ThrowOnUnboundedDuration && targetDuration == TimeSpan.MaxValue)
             throw new InvalidOperationException("The unbounded duration sentinel must not reach the presenter.");
 
-        return targetDuration;
+        return targetDuration <= maximumTimelineDuration
+            ? targetDuration
+            : TimeSpan.MaxValue;
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
@@ -2145,9 +2524,12 @@ internal sealed partial class TestSourceVideoTimeMappingPresenter : Drawable, IT
     public TimeSpan CalculateTimelineDuration(
         TimeSpan start,
         TimeSpan targetDuration,
+        TimeSpan maximumTimelineDuration,
         SourceVideo target,
         bool reverse = false)
-        => targetDuration;
+        => targetDuration <= maximumTimelineDuration
+            ? targetDuration
+            : TimeSpan.MaxValue;
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
         => Size.Empty;
@@ -2183,9 +2565,13 @@ internal sealed partial class TestSourceSoundTimeMappingPresenter : Drawable, IT
     public TimeSpan CalculateTimelineDuration(
         TimeSpan start,
         TimeSpan targetDuration,
+        TimeSpan maximumTimelineDuration,
         SourceSound target,
         bool reverse = false)
-        => TimeSpan.FromTicks((long)(targetDuration.Ticks / Scale));
+    {
+        TimeSpan duration = TimeSpan.FromTicks((long)(targetDuration.Ticks / Scale));
+        return duration <= maximumTimelineDuration ? duration : TimeSpan.MaxValue;
+    }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
         => Size.Empty;

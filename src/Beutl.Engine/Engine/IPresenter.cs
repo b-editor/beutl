@@ -80,8 +80,14 @@ public interface ITimeMappingPresenter : ITargetStatePresenter
 {
     /// <summary>
     /// Gets whether the presenter can completely describe its time mapping over the requested
-    /// composition-time interval. Implementations must return <see langword="false"/> when a
-    /// mapping property cannot be evaluated conservatively, such as for an arbitrary expression.
+    /// composition-time interval and traversal direction. Returning <see langword="true"/>
+    /// guarantees that the unwrapped target-time traversal does not change direction within the
+    /// interval, so one <see cref="IsReversed(TimeRange, CoreObject)"/> result represents the
+    /// entire traversal, and that <see cref="CalculateTargetTimeRange(TimeRange, CoreObject)"/>
+    /// contains every mapped value. Plateaus are allowed; loop wraps, holds, and other
+    /// discontinuities must not be crossed by inverse-duration results. Implementations must
+    /// return <see langword="false"/> when any of these guarantees cannot be proven, such as for
+    /// an arbitrary expression.
     /// </summary>
     bool CanProvideCompleteTimeMapping(
         TimeRange timeRange,
@@ -101,11 +107,14 @@ public interface ITimeMappingPresenter : ITargetStatePresenter
 
     /// <summary>
     /// Calculates the presenter time needed to consume a target-time duration beginning at
-    /// <paramref name="start"/>.
+    /// <paramref name="start"/> without searching beyond <paramref name="maximumTimelineDuration"/>.
+    /// Returns <see cref="TimeSpan.MaxValue"/> when the target duration cannot be reached within
+    /// that certified mapping interval.
     /// </summary>
     TimeSpan CalculateTimelineDuration(
         TimeSpan start,
         TimeSpan targetDuration,
+        TimeSpan maximumTimelineDuration,
         CoreObject target,
         bool reverse = false);
 
@@ -141,16 +150,22 @@ public interface ITimeMappingPresenter<T> : ITargetStatePresenter<T>, ITimeMappi
     TimeSpan ITimeMappingPresenter.CalculateTimelineDuration(
         TimeSpan start,
         TimeSpan targetDuration,
+        TimeSpan maximumTimelineDuration,
         CoreObject target,
         bool reverse)
-        => CalculateTimelineDuration(start, targetDuration, (T)target, reverse);
+        => CalculateTimelineDuration(
+            start,
+            targetDuration,
+            maximumTimelineDuration,
+            (T)target,
+            reverse);
 
     bool ITimeMappingPresenter.IsReversed(TimeRange timeRange, CoreObject target)
         => IsReversed(timeRange, (T)target);
 
     /// <summary>
-    /// Gets whether the presenter can completely describe its time mapping over the requested
-    /// composition-time interval.
+    /// Gets whether the presenter can completely describe a direction-stable unwrapped time
+    /// mapping over the requested composition-time interval and traversal direction.
     /// </summary>
     bool CanProvideCompleteTimeMapping(
         TimeRange timeRange,
@@ -174,11 +189,14 @@ public interface ITimeMappingPresenter<T> : ITargetStatePresenter<T>, ITimeMappi
     /// <paramref name="start"/>. <paramref name="reverse"/> describes the traversal direction
     /// inherited from an outer presenter. <paramref name="targetDuration"/> may be
     /// <see cref="TimeSpan.MaxValue"/> to represent an unbounded duration; implementations
-    /// must propagate that sentinel without performing arithmetic on it.
+    /// must propagate that sentinel without performing arithmetic on it. Implementations must
+    /// not search past <paramref name="maximumTimelineDuration"/> and must return
+    /// <see cref="TimeSpan.MaxValue"/> when the target duration is not reached within that limit.
     /// </summary>
     TimeSpan CalculateTimelineDuration(
         TimeSpan start,
         TimeSpan targetDuration,
+        TimeSpan maximumTimelineDuration,
         T target,
         bool reverse = false);
 
