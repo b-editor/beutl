@@ -103,6 +103,12 @@ public class RenderTarget : IDisposable
 
     public bool IsDisposed { get; protected set; }
 
+    /// <summary>
+    /// Whether another live holder shares this instance's backing-surface reference count, so
+    /// <see cref="Dispose()"/> drops only this reference instead of releasing the surface.
+    /// </summary>
+    internal bool SharesSurfaceOwnership => _surface.RefCount > 1;
+
     internal ITexture2D? Texture => _texture?.Value;
 
     public static RenderTarget? Create(int width, int height)

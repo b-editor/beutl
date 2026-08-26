@@ -299,9 +299,8 @@ internal sealed class RenderTargetPool : IDisposable
         }
 
         bool accepted = false;
-        bool targetIsBorrowedOrAlreadyOwned = ReferenceEquals(target, request.ExternalTarget)
-            || _knownTargets.Contains(target)
-            || SharesLiveSurface(target, request);
+        bool targetIsForeign = ReferenceEquals(target, request.ExternalTarget) || _knownTargets.Contains(target);
+        bool targetSharesLiveSurface = !targetIsForeign && SharesLiveSurface(target, request);
         try
         {
             SKSurface surface = ValidateFactoryTarget(target, deviceSize, request);
@@ -335,16 +334,12 @@ internal sealed class RenderTargetPool : IDisposable
         }
         catch (Exception primary)
         {
-            if (!accepted && !targetIsBorrowedOrAlreadyOwned)
+            if (!accepted)
             {
-                try
-                {
-                    target.Dispose();
-                }
-                catch (Exception cleanup)
-                {
-                    request.RecordCleanupFailure(cleanup);
-                }
+                if (targetSharesLiveSurface)
+                    ReleaseRejectedWrapper(target, request);
+                else if (!targetIsForeign)
+                    DisposeRejectedTarget(target, request);
             }
 
             ExceptionDispatchInfo.Capture(primary).Throw();
@@ -638,12 +633,49 @@ internal sealed class RenderTargetPool : IDisposable
     }
 
     /// <summary>
+    /// Settles a rejected wrapper's own hold on the surface it shares with a live pool slot or with the
+    /// caller's destination, so nothing it does later can release that surface out from under them.
+    /// </summary>
+    /// <remarks>
+    /// The two shapes a factory can hand back here need opposite treatment. A reference-counted copy
+    /// (<see cref="RenderTarget.ShallowCopy"/>) has to be disposed: that only drops this wrapper's count, and
+    /// nothing else ever will, so leaving it strands the surface for the life of the process. A fresh wrapper
+    /// holding the sole count on a surface it did not allocate must be neither disposed nor finalized - either
+    /// frees memory the live holder is still drawing to - so its finalizer is suppressed instead. Suppression
+    /// cannot hide a leak of resources the wrapper does own: the surface belongs to the live holder, and a
+    /// target reaching this branch shares that holder's surface rather than a texture it allocated itself.
+    /// </remarks>
+    private static void ReleaseRejectedWrapper(RenderTarget target, RenderTargetPoolRequest request)
+    {
+        if (target.SharesSurfaceOwnership)
+        {
+            DisposeRejectedTarget(target, request);
+            return;
+        }
+
+        GC.SuppressFinalize(target);
+    }
+
+    private static void DisposeRejectedTarget(RenderTarget target, RenderTargetPoolRequest request)
+    {
+        try
+        {
+            target.Dispose();
+        }
+        catch (Exception cleanup)
+        {
+            request.RecordCleanupFailure(cleanup);
+        }
+    }
+
+    /// <summary>
     /// Whether <paramref name="target"/>'s backing surface is one this pool or the request already holds.
     /// </summary>
     /// <remarks>
     /// A factory can hand back a fresh target instance wrapping a surface something else is still drawing to.
     /// Rejecting it is right, but disposing it would take that surface down with it and leave a live pool slot
-    /// or the caller's destination pointing at freed memory, so a rejection here only drops the reference.
+    /// or the caller's destination pointing at freed memory, so <see cref="ReleaseRejectedWrapper"/> settles
+    /// the rejection instead.
     /// </remarks>
     private bool SharesLiveSurface(RenderTarget target, RenderTargetPoolRequest request)
     {
