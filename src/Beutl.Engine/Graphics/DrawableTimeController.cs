@@ -46,6 +46,93 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldLastFrame), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> HoldLastFrame { get; } = Property.Create<bool>();
 
+    /// <inheritdoc />
+    public bool TryGetTargetStates(
+        TimeRange compositionRange,
+        out IReadOnlyList<PresenterTargetState> states)
+    {
+        if (compositionRange.IsEmpty)
+        {
+            states = [];
+            return true;
+        }
+
+        if (Target.HasExpression
+            || Target.Animation != null
+            || OffsetPosition.HasExpression
+            || OffsetPosition.Animation != null
+            || HasUnsupportedSpeedState()
+            || AdjustTimeRange.HasExpression
+            || AdjustTimeRange.Animation != null
+            || FrameRate.HasExpression
+            || FrameRate.Animation != null
+            || Loop.HasExpression
+            || Loop.Animation != null
+            || Reverse.HasExpression
+            || Reverse.Animation != null
+            || HoldFirstFrame.HasExpression
+            || HoldFirstFrame.Animation != null
+            || HoldLastFrame.HasExpression
+            || HoldLastFrame.Animation != null)
+        {
+            states = [];
+            return false;
+        }
+
+        states = [new PresenterTargetState(compositionRange, Target.CurrentValue)];
+        return true;
+    }
+
+    private bool HasUnsupportedSpeedState()
+    {
+        if (Speed.HasExpression)
+            return true;
+
+        return Speed.Animation switch
+        {
+            null => !float.IsFinite(Speed.CurrentValue) || Speed.CurrentValue < 0,
+            KeyFrameAnimation<float> animation => SpeedAnimationMayRunBackwardAnywhere(animation),
+            _ => true,
+        };
+    }
+
+    private static bool SpeedAnimationMayRunBackwardAnywhere(KeyFrameAnimation<float> animation)
+    {
+        if (animation.KeyFrames.Count == 0)
+            return false;
+        if (animation.KeyFrames[0] is not KeyFrame<float> first
+            || !float.IsFinite(first.Value)
+            || first.Value < 0)
+        {
+            return true;
+        }
+
+        var previous = first;
+        for (int i = 1; i < animation.KeyFrames.Count; i++)
+        {
+            if (animation.KeyFrames[i] is not KeyFrame<float> next
+                || !float.IsFinite(next.Value)
+                || next.Value < 0
+                || !next.Easing.TryGetOutputRange(out float easingMinimum, out float easingMaximum)
+                || !float.IsFinite(easingMinimum)
+                || !float.IsFinite(easingMaximum))
+            {
+                return true;
+            }
+
+            float delta = next.Value - previous.Value;
+            float intervalMinimum = delta >= 0
+                ? previous.Value + easingMinimum * delta
+                : previous.Value + easingMaximum * delta;
+            if (!float.IsFinite(intervalMinimum) || intervalMinimum < 0)
+                return true;
+
+            previous = next;
+        }
+
+        return false;
+    }
+
     private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)
     {
         var anm = Speed.Animation;
@@ -209,10 +296,11 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
             return TimeSpan.MaxValue;
 
-        if (resource.Loop || IsHeldAtTail(resource, reverse))
+        bool heldAtTail = IsHeldAtTail(resource, reverse)
+            && CanKeepTraversalDirection(resource);
+        if (resource.Loop || heldAtTail)
         {
             TimeSpan boundary = CalculateTargetBoundary(start, targetDrawable, resource, reverse);
-            bool heldAtTail = IsHeldAtTail(resource, reverse);
             if (boundary <= TimeSpan.Zero
                 || resource.Loop && targetDuration >= boundary
                 || heldAtTail && targetDuration > boundary)
@@ -735,20 +823,51 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
     public bool HasUnboundedTail(TimeRange timeRange, Drawable targetDrawable, bool reverse = false)
     {
         using var resource = (Resource)ToResource(new CompositionContext(GetSampleTime(timeRange)));
-        return HasUnboundedTail(timeRange, targetDrawable, resource);
+        return HasUnboundedTail(timeRange, targetDrawable, resource, reverse);
     }
 
     private bool HasUnboundedTail(
         TimeRange timeRange,
         Drawable targetDrawable,
-        Resource resource)
+        Resource resource,
+        bool reverse)
     {
         ArgumentNullException.ThrowIfNull(targetDrawable);
         ArgumentNullException.ThrowIfNull(resource);
 
-        return resource.Loop
-            && targetDrawable.TimeRange.Duration > TimeSpan.Zero
-            && CalculateTargetTimeRange(timeRange, targetDrawable, resource) == targetDrawable.TimeRange;
+        if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
+            return false;
+
+        if (resource.Loop)
+        {
+            if (!CanKeepTraversalDirection(resource))
+                return false;
+
+            return CalculateTargetTimeRange(timeRange, targetDrawable, resource) == targetDrawable.TimeRange;
+        }
+
+        if (!IsHeldAtTail(resource, reverse) || !CanKeepTraversalDirection(resource))
+            return false;
+
+        TimeSpan tail = reverse ? timeRange.Start : timeRange.End;
+        TimeSpan targetAtTail = CalculateTargetTime(tail, resource, targetDrawable);
+        bool outputReversed = reverse ^ resource.Reverse;
+        return outputReversed
+            ? targetAtTail <= targetDrawable.TimeRange.Start
+            : targetAtTail >= targetDrawable.TimeRange.End;
+    }
+
+    private bool CanKeepTraversalDirection(Resource resource)
+    {
+        if (!float.IsFinite(resource.Speed) || resource.Speed < 0)
+            return false;
+
+        return Speed.Animation switch
+        {
+            null => true,
+            KeyFrameAnimation<float> animation => !SpeedAnimationMayRunBackwardAnywhere(animation),
+            _ => false,
+        };
     }
 
     /// <summary>
@@ -762,6 +881,9 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
 
         if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
             return timeRange;
+
+        if (SpeedMayRunBackward(timeRange, targetDrawable, resource))
+            return targetDrawable.TimeRange;
 
         if (resource.Loop)
         {
@@ -798,6 +920,62 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         return timeRange.IsEmpty
             ? timeRange.Start
             : timeRange.Start + TimeSpan.FromTicks(timeRange.Duration.Ticks / 2);
+    }
+
+    private bool SpeedMayRunBackward(
+        TimeRange timeRange,
+        Drawable targetDrawable,
+        Resource resource)
+    {
+        if (Speed.Animation is not KeyFrameAnimation<float> animation
+            || animation.KeyFrames.Count == 0)
+        {
+            return false;
+        }
+
+        TimeSpan firstClock = CalculateSpeedClockTime(
+            timeRange.Start, resource, targetDrawable, animation);
+        TimeSpan secondClock = CalculateSpeedClockTime(
+            timeRange.End, resource, targetDrawable, animation);
+        TimeSpan rangeStart = firstClock <= secondClock ? firstClock : secondClock;
+        TimeSpan rangeEnd = firstClock >= secondClock ? firstClock : secondClock;
+        if (rangeStart == rangeEnd)
+            return animation.Interpolate(rangeStart) < 0;
+
+        if (animation.Interpolate(rangeStart) < 0
+            || animation.Interpolate(rangeEnd) < 0
+            || animation.KeyFrames[0] is not KeyFrame<float> first)
+        {
+            return true;
+        }
+
+        var previous = first;
+        for (int i = 1; i < animation.KeyFrames.Count; i++)
+        {
+            if (animation.KeyFrames[i] is not KeyFrame<float> next)
+                return true;
+
+            if (rangeEnd > previous.KeyTime && rangeStart < next.KeyTime)
+            {
+                if (!next.Easing.TryGetOutputRange(out float easingMinimum, out float easingMaximum)
+                    || !float.IsFinite(easingMinimum)
+                    || !float.IsFinite(easingMaximum))
+                {
+                    return true;
+                }
+
+                float delta = next.Value - previous.Value;
+                float intervalMinimum = delta >= 0
+                    ? previous.Value + easingMinimum * delta
+                    : previous.Value + easingMaximum * delta;
+                if (!float.IsFinite(intervalMinimum) || intervalMinimum < 0)
+                    return true;
+            }
+
+            previous = next;
+        }
+
+        return false;
     }
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
