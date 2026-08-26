@@ -326,6 +326,98 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
+    [Test]
+    public void ACallerSuppliedAllocator_IsMeasuredAgainstTheEngineCeiling_NotTheBoundDevicesLimit()
+    {
+        // Both pools are bound to the same device, so which budget each one gets can only follow from which
+        // allocator fills its requests.
+        IGraphicsContext device = ContextAttaching(DeviceBudget);
+        var atTheEngineCeiling = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 2);
+        var factory = new RecordingCpuTargetFactory();
+        using var callerAllocated = new RenderTargetPool(factory);
+        using RenderTargetPoolRequest callerRequest = callerAllocated.BeginImplicitRequest(device);
+        using var poolAllocated = new RenderTargetPool(factory: null);
+        using RenderTargetPoolRequest poolRequest = poolAllocated.BeginImplicitRequest(device);
+
+        bool callerRefuses = callerAllocated.ExceedsBufferBudget(
+            callerRequest,
+            atTheEngineCeiling,
+            out int callerBudget);
+        bool poolRefuses = poolAllocated.ExceedsBufferBudget(
+            poolRequest,
+            atTheEngineCeiling,
+            out int poolBudget);
+        using PooledRenderTargetLease lease = callerRequest.Acquire(atTheEngineCeiling);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(callerBudget, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(callerRefuses, Is.False);
+            Assert.That(
+                factory.Requests,
+                Is.EqualTo(new[] { atTheEngineCeiling }),
+                "an allocator that never attaches through the shared context must be asked for what it can make");
+            Assert.That(lease.Target.Width, Is.EqualTo(atTheEngineCeiling.Width));
+            Assert.That(
+                poolBudget,
+                Is.EqualTo(DeviceBudget),
+                "the fixture must name a device below the engine ceiling, or the two budgets are indistinguishable");
+            Assert.That(poolRefuses, Is.True);
+        });
+    }
+
+    [Test]
+    public void TheEnginesOwnAllocator_IsStillRefusedPastTheBoundDevicesLimit()
+    {
+        using var pool = new RenderTargetPool(factory: null);
+        using RenderTargetPoolRequest request = pool.BeginImplicitRequest(ContextAttaching(DeviceBudget));
+
+        bool acquired = pool.TryAcquire(
+            request,
+            new PixelSize(DeviceBudget + 1, 1),
+            out PooledRenderTargetLease? declined);
+        using PooledRenderTargetLease atBudget = pool.Acquire(request, new PixelSize(DeviceBudget, 1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(acquired, Is.False, "the pool attaches this one itself, so the device's limit binds it");
+            Assert.That(declined, Is.Null);
+            Assert.That(
+                () => pool.Acquire(request, new PixelSize(1, DeviceBudget + 1)),
+                Throws.InstanceOf<InvalidOperationException>()
+                    .With.Message.Contains(DeviceBudget.ToString()));
+            Assert.That(atBudget.Target.Width, Is.EqualTo(DeviceBudget));
+            Assert.That(
+                pool.Statistics.Creates,
+                Is.EqualTo(1),
+                "an attachment the bound device cannot make must never reach the allocator");
+        });
+    }
+
+    [Test]
+    public void ACallerSuppliedAllocatorThatDeclines_SurfacesAsADeclineNotABudgetRefusal()
+    {
+        // Within the engine ceiling and past what a sub-ceiling device could attach, so the allocator's own
+        // refusal is the only one left to report.
+        var declined = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 1);
+        var factory = new DecliningTargetFactory();
+        using var registry = new RenderTargetLeaseRegistry(factory);
+        using RenderTargetLeaseSession delivery = registry.BeginSession(RenderIntent.Delivery);
+
+        InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
+            () => delivery.Acquire(declined));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                factory.Calls,
+                Is.EqualTo(1),
+                "the allocator decides what it can make; a device budget must not pre-empt it");
+            Assert.That(refusal!.Message, Does.Contain("could not allocate"));
+            Assert.That(refusal.Message, Does.Not.Contain("can attach"));
+        });
+    }
+
     private static IGraphicsContext ContextAttaching(int maxAttachmentDimension)
     {
         var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
@@ -354,6 +446,17 @@ public sealed class DeviceBufferBudgetTests
                 output.Canvas.Use(canvas => canvas.Clear(Color.FromArgb(255, 100, 149, 237)));
                 session.Publish(output);
             })));
+        }
+    }
+
+    private sealed class DecliningTargetFactory : IRenderTargetFactory
+    {
+        public int Calls { get; private set; }
+
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            Calls++;
+            return null;
         }
     }
 

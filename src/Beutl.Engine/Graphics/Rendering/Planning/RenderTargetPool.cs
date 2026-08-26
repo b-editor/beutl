@@ -17,11 +17,12 @@ internal sealed class RenderTargetPoolOptions
     public int MaximumIdleRequests { get; init; } = 120;
 
     /// <summary>
-    /// The largest device extent this pool will attach, or <see langword="null"/> for the active device's.
+    /// The largest extent this pool will allocate, or <see langword="null"/> to bound each allocation by
+    /// whatever its own allocator answers to.
     /// </summary>
     /// <remarks>
     /// Naming one lets a test pin a limit below every device it runs on, so the refusal is observable without
-    /// depending on the machine's GPU.
+    /// depending on the machine's GPU, and it binds a caller-supplied allocator too.
     /// </remarks>
     public int? MaxBufferDimension { get; init; }
 
@@ -245,7 +246,7 @@ internal sealed class RenderTargetPool : IDisposable
     {
         if (TryAcquire(request, deviceSize, out PooledRenderTargetLease? lease))
             return lease;
-        throw ExceedsBufferBudget(deviceSize, out int maxDimension)
+        throw ExceedsBufferBudget(request, deviceSize, out int maxDimension)
             ? CreateAllocationFailure(deviceSize, maxDimension)
             : CreateAllocationFailure(deviceSize);
     }
@@ -259,17 +260,64 @@ internal sealed class RenderTargetPool : IDisposable
             : $"The render-target factory could not allocate {deviceSize.Width}x{deviceSize.Height} pixels.");
 
     /// <summary>
-    /// Whether <paramref name="deviceSize"/> is past what this pool's device can attach, reporting the budget
-    /// it was measured against.
+    /// Whether <paramref name="deviceSize"/> is past what <paramref name="request"/> may allocate, reporting
+    /// the budget it was measured against.
     /// </summary>
     /// <remarks>
     /// A caller consults this only to describe a refusal; <see cref="TryAcquire"/> applies it itself.
     /// </remarks>
-    internal bool ExceedsBufferBudget(PixelSize deviceSize, out int maxDimension)
+    internal bool ExceedsBufferBudget(
+        RenderTargetPoolRequest request,
+        PixelSize deviceSize,
+        out int maxDimension)
     {
-        maxDimension = _options.MaxBufferDimension ?? RenderScaleUtilities.ResolveMaxBufferDimension();
+        maxDimension = ResolveBufferBudget(request);
         return !RenderScaleUtilities.FitsBufferBudget(deviceSize, maxDimension);
     }
+
+    /// <summary>The largest extent <paramref name="request"/>'s allocator may be asked for.</summary>
+    /// <remarks>
+    /// A device's attachment limit bounds the allocations that reach that device and no others. Only the
+    /// pool's own allocator attaches through a shared context, so only it is measured against one; anything
+    /// else is bounded by the engine ceiling planning already clamped the density to, and its own allocator
+    /// declines what it cannot make - <see cref="TryAcquire"/> reports that as the same decline. A named
+    /// <see cref="RenderTargetPoolOptions.MaxBufferDimension"/> overrides both, because it states what this
+    /// pool may attach whoever allocates it.
+    /// </remarks>
+    private int ResolveBufferBudget(RenderTargetPoolRequest request)
+        => _options.MaxBufferDimension
+           ?? (ResolveAttachmentContext(request) is { } context
+               ? RenderScaleUtilities.ResolveMaxBufferDimension(context)
+               : RenderScaleUtilities.MaxBufferDimension);
+
+    /// <summary>
+    /// The shared context this pool's own allocator attaches <paramref name="request"/>'s targets to, or
+    /// <see langword="null"/> when nothing it allocates for that request reaches one.
+    /// </summary>
+    private IGraphicsContext? ResolveAttachmentContext(RenderTargetPoolRequest request)
+    {
+        // A caller-supplied factory allocates on whatever context it chose - a CPU allocator on none at all -
+        // and a CPU-bound request takes this pool's own raster path. Neither attaches through the shared
+        // context.
+        if (_factory is not null || IsCpuBound(request))
+            return null;
+
+        // Everything else lands in RenderTarget.Create, which attaches to the shared context.
+        // BeginImplicitRequest names one in place of the live one, and a request bound to it has to be
+        // measured against the device it named rather than against whichever context is live now.
+        return request.ContextIdentity is ImplicitContextBinding binding
+            ? binding.Context
+            : GraphicsContextFactory.SharedContext;
+    }
+
+    /// <summary>Whether <paramref name="request"/> is bound to a destination that has no graphics context.</summary>
+    /// <remarks>
+    /// Read from what the request was opened with rather than from the handle <see cref="ValidateContext"/>
+    /// adopts afterwards, so every buffer of one request is measured the same way.
+    /// </remarks>
+    private static bool IsCpuBound(RenderTargetPoolRequest request)
+        => request.ExpectedContextHandle == 0
+           || ReferenceEquals(request.ContextIdentity, s_cpuContextIdentity);
 
     /// <summary>Leases an exact-size target, reporting <see langword="false"/> only when the allocator declines.</summary>
     /// <remarks>Every other failure — a stale slot, a contract-violating factory return — still throws.</remarks>
@@ -299,7 +347,7 @@ internal sealed class RenderTargetPool : IDisposable
         // device, which leaves a request past a smaller device's limit reaching here. Handing that to the
         // backend asks for an attachment it cannot make - undefined behaviour rather than a failed
         // allocation - so it declines instead, and the caller's own degradation contract takes over.
-        if (ExceedsBufferBudget(deviceSize, out _))
+        if (ExceedsBufferBudget(request, deviceSize, out _))
         {
             lease = null;
             return false;
